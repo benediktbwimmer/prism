@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://published_knowledge_and_memory_event_logs",
+  "targetHandle": "concept://memory_system",
+  "kind": "often_used_with",
+  "confidence": 0.89,
+  "evidence": [
+    "Memory event logs are consumed by the repo’s memory subsystem rather than living as an isolated publication detail."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://query_coordination_and_plan_views",
+  "targetHandle": "concept://validation_and_dogfooding",
+  "kind": "validated_by",
+  "confidence": 0.93,
+  "evidence": [
+    "Task/plan query views are part of the surfaced behavior the repo expects to validate end to end."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

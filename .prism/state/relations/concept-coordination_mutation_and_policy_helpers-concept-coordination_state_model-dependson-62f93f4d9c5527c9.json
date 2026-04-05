@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://coordination_mutation_and_policy_helpers",
+  "targetHandle": "concept://coordination_state_model",
+  "kind": "depends_on",
+  "confidence": 0.96,
+  "evidence": [
+    "Coordination mutations and policy helpers operate against the shared coordination state model and runtime overlays."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

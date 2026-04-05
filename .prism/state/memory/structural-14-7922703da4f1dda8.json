@@ -1,0 +1,45 @@
+{
+  "entry": {
+    "id": "structural:14",
+    "anchors": [
+      {
+        "Lineage": "lineage:10635"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_task_brief",
+          "kind": "Method"
+        }
+      }
+    ],
+    "kind": "Structural",
+    "scope": "repo",
+    "content": "When a PRISM MCP tool is public, keep server_surface, tool_schemas, schema_examples, prism-js API docs, and tool-count tests in sync; partial exposure creates misleading surface drift.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "task_id": "task:restore-prism-task-brief-as-a-fully-surfaced-mcp-compact-tool-then-finish-and-verify-the-optional-openai-semantic-backend-integration:47",
+      "tools": [
+        "prism_task_brief",
+        "prism_concept"
+      ],
+      "topic": "mcp-surface-parity"
+    },
+    "created_at": 1774707283,
+    "source": "Agent",
+    "trust": 0.93
+  },
+  "latestEventId": "memory-event:1774707283369544000",
+  "latestRecordedAt": 1774707283,
+  "eventCount": 1,
+  "taskId": "task:restore-prism-task-brief-as-a-fully-surfaced-mcp-compact-tool-then-finish-and-verify-the-optional-openai-semantic-backend-integration:47"
+}

@@ -1,0 +1,163 @@
+{
+  "handle": "contract://javascript_query_abi",
+  "name": "javascript query ABI",
+  "summary": "The stable prism.* JavaScript query surface stays synchronized across runtime prelude behavior, API-reference documentation, and pre-execution typechecking so agents can script PRISM without reverse-engineering host internals.",
+  "aliases": [
+    "js query abi contract",
+    "typescript query surface",
+    "stable prism dot star ABI"
+  ],
+  "kind": "interface",
+  "subject": {
+    "anchors": [
+      {
+        "File": 21
+      },
+      {
+        "File": 121
+      },
+      {
+        "File": 119
+      },
+      {
+        "File": 307
+      }
+    ],
+    "conceptHandles": [
+      "concept://javascript_query_abi",
+      "concept://mcp_runtime_surface"
+    ]
+  },
+  "guarantees": [
+    {
+      "id": "documented_methods_match_runtime_surface",
+      "statement": "The generated API reference and declared prism.* method catalog stay aligned with the runtime prelude surface that query snippets actually execute against.",
+      "scope": "runtime_docs_alignment",
+      "strength": "hard",
+      "evidenceRefs": [
+        "agents-api-reference-guidance",
+        "prism-js-docs-tests"
+      ]
+    },
+    {
+      "id": "stable_prism_surface_typechecks_before_execution",
+      "statement": "Misspelled stable prism.* methods, option keys, and result-property accesses fail at pre-execution typecheck time with repair guidance instead of degrading into opaque runtime failures.",
+      "scope": "preflight_typecheck",
+      "strength": "hard",
+      "evidenceRefs": [
+        "query-typecheck-docs",
+        "query-typecheck-tests"
+      ]
+    },
+    {
+      "id": "new_helpers_land_through_typed_surface_completion",
+      "statement": "New stable helper methods are added through the typed query surface, runtime prelude, and docs together rather than existing only as undocumented host-side behavior.",
+      "scope": "surface_evolution",
+      "strength": "soft",
+      "evidenceRefs": [
+        "javascript-query-abi-concept",
+        "contracts-helper-completion"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Read-only escape hatches like raw prism_query snippets still exist, but the stable prism.* ABI is the intended typed programmable surface.",
+    "Generated docs and runtime prelude are rebuilt from the same source tree before release or restart verification."
+  ],
+  "consumers": [
+    {
+      "anchors": [],
+      "conceptHandles": [
+        "concept://mcp_runtime_surface",
+        "concept://compact_tools",
+        "concept://javascript_runtime_and_reference_bridge"
+      ]
+    }
+  ],
+  "validations": [
+    {
+      "id": "cargo test -p prism-js api_reference_mentions_primary_tool",
+      "summary": "The generated API reference includes the stable method declarations and type surface.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_js",
+            "path": "prism_js::tests::api_reference_mentions_primary_tool",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-js prelude_exposes_global_prism",
+      "summary": "The runtime prelude exposes the documented global prism surface and helper methods.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_js",
+            "path": "prism_js::tests::prelude_exposes_global_prism",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-mcp prism_query_misspelled_method_names_suggest_repair",
+      "summary": "Misspelled stable prism.* method names fail with did-you-mean repair guidance and API-reference hints.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::prism_query_misspelled_method_names_suggest_repair",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-mcp prism_query_rejects_unknown_option_keys_before_host_dispatch",
+      "summary": "Unknown option keys on stable prism.* methods are rejected before host dispatch with typed repair data.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::prism_query_rejects_unknown_option_keys_before_host_dispatch",
+            "kind": "Function"
+          }
+        }
+      ]
+    }
+  ],
+  "stability": "internal",
+  "compatibility": {
+    "additive": [
+      "Adding new documented prism.* helpers is compatible when they land through the typed surface, runtime prelude, and API reference together."
+    ],
+    "risky": [
+      "Changing helper names, option keys, or docs without keeping runtime and typecheck behavior aligned is risky because query snippets become misleading or brittle."
+    ],
+    "breaking": [
+      "Letting the documented prism.* surface diverge from the runtime prelude or removing pre-execution repair guidance breaks the JS query ABI contract."
+    ]
+  },
+  "evidence": [
+    "AGENTS.md tells agents to use prism://api-reference after capabilities and vocab so the typed query surface is a first-class workflow contract.",
+    "prism-js separates runtime, query-surface declarations, and generated docs into one ABI-focused layer.",
+    "The query typecheck path treats the stable prism.* surface as a pre-execution contract and returns query_typecheck_failed repair data when snippets violate it."
+  ],
+  "status": "active",
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_contract_promote",
+    "taskId": "task:survey-the-repo-for-the-first-batch-of-repo-scoped-contracts-focusing-on-modularity-persistence-split-and-other-strong-promise-surfaces-then-curate-and-publish-the-strongest-contracts:01kmzx0xamn4wzetw1tz97rz04"
+  },
+  "publication": {
+    "publishedAt": 1774893764,
+    "lastReviewedAt": 1774893764,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

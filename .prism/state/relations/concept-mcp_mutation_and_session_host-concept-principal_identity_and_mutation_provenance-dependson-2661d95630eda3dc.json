@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://mcp_mutation_and_session_host",
+  "targetHandle": "concept://principal_identity_and_mutation_provenance",
+  "kind": "depends_on",
+  "confidence": 0.96,
+  "evidence": [
+    "Before any authoritative write is persisted, the authenticated mutation host stamps event actors and execution-context snapshots through the principal/provenance layer."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "coord-task:01kn6fa2xeg8f0rayk8n0zwtkm"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "handle": "concept://dashboard_surface",
+  "canonical_name": "dashboard surface",
+  "summary": "First-class observability and UI surface inside prism-mcp that publishes dashboard read models, event streams, and router endpoints instead of reusing the raw MCP tool catalog.",
+  "aliases": [
+    "dashboard",
+    "observability ui",
+    "live runtime dashboard"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::dashboard_router",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::dashboard_read_models",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::dashboard_events",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:3566",
+    "lineage:3542",
+    "lineage:3497",
+    "lineage:3894"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::DASHBOARD_IMPLEMENTATION_SPEC_md::backend_architecture",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::DASHBOARD_IMPLEMENTATION_SPEC_md::product_decision_summary",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:6620",
+    "lineage:6637"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "Dashboard modules live inside prism-mcp alongside dedicated router, read-model, event, asset, and type layers.",
+    "The dashboard spec explicitly separates browser-facing observability APIs from the normal MCP tool catalog."
+  ],
+  "risk_hint": "If dashboard read models drift from runtime or mutation truth, the UI can mislead operators while the backend is unhealthy.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733323,
+    "lastReviewedAt": 1774733323,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

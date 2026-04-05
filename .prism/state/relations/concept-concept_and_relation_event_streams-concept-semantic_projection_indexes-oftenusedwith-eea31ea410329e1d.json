@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://concept_and_relation_event_streams",
+  "targetHandle": "concept://semantic_projection_indexes",
+  "kind": "often_used_with",
+  "confidence": 0.88,
+  "evidence": [
+    "These event streams are most useful once projection indexes materialize them into queryable packets."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

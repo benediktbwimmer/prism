@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://javascript_api_contract_surface",
+  "targetHandle": "concept://mcp_query_and_resource_serving",
+  "kind": "depends_on",
+  "confidence": 0.9,
+  "evidence": [
+    "The JS contract surface must stay aligned with the server’s query/resource payload shapes."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

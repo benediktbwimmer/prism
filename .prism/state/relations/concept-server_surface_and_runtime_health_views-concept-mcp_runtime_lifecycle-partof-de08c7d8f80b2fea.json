@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://server_surface_and_runtime_health_views",
+  "targetHandle": "concept://mcp_runtime_lifecycle",
+  "kind": "part_of",
+  "confidence": 0.96,
+  "evidence": [
+    "Server capability, runtime state, and diagnostics are the health/status half of the runtime lifecycle surface."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

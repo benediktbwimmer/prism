@@ -1,0 +1,60 @@
+{
+  "handle": "concept://cli_runtime_and_mcp_control",
+  "canonical_name": "CLI runtime and MCP control",
+  "summary": "prism-cli modules that manage operator-facing runtime behavior, MCP daemon control, and terminal display concerns after command dispatch is resolved.",
+  "aliases": [
+    "cli runtime control",
+    "cli mcp lifecycle"
+  ],
+  "confidence": 0.89,
+  "core_members": [
+    {
+      "crate_name": "prism_cli",
+      "path": "prism_cli::runtime",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_cli",
+      "path": "prism_cli::mcp",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_cli",
+      "path": "prism_cli::display",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1030",
+    "lineage:962",
+    "lineage:946"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-cli/src/main.rs` separates `runtime`, `mcp`, and `display` from parsing/dispatch modules.",
+    "This is the execution/output half of the CLI surface, especially for MCP lifecycle operations and operator-facing presentation."
+  ],
+  "risk_hint": "Breakage here makes the CLI feel flaky even when lower-level MCP and core crates are behaving correctly.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734583,
+    "lastReviewedAt": 1774734583,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

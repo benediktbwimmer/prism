@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://parse_resolution_and_reanchor_flow",
+  "targetHandle": "concept://language_adapter_family",
+  "kind": "depends_on",
+  "confidence": 0.92,
+  "evidence": [
+    "This flow only exists because language adapters produce unresolved parse results and structure for later resolution."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

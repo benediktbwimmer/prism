@@ -1,0 +1,50 @@
+{
+  "entry": {
+    "id": "structural:13",
+    "anchors": [
+      {
+        "Lineage": "lineage:10532"
+      },
+      {
+        "Lineage": "lineage:10547"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_js",
+          "path": "prism_js::api_types::AgentSuggestedActionView",
+          "kind": "Struct"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::compact_tools::open::compact_open_suggested_actions",
+          "kind": "Function"
+        }
+      }
+    ],
+    "kind": "Structural",
+    "scope": "repo",
+    "content": "Compact staged results can stay token-light and more parallel-friendly by emitting suggestedActions with tool/handle/mode-kind fields, plus promotedHandle on gather/open when an exact text hit lifts to a stronger semantic target.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "task_id": "task:validate-structured-compact-follow-up-actions-end-to-end-rebuild-the-release-daemon-and-dogfood-the-live-gather-open-workset-expand-response-shapes:46"
+    },
+    "created_at": 1774706623,
+    "source": "Agent",
+    "trust": 0.93
+  },
+  "latestEventId": "memory-event:1774706623212175000",
+  "latestRecordedAt": 1774706623,
+  "eventCount": 1,
+  "taskId": "task:validate-structured-compact-follow-up-actions-end-to-end-rebuild-the-release-daemon-and-dogfood-the-live-gather-open-workset-expand-response-shapes:46"
+}

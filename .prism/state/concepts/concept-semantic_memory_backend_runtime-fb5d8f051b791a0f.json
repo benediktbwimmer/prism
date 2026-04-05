@@ -1,0 +1,69 @@
+{
+  "handle": "concept://semantic_memory_backend_runtime",
+  "canonical_name": "semantic memory backend runtime",
+  "summary": "prism-memory semantic modules that configure semantic backends, compute local and remote semantic signals, and rank semantic memory matches across embeddings and lexical bridges.",
+  "aliases": [
+    "semantic memory backend",
+    "semantic recall runtime"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::semantic",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::semantic::runtime",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::semantic::config",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:10529",
+    "lineage:10514",
+    "lineage:10446"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::semantic::openai",
+      "kind": "Module"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:10494"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`semantic/mod.rs` combines lexical, alias, and semantic signals over an entry store, while `semantic::runtime` and `semantic::config` select and drive backend behavior.",
+    "This is the embedding-aware half of model-backed memory recall."
+  ],
+  "risk_hint": "Backend drift here can make semantic recall feel intelligent while silently collapsing recall precision or calibration.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735362,
+    "lastReviewedAt": 1774735362,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

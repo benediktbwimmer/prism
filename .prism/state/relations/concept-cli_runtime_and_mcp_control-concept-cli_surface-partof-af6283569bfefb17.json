@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://cli_runtime_and_mcp_control",
+  "targetHandle": "concept://cli_surface",
+  "kind": "part_of",
+  "confidence": 0.95,
+  "evidence": [
+    "Runtime execution, MCP lifecycle control, and terminal display are the execution half of the CLI surface."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

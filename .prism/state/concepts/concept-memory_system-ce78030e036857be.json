@@ -1,0 +1,77 @@
+{
+  "handle": "concept://memory_system",
+  "canonical_name": "memory system",
+  "summary": "Layered session, episodic, structural, outcome, and semantic memory subsystem with recall and re-anchoring support across PRISM runtime workflows.",
+  "aliases": [
+    "memory layer",
+    "recall system",
+    "memory stack"
+  ],
+  "confidence": 0.95,
+  "core_members": [
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::composite::MemoryComposite",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5611",
+    "lineage:5558",
+    "lineage:1533",
+    "lineage:6074"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::VALIDATION_md::7_validation_pipeline",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:6954"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-memory exports composite, episodic, outcome, recall, semantic, session, structural, and text subsystems.",
+    "prism-core owns memory_events and memory_refresh while prism-query consumes memory- and outcome-backed recall surfaces."
+  ],
+  "risk_hint": "Anchoring and freshness failures here quietly degrade retrieval quality before they become obvious product bugs.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733242,
+    "lastReviewedAt": 1774733242,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

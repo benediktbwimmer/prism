@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://coordination_query_and_blocker_operations",
+  "targetHandle": "concept://coordination_operations_and_policy",
+  "kind": "part_of",
+  "confidence": 0.96,
+  "evidence": [
+    "queries.rs and blockers.rs implement the read-side and blocker policy half of coordination operations."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

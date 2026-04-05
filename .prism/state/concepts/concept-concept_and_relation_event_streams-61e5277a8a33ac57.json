@@ -1,0 +1,55 @@
+{
+  "handle": "concept://concept_and_relation_event_streams",
+  "canonical_name": "concept and relation event streams",
+  "summary": "prism-core modules that append and replay durable concept and concept-relation event streams before projections materialize them into queryable packets.",
+  "aliases": [
+    "concept event streams",
+    "relation event streams"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::concept_events",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::concept_relation_events",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:10790",
+    "lineage:12348"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-core/src/lib.rs` declares `concept_events` and `concept_relation_events` as dedicated publication modules beside other core concerns.",
+    "These modules are the event-sourced write path that precedes projected concept packets and relation graphs."
+  ],
+  "risk_hint": "If these streams drift, projection refresh can materialize stale or malformed concept knowledge even when reads still look plausible.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734919,
+    "lastReviewedAt": 1774734919,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://symbol_source_and_relation_queries",
+  "targetHandle": "concept://semantic_projection_indexes",
+  "kind": "depends_on",
+  "confidence": 0.88,
+  "evidence": [
+    "Symbol and relation reads rely on projected graph/context structures even when they also touch raw source slices."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

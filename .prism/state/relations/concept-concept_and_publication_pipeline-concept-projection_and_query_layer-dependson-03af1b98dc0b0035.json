@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://concept_and_publication_pipeline",
+  "targetHandle": "concept://projection_and_query_layer",
+  "kind": "depends_on",
+  "confidence": 0.97,
+  "evidence": [
+    "Concept publication becomes useful only after projection and query layers materialize concept packets and retrieval views."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

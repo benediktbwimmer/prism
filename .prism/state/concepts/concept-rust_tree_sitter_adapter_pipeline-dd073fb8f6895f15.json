@@ -1,0 +1,60 @@
+{
+  "handle": "concept://rust_tree_sitter_adapter_pipeline",
+  "canonical_name": "Rust tree-sitter adapter pipeline",
+  "summary": "Rust adapter modules that parse Rust source with tree-sitter and map syntax and path-resolution into PRISM nodes, fingerprints, unresolved calls, impls, and imports.",
+  "aliases": [
+    "Rust adapter pipeline",
+    "Rust parsing adapter"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_lang_rust",
+      "path": "prism_lang_rust::parser",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_lang_rust",
+      "path": "prism_lang_rust::syntax",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_lang_rust",
+      "path": "prism_lang_rust::paths",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:3097",
+    "lineage:3137",
+    "lineage:3126"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "The Rust crate splits into parser.rs, syntax.rs, and paths.rs, with parser.rs orchestrating tree-sitter parsing while syntax/path helpers build nodes, spans, edges, and canonical symbol paths.",
+    "This is the concrete Rust-specific half of the broader code language adapter family."
+  ],
+  "risk_hint": null,
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774736015,
+    "lastReviewedAt": 1774736015,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

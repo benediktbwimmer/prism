@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://session_state_and_mutation_runtime",
+  "targetHandle": "concept://coordination_and_plan_runtime",
+  "kind": "depends_on",
+  "confidence": 0.9,
+  "evidence": [
+    "Many hosted mutations and follow-up runtime views touch shared task, claim, artifact, and plan state."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

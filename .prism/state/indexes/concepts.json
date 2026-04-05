@@ -1,8 +1,578 @@
 [
   {
+    "id": "concept://agent_inference_and_curation",
+    "title": "agent inference and curation",
+    "status": "Active",
+    "path": "concepts/concept-agent_inference_and_curation-f86347213dc8e7c7.json"
+  },
+  {
+    "id": "concept://anchor_change_and_lineage_ir",
+    "title": "anchor, change, and lineage IR",
+    "status": "Active",
+    "path": "concepts/concept-anchor_change_and_lineage_ir-120924b5fe2f4b4d.json"
+  },
+  {
+    "id": "concept://cli_command_and_parse_surface",
+    "title": "CLI command and parse surface",
+    "status": "Active",
+    "path": "concepts/concept-cli_command_and_parse_surface-6358406401cd86ee.json"
+  },
+  {
+    "id": "concept://cli_runtime_and_mcp_control",
+    "title": "CLI runtime and MCP control",
+    "status": "Active",
+    "path": "concepts/concept-cli_runtime_and_mcp_control-e35dcacc59005404.json"
+  },
+  {
+    "id": "concept://cli_surface",
+    "title": "CLI surface",
+    "status": "Active",
+    "path": "concepts/concept-cli_surface-b47912c487786bd9.json"
+  },
+  {
+    "id": "concept://cochange_and_validation_projection_indexes",
+    "title": "co-change and validation projection indexes",
+    "status": "Active",
+    "path": "concepts/concept-cochange_and_validation_projection_indexes-2f7c45de7822cd16.json"
+  },
+  {
+    "id": "concept://code_language_adapters",
+    "title": "code language adapters",
+    "status": "Active",
+    "path": "concepts/concept-code_language_adapters-0721f1f698fa33a3.json"
+  },
+  {
+    "id": "concept://compact_discovery_and_opening",
+    "title": "compact discovery and opening flow",
+    "status": "Active",
+    "path": "concepts/concept-compact_discovery_and_opening-bbb3b7d06be35eb0.json"
+  },
+  {
+    "id": "concept://compact_expansion_and_concept_views",
+    "title": "compact expansion and concept views",
+    "status": "Active",
+    "path": "concepts/concept-compact_expansion_and_concept_views-ded6a85d041db487.json"
+  },
+  {
+    "id": "concept://compact_tool_surface",
+    "title": "compact tool surface",
+    "status": "Active",
+    "path": "concepts/concept-compact_tool_surface-78fc02bd9dad0acc.json"
+  },
+  {
+    "id": "concept://compact_tools",
+    "title": "compact_tools",
+    "status": "Active",
+    "path": "concepts/concept-compact_tools-1dec50c6be24f8cf.json"
+  },
+  {
+    "id": "concept://composite_memory_routing_and_entry_storage",
+    "title": "composite memory routing and entry storage",
+    "status": "Active",
+    "path": "concepts/concept-composite_memory_routing_and_entry_storage-eb21af44ffcd0a0a.json"
+  },
+  {
+    "id": "concept://concept_and_expand_decode_runtime",
+    "title": "concept and expand decode runtime",
+    "status": "Active",
+    "path": "concepts/concept-concept_and_expand_decode_runtime-433508d4ef8955f2.json"
+  },
+  {
+    "id": "concept://concept_and_publication_pipeline",
+    "title": "concept and publication pipeline",
+    "status": "Active",
+    "path": "concepts/concept-concept_and_publication_pipeline-76bb615d0340dbd5.json"
+  },
+  {
+    "id": "concept://concept_and_relation_event_streams",
+    "title": "concept and relation event streams",
+    "status": "Active",
+    "path": "concepts/concept-concept_and_relation_event_streams-61e5277a8a33ac57.json"
+  },
+  {
+    "id": "concept://concept_relation_and_intent_projections",
+    "title": "concept, relation, and intent projections",
+    "status": "Active",
+    "path": "concepts/concept-concept_relation_and_intent_projections-740a5ec37de66f44.json"
+  },
+  {
+    "id": "concept://coordination_and_plan_runtime",
+    "title": "coordination and plan runtime",
+    "status": "Active",
+    "path": "concepts/concept-coordination_and_plan_runtime-c2ad3831fe492db4.json"
+  },
+  {
+    "id": "concept://coordination_and_plan_runtime_queries",
+    "title": "coordination and plan-runtime queries",
+    "status": "Active",
+    "path": "concepts/concept-coordination_and_plan_runtime_queries-c018dd25e6856565.json"
+  },
+  {
+    "id": "concept://coordination_mutation_and_policy_helpers",
+    "title": "coordination mutation, lease, and policy helpers",
+    "status": "Active",
+    "path": "concepts/concept-coordination_mutation_and_policy_helpers-0c214caa7280e72a.json"
+  },
+  {
+    "id": "concept://coordination_operations_and_policy",
+    "title": "coordination operations and policy",
+    "status": "Active",
+    "path": "concepts/concept-coordination_operations_and_policy-33d49d57cd8ad3d3.json"
+  },
+  {
+    "id": "concept://coordination_query_and_blocker_operations",
+    "title": "coordination query and blocker operations",
+    "status": "Active",
+    "path": "concepts/concept-coordination_query_and_blocker_operations-0c06d61bbae25f76.json"
+  },
+  {
+    "id": "concept://coordination_state_model",
+    "title": "coordination state model",
+    "status": "Active",
+    "path": "concepts/concept-coordination_state_model-6bbc8d36c9fbaa89.json"
+  },
+  {
+    "id": "concept://coordination_store_and_domain_types",
+    "title": "coordination store and domain types",
+    "status": "Active",
+    "path": "concepts/concept-coordination_store_and_domain_types-a45b6d4ec0b0f379.json"
+  },
+  {
+    "id": "concept://core_indexing_pipeline",
+    "title": "core indexing pipeline",
+    "status": "Active",
+    "path": "concepts/concept-core_indexing_pipeline-6251134a5772ed28.json"
+  },
+  {
+    "id": "concept://curator_backend_execution_and_prompting",
+    "title": "curator backend execution and prompting",
+    "status": "Active",
+    "path": "concepts/concept-curator_backend_execution_and_prompting-288456717906494f.json"
+  },
+  {
+    "id": "concept://curator_execution_flow",
+    "title": "curator execution flow",
+    "status": "Active",
+    "path": "concepts/concept-curator_execution_flow-85243383ab67966d.json"
+  },
+  {
+    "id": "concept://curator_rule_synthesis_and_proposal_types",
+    "title": "curator rule synthesis and proposal types",
+    "status": "Active",
+    "path": "concepts/concept-curator_rule_synthesis_and_proposal_types-c48ff36037c328cd.json"
+  },
+  {
+    "id": "concept://daemon_process_and_proxy_lifecycle",
+    "title": "daemon, process, and proxy lifecycle",
+    "status": "Active",
+    "path": "concepts/concept-daemon_process_and_proxy_lifecycle-28253f0d788c80c8.json"
+  },
+  {
+    "id": "concept://dashboard_events_and_read_models",
+    "title": "dashboard events and read models",
+    "status": "Active",
+    "path": "concepts/concept-dashboard_events_and_read_models-659947181a65a731.json"
+  },
+  {
+    "id": "concept://dashboard_routing_and_assets",
+    "title": "dashboard routing and assets",
+    "status": "Active",
+    "path": "concepts/concept-dashboard_routing_and_assets-32987bb3e6225de1.json"
+  },
+  {
+    "id": "concept://dashboard_surface",
+    "title": "dashboard surface",
+    "status": "Active",
+    "path": "concepts/concept-dashboard_surface-8f14700fb76c92d5.json"
+  },
+  {
+    "id": "concept://document_and_config_adapters",
+    "title": "document and config adapters",
+    "status": "Active",
+    "path": "concepts/concept-document_and_config_adapters-811c9b5eb0c269ba.json"
+  },
+  {
+    "id": "concept://facade_modularity_rule",
+    "title": "facade_modularity_rule",
+    "status": "Active",
+    "path": "concepts/concept-facade_modularity_rule-32c52abe11e87c0e.json"
+  },
+  {
+    "id": "concept://graph_identity_and_parse_ir",
+    "title": "graph, identity, and parse IR",
+    "status": "Active",
+    "path": "concepts/concept-graph_identity_and_parse_ir-037759b4a2b19e74.json"
+  },
+  {
+    "id": "concept://history_snapshot_and_resolution",
+    "title": "history snapshot and resolution",
+    "status": "Active",
+    "path": "concepts/concept-history_snapshot_and_resolution-2076caa7139d78d4.json"
+  },
+  {
+    "id": "concept://impact_and_outcome_queries",
+    "title": "impact and outcome queries",
+    "status": "Active",
+    "path": "concepts/concept-impact_and_outcome_queries-078547f5b648a1cf.json"
+  },
+  {
+    "id": "concept://indexer_orchestration_and_snapshot_loading",
+    "title": "indexer orchestration and snapshot loading",
+    "status": "Active",
+    "path": "concepts/concept-indexer_orchestration_and_snapshot_loading-184d41210dd53207.json"
+  },
+  {
+    "id": "concept://inferred_edge_runtime_and_session_store",
+    "title": "inferred edge runtime and session store",
+    "status": "Active",
+    "path": "concepts/concept-inferred_edge_runtime_and_session_store-106d89084d6b21c4.json"
+  },
+  {
+    "id": "concept://javascript_api_contract_surface",
+    "title": "JavaScript API contract surface",
+    "status": "Active",
+    "path": "concepts/concept-javascript_api_contract_surface-bcc148f688651d56.json"
+  },
+  {
+    "id": "concept://javascript_query_abi",
+    "title": "JavaScript query ABI",
+    "status": "Active",
+    "path": "concepts/concept-javascript_query_abi-7a913fd3b8bbf10c.json"
+  },
+  {
+    "id": "concept://javascript_runtime_and_reference_bridge",
+    "title": "JavaScript runtime and reference bridge",
+    "status": "Active",
+    "path": "concepts/concept-javascript_runtime_and_reference_bridge-75affa05b8c41a22.json"
+  },
+  {
+    "id": "concept://language_adapter_family",
+    "title": "language adapter family",
+    "status": "Active",
+    "path": "concepts/concept-language_adapter_family-1fa9c0f8b087853c.json"
+  },
+  {
+    "id": "concept://locate_ranking_and_text_candidate_flow",
+    "title": "locate ranking and text-candidate flow",
+    "status": "Active",
+    "path": "concepts/concept-locate_ranking_and_text_candidate_flow-1cc13a65323c24b9.json"
+  },
+  {
+    "id": "concept://markdown_heading_and_intent_adapter",
+    "title": "Markdown heading and intent adapter",
+    "status": "Active",
+    "path": "concepts/concept-markdown_heading_and_intent_adapter-0f95c012949d36a9.json"
+  },
+  {
+    "id": "concept://mcp_mutation_and_session_host",
+    "title": "MCP authenticated mutation host",
+    "status": "Active",
+    "path": "concepts/concept-mcp_mutation_and_session_host-3893daa7b76f2148.json"
+  },
+  {
+    "id": "concept://mcp_query_and_resource_serving",
+    "title": "MCP query and resource serving",
+    "status": "Active",
+    "path": "concepts/concept-mcp_query_and_resource_serving-ab82bcfe81d44218.json"
+  },
+  {
+    "id": "concept://mcp_runtime_lifecycle",
+    "title": "MCP runtime lifecycle",
+    "status": "Active",
+    "path": "concepts/concept-mcp_runtime_lifecycle-81848f9743d54c19.json"
+  },
+  {
+    "id": "concept://mcp_runtime_surface",
+    "title": "MCP runtime surface",
+    "status": "Active",
+    "path": "concepts/concept-mcp_runtime_surface-7e259445836dd027.json"
+  },
+  {
+    "id": "concept://memory_outcomes_and_session_history",
+    "title": "memory outcomes and session history",
+    "status": "Active",
+    "path": "concepts/concept-memory_outcomes_and_session_history-cfaf55764d684230.json"
+  },
+  {
+    "id": "concept://memory_projection_persistence",
+    "title": "memory projection persistence",
+    "status": "Active",
+    "path": "concepts/concept-memory_projection_persistence-b1da0f64ad8dc536.json"
+  },
+  {
+    "id": "concept://memory_recall_and_scoring",
+    "title": "memory recall and scoring",
+    "status": "Active",
+    "path": "concepts/concept-memory_recall_and_scoring-ea5d4937e4c24353.json"
+  },
+  {
+    "id": "concept://memory_refresh_and_patch_outcome_recording",
+    "title": "memory refresh and patch outcome recording",
+    "status": "Active",
+    "path": "concepts/concept-memory_refresh_and_patch_outcome_recording-0afcc9cf2ab9d93c.json"
+  },
+  {
+    "id": "concept://memory_system",
+    "title": "memory system",
+    "status": "Active",
+    "path": "concepts/concept-memory_system-ce78030e036857be.json"
+  },
+  {
+    "id": "concept://mutation_argument_and_schema_surface",
+    "title": "mutation argument and schema surface",
+    "status": "Active",
+    "path": "concepts/concept-mutation_argument_and_schema_surface-74552800cfda0d2e.json"
+  },
+  {
+    "id": "concept://open_and_workset_followthrough",
+    "title": "open and workset follow-through",
+    "status": "Active",
+    "path": "concepts/concept-open_and_workset_followthrough-c3eb4185f1c99143.json"
+  },
+  {
+    "id": "concept://outcome_event_and_replay_memory",
+    "title": "outcome event and replay memory",
+    "status": "Active",
+    "path": "concepts/concept-outcome_event_and_replay_memory-5f0e3ae714747c0d.json"
+  },
+  {
+    "id": "concept://parse_resolution_and_reanchor_flow",
+    "title": "parse, resolution, and reanchor flow",
+    "status": "Active",
+    "path": "concepts/concept-parse_resolution_and_reanchor_flow-57a4e643717b07ec.json"
+  },
+  {
+    "id": "concept://parser_contract_and_fingerprint_utilities",
+    "title": "parser contract and fingerprint utilities",
+    "status": "Active",
+    "path": "concepts/concept-parser_contract_and_fingerprint_utilities-621d9b7e13ea7d48.json"
+  },
+  {
+    "id": "concept://persistence_and_history",
+    "title": "persistence and history layer",
+    "status": "Active",
+    "path": "concepts/concept-persistence_and_history-c89294c2540527b9.json"
+  },
+  {
+    "id": "concept://persistence_split",
+    "title": "persistence_split",
+    "status": "Active",
+    "path": "concepts/concept-persistence_split-3e5c60e24a742e5c.json"
+  },
+  {
+    "id": "concept://plan_and_coordination_ir",
+    "title": "plan and coordination IR",
+    "status": "Active",
+    "path": "concepts/concept-plan_and_coordination_ir-272e6be7f123daba.json"
+  },
+  {
+    "id": "concept://plan_and_repo_layout_publication",
+    "title": "plan and repo-layout publication",
+    "status": "Active",
+    "path": "concepts/concept-plan_and_repo_layout_publication-74a359dd18d26db5.json"
+  },
+  {
+    "id": "concept://plan_completion_and_insight_queries",
+    "title": "plan completion and insight queries",
+    "status": "Active",
+    "path": "concepts/concept-plan_completion_and_insight_queries-ef41064d27d26f5d.json"
+  },
+  {
+    "id": "concept://plan_graph_compatibility_and_runtime_overlays",
+    "title": "plan-graph compatibility and runtime overlays",
+    "status": "Active",
+    "path": "concepts/concept-plan_graph_compatibility_and_runtime_overlays-8e4216bd62356abc.json"
+  },
+  {
+    "id": "concept://principal_identity_and_mutation_provenance",
+    "title": "principal identity and mutation provenance",
+    "status": "Active",
+    "path": "concepts/concept-principal_identity_and_mutation_provenance-17ac6fdcecb1f5d6.json"
+  },
+  {
+    "id": "concept://prism_architecture",
+    "title": "PRISM architecture",
+    "status": "Active",
+    "path": "concepts/concept-prism_architecture-de0ea29111f2308d.json"
+  },
+  {
+    "id": "concept://projection_and_query_layer",
+    "title": "projection and query layer",
+    "status": "Active",
+    "path": "concepts/concept-projection_and_query_layer-40929cd7972d1203.json"
+  },
+  {
+    "id": "concept://published_knowledge_and_memory_event_logs",
+    "title": "published knowledge and memory event logs",
+    "status": "Active",
+    "path": "concepts/concept-published_knowledge_and_memory_event_logs-6da3874b2315fdc4.json"
+  },
+  {
+    "id": "concept://python_tree_sitter_adapter_pipeline",
+    "title": "Python tree-sitter adapter pipeline",
+    "status": "Active",
+    "path": "concepts/concept-python_tree_sitter_adapter_pipeline-925486e51be1a16c.json"
+  },
+  {
+    "id": "concept://query_coordination_and_plan_views",
+    "title": "query coordination and plan views",
+    "status": "Active",
+    "path": "concepts/concept-query_coordination_and_plan_views-71fbb973192adf68.json"
+  },
+  {
+    "id": "concept://query_execution_and_semantic_context_serving",
+    "title": "query execution and semantic-context serving",
+    "status": "Active",
+    "path": "concepts/concept-query_execution_and_semantic_context_serving-ac639d2f4e569166.json"
+  },
+  {
+    "id": "concept://query_symbol_and_change_contexts",
+    "title": "query symbol and change contexts",
+    "status": "Active",
+    "path": "concepts/concept-query_symbol_and_change_contexts-3c2d9a4851921d2a.json"
+  },
+  {
+    "id": "concept://recall_signal_and_text_scoring",
+    "title": "recall signal and text scoring",
+    "status": "Active",
+    "path": "concepts/concept-recall_signal_and_text_scoring-a3d1eea39ea3d1d6.json"
+  },
+  {
+    "id": "concept://repo_publication_guards",
+    "title": "repo publication guards",
+    "status": "Active",
+    "path": "concepts/concept-repo_publication_guards-998847d5682733fa.json"
+  },
+  {
+    "id": "concept://resource_schemas_and_host_resource_serving",
+    "title": "resource schemas and host-resource serving",
+    "status": "Active",
+    "path": "concepts/concept-resource_schemas_and_host_resource_serving-57dc5f72a1a27d6f.json"
+  },
+  {
+    "id": "concept://rust_tree_sitter_adapter_pipeline",
+    "title": "Rust tree-sitter adapter pipeline",
+    "status": "Active",
+    "path": "concepts/concept-rust_tree_sitter_adapter_pipeline-dd073fb8f6895f15.json"
+  },
+  {
+    "id": "concept://semantic_and_structural_memory_models",
+    "title": "semantic and structural memory models",
+    "status": "Active",
+    "path": "concepts/concept-semantic_and_structural_memory_models-f34e860dce8fcaaf.json"
+  },
+  {
+    "id": "concept://semantic_memory_backend_runtime",
+    "title": "semantic memory backend runtime",
+    "status": "Active",
+    "path": "concepts/concept-semantic_memory_backend_runtime-fb5d8f051b791a0f.json"
+  },
+  {
+    "id": "concept://semantic_projection_indexes",
+    "title": "semantic projection indexes",
+    "status": "Active",
+    "path": "concepts/concept-semantic_projection_indexes-7d893bb7bb152057.json"
+  },
+  {
+    "id": "concept://server_surface_and_runtime_health_views",
+    "title": "server surface and runtime health views",
+    "status": "Active",
+    "path": "concepts/concept-server_surface_and_runtime_health_views-d87b8817fac2c251.json"
+  },
+  {
+    "id": "concept://session_and_episodic_memory_store",
+    "title": "session and episodic memory store",
+    "status": "Active",
+    "path": "concepts/concept-session_and_episodic_memory_store-974a3a51b776dd03.json"
+  },
+  {
+    "id": "concept://session_state_and_mutation_runtime",
+    "title": "session context and hosted mutation runtime",
+    "status": "Active",
+    "path": "concepts/concept-session_state_and_mutation_runtime-1fd5f64b629ad626.json"
+  },
+  {
+    "id": "concept://sqlite_and_graph_persistence",
+    "title": "SQLite and graph persistence",
+    "status": "Active",
+    "path": "concepts/concept-sqlite_and_graph_persistence-533e222a268e92e8.json"
+  },
+  {
+    "id": "concept://structural_ir",
+    "title": "structural IR and identity model",
+    "status": "Active",
+    "path": "concepts/concept-structural_ir-79a12e9c8eda9008.json"
+  },
+  {
+    "id": "concept://structural_memory_feature_model",
+    "title": "structural memory feature model",
+    "status": "Active",
+    "path": "concepts/concept-structural_memory_feature_model-9f2bb9be3d33d73d.json"
+  },
+  {
+    "id": "concept://structured_config_value_adapters",
+    "title": "structured config value adapters",
+    "status": "Active",
+    "path": "concepts/concept-structured_config_value_adapters-75b182f2e2b0a39c.json"
+  },
+  {
+    "id": "concept://symbol_source_and_relation_queries",
+    "title": "symbol, source, and relation queries",
+    "status": "Active",
+    "path": "concepts/concept-symbol_source_and_relation_queries-e4c75defe3830475.json"
+  },
+  {
+    "id": "concept://task_brief_and_coordination_summary_views",
+    "title": "task-brief and coordination summary views",
+    "status": "Active",
+    "path": "concepts/concept-task_brief_and_coordination_summary_views-7675d0b2214efd57.json"
+  },
+  {
     "id": "concept://tracked_snapshot_semantic_state_and_runtime_change_history",
     "title": "tracked_snapshot_semantic_state_and_runtime_change_history",
     "status": "Active",
     "path": "concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json"
+  },
+  {
+    "id": "concept://validation_and_dogfooding",
+    "title": "validation and dogfooding loop",
+    "status": "Active",
+    "path": "concepts/concept-validation_and_dogfooding-ae711c1eca41a5f2.json"
+  },
+  {
+    "id": "concept://validation_feedback_and_metrics_loop",
+    "title": "validation feedback and metrics loop",
+    "status": "Active",
+    "path": "concepts/concept-validation_feedback_and_metrics_loop-09ba7df27afc4dda.json"
+  },
+  {
+    "id": "concept://validation_pipeline",
+    "title": "validation_pipeline",
+    "status": "Active",
+    "path": "concepts/concept-validation_pipeline-18f310987e9be0d2.json"
+  },
+  {
+    "id": "concept://validation_policy_and_release_gates",
+    "title": "validation policy and release gates",
+    "status": "Active",
+    "path": "concepts/concept-validation_policy_and_release_gates-074337c04d64a5d7.json"
+  },
+  {
+    "id": "concept://workspace_indexing_and_refresh",
+    "title": "workspace indexing and refresh",
+    "status": "Active",
+    "path": "concepts/concept-workspace_indexing_and_refresh-4b82bffe585bc4a3.json"
+  },
+  {
+    "id": "concept://workspace_session_refresh_runtime",
+    "title": "workspace session refresh runtime",
+    "status": "Active",
+    "path": "concepts/concept-workspace_session_refresh_runtime-904d62ca6bdce579.json"
+  },
+  {
+    "id": "concept://workspace_session_runtime",
+    "title": "workspace session runtime",
+    "status": "Active",
+    "path": "concepts/concept-workspace_session_runtime-74c3945553834829.json"
   }
 ]

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://plan_and_repo_layout_publication",
+  "targetHandle": "concept://repo_publication_guards",
+  "kind": "depends_on",
+  "confidence": 0.88,
+  "evidence": [
+    "Layout and durable-plan writes rely on the publication rules that decide what may safely become repo knowledge."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

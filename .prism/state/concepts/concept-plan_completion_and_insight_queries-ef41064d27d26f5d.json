@@ -1,0 +1,55 @@
+{
+  "handle": "concept://plan_completion_and_insight_queries",
+  "canonical_name": "plan completion and insight queries",
+  "summary": "prism-query modules that evaluate plan completion, blockers, recommendations, and higher-level plan insights beyond raw runtime overlays.",
+  "aliases": [
+    "plan insight queries",
+    "completion queries"
+  ],
+  "confidence": 0.9,
+  "core_members": [
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::plan_completion",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::plan_insights",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:12779",
+    "lineage:12873"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-query/src/lib.rs` keeps `plan_completion` and `plan_insights` separate from raw coordination/runtime access.",
+    "These modules are the judgment-oriented read path that turns plan state into blockers, completion checks, and recommendations."
+  ],
+  "risk_hint": "If these heuristics drift, agents may act on misleading plan readiness or blocker interpretations.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734915,
+    "lastReviewedAt": 1774734915,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

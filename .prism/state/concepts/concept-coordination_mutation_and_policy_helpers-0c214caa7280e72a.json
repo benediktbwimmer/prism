@@ -1,0 +1,70 @@
+{
+  "handle": "concept://coordination_mutation_and_policy_helpers",
+  "canonical_name": "coordination mutation, lease, and policy helpers",
+  "summary": "prism-coordination modules that apply coordination mutations and enforce lease lifecycle, resume/reclaim, heartbeat, rejection recording, and shared policy/conflict helpers.",
+  "aliases": [
+    "coordination mutations",
+    "lease policy helper layer",
+    "coordination lease helpers"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::mutations::enforce_task_lease_for_standard_mutation",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::lease::refresh_task_lease",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::lease::task_heartbeat_due_state",
+      "kind": "Function"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:01kn48h6fb7zvtj3zpxn3dtt62",
+    "lineage:01kn48h6f92rvq4g3z977h58w0",
+    "lineage:01kn4nw8dqks53mjzyesyyrqdn"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::lease::refresh_claim_lease",
+      "kind": "Function"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:01kn48h6f97vkg4axaphtr3qf2"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`mutations.rs` now applies authenticated coordination transitions together with lease-aware rejection, resume, reclaim, and heartbeat semantics.",
+    "`lease.rs` and shared helpers centralize holder comparison, due-state evaluation, lease refresh, and policy evidence used by coordination mutations."
+  ],
+  "risk_hint": "If mutation or lease helpers drift, stale or expired work can be renewed incorrectly, valid resumptions can be rejected, and ownership can be attributed to the wrong principal.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735385,
+    "lastReviewedAt": 1775113284,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

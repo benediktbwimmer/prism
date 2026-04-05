@@ -1,0 +1,55 @@
+{
+  "handle": "concept://workspace_session_refresh_runtime",
+  "canonical_name": "workspace session refresh runtime",
+  "summary": "prism-core modules that maintain the live workspace session, track filesystem dirtiness, and run refresh cycles through file watching and guarded session state.",
+  "aliases": [
+    "session refresh runtime",
+    "fs refresh runtime"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::session",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::watch",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1596",
+    "lineage:1739"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`session.rs` owns `WorkspaceSession` and refresh-state bookkeeping, while `watch.rs` drives filesystem-triggered refreshes and guarded snapshot replacement.",
+    "This is the live runtime half of workspace session handling."
+  ],
+  "risk_hint": "If this runtime drifts, PRISM may look live while serving stale snapshots or racing refresh state.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735382,
+    "lastReviewedAt": 1774735382,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

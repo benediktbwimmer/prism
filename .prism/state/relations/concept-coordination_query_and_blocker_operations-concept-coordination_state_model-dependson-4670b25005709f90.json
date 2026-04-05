@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://coordination_query_and_blocker_operations",
+  "targetHandle": "concept://coordination_state_model",
+  "kind": "depends_on",
+  "confidence": 0.96,
+  "evidence": [
+    "Coordination queries and blocker evaluation execute over the shared coordination state store and types."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

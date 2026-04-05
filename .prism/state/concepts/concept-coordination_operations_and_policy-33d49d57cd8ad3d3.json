@@ -1,0 +1,75 @@
+{
+  "handle": "concept://coordination_operations_and_policy",
+  "canonical_name": "coordination operations and policy",
+  "summary": "Coordination modules that implement query paths, mutations, blocker calculation, and helper logic over the shared coordination state model.",
+  "aliases": [
+    "coordination operations",
+    "policy and blockers"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::queries",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::mutations",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::blockers",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::helpers",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1119",
+    "lineage:1103",
+    "lineage:11940",
+    "lineage:1069"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_integration_with_concepts_memories_outcomes_impact_and_validation",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:11117"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "queries.rs, mutations.rs, blockers.rs, and helpers.rs implement the behavior layer over CoordinationStore and related types.",
+    "This is where plan/task workflow policy becomes executable instead of remaining a passive schema."
+  ],
+  "risk_hint": "Behavioral regressions here can violate plan and claim invariants without any change to the underlying state structs.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733810,
+    "lastReviewedAt": 1774733810,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

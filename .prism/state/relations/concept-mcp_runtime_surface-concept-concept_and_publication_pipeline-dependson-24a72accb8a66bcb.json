@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://mcp_runtime_surface",
+  "targetHandle": "concept://concept_and_publication_pipeline",
+  "kind": "depends_on",
+  "confidence": 0.95,
+  "evidence": [
+    "Concept mutation, concept resolution, and relation mutation are served from the MCP runtime surface."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

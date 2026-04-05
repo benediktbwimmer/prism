@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://session_state_and_mutation_runtime",
+  "targetHandle": "concept://mcp_mutation_and_session_host",
+  "kind": "part_of",
+  "confidence": 0.96,
+  "evidence": [
+    "Session context, hosted mutation execution, and follow-up runtime views are the execution half of the authenticated mutation host."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "coord-task:01kn6fa2xeg8f0rayk8n0zwtkm"
+  }
+}

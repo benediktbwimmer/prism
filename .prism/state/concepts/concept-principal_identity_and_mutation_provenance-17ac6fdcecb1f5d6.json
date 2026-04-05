@@ -1,0 +1,76 @@
+{
+  "handle": "concept://principal_identity_and_mutation_provenance",
+  "canonical_name": "principal identity and mutation provenance",
+  "summary": "Cross-crate principal-authentication and provenance-stamping layer that turns authenticated local principals into durable event actors and execution-context snapshots for every authoritative mutation.",
+  "aliases": [
+    "authenticated principal identity",
+    "mutation provenance",
+    "authenticated mutation provenance"
+  ],
+  "confidence": 0.88,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::principal_registry::AuthenticatedPrincipal",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::principal::PrincipalActor",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::events::EventExecutionContext",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::mutation_provenance::MutationProvenance",
+      "kind": "Struct"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:01kn48h6h0xcp1b62r23qfrybt",
+    "lineage:01kn48h6mredfahp62x6m9yxbg",
+    "lineage:01kn48h6m1cz3cybz1z3kmse66",
+    "lineage:01kn48h6w1bp6te1s6fdt3cyt0"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::host_mutations::mutation_provenance",
+      "kind": "Function"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:01kn48h6tmrnm8v8hmdzzgda26"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "The principal-identity cutover snapshots authority id, principal id, principal kind/name, credential id, session id, request id, and workspace execution context into authoritative mutation events.",
+    "Bridge-adopted local principals are attribution and coordination identities; durable audit truth comes from event actors and execution-context snapshots rather than ambient `prism_session` state."
+  ],
+  "risk_hint": "If principal stamping drifts, audit history, lease ownership, and authenticated mutation attribution become untrustworthy even when writes still succeed.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "coord-task:01kn6fa2xeg8f0rayk8n0zwtkm"
+  },
+  "publication": {
+    "publishedAt": 1775113302,
+    "lastReviewedAt": 1775113302,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

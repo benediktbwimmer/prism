@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://locate_ranking_and_text_candidate_flow",
+  "targetHandle": "concept://compact_discovery_and_opening",
+  "kind": "part_of",
+  "confidence": 0.96,
+  "evidence": [
+    "Locate ranking and text-fragment candidate generation are the first-hop navigation half of compact discovery/opening."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://dashboard_surface",
+  "targetHandle": "concept://coordination_and_plan_runtime",
+  "kind": "depends_on",
+  "confidence": 0.93,
+  "evidence": [
+    "Dashboard views surface active operations, coordination state, and mutation timelines from the runtime."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

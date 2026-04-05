@@ -1,0 +1,63 @@
+{
+  "handle": "concept://session_state_and_mutation_runtime",
+  "canonical_name": "session context and hosted mutation runtime",
+  "summary": "prism-mcp modules that hold per-session runtime context, execute authenticated hosted mutations, and shape follow-up runtime/read-model views such as task context and heartbeat guidance.",
+  "aliases": [
+    "hosted mutation runtime",
+    "session context runtime",
+    "session view runtime"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::session_state::SessionState",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::host_mutations::QueryHost::store_outcome_without_refresh_authenticated",
+      "kind": "Method"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::runtime_views::runtime_status",
+      "kind": "Function"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:01kn48h70gxjjswjcb65h6dazs",
+    "lineage:01kn48h6tmf9cjwgz2hh6v9b2v",
+    "lineage:01kn48h6zm3j5z0ab5p9ssnr7h"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`session_state`, hosted mutation entrypoints, and runtime/read-model views still form the execution half of the MCP mutation path.",
+    "After the authority cutover, this layer keeps session context for handles, task context, and post-mutation guidance rather than acting as ambient coordination authority."
+  ],
+  "risk_hint": "Breakage here causes authenticated mutations to lose session context, return misleading follow-up views, or surface stale heartbeat guidance.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734918,
+    "lastReviewedAt": 1775113267,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

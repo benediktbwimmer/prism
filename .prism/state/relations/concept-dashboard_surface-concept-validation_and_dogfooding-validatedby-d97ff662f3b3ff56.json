@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://dashboard_surface",
+  "targetHandle": "concept://validation_and_dogfooding",
+  "kind": "validated_by",
+  "confidence": 0.9,
+  "evidence": [
+    "The dashboard spec treats trust and validation as visible first-class concerns rather than hidden internals."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

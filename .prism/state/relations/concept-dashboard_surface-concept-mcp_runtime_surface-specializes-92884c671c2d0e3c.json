@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://dashboard_surface",
+  "targetHandle": "concept://mcp_runtime_surface",
+  "kind": "specializes",
+  "confidence": 0.95,
+  "evidence": [
+    "The dashboard is a specialized product surface inside prism-mcp built on the general MCP runtime."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

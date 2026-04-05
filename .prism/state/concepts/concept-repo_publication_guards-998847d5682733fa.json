@@ -1,0 +1,88 @@
+{
+  "handle": "concept://repo_publication_guards",
+  "canonical_name": "repo publication guards",
+  "summary": "prism-core publication and validation modules that govern which memory, concept, relation, and plan artifacts are durable enough to publish into repo knowledge.",
+  "aliases": [
+    "publication guards",
+    "repo knowledge validators"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::published_knowledge",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::concept_events",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::concept_relation_events",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::memory_events",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::published_plans",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:10888",
+    "lineage:10790",
+    "lineage:12348",
+    "lineage:10319",
+    "lineage:11594"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::CONCEPT_MAINTENANCE_md::3_1_concepts_are_evidence_backed_semantic_packets",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::CONCEPT_MAINTENANCE_md::15_integration_with_concept_to_concept_edges",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:12524",
+    "lineage:12541"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "published_knowledge.rs validates repo-scoped memory, concept, and concept-relation publication constraints such as trust, evidence, core-member count, and provenance.",
+    "The surrounding event modules capture the durable artifacts that later projection layers hydrate into repo knowledge."
+  ],
+  "risk_hint": "Weakening these guards makes the entire repo concept layer easier to pollute with low-quality durable knowledge.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733761,
+    "lastReviewedAt": 1774733761,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

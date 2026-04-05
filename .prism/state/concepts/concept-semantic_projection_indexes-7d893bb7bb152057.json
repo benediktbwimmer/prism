@@ -1,0 +1,74 @@
+{
+  "handle": "concept://semantic_projection_indexes",
+  "canonical_name": "semantic projection indexes",
+  "summary": "prism-projections modules that materialize derived concept, relation, intent, and projection indexes from lower-level events and snapshots.",
+  "aliases": [
+    "projection indexes",
+    "derived indexes"
+  ],
+  "confidence": 0.94,
+  "core_members": [
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::projections",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::concepts",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::concept_relations",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::intent",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5917",
+    "lineage:10673",
+    "lineage:12306",
+    "lineage:5912",
+    "lineage:5947"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-projections keeps projections, concepts, concept_relations, intent, and types as the materialization layer for derived semantic indexes.",
+    "This is the concrete internal slice behind the higher-level projection and query layer concept."
+  ],
+  "risk_hint": "Projection drift here changes what the rest of PRISM believes is important without changing the underlying raw graph.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733968,
+    "lastReviewedAt": 1774733968,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

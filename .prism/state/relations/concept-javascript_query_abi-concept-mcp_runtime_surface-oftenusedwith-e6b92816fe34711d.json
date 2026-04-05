@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://javascript_query_abi",
+  "targetHandle": "concept://mcp_runtime_surface",
+  "kind": "often_used_with",
+  "confidence": 0.95,
+  "evidence": [
+    "The JS query ABI and the MCP runtime are separate layers, but in practice they travel together as the agent-facing programmable interface."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://validation_feedback_and_metrics_loop",
+  "targetHandle": "concept://projection_and_query_layer",
+  "kind": "depends_on",
+  "confidence": 0.9,
+  "evidence": [
+    "Validation checks and scorecards are materialized through projection state rather than only handwritten notes."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

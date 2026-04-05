@@ -1,0 +1,65 @@
+{
+  "entry": {
+    "id": "memory:81",
+    "anchors": [
+      {
+        "Lineage": "lineage:1818"
+      },
+      {
+        "Lineage": "lineage:5873"
+      },
+      {
+        "Lineage": "lineage:9774"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_curator",
+          "path": "prism_curator",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::compact_tools",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_parser",
+          "path": "prism_parser",
+          "kind": "Module"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "Architecture hierarchy deepened in three broad areas. The adapter stack now has a shared parser-contract layer plus concrete Rust, Python, Markdown, and structured-config sub-pipelines. The curator flow now splits into backend execution/prompting versus rule synthesis/proposal typing. The compact tool surface now splits into locate/text-candidate ranking, open/workset follow-through, concept/expand decode, and task-brief coordination summaries. Future architecture reasoning should traverse those concepts before reopening the adapter, curator, or compact-tool code directly.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774736197,
+        "publishedAt": 1774736197,
+        "status": "active"
+      },
+      "task_id": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+    },
+    "created_at": 1774736197,
+    "source": "Agent",
+    "trust": 0.92
+  },
+  "latestEventId": "memory-event:1774736197305668000",
+  "latestRecordedAt": 1774736197,
+  "eventCount": 1,
+  "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+}

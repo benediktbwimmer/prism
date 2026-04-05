@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://coordination_operations_and_policy",
+  "targetHandle": "concept://coordination_state_model",
+  "kind": "depends_on",
+  "confidence": 0.98,
+  "evidence": [
+    "The executable behavior layer in prism-coordination is implemented over the shared state/types/runtime model."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

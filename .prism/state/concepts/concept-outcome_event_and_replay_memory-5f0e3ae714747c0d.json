@@ -1,0 +1,62 @@
+{
+  "handle": "concept://outcome_event_and_replay_memory",
+  "canonical_name": "outcome event and replay memory",
+  "summary": "prism-memory modules that store outcome events, index them by anchors and tasks, and replay prior validation or failure history for resume flows.",
+  "aliases": [
+    "outcome replay memory",
+    "task replay memory"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::outcome",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::outcome_query",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5616",
+    "lineage:5647",
+    "lineage:5803"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`outcome.rs` indexes and reanchors outcome events, while `outcome_query.rs` defines the replay/query filter surface over those events.",
+    "This is the event-history side of the memory subsystem, distinct from general episodic or semantic recall."
+  ],
+  "risk_hint": "If outcome replay drifts, later agents lose the failure and validation trail they need to resume work safely.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735360,
+    "lastReviewedAt": 1774735360,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "handle": "concept://workspace_indexing_and_refresh",
+  "canonical_name": "workspace indexing and refresh",
+  "summary": "prism-core orchestration that watches the workspace, runs parse and resolution pipelines, reanchors history and memory, and maintains the live PRISM session state.",
+  "aliases": [
+    "indexing pipeline",
+    "refresh pipeline",
+    "workspace session"
+  ],
+  "confidence": 0.95,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::indexer::WorkspaceIndexer",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_parser",
+      "path": "prism_parser",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_store",
+      "path": "prism_store",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_history",
+      "path": "prism_history",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1533",
+    "lineage:1471",
+    "lineage:5873",
+    "lineage:6426",
+    "lineage:1971"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::SPEC_md::1_crate_architecture",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:6841"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-core owns indexer, parse_pipeline, resolution, reanchor, watch, session, memory_refresh, and patch_outcomes modules.",
+    "Its dependency surface spans parser, language crates, store, history, memory, projections, query, coordination, curator, and agent layers."
+  ],
+  "risk_hint": "This integration hotspot is where refresh, watch, and patch-observation regressions usually surface first.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733233,
+    "lastReviewedAt": 1774733233,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

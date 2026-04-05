@@ -1,0 +1,49 @@
+{
+  "entry": {
+    "id": "memory:01kmwpc4w3rp0pfy6pce3w3816",
+    "anchors": [
+      {
+        "Lineage": "lineage:01kmwnhy16pe16x0d5w32x0nsm"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::tests_support::temp_workspace",
+          "kind": "Function"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "Parallel prism-mcp tests should not derive temporary workspace directories from wall-clock timestamps alone. A live refactor run surfaced SQLite `database is locked` failures when extracted test modules ran concurrently; switching `temp_workspace` to `new_sortable_token()` removes the naming-collision path and makes the shared test harness safer under parallel execution.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "files": [
+        "crates/prism-mcp/src/tests_support.rs",
+        "crates/prism-mcp/src/tests/query_history.rs"
+      ],
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774784484,
+        "publishedAt": 1774784484,
+        "status": "active"
+      },
+      "task_id": "task:create-a-prism-coordination-plan-for-refactoring-the-prism-mcp-test-suite-to-reduce-slowness-and-flakiness:01kmwmw41s7vz3y8wmfgnfh0hm"
+    },
+    "created_at": 1774784484,
+    "source": "Agent",
+    "trust": 0.88
+  },
+  "latestEventId": "memory-event:01kmwpc4w33tjveeqr3q1sbp84",
+  "latestRecordedAt": 1774784484,
+  "eventCount": 1,
+  "taskId": "task:create-a-prism-coordination-plan-for-refactoring-the-prism-mcp-test-suite-to-reduce-slowness-and-flakiness:01kmwmw41s7vz3y8wmfgnfh0hm"
+}

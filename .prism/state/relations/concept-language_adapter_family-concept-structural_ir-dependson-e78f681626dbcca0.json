@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://language_adapter_family",
+  "targetHandle": "concept://structural_ir",
+  "kind": "depends_on",
+  "confidence": 0.99,
+  "evidence": [
+    "All language adapter crates depend on prism-ir through prism-parser to emit the shared node and edge schema."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://javascript_api_contract_surface",
+  "targetHandle": "concept://javascript_query_abi",
+  "kind": "part_of",
+  "confidence": 0.95,
+  "evidence": [
+    "Shared client/server payload contracts are the schema half of the JS-facing ABI surface."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "entry": {
+    "id": "structural:11",
+    "anchors": [
+      {
+        "Lineage": "lineage:10432"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_memory",
+          "path": "prism_memory::semantic::config::SemanticMemoryConfig",
+          "kind": "Struct"
+        }
+      }
+    ],
+    "kind": "Structural",
+    "scope": "repo",
+    "content": "Semantic recall stays local-first by default. The remote OpenAI path is opt-in via the `openai-embeddings` cargo feature plus `PRISM_SEMANTIC_BACKEND=openai` and an API key (`PRISM_OPENAI_API_KEY` or `OPENAI_API_KEY`); when unavailable, semantic recall falls back to the local hashed+alias baseline.",
+    "metadata": null,
+    "created_at": 1774705324,
+    "source": "User",
+    "trust": 0.5
+  },
+  "latestEventId": "memory-event:1774705324513657000",
+  "latestRecordedAt": 1774705324,
+  "eventCount": 1
+}

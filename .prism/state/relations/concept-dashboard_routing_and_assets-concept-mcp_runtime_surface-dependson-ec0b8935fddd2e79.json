@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://dashboard_routing_and_assets",
+  "targetHandle": "concept://mcp_runtime_surface",
+  "kind": "depends_on",
+  "confidence": 0.89,
+  "evidence": [
+    "Dashboard routing and asset delivery are exposed from the same prism-mcp runtime that hosts the product surface."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "handle": "concept://mcp_mutation_and_session_host",
+  "canonical_name": "MCP authenticated mutation host",
+  "summary": "prism-mcp modules that decode `prism_mutate` actions, host authenticated state-changing mutations, and route agent-side writes into durable PRISM state without relying on `prism_session` authority.",
+  "aliases": [
+    "authenticated mutation host",
+    "mutation host",
+    "tool payload host"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::mutation_provenance::MutationProvenance",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::host_mutations::mutation_provenance",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::tool_args::PrismHeartbeatLeaseArgs",
+      "kind": "Struct"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:01kn48h6w1bp6te1s6fdt3cyt0",
+    "lineage:01kn48h6tmrnm8v8hmdzzgda26",
+    "lineage:01kn4p12qjmaa6pqtf1pvf22ym"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-mcp keeps mutation handling, provenance stamping, tool arguments, tool schemas, and schema examples as one coherent hosted mutation surface.",
+    "After the principal-identity cutover, `prism://session` is read-only context and the authoritative write path flows through authenticated `prism_mutate` actions."
+  ],
+  "risk_hint": "Schema drift or provenance mistakes here can make authenticated mutations persist the wrong actor, lease, or execution context.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733787,
+    "lastReviewedAt": 1775113256,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

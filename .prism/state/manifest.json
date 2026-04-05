@@ -1,38 +1,449 @@
 {
   "version": 1,
-  "publishedAt": 1775412232,
+  "publishedAt": 1774903041,
   "publisher": {
-    "principalAuthorityId": "local-daemon",
-    "principalId": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds",
-    "credentialId": "credential:01kn3xe812gb7a5d5qgs1wwpez"
+    "principalAuthorityId": "legacy",
+    "principalId": "legacy_agent_fallback",
+    "credentialId": "credential:implicit:principal:legacy:legacy_agent_fallback"
   },
   "workContext": {
-    "workId": "coord-task:01knfcza3w2x083jxnvss4cr99",
-    "kind": "coordination",
-    "title": "Land the SSR console skeleton, route family, and shared HTML rendering foundation",
-    "coordinationTaskId": "coord-task:01knfcza3w2x083jxnvss4cr99",
-    "planId": "plan:01knfcza3w9aezqbr2p883q85m",
-    "planTitle": "Implement the SSR operator console"
+    "workId": "work:legacy_implicit_publication",
+    "kind": "undeclared",
+    "title": "Legacy implicit repo publication",
+    "summary": "Fallback publish context for snapshot authority when no explicit declared work is available."
   },
   "publishSummary": {
-    "title": "Land the SSR console skeleton, route family, and shared HTML rendering foundation"
+    "title": "Legacy implicit repo publication",
+    "summary": "Fallback publish context for snapshot authority when no explicit declared work is available."
   },
   "files": {
+    ".prism/state/concepts/concept-agent_inference_and_curation-f86347213dc8e7c7.json": {
+      "path": ".prism/state/concepts/concept-agent_inference_and_curation-f86347213dc8e7c7.json",
+      "sha256": "sha256:1d83f11ead77b527c806c374ccbcaf7d4911d19fbe08d0858047a3232ff7f670"
+    },
+    ".prism/state/concepts/concept-anchor_change_and_lineage_ir-120924b5fe2f4b4d.json": {
+      "path": ".prism/state/concepts/concept-anchor_change_and_lineage_ir-120924b5fe2f4b4d.json",
+      "sha256": "sha256:4b4602180bdfe1e4d814683a19dc837d8273f6cc62bcd7219b7eadcf37789620"
+    },
+    ".prism/state/concepts/concept-cli_command_and_parse_surface-6358406401cd86ee.json": {
+      "path": ".prism/state/concepts/concept-cli_command_and_parse_surface-6358406401cd86ee.json",
+      "sha256": "sha256:7f4ac075e7ea4b446f01ab07121b37871cc792aae545b1aba56d95ca68fad1ff"
+    },
+    ".prism/state/concepts/concept-cli_runtime_and_mcp_control-e35dcacc59005404.json": {
+      "path": ".prism/state/concepts/concept-cli_runtime_and_mcp_control-e35dcacc59005404.json",
+      "sha256": "sha256:422ef639b5ac07d2f964355783784a12a4d5bacfe8904ad4fb853abdd728bbe7"
+    },
+    ".prism/state/concepts/concept-cli_surface-b47912c487786bd9.json": {
+      "path": ".prism/state/concepts/concept-cli_surface-b47912c487786bd9.json",
+      "sha256": "sha256:8044df979abee1186b0c166caa96d047faf041b8d502568800d87d0ee535c5ee"
+    },
+    ".prism/state/concepts/concept-cochange_and_validation_projection_indexes-2f7c45de7822cd16.json": {
+      "path": ".prism/state/concepts/concept-cochange_and_validation_projection_indexes-2f7c45de7822cd16.json",
+      "sha256": "sha256:5d43b8d5a02fda929af5604ca991c5605791ef60167293b69166fb2d27b22534"
+    },
+    ".prism/state/concepts/concept-code_language_adapters-0721f1f698fa33a3.json": {
+      "path": ".prism/state/concepts/concept-code_language_adapters-0721f1f698fa33a3.json",
+      "sha256": "sha256:2d85c0beed790ad6fa93b32114d97d8c2782ddfde088deba8890debf7e18dc2c"
+    },
+    ".prism/state/concepts/concept-compact_discovery_and_opening-bbb3b7d06be35eb0.json": {
+      "path": ".prism/state/concepts/concept-compact_discovery_and_opening-bbb3b7d06be35eb0.json",
+      "sha256": "sha256:3427609330cd7c753a09f2306dffce0b4c295be31861f65f74074dee3745f99e"
+    },
+    ".prism/state/concepts/concept-compact_expansion_and_concept_views-ded6a85d041db487.json": {
+      "path": ".prism/state/concepts/concept-compact_expansion_and_concept_views-ded6a85d041db487.json",
+      "sha256": "sha256:b3778112212c3620862bbeb47d308d56393d6da6aff1ae273346986c086cbe81"
+    },
+    ".prism/state/concepts/concept-compact_tool_surface-78fc02bd9dad0acc.json": {
+      "path": ".prism/state/concepts/concept-compact_tool_surface-78fc02bd9dad0acc.json",
+      "sha256": "sha256:e15a242525f72c3c079b8d2608ce3ad100c3df9d10432c63bc9971ae409b16ac"
+    },
+    ".prism/state/concepts/concept-compact_tools-1dec50c6be24f8cf.json": {
+      "path": ".prism/state/concepts/concept-compact_tools-1dec50c6be24f8cf.json",
+      "sha256": "sha256:140270513247ed7f51a394d0f6f0f89afe54096d92145e2c48955c9b4da1a03c"
+    },
+    ".prism/state/concepts/concept-composite_memory_routing_and_entry_storage-eb21af44ffcd0a0a.json": {
+      "path": ".prism/state/concepts/concept-composite_memory_routing_and_entry_storage-eb21af44ffcd0a0a.json",
+      "sha256": "sha256:1a75491f136051db0663ddf428c11675a1851a7517a79e6155fe1e191efafe78"
+    },
+    ".prism/state/concepts/concept-concept_and_expand_decode_runtime-433508d4ef8955f2.json": {
+      "path": ".prism/state/concepts/concept-concept_and_expand_decode_runtime-433508d4ef8955f2.json",
+      "sha256": "sha256:6e400b59ed7e8b9f4cca8cad655f3b09956a810b801b46b6b7bed1797ec5cfe2"
+    },
+    ".prism/state/concepts/concept-concept_and_publication_pipeline-76bb615d0340dbd5.json": {
+      "path": ".prism/state/concepts/concept-concept_and_publication_pipeline-76bb615d0340dbd5.json",
+      "sha256": "sha256:b48846cd6304b7bcdef3424f6571ae0236c5ff39bc220613b2d981b8261b59a6"
+    },
+    ".prism/state/concepts/concept-concept_and_relation_event_streams-61e5277a8a33ac57.json": {
+      "path": ".prism/state/concepts/concept-concept_and_relation_event_streams-61e5277a8a33ac57.json",
+      "sha256": "sha256:ec0241da64c70114a500e86f63d582dfbb8e11e9ff6779e89d2a155d1fe5be43"
+    },
+    ".prism/state/concepts/concept-concept_relation_and_intent_projections-740a5ec37de66f44.json": {
+      "path": ".prism/state/concepts/concept-concept_relation_and_intent_projections-740a5ec37de66f44.json",
+      "sha256": "sha256:05b51e5481ae4319ffb1e6fcea95ab7f5c76b2175ea2d54ea135d27e3bfa7445"
+    },
+    ".prism/state/concepts/concept-coordination_and_plan_runtime-c2ad3831fe492db4.json": {
+      "path": ".prism/state/concepts/concept-coordination_and_plan_runtime-c2ad3831fe492db4.json",
+      "sha256": "sha256:3bd90854600698b68b343fd6cffebe396c9d86f250af938c413c5e1ecca0c0e2"
+    },
+    ".prism/state/concepts/concept-coordination_and_plan_runtime_queries-c018dd25e6856565.json": {
+      "path": ".prism/state/concepts/concept-coordination_and_plan_runtime_queries-c018dd25e6856565.json",
+      "sha256": "sha256:fb167935bfa30ba91c24cf722ed0db9d7b0cabc077869231da406f71e05f0eb9"
+    },
+    ".prism/state/concepts/concept-coordination_mutation_and_policy_helpers-0c214caa7280e72a.json": {
+      "path": ".prism/state/concepts/concept-coordination_mutation_and_policy_helpers-0c214caa7280e72a.json",
+      "sha256": "sha256:605d87ce5295d14ca96d13dc5e679582d67f27cd64c0a3708e9aeb9fef967d05"
+    },
+    ".prism/state/concepts/concept-coordination_operations_and_policy-33d49d57cd8ad3d3.json": {
+      "path": ".prism/state/concepts/concept-coordination_operations_and_policy-33d49d57cd8ad3d3.json",
+      "sha256": "sha256:26a5d0f159a910ddb1d1a9d4ec74678d3d15fd158d24b6ce1f93f5093e786e8f"
+    },
+    ".prism/state/concepts/concept-coordination_query_and_blocker_operations-0c06d61bbae25f76.json": {
+      "path": ".prism/state/concepts/concept-coordination_query_and_blocker_operations-0c06d61bbae25f76.json",
+      "sha256": "sha256:a62a8133a2b0b0bd895bc728dcd56b194eef5c05cd324582a53def160b292de4"
+    },
+    ".prism/state/concepts/concept-coordination_state_model-6bbc8d36c9fbaa89.json": {
+      "path": ".prism/state/concepts/concept-coordination_state_model-6bbc8d36c9fbaa89.json",
+      "sha256": "sha256:8a3e6a3e5233537e7464484582d515f1ed0eb92e1d0813614b6ffd9e0b4225ac"
+    },
+    ".prism/state/concepts/concept-coordination_store_and_domain_types-a45b6d4ec0b0f379.json": {
+      "path": ".prism/state/concepts/concept-coordination_store_and_domain_types-a45b6d4ec0b0f379.json",
+      "sha256": "sha256:c10bed3398dad11918ae73cfcce96e3d76ca56fa0fc371ef6fbe7d51d9eebd0a"
+    },
+    ".prism/state/concepts/concept-core_indexing_pipeline-6251134a5772ed28.json": {
+      "path": ".prism/state/concepts/concept-core_indexing_pipeline-6251134a5772ed28.json",
+      "sha256": "sha256:aca3b39be164f41b34b209ec62c0d3d0a390d764a9335760ab2a570649187dc1"
+    },
+    ".prism/state/concepts/concept-curator_backend_execution_and_prompting-288456717906494f.json": {
+      "path": ".prism/state/concepts/concept-curator_backend_execution_and_prompting-288456717906494f.json",
+      "sha256": "sha256:c827c48e00e367bc4f547bc26fc2661cc53e5c93547365fc9caadb406b99a0b2"
+    },
+    ".prism/state/concepts/concept-curator_execution_flow-85243383ab67966d.json": {
+      "path": ".prism/state/concepts/concept-curator_execution_flow-85243383ab67966d.json",
+      "sha256": "sha256:42cde4908e29c3ce1bf863713ed99c34d15d94ec5d58a7a3349e563005860022"
+    },
+    ".prism/state/concepts/concept-curator_rule_synthesis_and_proposal_types-c48ff36037c328cd.json": {
+      "path": ".prism/state/concepts/concept-curator_rule_synthesis_and_proposal_types-c48ff36037c328cd.json",
+      "sha256": "sha256:7ce2433a1d0d061c1b813c45f3388c8faf86500a330fa3973040b5010fbac2e3"
+    },
+    ".prism/state/concepts/concept-daemon_process_and_proxy_lifecycle-28253f0d788c80c8.json": {
+      "path": ".prism/state/concepts/concept-daemon_process_and_proxy_lifecycle-28253f0d788c80c8.json",
+      "sha256": "sha256:bcc931522d7522601a91a4d2d9a8f50951970abd20e00a6d6008874742a86d7f"
+    },
+    ".prism/state/concepts/concept-dashboard_events_and_read_models-659947181a65a731.json": {
+      "path": ".prism/state/concepts/concept-dashboard_events_and_read_models-659947181a65a731.json",
+      "sha256": "sha256:61b698486c83367f728e5d36fd66f7a58d1c6f8ec7b0454cedfae27b81725302"
+    },
+    ".prism/state/concepts/concept-dashboard_routing_and_assets-32987bb3e6225de1.json": {
+      "path": ".prism/state/concepts/concept-dashboard_routing_and_assets-32987bb3e6225de1.json",
+      "sha256": "sha256:500eda4d634f56398987b2535ecf2c9cdd42601cc9f1cdfa562bcd4e04a3f714"
+    },
+    ".prism/state/concepts/concept-dashboard_surface-8f14700fb76c92d5.json": {
+      "path": ".prism/state/concepts/concept-dashboard_surface-8f14700fb76c92d5.json",
+      "sha256": "sha256:cf24879be0f1e588002f64cefac34c5a9a3545d93e99bf16261bd76d983f28c8"
+    },
+    ".prism/state/concepts/concept-document_and_config_adapters-811c9b5eb0c269ba.json": {
+      "path": ".prism/state/concepts/concept-document_and_config_adapters-811c9b5eb0c269ba.json",
+      "sha256": "sha256:b2b1423bc2ce6a0fc3a576e737cb6aec7a0c62ba87aaf442fa5332ff8be8d836"
+    },
+    ".prism/state/concepts/concept-facade_modularity_rule-32c52abe11e87c0e.json": {
+      "path": ".prism/state/concepts/concept-facade_modularity_rule-32c52abe11e87c0e.json",
+      "sha256": "sha256:c240ff959524d204dd8a982c4a9a72a04876a8b0c49d54e7b7ebbc0f67894f04"
+    },
+    ".prism/state/concepts/concept-graph_identity_and_parse_ir-037759b4a2b19e74.json": {
+      "path": ".prism/state/concepts/concept-graph_identity_and_parse_ir-037759b4a2b19e74.json",
+      "sha256": "sha256:4c7cd5aad3ea965441d8f93d834514f497e508e9c891ce06f0b81d8e75ff91c6"
+    },
+    ".prism/state/concepts/concept-history_snapshot_and_resolution-2076caa7139d78d4.json": {
+      "path": ".prism/state/concepts/concept-history_snapshot_and_resolution-2076caa7139d78d4.json",
+      "sha256": "sha256:812dc5bc087b4fab2d494c918c5b654e69af6da506afb7475d7edec4f03c6f1d"
+    },
+    ".prism/state/concepts/concept-impact_and_outcome_queries-078547f5b648a1cf.json": {
+      "path": ".prism/state/concepts/concept-impact_and_outcome_queries-078547f5b648a1cf.json",
+      "sha256": "sha256:9026e9e081f038c783b9dd470429387866e6fed380121837e003b7b3123f4e90"
+    },
+    ".prism/state/concepts/concept-indexer_orchestration_and_snapshot_loading-184d41210dd53207.json": {
+      "path": ".prism/state/concepts/concept-indexer_orchestration_and_snapshot_loading-184d41210dd53207.json",
+      "sha256": "sha256:27b0404754c94c8c0dcb3314780e738d84a186d987a779ed59c446c21bc4818f"
+    },
+    ".prism/state/concepts/concept-inferred_edge_runtime_and_session_store-106d89084d6b21c4.json": {
+      "path": ".prism/state/concepts/concept-inferred_edge_runtime_and_session_store-106d89084d6b21c4.json",
+      "sha256": "sha256:b78eff19d03fba15a7f1cb30f6f97b23acaa0452e69b0c5feb578e4a4fb51909"
+    },
+    ".prism/state/concepts/concept-javascript_api_contract_surface-bcc148f688651d56.json": {
+      "path": ".prism/state/concepts/concept-javascript_api_contract_surface-bcc148f688651d56.json",
+      "sha256": "sha256:70e987694efd9970367008d83c9910e9a99862ecd16a5a6859b114291e9e8c2d"
+    },
+    ".prism/state/concepts/concept-javascript_query_abi-7a913fd3b8bbf10c.json": {
+      "path": ".prism/state/concepts/concept-javascript_query_abi-7a913fd3b8bbf10c.json",
+      "sha256": "sha256:98b4ce9224e709d73c046b322992e5fb13e102bd9b030d289dae750e52bf4c00"
+    },
+    ".prism/state/concepts/concept-javascript_runtime_and_reference_bridge-75affa05b8c41a22.json": {
+      "path": ".prism/state/concepts/concept-javascript_runtime_and_reference_bridge-75affa05b8c41a22.json",
+      "sha256": "sha256:a194525054b5e65541542705fb4998f92450368dd5743e2618f0d782ae518272"
+    },
+    ".prism/state/concepts/concept-language_adapter_family-1fa9c0f8b087853c.json": {
+      "path": ".prism/state/concepts/concept-language_adapter_family-1fa9c0f8b087853c.json",
+      "sha256": "sha256:0b54eaeac6595eb0b03c26f88bed5ea3aed7135a71848d8124c016cbf0e1d15e"
+    },
+    ".prism/state/concepts/concept-locate_ranking_and_text_candidate_flow-1cc13a65323c24b9.json": {
+      "path": ".prism/state/concepts/concept-locate_ranking_and_text_candidate_flow-1cc13a65323c24b9.json",
+      "sha256": "sha256:5b42379588748e77bc0fea336e8bb9ea39cfa8182ffa5019cd641a9a20d5250d"
+    },
+    ".prism/state/concepts/concept-markdown_heading_and_intent_adapter-0f95c012949d36a9.json": {
+      "path": ".prism/state/concepts/concept-markdown_heading_and_intent_adapter-0f95c012949d36a9.json",
+      "sha256": "sha256:ffcaa4c7dadd757955277f1c73f614b89d2220cb256ee9deb8479e3975fdd8b6"
+    },
+    ".prism/state/concepts/concept-mcp_mutation_and_session_host-3893daa7b76f2148.json": {
+      "path": ".prism/state/concepts/concept-mcp_mutation_and_session_host-3893daa7b76f2148.json",
+      "sha256": "sha256:5f92fdcb4df9136c8143f8464d6c4c5751a80a0361e5d35836f80ebb3c814e79"
+    },
+    ".prism/state/concepts/concept-mcp_query_and_resource_serving-ab82bcfe81d44218.json": {
+      "path": ".prism/state/concepts/concept-mcp_query_and_resource_serving-ab82bcfe81d44218.json",
+      "sha256": "sha256:37ebe3a125b004d3319dd41afb0507fb855cbeecffc3245964fe91be4435f832"
+    },
+    ".prism/state/concepts/concept-mcp_runtime_lifecycle-81848f9743d54c19.json": {
+      "path": ".prism/state/concepts/concept-mcp_runtime_lifecycle-81848f9743d54c19.json",
+      "sha256": "sha256:c5f360faa14b4b768d0df7189dbfff1e644e450d342e385a3ea05525c13c8727"
+    },
+    ".prism/state/concepts/concept-mcp_runtime_surface-7e259445836dd027.json": {
+      "path": ".prism/state/concepts/concept-mcp_runtime_surface-7e259445836dd027.json",
+      "sha256": "sha256:639ca472c05eec2e6530e444aea3b39659d52cfd73dfccda4e600fa70d5db9c2"
+    },
+    ".prism/state/concepts/concept-memory_outcomes_and_session_history-cfaf55764d684230.json": {
+      "path": ".prism/state/concepts/concept-memory_outcomes_and_session_history-cfaf55764d684230.json",
+      "sha256": "sha256:f8a3f21c83b7ee39c66caa88f7f664e6626094fa82a80df9f5f34bba03725a28"
+    },
+    ".prism/state/concepts/concept-memory_projection_persistence-b1da0f64ad8dc536.json": {
+      "path": ".prism/state/concepts/concept-memory_projection_persistence-b1da0f64ad8dc536.json",
+      "sha256": "sha256:5aedd634766fcdf2b4ba853bc440816c6da3d5aade40a266cb863bb4d15ab9f1"
+    },
+    ".prism/state/concepts/concept-memory_recall_and_scoring-ea5d4937e4c24353.json": {
+      "path": ".prism/state/concepts/concept-memory_recall_and_scoring-ea5d4937e4c24353.json",
+      "sha256": "sha256:064387e944f0651423c9e9d2dca2b81671ec1d0c47e0c01631e662fc8aa02c04"
+    },
+    ".prism/state/concepts/concept-memory_refresh_and_patch_outcome_recording-0afcc9cf2ab9d93c.json": {
+      "path": ".prism/state/concepts/concept-memory_refresh_and_patch_outcome_recording-0afcc9cf2ab9d93c.json",
+      "sha256": "sha256:4a8675c996ace7ed1a448e6ac18b6e04d27e79fd9289aa384a2c761b98d1588d"
+    },
+    ".prism/state/concepts/concept-memory_system-ce78030e036857be.json": {
+      "path": ".prism/state/concepts/concept-memory_system-ce78030e036857be.json",
+      "sha256": "sha256:9cd84357517692e08156aac9ac196dfcdbac49086e921bb3c09d303533efd960"
+    },
+    ".prism/state/concepts/concept-mutation_argument_and_schema_surface-74552800cfda0d2e.json": {
+      "path": ".prism/state/concepts/concept-mutation_argument_and_schema_surface-74552800cfda0d2e.json",
+      "sha256": "sha256:a75d1f973bb06893a93c3da1d9d96678ac3e66f7c21b463e0600eb67fe899596"
+    },
+    ".prism/state/concepts/concept-open_and_workset_followthrough-c3eb4185f1c99143.json": {
+      "path": ".prism/state/concepts/concept-open_and_workset_followthrough-c3eb4185f1c99143.json",
+      "sha256": "sha256:c62af39c153394f3fdeed5658f3a7cff30d490732d8418e22417115a3ed43271"
+    },
+    ".prism/state/concepts/concept-outcome_event_and_replay_memory-5f0e3ae714747c0d.json": {
+      "path": ".prism/state/concepts/concept-outcome_event_and_replay_memory-5f0e3ae714747c0d.json",
+      "sha256": "sha256:2aa8da892b6f2c78ad408c4e78aa4fd753bf83b1894d92a1fc8234bd2e926073"
+    },
+    ".prism/state/concepts/concept-parse_resolution_and_reanchor_flow-57a4e643717b07ec.json": {
+      "path": ".prism/state/concepts/concept-parse_resolution_and_reanchor_flow-57a4e643717b07ec.json",
+      "sha256": "sha256:7a8413f417e0798642859c834c06e4773e807a7bf8a55adc7b639b5e25bcfb7a"
+    },
+    ".prism/state/concepts/concept-parser_contract_and_fingerprint_utilities-621d9b7e13ea7d48.json": {
+      "path": ".prism/state/concepts/concept-parser_contract_and_fingerprint_utilities-621d9b7e13ea7d48.json",
+      "sha256": "sha256:9f753f342b42fc6116c8107971344678269e5530d767830f7a83af7ad96f62e4"
+    },
+    ".prism/state/concepts/concept-persistence_and_history-c89294c2540527b9.json": {
+      "path": ".prism/state/concepts/concept-persistence_and_history-c89294c2540527b9.json",
+      "sha256": "sha256:c02c5f03e8c218980377a9738f8997d1117e45c54edef898cee89149bf573808"
+    },
+    ".prism/state/concepts/concept-persistence_split-3e5c60e24a742e5c.json": {
+      "path": ".prism/state/concepts/concept-persistence_split-3e5c60e24a742e5c.json",
+      "sha256": "sha256:b2b9f948e3155a5454e91c5eef6c28c61a7c78e9ee9564355baa487b036e77b3"
+    },
+    ".prism/state/concepts/concept-plan_and_coordination_ir-272e6be7f123daba.json": {
+      "path": ".prism/state/concepts/concept-plan_and_coordination_ir-272e6be7f123daba.json",
+      "sha256": "sha256:3d7ec7f92bb272a4fb1a36a92171b0814cfc78f1d8a74d294ed83339905ad39d"
+    },
+    ".prism/state/concepts/concept-plan_and_repo_layout_publication-74a359dd18d26db5.json": {
+      "path": ".prism/state/concepts/concept-plan_and_repo_layout_publication-74a359dd18d26db5.json",
+      "sha256": "sha256:e816c5fcb058ab9a169778263289f3e9fbf9a5383077a910daee530cabd1b062"
+    },
+    ".prism/state/concepts/concept-plan_completion_and_insight_queries-ef41064d27d26f5d.json": {
+      "path": ".prism/state/concepts/concept-plan_completion_and_insight_queries-ef41064d27d26f5d.json",
+      "sha256": "sha256:0023e07c4a61401f3bb4f5e99b1fa9e19d33f2f50d7411e5f65dc84a63e7a915"
+    },
+    ".prism/state/concepts/concept-plan_graph_compatibility_and_runtime_overlays-8e4216bd62356abc.json": {
+      "path": ".prism/state/concepts/concept-plan_graph_compatibility_and_runtime_overlays-8e4216bd62356abc.json",
+      "sha256": "sha256:4a41f2ae9fedbcd1332c57253cea3d4e83c22aaff6b4debf8712486349bed4bc"
+    },
+    ".prism/state/concepts/concept-principal_identity_and_mutation_provenance-17ac6fdcecb1f5d6.json": {
+      "path": ".prism/state/concepts/concept-principal_identity_and_mutation_provenance-17ac6fdcecb1f5d6.json",
+      "sha256": "sha256:381ef821185ab451b4fdae209889cc23fc87bf6453c87b22731bc1d4c9c2f73a"
+    },
+    ".prism/state/concepts/concept-prism_architecture-de0ea29111f2308d.json": {
+      "path": ".prism/state/concepts/concept-prism_architecture-de0ea29111f2308d.json",
+      "sha256": "sha256:3da47569a4dd80c86a748938978308eaf3bb63f9d75356601ca13867f1d273ce"
+    },
+    ".prism/state/concepts/concept-projection_and_query_layer-40929cd7972d1203.json": {
+      "path": ".prism/state/concepts/concept-projection_and_query_layer-40929cd7972d1203.json",
+      "sha256": "sha256:452f638abf04c0c884994fa20d43a1b272e8c0c0e3a7a84ff8b0f36cb9186828"
+    },
+    ".prism/state/concepts/concept-published_knowledge_and_memory_event_logs-6da3874b2315fdc4.json": {
+      "path": ".prism/state/concepts/concept-published_knowledge_and_memory_event_logs-6da3874b2315fdc4.json",
+      "sha256": "sha256:8b06d8a3f305b6d9b03b5c30d0dadcda190a0b4ec463647cc208e433bed497a8"
+    },
+    ".prism/state/concepts/concept-python_tree_sitter_adapter_pipeline-925486e51be1a16c.json": {
+      "path": ".prism/state/concepts/concept-python_tree_sitter_adapter_pipeline-925486e51be1a16c.json",
+      "sha256": "sha256:eff3d897b31f053758576c59549902bcdaedd24105f35ac82e37d95fe6bcced3"
+    },
+    ".prism/state/concepts/concept-query_coordination_and_plan_views-71fbb973192adf68.json": {
+      "path": ".prism/state/concepts/concept-query_coordination_and_plan_views-71fbb973192adf68.json",
+      "sha256": "sha256:df085651520c1a01c4430d8035332c8b5e293062f395a7c98d4ce3200fed7bac"
+    },
+    ".prism/state/concepts/concept-query_execution_and_semantic_context_serving-ac639d2f4e569166.json": {
+      "path": ".prism/state/concepts/concept-query_execution_and_semantic_context_serving-ac639d2f4e569166.json",
+      "sha256": "sha256:bfbc371f0a397aa1ffc7088fa0d6decf590dfc81c809ecfdef38f3f75a640c49"
+    },
+    ".prism/state/concepts/concept-query_symbol_and_change_contexts-3c2d9a4851921d2a.json": {
+      "path": ".prism/state/concepts/concept-query_symbol_and_change_contexts-3c2d9a4851921d2a.json",
+      "sha256": "sha256:970df1f4d04c6236ba35c3b94e6dae9092dd732650c1757046d8192f6dfe9970"
+    },
+    ".prism/state/concepts/concept-recall_signal_and_text_scoring-a3d1eea39ea3d1d6.json": {
+      "path": ".prism/state/concepts/concept-recall_signal_and_text_scoring-a3d1eea39ea3d1d6.json",
+      "sha256": "sha256:54aac5adbc1ccc576152fbf1e8a1dd54895c27c2eca3fa5df1fa659c00536a70"
+    },
+    ".prism/state/concepts/concept-repo_publication_guards-998847d5682733fa.json": {
+      "path": ".prism/state/concepts/concept-repo_publication_guards-998847d5682733fa.json",
+      "sha256": "sha256:b345d2f1aadcae004e4143cffdf47c9594962a567e8db35981d1afacaffc9fdf"
+    },
+    ".prism/state/concepts/concept-resource_schemas_and_host_resource_serving-57dc5f72a1a27d6f.json": {
+      "path": ".prism/state/concepts/concept-resource_schemas_and_host_resource_serving-57dc5f72a1a27d6f.json",
+      "sha256": "sha256:e32540460758d8269b4db4bce4d70f67971adc8106c62b6c5dce0ddf48cb2ca1"
+    },
+    ".prism/state/concepts/concept-rust_tree_sitter_adapter_pipeline-dd073fb8f6895f15.json": {
+      "path": ".prism/state/concepts/concept-rust_tree_sitter_adapter_pipeline-dd073fb8f6895f15.json",
+      "sha256": "sha256:c25e814d5bbfa7dbe9b07a26ca38748805607dfba1405f6090a8bd7e1fbe0cfc"
+    },
+    ".prism/state/concepts/concept-semantic_and_structural_memory_models-f34e860dce8fcaaf.json": {
+      "path": ".prism/state/concepts/concept-semantic_and_structural_memory_models-f34e860dce8fcaaf.json",
+      "sha256": "sha256:3f1b9bab526823e03a3aefe5eba7c7e20387c87d0e6b1ef7196bb3de3225fe21"
+    },
+    ".prism/state/concepts/concept-semantic_memory_backend_runtime-fb5d8f051b791a0f.json": {
+      "path": ".prism/state/concepts/concept-semantic_memory_backend_runtime-fb5d8f051b791a0f.json",
+      "sha256": "sha256:da169ec504b8ee1f70660661d7dba5f67756a2d91e939ae8614d921e091ff292"
+    },
+    ".prism/state/concepts/concept-semantic_projection_indexes-7d893bb7bb152057.json": {
+      "path": ".prism/state/concepts/concept-semantic_projection_indexes-7d893bb7bb152057.json",
+      "sha256": "sha256:2ee90d44d1b292857c1aa94111e8fee5a946d25e7db3dd90780b2e3a57d682ab"
+    },
+    ".prism/state/concepts/concept-server_surface_and_runtime_health_views-d87b8817fac2c251.json": {
+      "path": ".prism/state/concepts/concept-server_surface_and_runtime_health_views-d87b8817fac2c251.json",
+      "sha256": "sha256:77811e4c47999fd0368b535827639b706090be123aa62c515b6e59f7dea1153f"
+    },
+    ".prism/state/concepts/concept-session_and_episodic_memory_store-974a3a51b776dd03.json": {
+      "path": ".prism/state/concepts/concept-session_and_episodic_memory_store-974a3a51b776dd03.json",
+      "sha256": "sha256:ad1f5faa4458c3ceeaa061f602fd480e7072f718fe6b4021c39bafe622fff8a2"
+    },
+    ".prism/state/concepts/concept-session_state_and_mutation_runtime-1fd5f64b629ad626.json": {
+      "path": ".prism/state/concepts/concept-session_state_and_mutation_runtime-1fd5f64b629ad626.json",
+      "sha256": "sha256:3847b4c835594a379e7298aa991677a4a5dea6a3d3375009f295358a0122cfaf"
+    },
+    ".prism/state/concepts/concept-sqlite_and_graph_persistence-533e222a268e92e8.json": {
+      "path": ".prism/state/concepts/concept-sqlite_and_graph_persistence-533e222a268e92e8.json",
+      "sha256": "sha256:1df7db41f632b950929205e6bbbdf3954fa092093844879dabe9382aa1ca2791"
+    },
+    ".prism/state/concepts/concept-structural_ir-79a12e9c8eda9008.json": {
+      "path": ".prism/state/concepts/concept-structural_ir-79a12e9c8eda9008.json",
+      "sha256": "sha256:e0d2a7442ab6eec8e4245ce1988e9b4d7d1060b1689fa77881df9ba7dc05c2f8"
+    },
+    ".prism/state/concepts/concept-structural_memory_feature_model-9f2bb9be3d33d73d.json": {
+      "path": ".prism/state/concepts/concept-structural_memory_feature_model-9f2bb9be3d33d73d.json",
+      "sha256": "sha256:ca800a2592a5f5a0241547d796e3822eae9f490e700ab4a55e91f08f81060ee9"
+    },
+    ".prism/state/concepts/concept-structured_config_value_adapters-75b182f2e2b0a39c.json": {
+      "path": ".prism/state/concepts/concept-structured_config_value_adapters-75b182f2e2b0a39c.json",
+      "sha256": "sha256:2147f5ab3ff72ef92c24d33e7e49c5166e0b0b74011ef2762f023f761c6e0f15"
+    },
+    ".prism/state/concepts/concept-symbol_source_and_relation_queries-e4c75defe3830475.json": {
+      "path": ".prism/state/concepts/concept-symbol_source_and_relation_queries-e4c75defe3830475.json",
+      "sha256": "sha256:c8b6a4d6a7367cc5046315345372400156713c9007fba9b4d19ab6b557b6142c"
+    },
+    ".prism/state/concepts/concept-task_brief_and_coordination_summary_views-7675d0b2214efd57.json": {
+      "path": ".prism/state/concepts/concept-task_brief_and_coordination_summary_views-7675d0b2214efd57.json",
+      "sha256": "sha256:c92d62be10fc5f94de95e77e7437955b051ae2428bdccd3e3eac00558a1ccfe3"
+    },
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
       "path": ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json",
       "sha256": "sha256:0d7765efeb305f3eaaf87783ef10d33248e5cb1d4390804a70e5fa6df559906d"
+    },
+    ".prism/state/concepts/concept-validation_and_dogfooding-ae711c1eca41a5f2.json": {
+      "path": ".prism/state/concepts/concept-validation_and_dogfooding-ae711c1eca41a5f2.json",
+      "sha256": "sha256:95ef1cc9492016e244a55761c3568c97152e03802c45019fcff16355551321c4"
+    },
+    ".prism/state/concepts/concept-validation_feedback_and_metrics_loop-09ba7df27afc4dda.json": {
+      "path": ".prism/state/concepts/concept-validation_feedback_and_metrics_loop-09ba7df27afc4dda.json",
+      "sha256": "sha256:e7bca317138aac7659b538722504c92262ab652f80c94be52167118a156bc909"
+    },
+    ".prism/state/concepts/concept-validation_pipeline-18f310987e9be0d2.json": {
+      "path": ".prism/state/concepts/concept-validation_pipeline-18f310987e9be0d2.json",
+      "sha256": "sha256:46afb55c4798439d32522c5c424acd6ae2e8ea92b06847218e335b8363827985"
+    },
+    ".prism/state/concepts/concept-validation_policy_and_release_gates-074337c04d64a5d7.json": {
+      "path": ".prism/state/concepts/concept-validation_policy_and_release_gates-074337c04d64a5d7.json",
+      "sha256": "sha256:c2b1745bf8b97104f7331bec967bbf003bed6cadc61682b0d0110e888b42ad8b"
+    },
+    ".prism/state/concepts/concept-workspace_indexing_and_refresh-4b82bffe585bc4a3.json": {
+      "path": ".prism/state/concepts/concept-workspace_indexing_and_refresh-4b82bffe585bc4a3.json",
+      "sha256": "sha256:e993b7f8e20852347cb83dbab9740edee2a1c95d3f263c4629a49c1a276e4f29"
+    },
+    ".prism/state/concepts/concept-workspace_session_refresh_runtime-904d62ca6bdce579.json": {
+      "path": ".prism/state/concepts/concept-workspace_session_refresh_runtime-904d62ca6bdce579.json",
+      "sha256": "sha256:27bcf06ee2c71cabd03fc52d7f0ee95becf8ce63056cf84a4348fb2a435f3f4b"
+    },
+    ".prism/state/concepts/concept-workspace_session_runtime-74c3945553834829.json": {
+      "path": ".prism/state/concepts/concept-workspace_session_runtime-74c3945553834829.json",
+      "sha256": "sha256:6e616b31803ce8376f50041a0e602cc9859c4f1b6b5264e79822d2b15761e60e"
+    },
+    ".prism/state/contracts/contract-compact_tools_surface-f67cd0069512f0e4.json": {
+      "path": ".prism/state/contracts/contract-compact_tools_surface-f67cd0069512f0e4.json",
+      "sha256": "sha256:3df8ee13551f586d7596cae3be50debd31478616ffc1f5e4bdee4ee2a7e5be02"
+    },
+    ".prism/state/contracts/contract-coordination_runtime_continuity-ce775b2842ed10ca.json": {
+      "path": ".prism/state/contracts/contract-coordination_runtime_continuity-ce775b2842ed10ca.json",
+      "sha256": "sha256:2287f3156749a9ebb0e802aed0fef4a3759e3eb4069c6032628ab514f0e26b4a"
+    },
+    ".prism/state/contracts/contract-facade_modularity_rule-4ed847932201e5a0.json": {
+      "path": ".prism/state/contracts/contract-facade_modularity_rule-4ed847932201e5a0.json",
+      "sha256": "sha256:246b43c260b0be537ef77e0b605bfb11a96311cee7e2676fca606753c4a401b6"
+    },
+    ".prism/state/contracts/contract-javascript_query_abi-9aec6c987ff55a9e.json": {
+      "path": ".prism/state/contracts/contract-javascript_query_abi-9aec6c987ff55a9e.json",
+      "sha256": "sha256:5ec7a2ac496e21e323872563fc41c30cc951de0e2d6c4d2c780c76e8ecb9c8e4"
+    },
+    ".prism/state/contracts/contract-persistence_split-0221390d8955e8e8.json": {
+      "path": ".prism/state/contracts/contract-persistence_split-0221390d8955e8e8.json",
+      "sha256": "sha256:9bdd5b8eaaae4a169b4c205a7062cc7a722a7633f73018d937e1704767a0972a"
+    },
+    ".prism/state/contracts/contract-repo_published_knowledge_replay-be466e787b13a358.json": {
+      "path": ".prism/state/contracts/contract-repo_published_knowledge_replay-be466e787b13a358.json",
+      "sha256": "sha256:4b0c71aaecdedc7816e1c981df8c8201ebc0d5e0157d56af790dc3ac9ed4635b"
     },
     ".prism/state/contracts/contract-tracked_state_excludes_operational_change_history-bc5db267c8c11312.json": {
       "path": ".prism/state/contracts/contract-tracked_state_excludes_operational_change_history-bc5db267c8c11312.json",
       "sha256": "sha256:0a81db498639ef3845d8d1b94cd0debb4109f3b7f798bd5746a893a8862af7a8"
     },
+    ".prism/state/contracts/contract-typed_mcp_schema_surface-690bbaae964d1d9c.json": {
+      "path": ".prism/state/contracts/contract-typed_mcp_schema_surface-690bbaae964d1d9c.json",
+      "sha256": "sha256:448e45671d2dbfbbde50e71cd3b5bdbe15650cfdc2d4d90d4370d15cd6b08d98"
+    },
+    ".prism/state/contracts/contract-workspace_refresh_runtime-7dc1184a723084ce.json": {
+      "path": ".prism/state/contracts/contract-workspace_refresh_runtime-7dc1184a723084ce.json",
+      "sha256": "sha256:d90efd26d69e68545ef702253d531fee289c2c818c4be5d673fab39cb28a6216"
+    },
     ".prism/state/indexes/concepts.json": {
       "path": ".prism/state/indexes/concepts.json",
-      "sha256": "sha256:0ef6c0d34e2b50b56202fa3fb90e13d6837a9328306bd8d85e0302eecb7794b3"
+      "sha256": "sha256:3e612890160f0000d2254a5d7e7fdb399256eeccaba2b0241de6dc4847a881e1"
     },
     ".prism/state/indexes/contracts.json": {
       "path": ".prism/state/indexes/contracts.json",
-      "sha256": "sha256:e36f0c04625c0f763c3aefa60343103cdd3205c9eeb051fa7d9fb818d15f7873"
+      "sha256": "sha256:0ecb297140f8a1fb2af523d1003bdfa6baa55c07ecb8849425f8d72a4176ce90"
     },
     ".prism/state/indexes/coordination_materialization.json": {
       "path": ".prism/state/indexes/coordination_materialization.json",
@@ -40,23 +451,955 @@
     },
     ".prism/state/indexes/memory.json": {
       "path": ".prism/state/indexes/memory.json",
-      "sha256": "sha256:fa86bb46c189d762c5c9dfb0b2663355e13160584fd4ce4a476da34999a6de14"
+      "sha256": "sha256:7d355bb70f8e241fb54ebe104862de4b0d303e883038ed44908c6b5040a025c0"
     },
     ".prism/state/indexes/relations.json": {
       "path": ".prism/state/indexes/relations.json",
-      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+      "sha256": "sha256:f9425860b551db0cf0e300acfbbe1f6f639736e788a0a7de95bfa11e40011972"
+    },
+    ".prism/state/memory/memory-01kmwfk9m5skznfys67588df6j-47fa5d627ebec8bb.json": {
+      "path": ".prism/state/memory/memory-01kmwfk9m5skznfys67588df6j-47fa5d627ebec8bb.json",
+      "sha256": "sha256:f469f6e1deb52a43e1120a9505a15033276a84e56a44f685cad1b945457e4e9b"
+    },
+    ".prism/state/memory/memory-01kmwpc4w3rp0pfy6pce3w3816-a466ac442c4b421a.json": {
+      "path": ".prism/state/memory/memory-01kmwpc4w3rp0pfy6pce3w3816-a466ac442c4b421a.json",
+      "sha256": "sha256:d942936f4b3e5ca023ffe5239fa0467fa6878c329f4dd09eb5a1659dcf9c637c"
+    },
+    ".prism/state/memory/memory-01kn07e726myjcgr1rsj33nf6j-de68a110c9ddbdc5.json": {
+      "path": ".prism/state/memory/memory-01kn07e726myjcgr1rsj33nf6j-de68a110c9ddbdc5.json",
+      "sha256": "sha256:4f8f0e103a9d3149b2c992d8418b14b51bfbaf31524b3e76516d789385fe7a01"
+    },
+    ".prism/state/memory/memory-01kn07e79gh5je3z1zk8zgg3qf-0fed99403446870f.json": {
+      "path": ".prism/state/memory/memory-01kn07e79gh5je3z1zk8zgg3qf-0fed99403446870f.json",
+      "sha256": "sha256:bdcb010d5371120b621902bac0c2792bc0cf9dafe2645d2dd0f391c028a98639"
+    },
+    ".prism/state/memory/memory-01kn07e7gtqccwq2yj9fhy2r1k-b0565ef98be7579d.json": {
+      "path": ".prism/state/memory/memory-01kn07e7gtqccwq2yj9fhy2r1k-b0565ef98be7579d.json",
+      "sha256": "sha256:176aaa8fcee32f71f30a917f6738d97354dc446f9e534899b758093d419dc991"
     },
     ".prism/state/memory/memory-01knb0zp726c9zjw7fdhcq1mg3-560606ddf6d87074.json": {
       "path": ".prism/state/memory/memory-01knb0zp726c9zjw7fdhcq1mg3-560606ddf6d87074.json",
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
+    },
+    ".prism/state/memory/memory-21-fb09fd5f60679f53.json": {
+      "path": ".prism/state/memory/memory-21-fb09fd5f60679f53.json",
+      "sha256": "sha256:95e7c09a9e2d72024288f9581c5dbdf3f022d144dcd181a6978608ec5def3081"
+    },
+    ".prism/state/memory/memory-24-1e39afdf04399595.json": {
+      "path": ".prism/state/memory/memory-24-1e39afdf04399595.json",
+      "sha256": "sha256:84d01fd9163768a1b66f1f7a0a33a8dccd777d153acc0e158848c9ee1d2b6031"
+    },
+    ".prism/state/memory/memory-26-4e603e9183b6f8ce.json": {
+      "path": ".prism/state/memory/memory-26-4e603e9183b6f8ce.json",
+      "sha256": "sha256:254f25c5ccf7ee67a9116a33b6356cc69d9d5f6311afc6bf90ee02e75b924bc1"
+    },
+    ".prism/state/memory/memory-28-51768c3d61684e74.json": {
+      "path": ".prism/state/memory/memory-28-51768c3d61684e74.json",
+      "sha256": "sha256:e9d5e5ce2a22f5006e2c7fc12ba6e44528ecb6c458a0c403c33ecaf010492bf0"
+    },
+    ".prism/state/memory/memory-34-e274cd733c1d47a3.json": {
+      "path": ".prism/state/memory/memory-34-e274cd733c1d47a3.json",
+      "sha256": "sha256:87645be5f1c078fa0c95fe15dcef5827825f4709ebd3c1dd980363a567ffd6be"
+    },
+    ".prism/state/memory/memory-67-63a77a2cef6127e9.json": {
+      "path": ".prism/state/memory/memory-67-63a77a2cef6127e9.json",
+      "sha256": "sha256:01702372f4ddd8b358464969ca210fa299837bc11b5e2e071d0d81a53755b2fc"
+    },
+    ".prism/state/memory/memory-68-a1bed08190862741.json": {
+      "path": ".prism/state/memory/memory-68-a1bed08190862741.json",
+      "sha256": "sha256:d49d1c0651e5677d4a01c995062a09afc8d4c730a13f9c38a4607099a3e307ec"
+    },
+    ".prism/state/memory/memory-69-e7077c56eebd3706.json": {
+      "path": ".prism/state/memory/memory-69-e7077c56eebd3706.json",
+      "sha256": "sha256:0e93395b4f2c1cd0639aff7eeffbfe92120f72e821fb96a3c2fa47f913730ea9"
+    },
+    ".prism/state/memory/memory-70-f17de668cf563939.json": {
+      "path": ".prism/state/memory/memory-70-f17de668cf563939.json",
+      "sha256": "sha256:3036a64b9ba59aeebad6da77a5db3a12523c3e2bfca865a4e49f08cfb2290188"
+    },
+    ".prism/state/memory/memory-73-4351d188238ba2b3.json": {
+      "path": ".prism/state/memory/memory-73-4351d188238ba2b3.json",
+      "sha256": "sha256:aa0e045a276c442f0c7a2e242c4762302809c34ba5b1dfc7f807a10d63e5c989"
+    },
+    ".prism/state/memory/memory-74-c8bbd9a3821156a0.json": {
+      "path": ".prism/state/memory/memory-74-c8bbd9a3821156a0.json",
+      "sha256": "sha256:0e41f3cff429986c1be1d35b50310c9f4c1c4b40c9454dfa27ef60aae944dd84"
+    },
+    ".prism/state/memory/memory-75-625943c1b200375b.json": {
+      "path": ".prism/state/memory/memory-75-625943c1b200375b.json",
+      "sha256": "sha256:d1d63e286b6bc48e72091d5302a38331484a5bec3f44e43d8a917942f92a271b"
+    },
+    ".prism/state/memory/memory-78-80d2bb2d5c59a9b3.json": {
+      "path": ".prism/state/memory/memory-78-80d2bb2d5c59a9b3.json",
+      "sha256": "sha256:6e12c22e304857ad5fcdc3bd101a5eb6567e716d8cf1d0a16830a210b31f397c"
+    },
+    ".prism/state/memory/memory-81-6bfdf9ca3eda35f3.json": {
+      "path": ".prism/state/memory/memory-81-6bfdf9ca3eda35f3.json",
+      "sha256": "sha256:11fd247409be2a947e51642e02c5795541eb8ebcfd7bb74e0c1ad6147e70212b"
+    },
+    ".prism/state/memory/semantic-1-4d8e1866c3e2ef73.json": {
+      "path": ".prism/state/memory/semantic-1-4d8e1866c3e2ef73.json",
+      "sha256": "sha256:2160636700ea4956b7efdd46c406d4507a4e84917eee1f963aabcd1101712bf1"
+    },
+    ".prism/state/memory/structural-10-99ad1f9fbae43b3a.json": {
+      "path": ".prism/state/memory/structural-10-99ad1f9fbae43b3a.json",
+      "sha256": "sha256:4416073c066e97514deeb1c6d49eb61da6914b78ca6c64e9db3f24a4682296ac"
+    },
+    ".prism/state/memory/structural-11-48817fb1dc831df6.json": {
+      "path": ".prism/state/memory/structural-11-48817fb1dc831df6.json",
+      "sha256": "sha256:7cc4c3513a1300453a618eaee32a51398d152ea1f9e41230a749627f5b0ee54e"
+    },
+    ".prism/state/memory/structural-12-b46897824238d648.json": {
+      "path": ".prism/state/memory/structural-12-b46897824238d648.json",
+      "sha256": "sha256:819bc6e1e4623bc3526351749425e8386298aeb11a4f51f04834b1ee574a8abb"
+    },
+    ".prism/state/memory/structural-13-d3921751deb87b16.json": {
+      "path": ".prism/state/memory/structural-13-d3921751deb87b16.json",
+      "sha256": "sha256:c65a3dfbc5e06486df616a8f8963948c106a18bbb356004c26a5c2234d14c289"
+    },
+    ".prism/state/memory/structural-14-7922703da4f1dda8.json": {
+      "path": ".prism/state/memory/structural-14-7922703da4f1dda8.json",
+      "sha256": "sha256:5e84df7942c8c277bb18933189dcbd31bded42cee768cff70cc7fcbf9d5a47cc"
+    },
+    ".prism/state/memory/structural-15-1a39680c7b6182bb.json": {
+      "path": ".prism/state/memory/structural-15-1a39680c7b6182bb.json",
+      "sha256": "sha256:bed0d8fa29df49d6ad806bd40581019d3687ba6942dfcdb64db0d3f241819eb9"
+    },
+    ".prism/state/memory/structural-9-c5e95c7271574eb3.json": {
+      "path": ".prism/state/memory/structural-9-c5e95c7271574eb3.json",
+      "sha256": "sha256:9448219e3e74af44b73e3a83218301e10ca4fdc10f9c1e830369d4044fbde94f"
+    },
+    ".prism/state/relations/concept-agent_inference_and_curation-concept-concept_and_publication_pipeline-dependson-c918c0835d8708be.json": {
+      "path": ".prism/state/relations/concept-agent_inference_and_curation-concept-concept_and_publication_pipeline-dependson-c918c0835d8708be.json",
+      "sha256": "sha256:6a5bee9c80c3e390e416cdb177300934ddc2f117d7ba4ed0ecc1562e065dae9e"
+    },
+    ".prism/state/relations/concept-agent_inference_and_curation-concept-prism_architecture-partof-b2d1ef4c5bfd118b.json": {
+      "path": ".prism/state/relations/concept-agent_inference_and_curation-concept-prism_architecture-partof-b2d1ef4c5bfd118b.json",
+      "sha256": "sha256:5b54cc6ba006c1e2467f65d8b7ef88a67cca97d6eb8bc2314acc9f3139966f3a"
+    },
+    ".prism/state/relations/concept-anchor_change_and_lineage_ir-concept-structural_ir-partof-f6078cf32c3fd19e.json": {
+      "path": ".prism/state/relations/concept-anchor_change_and_lineage_ir-concept-structural_ir-partof-f6078cf32c3fd19e.json",
+      "sha256": "sha256:3271b0cc567233917247267baa2d0a1c498fd07f27873e2dc42c4d2a2e80d983"
+    },
+    ".prism/state/relations/concept-cli_command_and_parse_surface-concept-cli_surface-partof-04e165aa5ffad31a.json": {
+      "path": ".prism/state/relations/concept-cli_command_and_parse_surface-concept-cli_surface-partof-04e165aa5ffad31a.json",
+      "sha256": "sha256:4c24fbcde4df32d732b3f8477ed318c2d5baa911625118b46604efb5c010e83f"
+    },
+    ".prism/state/relations/concept-cli_command_and_parse_surface-concept-workspace_indexing_and_refresh-dependson-3c5495fe01ed5fca.json": {
+      "path": ".prism/state/relations/concept-cli_command_and_parse_surface-concept-workspace_indexing_and_refresh-dependson-3c5495fe01ed5fca.json",
+      "sha256": "sha256:e68a89173067dffb0ffef719deeedfbfaf1e1e81e79331cd16501a4e0bab7fa6"
+    },
+    ".prism/state/relations/concept-cli_runtime_and_mcp_control-concept-cli_surface-partof-af6283569bfefb17.json": {
+      "path": ".prism/state/relations/concept-cli_runtime_and_mcp_control-concept-cli_surface-partof-af6283569bfefb17.json",
+      "sha256": "sha256:1af24034e710d8d7b558abee2643ebdca8c59c25bf6f5f066a220856c5694b31"
+    },
+    ".prism/state/relations/concept-cli_runtime_and_mcp_control-concept-mcp_runtime_lifecycle-dependson-858df157a4978aff.json": {
+      "path": ".prism/state/relations/concept-cli_runtime_and_mcp_control-concept-mcp_runtime_lifecycle-dependson-858df157a4978aff.json",
+      "sha256": "sha256:a8abe41a90301c11126769ca4b91a5a27fa075a03a669269cd583e08af3e37f9"
+    },
+    ".prism/state/relations/concept-cli_surface-concept-prism_architecture-partof-8feddf35afd09979.json": {
+      "path": ".prism/state/relations/concept-cli_surface-concept-prism_architecture-partof-8feddf35afd09979.json",
+      "sha256": "sha256:0dc7e21f92a2645f12df38550dba1480fd0ebb74a74cd8f78cff04f3eb78375a"
+    },
+    ".prism/state/relations/concept-cli_surface-concept-workspace_indexing_and_refresh-dependson-6be587da8cf362c7.json": {
+      "path": ".prism/state/relations/concept-cli_surface-concept-workspace_indexing_and_refresh-dependson-6be587da8cf362c7.json",
+      "sha256": "sha256:f8f6a02dd3b53b2c55855b6ebf757419ed5d8161e2978eb56936503676914c81"
+    },
+    ".prism/state/relations/concept-cochange_and_validation_projection_indexes-concept-persistence_and_history-dependson-45e3ec7c39b32f27.json": {
+      "path": ".prism/state/relations/concept-cochange_and_validation_projection_indexes-concept-persistence_and_history-dependson-45e3ec7c39b32f27.json",
+      "sha256": "sha256:38e050e136709f7c3fc83c8fa8bfe696196ed70d86fd94eef4d44c74d98da0dc"
+    },
+    ".prism/state/relations/concept-cochange_and_validation_projection_indexes-concept-semantic_projection_indexes-partof-fc45d8085f7c8cdf.json": {
+      "path": ".prism/state/relations/concept-cochange_and_validation_projection_indexes-concept-semantic_projection_indexes-partof-fc45d8085f7c8cdf.json",
+      "sha256": "sha256:db6625cd0157df702428b2459a352122438a01713a547b1ba5dbaa3a3a8d6a8a"
+    },
+    ".prism/state/relations/concept-code_language_adapters-concept-language_adapter_family-partof-7db2d67b537117a3.json": {
+      "path": ".prism/state/relations/concept-code_language_adapters-concept-language_adapter_family-partof-7db2d67b537117a3.json",
+      "sha256": "sha256:69befd79d4db207cbe9d7b989f92bde0ebd6c3ca507572a70e27bf8a037edee7"
+    },
+    ".prism/state/relations/concept-code_language_adapters-concept-parser_contract_and_fingerprint_utilities-dependson-468610520c3baa85.json": {
+      "path": ".prism/state/relations/concept-code_language_adapters-concept-parser_contract_and_fingerprint_utilities-dependson-468610520c3baa85.json",
+      "sha256": "sha256:5c9bc63e8e75348148bd721b10d357f552dbd951e1d9689052b058c2de909649"
+    },
+    ".prism/state/relations/concept-code_language_adapters-concept-structural_ir-dependson-357a94112513257a.json": {
+      "path": ".prism/state/relations/concept-code_language_adapters-concept-structural_ir-dependson-357a94112513257a.json",
+      "sha256": "sha256:d9e21ef94bcbfb55e24143bb8ef9ec474fb9967d31b211eaad91ace134e6a451"
+    },
+    ".prism/state/relations/concept-compact_discovery_and_opening-concept-compact_tool_surface-partof-a2b8a998895a4643.json": {
+      "path": ".prism/state/relations/concept-compact_discovery_and_opening-concept-compact_tool_surface-partof-a2b8a998895a4643.json",
+      "sha256": "sha256:457214b8d05bf2b288d60b6f57b73b65f43ce70c9421348219472112c58a8821"
+    },
+    ".prism/state/relations/concept-compact_discovery_and_opening-concept-projection_and_query_layer-dependson-8dc4b8e87c9bdeff.json": {
+      "path": ".prism/state/relations/concept-compact_discovery_and_opening-concept-projection_and_query_layer-dependson-8dc4b8e87c9bdeff.json",
+      "sha256": "sha256:dd47e6e8e8a3658719a81e39a5319761c0d8c8b6c3ce44651069f761617f8c12"
+    },
+    ".prism/state/relations/concept-compact_expansion_and_concept_views-concept-compact_tool_surface-partof-23b0200902b8a4e2.json": {
+      "path": ".prism/state/relations/concept-compact_expansion_and_concept_views-concept-compact_tool_surface-partof-23b0200902b8a4e2.json",
+      "sha256": "sha256:28cacfc02a6cf1dca4df52f6c1b312459bc501650fbb7986085b99b27019ddb7"
+    },
+    ".prism/state/relations/concept-compact_expansion_and_concept_views-concept-concept_and_publication_pipeline-dependson-a8248096f749d5a2.json": {
+      "path": ".prism/state/relations/concept-compact_expansion_and_concept_views-concept-concept_and_publication_pipeline-dependson-a8248096f749d5a2.json",
+      "sha256": "sha256:e20d4b32b5d8c02920e7440f795486dd215136b51204c7106a0601791f9ef095"
+    },
+    ".prism/state/relations/concept-compact_expansion_and_concept_views-concept-coordination_and_plan_runtime-oftenusedwith-adb48c54e77c00ad.json": {
+      "path": ".prism/state/relations/concept-compact_expansion_and_concept_views-concept-coordination_and_plan_runtime-oftenusedwith-adb48c54e77c00ad.json",
+      "sha256": "sha256:55035c31edf9707bdbdd82bf05fcbdeeed719836629cc25d31a98d2b6c23e907"
+    },
+    ".prism/state/relations/concept-compact_expansion_and_concept_views-concept-projection_and_query_layer-dependson-1744d9bc23f445d4.json": {
+      "path": ".prism/state/relations/concept-compact_expansion_and_concept_views-concept-projection_and_query_layer-dependson-1744d9bc23f445d4.json",
+      "sha256": "sha256:a90f0229fe6201cf5a1ab67d3bb01960d81ca445ead8f540572a59d98070bf23"
+    },
+    ".prism/state/relations/concept-compact_tool_surface-concept-mcp_runtime_surface-specializes-d1349661abb7728e.json": {
+      "path": ".prism/state/relations/concept-compact_tool_surface-concept-mcp_runtime_surface-specializes-d1349661abb7728e.json",
+      "sha256": "sha256:d2958ccb0df9846b0929f4d95dc9a94f33f95dad470c9fb10dcd1dca7862bed6"
+    },
+    ".prism/state/relations/concept-compact_tool_surface-concept-prism_architecture-partof-c581b212aa1753c8.json": {
+      "path": ".prism/state/relations/concept-compact_tool_surface-concept-prism_architecture-partof-c581b212aa1753c8.json",
+      "sha256": "sha256:6ac32150794b3592850a6fd0524bcb38df594cfa3d97ba64740819eae939d565"
+    },
+    ".prism/state/relations/concept-compact_tool_surface-concept-projection_and_query_layer-dependson-f08747d0d511eaec.json": {
+      "path": ".prism/state/relations/concept-compact_tool_surface-concept-projection_and_query_layer-dependson-f08747d0d511eaec.json",
+      "sha256": "sha256:16941e72de68349809520a5d7956a452688eb7b869c65df29d3c0ec60a383f75"
+    },
+    ".prism/state/relations/concept-compact_tool_surface-concept-validation_and_dogfooding-validatedby-6d7e70d3f49eda69.json": {
+      "path": ".prism/state/relations/concept-compact_tool_surface-concept-validation_and_dogfooding-validatedby-6d7e70d3f49eda69.json",
+      "sha256": "sha256:0d5124ae208b69794d7cddc56056294e21f9639906ea2930e3a908ec9efd5720"
+    },
+    ".prism/state/relations/concept-composite_memory_routing_and_entry_storage-concept-memory_recall_and_scoring-partof-594f1eccde5f1d8d.json": {
+      "path": ".prism/state/relations/concept-composite_memory_routing_and_entry_storage-concept-memory_recall_and_scoring-partof-594f1eccde5f1d8d.json",
+      "sha256": "sha256:5f587e2223e530b381161d212e69f6ddd313ba7b46a4fc4ad610734a73cac690"
+    },
+    ".prism/state/relations/concept-concept_and_expand_decode_runtime-concept-compact_expansion_and_concept_views-partof-b9ce069e53115f0f.json": {
+      "path": ".prism/state/relations/concept-concept_and_expand_decode_runtime-concept-compact_expansion_and_concept_views-partof-b9ce069e53115f0f.json",
+      "sha256": "sha256:620f4cfc1bb1b6d740cb3de1d55720f83b1a7866b19d7ad7aba4c4cf2f3d0021"
+    },
+    ".prism/state/relations/concept-concept_and_expand_decode_runtime-concept-projection_and_query_layer-dependson-63d59e6b8da90b94.json": {
+      "path": ".prism/state/relations/concept-concept_and_expand_decode_runtime-concept-projection_and_query_layer-dependson-63d59e6b8da90b94.json",
+      "sha256": "sha256:6f74d7ee0277f21854e642ba9339a239aa7767dd50d116ff8884cd536c45cc72"
+    },
+    ".prism/state/relations/concept-concept_and_publication_pipeline-concept-prism_architecture-partof-294f98222b4579e4.json": {
+      "path": ".prism/state/relations/concept-concept_and_publication_pipeline-concept-prism_architecture-partof-294f98222b4579e4.json",
+      "sha256": "sha256:eb4c8e0210ecb54ff0d672e6031b7c1f2ffbcbd13c188f6e5e5ce8f28c5ecd22"
+    },
+    ".prism/state/relations/concept-concept_and_publication_pipeline-concept-projection_and_query_layer-dependson-03af1b98dc0b0035.json": {
+      "path": ".prism/state/relations/concept-concept_and_publication_pipeline-concept-projection_and_query_layer-dependson-03af1b98dc0b0035.json",
+      "sha256": "sha256:d10c286915105f7ee04ab4b04e101af9d91812fc98107ccec78beaae05da90b6"
+    },
+    ".prism/state/relations/concept-concept_and_publication_pipeline-concept-validation_and_dogfooding-validatedby-8924181bf005f85c.json": {
+      "path": ".prism/state/relations/concept-concept_and_publication_pipeline-concept-validation_and_dogfooding-validatedby-8924181bf005f85c.json",
+      "sha256": "sha256:a7d3882f329e85f705b6455229c888cdc885ee44e02b245721727f796235bdcb"
+    },
+    ".prism/state/relations/concept-concept_and_relation_event_streams-concept-concept_and_publication_pipeline-partof-dc661727c8b73f26.json": {
+      "path": ".prism/state/relations/concept-concept_and_relation_event_streams-concept-concept_and_publication_pipeline-partof-dc661727c8b73f26.json",
+      "sha256": "sha256:975d2c75e6ca5d0bb6ed2442357a4aa3a54b4bc3b2ef037e17e359d028da6705"
+    },
+    ".prism/state/relations/concept-concept_and_relation_event_streams-concept-semantic_projection_indexes-oftenusedwith-eea31ea410329e1d.json": {
+      "path": ".prism/state/relations/concept-concept_and_relation_event_streams-concept-semantic_projection_indexes-oftenusedwith-eea31ea410329e1d.json",
+      "sha256": "sha256:94a61ecf6faafcb6c5c98fd80a3df13eac0e5f57a24192256fa054d8c580f699"
+    },
+    ".prism/state/relations/concept-concept_relation_and_intent_projections-concept-concept_and_publication_pipeline-dependson-7590ce74185a3d4d.json": {
+      "path": ".prism/state/relations/concept-concept_relation_and_intent_projections-concept-concept_and_publication_pipeline-dependson-7590ce74185a3d4d.json",
+      "sha256": "sha256:cc92963142015436928e9a4532a32715d617c8a016b5ab1a07fc1fd29764bac4"
+    },
+    ".prism/state/relations/concept-concept_relation_and_intent_projections-concept-semantic_projection_indexes-partof-d8670ce667e1f0e4.json": {
+      "path": ".prism/state/relations/concept-concept_relation_and_intent_projections-concept-semantic_projection_indexes-partof-d8670ce667e1f0e4.json",
+      "sha256": "sha256:084d8e02aa8bdb571d2d19de2d7a9ad6a21c04f54335b513340056e5d3775221"
+    },
+    ".prism/state/relations/concept-coordination_and_plan_runtime-concept-prism_architecture-partof-f1686cf8781f7e8e.json": {
+      "path": ".prism/state/relations/concept-coordination_and_plan_runtime-concept-prism_architecture-partof-f1686cf8781f7e8e.json",
+      "sha256": "sha256:66244cf47bd438caf97bbf36498aea775b4f67a282cf28a300f8714a0fce24e9"
+    },
+    ".prism/state/relations/concept-coordination_and_plan_runtime-concept-structural_ir-dependson-4ef850b0764ab7b1.json": {
+      "path": ".prism/state/relations/concept-coordination_and_plan_runtime-concept-structural_ir-dependson-4ef850b0764ab7b1.json",
+      "sha256": "sha256:af06dbae764716a30d1727225fb4156cea48145c5440cb2c997389c81b9b919c"
+    },
+    ".prism/state/relations/concept-coordination_and_plan_runtime-concept-validation_and_dogfooding-validatedby-9958dd715d94b779.json": {
+      "path": ".prism/state/relations/concept-coordination_and_plan_runtime-concept-validation_and_dogfooding-validatedby-9958dd715d94b779.json",
+      "sha256": "sha256:75a85fcceaacf81332a29aced1dc11208c860dbb5b588ed57099045d4c8f1173"
+    },
+    ".prism/state/relations/concept-coordination_and_plan_runtime_queries-concept-coordination_and_plan_runtime-dependson-5c9b87d19f639e27.json": {
+      "path": ".prism/state/relations/concept-coordination_and_plan_runtime_queries-concept-coordination_and_plan_runtime-dependson-5c9b87d19f639e27.json",
+      "sha256": "sha256:40aca71bf58c9775bef4d316bc66ba116c4006b8b2da0cee1253238f0f1cee85"
+    },
+    ".prism/state/relations/concept-coordination_and_plan_runtime_queries-concept-query_coordination_and_plan_views-partof-1c930db9de7d1a86.json": {
+      "path": ".prism/state/relations/concept-coordination_and_plan_runtime_queries-concept-query_coordination_and_plan_views-partof-1c930db9de7d1a86.json",
+      "sha256": "sha256:4c46507532c1d0395b4d6f54e3745258c0603ca608bef839e7255684bce69c01"
+    },
+    ".prism/state/relations/concept-coordination_mutation_and_policy_helpers-concept-coordination_operations_and_policy-partof-0558054e661187fc.json": {
+      "path": ".prism/state/relations/concept-coordination_mutation_and_policy_helpers-concept-coordination_operations_and_policy-partof-0558054e661187fc.json",
+      "sha256": "sha256:d222617d4ab151388cde3aaef37e66f122c77239da63280479cce6d374a96fd4"
+    },
+    ".prism/state/relations/concept-coordination_mutation_and_policy_helpers-concept-coordination_state_model-dependson-62f93f4d9c5527c9.json": {
+      "path": ".prism/state/relations/concept-coordination_mutation_and_policy_helpers-concept-coordination_state_model-dependson-62f93f4d9c5527c9.json",
+      "sha256": "sha256:263911f5c3ec33345ca167ab7303c29e9a34febbd642f4c0ca197de364a91768"
+    },
+    ".prism/state/relations/concept-coordination_mutation_and_policy_helpers-concept-principal_identity_and_mutation_provenance-dependson-822501e131bf3c49.json": {
+      "path": ".prism/state/relations/concept-coordination_mutation_and_policy_helpers-concept-principal_identity_and_mutation_provenance-dependson-822501e131bf3c49.json",
+      "sha256": "sha256:9ff92a5098b6c7846a7ba5b0d312e9d18ad9c57cacc4882a32133f0d39b24be2"
+    },
+    ".prism/state/relations/concept-coordination_mutation_and_policy_helpers-concept-validation_and_dogfooding-validatedby-fbbf36c6d8c539c4.json": {
+      "path": ".prism/state/relations/concept-coordination_mutation_and_policy_helpers-concept-validation_and_dogfooding-validatedby-fbbf36c6d8c539c4.json",
+      "sha256": "sha256:c2b37aaeea9ad37be97eef8cbae9af5cc4908f0524aadbc9850f5894bb45a865"
+    },
+    ".prism/state/relations/concept-coordination_operations_and_policy-concept-coordination_and_plan_runtime-partof-348ff74dc535d497.json": {
+      "path": ".prism/state/relations/concept-coordination_operations_and_policy-concept-coordination_and_plan_runtime-partof-348ff74dc535d497.json",
+      "sha256": "sha256:7fe73dee7dabf2e674f3505ae1de8a19b65521a37257a3443200997276257bdc"
+    },
+    ".prism/state/relations/concept-coordination_operations_and_policy-concept-coordination_state_model-dependson-3f02de9e2b5a1797.json": {
+      "path": ".prism/state/relations/concept-coordination_operations_and_policy-concept-coordination_state_model-dependson-3f02de9e2b5a1797.json",
+      "sha256": "sha256:b890b049d9511b91c6fc92eccb9db5864c92684d5e394b634d4f2f795401f995"
+    },
+    ".prism/state/relations/concept-coordination_operations_and_policy-concept-validation_and_dogfooding-validatedby-88ebc144718ad417.json": {
+      "path": ".prism/state/relations/concept-coordination_operations_and_policy-concept-validation_and_dogfooding-validatedby-88ebc144718ad417.json",
+      "sha256": "sha256:85135f48e0dd6b5609eb34fad538b174b0d184d90ec277830a4405370f8551b1"
+    },
+    ".prism/state/relations/concept-coordination_query_and_blocker_operations-concept-coordination_operations_and_policy-partof-5819be4ef58ba6e2.json": {
+      "path": ".prism/state/relations/concept-coordination_query_and_blocker_operations-concept-coordination_operations_and_policy-partof-5819be4ef58ba6e2.json",
+      "sha256": "sha256:a3d23c478c39d5e58835ed119ea086462ea7b297b035df737877ebae459d0109"
+    },
+    ".prism/state/relations/concept-coordination_query_and_blocker_operations-concept-coordination_state_model-dependson-4670b25005709f90.json": {
+      "path": ".prism/state/relations/concept-coordination_query_and_blocker_operations-concept-coordination_state_model-dependson-4670b25005709f90.json",
+      "sha256": "sha256:7458034eeee020187588b738196aa25c5278d88284d01ff6982a394815bc5892"
+    },
+    ".prism/state/relations/concept-coordination_state_model-concept-coordination_and_plan_runtime-partof-e63dc1cd2d3800e9.json": {
+      "path": ".prism/state/relations/concept-coordination_state_model-concept-coordination_and_plan_runtime-partof-e63dc1cd2d3800e9.json",
+      "sha256": "sha256:f1ac70840d564fb90bb0f9a78dd701b76a2923ca1d1e8a2bd644764f91fceb3f"
+    },
+    ".prism/state/relations/concept-coordination_state_model-concept-structural_ir-dependson-26cd1331b9418611.json": {
+      "path": ".prism/state/relations/concept-coordination_state_model-concept-structural_ir-dependson-26cd1331b9418611.json",
+      "sha256": "sha256:3f26ce2186fd7219f3d8cb5c64888c50a5344fcd333e99917fd7f609cd984152"
+    },
+    ".prism/state/relations/concept-coordination_store_and_domain_types-concept-coordination_state_model-partof-983e2e2d33f93419.json": {
+      "path": ".prism/state/relations/concept-coordination_store_and_domain_types-concept-coordination_state_model-partof-983e2e2d33f93419.json",
+      "sha256": "sha256:ff76150696c3be50c831cd654efb9f426c697dafdfd59820d11debb155e22e05"
+    },
+    ".prism/state/relations/concept-core_indexing_pipeline-concept-language_adapter_family-dependson-addae1cfe8d8df8a.json": {
+      "path": ".prism/state/relations/concept-core_indexing_pipeline-concept-language_adapter_family-dependson-addae1cfe8d8df8a.json",
+      "sha256": "sha256:6f786dcf4bc8fbb264eb5fcc3bdb6024097c41338fac0111236afc3b7fc8cbb0"
+    },
+    ".prism/state/relations/concept-core_indexing_pipeline-concept-structural_ir-dependson-8314347bbfc44fc4.json": {
+      "path": ".prism/state/relations/concept-core_indexing_pipeline-concept-structural_ir-dependson-8314347bbfc44fc4.json",
+      "sha256": "sha256:d8898cff022b12316cc83a418b7b5efbe700342c86cc29b61e5a76c11036fda1"
+    },
+    ".prism/state/relations/concept-core_indexing_pipeline-concept-workspace_indexing_and_refresh-partof-45819e3a22b3c177.json": {
+      "path": ".prism/state/relations/concept-core_indexing_pipeline-concept-workspace_indexing_and_refresh-partof-45819e3a22b3c177.json",
+      "sha256": "sha256:5c23c68afb72fd00ecd8718e0a14b659a49fec4cc248e09943bc2ab11187b17f"
+    },
+    ".prism/state/relations/concept-curator_backend_execution_and_prompting-concept-curator_execution_flow-partof-b3a69da3709edbf0.json": {
+      "path": ".prism/state/relations/concept-curator_backend_execution_and_prompting-concept-curator_execution_flow-partof-b3a69da3709edbf0.json",
+      "sha256": "sha256:8c4baf5a80743e0d6d65931e8c18527d42c599d110c305ad9e755b98f37aa2ec"
+    },
+    ".prism/state/relations/concept-curator_backend_execution_and_prompting-concept-validation_and_dogfooding-validatedby-8e5b9b242da5878e.json": {
+      "path": ".prism/state/relations/concept-curator_backend_execution_and_prompting-concept-validation_and_dogfooding-validatedby-8e5b9b242da5878e.json",
+      "sha256": "sha256:53247fa8022b0040ece765738801be60069238bda7459a5f9758761cabbe336a"
+    },
+    ".prism/state/relations/concept-curator_execution_flow-concept-agent_inference_and_curation-partof-c908fad39285dc22.json": {
+      "path": ".prism/state/relations/concept-curator_execution_flow-concept-agent_inference_and_curation-partof-c908fad39285dc22.json",
+      "sha256": "sha256:d14ca5898786805e4dee661990ca8c646c7a747bb587b752eb7aec13fe3d5c70"
+    },
+    ".prism/state/relations/concept-curator_execution_flow-concept-concept_and_publication_pipeline-dependson-670bcc1c90c44ec1.json": {
+      "path": ".prism/state/relations/concept-curator_execution_flow-concept-concept_and_publication_pipeline-dependson-670bcc1c90c44ec1.json",
+      "sha256": "sha256:11e4d5015e4fd5b8b265c6909337124d9ab6bc792b6c14c59bdd524f3071b1a2"
+    },
+    ".prism/state/relations/concept-curator_execution_flow-concept-validation_and_dogfooding-validatedby-1622baf351045b23.json": {
+      "path": ".prism/state/relations/concept-curator_execution_flow-concept-validation_and_dogfooding-validatedby-1622baf351045b23.json",
+      "sha256": "sha256:938280154f76f08f6a3f2623bee7e02c384cc8f5dbb3f9ba3ec45564a3fbe35c"
+    },
+    ".prism/state/relations/concept-curator_rule_synthesis_and_proposal_types-concept-curator_execution_flow-partof-776a1215e4222d28.json": {
+      "path": ".prism/state/relations/concept-curator_rule_synthesis_and_proposal_types-concept-curator_execution_flow-partof-776a1215e4222d28.json",
+      "sha256": "sha256:bae76c983f7bfddec491b6cc32d82a5eaac43f9a08e21e251579bfd57359e81e"
+    },
+    ".prism/state/relations/concept-curator_rule_synthesis_and_proposal_types-concept-memory_system-dependson-8956f22c3723fce5.json": {
+      "path": ".prism/state/relations/concept-curator_rule_synthesis_and_proposal_types-concept-memory_system-dependson-8956f22c3723fce5.json",
+      "sha256": "sha256:2d8f1d2f93651e19c6d96b4eeb861e021d04117e44ca755a120ae74c5bd39049"
+    },
+    ".prism/state/relations/concept-curator_rule_synthesis_and_proposal_types-concept-projection_and_query_layer-dependson-9464274fb10034c3.json": {
+      "path": ".prism/state/relations/concept-curator_rule_synthesis_and_proposal_types-concept-projection_and_query_layer-dependson-9464274fb10034c3.json",
+      "sha256": "sha256:54a5a4c4002869a9d33a0a58e56209e4bca579a2ad1aee9b4f613252048f8cf0"
+    },
+    ".prism/state/relations/concept-daemon_process_and_proxy_lifecycle-concept-mcp_runtime_lifecycle-partof-08b5cfaa55c15766.json": {
+      "path": ".prism/state/relations/concept-daemon_process_and_proxy_lifecycle-concept-mcp_runtime_lifecycle-partof-08b5cfaa55c15766.json",
+      "sha256": "sha256:5d8bdc78e736ba6738a98c864d014d0ba2e91a0a25b6cc3e82793df270bda0e8"
+    },
+    ".prism/state/relations/concept-dashboard_events_and_read_models-concept-coordination_and_plan_runtime-dependson-67fb33c7fe3af132.json": {
+      "path": ".prism/state/relations/concept-dashboard_events_and_read_models-concept-coordination_and_plan_runtime-dependson-67fb33c7fe3af132.json",
+      "sha256": "sha256:3d1d8311b4ce202e22dfd145f25f87cee8673b6f152028209436a92b15c6a636"
+    },
+    ".prism/state/relations/concept-dashboard_events_and_read_models-concept-dashboard_surface-partof-d7f6da7d2e448164.json": {
+      "path": ".prism/state/relations/concept-dashboard_events_and_read_models-concept-dashboard_surface-partof-d7f6da7d2e448164.json",
+      "sha256": "sha256:884923edc0fac4f07ddaaeef7db2c8a7b2e790e5a64191574aea711781fb53ad"
+    },
+    ".prism/state/relations/concept-dashboard_routing_and_assets-concept-dashboard_surface-partof-b3d3d0887615e096.json": {
+      "path": ".prism/state/relations/concept-dashboard_routing_and_assets-concept-dashboard_surface-partof-b3d3d0887615e096.json",
+      "sha256": "sha256:69faa0edff512dc4e4f88fa87197c020fb0a99c82443f616f8ce34074473e97a"
+    },
+    ".prism/state/relations/concept-dashboard_routing_and_assets-concept-mcp_runtime_surface-dependson-ec0b8935fddd2e79.json": {
+      "path": ".prism/state/relations/concept-dashboard_routing_and_assets-concept-mcp_runtime_surface-dependson-ec0b8935fddd2e79.json",
+      "sha256": "sha256:64ef3a35610c9e94ac2c640e41fb60e32856616b82093164d97a02a210acbdc9"
+    },
+    ".prism/state/relations/concept-dashboard_surface-concept-coordination_and_plan_runtime-dependson-c05c52d224de976e.json": {
+      "path": ".prism/state/relations/concept-dashboard_surface-concept-coordination_and_plan_runtime-dependson-c05c52d224de976e.json",
+      "sha256": "sha256:ad8eb6d97518ceaed0dce1d474820625453d83464cd070125ca7cfac9c3ff79e"
+    },
+    ".prism/state/relations/concept-dashboard_surface-concept-mcp_runtime_surface-specializes-92884c671c2d0e3c.json": {
+      "path": ".prism/state/relations/concept-dashboard_surface-concept-mcp_runtime_surface-specializes-92884c671c2d0e3c.json",
+      "sha256": "sha256:8c08ea09262e0a73a435b6d406e33ea3a52e59d78dd01f38481efa5f3fa1b913"
+    },
+    ".prism/state/relations/concept-dashboard_surface-concept-prism_architecture-partof-c6ff03fd0f486481.json": {
+      "path": ".prism/state/relations/concept-dashboard_surface-concept-prism_architecture-partof-c6ff03fd0f486481.json",
+      "sha256": "sha256:5fceae73cae1d58564d182f0473a07ce79c474b886dd707a84c448f96e6086ac"
+    },
+    ".prism/state/relations/concept-dashboard_surface-concept-validation_and_dogfooding-validatedby-d97ff662f3b3ff56.json": {
+      "path": ".prism/state/relations/concept-dashboard_surface-concept-validation_and_dogfooding-validatedby-d97ff662f3b3ff56.json",
+      "sha256": "sha256:fdf3f5db22c2f4929e6c471bc055cf402f1d8d62bacfd1da90626a315943119f"
+    },
+    ".prism/state/relations/concept-document_and_config_adapters-concept-language_adapter_family-partof-c24dd2be71d4d0b4.json": {
+      "path": ".prism/state/relations/concept-document_and_config_adapters-concept-language_adapter_family-partof-c24dd2be71d4d0b4.json",
+      "sha256": "sha256:4ed04bb5b8f860e064c709e946d5381ed3ebe03bdc5d9bbf369544c0cd6e7737"
+    },
+    ".prism/state/relations/concept-document_and_config_adapters-concept-parser_contract_and_fingerprint_utilities-dependson-182cfdfa0e5b28cc.json": {
+      "path": ".prism/state/relations/concept-document_and_config_adapters-concept-parser_contract_and_fingerprint_utilities-dependson-182cfdfa0e5b28cc.json",
+      "sha256": "sha256:b945196dcdac8e0dc597754875fe4eecc175c0c571654e533f20a8423e9aace2"
+    },
+    ".prism/state/relations/concept-document_and_config_adapters-concept-structural_ir-dependson-964aed0bd66ccb39.json": {
+      "path": ".prism/state/relations/concept-document_and_config_adapters-concept-structural_ir-dependson-964aed0bd66ccb39.json",
+      "sha256": "sha256:46fbe493262a205326bdd12de5eaf2ff40c155d9507c4c7c6cbb4620b1de78de"
+    },
+    ".prism/state/relations/concept-graph_identity_and_parse_ir-concept-structural_ir-partof-cd1fd0a23199891a.json": {
+      "path": ".prism/state/relations/concept-graph_identity_and_parse_ir-concept-structural_ir-partof-cd1fd0a23199891a.json",
+      "sha256": "sha256:fc39f1c91aec0df58752db27d168347973cbb2b52d55c19f8e99397b791e3ed3"
+    },
+    ".prism/state/relations/concept-history_snapshot_and_resolution-concept-persistence_and_history-partof-e9854e14bb498a50.json": {
+      "path": ".prism/state/relations/concept-history_snapshot_and_resolution-concept-persistence_and_history-partof-e9854e14bb498a50.json",
+      "sha256": "sha256:9af4862d3776e4823732cc346ffff3e220c477137767acedd472d0bef9c8fddb"
+    },
+    ".prism/state/relations/concept-history_snapshot_and_resolution-concept-structural_ir-dependson-ff86e1166e2fc9a5.json": {
+      "path": ".prism/state/relations/concept-history_snapshot_and_resolution-concept-structural_ir-dependson-ff86e1166e2fc9a5.json",
+      "sha256": "sha256:4bdc8120ef17be05f1505e2065a07d661097c8dae5681860de756a8b6bba4370"
+    },
+    ".prism/state/relations/concept-impact_and_outcome_queries-concept-memory_system-dependson-8883aaeee8f8f060.json": {
+      "path": ".prism/state/relations/concept-impact_and_outcome_queries-concept-memory_system-dependson-8883aaeee8f8f060.json",
+      "sha256": "sha256:0ec760853559dce311aed3d6a7f235ab405a9cbd72fbaa15a8abc6a66f203342"
+    },
+    ".prism/state/relations/concept-impact_and_outcome_queries-concept-query_symbol_and_change_contexts-partof-87b19ba91766f4dd.json": {
+      "path": ".prism/state/relations/concept-impact_and_outcome_queries-concept-query_symbol_and_change_contexts-partof-87b19ba91766f4dd.json",
+      "sha256": "sha256:a4e68af57fc20d124b0e87e3bc01d9f5628139f442f97188bfa85f514556d3b2"
+    },
+    ".prism/state/relations/concept-indexer_orchestration_and_snapshot_loading-concept-core_indexing_pipeline-partof-a70e722eff6495b1.json": {
+      "path": ".prism/state/relations/concept-indexer_orchestration_and_snapshot_loading-concept-core_indexing_pipeline-partof-a70e722eff6495b1.json",
+      "sha256": "sha256:974af5d528dd7eaf6ba11cb263e6b948e66998ea914bae0193192f95504ddd58"
+    },
+    ".prism/state/relations/concept-indexer_orchestration_and_snapshot_loading-concept-persistence_and_history-dependson-f80845932ec484ac.json": {
+      "path": ".prism/state/relations/concept-indexer_orchestration_and_snapshot_loading-concept-persistence_and_history-dependson-f80845932ec484ac.json",
+      "sha256": "sha256:ad22eb7346f6b0e8976cd091bcced78cc1ca0002ce196c9a6451467205c7c774"
+    },
+    ".prism/state/relations/concept-inferred_edge_runtime_and_session_store-concept-agent_inference_and_curation-partof-dd5444908a85c2a3.json": {
+      "path": ".prism/state/relations/concept-inferred_edge_runtime_and_session_store-concept-agent_inference_and_curation-partof-dd5444908a85c2a3.json",
+      "sha256": "sha256:26b537bc4e8050eeeabebebf01841cb6029ca7dc581498cf7d2a9b1af29e09bf"
+    },
+    ".prism/state/relations/concept-inferred_edge_runtime_and_session_store-concept-mcp_mutation_and_session_host-dependson-029dd4b476ba04f1.json": {
+      "path": ".prism/state/relations/concept-inferred_edge_runtime_and_session_store-concept-mcp_mutation_and_session_host-dependson-029dd4b476ba04f1.json",
+      "sha256": "sha256:b5e6e46029f4f1a980836bebf69d11d813082d51047986f50f3a43f60103c973"
+    },
+    ".prism/state/relations/concept-inferred_edge_runtime_and_session_store-concept-validation_and_dogfooding-validatedby-25c7b7c3a92ca141.json": {
+      "path": ".prism/state/relations/concept-inferred_edge_runtime_and_session_store-concept-validation_and_dogfooding-validatedby-25c7b7c3a92ca141.json",
+      "sha256": "sha256:880e2c005d5cbe18b970d02687b8a8d165d7c81bd2d6f8fae46de3d307942b0e"
+    },
+    ".prism/state/relations/concept-javascript_api_contract_surface-concept-javascript_query_abi-partof-651cafdc6a384db9.json": {
+      "path": ".prism/state/relations/concept-javascript_api_contract_surface-concept-javascript_query_abi-partof-651cafdc6a384db9.json",
+      "sha256": "sha256:364b639e3eeac2641753e232481234034b217d8452d072ac6d60b7b114de18e0"
+    },
+    ".prism/state/relations/concept-javascript_api_contract_surface-concept-mcp_query_and_resource_serving-dependson-c1a9994035616cc5.json": {
+      "path": ".prism/state/relations/concept-javascript_api_contract_surface-concept-mcp_query_and_resource_serving-dependson-c1a9994035616cc5.json",
+      "sha256": "sha256:0dae9b858104bb91498d072bc7fa55230dd1161aa72e3d92f37eecea65ec8bd7"
+    },
+    ".prism/state/relations/concept-javascript_query_abi-concept-mcp_runtime_surface-oftenusedwith-e6b92816fe34711d.json": {
+      "path": ".prism/state/relations/concept-javascript_query_abi-concept-mcp_runtime_surface-oftenusedwith-e6b92816fe34711d.json",
+      "sha256": "sha256:16bde380eb1437d074ba168b9b4f1f261d6867e517821cec6991357e7a04ff0a"
+    },
+    ".prism/state/relations/concept-javascript_query_abi-concept-projection_and_query_layer-partof-cbd5204ffef3917e.json": {
+      "path": ".prism/state/relations/concept-javascript_query_abi-concept-projection_and_query_layer-partof-cbd5204ffef3917e.json",
+      "sha256": "sha256:cb10c6f85b3bd5663305039e452e740f64185f990c5dc64e78e9d62f561cecd8"
+    },
+    ".prism/state/relations/concept-javascript_runtime_and_reference_bridge-concept-javascript_query_abi-partof-ac6cc9a422b197b1.json": {
+      "path": ".prism/state/relations/concept-javascript_runtime_and_reference_bridge-concept-javascript_query_abi-partof-ac6cc9a422b197b1.json",
+      "sha256": "sha256:3e890fd563a7cf9b7ee71c8fc08fce720fae3022a9bc1aacf4d3d996cc85bc6c"
+    },
+    ".prism/state/relations/concept-language_adapter_family-concept-prism_architecture-partof-29d0ab36e4984aa8.json": {
+      "path": ".prism/state/relations/concept-language_adapter_family-concept-prism_architecture-partof-29d0ab36e4984aa8.json",
+      "sha256": "sha256:836e4c371f25858bf1fb48f0806610c02c57f496d68ec301aea357e256ce45eb"
+    },
+    ".prism/state/relations/concept-language_adapter_family-concept-structural_ir-dependson-e78f681626dbcca0.json": {
+      "path": ".prism/state/relations/concept-language_adapter_family-concept-structural_ir-dependson-e78f681626dbcca0.json",
+      "sha256": "sha256:cee22eedbacb6f90e63f12738dba129788c17283f34f728d7daa873c511da70c"
+    },
+    ".prism/state/relations/concept-locate_ranking_and_text_candidate_flow-concept-compact_discovery_and_opening-partof-ca90de2bfd6e983f.json": {
+      "path": ".prism/state/relations/concept-locate_ranking_and_text_candidate_flow-concept-compact_discovery_and_opening-partof-ca90de2bfd6e983f.json",
+      "sha256": "sha256:ec45d191e49006bd5836365769d3f2c6daca155d5c9a36ae8bfd5e377074a453"
+    },
+    ".prism/state/relations/concept-locate_ranking_and_text_candidate_flow-concept-projection_and_query_layer-dependson-eb9e57a336c97106.json": {
+      "path": ".prism/state/relations/concept-locate_ranking_and_text_candidate_flow-concept-projection_and_query_layer-dependson-eb9e57a336c97106.json",
+      "sha256": "sha256:c62d5f39ea50adbde7335f360bbcb4e0aec5194af9b32fa51bd2fbf0ed113875"
+    },
+    ".prism/state/relations/concept-markdown_heading_and_intent_adapter-concept-document_and_config_adapters-partof-c402312d31bb203e.json": {
+      "path": ".prism/state/relations/concept-markdown_heading_and_intent_adapter-concept-document_and_config_adapters-partof-c402312d31bb203e.json",
+      "sha256": "sha256:35aeb7bda8b3aad632cbc994b461f1a3cf586fed3256c6d40737ac5b646106d1"
+    },
+    ".prism/state/relations/concept-markdown_heading_and_intent_adapter-concept-parser_contract_and_fingerprint_utilities-dependson-fe8455ade19f335d.json": {
+      "path": ".prism/state/relations/concept-markdown_heading_and_intent_adapter-concept-parser_contract_and_fingerprint_utilities-dependson-fe8455ade19f335d.json",
+      "sha256": "sha256:2ed769b398c7b38a951b4257d56d9016cd53c7b09064ecfefe0b15cafddcb2b9"
+    },
+    ".prism/state/relations/concept-mcp_mutation_and_session_host-concept-concept_and_publication_pipeline-dependson-edf869135b237e49.json": {
+      "path": ".prism/state/relations/concept-mcp_mutation_and_session_host-concept-concept_and_publication_pipeline-dependson-edf869135b237e49.json",
+      "sha256": "sha256:9d0f4c862cc00af062177d4c0f0d757007aeff7c9b3e3b8ccf2829a7c65f0fd4"
+    },
+    ".prism/state/relations/concept-mcp_mutation_and_session_host-concept-coordination_and_plan_runtime-dependson-9d44ded5e50224cd.json": {
+      "path": ".prism/state/relations/concept-mcp_mutation_and_session_host-concept-coordination_and_plan_runtime-dependson-9d44ded5e50224cd.json",
+      "sha256": "sha256:872432aaa7b9910f2bb39cc34702b7ec1ceb9fe4a2c90a411b1fbc9a935f16d3"
+    },
+    ".prism/state/relations/concept-mcp_mutation_and_session_host-concept-mcp_runtime_surface-partof-9d9023d58b7cd6e4.json": {
+      "path": ".prism/state/relations/concept-mcp_mutation_and_session_host-concept-mcp_runtime_surface-partof-9d9023d58b7cd6e4.json",
+      "sha256": "sha256:d1aa78e01a7630940ffa7453e8b7adf44a61a202f60f37e3989eaa7f8e2002fc"
+    },
+    ".prism/state/relations/concept-mcp_mutation_and_session_host-concept-principal_identity_and_mutation_provenance-dependson-2661d95630eda3dc.json": {
+      "path": ".prism/state/relations/concept-mcp_mutation_and_session_host-concept-principal_identity_and_mutation_provenance-dependson-2661d95630eda3dc.json",
+      "sha256": "sha256:60867f6be688cf6501c5383d7e02e6770a03dcecd8b8247287c5c5dedef4d7a6"
+    },
+    ".prism/state/relations/concept-mcp_mutation_and_session_host-concept-validation_and_dogfooding-validatedby-accf7872aa24b8c1.json": {
+      "path": ".prism/state/relations/concept-mcp_mutation_and_session_host-concept-validation_and_dogfooding-validatedby-accf7872aa24b8c1.json",
+      "sha256": "sha256:f4402998207ac0497986307a3c8a4ad114c9f7b270b0654fc56d4ce3875c8391"
+    },
+    ".prism/state/relations/concept-mcp_query_and_resource_serving-concept-mcp_runtime_surface-partof-53539dd49a065988.json": {
+      "path": ".prism/state/relations/concept-mcp_query_and_resource_serving-concept-mcp_runtime_surface-partof-53539dd49a065988.json",
+      "sha256": "sha256:4f4a9b7c10685b2157557704e2df85ae0baf7193b539c137a7a55518036731c9"
+    },
+    ".prism/state/relations/concept-mcp_query_and_resource_serving-concept-projection_and_query_layer-dependson-eb735756f39d03f1.json": {
+      "path": ".prism/state/relations/concept-mcp_query_and_resource_serving-concept-projection_and_query_layer-dependson-eb735756f39d03f1.json",
+      "sha256": "sha256:b4182856877d93b79ab8b89efbec12f1653d20b12700399f52ad0e4320b6f2b2"
+    },
+    ".prism/state/relations/concept-mcp_runtime_lifecycle-concept-mcp_runtime_surface-partof-cf862fe9ec78d749.json": {
+      "path": ".prism/state/relations/concept-mcp_runtime_lifecycle-concept-mcp_runtime_surface-partof-cf862fe9ec78d749.json",
+      "sha256": "sha256:a8666067fd78ed9c1d88319ceae80615853a72f3929c1c92970f599c4c64874b"
+    },
+    ".prism/state/relations/concept-mcp_runtime_lifecycle-concept-workspace_session_runtime-dependson-0ce9bf0b8cc2deed.json": {
+      "path": ".prism/state/relations/concept-mcp_runtime_lifecycle-concept-workspace_session_runtime-dependson-0ce9bf0b8cc2deed.json",
+      "sha256": "sha256:334f9e6117c63af3f59863e911182bc9e3ac476e102b94803567d4d12486960d"
+    },
+    ".prism/state/relations/concept-mcp_runtime_surface-concept-concept_and_publication_pipeline-dependson-24a72accb8a66bcb.json": {
+      "path": ".prism/state/relations/concept-mcp_runtime_surface-concept-concept_and_publication_pipeline-dependson-24a72accb8a66bcb.json",
+      "sha256": "sha256:83b53f7cece14b4d7d9dc520b0fc6cdc87c36780503d895232e499e544f82a13"
+    },
+    ".prism/state/relations/concept-mcp_runtime_surface-concept-coordination_and_plan_runtime-dependson-aef910b235c37607.json": {
+      "path": ".prism/state/relations/concept-mcp_runtime_surface-concept-coordination_and_plan_runtime-dependson-aef910b235c37607.json",
+      "sha256": "sha256:54c2c7e83982b49d4788912710ba69d926b505f8c0c03e03f9e5d6bd3f85d254"
+    },
+    ".prism/state/relations/concept-mcp_runtime_surface-concept-prism_architecture-partof-1ca1177d768c2f13.json": {
+      "path": ".prism/state/relations/concept-mcp_runtime_surface-concept-prism_architecture-partof-1ca1177d768c2f13.json",
+      "sha256": "sha256:8890bc12f063c875b41febeb85daf90e1036db19344010c4a1bbecda1e0d5d41"
+    },
+    ".prism/state/relations/concept-mcp_runtime_surface-concept-projection_and_query_layer-dependson-9ad6ff19f4e77713.json": {
+      "path": ".prism/state/relations/concept-mcp_runtime_surface-concept-projection_and_query_layer-dependson-9ad6ff19f4e77713.json",
+      "sha256": "sha256:860ca2eb9062551a9e3588402b134f309ecbd4715f10c16587f98d6107ea2442"
+    },
+    ".prism/state/relations/concept-mcp_runtime_surface-concept-validation_and_dogfooding-validatedby-7a4615f2fee60055.json": {
+      "path": ".prism/state/relations/concept-mcp_runtime_surface-concept-validation_and_dogfooding-validatedby-7a4615f2fee60055.json",
+      "sha256": "sha256:283ea8b85d6aeb245b36feb6e1ec3ab31f7b2896c900db27646632e9e9acc32c"
+    },
+    ".prism/state/relations/concept-memory_outcomes_and_session_history-concept-memory_system-partof-a18b4909d447c71b.json": {
+      "path": ".prism/state/relations/concept-memory_outcomes_and_session_history-concept-memory_system-partof-a18b4909d447c71b.json",
+      "sha256": "sha256:bdb67d51ae47b4907db1897bceefa4a031d8fea8f9233a1c95e9190faec6e4f4"
+    },
+    ".prism/state/relations/concept-memory_outcomes_and_session_history-concept-validation_and_dogfooding-validatedby-246895ea06d1ceef.json": {
+      "path": ".prism/state/relations/concept-memory_outcomes_and_session_history-concept-validation_and_dogfooding-validatedby-246895ea06d1ceef.json",
+      "sha256": "sha256:7241749dd7ef6cb636152b9c6960d6bfd1d3fee711c06174aea645ea9e62d677"
+    },
+    ".prism/state/relations/concept-memory_projection_persistence-concept-memory_system-oftenusedwith-7281b41849dfe70f.json": {
+      "path": ".prism/state/relations/concept-memory_projection_persistence-concept-memory_system-oftenusedwith-7281b41849dfe70f.json",
+      "sha256": "sha256:2442fb2f571420f0d93fdb6de14e8176d0a719deb98dd1567dbc88e23638fddd"
+    },
+    ".prism/state/relations/concept-memory_projection_persistence-concept-persistence_and_history-partof-b7e128101512309f.json": {
+      "path": ".prism/state/relations/concept-memory_projection_persistence-concept-persistence_and_history-partof-b7e128101512309f.json",
+      "sha256": "sha256:e141b65a6f2b91bea2a791333f6db7709432aecf116a2bade134b41dcf5c12cc"
+    },
+    ".prism/state/relations/concept-memory_recall_and_scoring-concept-memory_system-partof-5584b7f31369435d.json": {
+      "path": ".prism/state/relations/concept-memory_recall_and_scoring-concept-memory_system-partof-5584b7f31369435d.json",
+      "sha256": "sha256:c884fd9ceaa625ff0040a3f681fb2745b98eee2d98717d7e0289a18a8f13647f"
+    },
+    ".prism/state/relations/concept-memory_recall_and_scoring-concept-semantic_and_structural_memory_models-oftenusedwith-d45564b9e69bd05b.json": {
+      "path": ".prism/state/relations/concept-memory_recall_and_scoring-concept-semantic_and_structural_memory_models-oftenusedwith-d45564b9e69bd05b.json",
+      "sha256": "sha256:3e766abd7f68c5320605e03ba17e8ac108f1e57c9a6a3c27060696ba1c883bfb"
+    },
+    ".prism/state/relations/concept-memory_refresh_and_patch_outcome_recording-concept-memory_system-dependson-95513c965254a79b.json": {
+      "path": ".prism/state/relations/concept-memory_refresh_and_patch_outcome_recording-concept-memory_system-dependson-95513c965254a79b.json",
+      "sha256": "sha256:aa8c015c77120b6ca1b86ff2120d6acbf9982f120d566591ed0bb1850026ac24"
+    },
+    ".prism/state/relations/concept-memory_refresh_and_patch_outcome_recording-concept-validation_and_dogfooding-validatedby-1e9d1f399b79ee54.json": {
+      "path": ".prism/state/relations/concept-memory_refresh_and_patch_outcome_recording-concept-validation_and_dogfooding-validatedby-1e9d1f399b79ee54.json",
+      "sha256": "sha256:03461e18c7ce901b430deabb5c395fc7e10379adf56dbdc5969b843965948e36"
+    },
+    ".prism/state/relations/concept-memory_refresh_and_patch_outcome_recording-concept-workspace_session_runtime-partof-ef261339e5757ba5.json": {
+      "path": ".prism/state/relations/concept-memory_refresh_and_patch_outcome_recording-concept-workspace_session_runtime-partof-ef261339e5757ba5.json",
+      "sha256": "sha256:8e16f97235f2480d062086297ed8ee90ef956f3c12ffdce91dc882449fdf6653"
+    },
+    ".prism/state/relations/concept-memory_system-concept-persistence_and_history-dependson-fda5fac13a6bcfcd.json": {
+      "path": ".prism/state/relations/concept-memory_system-concept-persistence_and_history-dependson-fda5fac13a6bcfcd.json",
+      "sha256": "sha256:3e4ece24050abe351c57f73b1a0b8a385e30234236c423b1569704a273549797"
+    },
+    ".prism/state/relations/concept-memory_system-concept-prism_architecture-partof-0fa21d1bee03b4d6.json": {
+      "path": ".prism/state/relations/concept-memory_system-concept-prism_architecture-partof-0fa21d1bee03b4d6.json",
+      "sha256": "sha256:0ce7f9c8f7f78ffd0f59aa88aeadc1ec9c37934d00f2c9d88c1a90a15667a238"
+    },
+    ".prism/state/relations/concept-memory_system-concept-validation_and_dogfooding-validatedby-2b2b89490ffd0926.json": {
+      "path": ".prism/state/relations/concept-memory_system-concept-validation_and_dogfooding-validatedby-2b2b89490ffd0926.json",
+      "sha256": "sha256:6ef22fe7eaaa29a197251353734a70dc2b2ae64d0658ee5834f5e62bd0b92226"
+    },
+    ".prism/state/relations/concept-mutation_argument_and_schema_surface-concept-mcp_mutation_and_session_host-partof-0738ba12a7e49d40.json": {
+      "path": ".prism/state/relations/concept-mutation_argument_and_schema_surface-concept-mcp_mutation_and_session_host-partof-0738ba12a7e49d40.json",
+      "sha256": "sha256:15e3b11ecbaccefc6805862407d30575bc9aa809f88fd795c7e2ff389b2d7d60"
+    },
+    ".prism/state/relations/concept-mutation_argument_and_schema_surface-concept-validation_and_dogfooding-validatedby-e035f9b0195ce448.json": {
+      "path": ".prism/state/relations/concept-mutation_argument_and_schema_surface-concept-validation_and_dogfooding-validatedby-e035f9b0195ce448.json",
+      "sha256": "sha256:eaf97f1b07be63cbe86089284c430c8f8622d06418811f60dc909f053bc9f0dc"
+    },
+    ".prism/state/relations/concept-open_and_workset_followthrough-concept-compact_discovery_and_opening-partof-3c395e4338851dd7.json": {
+      "path": ".prism/state/relations/concept-open_and_workset_followthrough-concept-compact_discovery_and_opening-partof-3c395e4338851dd7.json",
+      "sha256": "sha256:ca3e4598755651d8a7a1867312ca7f1129cf5dc0ed36f781e5afc7c5f3a73dea"
+    },
+    ".prism/state/relations/concept-open_and_workset_followthrough-concept-projection_and_query_layer-dependson-d6f2498672576af6.json": {
+      "path": ".prism/state/relations/concept-open_and_workset_followthrough-concept-projection_and_query_layer-dependson-d6f2498672576af6.json",
+      "sha256": "sha256:349b3973e69272ecb302768ce91f9640aef58e6d1e186f2cd8fced4628b78a1a"
+    },
+    ".prism/state/relations/concept-outcome_event_and_replay_memory-concept-memory_outcomes_and_session_history-partof-aef8c7f646733df8.json": {
+      "path": ".prism/state/relations/concept-outcome_event_and_replay_memory-concept-memory_outcomes_and_session_history-partof-aef8c7f646733df8.json",
+      "sha256": "sha256:a0e22ff68b92828be68f8c016d3b7dfc4e558f70b9bee59d267c92320e0e3457"
+    },
+    ".prism/state/relations/concept-outcome_event_and_replay_memory-concept-validation_and_dogfooding-validatedby-b34ed53d8a295816.json": {
+      "path": ".prism/state/relations/concept-outcome_event_and_replay_memory-concept-validation_and_dogfooding-validatedby-b34ed53d8a295816.json",
+      "sha256": "sha256:a494ca0adaf3106f72b454e3cb8549695bba6d5f937b5df7bb6f086c200cd814"
+    },
+    ".prism/state/relations/concept-parse_resolution_and_reanchor_flow-concept-core_indexing_pipeline-partof-b7fad3467282792f.json": {
+      "path": ".prism/state/relations/concept-parse_resolution_and_reanchor_flow-concept-core_indexing_pipeline-partof-b7fad3467282792f.json",
+      "sha256": "sha256:0b72f9070c4eddc43c53f2c9271ff093d13775b2a4d48af1c41e5b930f17d9d0"
+    },
+    ".prism/state/relations/concept-parse_resolution_and_reanchor_flow-concept-language_adapter_family-dependson-44d773fe3f08e8e8.json": {
+      "path": ".prism/state/relations/concept-parse_resolution_and_reanchor_flow-concept-language_adapter_family-dependson-44d773fe3f08e8e8.json",
+      "sha256": "sha256:73cbe06ff80c7698afce72d4aad54d67eb35e6ba6114def44620998c4ec48071"
+    },
+    ".prism/state/relations/concept-parse_resolution_and_reanchor_flow-concept-structural_ir-dependson-90ddc0a1aacd89ff.json": {
+      "path": ".prism/state/relations/concept-parse_resolution_and_reanchor_flow-concept-structural_ir-dependson-90ddc0a1aacd89ff.json",
+      "sha256": "sha256:ecfb3b6840c10e6b1ba553afa9056321c71a89dac33c5d55889fb2c427d91323"
+    },
+    ".prism/state/relations/concept-parser_contract_and_fingerprint_utilities-concept-language_adapter_family-partof-c9fd46f95dd4cf8f.json": {
+      "path": ".prism/state/relations/concept-parser_contract_and_fingerprint_utilities-concept-language_adapter_family-partof-c9fd46f95dd4cf8f.json",
+      "sha256": "sha256:f4d904a48f5294a83c30b5c5fafcfe5631b6494b6af70039bddcf4e1acedae8e"
+    },
+    ".prism/state/relations/concept-persistence_and_history-concept-prism_architecture-partof-bfefc341fa8af3f2.json": {
+      "path": ".prism/state/relations/concept-persistence_and_history-concept-prism_architecture-partof-bfefc341fa8af3f2.json",
+      "sha256": "sha256:19059ed5fd366cab855d6628495c3243ec73cb6d160dc74f0fa905b3874ddd8f"
+    },
+    ".prism/state/relations/concept-persistence_and_history-concept-structural_ir-dependson-d849657b3753ff0f.json": {
+      "path": ".prism/state/relations/concept-persistence_and_history-concept-structural_ir-dependson-d849657b3753ff0f.json",
+      "sha256": "sha256:726b7cf846f096daa6ae993d1ef22f771d0e4e80b26f9493589688dcb1ca44c7"
+    },
+    ".prism/state/relations/concept-plan_and_coordination_ir-concept-coordination_and_plan_runtime-oftenusedwith-bd26f4bf91e33b96.json": {
+      "path": ".prism/state/relations/concept-plan_and_coordination_ir-concept-coordination_and_plan_runtime-oftenusedwith-bd26f4bf91e33b96.json",
+      "sha256": "sha256:2fd6528c04849d521345f605b4eeb606f4fc392a3d7775ca3a19e03108df5423"
+    },
+    ".prism/state/relations/concept-plan_and_coordination_ir-concept-structural_ir-partof-173a9398373d0498.json": {
+      "path": ".prism/state/relations/concept-plan_and_coordination_ir-concept-structural_ir-partof-173a9398373d0498.json",
+      "sha256": "sha256:c0860711bc233daf17b5cb4e01c260ef488225e98510558b0d74a5dd46876e66"
+    },
+    ".prism/state/relations/concept-plan_and_repo_layout_publication-concept-concept_and_publication_pipeline-partof-6236b359d1448fed.json": {
+      "path": ".prism/state/relations/concept-plan_and_repo_layout_publication-concept-concept_and_publication_pipeline-partof-6236b359d1448fed.json",
+      "sha256": "sha256:8d386baba04b7da6c3a6b08ca6757f3e944786c50044df2f3705ba94e91e182b"
+    },
+    ".prism/state/relations/concept-plan_and_repo_layout_publication-concept-coordination_and_plan_runtime-oftenusedwith-195b148b0a2add83.json": {
+      "path": ".prism/state/relations/concept-plan_and_repo_layout_publication-concept-coordination_and_plan_runtime-oftenusedwith-195b148b0a2add83.json",
+      "sha256": "sha256:1ed931c8e0d3f0ea7528e71b3de9bdcb08560545c4d47f1071c07b9bd075295e"
+    },
+    ".prism/state/relations/concept-plan_and_repo_layout_publication-concept-repo_publication_guards-dependson-a3b939f352a0f6af.json": {
+      "path": ".prism/state/relations/concept-plan_and_repo_layout_publication-concept-repo_publication_guards-dependson-a3b939f352a0f6af.json",
+      "sha256": "sha256:427b8e1034fbf3a3a13dcd1d7b2bb5d7c44b988a8e24bd55ee238ee4e8c28571"
+    },
+    ".prism/state/relations/concept-plan_and_repo_layout_publication-concept-validation_and_dogfooding-validatedby-7d55e02755c47372.json": {
+      "path": ".prism/state/relations/concept-plan_and_repo_layout_publication-concept-validation_and_dogfooding-validatedby-7d55e02755c47372.json",
+      "sha256": "sha256:1f768b61b32565df4627451c60380f6b385addd981cca4e4db205317e423863e"
+    },
+    ".prism/state/relations/concept-plan_completion_and_insight_queries-concept-coordination_and_plan_runtime-dependson-f7a691099e0bd54b.json": {
+      "path": ".prism/state/relations/concept-plan_completion_and_insight_queries-concept-coordination_and_plan_runtime-dependson-f7a691099e0bd54b.json",
+      "sha256": "sha256:89729e8c439f81a98372fc0562f02d53eee4e96658fba0640f7f41deecafe6eb"
+    },
+    ".prism/state/relations/concept-plan_completion_and_insight_queries-concept-query_coordination_and_plan_views-partof-d4f835df82c9434c.json": {
+      "path": ".prism/state/relations/concept-plan_completion_and_insight_queries-concept-query_coordination_and_plan_views-partof-d4f835df82c9434c.json",
+      "sha256": "sha256:478181a72d858f13b022b3c70c3e94e6fb6806ae109811e8c6d67eb67b6e6da6"
+    },
+    ".prism/state/relations/concept-plan_graph_compatibility_and_runtime_overlays-concept-coordination_state_model-partof-19ec97a55df88ccf.json": {
+      "path": ".prism/state/relations/concept-plan_graph_compatibility_and_runtime_overlays-concept-coordination_state_model-partof-19ec97a55df88ccf.json",
+      "sha256": "sha256:46250c7c5f348ee79e56bb7b41afe1c7f432eacb5999f40109d2c267cdf8c867"
+    },
+    ".prism/state/relations/concept-principal_identity_and_mutation_provenance-concept-structural_ir-dependson-c3ec9c1b4b348543.json": {
+      "path": ".prism/state/relations/concept-principal_identity_and_mutation_provenance-concept-structural_ir-dependson-c3ec9c1b4b348543.json",
+      "sha256": "sha256:3d7221be99842a4e3f10696fb7b3e5cd1e42ef3122599935f2099b4dc4d4bd21"
+    },
+    ".prism/state/relations/concept-projection_and_query_layer-concept-coordination_and_plan_runtime-dependson-1507ab410ac8f1a3.json": {
+      "path": ".prism/state/relations/concept-projection_and_query_layer-concept-coordination_and_plan_runtime-dependson-1507ab410ac8f1a3.json",
+      "sha256": "sha256:c31303a5df49722b26b575a7a8533684768b8aa2f1b0bd999675161e805bc224"
+    },
+    ".prism/state/relations/concept-projection_and_query_layer-concept-memory_system-dependson-4189cfe6670e2d68.json": {
+      "path": ".prism/state/relations/concept-projection_and_query_layer-concept-memory_system-dependson-4189cfe6670e2d68.json",
+      "sha256": "sha256:9bc04b93c36dcc98e7d000e4d3592302558124a417702e6748751f33ab2ed62a"
+    },
+    ".prism/state/relations/concept-projection_and_query_layer-concept-persistence_and_history-dependson-96c7fa25cc0685ef.json": {
+      "path": ".prism/state/relations/concept-projection_and_query_layer-concept-persistence_and_history-dependson-96c7fa25cc0685ef.json",
+      "sha256": "sha256:2b3d0733200ec8a9a2ec76953f8bbf0d3137958179388ea99cbce1ef56584e10"
+    },
+    ".prism/state/relations/concept-projection_and_query_layer-concept-prism_architecture-partof-ac53122fdd90d128.json": {
+      "path": ".prism/state/relations/concept-projection_and_query_layer-concept-prism_architecture-partof-ac53122fdd90d128.json",
+      "sha256": "sha256:138b745b2a0b07c4a13f7ad36a2c87d291a6d9fa7d81f6d474b6844f2dec2e37"
+    },
+    ".prism/state/relations/concept-projection_and_query_layer-concept-validation_and_dogfooding-validatedby-e2cec00fca241d14.json": {
+      "path": ".prism/state/relations/concept-projection_and_query_layer-concept-validation_and_dogfooding-validatedby-e2cec00fca241d14.json",
+      "sha256": "sha256:310778ead6fa36d6285f179e4d64c51a04eb1ee1682e2fc5a1ab9858cc96f01d"
+    },
+    ".prism/state/relations/concept-published_knowledge_and_memory_event_logs-concept-concept_and_publication_pipeline-partof-2923d14b49beb983.json": {
+      "path": ".prism/state/relations/concept-published_knowledge_and_memory_event_logs-concept-concept_and_publication_pipeline-partof-2923d14b49beb983.json",
+      "sha256": "sha256:befe59c7de5842cf05248a0e45a8083314c81175051b03b8fabf5abc8c695ce3"
+    },
+    ".prism/state/relations/concept-published_knowledge_and_memory_event_logs-concept-memory_system-oftenusedwith-6791d9c199720c98.json": {
+      "path": ".prism/state/relations/concept-published_knowledge_and_memory_event_logs-concept-memory_system-oftenusedwith-6791d9c199720c98.json",
+      "sha256": "sha256:28744f4558026e91c1f895647719b7a2df34e4c8da22ad29a0d62e4313e901d6"
+    },
+    ".prism/state/relations/concept-published_knowledge_and_memory_event_logs-concept-repo_publication_guards-dependson-5ed7306ac71dbdb9.json": {
+      "path": ".prism/state/relations/concept-published_knowledge_and_memory_event_logs-concept-repo_publication_guards-dependson-5ed7306ac71dbdb9.json",
+      "sha256": "sha256:021fcf14849cbc9bcc66556fd48ffb89d2c2f43104000efe9f2a6b2ce4f50f20"
+    },
+    ".prism/state/relations/concept-python_tree_sitter_adapter_pipeline-concept-code_language_adapters-partof-59e3c27b11c2ef53.json": {
+      "path": ".prism/state/relations/concept-python_tree_sitter_adapter_pipeline-concept-code_language_adapters-partof-59e3c27b11c2ef53.json",
+      "sha256": "sha256:d1296b057652fd159fe2118510b0f8d0f26d17c9115007ee72b5766b6c649899"
+    },
+    ".prism/state/relations/concept-python_tree_sitter_adapter_pipeline-concept-parser_contract_and_fingerprint_utilities-dependson-7b853659a2eb5058.json": {
+      "path": ".prism/state/relations/concept-python_tree_sitter_adapter_pipeline-concept-parser_contract_and_fingerprint_utilities-dependson-7b853659a2eb5058.json",
+      "sha256": "sha256:4d95470ae87e30ab3c5346236764f715f3d4e76b2472858176c1d9b82cde192c"
+    },
+    ".prism/state/relations/concept-query_coordination_and_plan_views-concept-coordination_and_plan_runtime-dependson-4d4292b58714b089.json": {
+      "path": ".prism/state/relations/concept-query_coordination_and_plan_views-concept-coordination_and_plan_runtime-dependson-4d4292b58714b089.json",
+      "sha256": "sha256:374f75ea4884cb8de16be03b45d269261ed935717ccca03eae9a83a8925f47ed"
+    },
+    ".prism/state/relations/concept-query_coordination_and_plan_views-concept-projection_and_query_layer-partof-0b6296e51e2fe862.json": {
+      "path": ".prism/state/relations/concept-query_coordination_and_plan_views-concept-projection_and_query_layer-partof-0b6296e51e2fe862.json",
+      "sha256": "sha256:94d70ba1d18752b4c289db761025e7b50e0668a164618349ac63c191fea9661b"
+    },
+    ".prism/state/relations/concept-query_coordination_and_plan_views-concept-validation_and_dogfooding-validatedby-4838372eaafb41c2.json": {
+      "path": ".prism/state/relations/concept-query_coordination_and_plan_views-concept-validation_and_dogfooding-validatedby-4838372eaafb41c2.json",
+      "sha256": "sha256:d4a602addf3d66cf64a2505e3b709f6b6748f0b327f2cc1e9195cace1a73c725"
+    },
+    ".prism/state/relations/concept-query_execution_and_semantic_context_serving-concept-mcp_query_and_resource_serving-partof-54665ae142326dcf.json": {
+      "path": ".prism/state/relations/concept-query_execution_and_semantic_context_serving-concept-mcp_query_and_resource_serving-partof-54665ae142326dcf.json",
+      "sha256": "sha256:1373bc50064a44b86280bbb1955109d808eed53a302500cfb74495085b4d3967"
+    },
+    ".prism/state/relations/concept-query_execution_and_semantic_context_serving-concept-projection_and_query_layer-dependson-5d80a2deb1f948d7.json": {
+      "path": ".prism/state/relations/concept-query_execution_and_semantic_context_serving-concept-projection_and_query_layer-dependson-5d80a2deb1f948d7.json",
+      "sha256": "sha256:b63af1e02c6714dfd1d6574582d29dfab99db2fb62041e413396e0f6d9c0e2cf"
+    },
+    ".prism/state/relations/concept-query_symbol_and_change_contexts-concept-projection_and_query_layer-partof-08e81d5e93515f8d.json": {
+      "path": ".prism/state/relations/concept-query_symbol_and_change_contexts-concept-projection_and_query_layer-partof-08e81d5e93515f8d.json",
+      "sha256": "sha256:ae0af3177320450908141aa22be4dc3f8e0ea1eb941eaa8138de029fa35f55eb"
+    },
+    ".prism/state/relations/concept-query_symbol_and_change_contexts-concept-semantic_projection_indexes-dependson-7879b0872127ae93.json": {
+      "path": ".prism/state/relations/concept-query_symbol_and_change_contexts-concept-semantic_projection_indexes-dependson-7879b0872127ae93.json",
+      "sha256": "sha256:1f466198a51287b5ddcb4a9b3c837be2d7716b940f1ba4d919076e74713b514c"
+    },
+    ".prism/state/relations/concept-query_symbol_and_change_contexts-concept-validation_and_dogfooding-validatedby-f2ce186b4a95f90c.json": {
+      "path": ".prism/state/relations/concept-query_symbol_and_change_contexts-concept-validation_and_dogfooding-validatedby-f2ce186b4a95f90c.json",
+      "sha256": "sha256:132fc1badcd46b5939e8cc7ee7657de8ce2812c698757110a1884c6ef748fc6d"
+    },
+    ".prism/state/relations/concept-recall_signal_and_text_scoring-concept-memory_recall_and_scoring-partof-868632e547c3bc83.json": {
+      "path": ".prism/state/relations/concept-recall_signal_and_text_scoring-concept-memory_recall_and_scoring-partof-868632e547c3bc83.json",
+      "sha256": "sha256:b28099d3e9fcfa0e408372c5321290b5a6c752c834bac9676001337cb9c1757c"
+    },
+    ".prism/state/relations/concept-repo_publication_guards-concept-concept_and_publication_pipeline-partof-6fd01f5c01dc01f7.json": {
+      "path": ".prism/state/relations/concept-repo_publication_guards-concept-concept_and_publication_pipeline-partof-6fd01f5c01dc01f7.json",
+      "sha256": "sha256:3bf1075e351793c05d6018176e6e071c4d44a281a9f1e87370ef114a81ff5bcd"
+    },
+    ".prism/state/relations/concept-repo_publication_guards-concept-validation_and_dogfooding-validatedby-f2732bcf091b1ae7.json": {
+      "path": ".prism/state/relations/concept-repo_publication_guards-concept-validation_and_dogfooding-validatedby-f2732bcf091b1ae7.json",
+      "sha256": "sha256:a9f6739df6f70c0aed6597311129374b17524ddcf584710a4b35c85fffbc7b47"
+    },
+    ".prism/state/relations/concept-resource_schemas_and_host_resource_serving-concept-concept_and_publication_pipeline-dependson-44c9a0e24a9f1139.json": {
+      "path": ".prism/state/relations/concept-resource_schemas_and_host_resource_serving-concept-concept_and_publication_pipeline-dependson-44c9a0e24a9f1139.json",
+      "sha256": "sha256:5e521940bee74febb34ad7705e2670ad00780e2c34a8855aa737cfba1937614a"
+    },
+    ".prism/state/relations/concept-resource_schemas_and_host_resource_serving-concept-mcp_query_and_resource_serving-partof-58c072391ee514a7.json": {
+      "path": ".prism/state/relations/concept-resource_schemas_and_host_resource_serving-concept-mcp_query_and_resource_serving-partof-58c072391ee514a7.json",
+      "sha256": "sha256:9d5752ec8c8ba3849728bb96a54636c92ae21a54581344abd7348163240463de"
+    },
+    ".prism/state/relations/concept-rust_tree_sitter_adapter_pipeline-concept-code_language_adapters-partof-49950415f4a7e873.json": {
+      "path": ".prism/state/relations/concept-rust_tree_sitter_adapter_pipeline-concept-code_language_adapters-partof-49950415f4a7e873.json",
+      "sha256": "sha256:450ecac41d24f42c62860b2b39a526d0faf2f407f1737373ff88e4f31a7c6dd9"
+    },
+    ".prism/state/relations/concept-rust_tree_sitter_adapter_pipeline-concept-parser_contract_and_fingerprint_utilities-dependson-37e3727516067467.json": {
+      "path": ".prism/state/relations/concept-rust_tree_sitter_adapter_pipeline-concept-parser_contract_and_fingerprint_utilities-dependson-37e3727516067467.json",
+      "sha256": "sha256:979f9f3d71b3e836d9562bbf351ec605d2e83f4dd66b1d1e58b5be5cd4547c85"
+    },
+    ".prism/state/relations/concept-semantic_and_structural_memory_models-concept-memory_system-partof-bd509694e44dc387.json": {
+      "path": ".prism/state/relations/concept-semantic_and_structural_memory_models-concept-memory_system-partof-bd509694e44dc387.json",
+      "sha256": "sha256:0663c49fda124bd7b113622eed62967ca32a3eed8600adc6515cbbe057ec8572"
+    },
+    ".prism/state/relations/concept-semantic_and_structural_memory_models-concept-validation_and_dogfooding-validatedby-75c8230a145fe613.json": {
+      "path": ".prism/state/relations/concept-semantic_and_structural_memory_models-concept-validation_and_dogfooding-validatedby-75c8230a145fe613.json",
+      "sha256": "sha256:4aabd943463735ece6dcb3cbf6b75a7feb34c81f9ac2688231ba4f661b4b18d7"
+    },
+    ".prism/state/relations/concept-semantic_memory_backend_runtime-concept-recall_signal_and_text_scoring-dependson-7d2dca21d064db5c.json": {
+      "path": ".prism/state/relations/concept-semantic_memory_backend_runtime-concept-recall_signal_and_text_scoring-dependson-7d2dca21d064db5c.json",
+      "sha256": "sha256:4ac5cbc92217defaacdfb8358d9b0b518d0ee9c85521c5a2e348cf634fdc81b7"
+    },
+    ".prism/state/relations/concept-semantic_memory_backend_runtime-concept-semantic_and_structural_memory_models-partof-d8e64dec12c4c29d.json": {
+      "path": ".prism/state/relations/concept-semantic_memory_backend_runtime-concept-semantic_and_structural_memory_models-partof-d8e64dec12c4c29d.json",
+      "sha256": "sha256:d21b7fb6d8d61f5f532a9083ccb076e3238290c4543a01c960381388f04619bf"
+    },
+    ".prism/state/relations/concept-semantic_projection_indexes-concept-concept_and_publication_pipeline-dependson-9661111f316e76a9.json": {
+      "path": ".prism/state/relations/concept-semantic_projection_indexes-concept-concept_and_publication_pipeline-dependson-9661111f316e76a9.json",
+      "sha256": "sha256:ebe8678ed5c4bfd34e45f9077f1553014e09d360c9879e855d329cb1d01c31f1"
+    },
+    ".prism/state/relations/concept-semantic_projection_indexes-concept-projection_and_query_layer-partof-ca884f264723e95d.json": {
+      "path": ".prism/state/relations/concept-semantic_projection_indexes-concept-projection_and_query_layer-partof-ca884f264723e95d.json",
+      "sha256": "sha256:53b2a1c2e337084e4e44bca32d59cad2fb28e4069d742343b7ca0476ee0511f6"
+    },
+    ".prism/state/relations/concept-server_surface_and_runtime_health_views-concept-mcp_runtime_lifecycle-partof-de08c7d8f80b2fea.json": {
+      "path": ".prism/state/relations/concept-server_surface_and_runtime_health_views-concept-mcp_runtime_lifecycle-partof-de08c7d8f80b2fea.json",
+      "sha256": "sha256:0a1a36d507c1d3d753fa9bdf52d386b3fb5cbe0251781ecb7581a1b1f4d5ada1"
+    },
+    ".prism/state/relations/concept-server_surface_and_runtime_health_views-concept-validation_and_dogfooding-validatedby-e18f4e2cd010f2c5.json": {
+      "path": ".prism/state/relations/concept-server_surface_and_runtime_health_views-concept-validation_and_dogfooding-validatedby-e18f4e2cd010f2c5.json",
+      "sha256": "sha256:fa439d8a751a9c98cb1b8b4bf4ed266dc10188afbe57e8e44f4bed9baa5b5d4e"
+    },
+    ".prism/state/relations/concept-session_and_episodic_memory_store-concept-memory_outcomes_and_session_history-partof-e8155887ae4c3bcb.json": {
+      "path": ".prism/state/relations/concept-session_and_episodic_memory_store-concept-memory_outcomes_and_session_history-partof-e8155887ae4c3bcb.json",
+      "sha256": "sha256:1b743ae4ad19bda9d3df08a554a4acf83b868a5ea9aff42db5d22fa7d52372c1"
+    },
+    ".prism/state/relations/concept-session_and_episodic_memory_store-concept-semantic_and_structural_memory_models-dependson-fe9534f2897618ad.json": {
+      "path": ".prism/state/relations/concept-session_and_episodic_memory_store-concept-semantic_and_structural_memory_models-dependson-fe9534f2897618ad.json",
+      "sha256": "sha256:d332101677f8ed58e0001c04347b3574c448e3702282171795f6abb13de0bffd"
+    },
+    ".prism/state/relations/concept-session_state_and_mutation_runtime-concept-coordination_and_plan_runtime-dependson-dd70728a5b82f36e.json": {
+      "path": ".prism/state/relations/concept-session_state_and_mutation_runtime-concept-coordination_and_plan_runtime-dependson-dd70728a5b82f36e.json",
+      "sha256": "sha256:b5067a3def785cc10a860227f3ae89da5ef1d48a61a5c75fc344aaab04d6bfd9"
+    },
+    ".prism/state/relations/concept-session_state_and_mutation_runtime-concept-mcp_mutation_and_session_host-partof-53f272b85f150c35.json": {
+      "path": ".prism/state/relations/concept-session_state_and_mutation_runtime-concept-mcp_mutation_and_session_host-partof-53f272b85f150c35.json",
+      "sha256": "sha256:12c46570ada5febf6bfc2aaca2bb7f319e8a7c11989970138eb0c5b285dfa22a"
+    },
+    ".prism/state/relations/concept-sqlite_and_graph_persistence-concept-persistence_and_history-partof-1651aa91e3bf06db.json": {
+      "path": ".prism/state/relations/concept-sqlite_and_graph_persistence-concept-persistence_and_history-partof-1651aa91e3bf06db.json",
+      "sha256": "sha256:18d7e9a5b8f351047eeac82ffea9eba0fb776b76696ec8add3c7ec7d2b1b4862"
+    },
+    ".prism/state/relations/concept-sqlite_and_graph_persistence-concept-structural_ir-dependson-c442ed3a322c22a0.json": {
+      "path": ".prism/state/relations/concept-sqlite_and_graph_persistence-concept-structural_ir-dependson-c442ed3a322c22a0.json",
+      "sha256": "sha256:9153fce8e55f95edd9024685515c7dd75fa230184fda33c174f16aae3dd4d607"
+    },
+    ".prism/state/relations/concept-structural_ir-concept-prism_architecture-partof-c9af4bc720e29524.json": {
+      "path": ".prism/state/relations/concept-structural_ir-concept-prism_architecture-partof-c9af4bc720e29524.json",
+      "sha256": "sha256:86105e30b12fafc61a492f125a72e2da36785ed98d8499f9829d2e41164e0582"
+    },
+    ".prism/state/relations/concept-structural_ir-concept-validation_and_dogfooding-validatedby-9241e1986f54a9f5.json": {
+      "path": ".prism/state/relations/concept-structural_ir-concept-validation_and_dogfooding-validatedby-9241e1986f54a9f5.json",
+      "sha256": "sha256:85f8f8866b916e97437493edc45da918f105ea8c0de387ec6db210637acfd4bd"
+    },
+    ".prism/state/relations/concept-structural_memory_feature_model-concept-recall_signal_and_text_scoring-dependson-f58780586eecd20a.json": {
+      "path": ".prism/state/relations/concept-structural_memory_feature_model-concept-recall_signal_and_text_scoring-dependson-f58780586eecd20a.json",
+      "sha256": "sha256:0d1e040813cfaa74770be6bff539b11f564804208501e44cbbc62f706d66811b"
+    },
+    ".prism/state/relations/concept-structural_memory_feature_model-concept-semantic_and_structural_memory_models-partof-bf186b309e6fc386.json": {
+      "path": ".prism/state/relations/concept-structural_memory_feature_model-concept-semantic_and_structural_memory_models-partof-bf186b309e6fc386.json",
+      "sha256": "sha256:cf3c04c8c4811d468324f5d5fbf813015fe0cd139cad0003f4979322bb390c60"
+    },
+    ".prism/state/relations/concept-structured_config_value_adapters-concept-document_and_config_adapters-partof-9dc3ec58d35a72ea.json": {
+      "path": ".prism/state/relations/concept-structured_config_value_adapters-concept-document_and_config_adapters-partof-9dc3ec58d35a72ea.json",
+      "sha256": "sha256:5e23ed52bd9f0027ff82d0d4273ea0e4ce28702def76babeee0db8fd79d4d3e8"
+    },
+    ".prism/state/relations/concept-structured_config_value_adapters-concept-parser_contract_and_fingerprint_utilities-dependson-e34c6879965029cf.json": {
+      "path": ".prism/state/relations/concept-structured_config_value_adapters-concept-parser_contract_and_fingerprint_utilities-dependson-e34c6879965029cf.json",
+      "sha256": "sha256:695bfc0b39c5afd19c074418e38cb8b91b7bce14c73c339306306b5816c684a0"
+    },
+    ".prism/state/relations/concept-symbol_source_and_relation_queries-concept-query_symbol_and_change_contexts-partof-ba2a6abe2da98ef7.json": {
+      "path": ".prism/state/relations/concept-symbol_source_and_relation_queries-concept-query_symbol_and_change_contexts-partof-ba2a6abe2da98ef7.json",
+      "sha256": "sha256:73a59332af1546cf18736c67ce65ae1f7270199932159938031b61867b5118b5"
+    },
+    ".prism/state/relations/concept-symbol_source_and_relation_queries-concept-semantic_projection_indexes-dependson-683b557b3950c231.json": {
+      "path": ".prism/state/relations/concept-symbol_source_and_relation_queries-concept-semantic_projection_indexes-dependson-683b557b3950c231.json",
+      "sha256": "sha256:42df307d2edc17ea0b7ec2f64f29fe1d59fbe56583f34057bb97f2f8cd7a61c1"
+    },
+    ".prism/state/relations/concept-task_brief_and_coordination_summary_views-concept-compact_expansion_and_concept_views-partof-334f0a450350481c.json": {
+      "path": ".prism/state/relations/concept-task_brief_and_coordination_summary_views-concept-compact_expansion_and_concept_views-partof-334f0a450350481c.json",
+      "sha256": "sha256:cfba8019a2500293322c99f9686f10db4bbc18f8500dd49ba4c8701c64900856"
+    },
+    ".prism/state/relations/concept-task_brief_and_coordination_summary_views-concept-coordination_and_plan_runtime-dependson-508b6d022c995fc6.json": {
+      "path": ".prism/state/relations/concept-task_brief_and_coordination_summary_views-concept-coordination_and_plan_runtime-dependson-508b6d022c995fc6.json",
+      "sha256": "sha256:6d8655c24120ff52ed795759c112488c1d4466844dc48abd36bad56a46e9cad5"
+    },
+    ".prism/state/relations/concept-validation_and_dogfooding-concept-prism_architecture-partof-a3bff8a4c84a1fea.json": {
+      "path": ".prism/state/relations/concept-validation_and_dogfooding-concept-prism_architecture-partof-a3bff8a4c84a1fea.json",
+      "sha256": "sha256:73529e250d320b9dcbd563900c71bd11619b9f690d19706e6e61a143222223cf"
+    },
+    ".prism/state/relations/concept-validation_feedback_and_metrics_loop-concept-dashboard_surface-oftenusedwith-3b0e71352499ef4b.json": {
+      "path": ".prism/state/relations/concept-validation_feedback_and_metrics_loop-concept-dashboard_surface-oftenusedwith-3b0e71352499ef4b.json",
+      "sha256": "sha256:41c89d30b44e6e619a41a82a13da544e30304d9e83ee634c7d404ea8cb3448bf"
+    },
+    ".prism/state/relations/concept-validation_feedback_and_metrics_loop-concept-mcp_mutation_and_session_host-dependson-2890096dbae0901b.json": {
+      "path": ".prism/state/relations/concept-validation_feedback_and_metrics_loop-concept-mcp_mutation_and_session_host-dependson-2890096dbae0901b.json",
+      "sha256": "sha256:e6d34af7bf0797c9f12e78dbfd710d686f20e074720d72f2f4492d837cee8cc1"
+    },
+    ".prism/state/relations/concept-validation_feedback_and_metrics_loop-concept-projection_and_query_layer-dependson-c563b24ab5f0b321.json": {
+      "path": ".prism/state/relations/concept-validation_feedback_and_metrics_loop-concept-projection_and_query_layer-dependson-c563b24ab5f0b321.json",
+      "sha256": "sha256:0563653265bf005b661a0f8432b819d252145ab6abe4abb9c845c12b5237c747"
+    },
+    ".prism/state/relations/concept-validation_feedback_and_metrics_loop-concept-validation_and_dogfooding-partof-792f8ff4ec79771e.json": {
+      "path": ".prism/state/relations/concept-validation_feedback_and_metrics_loop-concept-validation_and_dogfooding-partof-792f8ff4ec79771e.json",
+      "sha256": "sha256:748a2f97b0bdc8e8ec37dbc030c1427d98473fc008ea598a59161c70434ac1a6"
+    },
+    ".prism/state/relations/concept-validation_policy_and_release_gates-concept-validation_and_dogfooding-partof-04753d015da0a222.json": {
+      "path": ".prism/state/relations/concept-validation_policy_and_release_gates-concept-validation_and_dogfooding-partof-04753d015da0a222.json",
+      "sha256": "sha256:11f5e16ee31a2344b169799046c26f326138e5435af8423e8af3bde66903709d"
+    },
+    ".prism/state/relations/concept-workspace_indexing_and_refresh-concept-language_adapter_family-dependson-c1c81551b9354153.json": {
+      "path": ".prism/state/relations/concept-workspace_indexing_and_refresh-concept-language_adapter_family-dependson-c1c81551b9354153.json",
+      "sha256": "sha256:76a9742c736a2f4f7f483c2e3105a5b988f35ac5ec0a97d2076e9a5c27cb7dcc"
+    },
+    ".prism/state/relations/concept-workspace_indexing_and_refresh-concept-persistence_and_history-dependson-2adaf787f10d3895.json": {
+      "path": ".prism/state/relations/concept-workspace_indexing_and_refresh-concept-persistence_and_history-dependson-2adaf787f10d3895.json",
+      "sha256": "sha256:8ee286d943c8591b86e5b91b4e8156fbc5afa780e6cf8debeef552df438ca929"
+    },
+    ".prism/state/relations/concept-workspace_indexing_and_refresh-concept-prism_architecture-partof-da5c640b58168f34.json": {
+      "path": ".prism/state/relations/concept-workspace_indexing_and_refresh-concept-prism_architecture-partof-da5c640b58168f34.json",
+      "sha256": "sha256:63ba38d03ac009f1cd63840839409082bc45521ae880c12d8b43b6406561eb6e"
+    },
+    ".prism/state/relations/concept-workspace_indexing_and_refresh-concept-structural_ir-dependson-c050e3aac4e3022c.json": {
+      "path": ".prism/state/relations/concept-workspace_indexing_and_refresh-concept-structural_ir-dependson-c050e3aac4e3022c.json",
+      "sha256": "sha256:e45a3852ffa0f6b185edb329b62d375d0207d6ab39a5ee7996c0f4da954bd0e4"
+    },
+    ".prism/state/relations/concept-workspace_session_refresh_runtime-concept-workspace_session_runtime-partof-7416c880af6f4463.json": {
+      "path": ".prism/state/relations/concept-workspace_session_refresh_runtime-concept-workspace_session_runtime-partof-7416c880af6f4463.json",
+      "sha256": "sha256:d9de592979989435e20a91d34cc48271fba7729ebe7f7074e43f085e945e052d"
+    },
+    ".prism/state/relations/concept-workspace_session_runtime-concept-memory_system-dependson-7e4684efa5bfa772.json": {
+      "path": ".prism/state/relations/concept-workspace_session_runtime-concept-memory_system-dependson-7e4684efa5bfa772.json",
+      "sha256": "sha256:1bd0bd092a795242e9799dcb9ad4580fbda5c5b9ce8e3bb3dc40f17d85647ba8"
+    },
+    ".prism/state/relations/concept-workspace_session_runtime-concept-persistence_and_history-dependson-b6e83f86b0761cb9.json": {
+      "path": ".prism/state/relations/concept-workspace_session_runtime-concept-persistence_and_history-dependson-b6e83f86b0761cb9.json",
+      "sha256": "sha256:c15c02a98f6340a9dc5258bd74697aa42856204a8e24abb18f3d5cf2584ebf3d"
+    },
+    ".prism/state/relations/concept-workspace_session_runtime-concept-workspace_indexing_and_refresh-partof-9dc2db6144c90255.json": {
+      "path": ".prism/state/relations/concept-workspace_session_runtime-concept-workspace_indexing_and_refresh-partof-9dc2db6144c90255.json",
+      "sha256": "sha256:745418c27fb9ed67b8d99754859d0337184c663a9f076d7effd014c63700ce51"
     }
   },
-  "previousManifestDigest": "sha256:f683de443d2fd82a206a4baa861b82e011e799e77b88778eaea12c6f3f1190c5",
+  "previousManifestDigest": "sha256:6c8d1e1a3e1a757fec2c37bd9225157577bb2b838f96fecab055537a77ca2d20",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:JsmKOQG7MvjcU7ENYMQqSqfmEwszN3C3V4fMkwIhAhNcZ9jO67mYD/uc2g4Wp+2SroFcyo0l9u3H4HvZNbUzCw=="
+    "value": "base64:AR74yoBWn0hOqqTMnASlQtIv3VgCF4nJC9JK5iBAKkClXAk7WnITCz9yGgJvFRH0AJeZWgsoLl9Ry4lh50wwBw=="
   }
 }

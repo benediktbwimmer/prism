@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://outcome_event_and_replay_memory",
+  "targetHandle": "concept://validation_and_dogfooding",
+  "kind": "validated_by",
+  "confidence": 0.9,
+  "evidence": [
+    "Outcome replay matters because it preserves prior failures and validations, so it needs direct dogfooding and validation."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

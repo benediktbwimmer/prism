@@ -1,0 +1,74 @@
+{
+  "handle": "concept://validation_feedback_and_metrics_loop",
+  "canonical_name": "validation feedback and metrics loop",
+  "summary": "Runtime and spec elements that capture validation feedback, materialize validation checks, and define the metrics/dashboard loop used to calibrate PRISM over time.",
+  "aliases": [
+    "validation feedback capture",
+    "validation scorecards"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::validation_feedback",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::host_mutations",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::projections",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::VALIDATION_md::10_metrics_dashboard",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::VALIDATION_md::12_human_feedback_loop",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1683",
+    "lineage:3721",
+    "lineage:5917",
+    "lineage:7021",
+    "lineage:6996"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`prism-core` owns append-only validation feedback records, `prism-mcp` exposes the mutation path, and `prism-projections::projections` maintains validation checks/deltas.",
+    "`docs/VALIDATION.md` defines both the metrics dashboard and human feedback loop as first-class parts of the product, not incidental testing notes."
+  ],
+  "risk_hint": "Without this loop, PRISM can accumulate plausible but uncalibrated behavior with no durable correction pressure.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734585,
+    "lastReviewedAt": 1774734585,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

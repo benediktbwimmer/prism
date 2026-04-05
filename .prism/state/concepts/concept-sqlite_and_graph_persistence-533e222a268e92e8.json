@@ -1,0 +1,61 @@
+{
+  "handle": "concept://sqlite_and_graph_persistence",
+  "canonical_name": "SQLite and graph persistence",
+  "summary": "prism-store modules that own the SQLite backend, graph snapshots, and persist batches for the durable structural store behind PRISM sessions.",
+  "aliases": [
+    "store persistence",
+    "sqlite graph store"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_store",
+      "path": "prism_store::sqlite",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_store",
+      "path": "prism_store::graph",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_store",
+      "path": "prism_store::store",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:6515",
+    "lineage:6403",
+    "lineage:6579"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`prism-store/src/lib.rs` groups sqlite, graph, and store as the main persistence surface for graph state and persist batches.",
+    "These modules are the durable structural backbone distinct from memory-specific or history-specific persistence helpers."
+  ],
+  "risk_hint": "Corruption or schema drift here cascades into indexing, reload, and query correctness.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734406,
+    "lastReviewedAt": 1774734406,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "handle": "concept://validation_policy_and_release_gates",
+  "canonical_name": "validation policy and release gates",
+  "summary": "Core validation spec headings that define layered validation principles, the evaluation pipeline, the PRISM-first validation plan, and risk-tiered release gates.",
+  "aliases": [
+    "validation spec",
+    "trust gate policy"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::VALIDATION_md::3_validation_principles",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::VALIDATION_md::7_validation_pipeline",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::VALIDATION_md::8_prism_validation_plan_implement_first",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::VALIDATION_md::11_release_gates_and_trust_gates",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:7027",
+    "lineage:6954",
+    "lineage:7031",
+    "lineage:6953"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`docs/VALIDATION.md` separates principles, pipeline shape, PRISM-first implementation plan, and trust gates into distinct top-level headings.",
+    "Together these headings define the policy contract that the repo uses to judge whether a surface is safe enough for exploration, planning, or mutation guidance."
+  ],
+  "risk_hint": "If this policy layer drifts from implementation, agents may over-trust surfaces that were meant to remain exploratory.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734584,
+    "lastReviewedAt": 1774734584,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://curator_execution_flow",
+  "targetHandle": "concept://agent_inference_and_curation",
+  "kind": "part_of",
+  "confidence": 0.95,
+  "evidence": [
+    "Curator and curator_support are the concrete execution slice inside the broader inference-and-curation subsystem."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

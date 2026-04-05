@@ -1,0 +1,55 @@
+{
+  "handle": "concept://indexer_orchestration_and_snapshot_loading",
+  "canonical_name": "indexer orchestration and snapshot loading",
+  "summary": "prism-core modules that bootstrap workspace indexing, load prior snapshots and curated knowledge, and assemble the initial indexer/session state around the workspace graph.",
+  "aliases": [
+    "indexer orchestration",
+    "snapshot loading"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::indexer",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::indexer_support",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1442",
+    "lineage:1486"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`indexer.rs` loads graph/history/outcomes/projections and orchestrates workspace indexing, while `indexer_support.rs` provides shared helpers for collecting parses and building sessions.",
+    "This is the orchestration and restore half of the indexing subsystem before parse/resolution work finishes."
+  ],
+  "risk_hint": "If this layer drifts, refreshes can start from the wrong persisted state even when lower parsing logic is still correct.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735362,
+    "lastReviewedAt": 1774735362,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

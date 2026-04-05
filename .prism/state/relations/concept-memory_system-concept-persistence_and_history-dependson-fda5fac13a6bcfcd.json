@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://memory_system",
+  "targetHandle": "concept://persistence_and_history",
+  "kind": "depends_on",
+  "confidence": 0.96,
+  "evidence": [
+    "Memory recall and reanchoring rely on persisted history, snapshots, and stored memory projections."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

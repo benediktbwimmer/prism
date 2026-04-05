@@ -1,0 +1,67 @@
+{
+  "handle": "concept://coordination_and_plan_runtime_queries",
+  "canonical_name": "coordination and plan-runtime queries",
+  "summary": "prism-query modules that expose coordination snapshots, plan runtime overlays, intent views, and related query types over live coordination state.",
+  "aliases": [
+    "coordination queries",
+    "plan runtime queries"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::coordination",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::plan_runtime",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::intent",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:6007",
+    "lineage:11676",
+    "lineage:6042",
+    "lineage:6232"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-query/src/lib.rs` groups `coordination`, `plan_runtime`, `intent`, and shared `types` as the runtime planning side of the query crate.",
+    "These modules turn coordination state into programmable views rather than raw store objects."
+  ],
+  "risk_hint": "Drift here misrepresents task, claim, or runtime plan state to every higher surface that depends on query views.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734914,
+    "lastReviewedAt": 1774734914,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://persistence_and_history",
+  "targetHandle": "concept://prism_architecture",
+  "kind": "part_of",
+  "confidence": 0.98,
+  "evidence": [
+    "Store and history crates form a durable architectural slice of the repo."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

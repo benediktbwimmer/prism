@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://markdown_heading_and_intent_adapter",
+  "targetHandle": "concept://document_and_config_adapters",
+  "kind": "part_of",
+  "confidence": 0.96,
+  "evidence": [
+    "The Markdown adapter is one concrete branch of the document/config adapter family."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

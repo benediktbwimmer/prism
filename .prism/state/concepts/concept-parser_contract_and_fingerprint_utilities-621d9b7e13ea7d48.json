@@ -1,0 +1,81 @@
+{
+  "handle": "concept://parser_contract_and_fingerprint_utilities",
+  "canonical_name": "parser contract and fingerprint utilities",
+  "summary": "Shared prism-parser contract that defines parse inputs/results, language adapter behavior, intent extraction, document naming, and stable fingerprint helpers reused by every adapter crate.",
+  "aliases": [
+    "parser contract",
+    "adapter contract",
+    "fingerprint utilities"
+  ],
+  "confidence": 0.94,
+  "core_members": [
+    {
+      "crate_name": "prism_parser",
+      "path": "prism_parser::LanguageAdapter",
+      "kind": "Trait"
+    },
+    {
+      "crate_name": "prism_parser",
+      "path": "prism_parser::ParseInput",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_parser",
+      "path": "prism_parser::ParseResult",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_parser",
+      "path": "prism_parser::fingerprint_from_parts",
+      "kind": "Function"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5851",
+    "lineage:5846",
+    "lineage:5874",
+    "lineage:5856"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_parser",
+      "path": "prism_parser::document_name",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_parser",
+      "path": "prism_parser::extract_intent_targets",
+      "kind": "Function"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:5834",
+    "lineage:5840"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-parser centralizes LanguageAdapter, ParseInput, ParseResult, fingerprint helpers, document path/name helpers, and intent-target extraction reused across adapter crates.",
+    "Both code adapters and document/config adapters import this crate for the common parse contract and stable shape/fingerprint behavior."
+  ],
+  "risk_hint": null,
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774736057,
+    "lastReviewedAt": 1774736057,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

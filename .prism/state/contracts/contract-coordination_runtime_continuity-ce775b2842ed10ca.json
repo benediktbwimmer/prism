@@ -1,0 +1,180 @@
+{
+  "handle": "contract://coordination_runtime_continuity",
+  "name": "coordination runtime continuity",
+  "summary": "PRISM coordination state remains a live runtime authority that persists with explicit repo/worktree/session context, preserves lineage-scoped intent across renames and reloads, and hydrates published plan state through the backend facade instead of ad hoc snapshot ownership.",
+  "aliases": [
+    "coordination continuity",
+    "plan runtime continuity",
+    "coordination persistence contract"
+  ],
+  "kind": "lifecycle",
+  "subject": {
+    "anchors": [
+      {
+        "File": 283
+      },
+      {
+        "File": 275
+      },
+      {
+        "File": 164
+      },
+      {
+        "File": 90
+      }
+    ],
+    "conceptHandles": [
+      "concept://coordination_and_plan_runtime",
+      "concept://mcp_mutation_and_session_host",
+      "concept://persistence_split"
+    ]
+  },
+  "guarantees": [
+    {
+      "id": "coordination_persistence_records_explicit_runtime_context",
+      "statement": "Persisted coordination state records explicit repo, worktree, session, and instance context so one runtime can host multiple worktree contexts without smearing authoritative coordination history across them.",
+      "scope": "persistence_context",
+      "strength": "hard",
+      "evidenceRefs": [
+        "optimizations-worktree-contexts",
+        "coordination-session-scope-tests"
+      ]
+    },
+    {
+      "id": "coordination_mutations_use_live_runtime_authority",
+      "statement": "Coordination mutations operate against the live runtime state and do not require a persisted reload hop before valid mutations become authoritative.",
+      "scope": "live_runtime_authority",
+      "strength": "hard",
+      "evidenceRefs": [
+        "spec-coordination-ownership",
+        "live-runtime-coordination-tests"
+      ]
+    },
+    {
+      "id": "lineage_scoped_coordination_survives_reload_and_repo_motion",
+      "statement": "Claims, tasks, and related coordination intent continue to resolve through lineage and hydrated plan state across rename and reload flows instead of depending on stale runtime-only node ids.",
+      "scope": "reload_and_rename_continuity",
+      "strength": "hard",
+      "evidenceRefs": [
+        "coordination-rename-reload-tests",
+        "coordination-backend-hydration"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Published plan state and shared coordination read models are persisted through the coordination backend facade rather than bypassing it with ad hoc side channels.",
+    "Runtime overlays may be rebuilt, but authored coordination intent remains tied to explicit context and lineage-aware anchors."
+  ],
+  "consumers": [
+    {
+      "anchors": [],
+      "conceptHandles": [
+        "concept://mcp_runtime_surface",
+        "concept://workspace_session_runtime",
+        "concept://compact_expansion_and_concept_views"
+      ]
+    }
+  ],
+  "validations": [
+    {
+      "id": "cargo test -p prism-core coordination_persistence_backend_wraps_store_and_repo_published_plans",
+      "summary": "The coordination backend hydrates stored runtime state together with repo-published plan state.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_core",
+            "path": "prism_core::tests::coordination_persistence_backend_wraps_store_and_repo_published_plans",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-core coordination_mutations_use_live_runtime_state_without_forcing_persisted_reload",
+      "summary": "Coordination mutations use live runtime authority without forcing a persisted reload.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_core",
+            "path": "prism_core::tests::coordination_mutations_use_live_runtime_state_without_forcing_persisted_reload",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-core reload_preserves_coordination_claim_resolution_through_rename",
+      "summary": "Claims and tasks survive rename and reload by rebinding through lineage-scoped coordination anchors.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_core",
+            "path": "prism_core::tests::reload_preserves_coordination_claim_resolution_through_rename",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-mcp workspace_coordination_persistence_records_mcp_session_scope",
+      "summary": "MCP coordination persistence records the active session context in authoritative persistence.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::workspace_coordination_persistence_records_mcp_session_scope",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-mcp rejected_coordination_mutations_keep_mcp_session_scope_in_authoritative_persistence",
+      "summary": "Rejected coordination mutations still preserve the originating MCP session scope in authoritative persistence.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::rejected_coordination_mutations_keep_mcp_session_scope_in_authoritative_persistence",
+            "kind": "Function"
+          }
+        }
+      ]
+    }
+  ],
+  "stability": "internal",
+  "compatibility": {
+    "additive": [
+      "Adding new coordination read models or runtime overlays is compatible when explicit persistence context and lineage-aware authored intent remain authoritative."
+    ],
+    "risky": [
+      "Dropping explicit session or worktree context, or forcing mutations through stale persisted snapshots before they become authoritative, is risky for multi-context correctness."
+    ],
+    "breaking": [
+      "Making runtime-only node ids or snapshot materializations the sole source of coordination truth breaks continuity across reloads, renames, and multi-worktree serving."
+    ],
+    "migrating": [
+      "Shared runtime materializations may evolve, but the backend facade and lineage-aware authored intent remain the continuity contract."
+    ]
+  },
+  "evidence": [
+    "docs/SPEC.md assigns shared plans, tasks, claims, artifacts, and coordination event state to prism-coordination as an owned subsystem.",
+    "docs/OPTIMIZATIONS.md requires explicit repo/worktree/branch/session/instance identity and states that one MCP server can host multiple worktree contexts.",
+    "The coordination persistence, live-runtime, and rename/reload tests anchor the continuity guarantees in executable behavior across core and MCP layers."
+  ],
+  "status": "active",
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_contract_promote",
+    "taskId": "task:survey-the-repo-for-the-first-batch-of-repo-scoped-contracts-focusing-on-modularity-persistence-split-and-other-strong-promise-surfaces-then-curate-and-publish-the-strongest-contracts:01kmzx0xamn4wzetw1tz97rz04"
+  },
+  "publication": {
+    "publishedAt": 1774893787,
+    "lastReviewedAt": 1774893787,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

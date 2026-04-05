@@ -1,0 +1,62 @@
+{
+  "handle": "concept://memory_outcomes_and_session_history",
+  "canonical_name": "memory outcomes and session history",
+  "summary": "Memory modules that record task/session-local history, outcome events, and replay-oriented recall over prior work.",
+  "aliases": [
+    "outcome memory",
+    "session memory history"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::outcome",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::outcome_query",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::session",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5616",
+    "lineage:5647",
+    "lineage:5681"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "outcome.rs, outcome_query.rs, and session.rs form the memory slice that stores and retrieves task/session outcomes rather than generic semantic recall.",
+    "This is the memory pathway behind task replay and filtered outcome history."
+  ],
+  "risk_hint": "If this layer drifts, task replay and recent-failure context become misleading even when generic memory recall still works.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733788,
+    "lastReviewedAt": 1774733788,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

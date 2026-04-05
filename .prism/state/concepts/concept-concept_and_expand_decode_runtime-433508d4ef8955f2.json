@@ -1,0 +1,56 @@
+{
+  "handle": "concept://concept_and_expand_decode_runtime",
+  "canonical_name": "concept and expand decode runtime",
+  "summary": "Compact-tool decode path that resolves concept packets and turns handles into bounded diagnostics, lineage, neighbor, validation, memory, and drift views without dropping to raw query output.",
+  "aliases": [
+    "compact decode runtime",
+    "concept and expand views"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::concept",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::expand",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:10760",
+    "lineage:10149"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "concept.rs resolves concept packets, alternates, decode lenses, binding metadata, recent patches, memories, and validation recipes into compact concept views.",
+    "expand.rs turns handles into bounded diagnostic, lineage, neighbor, validation, and memory expansions and reuses structured-target previews where needed."
+  ],
+  "risk_hint": null,
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774736059,
+    "lastReviewedAt": 1774736059,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

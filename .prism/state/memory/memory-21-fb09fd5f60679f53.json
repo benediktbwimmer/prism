@@ -1,0 +1,51 @@
+{
+  "entry": {
+    "id": "memory:21",
+    "anchors": [
+      {
+        "Lineage": "lineage:1434"
+      },
+      {
+        "Lineage": "lineage:1832"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_core",
+          "path": "prism_core::curator_support::build_curator_context",
+          "kind": "Function"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_curator",
+          "path": "prism_curator::synthesis::synthesize_curator_run",
+          "kind": "Function"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "Curator context already loads focused episodic memories into ctx.memories, but synthesized proposals still ignore that input; curator improvement can target synthesis and query visibility without changing memory-store plumbing.",
+    "metadata": {
+      "category": "curator_workflow",
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "validationChecks": []
+      },
+      "phase": "implementation_discovery",
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "task_id": "task:improve-curator-memory-workflow-by-making-proposals-easier-to-inspect-and-adding-promotion-proposals-derived-from-strong-episodic-memories-during-real-prism-work:45"
+    },
+    "created_at": 1774705077,
+    "source": "Agent",
+    "trust": 0.76
+  },
+  "latestEventId": "memory-event:1774705077914438000",
+  "latestRecordedAt": 1774705077,
+  "eventCount": 1,
+  "taskId": "task:improve-curator-memory-workflow-by-making-proposals-easier-to-inspect-and-adding-promotion-proposals-derived-from-strong-episodic-memories-during-real-prism-work:45"
+}

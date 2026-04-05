@@ -1,0 +1,74 @@
+{
+  "handle": "concept://compact_discovery_and_opening",
+  "canonical_name": "compact discovery and opening flow",
+  "summary": "compact-tool modules that rank likely targets, normalize text fragments, open bounded slices, and assemble small worksets for the default agent path.",
+  "aliases": [
+    "compact locate/open path",
+    "compact navigation flow"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::locate",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::open",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::workset",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::text_fragments",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:10187",
+    "lineage:10137",
+    "lineage:10224",
+    "lineage:10227"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::suggested_actions",
+      "kind": "Module"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:10542"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`prism-mcp/src/compact_tools.rs` declares locate, open, workset, text_fragments, and suggested_actions as one orchestration cluster inside the compact surface.",
+    "This is the discovery/navigation half of the compression layer before deeper concept or task decoding begins."
+  ],
+  "risk_hint": "Ranking or bounded-open regressions here destroy the default compact path even if raw query APIs remain correct.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734408,
+    "lastReviewedAt": 1774734408,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

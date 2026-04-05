@@ -1,0 +1,61 @@
+{
+  "handle": "concept://parse_resolution_and_reanchor_flow",
+  "canonical_name": "parse, resolution, and reanchor flow",
+  "summary": "prism-core modules that parse files, resolve static edges, and infer lineage-preserving reanchors across file moves and symbol changes during refresh.",
+  "aliases": [
+    "parse and resolution flow",
+    "reanchor flow"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::parse_pipeline",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::resolution",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::reanchor",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:9603",
+    "lineage:1555",
+    "lineage:1552"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`parse_pipeline.rs` produces parse jobs, `resolution.rs` resolves edges from unresolved parser outputs, and `reanchor.rs` preserves identity across moves and edits.",
+    "These modules are the structural-truth half of index refresh after snapshot loading."
+  ],
+  "risk_hint": "If this flow drifts, PRISM can rebuild a graph that looks complete but loses identity continuity or edge truth.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735376,
+    "lastReviewedAt": 1774735376,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

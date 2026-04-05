@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://memory_recall_and_scoring",
+  "targetHandle": "concept://semantic_and_structural_memory_models",
+  "kind": "often_used_with",
+  "confidence": 0.9,
+  "evidence": [
+    "Recall/scoring is distinct from semantic/structural models, but they are commonly used together to improve retrieval quality."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

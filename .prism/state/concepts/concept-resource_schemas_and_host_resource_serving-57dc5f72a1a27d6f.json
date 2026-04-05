@@ -1,0 +1,66 @@
+{
+  "handle": "concept://resource_schemas_and_host_resource_serving",
+  "canonical_name": "resource schemas and host-resource serving",
+  "summary": "prism-mcp modules that publish resource payload schemas, capability resources, and host-backed resource reads over the MCP surface.",
+  "aliases": [
+    "resource serving",
+    "host resources"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::resources",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::host_resources",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::resource_schemas",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::capabilities_resource",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:4583",
+    "lineage:3741",
+    "lineage:4480",
+    "lineage:3388"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-mcp/src/lib.rs` keeps `resources`, `host_resources`, `resource_schemas`, and `capabilities_resource` as the explicit resource-serving side of the server.",
+    "These modules expose repo and runtime state as inspectable MCP resources rather than tool calls."
+  ],
+  "risk_hint": "Schema or host-resource drift here breaks discoverability and resource-level trust for later agents.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734917,
+    "lastReviewedAt": 1774734917,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

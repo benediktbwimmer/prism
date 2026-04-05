@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://published_knowledge_and_memory_event_logs",
+  "targetHandle": "concept://repo_publication_guards",
+  "kind": "depends_on",
+  "confidence": 0.87,
+  "evidence": [
+    "Durable knowledge and memory publication logs still rely on the publication/trust rules that decide what is safe to persist."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

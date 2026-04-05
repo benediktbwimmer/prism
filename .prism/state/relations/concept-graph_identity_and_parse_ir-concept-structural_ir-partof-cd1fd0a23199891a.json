@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://graph_identity_and_parse_ir",
+  "targetHandle": "concept://structural_ir",
+  "kind": "part_of",
+  "confidence": 0.95,
+  "evidence": [
+    "Graph, identity, primitives, and parse are the static-schema sublayer inside the broader structural IR concept."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

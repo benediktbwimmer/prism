@@ -1,0 +1,68 @@
+{
+  "handle": "concept://compact_tool_surface",
+  "canonical_name": "compact tool surface",
+  "summary": "Staged locate/open/gather/workset/expand/concept/task-brief tool layer inside prism-mcp that serves as the intended default agent path above raw prism_query.",
+  "aliases": [
+    "compact tools",
+    "compression layer",
+    "default agent path"
+  ],
+  "confidence": 0.95,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::AGENT_COMPRESSION_LAYER_md::target_default_agent_path",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::AGENT_COMPRESSION_LAYER_md::compact_primary_tools",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:9774",
+    "lineage:3894",
+    "lineage:9682",
+    "lineage:9667"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "The compact tool modules live inside prism-mcp and define a staged default path around locate, gather, open, workset, expand, concept, and task-brief tools.",
+    "docs/AGENT_COMPRESSION_LAYER.md explicitly positions this layer as the future default over direct prism_query use."
+  ],
+  "risk_hint": "If ranking or handle-follow-through degrades here, agents lose most of the intended compression value even when the raw query surface still works.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733315,
+    "lastReviewedAt": 1774733315,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

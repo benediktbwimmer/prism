@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://query_symbol_and_change_contexts",
+  "targetHandle": "concept://validation_and_dogfooding",
+  "kind": "validated_by",
+  "confidence": 0.93,
+  "evidence": [
+    "These are exactly the kinds of context bundles that can look convincing while drifting, so they need direct dogfooding and validation."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "entry": {
+    "id": "memory:67",
+    "anchors": [
+      {
+        "Lineage": "lineage:1533"
+      },
+      {
+        "Lineage": "lineage:3894"
+      },
+      {
+        "Lineage": "lineage:6074"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_core",
+          "path": "prism_core",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_query",
+          "path": "prism_query",
+          "kind": "Module"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "The repo now has a durable root architecture concept at concept://prism_architecture with subsystem children for IR, adapters, persistence/history, indexing/refresh, memory, coordination, projections/query, concept publication, inference/curation, MCP, compact tools, dashboard, and CLI surfaces.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774733544,
+        "publishedAt": 1774733544,
+        "status": "active"
+      },
+      "task_id": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+    },
+    "created_at": 1774733544,
+    "source": "Agent",
+    "trust": 0.94
+  },
+  "latestEventId": "memory-event:1774733544609150000",
+  "latestRecordedAt": 1774733544,
+  "eventCount": 1,
+  "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+}

@@ -1,0 +1,55 @@
+{
+  "handle": "concept://memory_projection_persistence",
+  "canonical_name": "memory projection persistence",
+  "summary": "prism-store modules that persist memory projections and memory-store state separately from the primary graph/history tables.",
+  "aliases": [
+    "memory store persistence",
+    "memory snapshot persistence"
+  ],
+  "confidence": 0.89,
+  "core_members": [
+    {
+      "crate_name": "prism_store",
+      "path": "prism_store::memory_projection",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_store",
+      "path": "prism_store::memory_store",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:10276",
+    "lineage:6437"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`prism-store/src/lib.rs` exposes memory_projection and memory_store as distinct persistence pieces beside graph/sqlite/store.",
+    "This split matters because PRISM memory durability rides on projection-specific storage rather than only the main graph tables."
+  ],
+  "risk_hint": "If this layer drifts, memory hydration may look semantically valid while reading stale or mismatched persisted state.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734407,
+    "lastReviewedAt": 1774734407,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "handle": "concept://cli_command_and_parse_surface",
+  "canonical_name": "CLI command and parse surface",
+  "summary": "prism-cli modules that define CLI arguments, parse user input, and dispatch commands while keeping the binary entrypoint thin.",
+  "aliases": [
+    "cli dispatch",
+    "cli command path"
+  ],
+  "confidence": 0.9,
+  "core_members": [
+    {
+      "crate_name": "prism_cli",
+      "path": "prism_cli::cli",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_cli",
+      "path": "prism_cli::commands",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_cli",
+      "path": "prism_cli::parsing",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:932",
+    "lineage:940",
+    "lineage:1016"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-cli/src/main.rs` declares `cli`, `commands`, and `parsing` as the input/dispatch half of the CLI surface.",
+    "The main function only parses args and forwards into `commands::run`, which makes this a stable sub-boundary for operator command handling."
+  ],
+  "risk_hint": "If command parsing drifts, the CLI becomes an unreliable wrapper around otherwise healthy core behavior.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734582,
+    "lastReviewedAt": 1774734582,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

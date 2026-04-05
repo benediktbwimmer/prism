@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://compact_discovery_and_opening",
+  "targetHandle": "concept://projection_and_query_layer",
+  "kind": "depends_on",
+  "confidence": 0.93,
+  "evidence": [
+    "Compact discovery and bounded opening are orchestration over locate/search/query primitives rather than an independent semantic engine."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

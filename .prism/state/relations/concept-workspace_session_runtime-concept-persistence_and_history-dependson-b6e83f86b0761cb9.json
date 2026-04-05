@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://workspace_session_runtime",
+  "targetHandle": "concept://persistence_and_history",
+  "kind": "depends_on",
+  "confidence": 0.95,
+  "evidence": [
+    "Hydrated workspace sessions and patch outcomes are loaded from and synchronized back to persisted workspace state."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

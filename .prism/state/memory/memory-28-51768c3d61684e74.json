@@ -1,0 +1,44 @@
+{
+  "entry": {
+    "id": "memory:28",
+    "anchors": [
+      {
+        "Lineage": "lineage:10786"
+      },
+      {
+        "Lineage": "lineage:10792"
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "Repo concept packets are now canonicalized through `.prism/concepts/events.jsonl`; workspace load/reload overlays replayed concept events onto the derived concept layer, and concept mutations update both the repo log and the cached projection snapshot so the live daemon sees curated concepts immediately.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [
+          "lineage:10792",
+          "lineage:10786"
+        ],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "task_id": "task:implement-repo-exported-concept-pack-mutation-support-so-promoted-concepts-survive-clones-and-feed-the-live-concept-query-surface:50",
+      "tools": [
+        "prism_mutate",
+        "prism_concept"
+      ],
+      "topic": "repo-concept-export"
+    },
+    "created_at": 1774709179,
+    "source": "Agent",
+    "trust": 0.9
+  },
+  "latestEventId": "memory-event:1774709179302009000",
+  "latestRecordedAt": 1774709179,
+  "eventCount": 1,
+  "taskId": "task:implement-repo-exported-concept-pack-mutation-support-so-promoted-concepts-survive-clones-and-feed-the-live-concept-query-surface:50"
+}

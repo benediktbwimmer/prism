@@ -1,0 +1,60 @@
+{
+  "handle": "concept://structured_config_value_adapters",
+  "canonical_name": "structured config value adapters",
+  "summary": "JSON, TOML, and YAML adapter modules that parse structured configuration documents into document/key trees, record stable shape fingerprints, and mine intent targets from configuration values.",
+  "aliases": [
+    "config adapters",
+    "JSON TOML YAML adapters"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_lang_json",
+      "path": "prism_lang_json::adapter",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_lang_toml",
+      "path": "prism_lang_toml",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_lang_yaml",
+      "path": "prism_lang_yaml",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:2923",
+    "lineage:3175",
+    "lineage:3217"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "The JSON adapter centers on adapter.rs, while TOML and YAML expose single-module implementations that all walk nested values, emit document/key nodes, and attach intent targets from configuration content.",
+    "These formats share a structural key/value traversal style that differs from the markdown document-hierarchy adapter."
+  ],
+  "risk_hint": null,
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774736017,
+    "lastReviewedAt": 1774736017,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

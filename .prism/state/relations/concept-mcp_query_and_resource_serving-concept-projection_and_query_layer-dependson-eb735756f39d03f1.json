@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://mcp_query_and_resource_serving",
+  "targetHandle": "concept://projection_and_query_layer",
+  "kind": "depends_on",
+  "confidence": 0.99,
+  "evidence": [
+    "This serving layer is just the transport/runtime wrapper around the underlying projection and query semantics."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

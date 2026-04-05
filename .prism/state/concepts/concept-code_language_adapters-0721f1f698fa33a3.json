@@ -1,0 +1,80 @@
+{
+  "handle": "concept://code_language_adapters",
+  "canonical_name": "code language adapters",
+  "summary": "Rust and Python adapter modules that parse executable source code into PRISM IR using parser, syntax, and path-resolution helpers.",
+  "aliases": [
+    "code adapters",
+    "source language adapters"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_lang_rust",
+      "path": "prism_lang_rust::parser",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_lang_rust",
+      "path": "prism_lang_rust::syntax",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_lang_rust",
+      "path": "prism_lang_rust::paths",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_lang_python",
+      "path": "prism_lang_python::parser",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_lang_python",
+      "path": "prism_lang_python::syntax",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:3097",
+    "lineage:3137",
+    "lineage:3126",
+    "lineage:3027",
+    "lineage:3053"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_lang_python",
+      "path": "prism_lang_python::paths",
+      "kind": "Module"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:3048"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "Rust and Python crates are the true code-language adapters in the workspace and split their behavior into parser, syntax, and path helpers.",
+    "These modules are distinct from the document/config adapters because they model executable code structure and references."
+  ],
+  "risk_hint": "Bugs here corrupt the primary code cognition path, not just secondary document/config understanding.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734109,
+    "lastReviewedAt": 1774734109,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

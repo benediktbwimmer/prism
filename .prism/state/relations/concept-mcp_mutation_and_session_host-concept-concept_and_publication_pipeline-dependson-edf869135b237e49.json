@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://mcp_mutation_and_session_host",
+  "targetHandle": "concept://concept_and_publication_pipeline",
+  "kind": "depends_on",
+  "confidence": 0.96,
+  "evidence": [
+    "Mutation hosting persists concepts, relations, memories, and outcomes through the publication/mutation pipeline."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "handle": "concept://query_coordination_and_plan_views",
+  "canonical_name": "query coordination and plan views",
+  "summary": "prism-query modules that project coordination state, plan runtime overlays, intent, and shared query types into the programmable read surface.",
+  "aliases": [
+    "coordination query views",
+    "plan query views"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::coordination",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::plan_runtime",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::intent",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:6007",
+    "lineage:11676",
+    "lineage:6042",
+    "lineage:6232"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "coordination.rs and plan_runtime.rs bridge continuity state into the query surface, while intent.rs and types.rs support the surfaced view model.",
+    "This is the coordination-aware half of prism-query that complements symbol/source/change contexts."
+  ],
+  "risk_hint": "Drift here yields coherent symbol lookup but broken task, plan, or intent projections for agents and dashboards.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733968,
+    "lastReviewedAt": 1774733968,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "handle": "concept://server_surface_and_runtime_health_views",
+  "canonical_name": "server surface and runtime health views",
+  "summary": "prism-mcp modules that expose top-level server capabilities, feature flags, runtime status, and diagnostics for the live server surface.",
+  "aliases": [
+    "server health views",
+    "runtime health surface"
+  ],
+  "confidence": 0.9,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::server_surface",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::runtime_state",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::features",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::diagnostics",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:4852",
+    "lineage:4632",
+    "lineage:3666",
+    "lineage:3635"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-mcp/src/lib.rs` groups `server_surface`, `runtime_state`, `features`, and `diagnostics` around the server-level presentation of runtime health and capabilities.",
+    "These modules provide the health/status side of lifecycle management rather than process spawning itself."
+  ],
+  "risk_hint": "If this surface drifts, operators and agents can misread server capability or health even while the daemon is running.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734918,
+    "lastReviewedAt": 1774734918,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

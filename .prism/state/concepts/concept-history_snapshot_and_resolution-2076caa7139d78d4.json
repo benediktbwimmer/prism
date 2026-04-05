@@ -1,0 +1,61 @@
+{
+  "handle": "concept://history_snapshot_and_resolution",
+  "canonical_name": "history snapshot and resolution",
+  "summary": "prism-history modules that resolve lineage, materialize snapshots, and expose the history store used to replay temporal identity over time.",
+  "aliases": [
+    "history replay",
+    "lineage snapshotting"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_history",
+      "path": "prism_history::resolver",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_history",
+      "path": "prism_history::snapshot",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_history",
+      "path": "prism_history::store",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1976",
+    "lineage:2042",
+    "lineage:2073"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`prism-history/src/lib.rs` is a tight split across resolver, snapshot, and store, which together define the temporal/history layer.",
+    "These modules are the repo’s authoritative center for lineage replay and historical snapshot materialization."
+  ],
+  "risk_hint": "Bugs here cause lineage drift that later memory and query layers cannot easily diagnose.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734407,
+    "lastReviewedAt": 1774734407,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "handle": "concept://dashboard_routing_and_assets",
+  "canonical_name": "dashboard routing and assets",
+  "summary": "dashboard modules inside prism-mcp that define browser-facing routes, static assets, and typed payload boundaries for the PRISM dashboard surface.",
+  "aliases": [
+    "dashboard router",
+    "dashboard transport layer"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::dashboard_router",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::dashboard_assets",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::dashboard_types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:3566",
+    "lineage:3489",
+    "lineage:3627"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-mcp/src/lib.rs` declares `dashboard_router`, `dashboard_assets`, and `dashboard_types` as dedicated dashboard modules beside the generic MCP surface.",
+    "These modules form the transport/presentation boundary that exposes dashboard functionality to the browser."
+  ],
+  "risk_hint": "If this layer drifts, the dashboard can fail at the HTTP/UI boundary before read models or events are even consulted.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734583,
+    "lastReviewedAt": 1774734583,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

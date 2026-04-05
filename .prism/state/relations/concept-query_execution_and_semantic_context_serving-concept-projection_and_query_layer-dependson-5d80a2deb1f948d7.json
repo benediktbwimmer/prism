@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://query_execution_and_semantic_context_serving",
+  "targetHandle": "concept://projection_and_query_layer",
+  "kind": "depends_on",
+  "confidence": 0.94,
+  "evidence": [
+    "This serving path is a thin runtime wrapper over the repo’s projection and query layer."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

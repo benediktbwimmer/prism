@@ -1,0 +1,55 @@
+{
+  "handle": "concept://structural_memory_feature_model",
+  "canonical_name": "structural memory feature model",
+  "summary": "prism-memory modules that derive structural tags and rule features from memory entries and use them to rank structural recall results.",
+  "aliases": [
+    "structural memory features",
+    "structural recall model"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::structural",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::structural_features",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5709",
+    "lineage:5724"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`structural.rs` ranks structural memories using derived features, and `structural_features.rs` extracts tags, rule kinds, and promoted-rule evidence from memory entries.",
+    "This is the rule- and invariant-oriented half of model-backed memory recall."
+  ],
+  "risk_hint": "If these features drift, structural memories can be retrieved confidently for the wrong architectural rule or invariant.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735361,
+    "lastReviewedAt": 1774735361,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

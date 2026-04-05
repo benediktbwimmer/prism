@@ -1,0 +1,44 @@
+{
+  "entry": {
+    "id": "memory:26",
+    "anchors": [
+      {
+        "Lineage": "lineage:10768"
+      },
+      {
+        "Lineage": "lineage:29"
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "AGENTS.md now instructs agents to use prism_concept for broad repo-native nouns before falling back to symbol or text search, and to capture strong concept candidates as anchored episodic memory until Prism exposes an explicit concept-pack promotion mutation.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [
+          "lineage:29",
+          "lineage:10768"
+        ],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "task_id": "task:update-agents-md-with-concept-pack-retrieval-and-promotion-guidance-aligned-with-the-repo-semantic-codec:48",
+      "tools": [
+        "prism_concept",
+        "prism_mutate"
+      ],
+      "topic": "concept-pack-guidance"
+    },
+    "created_at": 1774707738,
+    "source": "Agent",
+    "trust": 0.88
+  },
+  "latestEventId": "memory-event:1774707738730027000",
+  "latestRecordedAt": 1774707738,
+  "eventCount": 1,
+  "taskId": "task:update-agents-md-with-concept-pack-retrieval-and-promotion-guidance-aligned-with-the-repo-semantic-codec:48"
+}

@@ -1,0 +1,46 @@
+{
+  "entry": {
+    "id": "structural:15",
+    "anchors": [
+      {
+        "Lineage": "lineage:10432"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_memory",
+          "path": "prism_memory::semantic::config::SemanticMemoryConfig",
+          "kind": "Struct"
+        }
+      }
+    ],
+    "kind": "Structural",
+    "scope": "repo",
+    "content": "Semantic memory stays local-first by default. Remote OpenAI embeddings are optional behind SemanticMemoryConfig and PRISM_SEMANTIC_BACKEND=openai, and recall must fall back cleanly to local alias-plus-hash scoring when the runtime is unavailable.",
+    "metadata": {
+      "env": [
+        "PRISM_SEMANTIC_BACKEND",
+        "PRISM_OPENAI_API_KEY",
+        "PRISM_OPENAI_EMBEDDING_MODEL"
+      ],
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "task_id": "task:restore-prism-task-brief-as-a-fully-surfaced-mcp-compact-tool-then-finish-and-verify-the-optional-openai-semantic-backend-integration:47",
+      "topic": "semantic-backend-policy"
+    },
+    "created_at": 1774707283,
+    "source": "Agent",
+    "trust": 0.92
+  },
+  "latestEventId": "memory-event:1774707283449869000",
+  "latestRecordedAt": 1774707283,
+  "eventCount": 1,
+  "taskId": "task:restore-prism-task-brief-as-a-fully-surfaced-mcp-compact-tool-then-finish-and-verify-the-optional-openai-semantic-backend-integration:47"
+}

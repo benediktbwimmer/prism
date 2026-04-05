@@ -1,0 +1,111 @@
+{
+  "handle": "concept://validation_pipeline",
+  "canonical_name": "validation_pipeline",
+  "summary": "The cross-crate path that derives likely validations from impact, promotes them into MCP views, and compresses them into compact follow-through.",
+  "aliases": [
+    "validation",
+    "validation recipe",
+    "checks",
+    "likely tests"
+  ],
+  "confidence": 0.97,
+  "core_members": [
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::impact::Prism::task_validation_recipe",
+      "kind": "Method"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::projections::ProjectionIndex::validation_checks_for_lineages",
+      "kind": "Method"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::views::promoted_validation_checks",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_followups::compact_validation_checks",
+      "kind": "Function"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:6030",
+    "lineage:5918",
+    "lineage:5513",
+    "lineage:10099"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::views::task_validation_recipe_view",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::expand::structured_config_validation_checks",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_js",
+      "path": "prism_js::api_types::ChangeImpactView::validation_checks",
+      "kind": "Field"
+    },
+    {
+      "crate_name": "prism_js",
+      "path": "prism_js::api_types::TaskRiskView::validation_checks",
+      "kind": "Field"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:5519",
+    "lineage:10281",
+    "lineage:2860",
+    "lineage:2583"
+  ],
+  "likely_tests": [
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::tests::validation_policy_requires_approved_artifact_checks",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_followups::tests::compact_validation_checks_trim_shell_chains",
+      "kind": "Function"
+    }
+  ],
+  "likely_test_lineages": [
+    "lineage:1149",
+    "lineage:10102"
+  ],
+  "evidence": [
+    "Prism::task_validation_recipe assembles checks, scored checks, related nodes, co-change neighbors, and recent failures from task blast radius.",
+    "ProjectionIndex::validation_checks_for_lineages provides the lineage-backed validation signal that later surfaces through MCP views and risk summaries.",
+    "promoted_validation_checks and compact_validation_checks turn the same validation recipe into promoted memory-backed guidance and compact staged follow-through."
+  ],
+  "risk_hint": "Validation drift usually appears as missing checks or stale command suggestions after impact or projection logic changes.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "derived_seed",
+    "kind": "seeded_concept",
+    "taskId": null
+  },
+  "publication": {
+    "publishedAt": 1774714258,
+    "lastReviewedAt": 1774714258,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

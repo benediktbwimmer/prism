@@ -1,0 +1,68 @@
+{
+  "handle": "concept://memory_recall_and_scoring",
+  "canonical_name": "memory recall and scoring",
+  "summary": "Memory modules that retrieve, score, and compose remembered context from text and common recall utilities into usable results.",
+  "aliases": [
+    "recall pipeline",
+    "memory scoring"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::recall",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::text",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::common",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::composite",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5661",
+    "lineage:5764",
+    "lineage:5541",
+    "lineage:5562"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-memory groups recall, text, common, and composite helpers around turning stored memory into ranked and assembled read context.",
+    "This slice represents retrieval behavior rather than storage shape or semantic embedding plumbing."
+  ],
+  "risk_hint": "Ranking and composition errors here silently degrade the usefulness of recalled context before they look like hard failures.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733788,
+    "lastReviewedAt": 1774733788,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

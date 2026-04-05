@@ -1,0 +1,65 @@
+{
+  "entry": {
+    "id": "memory:78",
+    "anchors": [
+      {
+        "Lineage": "lineage:1139"
+      },
+      {
+        "Lineage": "lineage:1596"
+      },
+      {
+        "Lineage": "lineage:5681"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_coordination",
+          "path": "prism_coordination::state",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_core",
+          "path": "prism_core::session",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_memory",
+          "path": "prism_memory::session",
+          "kind": "Module"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "Architecture split refined and verified: prism-memory now has durable child branches for recall/scoring, outcome-and-session history, and semantic/structural models; prism-core splits workspace refresh into core indexing versus workspace session runtime; prism-coordination splits into state model versus operations/policy, each with two internal child concepts. Later broad reasoning about memory, workspace refresh, or coordination should start from these concept branches instead of reopening crate roots.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774735787,
+        "publishedAt": 1774735787,
+        "status": "active"
+      },
+      "task_id": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+    },
+    "created_at": 1774735787,
+    "source": "Agent",
+    "trust": 0.9
+  },
+  "latestEventId": "memory-event:1774735787389338000",
+  "latestRecordedAt": 1774735787,
+  "eventCount": 1,
+  "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+}

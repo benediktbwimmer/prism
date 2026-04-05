@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://validation_feedback_and_metrics_loop",
+  "targetHandle": "concept://validation_and_dogfooding",
+  "kind": "part_of",
+  "confidence": 0.96,
+  "evidence": [
+    "Feedback capture, projection checks, metrics dashboards, and correction loops are the live calibration half of validation and dogfooding."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

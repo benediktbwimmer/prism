@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://projection_and_query_layer",
+  "targetHandle": "concept://memory_system",
+  "kind": "depends_on",
+  "confidence": 0.98,
+  "evidence": [
+    "Projection and query surfaces incorporate recall, outcomes, and memory-backed context."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

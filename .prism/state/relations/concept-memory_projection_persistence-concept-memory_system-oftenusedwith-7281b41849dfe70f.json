@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://memory_projection_persistence",
+  "targetHandle": "concept://memory_system",
+  "kind": "often_used_with",
+  "confidence": 0.9,
+  "evidence": [
+    "This persistence slice exists to hydrate and durably back the repo’s memory subsystem rather than the raw graph alone."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

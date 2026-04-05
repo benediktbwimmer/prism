@@ -1,0 +1,70 @@
+{
+  "handle": "concept://workspace_session_runtime",
+  "canonical_name": "workspace session runtime",
+  "summary": "Session-oriented prism-core modules that hydrate WorkspaceSession state, refresh memory snapshots, and record patch outcomes around the live workspace.",
+  "aliases": [
+    "workspace session",
+    "session refresh runtime"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::session",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::memory_refresh",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::patch_outcomes",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1596",
+    "lineage:1536",
+    "lineage:1546"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::indexer::WorkspaceIndexer",
+      "kind": "Struct"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:1471"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-core exposes WorkspaceSession from session.rs and pairs it with memory_refresh and patch_outcomes to keep the live session synchronized with persisted state and observed changes.",
+    "This slice is distinct from raw indexing because it manages hydrated runtime state after the graph exists."
+  ],
+  "risk_hint": "Session reload drift here leads to stale runtime views and incorrect downstream mutation/query behavior.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733760,
+    "lastReviewedAt": 1774733760,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

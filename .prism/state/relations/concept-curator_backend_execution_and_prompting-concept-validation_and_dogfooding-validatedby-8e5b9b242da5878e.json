@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://curator_backend_execution_and_prompting",
+  "targetHandle": "concept://validation_and_dogfooding",
+  "kind": "validated_by",
+  "confidence": 0.9,
+  "evidence": [
+    "Curator backend prompting and sandboxed execution need direct dogfooding because they can produce plausible but weak proposals."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

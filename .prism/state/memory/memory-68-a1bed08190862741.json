@@ -1,0 +1,65 @@
+{
+  "entry": {
+    "id": "memory:68",
+    "anchors": [
+      {
+        "Lineage": "lineage:3894"
+      },
+      {
+        "Lineage": "lineage:5913"
+      },
+      {
+        "Lineage": "lineage:6954"
+      },
+      {
+        "Node": {
+          "crate_name": "prism",
+          "path": "prism::document::docs::VALIDATION_md::7_validation_pipeline",
+          "kind": "MarkdownHeading"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_projections",
+          "path": "prism_projections",
+          "kind": "Module"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "Validation is a cross-cutting architectural concern in this repo rather than a test-only sidecar; the architecture concept graph explicitly attaches validated_by edges from structural, memory, coordination, projection/query, concept-publication, MCP, compact-tool, and dashboard concepts to concept://validation_and_dogfooding.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774733554,
+        "publishedAt": 1774733554,
+        "status": "active"
+      },
+      "task_id": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+    },
+    "created_at": 1774733554,
+    "source": "Agent",
+    "trust": 0.92
+  },
+  "latestEventId": "memory-event:1774733554300706000",
+  "latestRecordedAt": 1774733554,
+  "eventCount": 1,
+  "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+}

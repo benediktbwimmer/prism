@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://mcp_mutation_and_session_host",
+  "targetHandle": "concept://validation_and_dogfooding",
+  "kind": "validated_by",
+  "confidence": 0.94,
+  "evidence": [
+    "Authenticated mutation contracts, provenance stamping, and hosted runtime behavior are central to the repo’s MCP dogfooding loop."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "coord-task:01kn6fa2xeg8f0rayk8n0zwtkm"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "handle": "concept://curator_execution_flow",
+  "canonical_name": "curator execution flow",
+  "summary": "prism-core and prism-curator modules that run curator jobs, prepare support context, and transform reviewable proposals into publishable outcomes.",
+  "aliases": [
+    "curator flow",
+    "curation execution"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::curator",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::curator_support",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_curator",
+      "path": "prism_curator",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1419",
+    "lineage:1437",
+    "lineage:1818"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::layout",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::util",
+      "kind": "Module"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:1500",
+    "lineage:1673"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-core’s curator and curator_support modules form the repo-local execution bridge to the standalone prism-curator crate.",
+    "This slice is distinct from publication guards because it concerns generating and reviewing proposals before they are published."
+  ],
+  "risk_hint": "If this flow drifts, PRISM may produce curator outputs that look grounded but are poorly scoped, weakly justified, or hard to publish safely.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734110,
+    "lastReviewedAt": 1774734110,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

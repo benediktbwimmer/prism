@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://compact_discovery_and_opening",
+  "targetHandle": "concept://compact_tool_surface",
+  "kind": "part_of",
+  "confidence": 0.96,
+  "evidence": [
+    "Locate/open/workset/text-fragment handling is the navigation half of the compact tool surface."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

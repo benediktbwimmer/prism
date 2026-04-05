@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://memory_projection_persistence",
+  "targetHandle": "concept://persistence_and_history",
+  "kind": "part_of",
+  "confidence": 0.94,
+  "evidence": [
+    "Memory projection and memory_store are the memory-specific persistence slice inside the broader persistence/history layer."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

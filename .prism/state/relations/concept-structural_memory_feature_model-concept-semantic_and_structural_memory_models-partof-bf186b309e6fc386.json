@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://structural_memory_feature_model",
+  "targetHandle": "concept://semantic_and_structural_memory_models",
+  "kind": "part_of",
+  "confidence": 0.96,
+  "evidence": [
+    "Structural feature extraction and structural recall are one half of the model-backed memory branch."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "handle": "concept://concept_relation_and_intent_projections",
+  "canonical_name": "concept, relation, and intent projections",
+  "summary": "prism-projections modules that materialize curated concept packets, concept-to-concept relation packets, and intent indexes from lower-level events.",
+  "aliases": [
+    "concept projections",
+    "intent projections"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::concepts",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::concept_relations",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::intent",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:10673",
+    "lineage:12306",
+    "lineage:5912",
+    "lineage:5947"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-projections/src/lib.rs` groups `concepts`, `concept_relations`, `intent`, and `types` as the packet-building side of projection materialization.",
+    "These modules are the durable semantic projection path that turns concept and intent events into compact queryable packets."
+  ],
+  "risk_hint": "If these projections drift, later concept-centric reasoning looks coherent while binding the wrong semantic packet shapes.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734912,
+    "lastReviewedAt": 1774734912,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

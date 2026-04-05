@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://workspace_indexing_and_refresh",
+  "targetHandle": "concept://structural_ir",
+  "kind": "depends_on",
+  "confidence": 0.98,
+  "evidence": [
+    "Index refresh orchestrates parsing and resolution into the shared IR model before any higher-level projections exist."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

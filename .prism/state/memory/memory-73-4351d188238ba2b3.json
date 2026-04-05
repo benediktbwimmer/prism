@@ -1,0 +1,65 @@
+{
+  "entry": {
+    "id": "memory:73",
+    "anchors": [
+      {
+        "Lineage": "lineage:11594"
+      },
+      {
+        "Lineage": "lineage:1818"
+      },
+      {
+        "Lineage": "lineage:5873"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_core",
+          "path": "prism_core::published_plans",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_curator",
+          "path": "prism_curator",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_parser",
+          "path": "prism_parser",
+          "kind": "Module"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "The language-adapter subsystem now has a stable two-way internal split between code adapters (`concept://code_language_adapters`) and document/config adapters (`concept://document_and_config_adapters`), while the curation/publication side is split between curator execution (`concept://curator_execution_flow`) and filesystem publication/layout (`concept://plan_and_repo_layout_publication`). Future architecture reasoning should reuse those four concepts instead of reopening crates to rediscover the same boundaries.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774734270,
+        "publishedAt": 1774734270,
+        "status": "active"
+      },
+      "task_id": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+    },
+    "created_at": 1774734270,
+    "source": "Agent",
+    "trust": 0.9
+  },
+  "latestEventId": "memory-event:1774734270073409000",
+  "latestRecordedAt": 1774734270,
+  "eventCount": 1,
+  "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+}

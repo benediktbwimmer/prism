@@ -1,0 +1,53 @@
+{
+  "entry": {
+    "id": "semantic:1",
+    "anchors": [
+      {
+        "Lineage": "lineage:6032"
+      },
+      {
+        "Lineage": "lineage:9863"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::compact_tools::workset::workset_context_for_target",
+          "kind": "Function"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_query",
+          "path": "prism_query::impact::Prism::validation_recipe",
+          "kind": "Method"
+        }
+      }
+    ],
+    "kind": "Semantic",
+    "scope": "repo",
+    "content": "Current Prism already compresses multi-artifact meaning through target-scoped views such as worksets and validation recipes, but those groupings do not yet have durable concept identity. A semantic codec should therefore be a first-class concept layer built on projections/query surfaces rather than a rename of existing per-target bundles.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "implication": "Concept packets should have stable handles and decode lenses while reusing workset, validation, impact, and memory/outcome surfaces as decode material.",
+      "origin": "design review",
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "task_id": "task:evaluate-repo-semantic-codec-addition:46",
+      "topic": "repo semantic codec"
+    },
+    "created_at": 1774705920,
+    "source": "Agent",
+    "trust": 0.5
+  },
+  "latestEventId": "memory-event:1774705920524766000",
+  "latestRecordedAt": 1774705920,
+  "eventCount": 1,
+  "taskId": "task:evaluate-repo-semantic-codec-addition:46"
+}

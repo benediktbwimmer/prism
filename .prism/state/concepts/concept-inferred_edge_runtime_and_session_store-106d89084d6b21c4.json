@@ -1,0 +1,68 @@
+{
+  "handle": "concept://inferred_edge_runtime_and_session_store",
+  "canonical_name": "inferred edge runtime and session store",
+  "summary": "Modules that define inferred-edge records and scopes, layer session-only versus persisted inference state, and route inferred-edge mutations and curator edge promotion through the live MCP runtime.",
+  "aliases": [
+    "inference store",
+    "inferred edge runtime"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_agent",
+      "path": "prism_agent",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::session_state",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::host_mutations",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_curator",
+      "path": "prism_curator::types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:877",
+    "lineage:4896",
+    "lineage:3721",
+    "lineage:1915"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`prism-agent` defines `InferredEdgeScope`, `InferredEdgeRecord`, snapshots, and the underlying `InferenceStore`.",
+    "`prism-mcp::session_state` overlays session-only and persisted inferred edges, while `host_mutations` implements `infer_edge` and `curator_promote_edge`, and `prism_curator::types` carries `CandidateEdge` proposals through curator jobs."
+  ],
+  "risk_hint": "If this path drifts, PRISM can present inferred structure that is mis-scoped, silently dropped, or promoted without the right task/session semantics.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734689,
+    "lastReviewedAt": 1774734689,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

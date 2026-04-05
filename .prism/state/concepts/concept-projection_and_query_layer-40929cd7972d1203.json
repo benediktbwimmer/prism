@@ -1,0 +1,89 @@
+{
+  "handle": "concept://projection_and_query_layer",
+  "canonical_name": "projection and query layer",
+  "summary": "Derived indexes and read APIs that turn graph, history, memory, and coordination state into semantic discovery, impact, and programmable query results.",
+  "aliases": [
+    "projection layer",
+    "query layer",
+    "semantic read surface"
+  ],
+  "confidence": 0.95,
+  "core_members": [
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::projections::ProjectionIndex",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::intent::IntentIndex",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_js",
+      "path": "prism_js",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5913",
+    "lineage:5925",
+    "lineage:5904",
+    "lineage:6074",
+    "lineage:2891"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::AGENT_COMPRESSION_LAYER_md::target_default_agent_path",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::AGENT_COMPRESSION_LAYER_md::compact_primary_tools",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:9682",
+    "lineage:9667"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-projections derives concepts, concept relations, intent, co-change, and validation-oriented projection indexes.",
+    "prism-query aggregates store, history, memory, and coordination into the programmable Prism surface that prism-js documents for MCP consumers."
+  ],
+  "risk_hint": "Ranking or projection drift usually first appears as low-quality first hops and missing context rather than obvious crashes.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733260,
+    "lastReviewedAt": 1774733260,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

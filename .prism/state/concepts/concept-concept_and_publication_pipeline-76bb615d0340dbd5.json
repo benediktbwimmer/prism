@@ -1,0 +1,83 @@
+{
+  "handle": "concept://concept_and_publication_pipeline",
+  "canonical_name": "concept and publication pipeline",
+  "summary": "Event-sourced concept lifecycle that promotes repo-quality concepts and concept relations from core events into projected retrieval packets and MCP-facing mutation surfaces.",
+  "aliases": [
+    "concept pipeline",
+    "concept publication",
+    "repo knowledge publication"
+  ],
+  "confidence": 0.94,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1533",
+    "lineage:5913",
+    "lineage:6074",
+    "lineage:3894"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::CONCEPT_MAINTENANCE_md::3_1_concepts_are_evidence_backed_semantic_packets",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::CONCEPT_MAINTENANCE_md::15_integration_with_concept_to_concept_edges",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:12524",
+    "lineage:12541"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-core contains concept_events, concept_relation_events, published_knowledge, and curator support for durable knowledge publication.",
+    "prism-projections materializes curated concept packets and concept relations, while prism-mcp exposes concept mutation, relation mutation, and concept resolution surfaces."
+  ],
+  "risk_hint": "Overbroad promotion or stale bindings here reduce the compression value of the entire repo concept layer.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733288,
+    "lastReviewedAt": 1774733288,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

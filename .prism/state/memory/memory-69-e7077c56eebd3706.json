@@ -1,0 +1,75 @@
+{
+  "entry": {
+    "id": "memory:69",
+    "anchors": [
+      {
+        "Lineage": "lineage:1096"
+      },
+      {
+        "Lineage": "lineage:1533"
+      },
+      {
+        "Lineage": "lineage:3894"
+      },
+      {
+        "Lineage": "lineage:5611"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_coordination",
+          "path": "prism_coordination",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_core",
+          "path": "prism_core",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_memory",
+          "path": "prism_memory",
+          "kind": "Module"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "The architecture graph now has module-level children under the major subsystem concepts: workspace_indexing_and_refresh splits into core_indexing_pipeline and workspace_session_runtime; concept_and_publication_pipeline now contains repo_publication_guards; mcp_runtime_surface splits into mcp_query_and_resource_serving, mcp_mutation_and_session_host, and mcp_runtime_lifecycle; memory_system splits into memory_recall_and_scoring, memory_outcomes_and_session_history, and semantic_and_structural_memory_models; coordination_and_plan_runtime splits into coordination_state_model and coordination_operations_and_policy.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774734024,
+        "publishedAt": 1774734024,
+        "status": "active"
+      },
+      "task_id": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+    },
+    "created_at": 1774734024,
+    "source": "Agent",
+    "trust": 0.95
+  },
+  "latestEventId": "memory-event:1774734024110743000",
+  "latestRecordedAt": 1774734024,
+  "eventCount": 1,
+  "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+}

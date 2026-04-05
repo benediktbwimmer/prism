@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://coordination_operations_and_policy",
+  "targetHandle": "concept://validation_and_dogfooding",
+  "kind": "validated_by",
+  "confidence": 0.95,
+  "evidence": [
+    "Operational plan/task policy is one of the repo areas where validation and dogfooding are explicitly required."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

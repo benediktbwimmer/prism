@@ -1,0 +1,62 @@
+{
+  "handle": "concept://markdown_heading_and_intent_adapter",
+  "canonical_name": "Markdown heading and intent adapter",
+  "summary": "Markdown adapter flow that turns headings into nested document structure, fingerprints markdown sections, and extracts unresolved intent targets from prose context.",
+  "aliases": [
+    "Markdown adapter",
+    "heading and intent parsing"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_lang_markdown",
+      "path": "prism_lang_markdown",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_lang_markdown",
+      "path": "prism_lang_markdown::HeadingSection",
+      "kind": "Struct"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:2972",
+    "lineage:2974"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_lang_markdown",
+      "path": "prism_lang_markdown::MarkdownAdapter",
+      "kind": "Struct"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:2985"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "The Markdown adapter is a single-module implementation that constructs heading containment edges, section spans, stable heading slugs, and unresolved intents from markdown text.",
+    "Its behavior is meaningfully different from structured config adapters because it builds semantic document hierarchy and prose-linked intent targets rather than key/value trees."
+  ],
+  "risk_hint": null,
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774736057,
+    "lastReviewedAt": 1774736057,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

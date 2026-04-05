@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://workspace_indexing_and_refresh",
+  "targetHandle": "concept://language_adapter_family",
+  "kind": "depends_on",
+  "confidence": 0.96,
+  "evidence": [
+    "The workspace indexer relies on language adapters to turn concrete files into parse results."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

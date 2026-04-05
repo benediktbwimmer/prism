@@ -1,0 +1,123 @@
+{
+  "handle": "concept://compact_tools",
+  "canonical_name": "compact_tools",
+  "summary": "The staged agent-facing surface for locate, open, workset, and expand, plus the ranking and next-action rules that keep compact follow-through bounded.",
+  "aliases": [
+    "compact tools",
+    "compact surface",
+    "locate/open/workset/expand",
+    "staged agent ABI"
+  ],
+  "confidence": 0.97,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::locate::QueryHost::compact_locate",
+      "kind": "Method"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::open::QueryHost::compact_open",
+      "kind": "Method"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::workset::QueryHost::compact_workset",
+      "kind": "Method"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::expand::QueryHost::compact_expand",
+      "kind": "Method"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:9757",
+    "lineage:10144",
+    "lineage:9753",
+    "lineage:10151"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::locate::rank_locate_candidate",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::open::compact_open_related_handles",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::workset::compact_workset_next_action",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::expand::compact_expand_next_action",
+      "kind": "Function"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:9832",
+    "lineage:9837",
+    "lineage:10408",
+    "lineage:10409"
+  ],
+  "likely_tests": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::tests::compact_locate_prefers_identifier_matches_over_test_helpers",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::tests::compact_open_returns_compact_related_handles",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::tests::compact_workset_for_spec_targets_prefers_owner_paths_over_text_adjacent_helpers",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::tests::compact_expand_perception_lenses_surface_impact_timeline_and_memory",
+      "kind": "Function"
+    }
+  ],
+  "likely_test_lineages": [
+    "lineage:9849",
+    "lineage:9842",
+    "lineage:10090",
+    "lineage:10638"
+  ],
+  "evidence": [
+    "QueryHost::compact_locate, compact_open, compact_workset, and compact_expand are the staged MCP entrypoints agents actually reuse together.",
+    "rank_locate_candidate plus compact_open_related_handles and the compact next-action helpers shape first-hop ranking and bounded follow-through, not just transport plumbing.",
+    "The compact-tools test cluster exercises locate, open, workset, and expand as one product surface rather than four unrelated helpers."
+  ],
+  "risk_hint": "Compact-tool regressions usually show up first as weak ranking, noisy follow-through, or over-budget payloads rather than hard failures.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "derived_seed",
+    "kind": "seeded_concept",
+    "taskId": null
+  },
+  "publication": {
+    "publishedAt": 1774714244,
+    "lastReviewedAt": 1774714244,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "handle": "concept://impact_and_outcome_queries",
+  "canonical_name": "impact and outcome queries",
+  "summary": "prism-query modules that compute blast radius, co-change, validation recipes, and outcome history context over projected and historical PRISM state.",
+  "aliases": [
+    "impact queries",
+    "outcome queries"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::impact",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::outcomes",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:6022",
+    "lineage:6076"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-query/src/lib.rs` keeps `impact` and `outcomes` as a distinct query family beside symbol/source reads.",
+    "These modules are the main read path for risk, validation recipe, and prior-outcome context."
+  ],
+  "risk_hint": "If these queries drift, PRISM can suggest persuasive but weak blast-radius and validation guidance.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734914,
+    "lastReviewedAt": 1774734914,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

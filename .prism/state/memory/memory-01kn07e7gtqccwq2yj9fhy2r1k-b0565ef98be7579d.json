@@ -1,0 +1,47 @@
+{
+  "entry": {
+    "id": "memory:01kn07e7gtqccwq2yj9fhy2r1k",
+    "anchors": [
+      {
+        "File": 260
+      },
+      {
+        "File": 72
+      },
+      {
+        "File": 75
+      },
+      {
+        "File": 81
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "After the co-change rewrite, the next major daemon-memory risks are eager curator hydration and oversized PatchApplied outcomes, with full history-event hydration still contributing. The live cache showed a single curator snapshot row of about 29 MB JSON that is always loaded into CuratorHandle state, and PatchApplied events dominated outcome_event_log because they embed large `metadata.changedSymbols` arrays. Future daemon-memory work should target those surfaces before chasing SQLite mapping effects.",
+    "metadata": {
+      "evidence": {
+        "validationChecks": [
+          "./target/release/prism-cli mcp status",
+          "./target/release/prism-cli mcp health"
+        ]
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774903041,
+        "publishedAt": 1774903041,
+        "status": "active"
+      },
+      "task_id": "task:promote-strongest-recent-session-memories-into-repo-scoped-memory:01kn07dmzs2qw5q5d2q2a6pgsv"
+    },
+    "created_at": 1774903041,
+    "source": "Agent",
+    "trust": 0.9
+  },
+  "latestEventId": "memory-event:01kn07e7gt5061cfzeagyks7gd",
+  "latestRecordedAt": 1774903041,
+  "eventCount": 1,
+  "taskId": "task:promote-strongest-recent-session-memories-into-repo-scoped-memory:01kn07dmzs2qw5q5d2q2a6pgsv"
+}

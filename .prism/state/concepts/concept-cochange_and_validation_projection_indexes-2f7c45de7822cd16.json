@@ -1,0 +1,61 @@
+{
+  "handle": "concept://cochange_and_validation_projection_indexes",
+  "canonical_name": "co-change and validation projection indexes",
+  "summary": "prism-projections modules that derive co-change neighbors, validation deltas, and projection snapshots used by higher query and compact-tool surfaces.",
+  "aliases": [
+    "projection indexes",
+    "validation projections"
+  ],
+  "confidence": 0.9,
+  "core_members": [
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::projections",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::common",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections::types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5917",
+    "lineage:5898",
+    "lineage:5947"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-projections/src/lib.rs` exposes `ProjectionIndex`, co-change delta generation, validation delta generation, and projection snapshots from the `projections` path.",
+    "This is the derived-index side of the projection layer, distinct from concept packet materialization."
+  ],
+  "risk_hint": "Errors here distort blast radius, validation checks, and projection snapshots that many later reads trust.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734913,
+    "lastReviewedAt": 1774734913,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

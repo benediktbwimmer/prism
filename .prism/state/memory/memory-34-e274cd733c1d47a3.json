@@ -1,0 +1,29 @@
+{
+  "entry": {
+    "id": "memory:34",
+    "anchors": [],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "Repo-persisted memory already carries scope, provenance, evidence hooks, and promotion/supersession metadata, but repo-persisted concepts are still thinner: they are portable and reviewable, yet they lack first-class provenance fields, staleness/supersession controls, and a local/session/repo promotion ladder.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "task_id": "task:assess-whether-repo-persisted-memory-and-concept-implementations-follow-the-published-knowledge-philosophy:54"
+    },
+    "created_at": 1774710027,
+    "source": "Agent",
+    "trust": 0.95
+  },
+  "latestEventId": "memory-event:1774710027990289000",
+  "latestRecordedAt": 1774710027,
+  "eventCount": 1,
+  "taskId": "task:assess-whether-repo-persisted-memory-and-concept-implementations-follow-the-published-knowledge-philosophy:54"
+}

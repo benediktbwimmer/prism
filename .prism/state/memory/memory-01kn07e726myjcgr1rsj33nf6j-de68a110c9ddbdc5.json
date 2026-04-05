@@ -1,0 +1,47 @@
+{
+  "entry": {
+    "id": "memory:01kn07e726myjcgr1rsj33nf6j",
+    "anchors": [
+      {
+        "File": 104
+      },
+      {
+        "File": 231
+      },
+      {
+        "File": 260
+      },
+      {
+        "File": 317
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "PRISM daemon health depends on keeping authoritative runtime state, bounded serving projections, and cold analytical evidence separate. Symbol-level co-change is analytical evidence, not hot runtime history: persisting unbounded pairwise co-change or hydrating it into HistoryStore makes cache growth, startup memory, and refresh lock contention explode. Co-change should stay bounded in serving projections, while any colder evidence must remain off the daemon hot path.",
+    "metadata": {
+      "evidence": {
+        "validationChecks": [
+          "cargo test -p prism-history -p prism-projections -p prism-store",
+          "cargo build --release -p prism-cli -p prism-mcp"
+        ]
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774903041,
+        "publishedAt": 1774903041,
+        "status": "active"
+      },
+      "task_id": "task:promote-strongest-recent-session-memories-into-repo-scoped-memory:01kn07dmzs2qw5q5d2q2a6pgsv"
+    },
+    "created_at": 1774903041,
+    "source": "Agent",
+    "trust": 0.95
+  },
+  "latestEventId": "memory-event:01kn07e726z4zb1j640w19dx9b",
+  "latestRecordedAt": 1774903041,
+  "eventCount": 1,
+  "taskId": "task:promote-strongest-recent-session-memories-into-repo-scoped-memory:01kn07dmzs2qw5q5d2q2a6pgsv"
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://dashboard_routing_and_assets",
+  "targetHandle": "concept://dashboard_surface",
+  "kind": "part_of",
+  "confidence": 0.95,
+  "evidence": [
+    "Router/assets/types define the browser-facing transport boundary inside the dashboard surface."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

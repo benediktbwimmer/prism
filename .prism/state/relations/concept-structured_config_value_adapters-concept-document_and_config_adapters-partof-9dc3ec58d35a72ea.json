@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://structured_config_value_adapters",
+  "targetHandle": "concept://document_and_config_adapters",
+  "kind": "part_of",
+  "confidence": 0.96,
+  "evidence": [
+    "JSON, TOML, and YAML config walkers are the structured-value branch of the document/config adapter family."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

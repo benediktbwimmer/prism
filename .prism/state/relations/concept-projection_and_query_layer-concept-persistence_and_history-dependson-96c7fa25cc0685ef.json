@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://projection_and_query_layer",
+  "targetHandle": "concept://persistence_and_history",
+  "kind": "depends_on",
+  "confidence": 0.97,
+  "evidence": [
+    "Queries and projections read graph and history snapshots from the persistence layer."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://compact_expansion_and_concept_views",
+  "targetHandle": "concept://projection_and_query_layer",
+  "kind": "depends_on",
+  "confidence": 0.93,
+  "evidence": [
+    "Compact expand and task decoding are derived read surfaces over query/projection data, not raw storage owners."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

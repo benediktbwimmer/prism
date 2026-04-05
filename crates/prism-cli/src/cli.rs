@@ -292,6 +292,8 @@ pub enum ProtectedStateCommand {
     },
     #[command(name = "repair-snapshot-artifacts")]
     RepairSnapshotArtifacts,
+    #[command(name = "restore-legacy-published-knowledge")]
+    RestoreLegacyPublishedKnowledge,
     #[command(name = "repair-path-identity")]
     RepairPathIdentity {
         #[arg(long, default_value_t = false)]
@@ -704,6 +706,22 @@ mod tests {
         match cli.command {
             Command::ProtectedState {
                 command: ProtectedStateCommand::RepairSnapshotArtifacts,
+            } => {}
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn protected_state_restore_legacy_published_knowledge_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "protected-state",
+            "restore-legacy-published-knowledge",
+        ]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::ProtectedState {
+                command: ProtectedStateCommand::RestoreLegacyPublishedKnowledge,
             } => {}
             _ => panic!("unexpected command"),
         }

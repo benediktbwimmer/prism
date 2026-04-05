@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://validation_feedback_and_metrics_loop",
+  "targetHandle": "concept://mcp_mutation_and_session_host",
+  "kind": "depends_on",
+  "confidence": 0.89,
+  "evidence": [
+    "The validation feedback loop relies on the hosted mutation path that records `validation_feedback` entries into repo state."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

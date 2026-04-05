@@ -1,0 +1,56 @@
+{
+  "handle": "concept://memory_refresh_and_patch_outcome_recording",
+  "canonical_name": "memory refresh and patch outcome recording",
+  "summary": "prism-core modules that reanchor persisted memory snapshots after lineage changes and record patch-derived outcome events and validation deltas during refresh.",
+  "aliases": [
+    "memory refresh path",
+    "patch outcome recording"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::memory_refresh",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::patch_outcomes",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1536",
+    "lineage:1546"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`memory_refresh.rs` reapplies lineage events to persisted memory snapshots, while `patch_outcomes.rs` emits patch outcome events and validation deltas from observed changes.",
+    "This is the persistence-feedback half of workspace session runtime."
+  ],
+  "risk_hint": "If this path drifts, refreshes can preserve the wrong memory anchors or lose the patch validation trail.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735383,
+    "lastReviewedAt": 1774735383,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

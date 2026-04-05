@@ -1,0 +1,54 @@
+{
+  "handle": "concept://curator_backend_execution_and_prompting",
+  "canonical_name": "curator backend execution and prompting",
+  "summary": "Curator modules that bound curator context, render backend schemas/config, and execute the Codex-backed curator process under explicit sandbox, approval, and local-provider settings.",
+  "aliases": [
+    "curator backend runtime",
+    "curator prompting"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_curator",
+      "path": "prism_curator::codex",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_curator",
+      "path": "prism_curator::support",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1810",
+    "lineage:1820"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "codex.rs owns executable backend configuration and process launch behavior, while support.rs bounds context and renders the schema/config passed to the backend.",
+    "Together they form the operational execution half of the curator subsystem, separate from proposal synthesis and type modeling."
+  ],
+  "risk_hint": null,
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774736017,
+    "lastReviewedAt": 1774736017,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

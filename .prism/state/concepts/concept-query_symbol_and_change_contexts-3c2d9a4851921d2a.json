@@ -1,0 +1,69 @@
+{
+  "handle": "concept://query_symbol_and_change_contexts",
+  "canonical_name": "query symbol and change contexts",
+  "summary": "prism-query modules that resolve symbols, source slices, impact, and outcome/change context into high-signal read bundles for agent work.",
+  "aliases": [
+    "symbol contexts",
+    "change contexts",
+    "read bundles"
+  ],
+  "confidence": 0.94,
+  "core_members": [
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::symbol",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::source",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::impact",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::outcomes",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:6149",
+    "lineage:6090",
+    "lineage:6022",
+    "lineage:6076"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "symbol.rs, source.rs, impact.rs, and outcomes.rs are the modules behind focused symbol reads, source windows, blast radius, failures, and recent change context.",
+    "This slice is the local-context and recent-change half of prism-query rather than the coordination/runtime half."
+  ],
+  "risk_hint": "If these bundles regress, agents lose the short path from a symbol to its relevant context even while raw search still works.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733968,
+    "lastReviewedAt": 1774733968,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

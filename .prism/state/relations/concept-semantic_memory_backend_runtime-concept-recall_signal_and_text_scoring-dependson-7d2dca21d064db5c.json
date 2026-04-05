@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://semantic_memory_backend_runtime",
+  "targetHandle": "concept://recall_signal_and_text_scoring",
+  "kind": "depends_on",
+  "confidence": 0.89,
+  "evidence": [
+    "Semantic recall still layers its backend signals onto the shared recall/text scoring substrate."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

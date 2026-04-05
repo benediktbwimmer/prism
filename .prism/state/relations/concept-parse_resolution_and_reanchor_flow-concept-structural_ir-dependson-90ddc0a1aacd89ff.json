@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://parse_resolution_and_reanchor_flow",
+  "targetHandle": "concept://structural_ir",
+  "kind": "depends_on",
+  "confidence": 0.92,
+  "evidence": [
+    "Parse, resolution, and reanchor all target the shared node, edge, and identity model in prism-ir."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://impact_and_outcome_queries",
+  "targetHandle": "concept://query_symbol_and_change_contexts",
+  "kind": "part_of",
+  "confidence": 0.95,
+  "evidence": [
+    "Impact and outcome reads are the judgment-oriented half of the symbol/change query cluster."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

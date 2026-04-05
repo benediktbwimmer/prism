@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://plan_and_coordination_ir",
+  "targetHandle": "concept://coordination_and_plan_runtime",
+  "kind": "often_used_with",
+  "confidence": 0.9,
+  "evidence": [
+    "The runtime coordination layer is built on top of the shared plan/coordination IR schema defined in prism-ir."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

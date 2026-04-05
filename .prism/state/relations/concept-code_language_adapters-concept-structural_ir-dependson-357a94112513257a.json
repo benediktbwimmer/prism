@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://code_language_adapters",
+  "targetHandle": "concept://structural_ir",
+  "kind": "depends_on",
+  "confidence": 0.97,
+  "evidence": [
+    "The code adapters emit shared PRISM nodes, edges, anchors, and references through the common IR contract."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

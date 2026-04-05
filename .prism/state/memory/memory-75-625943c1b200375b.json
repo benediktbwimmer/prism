@@ -1,0 +1,105 @@
+{
+  "entry": {
+    "id": "memory:75",
+    "anchors": [
+      {
+        "Lineage": "lineage:10673"
+      },
+      {
+        "Lineage": "lineage:10790"
+      },
+      {
+        "Lineage": "lineage:12779"
+      },
+      {
+        "Lineage": "lineage:3460"
+      },
+      {
+        "Lineage": "lineage:4145"
+      },
+      {
+        "Lineage": "lineage:5310"
+      },
+      {
+        "Lineage": "lineage:6149"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_core",
+          "path": "prism_core::concept_events",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::daemon_mode",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::query_runtime",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::tool_args",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_projections",
+          "path": "prism_projections::concepts",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_query",
+          "path": "prism_query::plan_completion",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_query",
+          "path": "prism_query::symbol",
+          "kind": "Module"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "The architecture map now has a third layer inside the densest branches. `semantic_projection_indexes` splits into packet materialization (`concept://concept_relation_and_intent_projections`) and derived co-change/validation indexes (`concept://cochange_and_validation_projection_indexes`); the query layer splits symbol/source, impact/outcome, coordination/runtime, and plan-insight reads; the MCP runtime splits query execution, resource serving, mutation/schema contracts, session-state mutation runtime, daemon/process lifecycle, and server-health views; and the concept-publication pipeline now exposes explicit concept/relation event streams plus published-knowledge/memory logs. Future architecture reasoning should descend through those child concepts before reopening crate facades.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774735144,
+        "publishedAt": 1774735144,
+        "status": "active"
+      },
+      "task_id": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+    },
+    "created_at": 1774735144,
+    "source": "Agent",
+    "trust": 0.92
+  },
+  "latestEventId": "memory-event:1774735144889720000",
+  "latestRecordedAt": 1774735144,
+  "eventCount": 1,
+  "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+}

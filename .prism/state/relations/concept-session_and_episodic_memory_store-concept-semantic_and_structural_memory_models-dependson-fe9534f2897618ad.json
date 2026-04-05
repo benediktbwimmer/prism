@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://session_and_episodic_memory_store",
+  "targetHandle": "concept://semantic_and_structural_memory_models",
+  "kind": "depends_on",
+  "confidence": 0.9,
+  "evidence": [
+    "Session memory composes structural and semantic modules into the session-scoped memory runtime."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

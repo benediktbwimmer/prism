@@ -1,1 +1,1238 @@
-[]
+[
+  {
+    "id": "concept://agent_inference_and_curation|concept://concept_and_publication_pipeline|DependsOn",
+    "title": "concept://agent_inference_and_curation DependsOn concept://concept_and_publication_pipeline",
+    "status": "active",
+    "path": "relations/concept-agent_inference_and_curation-concept-concept_and_publication_pipeline-dependson-c918c0835d8708be.json"
+  },
+  {
+    "id": "concept://agent_inference_and_curation|concept://prism_architecture|PartOf",
+    "title": "concept://agent_inference_and_curation PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-agent_inference_and_curation-concept-prism_architecture-partof-b2d1ef4c5bfd118b.json"
+  },
+  {
+    "id": "concept://anchor_change_and_lineage_ir|concept://structural_ir|PartOf",
+    "title": "concept://anchor_change_and_lineage_ir PartOf concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-anchor_change_and_lineage_ir-concept-structural_ir-partof-f6078cf32c3fd19e.json"
+  },
+  {
+    "id": "concept://cli_command_and_parse_surface|concept://cli_surface|PartOf",
+    "title": "concept://cli_command_and_parse_surface PartOf concept://cli_surface",
+    "status": "active",
+    "path": "relations/concept-cli_command_and_parse_surface-concept-cli_surface-partof-04e165aa5ffad31a.json"
+  },
+  {
+    "id": "concept://cli_command_and_parse_surface|concept://workspace_indexing_and_refresh|DependsOn",
+    "title": "concept://cli_command_and_parse_surface DependsOn concept://workspace_indexing_and_refresh",
+    "status": "active",
+    "path": "relations/concept-cli_command_and_parse_surface-concept-workspace_indexing_and_refresh-dependson-3c5495fe01ed5fca.json"
+  },
+  {
+    "id": "concept://cli_runtime_and_mcp_control|concept://cli_surface|PartOf",
+    "title": "concept://cli_runtime_and_mcp_control PartOf concept://cli_surface",
+    "status": "active",
+    "path": "relations/concept-cli_runtime_and_mcp_control-concept-cli_surface-partof-af6283569bfefb17.json"
+  },
+  {
+    "id": "concept://cli_runtime_and_mcp_control|concept://mcp_runtime_lifecycle|DependsOn",
+    "title": "concept://cli_runtime_and_mcp_control DependsOn concept://mcp_runtime_lifecycle",
+    "status": "active",
+    "path": "relations/concept-cli_runtime_and_mcp_control-concept-mcp_runtime_lifecycle-dependson-858df157a4978aff.json"
+  },
+  {
+    "id": "concept://cli_surface|concept://prism_architecture|PartOf",
+    "title": "concept://cli_surface PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-cli_surface-concept-prism_architecture-partof-8feddf35afd09979.json"
+  },
+  {
+    "id": "concept://cli_surface|concept://workspace_indexing_and_refresh|DependsOn",
+    "title": "concept://cli_surface DependsOn concept://workspace_indexing_and_refresh",
+    "status": "active",
+    "path": "relations/concept-cli_surface-concept-workspace_indexing_and_refresh-dependson-6be587da8cf362c7.json"
+  },
+  {
+    "id": "concept://cochange_and_validation_projection_indexes|concept://persistence_and_history|DependsOn",
+    "title": "concept://cochange_and_validation_projection_indexes DependsOn concept://persistence_and_history",
+    "status": "active",
+    "path": "relations/concept-cochange_and_validation_projection_indexes-concept-persistence_and_history-dependson-45e3ec7c39b32f27.json"
+  },
+  {
+    "id": "concept://cochange_and_validation_projection_indexes|concept://semantic_projection_indexes|PartOf",
+    "title": "concept://cochange_and_validation_projection_indexes PartOf concept://semantic_projection_indexes",
+    "status": "active",
+    "path": "relations/concept-cochange_and_validation_projection_indexes-concept-semantic_projection_indexes-partof-fc45d8085f7c8cdf.json"
+  },
+  {
+    "id": "concept://code_language_adapters|concept://language_adapter_family|PartOf",
+    "title": "concept://code_language_adapters PartOf concept://language_adapter_family",
+    "status": "active",
+    "path": "relations/concept-code_language_adapters-concept-language_adapter_family-partof-7db2d67b537117a3.json"
+  },
+  {
+    "id": "concept://code_language_adapters|concept://parser_contract_and_fingerprint_utilities|DependsOn",
+    "title": "concept://code_language_adapters DependsOn concept://parser_contract_and_fingerprint_utilities",
+    "status": "active",
+    "path": "relations/concept-code_language_adapters-concept-parser_contract_and_fingerprint_utilities-dependson-468610520c3baa85.json"
+  },
+  {
+    "id": "concept://code_language_adapters|concept://structural_ir|DependsOn",
+    "title": "concept://code_language_adapters DependsOn concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-code_language_adapters-concept-structural_ir-dependson-357a94112513257a.json"
+  },
+  {
+    "id": "concept://compact_discovery_and_opening|concept://compact_tool_surface|PartOf",
+    "title": "concept://compact_discovery_and_opening PartOf concept://compact_tool_surface",
+    "status": "active",
+    "path": "relations/concept-compact_discovery_and_opening-concept-compact_tool_surface-partof-a2b8a998895a4643.json"
+  },
+  {
+    "id": "concept://compact_discovery_and_opening|concept://projection_and_query_layer|DependsOn",
+    "title": "concept://compact_discovery_and_opening DependsOn concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-compact_discovery_and_opening-concept-projection_and_query_layer-dependson-8dc4b8e87c9bdeff.json"
+  },
+  {
+    "id": "concept://compact_expansion_and_concept_views|concept://compact_tool_surface|PartOf",
+    "title": "concept://compact_expansion_and_concept_views PartOf concept://compact_tool_surface",
+    "status": "active",
+    "path": "relations/concept-compact_expansion_and_concept_views-concept-compact_tool_surface-partof-23b0200902b8a4e2.json"
+  },
+  {
+    "id": "concept://compact_expansion_and_concept_views|concept://concept_and_publication_pipeline|DependsOn",
+    "title": "concept://compact_expansion_and_concept_views DependsOn concept://concept_and_publication_pipeline",
+    "status": "active",
+    "path": "relations/concept-compact_expansion_and_concept_views-concept-concept_and_publication_pipeline-dependson-a8248096f749d5a2.json"
+  },
+  {
+    "id": "concept://compact_expansion_and_concept_views|concept://coordination_and_plan_runtime|OftenUsedWith",
+    "title": "concept://compact_expansion_and_concept_views OftenUsedWith concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-compact_expansion_and_concept_views-concept-coordination_and_plan_runtime-oftenusedwith-adb48c54e77c00ad.json"
+  },
+  {
+    "id": "concept://compact_expansion_and_concept_views|concept://projection_and_query_layer|DependsOn",
+    "title": "concept://compact_expansion_and_concept_views DependsOn concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-compact_expansion_and_concept_views-concept-projection_and_query_layer-dependson-1744d9bc23f445d4.json"
+  },
+  {
+    "id": "concept://compact_tool_surface|concept://mcp_runtime_surface|Specializes",
+    "title": "concept://compact_tool_surface Specializes concept://mcp_runtime_surface",
+    "status": "active",
+    "path": "relations/concept-compact_tool_surface-concept-mcp_runtime_surface-specializes-d1349661abb7728e.json"
+  },
+  {
+    "id": "concept://compact_tool_surface|concept://prism_architecture|PartOf",
+    "title": "concept://compact_tool_surface PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-compact_tool_surface-concept-prism_architecture-partof-c581b212aa1753c8.json"
+  },
+  {
+    "id": "concept://compact_tool_surface|concept://projection_and_query_layer|DependsOn",
+    "title": "concept://compact_tool_surface DependsOn concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-compact_tool_surface-concept-projection_and_query_layer-dependson-f08747d0d511eaec.json"
+  },
+  {
+    "id": "concept://compact_tool_surface|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://compact_tool_surface ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-compact_tool_surface-concept-validation_and_dogfooding-validatedby-6d7e70d3f49eda69.json"
+  },
+  {
+    "id": "concept://composite_memory_routing_and_entry_storage|concept://memory_recall_and_scoring|PartOf",
+    "title": "concept://composite_memory_routing_and_entry_storage PartOf concept://memory_recall_and_scoring",
+    "status": "active",
+    "path": "relations/concept-composite_memory_routing_and_entry_storage-concept-memory_recall_and_scoring-partof-594f1eccde5f1d8d.json"
+  },
+  {
+    "id": "concept://concept_and_expand_decode_runtime|concept://compact_expansion_and_concept_views|PartOf",
+    "title": "concept://concept_and_expand_decode_runtime PartOf concept://compact_expansion_and_concept_views",
+    "status": "active",
+    "path": "relations/concept-concept_and_expand_decode_runtime-concept-compact_expansion_and_concept_views-partof-b9ce069e53115f0f.json"
+  },
+  {
+    "id": "concept://concept_and_expand_decode_runtime|concept://projection_and_query_layer|DependsOn",
+    "title": "concept://concept_and_expand_decode_runtime DependsOn concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-concept_and_expand_decode_runtime-concept-projection_and_query_layer-dependson-63d59e6b8da90b94.json"
+  },
+  {
+    "id": "concept://concept_and_publication_pipeline|concept://prism_architecture|PartOf",
+    "title": "concept://concept_and_publication_pipeline PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-concept_and_publication_pipeline-concept-prism_architecture-partof-294f98222b4579e4.json"
+  },
+  {
+    "id": "concept://concept_and_publication_pipeline|concept://projection_and_query_layer|DependsOn",
+    "title": "concept://concept_and_publication_pipeline DependsOn concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-concept_and_publication_pipeline-concept-projection_and_query_layer-dependson-03af1b98dc0b0035.json"
+  },
+  {
+    "id": "concept://concept_and_publication_pipeline|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://concept_and_publication_pipeline ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-concept_and_publication_pipeline-concept-validation_and_dogfooding-validatedby-8924181bf005f85c.json"
+  },
+  {
+    "id": "concept://concept_and_relation_event_streams|concept://concept_and_publication_pipeline|PartOf",
+    "title": "concept://concept_and_relation_event_streams PartOf concept://concept_and_publication_pipeline",
+    "status": "active",
+    "path": "relations/concept-concept_and_relation_event_streams-concept-concept_and_publication_pipeline-partof-dc661727c8b73f26.json"
+  },
+  {
+    "id": "concept://concept_and_relation_event_streams|concept://semantic_projection_indexes|OftenUsedWith",
+    "title": "concept://concept_and_relation_event_streams OftenUsedWith concept://semantic_projection_indexes",
+    "status": "active",
+    "path": "relations/concept-concept_and_relation_event_streams-concept-semantic_projection_indexes-oftenusedwith-eea31ea410329e1d.json"
+  },
+  {
+    "id": "concept://concept_relation_and_intent_projections|concept://concept_and_publication_pipeline|DependsOn",
+    "title": "concept://concept_relation_and_intent_projections DependsOn concept://concept_and_publication_pipeline",
+    "status": "active",
+    "path": "relations/concept-concept_relation_and_intent_projections-concept-concept_and_publication_pipeline-dependson-7590ce74185a3d4d.json"
+  },
+  {
+    "id": "concept://concept_relation_and_intent_projections|concept://semantic_projection_indexes|PartOf",
+    "title": "concept://concept_relation_and_intent_projections PartOf concept://semantic_projection_indexes",
+    "status": "active",
+    "path": "relations/concept-concept_relation_and_intent_projections-concept-semantic_projection_indexes-partof-d8670ce667e1f0e4.json"
+  },
+  {
+    "id": "concept://coordination_and_plan_runtime|concept://prism_architecture|PartOf",
+    "title": "concept://coordination_and_plan_runtime PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-coordination_and_plan_runtime-concept-prism_architecture-partof-f1686cf8781f7e8e.json"
+  },
+  {
+    "id": "concept://coordination_and_plan_runtime|concept://structural_ir|DependsOn",
+    "title": "concept://coordination_and_plan_runtime DependsOn concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-coordination_and_plan_runtime-concept-structural_ir-dependson-4ef850b0764ab7b1.json"
+  },
+  {
+    "id": "concept://coordination_and_plan_runtime|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://coordination_and_plan_runtime ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-coordination_and_plan_runtime-concept-validation_and_dogfooding-validatedby-9958dd715d94b779.json"
+  },
+  {
+    "id": "concept://coordination_and_plan_runtime_queries|concept://coordination_and_plan_runtime|DependsOn",
+    "title": "concept://coordination_and_plan_runtime_queries DependsOn concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-coordination_and_plan_runtime_queries-concept-coordination_and_plan_runtime-dependson-5c9b87d19f639e27.json"
+  },
+  {
+    "id": "concept://coordination_and_plan_runtime_queries|concept://query_coordination_and_plan_views|PartOf",
+    "title": "concept://coordination_and_plan_runtime_queries PartOf concept://query_coordination_and_plan_views",
+    "status": "active",
+    "path": "relations/concept-coordination_and_plan_runtime_queries-concept-query_coordination_and_plan_views-partof-1c930db9de7d1a86.json"
+  },
+  {
+    "id": "concept://coordination_mutation_and_policy_helpers|concept://coordination_operations_and_policy|PartOf",
+    "title": "concept://coordination_mutation_and_policy_helpers PartOf concept://coordination_operations_and_policy",
+    "status": "active",
+    "path": "relations/concept-coordination_mutation_and_policy_helpers-concept-coordination_operations_and_policy-partof-0558054e661187fc.json"
+  },
+  {
+    "id": "concept://coordination_mutation_and_policy_helpers|concept://coordination_state_model|DependsOn",
+    "title": "concept://coordination_mutation_and_policy_helpers DependsOn concept://coordination_state_model",
+    "status": "active",
+    "path": "relations/concept-coordination_mutation_and_policy_helpers-concept-coordination_state_model-dependson-62f93f4d9c5527c9.json"
+  },
+  {
+    "id": "concept://coordination_mutation_and_policy_helpers|concept://principal_identity_and_mutation_provenance|DependsOn",
+    "title": "concept://coordination_mutation_and_policy_helpers DependsOn concept://principal_identity_and_mutation_provenance",
+    "status": "active",
+    "path": "relations/concept-coordination_mutation_and_policy_helpers-concept-principal_identity_and_mutation_provenance-dependson-822501e131bf3c49.json"
+  },
+  {
+    "id": "concept://coordination_mutation_and_policy_helpers|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://coordination_mutation_and_policy_helpers ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-coordination_mutation_and_policy_helpers-concept-validation_and_dogfooding-validatedby-fbbf36c6d8c539c4.json"
+  },
+  {
+    "id": "concept://coordination_operations_and_policy|concept://coordination_and_plan_runtime|PartOf",
+    "title": "concept://coordination_operations_and_policy PartOf concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-coordination_operations_and_policy-concept-coordination_and_plan_runtime-partof-348ff74dc535d497.json"
+  },
+  {
+    "id": "concept://coordination_operations_and_policy|concept://coordination_state_model|DependsOn",
+    "title": "concept://coordination_operations_and_policy DependsOn concept://coordination_state_model",
+    "status": "active",
+    "path": "relations/concept-coordination_operations_and_policy-concept-coordination_state_model-dependson-3f02de9e2b5a1797.json"
+  },
+  {
+    "id": "concept://coordination_operations_and_policy|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://coordination_operations_and_policy ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-coordination_operations_and_policy-concept-validation_and_dogfooding-validatedby-88ebc144718ad417.json"
+  },
+  {
+    "id": "concept://coordination_query_and_blocker_operations|concept://coordination_operations_and_policy|PartOf",
+    "title": "concept://coordination_query_and_blocker_operations PartOf concept://coordination_operations_and_policy",
+    "status": "active",
+    "path": "relations/concept-coordination_query_and_blocker_operations-concept-coordination_operations_and_policy-partof-5819be4ef58ba6e2.json"
+  },
+  {
+    "id": "concept://coordination_query_and_blocker_operations|concept://coordination_state_model|DependsOn",
+    "title": "concept://coordination_query_and_blocker_operations DependsOn concept://coordination_state_model",
+    "status": "active",
+    "path": "relations/concept-coordination_query_and_blocker_operations-concept-coordination_state_model-dependson-4670b25005709f90.json"
+  },
+  {
+    "id": "concept://coordination_state_model|concept://coordination_and_plan_runtime|PartOf",
+    "title": "concept://coordination_state_model PartOf concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-coordination_state_model-concept-coordination_and_plan_runtime-partof-e63dc1cd2d3800e9.json"
+  },
+  {
+    "id": "concept://coordination_state_model|concept://structural_ir|DependsOn",
+    "title": "concept://coordination_state_model DependsOn concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-coordination_state_model-concept-structural_ir-dependson-26cd1331b9418611.json"
+  },
+  {
+    "id": "concept://coordination_store_and_domain_types|concept://coordination_state_model|PartOf",
+    "title": "concept://coordination_store_and_domain_types PartOf concept://coordination_state_model",
+    "status": "active",
+    "path": "relations/concept-coordination_store_and_domain_types-concept-coordination_state_model-partof-983e2e2d33f93419.json"
+  },
+  {
+    "id": "concept://core_indexing_pipeline|concept://language_adapter_family|DependsOn",
+    "title": "concept://core_indexing_pipeline DependsOn concept://language_adapter_family",
+    "status": "active",
+    "path": "relations/concept-core_indexing_pipeline-concept-language_adapter_family-dependson-addae1cfe8d8df8a.json"
+  },
+  {
+    "id": "concept://core_indexing_pipeline|concept://structural_ir|DependsOn",
+    "title": "concept://core_indexing_pipeline DependsOn concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-core_indexing_pipeline-concept-structural_ir-dependson-8314347bbfc44fc4.json"
+  },
+  {
+    "id": "concept://core_indexing_pipeline|concept://workspace_indexing_and_refresh|PartOf",
+    "title": "concept://core_indexing_pipeline PartOf concept://workspace_indexing_and_refresh",
+    "status": "active",
+    "path": "relations/concept-core_indexing_pipeline-concept-workspace_indexing_and_refresh-partof-45819e3a22b3c177.json"
+  },
+  {
+    "id": "concept://curator_backend_execution_and_prompting|concept://curator_execution_flow|PartOf",
+    "title": "concept://curator_backend_execution_and_prompting PartOf concept://curator_execution_flow",
+    "status": "active",
+    "path": "relations/concept-curator_backend_execution_and_prompting-concept-curator_execution_flow-partof-b3a69da3709edbf0.json"
+  },
+  {
+    "id": "concept://curator_backend_execution_and_prompting|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://curator_backend_execution_and_prompting ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-curator_backend_execution_and_prompting-concept-validation_and_dogfooding-validatedby-8e5b9b242da5878e.json"
+  },
+  {
+    "id": "concept://curator_execution_flow|concept://agent_inference_and_curation|PartOf",
+    "title": "concept://curator_execution_flow PartOf concept://agent_inference_and_curation",
+    "status": "active",
+    "path": "relations/concept-curator_execution_flow-concept-agent_inference_and_curation-partof-c908fad39285dc22.json"
+  },
+  {
+    "id": "concept://curator_execution_flow|concept://concept_and_publication_pipeline|DependsOn",
+    "title": "concept://curator_execution_flow DependsOn concept://concept_and_publication_pipeline",
+    "status": "active",
+    "path": "relations/concept-curator_execution_flow-concept-concept_and_publication_pipeline-dependson-670bcc1c90c44ec1.json"
+  },
+  {
+    "id": "concept://curator_execution_flow|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://curator_execution_flow ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-curator_execution_flow-concept-validation_and_dogfooding-validatedby-1622baf351045b23.json"
+  },
+  {
+    "id": "concept://curator_rule_synthesis_and_proposal_types|concept://curator_execution_flow|PartOf",
+    "title": "concept://curator_rule_synthesis_and_proposal_types PartOf concept://curator_execution_flow",
+    "status": "active",
+    "path": "relations/concept-curator_rule_synthesis_and_proposal_types-concept-curator_execution_flow-partof-776a1215e4222d28.json"
+  },
+  {
+    "id": "concept://curator_rule_synthesis_and_proposal_types|concept://memory_system|DependsOn",
+    "title": "concept://curator_rule_synthesis_and_proposal_types DependsOn concept://memory_system",
+    "status": "active",
+    "path": "relations/concept-curator_rule_synthesis_and_proposal_types-concept-memory_system-dependson-8956f22c3723fce5.json"
+  },
+  {
+    "id": "concept://curator_rule_synthesis_and_proposal_types|concept://projection_and_query_layer|DependsOn",
+    "title": "concept://curator_rule_synthesis_and_proposal_types DependsOn concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-curator_rule_synthesis_and_proposal_types-concept-projection_and_query_layer-dependson-9464274fb10034c3.json"
+  },
+  {
+    "id": "concept://daemon_process_and_proxy_lifecycle|concept://mcp_runtime_lifecycle|PartOf",
+    "title": "concept://daemon_process_and_proxy_lifecycle PartOf concept://mcp_runtime_lifecycle",
+    "status": "active",
+    "path": "relations/concept-daemon_process_and_proxy_lifecycle-concept-mcp_runtime_lifecycle-partof-08b5cfaa55c15766.json"
+  },
+  {
+    "id": "concept://dashboard_events_and_read_models|concept://coordination_and_plan_runtime|DependsOn",
+    "title": "concept://dashboard_events_and_read_models DependsOn concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-dashboard_events_and_read_models-concept-coordination_and_plan_runtime-dependson-67fb33c7fe3af132.json"
+  },
+  {
+    "id": "concept://dashboard_events_and_read_models|concept://dashboard_surface|PartOf",
+    "title": "concept://dashboard_events_and_read_models PartOf concept://dashboard_surface",
+    "status": "active",
+    "path": "relations/concept-dashboard_events_and_read_models-concept-dashboard_surface-partof-d7f6da7d2e448164.json"
+  },
+  {
+    "id": "concept://dashboard_routing_and_assets|concept://dashboard_surface|PartOf",
+    "title": "concept://dashboard_routing_and_assets PartOf concept://dashboard_surface",
+    "status": "active",
+    "path": "relations/concept-dashboard_routing_and_assets-concept-dashboard_surface-partof-b3d3d0887615e096.json"
+  },
+  {
+    "id": "concept://dashboard_routing_and_assets|concept://mcp_runtime_surface|DependsOn",
+    "title": "concept://dashboard_routing_and_assets DependsOn concept://mcp_runtime_surface",
+    "status": "active",
+    "path": "relations/concept-dashboard_routing_and_assets-concept-mcp_runtime_surface-dependson-ec0b8935fddd2e79.json"
+  },
+  {
+    "id": "concept://dashboard_surface|concept://coordination_and_plan_runtime|DependsOn",
+    "title": "concept://dashboard_surface DependsOn concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-dashboard_surface-concept-coordination_and_plan_runtime-dependson-c05c52d224de976e.json"
+  },
+  {
+    "id": "concept://dashboard_surface|concept://mcp_runtime_surface|Specializes",
+    "title": "concept://dashboard_surface Specializes concept://mcp_runtime_surface",
+    "status": "active",
+    "path": "relations/concept-dashboard_surface-concept-mcp_runtime_surface-specializes-92884c671c2d0e3c.json"
+  },
+  {
+    "id": "concept://dashboard_surface|concept://prism_architecture|PartOf",
+    "title": "concept://dashboard_surface PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-dashboard_surface-concept-prism_architecture-partof-c6ff03fd0f486481.json"
+  },
+  {
+    "id": "concept://dashboard_surface|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://dashboard_surface ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-dashboard_surface-concept-validation_and_dogfooding-validatedby-d97ff662f3b3ff56.json"
+  },
+  {
+    "id": "concept://document_and_config_adapters|concept://language_adapter_family|PartOf",
+    "title": "concept://document_and_config_adapters PartOf concept://language_adapter_family",
+    "status": "active",
+    "path": "relations/concept-document_and_config_adapters-concept-language_adapter_family-partof-c24dd2be71d4d0b4.json"
+  },
+  {
+    "id": "concept://document_and_config_adapters|concept://parser_contract_and_fingerprint_utilities|DependsOn",
+    "title": "concept://document_and_config_adapters DependsOn concept://parser_contract_and_fingerprint_utilities",
+    "status": "active",
+    "path": "relations/concept-document_and_config_adapters-concept-parser_contract_and_fingerprint_utilities-dependson-182cfdfa0e5b28cc.json"
+  },
+  {
+    "id": "concept://document_and_config_adapters|concept://structural_ir|DependsOn",
+    "title": "concept://document_and_config_adapters DependsOn concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-document_and_config_adapters-concept-structural_ir-dependson-964aed0bd66ccb39.json"
+  },
+  {
+    "id": "concept://graph_identity_and_parse_ir|concept://structural_ir|PartOf",
+    "title": "concept://graph_identity_and_parse_ir PartOf concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-graph_identity_and_parse_ir-concept-structural_ir-partof-cd1fd0a23199891a.json"
+  },
+  {
+    "id": "concept://history_snapshot_and_resolution|concept://persistence_and_history|PartOf",
+    "title": "concept://history_snapshot_and_resolution PartOf concept://persistence_and_history",
+    "status": "active",
+    "path": "relations/concept-history_snapshot_and_resolution-concept-persistence_and_history-partof-e9854e14bb498a50.json"
+  },
+  {
+    "id": "concept://history_snapshot_and_resolution|concept://structural_ir|DependsOn",
+    "title": "concept://history_snapshot_and_resolution DependsOn concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-history_snapshot_and_resolution-concept-structural_ir-dependson-ff86e1166e2fc9a5.json"
+  },
+  {
+    "id": "concept://impact_and_outcome_queries|concept://memory_system|DependsOn",
+    "title": "concept://impact_and_outcome_queries DependsOn concept://memory_system",
+    "status": "active",
+    "path": "relations/concept-impact_and_outcome_queries-concept-memory_system-dependson-8883aaeee8f8f060.json"
+  },
+  {
+    "id": "concept://impact_and_outcome_queries|concept://query_symbol_and_change_contexts|PartOf",
+    "title": "concept://impact_and_outcome_queries PartOf concept://query_symbol_and_change_contexts",
+    "status": "active",
+    "path": "relations/concept-impact_and_outcome_queries-concept-query_symbol_and_change_contexts-partof-87b19ba91766f4dd.json"
+  },
+  {
+    "id": "concept://indexer_orchestration_and_snapshot_loading|concept://core_indexing_pipeline|PartOf",
+    "title": "concept://indexer_orchestration_and_snapshot_loading PartOf concept://core_indexing_pipeline",
+    "status": "active",
+    "path": "relations/concept-indexer_orchestration_and_snapshot_loading-concept-core_indexing_pipeline-partof-a70e722eff6495b1.json"
+  },
+  {
+    "id": "concept://indexer_orchestration_and_snapshot_loading|concept://persistence_and_history|DependsOn",
+    "title": "concept://indexer_orchestration_and_snapshot_loading DependsOn concept://persistence_and_history",
+    "status": "active",
+    "path": "relations/concept-indexer_orchestration_and_snapshot_loading-concept-persistence_and_history-dependson-f80845932ec484ac.json"
+  },
+  {
+    "id": "concept://inferred_edge_runtime_and_session_store|concept://agent_inference_and_curation|PartOf",
+    "title": "concept://inferred_edge_runtime_and_session_store PartOf concept://agent_inference_and_curation",
+    "status": "active",
+    "path": "relations/concept-inferred_edge_runtime_and_session_store-concept-agent_inference_and_curation-partof-dd5444908a85c2a3.json"
+  },
+  {
+    "id": "concept://inferred_edge_runtime_and_session_store|concept://mcp_mutation_and_session_host|DependsOn",
+    "title": "concept://inferred_edge_runtime_and_session_store DependsOn concept://mcp_mutation_and_session_host",
+    "status": "active",
+    "path": "relations/concept-inferred_edge_runtime_and_session_store-concept-mcp_mutation_and_session_host-dependson-029dd4b476ba04f1.json"
+  },
+  {
+    "id": "concept://inferred_edge_runtime_and_session_store|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://inferred_edge_runtime_and_session_store ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-inferred_edge_runtime_and_session_store-concept-validation_and_dogfooding-validatedby-25c7b7c3a92ca141.json"
+  },
+  {
+    "id": "concept://javascript_api_contract_surface|concept://javascript_query_abi|PartOf",
+    "title": "concept://javascript_api_contract_surface PartOf concept://javascript_query_abi",
+    "status": "active",
+    "path": "relations/concept-javascript_api_contract_surface-concept-javascript_query_abi-partof-651cafdc6a384db9.json"
+  },
+  {
+    "id": "concept://javascript_api_contract_surface|concept://mcp_query_and_resource_serving|DependsOn",
+    "title": "concept://javascript_api_contract_surface DependsOn concept://mcp_query_and_resource_serving",
+    "status": "active",
+    "path": "relations/concept-javascript_api_contract_surface-concept-mcp_query_and_resource_serving-dependson-c1a9994035616cc5.json"
+  },
+  {
+    "id": "concept://javascript_query_abi|concept://mcp_runtime_surface|OftenUsedWith",
+    "title": "concept://javascript_query_abi OftenUsedWith concept://mcp_runtime_surface",
+    "status": "active",
+    "path": "relations/concept-javascript_query_abi-concept-mcp_runtime_surface-oftenusedwith-e6b92816fe34711d.json"
+  },
+  {
+    "id": "concept://javascript_query_abi|concept://projection_and_query_layer|PartOf",
+    "title": "concept://javascript_query_abi PartOf concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-javascript_query_abi-concept-projection_and_query_layer-partof-cbd5204ffef3917e.json"
+  },
+  {
+    "id": "concept://javascript_runtime_and_reference_bridge|concept://javascript_query_abi|PartOf",
+    "title": "concept://javascript_runtime_and_reference_bridge PartOf concept://javascript_query_abi",
+    "status": "active",
+    "path": "relations/concept-javascript_runtime_and_reference_bridge-concept-javascript_query_abi-partof-ac6cc9a422b197b1.json"
+  },
+  {
+    "id": "concept://language_adapter_family|concept://prism_architecture|PartOf",
+    "title": "concept://language_adapter_family PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-language_adapter_family-concept-prism_architecture-partof-29d0ab36e4984aa8.json"
+  },
+  {
+    "id": "concept://language_adapter_family|concept://structural_ir|DependsOn",
+    "title": "concept://language_adapter_family DependsOn concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-language_adapter_family-concept-structural_ir-dependson-e78f681626dbcca0.json"
+  },
+  {
+    "id": "concept://locate_ranking_and_text_candidate_flow|concept://compact_discovery_and_opening|PartOf",
+    "title": "concept://locate_ranking_and_text_candidate_flow PartOf concept://compact_discovery_and_opening",
+    "status": "active",
+    "path": "relations/concept-locate_ranking_and_text_candidate_flow-concept-compact_discovery_and_opening-partof-ca90de2bfd6e983f.json"
+  },
+  {
+    "id": "concept://locate_ranking_and_text_candidate_flow|concept://projection_and_query_layer|DependsOn",
+    "title": "concept://locate_ranking_and_text_candidate_flow DependsOn concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-locate_ranking_and_text_candidate_flow-concept-projection_and_query_layer-dependson-eb9e57a336c97106.json"
+  },
+  {
+    "id": "concept://markdown_heading_and_intent_adapter|concept://document_and_config_adapters|PartOf",
+    "title": "concept://markdown_heading_and_intent_adapter PartOf concept://document_and_config_adapters",
+    "status": "active",
+    "path": "relations/concept-markdown_heading_and_intent_adapter-concept-document_and_config_adapters-partof-c402312d31bb203e.json"
+  },
+  {
+    "id": "concept://markdown_heading_and_intent_adapter|concept://parser_contract_and_fingerprint_utilities|DependsOn",
+    "title": "concept://markdown_heading_and_intent_adapter DependsOn concept://parser_contract_and_fingerprint_utilities",
+    "status": "active",
+    "path": "relations/concept-markdown_heading_and_intent_adapter-concept-parser_contract_and_fingerprint_utilities-dependson-fe8455ade19f335d.json"
+  },
+  {
+    "id": "concept://mcp_mutation_and_session_host|concept://concept_and_publication_pipeline|DependsOn",
+    "title": "concept://mcp_mutation_and_session_host DependsOn concept://concept_and_publication_pipeline",
+    "status": "active",
+    "path": "relations/concept-mcp_mutation_and_session_host-concept-concept_and_publication_pipeline-dependson-edf869135b237e49.json"
+  },
+  {
+    "id": "concept://mcp_mutation_and_session_host|concept://coordination_and_plan_runtime|DependsOn",
+    "title": "concept://mcp_mutation_and_session_host DependsOn concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-mcp_mutation_and_session_host-concept-coordination_and_plan_runtime-dependson-9d44ded5e50224cd.json"
+  },
+  {
+    "id": "concept://mcp_mutation_and_session_host|concept://mcp_runtime_surface|PartOf",
+    "title": "concept://mcp_mutation_and_session_host PartOf concept://mcp_runtime_surface",
+    "status": "active",
+    "path": "relations/concept-mcp_mutation_and_session_host-concept-mcp_runtime_surface-partof-9d9023d58b7cd6e4.json"
+  },
+  {
+    "id": "concept://mcp_mutation_and_session_host|concept://principal_identity_and_mutation_provenance|DependsOn",
+    "title": "concept://mcp_mutation_and_session_host DependsOn concept://principal_identity_and_mutation_provenance",
+    "status": "active",
+    "path": "relations/concept-mcp_mutation_and_session_host-concept-principal_identity_and_mutation_provenance-dependson-2661d95630eda3dc.json"
+  },
+  {
+    "id": "concept://mcp_mutation_and_session_host|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://mcp_mutation_and_session_host ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-mcp_mutation_and_session_host-concept-validation_and_dogfooding-validatedby-accf7872aa24b8c1.json"
+  },
+  {
+    "id": "concept://mcp_query_and_resource_serving|concept://mcp_runtime_surface|PartOf",
+    "title": "concept://mcp_query_and_resource_serving PartOf concept://mcp_runtime_surface",
+    "status": "active",
+    "path": "relations/concept-mcp_query_and_resource_serving-concept-mcp_runtime_surface-partof-53539dd49a065988.json"
+  },
+  {
+    "id": "concept://mcp_query_and_resource_serving|concept://projection_and_query_layer|DependsOn",
+    "title": "concept://mcp_query_and_resource_serving DependsOn concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-mcp_query_and_resource_serving-concept-projection_and_query_layer-dependson-eb735756f39d03f1.json"
+  },
+  {
+    "id": "concept://mcp_runtime_lifecycle|concept://mcp_runtime_surface|PartOf",
+    "title": "concept://mcp_runtime_lifecycle PartOf concept://mcp_runtime_surface",
+    "status": "active",
+    "path": "relations/concept-mcp_runtime_lifecycle-concept-mcp_runtime_surface-partof-cf862fe9ec78d749.json"
+  },
+  {
+    "id": "concept://mcp_runtime_lifecycle|concept://workspace_session_runtime|DependsOn",
+    "title": "concept://mcp_runtime_lifecycle DependsOn concept://workspace_session_runtime",
+    "status": "active",
+    "path": "relations/concept-mcp_runtime_lifecycle-concept-workspace_session_runtime-dependson-0ce9bf0b8cc2deed.json"
+  },
+  {
+    "id": "concept://mcp_runtime_surface|concept://concept_and_publication_pipeline|DependsOn",
+    "title": "concept://mcp_runtime_surface DependsOn concept://concept_and_publication_pipeline",
+    "status": "active",
+    "path": "relations/concept-mcp_runtime_surface-concept-concept_and_publication_pipeline-dependson-24a72accb8a66bcb.json"
+  },
+  {
+    "id": "concept://mcp_runtime_surface|concept://coordination_and_plan_runtime|DependsOn",
+    "title": "concept://mcp_runtime_surface DependsOn concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-mcp_runtime_surface-concept-coordination_and_plan_runtime-dependson-aef910b235c37607.json"
+  },
+  {
+    "id": "concept://mcp_runtime_surface|concept://prism_architecture|PartOf",
+    "title": "concept://mcp_runtime_surface PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-mcp_runtime_surface-concept-prism_architecture-partof-1ca1177d768c2f13.json"
+  },
+  {
+    "id": "concept://mcp_runtime_surface|concept://projection_and_query_layer|DependsOn",
+    "title": "concept://mcp_runtime_surface DependsOn concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-mcp_runtime_surface-concept-projection_and_query_layer-dependson-9ad6ff19f4e77713.json"
+  },
+  {
+    "id": "concept://mcp_runtime_surface|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://mcp_runtime_surface ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-mcp_runtime_surface-concept-validation_and_dogfooding-validatedby-7a4615f2fee60055.json"
+  },
+  {
+    "id": "concept://memory_outcomes_and_session_history|concept://memory_system|PartOf",
+    "title": "concept://memory_outcomes_and_session_history PartOf concept://memory_system",
+    "status": "active",
+    "path": "relations/concept-memory_outcomes_and_session_history-concept-memory_system-partof-a18b4909d447c71b.json"
+  },
+  {
+    "id": "concept://memory_outcomes_and_session_history|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://memory_outcomes_and_session_history ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-memory_outcomes_and_session_history-concept-validation_and_dogfooding-validatedby-246895ea06d1ceef.json"
+  },
+  {
+    "id": "concept://memory_projection_persistence|concept://memory_system|OftenUsedWith",
+    "title": "concept://memory_projection_persistence OftenUsedWith concept://memory_system",
+    "status": "active",
+    "path": "relations/concept-memory_projection_persistence-concept-memory_system-oftenusedwith-7281b41849dfe70f.json"
+  },
+  {
+    "id": "concept://memory_projection_persistence|concept://persistence_and_history|PartOf",
+    "title": "concept://memory_projection_persistence PartOf concept://persistence_and_history",
+    "status": "active",
+    "path": "relations/concept-memory_projection_persistence-concept-persistence_and_history-partof-b7e128101512309f.json"
+  },
+  {
+    "id": "concept://memory_recall_and_scoring|concept://memory_system|PartOf",
+    "title": "concept://memory_recall_and_scoring PartOf concept://memory_system",
+    "status": "active",
+    "path": "relations/concept-memory_recall_and_scoring-concept-memory_system-partof-5584b7f31369435d.json"
+  },
+  {
+    "id": "concept://memory_recall_and_scoring|concept://semantic_and_structural_memory_models|OftenUsedWith",
+    "title": "concept://memory_recall_and_scoring OftenUsedWith concept://semantic_and_structural_memory_models",
+    "status": "active",
+    "path": "relations/concept-memory_recall_and_scoring-concept-semantic_and_structural_memory_models-oftenusedwith-d45564b9e69bd05b.json"
+  },
+  {
+    "id": "concept://memory_refresh_and_patch_outcome_recording|concept://memory_system|DependsOn",
+    "title": "concept://memory_refresh_and_patch_outcome_recording DependsOn concept://memory_system",
+    "status": "active",
+    "path": "relations/concept-memory_refresh_and_patch_outcome_recording-concept-memory_system-dependson-95513c965254a79b.json"
+  },
+  {
+    "id": "concept://memory_refresh_and_patch_outcome_recording|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://memory_refresh_and_patch_outcome_recording ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-memory_refresh_and_patch_outcome_recording-concept-validation_and_dogfooding-validatedby-1e9d1f399b79ee54.json"
+  },
+  {
+    "id": "concept://memory_refresh_and_patch_outcome_recording|concept://workspace_session_runtime|PartOf",
+    "title": "concept://memory_refresh_and_patch_outcome_recording PartOf concept://workspace_session_runtime",
+    "status": "active",
+    "path": "relations/concept-memory_refresh_and_patch_outcome_recording-concept-workspace_session_runtime-partof-ef261339e5757ba5.json"
+  },
+  {
+    "id": "concept://memory_system|concept://persistence_and_history|DependsOn",
+    "title": "concept://memory_system DependsOn concept://persistence_and_history",
+    "status": "active",
+    "path": "relations/concept-memory_system-concept-persistence_and_history-dependson-fda5fac13a6bcfcd.json"
+  },
+  {
+    "id": "concept://memory_system|concept://prism_architecture|PartOf",
+    "title": "concept://memory_system PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-memory_system-concept-prism_architecture-partof-0fa21d1bee03b4d6.json"
+  },
+  {
+    "id": "concept://memory_system|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://memory_system ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-memory_system-concept-validation_and_dogfooding-validatedby-2b2b89490ffd0926.json"
+  },
+  {
+    "id": "concept://mutation_argument_and_schema_surface|concept://mcp_mutation_and_session_host|PartOf",
+    "title": "concept://mutation_argument_and_schema_surface PartOf concept://mcp_mutation_and_session_host",
+    "status": "active",
+    "path": "relations/concept-mutation_argument_and_schema_surface-concept-mcp_mutation_and_session_host-partof-0738ba12a7e49d40.json"
+  },
+  {
+    "id": "concept://mutation_argument_and_schema_surface|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://mutation_argument_and_schema_surface ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-mutation_argument_and_schema_surface-concept-validation_and_dogfooding-validatedby-e035f9b0195ce448.json"
+  },
+  {
+    "id": "concept://open_and_workset_followthrough|concept://compact_discovery_and_opening|PartOf",
+    "title": "concept://open_and_workset_followthrough PartOf concept://compact_discovery_and_opening",
+    "status": "active",
+    "path": "relations/concept-open_and_workset_followthrough-concept-compact_discovery_and_opening-partof-3c395e4338851dd7.json"
+  },
+  {
+    "id": "concept://open_and_workset_followthrough|concept://projection_and_query_layer|DependsOn",
+    "title": "concept://open_and_workset_followthrough DependsOn concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-open_and_workset_followthrough-concept-projection_and_query_layer-dependson-d6f2498672576af6.json"
+  },
+  {
+    "id": "concept://outcome_event_and_replay_memory|concept://memory_outcomes_and_session_history|PartOf",
+    "title": "concept://outcome_event_and_replay_memory PartOf concept://memory_outcomes_and_session_history",
+    "status": "active",
+    "path": "relations/concept-outcome_event_and_replay_memory-concept-memory_outcomes_and_session_history-partof-aef8c7f646733df8.json"
+  },
+  {
+    "id": "concept://outcome_event_and_replay_memory|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://outcome_event_and_replay_memory ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-outcome_event_and_replay_memory-concept-validation_and_dogfooding-validatedby-b34ed53d8a295816.json"
+  },
+  {
+    "id": "concept://parse_resolution_and_reanchor_flow|concept://core_indexing_pipeline|PartOf",
+    "title": "concept://parse_resolution_and_reanchor_flow PartOf concept://core_indexing_pipeline",
+    "status": "active",
+    "path": "relations/concept-parse_resolution_and_reanchor_flow-concept-core_indexing_pipeline-partof-b7fad3467282792f.json"
+  },
+  {
+    "id": "concept://parse_resolution_and_reanchor_flow|concept://language_adapter_family|DependsOn",
+    "title": "concept://parse_resolution_and_reanchor_flow DependsOn concept://language_adapter_family",
+    "status": "active",
+    "path": "relations/concept-parse_resolution_and_reanchor_flow-concept-language_adapter_family-dependson-44d773fe3f08e8e8.json"
+  },
+  {
+    "id": "concept://parse_resolution_and_reanchor_flow|concept://structural_ir|DependsOn",
+    "title": "concept://parse_resolution_and_reanchor_flow DependsOn concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-parse_resolution_and_reanchor_flow-concept-structural_ir-dependson-90ddc0a1aacd89ff.json"
+  },
+  {
+    "id": "concept://parser_contract_and_fingerprint_utilities|concept://language_adapter_family|PartOf",
+    "title": "concept://parser_contract_and_fingerprint_utilities PartOf concept://language_adapter_family",
+    "status": "active",
+    "path": "relations/concept-parser_contract_and_fingerprint_utilities-concept-language_adapter_family-partof-c9fd46f95dd4cf8f.json"
+  },
+  {
+    "id": "concept://persistence_and_history|concept://prism_architecture|PartOf",
+    "title": "concept://persistence_and_history PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-persistence_and_history-concept-prism_architecture-partof-bfefc341fa8af3f2.json"
+  },
+  {
+    "id": "concept://persistence_and_history|concept://structural_ir|DependsOn",
+    "title": "concept://persistence_and_history DependsOn concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-persistence_and_history-concept-structural_ir-dependson-d849657b3753ff0f.json"
+  },
+  {
+    "id": "concept://plan_and_coordination_ir|concept://coordination_and_plan_runtime|OftenUsedWith",
+    "title": "concept://plan_and_coordination_ir OftenUsedWith concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-plan_and_coordination_ir-concept-coordination_and_plan_runtime-oftenusedwith-bd26f4bf91e33b96.json"
+  },
+  {
+    "id": "concept://plan_and_coordination_ir|concept://structural_ir|PartOf",
+    "title": "concept://plan_and_coordination_ir PartOf concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-plan_and_coordination_ir-concept-structural_ir-partof-173a9398373d0498.json"
+  },
+  {
+    "id": "concept://plan_and_repo_layout_publication|concept://concept_and_publication_pipeline|PartOf",
+    "title": "concept://plan_and_repo_layout_publication PartOf concept://concept_and_publication_pipeline",
+    "status": "active",
+    "path": "relations/concept-plan_and_repo_layout_publication-concept-concept_and_publication_pipeline-partof-6236b359d1448fed.json"
+  },
+  {
+    "id": "concept://plan_and_repo_layout_publication|concept://coordination_and_plan_runtime|OftenUsedWith",
+    "title": "concept://plan_and_repo_layout_publication OftenUsedWith concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-plan_and_repo_layout_publication-concept-coordination_and_plan_runtime-oftenusedwith-195b148b0a2add83.json"
+  },
+  {
+    "id": "concept://plan_and_repo_layout_publication|concept://repo_publication_guards|DependsOn",
+    "title": "concept://plan_and_repo_layout_publication DependsOn concept://repo_publication_guards",
+    "status": "active",
+    "path": "relations/concept-plan_and_repo_layout_publication-concept-repo_publication_guards-dependson-a3b939f352a0f6af.json"
+  },
+  {
+    "id": "concept://plan_and_repo_layout_publication|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://plan_and_repo_layout_publication ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-plan_and_repo_layout_publication-concept-validation_and_dogfooding-validatedby-7d55e02755c47372.json"
+  },
+  {
+    "id": "concept://plan_completion_and_insight_queries|concept://coordination_and_plan_runtime|DependsOn",
+    "title": "concept://plan_completion_and_insight_queries DependsOn concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-plan_completion_and_insight_queries-concept-coordination_and_plan_runtime-dependson-f7a691099e0bd54b.json"
+  },
+  {
+    "id": "concept://plan_completion_and_insight_queries|concept://query_coordination_and_plan_views|PartOf",
+    "title": "concept://plan_completion_and_insight_queries PartOf concept://query_coordination_and_plan_views",
+    "status": "active",
+    "path": "relations/concept-plan_completion_and_insight_queries-concept-query_coordination_and_plan_views-partof-d4f835df82c9434c.json"
+  },
+  {
+    "id": "concept://plan_graph_compatibility_and_runtime_overlays|concept://coordination_state_model|PartOf",
+    "title": "concept://plan_graph_compatibility_and_runtime_overlays PartOf concept://coordination_state_model",
+    "status": "active",
+    "path": "relations/concept-plan_graph_compatibility_and_runtime_overlays-concept-coordination_state_model-partof-19ec97a55df88ccf.json"
+  },
+  {
+    "id": "concept://principal_identity_and_mutation_provenance|concept://structural_ir|DependsOn",
+    "title": "concept://principal_identity_and_mutation_provenance DependsOn concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-principal_identity_and_mutation_provenance-concept-structural_ir-dependson-c3ec9c1b4b348543.json"
+  },
+  {
+    "id": "concept://projection_and_query_layer|concept://coordination_and_plan_runtime|DependsOn",
+    "title": "concept://projection_and_query_layer DependsOn concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-projection_and_query_layer-concept-coordination_and_plan_runtime-dependson-1507ab410ac8f1a3.json"
+  },
+  {
+    "id": "concept://projection_and_query_layer|concept://memory_system|DependsOn",
+    "title": "concept://projection_and_query_layer DependsOn concept://memory_system",
+    "status": "active",
+    "path": "relations/concept-projection_and_query_layer-concept-memory_system-dependson-4189cfe6670e2d68.json"
+  },
+  {
+    "id": "concept://projection_and_query_layer|concept://persistence_and_history|DependsOn",
+    "title": "concept://projection_and_query_layer DependsOn concept://persistence_and_history",
+    "status": "active",
+    "path": "relations/concept-projection_and_query_layer-concept-persistence_and_history-dependson-96c7fa25cc0685ef.json"
+  },
+  {
+    "id": "concept://projection_and_query_layer|concept://prism_architecture|PartOf",
+    "title": "concept://projection_and_query_layer PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-projection_and_query_layer-concept-prism_architecture-partof-ac53122fdd90d128.json"
+  },
+  {
+    "id": "concept://projection_and_query_layer|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://projection_and_query_layer ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-projection_and_query_layer-concept-validation_and_dogfooding-validatedby-e2cec00fca241d14.json"
+  },
+  {
+    "id": "concept://published_knowledge_and_memory_event_logs|concept://concept_and_publication_pipeline|PartOf",
+    "title": "concept://published_knowledge_and_memory_event_logs PartOf concept://concept_and_publication_pipeline",
+    "status": "active",
+    "path": "relations/concept-published_knowledge_and_memory_event_logs-concept-concept_and_publication_pipeline-partof-2923d14b49beb983.json"
+  },
+  {
+    "id": "concept://published_knowledge_and_memory_event_logs|concept://memory_system|OftenUsedWith",
+    "title": "concept://published_knowledge_and_memory_event_logs OftenUsedWith concept://memory_system",
+    "status": "active",
+    "path": "relations/concept-published_knowledge_and_memory_event_logs-concept-memory_system-oftenusedwith-6791d9c199720c98.json"
+  },
+  {
+    "id": "concept://published_knowledge_and_memory_event_logs|concept://repo_publication_guards|DependsOn",
+    "title": "concept://published_knowledge_and_memory_event_logs DependsOn concept://repo_publication_guards",
+    "status": "active",
+    "path": "relations/concept-published_knowledge_and_memory_event_logs-concept-repo_publication_guards-dependson-5ed7306ac71dbdb9.json"
+  },
+  {
+    "id": "concept://python_tree_sitter_adapter_pipeline|concept://code_language_adapters|PartOf",
+    "title": "concept://python_tree_sitter_adapter_pipeline PartOf concept://code_language_adapters",
+    "status": "active",
+    "path": "relations/concept-python_tree_sitter_adapter_pipeline-concept-code_language_adapters-partof-59e3c27b11c2ef53.json"
+  },
+  {
+    "id": "concept://python_tree_sitter_adapter_pipeline|concept://parser_contract_and_fingerprint_utilities|DependsOn",
+    "title": "concept://python_tree_sitter_adapter_pipeline DependsOn concept://parser_contract_and_fingerprint_utilities",
+    "status": "active",
+    "path": "relations/concept-python_tree_sitter_adapter_pipeline-concept-parser_contract_and_fingerprint_utilities-dependson-7b853659a2eb5058.json"
+  },
+  {
+    "id": "concept://query_coordination_and_plan_views|concept://coordination_and_plan_runtime|DependsOn",
+    "title": "concept://query_coordination_and_plan_views DependsOn concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-query_coordination_and_plan_views-concept-coordination_and_plan_runtime-dependson-4d4292b58714b089.json"
+  },
+  {
+    "id": "concept://query_coordination_and_plan_views|concept://projection_and_query_layer|PartOf",
+    "title": "concept://query_coordination_and_plan_views PartOf concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-query_coordination_and_plan_views-concept-projection_and_query_layer-partof-0b6296e51e2fe862.json"
+  },
+  {
+    "id": "concept://query_coordination_and_plan_views|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://query_coordination_and_plan_views ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-query_coordination_and_plan_views-concept-validation_and_dogfooding-validatedby-4838372eaafb41c2.json"
+  },
+  {
+    "id": "concept://query_execution_and_semantic_context_serving|concept://mcp_query_and_resource_serving|PartOf",
+    "title": "concept://query_execution_and_semantic_context_serving PartOf concept://mcp_query_and_resource_serving",
+    "status": "active",
+    "path": "relations/concept-query_execution_and_semantic_context_serving-concept-mcp_query_and_resource_serving-partof-54665ae142326dcf.json"
+  },
+  {
+    "id": "concept://query_execution_and_semantic_context_serving|concept://projection_and_query_layer|DependsOn",
+    "title": "concept://query_execution_and_semantic_context_serving DependsOn concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-query_execution_and_semantic_context_serving-concept-projection_and_query_layer-dependson-5d80a2deb1f948d7.json"
+  },
+  {
+    "id": "concept://query_symbol_and_change_contexts|concept://projection_and_query_layer|PartOf",
+    "title": "concept://query_symbol_and_change_contexts PartOf concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-query_symbol_and_change_contexts-concept-projection_and_query_layer-partof-08e81d5e93515f8d.json"
+  },
+  {
+    "id": "concept://query_symbol_and_change_contexts|concept://semantic_projection_indexes|DependsOn",
+    "title": "concept://query_symbol_and_change_contexts DependsOn concept://semantic_projection_indexes",
+    "status": "active",
+    "path": "relations/concept-query_symbol_and_change_contexts-concept-semantic_projection_indexes-dependson-7879b0872127ae93.json"
+  },
+  {
+    "id": "concept://query_symbol_and_change_contexts|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://query_symbol_and_change_contexts ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-query_symbol_and_change_contexts-concept-validation_and_dogfooding-validatedby-f2ce186b4a95f90c.json"
+  },
+  {
+    "id": "concept://recall_signal_and_text_scoring|concept://memory_recall_and_scoring|PartOf",
+    "title": "concept://recall_signal_and_text_scoring PartOf concept://memory_recall_and_scoring",
+    "status": "active",
+    "path": "relations/concept-recall_signal_and_text_scoring-concept-memory_recall_and_scoring-partof-868632e547c3bc83.json"
+  },
+  {
+    "id": "concept://repo_publication_guards|concept://concept_and_publication_pipeline|PartOf",
+    "title": "concept://repo_publication_guards PartOf concept://concept_and_publication_pipeline",
+    "status": "active",
+    "path": "relations/concept-repo_publication_guards-concept-concept_and_publication_pipeline-partof-6fd01f5c01dc01f7.json"
+  },
+  {
+    "id": "concept://repo_publication_guards|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://repo_publication_guards ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-repo_publication_guards-concept-validation_and_dogfooding-validatedby-f2732bcf091b1ae7.json"
+  },
+  {
+    "id": "concept://resource_schemas_and_host_resource_serving|concept://concept_and_publication_pipeline|DependsOn",
+    "title": "concept://resource_schemas_and_host_resource_serving DependsOn concept://concept_and_publication_pipeline",
+    "status": "active",
+    "path": "relations/concept-resource_schemas_and_host_resource_serving-concept-concept_and_publication_pipeline-dependson-44c9a0e24a9f1139.json"
+  },
+  {
+    "id": "concept://resource_schemas_and_host_resource_serving|concept://mcp_query_and_resource_serving|PartOf",
+    "title": "concept://resource_schemas_and_host_resource_serving PartOf concept://mcp_query_and_resource_serving",
+    "status": "active",
+    "path": "relations/concept-resource_schemas_and_host_resource_serving-concept-mcp_query_and_resource_serving-partof-58c072391ee514a7.json"
+  },
+  {
+    "id": "concept://rust_tree_sitter_adapter_pipeline|concept://code_language_adapters|PartOf",
+    "title": "concept://rust_tree_sitter_adapter_pipeline PartOf concept://code_language_adapters",
+    "status": "active",
+    "path": "relations/concept-rust_tree_sitter_adapter_pipeline-concept-code_language_adapters-partof-49950415f4a7e873.json"
+  },
+  {
+    "id": "concept://rust_tree_sitter_adapter_pipeline|concept://parser_contract_and_fingerprint_utilities|DependsOn",
+    "title": "concept://rust_tree_sitter_adapter_pipeline DependsOn concept://parser_contract_and_fingerprint_utilities",
+    "status": "active",
+    "path": "relations/concept-rust_tree_sitter_adapter_pipeline-concept-parser_contract_and_fingerprint_utilities-dependson-37e3727516067467.json"
+  },
+  {
+    "id": "concept://semantic_and_structural_memory_models|concept://memory_system|PartOf",
+    "title": "concept://semantic_and_structural_memory_models PartOf concept://memory_system",
+    "status": "active",
+    "path": "relations/concept-semantic_and_structural_memory_models-concept-memory_system-partof-bd509694e44dc387.json"
+  },
+  {
+    "id": "concept://semantic_and_structural_memory_models|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://semantic_and_structural_memory_models ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-semantic_and_structural_memory_models-concept-validation_and_dogfooding-validatedby-75c8230a145fe613.json"
+  },
+  {
+    "id": "concept://semantic_memory_backend_runtime|concept://recall_signal_and_text_scoring|DependsOn",
+    "title": "concept://semantic_memory_backend_runtime DependsOn concept://recall_signal_and_text_scoring",
+    "status": "active",
+    "path": "relations/concept-semantic_memory_backend_runtime-concept-recall_signal_and_text_scoring-dependson-7d2dca21d064db5c.json"
+  },
+  {
+    "id": "concept://semantic_memory_backend_runtime|concept://semantic_and_structural_memory_models|PartOf",
+    "title": "concept://semantic_memory_backend_runtime PartOf concept://semantic_and_structural_memory_models",
+    "status": "active",
+    "path": "relations/concept-semantic_memory_backend_runtime-concept-semantic_and_structural_memory_models-partof-d8e64dec12c4c29d.json"
+  },
+  {
+    "id": "concept://semantic_projection_indexes|concept://concept_and_publication_pipeline|DependsOn",
+    "title": "concept://semantic_projection_indexes DependsOn concept://concept_and_publication_pipeline",
+    "status": "active",
+    "path": "relations/concept-semantic_projection_indexes-concept-concept_and_publication_pipeline-dependson-9661111f316e76a9.json"
+  },
+  {
+    "id": "concept://semantic_projection_indexes|concept://projection_and_query_layer|PartOf",
+    "title": "concept://semantic_projection_indexes PartOf concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-semantic_projection_indexes-concept-projection_and_query_layer-partof-ca884f264723e95d.json"
+  },
+  {
+    "id": "concept://server_surface_and_runtime_health_views|concept://mcp_runtime_lifecycle|PartOf",
+    "title": "concept://server_surface_and_runtime_health_views PartOf concept://mcp_runtime_lifecycle",
+    "status": "active",
+    "path": "relations/concept-server_surface_and_runtime_health_views-concept-mcp_runtime_lifecycle-partof-de08c7d8f80b2fea.json"
+  },
+  {
+    "id": "concept://server_surface_and_runtime_health_views|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://server_surface_and_runtime_health_views ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-server_surface_and_runtime_health_views-concept-validation_and_dogfooding-validatedby-e18f4e2cd010f2c5.json"
+  },
+  {
+    "id": "concept://session_and_episodic_memory_store|concept://memory_outcomes_and_session_history|PartOf",
+    "title": "concept://session_and_episodic_memory_store PartOf concept://memory_outcomes_and_session_history",
+    "status": "active",
+    "path": "relations/concept-session_and_episodic_memory_store-concept-memory_outcomes_and_session_history-partof-e8155887ae4c3bcb.json"
+  },
+  {
+    "id": "concept://session_and_episodic_memory_store|concept://semantic_and_structural_memory_models|DependsOn",
+    "title": "concept://session_and_episodic_memory_store DependsOn concept://semantic_and_structural_memory_models",
+    "status": "active",
+    "path": "relations/concept-session_and_episodic_memory_store-concept-semantic_and_structural_memory_models-dependson-fe9534f2897618ad.json"
+  },
+  {
+    "id": "concept://session_state_and_mutation_runtime|concept://coordination_and_plan_runtime|DependsOn",
+    "title": "concept://session_state_and_mutation_runtime DependsOn concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-session_state_and_mutation_runtime-concept-coordination_and_plan_runtime-dependson-dd70728a5b82f36e.json"
+  },
+  {
+    "id": "concept://session_state_and_mutation_runtime|concept://mcp_mutation_and_session_host|PartOf",
+    "title": "concept://session_state_and_mutation_runtime PartOf concept://mcp_mutation_and_session_host",
+    "status": "active",
+    "path": "relations/concept-session_state_and_mutation_runtime-concept-mcp_mutation_and_session_host-partof-53f272b85f150c35.json"
+  },
+  {
+    "id": "concept://sqlite_and_graph_persistence|concept://persistence_and_history|PartOf",
+    "title": "concept://sqlite_and_graph_persistence PartOf concept://persistence_and_history",
+    "status": "active",
+    "path": "relations/concept-sqlite_and_graph_persistence-concept-persistence_and_history-partof-1651aa91e3bf06db.json"
+  },
+  {
+    "id": "concept://sqlite_and_graph_persistence|concept://structural_ir|DependsOn",
+    "title": "concept://sqlite_and_graph_persistence DependsOn concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-sqlite_and_graph_persistence-concept-structural_ir-dependson-c442ed3a322c22a0.json"
+  },
+  {
+    "id": "concept://structural_ir|concept://prism_architecture|PartOf",
+    "title": "concept://structural_ir PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-structural_ir-concept-prism_architecture-partof-c9af4bc720e29524.json"
+  },
+  {
+    "id": "concept://structural_ir|concept://validation_and_dogfooding|ValidatedBy",
+    "title": "concept://structural_ir ValidatedBy concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-structural_ir-concept-validation_and_dogfooding-validatedby-9241e1986f54a9f5.json"
+  },
+  {
+    "id": "concept://structural_memory_feature_model|concept://recall_signal_and_text_scoring|DependsOn",
+    "title": "concept://structural_memory_feature_model DependsOn concept://recall_signal_and_text_scoring",
+    "status": "active",
+    "path": "relations/concept-structural_memory_feature_model-concept-recall_signal_and_text_scoring-dependson-f58780586eecd20a.json"
+  },
+  {
+    "id": "concept://structural_memory_feature_model|concept://semantic_and_structural_memory_models|PartOf",
+    "title": "concept://structural_memory_feature_model PartOf concept://semantic_and_structural_memory_models",
+    "status": "active",
+    "path": "relations/concept-structural_memory_feature_model-concept-semantic_and_structural_memory_models-partof-bf186b309e6fc386.json"
+  },
+  {
+    "id": "concept://structured_config_value_adapters|concept://document_and_config_adapters|PartOf",
+    "title": "concept://structured_config_value_adapters PartOf concept://document_and_config_adapters",
+    "status": "active",
+    "path": "relations/concept-structured_config_value_adapters-concept-document_and_config_adapters-partof-9dc3ec58d35a72ea.json"
+  },
+  {
+    "id": "concept://structured_config_value_adapters|concept://parser_contract_and_fingerprint_utilities|DependsOn",
+    "title": "concept://structured_config_value_adapters DependsOn concept://parser_contract_and_fingerprint_utilities",
+    "status": "active",
+    "path": "relations/concept-structured_config_value_adapters-concept-parser_contract_and_fingerprint_utilities-dependson-e34c6879965029cf.json"
+  },
+  {
+    "id": "concept://symbol_source_and_relation_queries|concept://query_symbol_and_change_contexts|PartOf",
+    "title": "concept://symbol_source_and_relation_queries PartOf concept://query_symbol_and_change_contexts",
+    "status": "active",
+    "path": "relations/concept-symbol_source_and_relation_queries-concept-query_symbol_and_change_contexts-partof-ba2a6abe2da98ef7.json"
+  },
+  {
+    "id": "concept://symbol_source_and_relation_queries|concept://semantic_projection_indexes|DependsOn",
+    "title": "concept://symbol_source_and_relation_queries DependsOn concept://semantic_projection_indexes",
+    "status": "active",
+    "path": "relations/concept-symbol_source_and_relation_queries-concept-semantic_projection_indexes-dependson-683b557b3950c231.json"
+  },
+  {
+    "id": "concept://task_brief_and_coordination_summary_views|concept://compact_expansion_and_concept_views|PartOf",
+    "title": "concept://task_brief_and_coordination_summary_views PartOf concept://compact_expansion_and_concept_views",
+    "status": "active",
+    "path": "relations/concept-task_brief_and_coordination_summary_views-concept-compact_expansion_and_concept_views-partof-334f0a450350481c.json"
+  },
+  {
+    "id": "concept://task_brief_and_coordination_summary_views|concept://coordination_and_plan_runtime|DependsOn",
+    "title": "concept://task_brief_and_coordination_summary_views DependsOn concept://coordination_and_plan_runtime",
+    "status": "active",
+    "path": "relations/concept-task_brief_and_coordination_summary_views-concept-coordination_and_plan_runtime-dependson-508b6d022c995fc6.json"
+  },
+  {
+    "id": "concept://validation_and_dogfooding|concept://prism_architecture|PartOf",
+    "title": "concept://validation_and_dogfooding PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-validation_and_dogfooding-concept-prism_architecture-partof-a3bff8a4c84a1fea.json"
+  },
+  {
+    "id": "concept://validation_feedback_and_metrics_loop|concept://dashboard_surface|OftenUsedWith",
+    "title": "concept://validation_feedback_and_metrics_loop OftenUsedWith concept://dashboard_surface",
+    "status": "active",
+    "path": "relations/concept-validation_feedback_and_metrics_loop-concept-dashboard_surface-oftenusedwith-3b0e71352499ef4b.json"
+  },
+  {
+    "id": "concept://validation_feedback_and_metrics_loop|concept://mcp_mutation_and_session_host|DependsOn",
+    "title": "concept://validation_feedback_and_metrics_loop DependsOn concept://mcp_mutation_and_session_host",
+    "status": "active",
+    "path": "relations/concept-validation_feedback_and_metrics_loop-concept-mcp_mutation_and_session_host-dependson-2890096dbae0901b.json"
+  },
+  {
+    "id": "concept://validation_feedback_and_metrics_loop|concept://projection_and_query_layer|DependsOn",
+    "title": "concept://validation_feedback_and_metrics_loop DependsOn concept://projection_and_query_layer",
+    "status": "active",
+    "path": "relations/concept-validation_feedback_and_metrics_loop-concept-projection_and_query_layer-dependson-c563b24ab5f0b321.json"
+  },
+  {
+    "id": "concept://validation_feedback_and_metrics_loop|concept://validation_and_dogfooding|PartOf",
+    "title": "concept://validation_feedback_and_metrics_loop PartOf concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-validation_feedback_and_metrics_loop-concept-validation_and_dogfooding-partof-792f8ff4ec79771e.json"
+  },
+  {
+    "id": "concept://validation_policy_and_release_gates|concept://validation_and_dogfooding|PartOf",
+    "title": "concept://validation_policy_and_release_gates PartOf concept://validation_and_dogfooding",
+    "status": "active",
+    "path": "relations/concept-validation_policy_and_release_gates-concept-validation_and_dogfooding-partof-04753d015da0a222.json"
+  },
+  {
+    "id": "concept://workspace_indexing_and_refresh|concept://language_adapter_family|DependsOn",
+    "title": "concept://workspace_indexing_and_refresh DependsOn concept://language_adapter_family",
+    "status": "active",
+    "path": "relations/concept-workspace_indexing_and_refresh-concept-language_adapter_family-dependson-c1c81551b9354153.json"
+  },
+  {
+    "id": "concept://workspace_indexing_and_refresh|concept://persistence_and_history|DependsOn",
+    "title": "concept://workspace_indexing_and_refresh DependsOn concept://persistence_and_history",
+    "status": "active",
+    "path": "relations/concept-workspace_indexing_and_refresh-concept-persistence_and_history-dependson-2adaf787f10d3895.json"
+  },
+  {
+    "id": "concept://workspace_indexing_and_refresh|concept://prism_architecture|PartOf",
+    "title": "concept://workspace_indexing_and_refresh PartOf concept://prism_architecture",
+    "status": "active",
+    "path": "relations/concept-workspace_indexing_and_refresh-concept-prism_architecture-partof-da5c640b58168f34.json"
+  },
+  {
+    "id": "concept://workspace_indexing_and_refresh|concept://structural_ir|DependsOn",
+    "title": "concept://workspace_indexing_and_refresh DependsOn concept://structural_ir",
+    "status": "active",
+    "path": "relations/concept-workspace_indexing_and_refresh-concept-structural_ir-dependson-c050e3aac4e3022c.json"
+  },
+  {
+    "id": "concept://workspace_session_refresh_runtime|concept://workspace_session_runtime|PartOf",
+    "title": "concept://workspace_session_refresh_runtime PartOf concept://workspace_session_runtime",
+    "status": "active",
+    "path": "relations/concept-workspace_session_refresh_runtime-concept-workspace_session_runtime-partof-7416c880af6f4463.json"
+  },
+  {
+    "id": "concept://workspace_session_runtime|concept://memory_system|DependsOn",
+    "title": "concept://workspace_session_runtime DependsOn concept://memory_system",
+    "status": "active",
+    "path": "relations/concept-workspace_session_runtime-concept-memory_system-dependson-7e4684efa5bfa772.json"
+  },
+  {
+    "id": "concept://workspace_session_runtime|concept://persistence_and_history|DependsOn",
+    "title": "concept://workspace_session_runtime DependsOn concept://persistence_and_history",
+    "status": "active",
+    "path": "relations/concept-workspace_session_runtime-concept-persistence_and_history-dependson-b6e83f86b0761cb9.json"
+  },
+  {
+    "id": "concept://workspace_session_runtime|concept://workspace_indexing_and_refresh|PartOf",
+    "title": "concept://workspace_session_runtime PartOf concept://workspace_indexing_and_refresh",
+    "status": "active",
+    "path": "relations/concept-workspace_session_runtime-concept-workspace_indexing_and_refresh-partof-9dc2db6144c90255.json"
+  }
+]

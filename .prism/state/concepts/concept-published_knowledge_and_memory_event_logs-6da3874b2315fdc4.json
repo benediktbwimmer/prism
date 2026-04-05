@@ -1,0 +1,56 @@
+{
+  "handle": "concept://published_knowledge_and_memory_event_logs",
+  "canonical_name": "published knowledge and memory event logs",
+  "summary": "prism-core modules that persist published knowledge artifacts and append memory event logs used to hydrate durable repo knowledge and memory views.",
+  "aliases": [
+    "published knowledge logs",
+    "memory event logs"
+  ],
+  "confidence": 0.9,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::published_knowledge",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::memory_events",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:10888",
+    "lineage:10319"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-core/src/lib.rs` declares `published_knowledge` and `memory_events` as dedicated persistence modules adjacent to concept event streams.",
+    "These modules are the durable log layer for published knowledge state and memory-side publication artifacts."
+  ],
+  "risk_hint": "Bugs here can make durable knowledge hydration or memory replay silently diverge from the underlying repo event history.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734919,
+    "lastReviewedAt": 1774734919,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

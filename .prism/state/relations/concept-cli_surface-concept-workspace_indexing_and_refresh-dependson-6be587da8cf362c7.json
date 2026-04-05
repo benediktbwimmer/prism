@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://cli_surface",
+  "targetHandle": "concept://workspace_indexing_and_refresh",
+  "kind": "depends_on",
+  "confidence": 0.92,
+  "evidence": [
+    "The CLI delegates indexing and workspace session behavior into prism-core rather than implementing its own runtime."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

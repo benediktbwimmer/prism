@@ -1,0 +1,54 @@
+{
+  "handle": "concept://plan_and_coordination_ir",
+  "canonical_name": "plan and coordination IR",
+  "summary": "prism-ir modules that define plan graphs, blockers, validation refs, claims, capabilities, review states, and other shared coordination schema used above the raw graph layer.",
+  "aliases": [
+    "coordination ir",
+    "plan schema ir"
+  ],
+  "confidence": 0.9,
+  "core_members": [
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::plans",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::coordination",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:11316",
+    "lineage:2145"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`prism-ir/src/lib.rs` re-exports plans and coordination as the shared typed schema for runtime plan and review state.",
+    "These modules are the contract between low-level storage and the higher coordination runtime/query layers."
+  ],
+  "risk_hint": "If these shared types drift, coordination state and plan projections diverge across crates.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734406,
+    "lastReviewedAt": 1774734406,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

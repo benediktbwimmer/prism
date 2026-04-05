@@ -1,0 +1,54 @@
+{
+  "handle": "concept://javascript_runtime_and_reference_bridge",
+  "canonical_name": "JavaScript runtime and reference bridge",
+  "summary": "prism-js modules that expose the runtime prelude and generated API reference used when JavaScript or MCP-facing consumers need the PRISM query surface.",
+  "aliases": [
+    "JS runtime bridge",
+    "JS docs bridge"
+  ],
+  "confidence": 0.89,
+  "core_members": [
+    {
+      "crate_name": "prism_js",
+      "path": "prism_js::runtime",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_js",
+      "path": "prism_js::docs",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:2892",
+    "lineage:2890"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-js/src/lib.rs` exposes `runtime` and `docs` as the execution/reference half of the JS-facing surface.",
+    "These modules connect JS consumers to runtime helpers and the API reference rather than defining the typed view schema itself."
+  ],
+  "risk_hint": "If this bridge drifts, JS consumers may execute against stale examples or incomplete runtime helpers.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734915,
+    "lastReviewedAt": 1774734915,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

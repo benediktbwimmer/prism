@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://structural_ir",
+  "targetHandle": "concept://validation_and_dogfooding",
+  "kind": "validated_by",
+  "confidence": 0.95,
+  "evidence": [
+    "The validation plan explicitly starts with structural truth and identity correctness."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

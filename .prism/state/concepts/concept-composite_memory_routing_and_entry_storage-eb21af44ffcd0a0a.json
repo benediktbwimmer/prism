@@ -1,0 +1,61 @@
+{
+  "handle": "concept://composite_memory_routing_and_entry_storage",
+  "canonical_name": "composite memory routing and entry storage",
+  "summary": "prism-memory modules that deduplicate recalls across modules, route stores by memory kind, and persist per-module entry snapshots with anchor indexes.",
+  "aliases": [
+    "memory module routing",
+    "entry store layer"
+  ],
+  "confidence": 0.9,
+  "core_members": [
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::composite",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::entry_store",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5562",
+    "lineage:5570",
+    "lineage:5803"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`composite.rs` merges module-specific recalls and routes stores by memory kind, while `entry_store.rs` provides the snapshot and anchor-index backing store used by concrete memory modules.",
+    "This is the storage-and-routing half of memory recall orchestration rather than the scoring half."
+  ],
+  "risk_hint": "Breakage here causes duplicate, dropped, or misrouted memory entries even if individual scoring modules remain correct.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735360,
+    "lastReviewedAt": 1774735360,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "entry": {
+    "id": "memory:01kmwfk9m5skznfys67588df6j",
+    "anchors": [
+      {
+        "Lineage": "lineage:16166"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_ir",
+          "path": "prism_ir::durable_ids::new_prefixed_id",
+          "kind": "Function"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "Repo-persisted Prism entities that can be created by independent runtimes must use globally unique sortable IDs instead of process-local counters or raw timestamps. Semantic NodeIds stay path-based and session handles stay runtime-local; durable shared identities such as memories, plans, coordination tasks, claims, artifacts, reviews, lineage records, curator jobs, inferred edges, observed events, sessions, and emitted outcome or memory events should use the shared sortable ID helper.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774777378,
+        "publishedAt": 1774777378,
+        "status": "active"
+      },
+      "task_id": "task:replace-merge-unsafe-counter-based-repo-ids-with-globally-unique-timestamp-ordered-ids-across-memory-and-coordination-persistence:135"
+    },
+    "created_at": 1774777378,
+    "source": "Agent",
+    "trust": 0.93
+  },
+  "latestEventId": "memory-event:01kmwfk9m5pgpa4sf6hm8mnfdw",
+  "latestRecordedAt": 1774777378,
+  "eventCount": 1,
+  "taskId": "task:replace-merge-unsafe-counter-based-repo-ids-with-globally-unique-timestamp-ordered-ids-across-memory-and-coordination-persistence:135"
+}

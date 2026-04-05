@@ -1,0 +1,66 @@
+{
+  "handle": "concept://graph_identity_and_parse_ir",
+  "canonical_name": "graph, identity, and parse IR",
+  "summary": "Core prism-ir modules that define graph objects, stable ids, primitive spans/types, and parser-side unresolved payloads consumed by the rest of PRISM.",
+  "aliases": [
+    "core graph ir",
+    "identity ir"
+  ],
+  "confidence": 0.9,
+  "core_members": [
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::graph",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::identity",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::primitives",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::parse",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:2165",
+    "lineage:2207",
+    "lineage:2253",
+    "lineage:2214"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`prism-ir/src/lib.rs` groups graph, identity, primitives, and parse as the reusable structural substrate re-exported across the repo.",
+    "These modules collectively define the static node/edge/id/types and unresolved parser outputs that downstream adapters, query, and coordination consume."
+  ],
+  "risk_hint": "Mistakes here skew the meaning of node identity and parse payloads before higher layers can compensate.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734405,
+    "lastReviewedAt": 1774734405,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "handle": "concept://locate_ranking_and_text_candidate_flow",
+  "canonical_name": "locate ranking and text-candidate flow",
+  "summary": "Compact-tool locate path that blends semantic search results, text-fragment candidates, exact identifier matches, glob filtering, and reranking heuristics into first-hop ranked targets.",
+  "aliases": [
+    "compact locate ranking",
+    "locate heuristics"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::locate",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::text_fragments",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:10187",
+    "lineage:10227"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "locate.rs orchestrates search, glob filtering, text-candidate expansion, identifier boosts, reranking, diagnostics, and optional preview generation.",
+    "text_fragments.rs supplies the text-fragment and semantic-symbol side channel that makes locate work for exact prose/config snippets instead of only symbol queries."
+  ],
+  "risk_hint": null,
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774736058,
+    "lastReviewedAt": 1774736058,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

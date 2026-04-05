@@ -1,0 +1,82 @@
+{
+  "handle": "concept://coordination_and_plan_runtime",
+  "canonical_name": "coordination and plan runtime",
+  "summary": "Shared plan, task, claim, artifact, and blocker subsystem that models active intent and exposes runtime coordination views across PRISM.",
+  "aliases": [
+    "coordination system",
+    "plan runtime",
+    "shared work model"
+  ],
+  "confidence": 0.94,
+  "core_members": [
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::state::CoordinationStore",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1096",
+    "lineage:1137",
+    "lineage:2211",
+    "lineage:6074"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_integration_with_concepts_memories_outcomes_impact_and_validation",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::PRISM_VAULT_HARBOR_md::11_coordination_across_the_family",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:11117",
+    "lineage:6792"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-coordination owns blockers, mutations, queries, runtime, state, and type modules around plans, tasks, claims, and artifacts.",
+    "prism-query and prism-js depend on coordination types and runtime state to expose plan and task surfaces to agents."
+  ],
+  "risk_hint": "Invariants span IR identities, runtime state, and query projections, so partial changes here create subtle coordination inconsistencies.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733251,
+    "lastReviewedAt": 1774733251,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

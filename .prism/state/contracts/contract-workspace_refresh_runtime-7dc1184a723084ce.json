@@ -1,0 +1,166 @@
+{
+  "handle": "contract://workspace_refresh_runtime",
+  "name": "workspace refresh runtime",
+  "summary": "PRISM keeps live workspace serving on an incremental refresh path: filesystem changes mark dirty regions, request paths avoid full persisted reloads in steady state, and persisted auxiliary state reloads only when freshness requires it.",
+  "aliases": [
+    "workspace session refresh contract",
+    "incremental refresh runtime",
+    "live refresh path"
+  ],
+  "kind": "operational",
+  "subject": {
+    "anchors": [
+      {
+        "File": 281
+      },
+      {
+        "File": 86
+      },
+      {
+        "File": 93
+      },
+      {
+        "File": 206
+      }
+    ],
+    "conceptHandles": [
+      "concept://workspace_session_refresh_runtime",
+      "concept://workspace_session_runtime"
+    ]
+  },
+  "guarantees": [
+    {
+      "id": "steady_state_requests_avoid_full_persisted_reload",
+      "statement": "Normal query and mutation serving stays off the full persisted runtime reload path when the live runtime is current, using incremental refresh or targeted materialization checks instead.",
+      "scope": "hot_path_refresh",
+      "strength": "hard",
+      "evidenceRefs": [
+        "refresh-redesign-hot-path",
+        "mcp-refresh-tests"
+      ]
+    },
+    {
+      "id": "filesystem_changes_drive_dirty_region_refresh",
+      "statement": "Filesystem-triggered refresh tracks dirty paths and updates the live workspace session through scoped refresh and guarded replacement rather than blind whole-workspace rebuilds for every edit.",
+      "scope": "dirty_region_refresh",
+      "strength": "hard",
+      "evidenceRefs": [
+        "session-refresh-runtime-concept",
+        "watch-refresh-tests"
+      ]
+    },
+    {
+      "id": "persisted_auxiliary_state_reloads_on_freshness_boundaries",
+      "statement": "Persisted notes, inference, and other auxiliary materializations reload when freshness boundaries require it, while the live workspace session remains the serving authority between those reload points.",
+      "scope": "materialization_reload",
+      "strength": "conditional",
+      "evidenceRefs": [
+        "refresh-redesign-derived-state",
+        "refresh-notes-reload"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Workspace identity and dirty-path tracking stay explicit so refresh work can be scoped correctly.",
+    "Administrative or recovery flows may still trigger broader reload behavior outside the normal serving hot path."
+  ],
+  "consumers": [
+    {
+      "anchors": [],
+      "conceptHandles": [
+        "concept://mcp_runtime_surface",
+        "concept://workspace_indexing_and_refresh",
+        "concept://workspace_session_runtime"
+      ]
+    }
+  ],
+  "validations": [
+    {
+      "id": "cargo test -p prism-mcp queries_skip_request_path_persisted_reload_when_runtime_is_current",
+      "summary": "Request-path queries skip persisted reload work when the live runtime is already current.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::queries_skip_request_path_persisted_reload_when_runtime_is_current",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-mcp first_mutation_after_workspace_refresh_skips_persisted_reload",
+      "summary": "The first mutation after a current workspace refresh stays off the persisted reload path.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::first_mutation_after_workspace_refresh_skips_persisted_reload",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-core fs_watch_refreshes_session_after_external_edit",
+      "summary": "Filesystem watch refresh updates the live session after an external edit using dirty-path tracking.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_core",
+            "path": "prism_core::tests::fs_watch_refreshes_session_after_external_edit",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-mcp refresh_workspace_reloads_updated_persisted_notes",
+      "summary": "Persisted notes reload when the background refresh path detects updated persisted state.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::refresh_workspace_reloads_updated_persisted_notes",
+            "kind": "Function"
+          }
+        }
+      ]
+    }
+  ],
+  "stability": "internal",
+  "compatibility": {
+    "additive": [
+      "Adding new scoped refresh checks or auxiliary materialization reloads is compatible when request hot paths still avoid full persisted reloads by default."
+    ],
+    "risky": [
+      "Expanding normal request handling back onto full persisted reloads or dropping dirty-path scoping is risky for latency and freshness correctness."
+    ],
+    "breaking": [
+      "Making full persisted reload part of normal steady-state serving or treating auxiliary reload materializations as the only live authority breaks the refresh runtime contract."
+    ],
+    "migrating": [
+      "Recovery and admin-only reload paths may continue to exist while the normal serving path remains incremental."
+    ]
+  },
+  "evidence": [
+    "docs/REFRESH_RUNTIME_REDESIGN.md states that normal request handling must never call a full persisted reload of runtime state on the hot path.",
+    "workspace session concepts and the session/watch modules anchor dirty-path tracking, guarded replacement, and live refresh behavior.",
+    "The MCP refresh tests show request and mutation paths skipping persisted reload while still reloading persisted notes when freshness requires it."
+  ],
+  "status": "active",
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_contract_promote",
+    "taskId": "task:survey-the-repo-for-the-first-batch-of-repo-scoped-contracts-focusing-on-modularity-persistence-split-and-other-strong-promise-surfaces-then-curate-and-publish-the-strongest-contracts:01kmzx0xamn4wzetw1tz97rz04"
+  },
+  "publication": {
+    "publishedAt": 1774893609,
+    "lastReviewedAt": 1774893609,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

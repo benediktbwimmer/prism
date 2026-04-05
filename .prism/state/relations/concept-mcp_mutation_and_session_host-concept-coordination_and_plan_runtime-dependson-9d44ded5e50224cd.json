@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://mcp_mutation_and_session_host",
+  "targetHandle": "concept://coordination_and_plan_runtime",
+  "kind": "depends_on",
+  "confidence": 0.94,
+  "evidence": [
+    "The authenticated mutation host fronts coordination, claim, artifact, and heartbeat mutations through `prism_mutate` over the shared coordination runtime."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "coord-task:01kn6fa2xeg8f0rayk8n0zwtkm"
+  }
+}

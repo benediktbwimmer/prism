@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://inferred_edge_runtime_and_session_store",
+  "targetHandle": "concept://validation_and_dogfooding",
+  "kind": "validated_by",
+  "confidence": 0.88,
+  "evidence": [
+    "Inferred edges are explicitly called out in the validation plan as a bounded overlay that must not silently rewrite authoritative structure."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

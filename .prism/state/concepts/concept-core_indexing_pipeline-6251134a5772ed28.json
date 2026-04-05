@@ -1,0 +1,81 @@
+{
+  "handle": "concept://core_indexing_pipeline",
+  "canonical_name": "core indexing pipeline",
+  "summary": "prism-core modules that parse files, resolve structure, reanchor temporal identity, and watch workspace changes to build the live PRISM graph.",
+  "aliases": [
+    "indexing pipeline",
+    "parse and resolution pipeline"
+  ],
+  "confidence": 0.95,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::indexer",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::parse_pipeline",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::resolution",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::reanchor",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::watch",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1442",
+    "lineage:9603",
+    "lineage:1555",
+    "lineage:1552",
+    "lineage:1739"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::indexer::WorkspaceIndexer",
+      "kind": "Struct"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:1471"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-core groups indexer, parse_pipeline, resolution, reanchor, and watch as the modules that build and refresh structural truth from workspace files.",
+    "This slice is the concrete implementation behind the higher-level workspace indexing and refresh concept."
+  ],
+  "risk_hint": "Breakage here distorts graph truth early and poisons later projections, memory anchoring, and query quality.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733760,
+    "lastReviewedAt": 1774733760,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

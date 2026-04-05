@@ -1,0 +1,141 @@
+{
+  "handle": "contract://persistence_split",
+  "name": "persistence split",
+  "summary": "PRISM preserves a three-plane persistence model where repo-published `.prism` knowledge, shared mutable runtime state, and process-local cache remain distinct authorities.",
+  "aliases": [
+    "three-plane persistence",
+    "three state planes",
+    "persistence boundary contract"
+  ],
+  "kind": "dependency_boundary",
+  "subject": {
+    "anchors": [
+      {
+        "File": 277
+      }
+    ],
+    "conceptHandles": [
+      "concept://persistence_split",
+      "concept://persistence_and_history"
+    ]
+  },
+  "guarantees": [
+    {
+      "id": "repo_published_truth_stays_in_prism",
+      "statement": "Repo-quality concepts, memories, plans, and other published knowledge remain repo-owned truth under `.prism` and are not displaced by a shared runtime backend.",
+      "scope": "repo_truth",
+      "strength": "hard",
+      "evidenceRefs": [
+        "persistence-three-planes",
+        "persistence-boundary-guidance"
+      ]
+    },
+    {
+      "id": "shared_backend_holds_mutable_runtime_state",
+      "statement": "A shared backend carries shared mutable runtime continuity such as claims, handoffs, live overlays, and session-bound coordination state, complementing rather than replacing repo-published truth.",
+      "scope": "shared_runtime",
+      "strength": "hard",
+      "evidenceRefs": [
+        "persistence-three-planes",
+        "persistence-boundary-guidance"
+      ]
+    },
+    {
+      "id": "derived_snapshots_never_become_sole_authority",
+      "statement": "Snapshots, projections, compatibility read models, and other rebuildable materializations remain derived accelerators and must not become the only semantic write authority.",
+      "scope": "derived_state",
+      "strength": "hard",
+      "evidenceRefs": [
+        "persistence-classification",
+        "persistence-transitional-caveats"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Repo, worktree, branch, session, and instance identity remain explicit instead of being inferred accidentally from storage layout.",
+    "Some snapshot-shaped APIs may persist during migration, but new features do not make them the sole semantic write truth."
+  ],
+  "consumers": [
+    {
+      "anchors": [],
+      "conceptHandles": [
+        "concept://workspace_session_runtime"
+      ]
+    },
+    {
+      "anchors": [],
+      "conceptHandles": [
+        "concept://mcp_runtime_surface"
+      ]
+    },
+    {
+      "anchors": [],
+      "conceptHandles": [
+        "concept://memory_projection_persistence"
+      ]
+    }
+  ],
+  "validations": [
+    {
+      "id": "cargo test -p prism-core coordination_persistence_backend_wraps_store_and_repo_published_plans",
+      "summary": "Checks that coordination persistence respects both store-backed runtime state and repo-published plans.",
+      "anchors": [
+        {
+          "File": 90
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-core coordination_persistence_incrementally_updates_stored_read_models",
+      "summary": "Checks that incremental coordination persistence updates derived read models rather than replacing authored truth.",
+      "anchors": [
+        {
+          "File": 90
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-core coordination_persistence_compacts_large_event_suffixes_into_optional_baseline",
+      "summary": "Checks that compaction stays derived over authoritative event-backed persistence.",
+      "anchors": [
+        {
+          "File": 90
+        }
+      ]
+    }
+  ],
+  "stability": "migrating",
+  "compatibility": {
+    "additive": [
+      "Adding new authoritative event-backed state is additive when it preserves the three-plane split and explicit scope boundaries."
+    ],
+    "risky": [
+      "Letting shared backend state replace repo-published truth or collapsing worktree/session scope into storage location is risky."
+    ],
+    "breaking": [
+      "Making snapshots, projections, or compatibility read models the sole semantic write authority breaks the persistence split."
+    ],
+    "migrating": [
+      "Snapshot-shaped transitional APIs may remain during migration, but new persistence work should converge toward authoritative event-backed or normalized state."
+    ]
+  },
+  "evidence": [
+    "docs/PERSISTENCE_STATE_CLASSIFICATION.md defines the three state planes and says the shared database complements `.prism`; it does not replace it.",
+    "The same document classifies snapshots, projections, and compatibility read models as derived rather than authored write authority."
+  ],
+  "status": "active",
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_contract_promote",
+    "taskId": "task:survey-the-repo-for-the-first-batch-of-repo-scoped-contracts-focusing-on-modularity-persistence-split-and-other-strong-promise-surfaces-then-curate-and-publish-the-strongest-contracts:01kmzx0xamn4wzetw1tz97rz04"
+  },
+  "publication": {
+    "publishedAt": 1774892356,
+    "lastReviewedAt": 1774892356,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

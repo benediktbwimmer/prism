@@ -1,0 +1,105 @@
+{
+  "entry": {
+    "id": "memory:74",
+    "anchors": [
+      {
+        "Lineage": "lineage:1683"
+      },
+      {
+        "Lineage": "lineage:2211"
+      },
+      {
+        "Lineage": "lineage:3566"
+      },
+      {
+        "Lineage": "lineage:6426"
+      },
+      {
+        "Lineage": "lineage:877"
+      },
+      {
+        "Lineage": "lineage:951"
+      },
+      {
+        "Lineage": "lineage:9774"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_agent",
+          "path": "prism_agent",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_cli",
+          "path": "prism_cli::main",
+          "kind": "Function"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_core",
+          "path": "prism_core::validation_feedback",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_ir",
+          "path": "prism_ir",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::compact_tools",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::dashboard_router",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_store",
+          "path": "prism_store",
+          "kind": "Module"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "The repo-wide architecture hierarchy is now materially balanced at the top level: every direct child of `concept://prism_architecture` has at least one internal child concept, and most major subsystems now split into reusable module-level packets. Important newer boundaries are the IR trio (`concept://graph_identity_and_parse_ir`, `concept://anchor_change_and_lineage_ir`, `concept://plan_and_coordination_ir`), the persistence trio (`concept://sqlite_and_graph_persistence`, `concept://memory_projection_persistence`, `concept://history_snapshot_and_resolution`), the compact-tool pair (`concept://compact_discovery_and_opening`, `concept://compact_expansion_and_concept_views`), the CLI pair, the dashboard pair, the validation pair, and the inference branch `concept://inferred_edge_runtime_and_session_store`. Future sessions should traverse these concept packets before reopening crate facades.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774734719,
+        "publishedAt": 1774734719,
+        "status": "active"
+      },
+      "task_id": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+    },
+    "created_at": 1774734719,
+    "source": "Agent",
+    "trust": 0.92
+  },
+  "latestEventId": "memory-event:1774734719845440000",
+  "latestRecordedAt": 1774734719,
+  "eventCount": 1,
+  "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+}

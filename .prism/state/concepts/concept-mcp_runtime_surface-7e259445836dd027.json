@@ -1,0 +1,82 @@
+{
+  "handle": "concept://mcp_runtime_surface",
+  "canonical_name": "MCP runtime surface",
+  "summary": "MCP- and daemon-facing runtime surface that bridges PRISM query and mutation capabilities into resources, schemas, compact tools, and long-lived server state.",
+  "aliases": [
+    "mcp surface",
+    "server runtime",
+    "daemon surface"
+  ],
+  "confidence": 0.95,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::daemon_mode::serve_with_mode",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_js",
+      "path": "prism_js",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:3894",
+    "lineage:3479",
+    "lineage:9774",
+    "lineage:2891",
+    "lineage:6074"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::AGENT_COMPRESSION_LAYER_md::target_default_agent_path",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:9682"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-mcp owns daemon_mode, query_runtime, resources, tool schemas, session state, host mutations, runtime views, and compact tool modules.",
+    "prism-js supplies the documented agent API and JS runtime types consumed by the MCP surface."
+  ],
+  "risk_hint": "This layer couples product behavior, schema contracts, and runtime lifecycle, so edits here have wide blast radius.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733304,
+    "lastReviewedAt": 1774733304,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

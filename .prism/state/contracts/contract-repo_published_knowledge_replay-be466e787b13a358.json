@@ -1,0 +1,151 @@
+{
+  "handle": "contract://repo_published_knowledge_replay",
+  "name": "repo published knowledge replay",
+  "summary": "Repo-scoped published knowledge is committed as append-only event logs under .prism and hydrates the live runtime from those logs on reload instead of treating hydrated packets or snapshots as authored truth.",
+  "aliases": [
+    "repo knowledge replay",
+    "published knowledge event logs",
+    "repo-scoped knowledge reload"
+  ],
+  "kind": "lifecycle",
+  "subject": {
+    "anchors": [
+      {
+        "File": 277
+      },
+      {
+        "File": 283
+      },
+      {
+        "File": 82
+      }
+    ],
+    "conceptHandles": [
+      "concept://repo_publication_guards",
+      "concept://published_knowledge_and_memory_event_logs",
+      "concept://persistence_split"
+    ]
+  },
+  "guarantees": [
+    {
+      "id": "published_repo_knowledge_travels_by_event_log",
+      "statement": "Repo-scoped published knowledge travels by committed append-only event logs under .prism rather than by hydrated packet or snapshot shape.",
+      "scope": "repo_publication",
+      "strength": "hard",
+      "evidenceRefs": [
+        "persistence-event-log-authority",
+        "spec-repo-exported-concepts"
+      ]
+    },
+    {
+      "id": "repo_memory_concepts_and_contracts_reload_from_committed_logs",
+      "statement": "Repo memory, curated concepts, and curated contracts reload from committed .prism event logs when a workspace session is rebuilt.",
+      "scope": "reload_hydration",
+      "strength": "hard",
+      "evidenceRefs": [
+        "repo-roundtrip-tests",
+        "published-knowledge-guards"
+      ]
+    },
+    {
+      "id": "hydrated_views_remain_derived_over_published_logs",
+      "statement": "Hydrated packets, recall indexes, and other replayed convenience views remain derived from the committed event logs and do not become a second authored authority.",
+      "scope": "derived_views",
+      "strength": "hard",
+      "evidenceRefs": [
+        "persistence-derived-views",
+        "persistence-split-contract"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Repo-scoped artifacts satisfy publication guards before they are promoted into committed knowledge.",
+    "Fresh sessions rebuild from the committed event logs together with current workspace indexing data."
+  ],
+  "consumers": [
+    {
+      "anchors": [],
+      "conceptHandles": [
+        "concept://mcp_runtime_surface",
+        "concept://concept_and_publication_pipeline",
+        "concept://workspace_session_runtime"
+      ]
+    }
+  ],
+  "validations": [
+    {
+      "id": "cargo test -p prism-core repo_memory_events_round_trip_through_committed_jsonl_and_reload",
+      "summary": "Repo memory events round-trip through committed JSONL and reload into a fresh workspace session.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_core",
+            "path": "prism_core::tests::repo_memory_events_round_trip_through_committed_jsonl_and_reload",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-core repo_concept_events_round_trip_through_committed_jsonl_and_reload",
+      "summary": "Repo concept events round-trip through committed JSONL and reload into a fresh workspace session.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_core",
+            "path": "prism_core::tests::repo_concept_events_round_trip_through_committed_jsonl_and_reload",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-core repo_contract_events_round_trip_through_committed_jsonl_and_reload",
+      "summary": "Repo contract events round-trip through committed JSONL and reload into a fresh workspace session.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_core",
+            "path": "prism_core::tests::repo_contract_events_round_trip_through_committed_jsonl_and_reload",
+            "kind": "Function"
+          }
+        }
+      ]
+    }
+  ],
+  "stability": "internal",
+  "compatibility": {
+    "additive": [
+      "Adding new repo-scoped published knowledge kinds is compatible when they publish through committed event logs and reload through the same event-backed path."
+    ],
+    "risky": [
+      "Writing repo-scoped truth only into hydrated projections, snapshots, or runtime caches is risky because reload behavior can diverge from published history."
+    ],
+    "breaking": [
+      "Treating hydrated packets, snapshots, or derived indexes as the sole authored form of repo-scoped knowledge breaks replay and clone portability."
+    ],
+    "migrating": [
+      "Existing derived packet shapes may change across releases, but committed event logs remain the durable interchange contract."
+    ]
+  },
+  "evidence": [
+    "docs/PERSISTENCE_STATE_CLASSIFICATION.md classifies curated repo knowledge as published event logs and says hydrated packets are derived.",
+    "docs/SPEC.md states that repo-exported concept events travel with the repo and hydrate the live projection layer on reload.",
+    "published_knowledge.rs and the repo round-trip tests anchor the event-log publication and reload path for repo memory, concepts, and contracts."
+  ],
+  "status": "active",
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_contract_promote",
+    "taskId": "task:survey-the-repo-for-the-first-batch-of-repo-scoped-contracts-focusing-on-modularity-persistence-split-and-other-strong-promise-surfaces-then-curate-and-publish-the-strongest-contracts:01kmzx0xamn4wzetw1tz97rz04"
+  },
+  "publication": {
+    "publishedAt": 1774893569,
+    "lastReviewedAt": 1774893569,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

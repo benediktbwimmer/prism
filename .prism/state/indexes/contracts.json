@@ -1,8 +1,56 @@
 [
   {
+    "id": "contract://compact_tools_surface",
+    "title": "PRISM exposes locate, open, workset, and expand as the staged compact default path for bounded repo interaction, with handle-centered results and conservative follow-through.",
+    "status": "Active",
+    "path": "contracts/contract-compact_tools_surface-f67cd0069512f0e4.json"
+  },
+  {
+    "id": "contract://coordination_runtime_continuity",
+    "title": "PRISM coordination state remains a live runtime authority that persists with explicit repo/worktree/session context, preserves lineage-scoped intent across renames and reloads, and hydrates published plan state through the backend facade instead of ad hoc snapshot ownership.",
+    "status": "Active",
+    "path": "contracts/contract-coordination_runtime_continuity-ce775b2842ed10ca.json"
+  },
+  {
+    "id": "contract://facade_modularity_rule",
+    "title": "`main.rs` and `lib.rs` stay thin facades for wiring, module boundaries, and public surface curation rather than accumulating substantive domain logic.",
+    "status": "Active",
+    "path": "contracts/contract-facade_modularity_rule-4ed847932201e5a0.json"
+  },
+  {
+    "id": "contract://javascript_query_abi",
+    "title": "The stable prism.* JavaScript query surface stays synchronized across runtime prelude behavior, API-reference documentation, and pre-execution typechecking so agents can script PRISM without reverse-engineering host internals.",
+    "status": "Active",
+    "path": "contracts/contract-javascript_query_abi-9aec6c987ff55a9e.json"
+  },
+  {
+    "id": "contract://persistence_split",
+    "title": "PRISM preserves a three-plane persistence model where repo-published `.prism` knowledge, shared mutable runtime state, and process-local cache remain distinct authorities.",
+    "status": "Active",
+    "path": "contracts/contract-persistence_split-0221390d8955e8e8.json"
+  },
+  {
+    "id": "contract://repo_published_knowledge_replay",
+    "title": "Repo-scoped published knowledge is committed as append-only event logs under .prism and hydrates the live runtime from those logs on reload instead of treating hydrated packets or snapshots as authored truth.",
+    "status": "Active",
+    "path": "contracts/contract-repo_published_knowledge_replay-be466e787b13a358.json"
+  },
+  {
     "id": "contract://tracked_state_excludes_operational_change_history",
     "title": "Repo-owned tracked `.prism/state` contains durable semantic state and publish metadata, not append-only operational change history.",
     "status": "Active",
     "path": "contracts/contract-tracked_state_excludes_operational_change_history-bc5db267c8c11312.json"
+  },
+  {
+    "id": "contract://typed_mcp_schema_surface",
+    "title": "PRISM MCP exposes bindable root tool schemas, exact action-specific schema resources, and actionable validation repair so clients can call mutation and session tools safely without guessing payload shapes.",
+    "status": "Active",
+    "path": "contracts/contract-typed_mcp_schema_surface-690bbaae964d1d9c.json"
+  },
+  {
+    "id": "contract://workspace_refresh_runtime",
+    "title": "PRISM keeps live workspace serving on an incremental refresh path: filesystem changes mark dirty regions, request paths avoid full persisted reloads in steady state, and persisted auxiliary state reloads only when freshness requires it.",
+    "status": "Active",
+    "path": "contracts/contract-workspace_refresh_runtime-7dc1184a723084ce.json"
   }
 ]

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://agent_inference_and_curation",
+  "targetHandle": "concept://concept_and_publication_pipeline",
+  "kind": "depends_on",
+  "confidence": 0.96,
+  "evidence": [
+    "Curator output is only durable once it flows through the concept and knowledge publication path."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

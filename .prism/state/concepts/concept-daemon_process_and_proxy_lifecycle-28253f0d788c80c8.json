@@ -1,0 +1,67 @@
+{
+  "handle": "concept://daemon_process_and_proxy_lifecycle",
+  "canonical_name": "daemon, process, and proxy lifecycle",
+  "summary": "prism-mcp modules that spawn, proxy, and supervise the daemonized server process and its transport-level lifecycle.",
+  "aliases": [
+    "daemon lifecycle",
+    "proxy lifecycle"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::daemon_mode",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::process_lifecycle",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::proxy_server",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::logging",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:3460",
+    "lineage:3903",
+    "lineage:9999",
+    "lineage:3888"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-mcp/src/lib.rs` keeps `daemon_mode`, `process_lifecycle`, `proxy_server`, and `logging` together on the server-management side of the runtime.",
+    "These modules own the long-lived process lifecycle rather than query or mutation semantics."
+  ],
+  "risk_hint": "Lifecycle bugs here make the server unreachable or misleadingly healthy even when higher semantic layers are correct.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734918,
+    "lastReviewedAt": 1774734918,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

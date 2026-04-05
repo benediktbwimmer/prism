@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://workspace_session_runtime",
+  "targetHandle": "concept://workspace_indexing_and_refresh",
+  "kind": "part_of",
+  "confidence": 0.97,
+  "evidence": [
+    "Workspace session hydration and refresh runtime are a second internal slice of the broader indexing/refresh subsystem."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

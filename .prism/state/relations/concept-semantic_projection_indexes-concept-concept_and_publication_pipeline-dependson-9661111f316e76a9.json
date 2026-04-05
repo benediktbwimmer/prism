@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://semantic_projection_indexes",
+  "targetHandle": "concept://concept_and_publication_pipeline",
+  "kind": "depends_on",
+  "confidence": 0.95,
+  "evidence": [
+    "Projection indexes hydrate published concepts and concept relations emitted by the publication pipeline."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

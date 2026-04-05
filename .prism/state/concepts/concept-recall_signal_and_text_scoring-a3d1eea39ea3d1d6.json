@@ -1,0 +1,60 @@
+{
+  "handle": "concept://recall_signal_and_text_scoring",
+  "canonical_name": "recall signal and text scoring",
+  "summary": "prism-memory modules that compute anchor overlap, recency, trust, token/substring/embedding text signals, and final scored recall ordering across memory entries.",
+  "aliases": [
+    "memory scoring core",
+    "text recall scoring"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::recall",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::text",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::common",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5661",
+    "lineage:5764",
+    "lineage:5541"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`recall.rs`, `text.rs`, and `common.rs` define the scoring signals, tokenization/embedding helpers, and ranking utilities used across memory recall paths.",
+    "These modules are the low-level ranking substrate below higher memory-module routing."
+  ],
+  "risk_hint": "If these scoring signals drift, every memory recall surface becomes plausibly ranked but practically misleading.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735359,
+    "lastReviewedAt": 1774735359,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

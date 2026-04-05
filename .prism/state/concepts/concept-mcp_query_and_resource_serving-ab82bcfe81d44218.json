@@ -1,0 +1,88 @@
+{
+  "handle": "concept://mcp_query_and_resource_serving",
+  "canonical_name": "MCP query and resource serving",
+  "summary": "prism-mcp serving layer that runs query execution, semantic context assembly, and MCP resource reads over the live Prism workspace.",
+  "aliases": [
+    "query serving",
+    "resource serving",
+    "semantic serving layer"
+  ],
+  "confidence": 0.94,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::query_runtime",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::resources",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::host_resources",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::semantic_contexts",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::query_helpers",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:4145",
+    "lineage:4583",
+    "lineage:3741",
+    "lineage:4816",
+    "lineage:4002"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::resource_schemas",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::AGENT_COMPRESSION_LAYER_md::target_default_agent_path",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:4480",
+    "lineage:9682"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-mcp groups query_runtime, resources, host_resources, semantic_contexts, and query_helpers around serving semantic reads to agents and clients.",
+    "This slice is the operational read path behind PRISM resources, query helpers, and context-rich MCP responses."
+  ],
+  "risk_hint": "Serving regressions here surface as missing context, broken resources, or inconsistent query envelopes even if the underlying graph is healthy.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733761,
+    "lastReviewedAt": 1774733761,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

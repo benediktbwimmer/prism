@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://coordination_mutation_and_policy_helpers",
+  "targetHandle": "concept://principal_identity_and_mutation_provenance",
+  "kind": "depends_on",
+  "confidence": 0.94,
+  "evidence": [
+    "Lease ownership, resume/reclaim policy, and heartbeat enforcement derive holder identity from authoritative principal actors recorded on mutation events."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "coord-task:01kn6fa2xeg8f0rayk8n0zwtkm"
+  }
+}

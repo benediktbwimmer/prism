@@ -1,0 +1,66 @@
+{
+  "handle": "concept://document_and_config_adapters",
+  "canonical_name": "document and config adapters",
+  "summary": "Markdown, JSON, TOML, and YAML adapter modules that map documents and configuration files into PRISM IR and intent surfaces.",
+  "aliases": [
+    "document adapters",
+    "config adapters"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_lang_markdown",
+      "path": "prism_lang_markdown",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_lang_json",
+      "path": "prism_lang_json::adapter",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_lang_toml",
+      "path": "prism_lang_toml",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_lang_yaml",
+      "path": "prism_lang_yaml",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:2972",
+    "lineage:2923",
+    "lineage:3175",
+    "lineage:3217"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "Markdown, JSON, TOML, and YAML adapters capture repo-native docs and config artifacts rather than executable code.",
+    "These adapters are important because PRISM’s architecture and policy knowledge lives partly in markdown and structured config, not only source code."
+  ],
+  "risk_hint": "Quality issues here degrade architecture/spec grounding and config search even when code parsing still looks healthy.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734109,
+    "lastReviewedAt": 1774734109,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

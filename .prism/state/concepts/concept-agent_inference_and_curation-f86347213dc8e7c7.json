@@ -1,0 +1,69 @@
+{
+  "handle": "concept://agent_inference_and_curation",
+  "canonical_name": "agent inference and curation",
+  "summary": "Inference and curator stack that records inferred edges, synthesizes curator output, and promotes reviewed knowledge into persistent PRISM state.",
+  "aliases": [
+    "curation pipeline",
+    "inference layer",
+    "curator stack"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_agent",
+      "path": "prism_agent",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_curator",
+      "path": "prism_curator",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:877",
+    "lineage:1818",
+    "lineage:1533",
+    "lineage:5913"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-agent defines inferred-edge identifiers, scopes, and storage semantics for agent-discovered relationships.",
+    "prism-curator synthesizes curator runs while prism-core and prism-mcp integrate reviewed promotion of edges, concepts, and memories."
+  ],
+  "risk_hint": "Incorrect inference or curator promotion can publish misleading durable knowledge, so this layer depends on strong review and validation boundaries.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733295,
+    "lastReviewedAt": 1774733295,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

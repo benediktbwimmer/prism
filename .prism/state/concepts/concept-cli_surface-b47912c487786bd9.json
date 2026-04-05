@@ -1,0 +1,67 @@
+{
+  "handle": "concept://cli_surface",
+  "canonical_name": "CLI surface",
+  "summary": "Local operator surface for indexing, querying, and MCP lifecycle control, built as a thin binary over prism-core and related crates.",
+  "aliases": [
+    "prism cli",
+    "operator cli",
+    "command surface"
+  ],
+  "confidence": 0.88,
+  "core_members": [
+    {
+      "crate_name": "prism_cli",
+      "path": "prism_cli::main",
+      "kind": "Function"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_store",
+      "path": "prism_store",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:951",
+    "lineage:1533",
+    "lineage:6074",
+    "lineage:6426"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-cli depends on prism-core, prism-ir, prism-memory, prism-query, and prism-store and keeps most logic in cli, commands, mcp, parsing, display, and runtime modules.",
+    "The binary entrypoint stays thin and dispatches into command modules rather than owning core semantics."
+  ],
+  "risk_hint": "Because the CLI is intentionally thin, architecture drift here usually signals deeper changes in core crate contracts.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733331,
+    "lastReviewedAt": 1774733331,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

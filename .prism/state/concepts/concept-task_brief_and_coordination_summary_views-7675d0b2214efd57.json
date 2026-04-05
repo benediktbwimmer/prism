@@ -1,0 +1,55 @@
+{
+  "handle": "concept://task_brief_and_coordination_summary_views",
+  "canonical_name": "task-brief and coordination summary views",
+  "summary": "Compact-tool coordination briefing path that condenses plan/task status, blockers, claims, conflicts, recent outcomes, likely validations, and next reads into bounded coordination summaries.",
+  "aliases": [
+    "task brief runtime",
+    "coordination summary views"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::task_brief",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::queries",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:10624",
+    "lineage:1119"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "task_brief.rs composes blockers, claims, conflicts, plan graph state, journal outcomes, validation recipes, and next-read recommendations into the compact task brief result.",
+    "Its data path is specifically coordination-oriented and therefore distinct from generic concept/expand decoding."
+  ],
+  "risk_hint": null,
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774736059,
+    "lastReviewedAt": 1774736059,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

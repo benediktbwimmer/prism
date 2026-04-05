@@ -1,0 +1,54 @@
+{
+  "handle": "concept://open_and_workset_followthrough",
+  "canonical_name": "open and workset follow-through",
+  "summary": "Compact-tool open/workset path that resolves session handles, expands concept and text-fragment targets, assembles supporting reads and likely tests, and enforces workset budget limits.",
+  "aliases": [
+    "compact open/workset",
+    "follow-through reads"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::open",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::workset",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:10137",
+    "lineage:10224"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "open.rs resolves handle targets, concept follow-through, text-fragment reads, related handles, and suggested next actions.",
+    "workset.rs builds bounded worksets with primary targets, supporting reads, likely tests, follow-up handles, and JSON-size budgeting."
+  ],
+  "risk_hint": null,
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774736058,
+    "lastReviewedAt": 1774736058,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

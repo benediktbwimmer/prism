@@ -1,0 +1,65 @@
+{
+  "entry": {
+    "id": "memory:70",
+    "anchors": [
+      {
+        "Lineage": "lineage:2891"
+      },
+      {
+        "Lineage": "lineage:5913"
+      },
+      {
+        "Lineage": "lineage:6074"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_js",
+          "path": "prism_js",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_projections",
+          "path": "prism_projections",
+          "kind": "Module"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_query",
+          "path": "prism_query",
+          "kind": "Module"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "The read-side architecture now separates semantic_projection_indexes, query_symbol_and_change_contexts, query_coordination_and_plan_views, and javascript_query_abi beneath concept://projection_and_query_layer, which means later agents can distinguish projection materialization, local read bundles, coordination query overlays, and JS-facing ABI concerns without reopening those crates.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774734024,
+        "publishedAt": 1774734024,
+        "status": "active"
+      },
+      "task_id": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+    },
+    "created_at": 1774734024,
+    "source": "Agent",
+    "trust": 0.94
+  },
+  "latestEventId": "memory-event:1774734024194651000",
+  "latestRecordedAt": 1774734024,
+  "eventCount": 1,
+  "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+}

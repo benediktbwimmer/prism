@@ -1,0 +1,54 @@
+{
+  "handle": "concept://curator_rule_synthesis_and_proposal_types",
+  "canonical_name": "curator rule synthesis and proposal types",
+  "summary": "Curator modules that define curator jobs, bounded graph/outcome/memory/projection context, proposal payload types, and rule-based synthesis/merge of edge, memory, concept, and validation proposals.",
+  "aliases": [
+    "curator synthesis",
+    "curator proposal model"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_curator",
+      "path": "prism_curator::synthesis",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_curator",
+      "path": "prism_curator::types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1828",
+    "lineage:1915"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "synthesis.rs contains the repeated-failure, migration, co-change, hotspot, and episodic-promotion rules plus merge logic for curator runs.",
+    "types.rs defines the curator job, context slices, budgets, and proposal payloads that synthesis emits and later review/apply paths consume."
+  ],
+  "risk_hint": null,
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774736018,
+    "lastReviewedAt": 1774736018,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

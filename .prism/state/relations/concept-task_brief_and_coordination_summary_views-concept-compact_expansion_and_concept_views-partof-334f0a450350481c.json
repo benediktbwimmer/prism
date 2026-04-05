@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://task_brief_and_coordination_summary_views",
+  "targetHandle": "concept://compact_expansion_and_concept_views",
+  "kind": "part_of",
+  "confidence": 0.95,
+  "evidence": [
+    "Task-brief summaries are the coordination-specific summary half of compact expansion/concept views."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

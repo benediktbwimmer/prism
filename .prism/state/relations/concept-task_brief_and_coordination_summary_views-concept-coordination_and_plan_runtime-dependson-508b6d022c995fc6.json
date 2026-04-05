@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://task_brief_and_coordination_summary_views",
+  "targetHandle": "concept://coordination_and_plan_runtime",
+  "kind": "depends_on",
+  "confidence": 0.95,
+  "evidence": [
+    "Task-brief summaries are built directly from coordination task, blocker, claim, conflict, and plan-runtime query state."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

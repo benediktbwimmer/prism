@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://indexer_orchestration_and_snapshot_loading",
+  "targetHandle": "concept://persistence_and_history",
+  "kind": "depends_on",
+  "confidence": 0.9,
+  "evidence": [
+    "This orchestration path loads prior graph, history, outcomes, coordination, and projection snapshots from persisted state."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

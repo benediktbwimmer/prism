@@ -1,0 +1,44 @@
+{
+  "entry": {
+    "id": "memory:01kn07e79gh5je3z1zk8zgg3qf",
+    "anchors": [
+      {
+        "File": 164
+      },
+      {
+        "File": 187
+      },
+      {
+        "File": 241
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "Native plan-node completion must honor successful validation outcomes correlated directly to the node id, because MCP commonly uses a native node id as the current task while recording `test_ran` and `fix_validated` events with no anchors. If completion logic only accepts anchor-matched evidence or real coordination-task ids, `plan_node_update` can reject completion even after the exact required validations were run and recorded.",
+    "metadata": {
+      "evidence": {
+        "validationChecks": [
+          "cargo test -p prism-query native_plan_node_completion_accepts_task_correlated_validations_without_anchors -- --nocapture",
+          "cargo test -p prism-mcp native_plan_node_completion_accepts_current_task_validation_events_without_anchors -- --nocapture"
+        ]
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1774903041,
+        "publishedAt": 1774903041,
+        "status": "active"
+      },
+      "task_id": "task:promote-strongest-recent-session-memories-into-repo-scoped-memory:01kn07dmzs2qw5q5d2q2a6pgsv"
+    },
+    "created_at": 1774903041,
+    "source": "Agent",
+    "trust": 0.93
+  },
+  "latestEventId": "memory-event:01kn07e79g04xxxwr9c11mramm",
+  "latestRecordedAt": 1774903041,
+  "eventCount": 1,
+  "taskId": "task:promote-strongest-recent-session-memories-into-repo-scoped-memory:01kn07dmzs2qw5q5d2q2a6pgsv"
+}

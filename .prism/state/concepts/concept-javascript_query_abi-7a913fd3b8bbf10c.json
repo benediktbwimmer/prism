@@ -1,0 +1,60 @@
+{
+  "handle": "concept://javascript_query_abi",
+  "canonical_name": "JavaScript query ABI",
+  "summary": "prism-js modules that define the agent-facing TypeScript/JS API types, runtime prelude, and generated reference docs for programmable queries.",
+  "aliases": [
+    "js query abi",
+    "typescript query abi"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_js",
+      "path": "prism_js::api_types",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_js",
+      "path": "prism_js::runtime",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_js",
+      "path": "prism_js::docs",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:2418",
+    "lineage:2892",
+    "lineage:2890"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-js separates API types, runtime prelude behavior, and API-reference documentation into a small ABI-focused crate.",
+    "This is the stable JS-facing contract consumed by the MCP runtime and documented for agent use."
+  ],
+  "risk_hint": "ABI drift here can silently desynchronize docs, runtime behavior, and exposed query capabilities.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733969,
+    "lastReviewedAt": 1774733969,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

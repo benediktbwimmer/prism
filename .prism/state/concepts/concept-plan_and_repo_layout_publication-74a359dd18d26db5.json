@@ -1,0 +1,67 @@
+{
+  "handle": "concept://plan_and_repo_layout_publication",
+  "canonical_name": "plan and repo-layout publication",
+  "summary": "prism-core modules that govern published plan material, repo layout paths, and supporting helpers used when durable artifacts are written back into the workspace.",
+  "aliases": [
+    "plan publication",
+    "repo layout publication"
+  ],
+  "confidence": 0.88,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::published_plans",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::layout",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::util",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::indexer_support",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:11594",
+    "lineage:1500",
+    "lineage:1673",
+    "lineage:1486"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "published_plans, layout, util, and indexer_support together capture the file-system and helper layer around durable PRISM artifacts in the workspace.",
+    "This is adjacent to publication guards but narrower: it handles where and how published plan-related artifacts land."
+  ],
+  "risk_hint": "Path/layout mistakes here can make valid durable artifacts invisible or misplaced without changing their semantic contents.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734110,
+    "lastReviewedAt": 1774734110,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

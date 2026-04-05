@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://query_symbol_and_change_contexts",
+  "targetHandle": "concept://semantic_projection_indexes",
+  "kind": "depends_on",
+  "confidence": 0.94,
+  "evidence": [
+    "Symbol/change read bundles rely on the derived indexes and rankings produced by the projection layer."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

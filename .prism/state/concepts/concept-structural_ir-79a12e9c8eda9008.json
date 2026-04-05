@@ -1,0 +1,75 @@
+{
+  "handle": "concept://structural_ir",
+  "canonical_name": "structural IR and identity model",
+  "summary": "Authoritative semantic schema for nodes, edges, anchors, events, and stable identities that every higher PRISM layer depends on.",
+  "aliases": [
+    "core ir",
+    "ir layer",
+    "identity model"
+  ],
+  "confidence": 0.96,
+  "core_members": [
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::graph::NodeId",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::anchor::AnchorRef",
+      "kind": "Enum"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::events::EventMeta",
+      "kind": "Struct"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:2211",
+    "lineage:2164",
+    "lineage:2120",
+    "lineage:2151"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::SPEC_md::1_crate_architecture",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:6841"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-ir re-exports graph, anchor, history, identity, plans, parse, and primitive types as the shared schema layer.",
+    "Downstream crates prism-parser, prism-history, prism-memory, prism-query, prism-core, and prism-coordination all depend directly on prism-ir."
+  ],
+  "risk_hint": "Changes here propagate into parsing, storage, query serialization, coordination, and MCP contracts.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733208,
+    "lastReviewedAt": 1774733208,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

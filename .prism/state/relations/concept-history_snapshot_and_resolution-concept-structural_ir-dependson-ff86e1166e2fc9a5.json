@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://history_snapshot_and_resolution",
+  "targetHandle": "concept://structural_ir",
+  "kind": "depends_on",
+  "confidence": 0.93,
+  "evidence": [
+    "Lineage snapshots and resolution replay IR identities, events, and anchors defined in prism-ir."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

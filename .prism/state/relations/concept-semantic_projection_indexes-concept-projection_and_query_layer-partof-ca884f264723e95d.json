@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://semantic_projection_indexes",
+  "targetHandle": "concept://projection_and_query_layer",
+  "kind": "part_of",
+  "confidence": 0.99,
+  "evidence": [
+    "Derived projection indexes are the projection-side internal slice of the broader read layer."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

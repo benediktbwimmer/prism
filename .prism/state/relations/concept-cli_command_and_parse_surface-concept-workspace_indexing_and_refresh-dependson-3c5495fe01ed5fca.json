@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://cli_command_and_parse_surface",
+  "targetHandle": "concept://workspace_indexing_and_refresh",
+  "kind": "depends_on",
+  "confidence": 0.87,
+  "evidence": [
+    "Many CLI commands are thin wrappers around workspace indexing/session behavior provided by prism-core."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

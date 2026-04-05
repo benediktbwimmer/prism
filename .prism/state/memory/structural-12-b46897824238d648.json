@@ -1,0 +1,62 @@
+{
+  "entry": {
+    "id": "structural:12",
+    "anchors": [
+      {
+        "Lineage": "lineage:1832"
+      },
+      {
+        "Lineage": "lineage:3686"
+      },
+      {
+        "Lineage": "lineage:3898"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_curator",
+          "path": "prism_curator::synthesis::synthesize_curator_run",
+          "kind": "Function"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_memory",
+          "kind": "Method"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::memory_metadata::curator_memory_metadata",
+          "kind": "Function"
+        }
+      }
+    ],
+    "kind": "Structural",
+    "scope": "repo",
+    "content": "Curator memory promotion now carries CandidateMemoryEvidence.memory_ids end to end: strong episodic memories synthesize structural proposals with source memory ids, promoted repo memories keep those ids in metadata.evidence.memoryIds, and the promoted memory event records them in promotedFrom.",
+    "metadata": {
+      "category": "curator_workflow",
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "phase": "verified_implementation",
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "task_id": "task:improve-curator-memory-workflow-by-making-proposals-easier-to-inspect-and-adding-promotion-proposals-derived-from-strong-episodic-memories-during-real-prism-work:45"
+    },
+    "created_at": 1774705615,
+    "source": "Agent",
+    "trust": 0.9
+  },
+  "latestEventId": "memory-event:1774705615956861000",
+  "latestRecordedAt": 1774705615,
+  "eventCount": 1,
+  "taskId": "task:improve-curator-memory-workflow-by-making-proposals-easier-to-inspect-and-adding-promotion-proposals-derived-from-strong-episodic-memories-during-real-prism-work:45"
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://coordination_state_model",
+  "targetHandle": "concept://coordination_and_plan_runtime",
+  "kind": "part_of",
+  "confidence": 0.99,
+  "evidence": [
+    "The state/type/runtime model is the foundational internal slice of the coordination subsystem."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

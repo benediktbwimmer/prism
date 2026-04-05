@@ -1,0 +1,66 @@
+{
+  "handle": "concept://mutation_argument_and_schema_surface",
+  "canonical_name": "mutation argument and schema surface",
+  "summary": "prism-mcp modules that define mutation/query argument types, tool schemas, and executable examples for the hosted MCP surface.",
+  "aliases": [
+    "mutation schemas",
+    "tool arg surface"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::tool_args",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::tool_schemas",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::schema_examples",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::query_types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5310",
+    "lineage:5453",
+    "lineage:4734",
+    "lineage:4258"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-mcp/src/lib.rs` groups `tool_args`, `tool_schemas`, `schema_examples`, and `query_types` as the typed contract surface for hosted tools.",
+    "These modules are the mutation/schema half of the MCP server, distinct from runtime state and resource reads."
+  ],
+  "risk_hint": "If this contract layer drifts, the MCP surface can accept or describe the wrong payloads while deeper runtime logic stays unchanged.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734917,
+    "lastReviewedAt": 1774734917,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://compact_expansion_and_concept_views",
+  "targetHandle": "concept://coordination_and_plan_runtime",
+  "kind": "often_used_with",
+  "confidence": 0.88,
+  "evidence": [
+    "Task brief decoding makes this compact view cluster a frequent companion to coordination and plan runtime reasoning."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

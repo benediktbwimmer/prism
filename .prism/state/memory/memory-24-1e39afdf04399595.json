@@ -1,0 +1,53 @@
+{
+  "entry": {
+    "id": "memory:24",
+    "anchors": [
+      {
+        "Lineage": "lineage:10635"
+      },
+      {
+        "Lineage": "lineage:9787"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_expand",
+          "kind": "Method"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_task_brief",
+          "kind": "Method"
+        }
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "Compact Perception Lenses v1 surfaces impact, timeline, and memory through prism_expand handles, and prism_task_brief is the compact coordination entrypoint for blockers, outcomes, validations, and next reads.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "origin": "milestone_follow_on",
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "rollout": "compact-perception-lenses-v1",
+      "subsystem": "compact_tools",
+      "task_id": "task:finish-compact-perception-milestone-follow-ons:47"
+    },
+    "created_at": 1774706915,
+    "source": "Agent",
+    "trust": 0.93
+  },
+  "latestEventId": "memory-event:1774706915722273000",
+  "latestRecordedAt": 1774706915,
+  "eventCount": 1,
+  "taskId": "task:finish-compact-perception-milestone-follow-ons:47"
+}

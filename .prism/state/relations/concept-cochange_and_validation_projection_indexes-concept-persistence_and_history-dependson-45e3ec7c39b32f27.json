@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://cochange_and_validation_projection_indexes",
+  "targetHandle": "concept://persistence_and_history",
+  "kind": "depends_on",
+  "confidence": 0.9,
+  "evidence": [
+    "These projection indexes are derived from history snapshots and persisted outcome/projection state."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

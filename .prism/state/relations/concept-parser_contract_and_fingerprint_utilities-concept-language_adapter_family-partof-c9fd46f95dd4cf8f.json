@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://parser_contract_and_fingerprint_utilities",
+  "targetHandle": "concept://language_adapter_family",
+  "kind": "part_of",
+  "confidence": 0.96,
+  "evidence": [
+    "prism-parser provides the shared adapter contract and fingerprint utilities beneath both code and document/config adapter families."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

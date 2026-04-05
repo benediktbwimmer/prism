@@ -9,6 +9,7 @@ use prism_core::{
     quarantine_protected_state_stream, reconcile_protected_state_stream,
     regenerate_repo_snapshot_derived_artifacts, repair_legacy_path_identity_state,
     repair_protected_state_stream_to_last_valid, repair_repo_published_plan_artifacts,
+    restore_legacy_repo_published_knowledge, LegacyRepoKnowledgeRestoreReport,
     verify_protected_state, LegacyPathIdentityRepairReport, ProtectedStateQuarantineReport,
     ProtectedStateReconcileReport, ProtectedStateRepairReport, ProtectedStateStreamReport,
     ProtectedStateTrustExport, ProtectedStateTrustImportReport, ProtectedStateVerifyReport,
@@ -99,6 +100,10 @@ pub(crate) fn handle_protected_state_command(
         ProtectedStateCommand::RepairSnapshotArtifacts => {
             regenerate_repo_snapshot_derived_artifacts(root)?;
             println!("regenerated snapshot-derived PRISM artifacts");
+        }
+        ProtectedStateCommand::RestoreLegacyPublishedKnowledge => {
+            let report = restore_legacy_repo_published_knowledge(root)?;
+            print_legacy_repo_knowledge_restore_report(&report);
         }
         ProtectedStateCommand::RepairPathIdentity { check } => {
             let report = if check {
@@ -229,6 +234,32 @@ fn write_trust_export(
         root_output.display()
     );
     Ok(())
+}
+
+fn print_legacy_repo_knowledge_restore_report(report: &LegacyRepoKnowledgeRestoreReport) {
+    println!(
+        "restored legacy repo knowledge: {} concept(s), {} relation(s), {} contract(s), {} memory record(s)",
+        report.restored_concepts,
+        report.restored_relations,
+        report.restored_contracts,
+        report.restored_memories
+    );
+    if report.skipped_existing_concepts != 0
+        || report.skipped_existing_relations != 0
+        || report.skipped_existing_contracts != 0
+        || report.skipped_existing_memories != 0
+    {
+        println!(
+            "skipped existing snapshot items: {} concept(s), {} relation(s), {} contract(s), {} memory record(s)",
+            report.skipped_existing_concepts,
+            report.skipped_existing_relations,
+            report.skipped_existing_contracts,
+            report.skipped_existing_memories
+        );
+    }
+    for path in &report.source_paths {
+        println!("{}", path.display());
+    }
 }
 
 fn derived_root_output_path(output: &Path) -> PathBuf {

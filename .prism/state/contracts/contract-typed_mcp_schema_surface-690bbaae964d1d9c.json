@@ -1,0 +1,147 @@
+{
+  "handle": "contract://typed_mcp_schema_surface",
+  "name": "typed MCP schema surface",
+  "summary": "PRISM MCP exposes bindable root tool schemas, exact action-specific schema resources, and actionable validation repair so clients can call mutation and session tools safely without guessing payload shapes.",
+  "aliases": [
+    "MCP schema contract",
+    "typed tool schema surface",
+    "schema-guided mutation surface"
+  ],
+  "kind": "interface",
+  "subject": {
+    "anchors": [
+      {
+        "File": 21
+      },
+      {
+        "File": 202
+      },
+      {
+        "File": 201
+      }
+    ],
+    "conceptHandles": [
+      "concept://mcp_runtime_surface",
+      "concept://javascript_query_abi"
+    ]
+  },
+  "guarantees": [
+    {
+      "id": "tagged_tools_expose_bindable_root_schemas",
+      "statement": "Tagged MCP tools such as prism_session and prism_mutate expose a bindable root action/input schema on tools/list instead of only opaque or action-erased payload blobs.",
+      "scope": "tool_binding",
+      "strength": "hard",
+      "evidenceRefs": [
+        "agents-tool-schema-guidance",
+        "server-tool-input-schema-tests"
+      ]
+    },
+    {
+      "id": "schema_resources_are_exact_payload_authority",
+      "statement": "prism://tool-schemas and prism://schema/tool/{toolName}/action/{action} remain the exact JSON schema authority for non-trivial MCP payloads, including structured nested action payloads.",
+      "scope": "schema_authority",
+      "strength": "hard",
+      "evidenceRefs": [
+        "agents-tool-schema-guidance",
+        "tool-schema-resources"
+      ]
+    },
+    {
+      "id": "validation_failures_provide_actionable_repair",
+      "statement": "Tool validation failures provide actionable repair guidance, including exact schema URIs and a minimal valid example, rather than leaving callers to reverse-engineer payload requirements manually.",
+      "scope": "repair_path",
+      "strength": "hard",
+      "evidenceRefs": [
+        "validate-tool-input-guidance",
+        "minimal-valid-example-errors"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Clients either consult the schema resources directly or reuse validation errors as repair hints before retrying failed mutation calls.",
+    "Alias-friendly shorthand may exist, but the schema resources remain the canonical source for the exact accepted shape."
+  ],
+  "consumers": [
+    {
+      "anchors": [],
+      "conceptHandles": [
+        "concept://mcp_runtime_surface",
+        "concept://javascript_query_abi",
+        "concept://compact_tools"
+      ]
+    }
+  ],
+  "validations": [
+    {
+      "id": "cargo test -p prism-mcp mcp_server_lists_and_reads_tool_schema_resources",
+      "summary": "The server lists bindable root tool schemas and exposes the exact tool schema resources.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::server_resources::mcp_server_lists_and_reads_tool_schema_resources",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-mcp prism_mutate_schema_expands_payload_shapes_for_structured_actions",
+      "summary": "The mutate schema expands structured nested action payloads instead of leaving them opaque.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::prism_mutate_schema_expands_payload_shapes_for_structured_actions",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-mcp prism_mutate_coordination_rejects_missing_typed_payload_fields",
+      "summary": "Mutation validation errors surface exact missing fields, schema paths, and a minimal valid example.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::server_tool_calls::prism_mutate_coordination_rejects_missing_typed_payload_fields",
+            "kind": "Function"
+          }
+        }
+      ]
+    }
+  ],
+  "stability": "internal",
+  "compatibility": {
+    "additive": [
+      "Adding new typed actions, schema resources, or aliases is compatible when the root bindable action/input shape and exact schema resources remain available."
+    ],
+    "risky": [
+      "Letting tools/list regress to untyped payload shells or letting schema resources drift from accepted payload behavior is risky for every MCP client."
+    ],
+    "breaking": [
+      "Removing exact schema resources or forcing callers to infer nested payload shapes from trial and error breaks the MCP safety contract."
+    ]
+  },
+  "evidence": [
+    "AGENTS.md explicitly directs agents to use prism://tool-schemas, prism://schema/tool/{toolName}, and prism.tool(...) before hand-writing non-trivial mutation payloads.",
+    "tool_schemas.rs and the server resources tests expose bindable root schemas plus exact action-specific schema resources.",
+    "tool_args.rs and the server tool-call tests show validation failures returning schema URIs and minimal valid examples."
+  ],
+  "status": "active",
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_contract_promote",
+    "taskId": "task:survey-the-repo-for-the-first-batch-of-repo-scoped-contracts-focusing-on-modularity-persistence-split-and-other-strong-promise-surfaces-then-curate-and-publish-the-strongest-contracts:01kmzx0xamn4wzetw1tz97rz04"
+  },
+  "publication": {
+    "publishedAt": 1774893588,
+    "lastReviewedAt": 1774893588,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "handle": "concept://persistence_and_history",
+  "canonical_name": "persistence and history layer",
+  "summary": "SQLite-backed graph and temporal persistence layer that stores structural state, history snapshots, memory projections, and other durable PRISM artifacts.",
+  "aliases": [
+    "storage layer",
+    "sqlite store",
+    "history store"
+  ],
+  "confidence": 0.94,
+  "core_members": [
+    {
+      "crate_name": "prism_store",
+      "path": "prism_store",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_store",
+      "path": "prism_store::sqlite::SqliteStore",
+      "kind": "Struct"
+    },
+    {
+      "crate_name": "prism_history",
+      "path": "prism_history",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_history",
+      "path": "prism_history::store::HistoryStore",
+      "kind": "Struct"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:6426",
+    "lineage:6535",
+    "lineage:1971",
+    "lineage:2056"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "prism-store owns graph persistence, memory projection persistence, memory store support, and sqlite IO/schema modules.",
+    "prism-history owns resolver, snapshot, and store primitives for temporal identity and lineage snapshots."
+  ],
+  "risk_hint": "Schema or snapshot drift here can invalidate indexing, replay, query correctness, and knowledge hydration.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733223,
+    "lastReviewedAt": 1774733223,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

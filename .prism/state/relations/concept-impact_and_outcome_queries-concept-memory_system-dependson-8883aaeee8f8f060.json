@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://impact_and_outcome_queries",
+  "targetHandle": "concept://memory_system",
+  "kind": "depends_on",
+  "confidence": 0.9,
+  "evidence": [
+    "Outcome history and validation context are backed by the repo’s memory and outcome subsystems."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

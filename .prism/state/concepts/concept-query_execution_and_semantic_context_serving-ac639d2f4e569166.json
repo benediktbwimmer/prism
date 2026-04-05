@@ -1,0 +1,66 @@
+{
+  "handle": "concept://query_execution_and_semantic_context_serving",
+  "canonical_name": "query execution and semantic-context serving",
+  "summary": "prism-mcp modules that execute PRISM reads, normalize diagnostics, and serve semantic context bundles over the live MCP runtime.",
+  "aliases": [
+    "query runtime serving",
+    "semantic context serving"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::query_runtime",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::semantic_contexts",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::query_helpers",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::query_errors",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:4145",
+    "lineage:4816",
+    "lineage:4002",
+    "lineage:3957"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-mcp/src/lib.rs` groups `query_runtime`, `semantic_contexts`, `query_helpers`, and `query_errors` together around the live read path.",
+    "These modules are the execution core for serving bounded query results and semantic context views."
+  ],
+  "risk_hint": "If this path degrades, the MCP server returns confusing or weakly grounded reads even though the underlying Prism object remains healthy.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734916,
+    "lastReviewedAt": 1774734916,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "handle": "concept://coordination_state_model",
+  "canonical_name": "coordination state model",
+  "summary": "Core coordination modules that define state, types, runtime overlays, and compatibility projections for plans, tasks, claims, and artifacts.",
+  "aliases": [
+    "coordination state",
+    "plan/task model"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::state",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::types",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::runtime",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::compat",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1139",
+    "lineage:1317",
+    "lineage:11871",
+    "lineage:11328"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::state::CoordinationStore",
+      "kind": "Struct"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:1137"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "state.rs, types.rs, runtime.rs, and compat.rs define the durable coordination model plus the overlays exported to other layers.",
+    "This slice is the shared data model beneath both query and mutation behavior in prism-coordination."
+  ],
+  "risk_hint": "Schema drift here propagates into every coordination read/write path and into MCP/dashboard views built on top of them.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733809,
+    "lastReviewedAt": 1774733809,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

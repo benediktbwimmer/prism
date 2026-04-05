@@ -1,0 +1,155 @@
+{
+  "handle": "contract://compact_tools_surface",
+  "name": "compact tools surface",
+  "summary": "PRISM exposes locate, open, workset, and expand as the staged compact default path for bounded repo interaction, with handle-centered results and conservative follow-through.",
+  "aliases": [
+    "compact tools contract",
+    "staged compact surface",
+    "locate/open/workset/expand contract"
+  ],
+  "kind": "interface",
+  "subject": {
+    "anchors": [
+      {
+        "File": 21
+      },
+      {
+        "File": 187
+      }
+    ],
+    "conceptHandles": [
+      "concept://compact_tools"
+    ]
+  },
+  "guarantees": [
+    {
+      "id": "staged_compact_entrypoints",
+      "statement": "Locate, open, workset, and expand remain the staged default entrypoints for bounded PRISM repo interaction before falling back to richer raw query surfaces.",
+      "scope": "agent_default_path",
+      "strength": "hard",
+      "evidenceRefs": [
+        "agents-staged-default-path",
+        "server-compact-entrypoints"
+      ]
+    },
+    {
+      "id": "compact_results_stay_bounded_and_handle_centered",
+      "statement": "Compact tool results stay bounded, favor semantic handles, and avoid broad raw payloads as the default response shape.",
+      "scope": "payload_budget",
+      "strength": "hard",
+      "evidenceRefs": [
+        "compact-tools-concept",
+        "compact-open-related-handles"
+      ]
+    },
+    {
+      "id": "follow_through_stays_next_action_oriented",
+      "statement": "Compact follow-through prefers conservative next reads, likely tests, and nearby handles over exhaustive context dumps.",
+      "scope": "follow_through",
+      "strength": "soft",
+      "evidenceRefs": [
+        "compact-tools-concept",
+        "compact-workset-follow-through"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Agents may still use prism_query when the compact staged surface cannot express the needed read precisely.",
+    "Deeper or broader context may require an explicit expand or open retry instead of widening compact defaults."
+  ],
+  "consumers": [
+    {
+      "anchors": [],
+      "conceptHandles": [
+        "concept://mcp_runtime_surface",
+        "concept://prism_architecture"
+      ]
+    }
+  ],
+  "validations": [
+    {
+      "id": "cargo test -p prism-mcp compact_locate_promotes_numbered_markdown_headings_to_semantic_handles",
+      "summary": "Locate should promote semantic handles instead of leaving markdown headings as raw text hits.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::compact_locate_promotes_numbered_markdown_headings_to_semantic_handles",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-mcp compact_open_returns_compact_related_handles",
+      "summary": "Open should return compact related handles for bounded follow-through.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::compact_open_returns_compact_related_handles",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-mcp compact_open_edit_returns_enough_body_context_to_start_editing",
+      "summary": "Open edit mode should return enough bounded context to begin editing without a broad reread.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::compact_open_edit_returns_enough_body_context_to_start_editing",
+            "kind": "Function"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cargo test -p prism-mcp compact_workset_prioritizes_contract_consumers_and_validation_targets",
+      "summary": "Workset should surface nearby contract consumers and validation targets instead of generic unrelated reads.",
+      "anchors": [
+        {
+          "Node": {
+            "crate_name": "prism_mcp",
+            "path": "prism_mcp::tests::compact_workset_prioritizes_contract_consumers_and_validation_targets",
+            "kind": "Function"
+          }
+        }
+      ]
+    }
+  ],
+  "stability": "internal",
+  "compatibility": {
+    "additive": [
+      "Adding new compact helpers or follow-up hints without widening existing result shapes by default."
+    ],
+    "risky": [
+      "Returning much larger payloads, bypassing semantic handles, or changing the staged default path so agents have to rediscover raw surfaces first."
+    ],
+    "breaking": [
+      "Removing the staged compact entrypoints or turning them into broad unbounded transport wrappers rather than bounded guidance surfaces."
+    ]
+  },
+  "evidence": [
+    "AGENTS.md defines the default agent path as PRISM-first and staged.",
+    "The compact-tools concept packet and server surface treat locate/open/workset/expand as the staged agent-facing surface.",
+    "The compact-tools test cluster validates semantic handles, bounded related handles, edit-sized context, and contract-aware workset follow-through."
+  ],
+  "status": "active",
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_contract_promote",
+    "taskId": "task:survey-the-repo-for-the-first-batch-of-repo-scoped-contracts-focusing-on-modularity-persistence-split-and-other-strong-promise-surfaces-then-curate-and-publish-the-strongest-contracts:01kmzx0xamn4wzetw1tz97rz04"
+  },
+  "publication": {
+    "publishedAt": 1774892545,
+    "lastReviewedAt": 1774892545,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

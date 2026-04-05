@@ -1,0 +1,55 @@
+{
+  "handle": "concept://coordination_query_and_blocker_operations",
+  "canonical_name": "coordination query and blocker operations",
+  "summary": "prism-coordination modules that answer readiness, conflict, pending-review, and blocker questions over coordination state.",
+  "aliases": [
+    "coordination queries",
+    "blocker operations"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::queries",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::blockers",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1119",
+    "lineage:11940"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`queries.rs` serves ready-task, conflict, pending-review, and blocker reads, while `blockers.rs` computes readiness, completion, and policy blockers.",
+    "These modules are the read and gating half of coordination operations."
+  ],
+  "risk_hint": "If these operations drift, agents can be blocked by the wrong tasks or miss real coordination conflicts entirely.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735385,
+    "lastReviewedAt": 1774735385,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

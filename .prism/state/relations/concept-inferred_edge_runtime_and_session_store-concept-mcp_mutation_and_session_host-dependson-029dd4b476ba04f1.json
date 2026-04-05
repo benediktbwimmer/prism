@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://inferred_edge_runtime_and_session_store",
+  "targetHandle": "concept://mcp_mutation_and_session_host",
+  "kind": "depends_on",
+  "confidence": 0.92,
+  "evidence": [
+    "Live inferred-edge capture and curator promotion rely on the authenticated mutation host that accepts `infer_edge` and curator-driven mutation actions."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "coord-task:01kn6fa2xeg8f0rayk8n0zwtkm"
+  }
+}

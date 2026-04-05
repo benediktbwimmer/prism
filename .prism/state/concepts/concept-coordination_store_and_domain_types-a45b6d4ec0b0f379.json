@@ -1,0 +1,54 @@
+{
+  "handle": "concept://coordination_store_and_domain_types",
+  "canonical_name": "coordination store and domain types",
+  "summary": "prism-coordination modules that hold the canonical in-memory coordination snapshot and define plans, tasks, claims, artifacts, reviews, and policy records.",
+  "aliases": [
+    "coordination domain model",
+    "coordination store"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::state",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1139",
+    "lineage:1317"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`state.rs` stores the canonical coordination maps and snapshot conversion, while `types.rs` defines the durable domain objects and policy records the runtime operates on.",
+    "This is the state-bearing half of the coordination subsystem."
+  ],
+  "risk_hint": "If these types or store semantics drift, every coordination read and mutation can become internally inconsistent.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735384,
+    "lastReviewedAt": 1774735384,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

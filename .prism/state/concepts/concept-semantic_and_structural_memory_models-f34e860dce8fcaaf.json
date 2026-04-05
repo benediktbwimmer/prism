@@ -1,0 +1,62 @@
+{
+  "handle": "concept://semantic_and_structural_memory_models",
+  "canonical_name": "semantic and structural memory models",
+  "summary": "Memory modules that derive structural features, manage structural recall, and integrate semantic matching backends for deeper retrieval beyond simple text scoring.",
+  "aliases": [
+    "semantic memory",
+    "structural memory models"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::structural",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::structural_features",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::semantic",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5709",
+    "lineage:5724",
+    "lineage:10529"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "structural.rs and structural_features.rs own derived feature pathways while semantic/ owns embedding-backed matching behavior.",
+    "This slice represents the richer retrieval models layered on top of basic recall and outcome history."
+  ],
+  "risk_hint": "Model or feature drift here can produce subtle retrieval changes that look plausible but are hard to validate by eye.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733808,
+    "lastReviewedAt": 1774733808,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

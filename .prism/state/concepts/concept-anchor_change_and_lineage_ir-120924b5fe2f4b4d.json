@@ -1,0 +1,67 @@
+{
+  "handle": "concept://anchor_change_and_lineage_ir",
+  "canonical_name": "anchor, change, and lineage IR",
+  "summary": "prism-ir modules that connect source anchors, observed changes, event metadata, and lineage history so structural identities can survive edits over time.",
+  "aliases": [
+    "temporal ir",
+    "lineage ir"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::anchor",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::change",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::events",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir::history",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:2118",
+    "lineage:2126",
+    "lineage:2157",
+    "lineage:2200"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`prism-ir/src/lib.rs` re-exports anchor, change, events, and history together as the temporal/traceability portion of the shared schema.",
+    "These modules are what let PRISM relate source positions, change observations, and lineage evidence across refreshes."
+  ],
+  "risk_hint": "Drift here breaks reanchoring, event interpretation, and lineage-backed reasoning across the repo.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734405,
+    "lastReviewedAt": 1774734405,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

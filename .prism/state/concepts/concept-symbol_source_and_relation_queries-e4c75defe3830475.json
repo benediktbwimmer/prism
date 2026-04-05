@@ -1,0 +1,66 @@
+{
+  "handle": "concept://symbol_source_and_relation_queries",
+  "canonical_name": "symbol, source, and relation queries",
+  "summary": "prism-query modules that resolve symbols, source excerpts, relation views, and read-oriented helper logic for direct code navigation.",
+  "aliases": [
+    "symbol queries",
+    "source queries"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::symbol",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::source",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::common",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query::types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:6149",
+    "lineage:6090",
+    "lineage:6005",
+    "lineage:6232"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-query/src/lib.rs` groups `symbol`, `source`, `common`, and `types` as the bounded read/navigation side of the query crate.",
+    "These modules power relation inspection and source slicing before higher impact or coordination reasoning kicks in."
+  ],
+  "risk_hint": "If this path drifts, agents lose trustworthy symbol lookup and bounded source context even when deeper projections still exist.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734913,
+    "lastReviewedAt": 1774734913,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

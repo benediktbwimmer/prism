@@ -1,8 +1,170 @@
 [
   {
+    "id": "memory:01kmwfk9m5skznfys67588df6j",
+    "title": "Repo-persisted Prism entities that can be created by independent runtimes must use globally unique sortable IDs instead of process-local counters or raw timestamps. Semantic NodeIds stay path-based and session handles stay runtime-local; durable shared identities such as memories, plans, coordination tasks, claims, artifacts, reviews, lineage records, curator jobs, inferred edges, observed events, sessions, and emitted outcome or memory events should use the shared sortable ID helper.",
+    "status": "Episodic",
+    "path": "memory/memory-01kmwfk9m5skznfys67588df6j-47fa5d627ebec8bb.json"
+  },
+  {
+    "id": "memory:01kmwpc4w3rp0pfy6pce3w3816",
+    "title": "Parallel prism-mcp tests should not derive temporary workspace directories from wall-clock timestamps alone. A live refactor run surfaced SQLite `database is locked` failures when extracted test modules ran concurrently; switching `temp_workspace` to `new_sortable_token()` removes the naming-collision path and makes the shared test harness safer under parallel execution.",
+    "status": "Episodic",
+    "path": "memory/memory-01kmwpc4w3rp0pfy6pce3w3816-a466ac442c4b421a.json"
+  },
+  {
+    "id": "memory:01kn07e726myjcgr1rsj33nf6j",
+    "title": "PRISM daemon health depends on keeping authoritative runtime state, bounded serving projections, and cold analytical evidence separate. Symbol-level co-change is analytical evidence, not hot runtime history: persisting unbounded pairwise co-change or hydrating it into HistoryStore makes cache growth, startup memory, and refresh lock contention explode. Co-change should stay bounded in serving projections, while any colder evidence must remain off the daemon hot path.",
+    "status": "Episodic",
+    "path": "memory/memory-01kn07e726myjcgr1rsj33nf6j-de68a110c9ddbdc5.json"
+  },
+  {
+    "id": "memory:01kn07e79gh5je3z1zk8zgg3qf",
+    "title": "Native plan-node completion must honor successful validation outcomes correlated directly to the node id, because MCP commonly uses a native node id as the current task while recording `test_ran` and `fix_validated` events with no anchors. If completion logic only accepts anchor-matched evidence or real coordination-task ids, `plan_node_update` can reject completion even after the exact required validations were run and recorded.",
+    "status": "Episodic",
+    "path": "memory/memory-01kn07e79gh5je3z1zk8zgg3qf-0fed99403446870f.json"
+  },
+  {
+    "id": "memory:01kn07e7gtqccwq2yj9fhy2r1k",
+    "title": "After the co-change rewrite, the next major daemon-memory risks are eager curator hydration and oversized PatchApplied outcomes, with full history-event hydration still contributing. The live cache showed a single curator snapshot row of about 29 MB JSON that is always loaded into CuratorHandle state, and PatchApplied events dominated outcome_event_log because they embed large `metadata.changedSymbols` arrays. Future daemon-memory work should target those surfaces before chasing SQLite mapping effects.",
+    "status": "Episodic",
+    "path": "memory/memory-01kn07e7gtqccwq2yj9fhy2r1k-b0565ef98be7579d.json"
+  },
+  {
     "id": "memory:01knb0zp726c9zjw7fdhcq1mg3",
     "title": "Shared coordination startup is currently structurally coupled to authority import: `load_repo_protected_plan_state(...)` builds a coordination snapshot from the journal and immediately calls `load_hydrated_coordination_plan_state(...)`, which prioritizes `load_shared_coordination_ref_state(...)`. That shared-ref loader refreshes the ref, verifies every manifest file digest, and hydrates records file-by-file, and the same path is reused in indexer bootstrap, session recovery, and `workspace_runtime::reload_coordination_snapshot_if_needed`. The correct boundary is shared ref as authority plus replication source, but one local materialized coordination snapshot/checkpoint as the daemon startup artifact keyed by verified shared-ref identity such as head commit or manifest digest.",
     "status": "Episodic",
     "path": "memory/memory-01knb0zp726c9zjw7fdhcq1mg3-560606ddf6d87074.json"
+  },
+  {
+    "id": "memory:21",
+    "title": "Curator context already loads focused episodic memories into ctx.memories, but synthesized proposals still ignore that input; curator improvement can target synthesis and query visibility without changing memory-store plumbing.",
+    "status": "Episodic",
+    "path": "memory/memory-21-fb09fd5f60679f53.json"
+  },
+  {
+    "id": "memory:24",
+    "title": "Compact Perception Lenses v1 surfaces impact, timeline, and memory through prism_expand handles, and prism_task_brief is the compact coordination entrypoint for blockers, outcomes, validations, and next reads.",
+    "status": "Episodic",
+    "path": "memory/memory-24-1e39afdf04399595.json"
+  },
+  {
+    "id": "memory:26",
+    "title": "AGENTS.md now instructs agents to use prism_concept for broad repo-native nouns before falling back to symbol or text search, and to capture strong concept candidates as anchored episodic memory until Prism exposes an explicit concept-pack promotion mutation.",
+    "status": "Episodic",
+    "path": "memory/memory-26-4e603e9183b6f8ce.json"
+  },
+  {
+    "id": "memory:28",
+    "title": "Repo concept packets are now canonicalized through `.prism/concepts/events.jsonl`; workspace load/reload overlays replayed concept events onto the derived concept layer, and concept mutations update both the repo log and the cached projection snapshot so the live daemon sees curated concepts immediately.",
+    "status": "Episodic",
+    "path": "memory/memory-28-51768c3d61684e74.json"
+  },
+  {
+    "id": "memory:34",
+    "title": "Repo-persisted memory already carries scope, provenance, evidence hooks, and promotion/supersession metadata, but repo-persisted concepts are still thinner: they are portable and reviewable, yet they lack first-class provenance fields, staleness/supersession controls, and a local/session/repo promotion ladder.",
+    "status": "Episodic",
+    "path": "memory/memory-34-e274cd733c1d47a3.json"
+  },
+  {
+    "id": "memory:67",
+    "title": "The repo now has a durable root architecture concept at concept://prism_architecture with subsystem children for IR, adapters, persistence/history, indexing/refresh, memory, coordination, projections/query, concept publication, inference/curation, MCP, compact tools, dashboard, and CLI surfaces.",
+    "status": "Episodic",
+    "path": "memory/memory-67-63a77a2cef6127e9.json"
+  },
+  {
+    "id": "memory:68",
+    "title": "Validation is a cross-cutting architectural concern in this repo rather than a test-only sidecar; the architecture concept graph explicitly attaches validated_by edges from structural, memory, coordination, projection/query, concept-publication, MCP, compact-tool, and dashboard concepts to concept://validation_and_dogfooding.",
+    "status": "Episodic",
+    "path": "memory/memory-68-a1bed08190862741.json"
+  },
+  {
+    "id": "memory:69",
+    "title": "The architecture graph now has module-level children under the major subsystem concepts: workspace_indexing_and_refresh splits into core_indexing_pipeline and workspace_session_runtime; concept_and_publication_pipeline now contains repo_publication_guards; mcp_runtime_surface splits into mcp_query_and_resource_serving, mcp_mutation_and_session_host, and mcp_runtime_lifecycle; memory_system splits into memory_recall_and_scoring, memory_outcomes_and_session_history, and semantic_and_structural_memory_models; coordination_and_plan_runtime splits into coordination_state_model and coordination_operations_and_policy.",
+    "status": "Episodic",
+    "path": "memory/memory-69-e7077c56eebd3706.json"
+  },
+  {
+    "id": "memory:70",
+    "title": "The read-side architecture now separates semantic_projection_indexes, query_symbol_and_change_contexts, query_coordination_and_plan_views, and javascript_query_abi beneath concept://projection_and_query_layer, which means later agents can distinguish projection materialization, local read bundles, coordination query overlays, and JS-facing ABI concerns without reopening those crates.",
+    "status": "Episodic",
+    "path": "memory/memory-70-f17de668cf563939.json"
+  },
+  {
+    "id": "memory:73",
+    "title": "The language-adapter subsystem now has a stable two-way internal split between code adapters (`concept://code_language_adapters`) and document/config adapters (`concept://document_and_config_adapters`), while the curation/publication side is split between curator execution (`concept://curator_execution_flow`) and filesystem publication/layout (`concept://plan_and_repo_layout_publication`). Future architecture reasoning should reuse those four concepts instead of reopening crates to rediscover the same boundaries.",
+    "status": "Episodic",
+    "path": "memory/memory-73-4351d188238ba2b3.json"
+  },
+  {
+    "id": "memory:74",
+    "title": "The repo-wide architecture hierarchy is now materially balanced at the top level: every direct child of `concept://prism_architecture` has at least one internal child concept, and most major subsystems now split into reusable module-level packets. Important newer boundaries are the IR trio (`concept://graph_identity_and_parse_ir`, `concept://anchor_change_and_lineage_ir`, `concept://plan_and_coordination_ir`), the persistence trio (`concept://sqlite_and_graph_persistence`, `concept://memory_projection_persistence`, `concept://history_snapshot_and_resolution`), the compact-tool pair (`concept://compact_discovery_and_opening`, `concept://compact_expansion_and_concept_views`), the CLI pair, the dashboard pair, the validation pair, and the inference branch `concept://inferred_edge_runtime_and_session_store`. Future sessions should traverse these concept packets before reopening crate facades.",
+    "status": "Episodic",
+    "path": "memory/memory-74-c8bbd9a3821156a0.json"
+  },
+  {
+    "id": "memory:75",
+    "title": "The architecture map now has a third layer inside the densest branches. `semantic_projection_indexes` splits into packet materialization (`concept://concept_relation_and_intent_projections`) and derived co-change/validation indexes (`concept://cochange_and_validation_projection_indexes`); the query layer splits symbol/source, impact/outcome, coordination/runtime, and plan-insight reads; the MCP runtime splits query execution, resource serving, mutation/schema contracts, session-state mutation runtime, daemon/process lifecycle, and server-health views; and the concept-publication pipeline now exposes explicit concept/relation event streams plus published-knowledge/memory logs. Future architecture reasoning should descend through those child concepts before reopening crate facades.",
+    "status": "Episodic",
+    "path": "memory/memory-75-625943c1b200375b.json"
+  },
+  {
+    "id": "memory:78",
+    "title": "Architecture split refined and verified: prism-memory now has durable child branches for recall/scoring, outcome-and-session history, and semantic/structural models; prism-core splits workspace refresh into core indexing versus workspace session runtime; prism-coordination splits into state model versus operations/policy, each with two internal child concepts. Later broad reasoning about memory, workspace refresh, or coordination should start from these concept branches instead of reopening crate roots.",
+    "status": "Episodic",
+    "path": "memory/memory-78-80d2bb2d5c59a9b3.json"
+  },
+  {
+    "id": "memory:81",
+    "title": "Architecture hierarchy deepened in three broad areas. The adapter stack now has a shared parser-contract layer plus concrete Rust, Python, Markdown, and structured-config sub-pipelines. The curator flow now splits into backend execution/prompting versus rule synthesis/proposal typing. The compact tool surface now splits into locate/text-candidate ranking, open/workset follow-through, concept/expand decode, and task-brief coordination summaries. Future architecture reasoning should traverse those concepts before reopening the adapter, curator, or compact-tool code directly.",
+    "status": "Episodic",
+    "path": "memory/memory-81-6bfdf9ca3eda35f3.json"
+  },
+  {
+    "id": "semantic:1",
+    "title": "Current Prism already compresses multi-artifact meaning through target-scoped views such as worksets and validation recipes, but those groupings do not yet have durable concept identity. A semantic codec should therefore be a first-class concept layer built on projections/query surfaces rather than a rename of existing per-target bundles.",
+    "status": "Semantic",
+    "path": "memory/semantic-1-4d8e1866c3e2ef73.json"
+  },
+  {
+    "id": "structural:10",
+    "title": "Text-fragment gather/open nextAction should branch on the related-handle surface: semantic promotion should point to prism_workset/prism_open on the semantic handle, while document-only follow-ups should keep the generic slice guidance.",
+    "status": "Structural",
+    "path": "memory/structural-10-99ad1f9fbae43b3a.json"
+  },
+  {
+    "id": "structural:11",
+    "title": "Semantic recall stays local-first by default. The remote OpenAI path is opt-in via the `openai-embeddings` cargo feature plus `PRISM_SEMANTIC_BACKEND=openai` and an API key (`PRISM_OPENAI_API_KEY` or `OPENAI_API_KEY`); when unavailable, semantic recall falls back to the local hashed+alias baseline.",
+    "status": "Structural",
+    "path": "memory/structural-11-48817fb1dc831df6.json"
+  },
+  {
+    "id": "structural:12",
+    "title": "Curator memory promotion now carries CandidateMemoryEvidence.memory_ids end to end: strong episodic memories synthesize structural proposals with source memory ids, promoted repo memories keep those ids in metadata.evidence.memoryIds, and the promoted memory event records them in promotedFrom.",
+    "status": "Structural",
+    "path": "memory/structural-12-b46897824238d648.json"
+  },
+  {
+    "id": "structural:13",
+    "title": "Compact staged results can stay token-light and more parallel-friendly by emitting suggestedActions with tool/handle/mode-kind fields, plus promotedHandle on gather/open when an exact text hit lifts to a stronger semantic target.",
+    "status": "Structural",
+    "path": "memory/structural-13-d3921751deb87b16.json"
+  },
+  {
+    "id": "structural:14",
+    "title": "When a PRISM MCP tool is public, keep server_surface, tool_schemas, schema_examples, prism-js API docs, and tool-count tests in sync; partial exposure creates misleading surface drift.",
+    "status": "Structural",
+    "path": "memory/structural-14-7922703da4f1dda8.json"
+  },
+  {
+    "id": "structural:15",
+    "title": "Semantic memory stays local-first by default. Remote OpenAI embeddings are optional behind SemanticMemoryConfig and PRISM_SEMANTIC_BACKEND=openai, and recall must fall back cleanly to local alias-plus-hash scoring when the runtime is unavailable.",
+    "status": "Structural",
+    "path": "memory/structural-15-1a39680c7b6182bb.json"
+  },
+  {
+    "id": "structural:9",
+    "title": "Curator-promoted structural memories should carry structuralRule metadata and structural recall should derive rule kinds plus evidence strength so promoted rules outrank generic notes for focused repo recall.",
+    "status": "Structural",
+    "path": "memory/structural-9-c5e95c7271574eb3.json"
   }
 ]

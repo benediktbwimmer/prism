@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://query_symbol_and_change_contexts",
+  "targetHandle": "concept://projection_and_query_layer",
+  "kind": "part_of",
+  "confidence": 0.99,
+  "evidence": [
+    "Symbol and change-context bundling is one internal slice of the overall projection/query layer."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

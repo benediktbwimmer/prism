@@ -1,0 +1,55 @@
+{
+  "handle": "concept://dashboard_events_and_read_models",
+  "canonical_name": "dashboard events and read models",
+  "summary": "dashboard modules inside prism-mcp that derive read models, shape event streams, and keep the dashboard synchronized with runtime truth.",
+  "aliases": [
+    "dashboard read layer",
+    "dashboard event stream"
+  ],
+  "confidence": 0.92,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::dashboard_events",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::dashboard_read_models",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:3497",
+    "lineage:3542"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "The dashboard concept already centers on `dashboard_events` and `dashboard_read_models` as the live data side of the UI.",
+    "These modules are the state-derivation half of the dashboard, distinct from routing/assets/types."
+  ],
+  "risk_hint": "Stale or mis-shaped read models here can make operators trust the wrong runtime picture.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734584,
+    "lastReviewedAt": 1774734584,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

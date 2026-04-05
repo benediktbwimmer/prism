@@ -1,0 +1,60 @@
+{
+  "handle": "concept://javascript_api_contract_surface",
+  "canonical_name": "JavaScript API contract surface",
+  "summary": "Shared type-contract modules that define the JavaScript-facing view schema between prism-js clients and prism-mcp resource/query payloads.",
+  "aliases": [
+    "JS ABI types",
+    "JS view contracts"
+  ],
+  "confidence": 0.9,
+  "core_members": [
+    {
+      "crate_name": "prism_js",
+      "path": "prism_js::api_types",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::resource_schemas",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::query_types",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:2418",
+    "lineage:4480",
+    "lineage:4258"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`crates/prism-js/src/lib.rs` exposes `api_types` as the typed JS view contract surface.",
+    "On the server side, `prism-mcp::resource_schemas` and `prism-mcp::query_types` define the payload shapes that the JS ABI must stay aligned with."
+  ],
+  "risk_hint": "Schema drift here breaks client/server compatibility without necessarily breaking lower-level query logic.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734916,
+    "lastReviewedAt": 1774734916,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

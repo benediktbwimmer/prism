@@ -1,0 +1,39 @@
+{
+  "entry": {
+    "id": "structural:10",
+    "anchors": [
+      {
+        "Lineage": "lineage:10421"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_staged_next_action",
+          "kind": "Function"
+        }
+      }
+    ],
+    "kind": "Structural",
+    "scope": "repo",
+    "content": "Text-fragment gather/open nextAction should branch on the related-handle surface: semantic promotion should point to prism_workset/prism_open on the semantic handle, while document-only follow-ups should keep the generic slice guidance.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "task_id": "task:improve-prism-gather-nextaction-so-exact-text-matches-with-strong-promoted-semantic-handles-suggest-the-semantic-staged-path-instead-of-generic-slice-only-guidance:42"
+    },
+    "created_at": 1774704609,
+    "source": "Agent",
+    "trust": 0.92
+  },
+  "latestEventId": "memory-event:1774704609494777000",
+  "latestRecordedAt": 1774704609,
+  "eventCount": 1,
+  "taskId": "task:improve-prism-gather-nextaction-so-exact-text-matches-with-strong-promoted-semantic-handles-suggest-the-semantic-staged-path-instead-of-generic-slice-only-guidance:42"
+}

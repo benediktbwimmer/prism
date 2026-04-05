@@ -1,0 +1,55 @@
+{
+  "handle": "concept://persistence_split",
+  "canonical_name": "persistence_split",
+  "summary": "The target three-plane persistence model that separates repo-published `.prism` truth, shared mutable backend state, and process-local cache/materializations.",
+  "aliases": [
+    "three state planes",
+    "three-plane persistence",
+    "persistence split"
+  ],
+  "confidence": 0.98,
+  "core_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::three_state_planes",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::boundary_guidance",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:01kmws33pqg5c3k43fvht8xypm",
+    "lineage:01kmws33pqm6rbv7br3fwj9mhb"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "docs/PERSISTENCE_STATE_CLASSIFICATION.md defines the three state planes and states that a shared database complements `.prism`; it does not replace it.",
+    "The same document distinguishes repo-published knowledge, shared runtime continuity, and process-local cache so derived views and snapshots do not become a second semantic authority."
+  ],
+  "risk_hint": "If this split collapses, PRISM recreates dual truth between published repo knowledge, shared runtime state, and derived snapshots or overlays.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:survey-the-repo-for-the-first-batch-of-repo-scoped-contracts-focusing-on-modularity-persistence-split-and-other-strong-promise-surfaces-then-curate-and-publish-the-strongest-contracts:01kmzx0xamn4wzetw1tz97rz04"
+  },
+  "publication": {
+    "publishedAt": 1774892289,
+    "lastReviewedAt": 1774892289,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

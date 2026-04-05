@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://concept_and_expand_decode_runtime",
+  "targetHandle": "concept://projection_and_query_layer",
+  "kind": "depends_on",
+  "confidence": 0.92,
+  "evidence": [
+    "Compact concept/expand decode runtime is a presentation layer over concept packets, validations, lineage, and other query results."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

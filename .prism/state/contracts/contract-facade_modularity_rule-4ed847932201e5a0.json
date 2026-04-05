@@ -1,0 +1,101 @@
+{
+  "handle": "contract://facade_modularity_rule",
+  "name": "facade modularity rule",
+  "summary": "`main.rs` and `lib.rs` stay thin facades for wiring, module boundaries, and public surface curation rather than accumulating substantive domain logic.",
+  "aliases": [
+    "facade-only entrypoints",
+    "lib/main facade rule",
+    "modularity contract"
+  ],
+  "kind": "operational",
+  "subject": {
+    "anchors": [
+      {
+        "File": 21
+      }
+    ],
+    "conceptHandles": [
+      "concept://facade_modularity_rule"
+    ]
+  },
+  "guarantees": [
+    {
+      "id": "facade_only_entrypoints",
+      "statement": "`main.rs` and `lib.rs` remain facade-oriented files that wire entrypoints, declare modules, and expose intentional public APIs instead of owning core business, parsing, coordination, storage, or domain logic.",
+      "scope": "crate_entrypoints",
+      "strength": "hard",
+      "evidenceRefs": [
+        "agents-architectural-rule"
+      ]
+    },
+    {
+      "id": "substantive_logic_moves_to_owned_modules",
+      "statement": "When a feature introduces substantive behavior, the implementation moves into dedicated narrowly owned submodules rather than extending facade files.",
+      "scope": "module_ownership",
+      "strength": "hard",
+      "evidenceRefs": [
+        "agents-modularity-expectations"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Rare exceptions are documented explicitly instead of silently widening facade files.",
+    "Generated or bootstrap-only wiring may remain shallow in facade files when it does not become the semantic owner."
+  ],
+  "consumers": [
+    {
+      "anchors": [],
+      "conceptHandles": [
+        "concept://prism_architecture"
+      ]
+    },
+    {
+      "anchors": [],
+      "conceptHandles": [
+        "concept://mcp_runtime_surface"
+      ]
+    }
+  ],
+  "validations": [
+    {
+      "id": "review:agential-facade-boundary",
+      "summary": "Review changes to `main.rs` and `lib.rs` against the AGENTS architectural rule before treating them as intentional.",
+      "anchors": [
+        {
+          "File": 21
+        }
+      ]
+    }
+  ],
+  "stability": "internal",
+  "compatibility": {
+    "additive": [
+      "Adding thin module declarations, re-exports, or bootstrap wiring inside facade files is compatible when ownership remains elsewhere."
+    ],
+    "risky": [
+      "Growing parsing, coordination, storage, or domain logic directly inside `main.rs` or `lib.rs` is risky."
+    ],
+    "breaking": [
+      "Treating facade files as the long-term semantic owner of subsystem logic breaks the repo's modularity contract."
+    ]
+  },
+  "evidence": [
+    "AGENTS.md states that `main.rs` and `lib.rs` files are facades only.",
+    "AGENTS.md also requires narrowly scoped modules and moving substantive logic into dedicated submodules."
+  ],
+  "status": "active",
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_contract_promote",
+    "taskId": "task:survey-the-repo-for-the-first-batch-of-repo-scoped-contracts-focusing-on-modularity-persistence-split-and-other-strong-promise-surfaces-then-curate-and-publish-the-strongest-contracts:01kmzx0xamn4wzetw1tz97rz04"
+  },
+  "publication": {
+    "publishedAt": 1774892340,
+    "lastReviewedAt": 1774892340,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://plan_completion_and_insight_queries",
+  "targetHandle": "concept://coordination_and_plan_runtime",
+  "kind": "depends_on",
+  "confidence": 0.92,
+  "evidence": [
+    "Plan completion and insight evaluation only make sense over current coordination and plan runtime state."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

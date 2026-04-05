@@ -1,0 +1,55 @@
+{
+  "handle": "concept://plan_graph_compatibility_and_runtime_overlays",
+  "canonical_name": "plan-graph compatibility and runtime overlays",
+  "summary": "prism-coordination modules that translate between coordination snapshots and plan graphs and expose runtime overlay state above the canonical store.",
+  "aliases": [
+    "plan graph compat",
+    "runtime overlays"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::compat",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_coordination",
+      "path": "prism_coordination::runtime",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:11328",
+    "lineage:11871"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`compat.rs` maps coordination snapshots to plan graphs and overlays, while `runtime.rs` exposes a mutable runtime facade over coordination state.",
+    "This is the projection-and-overlay half of the coordination state model."
+  ],
+  "risk_hint": "Drift here breaks the translation between canonical coordination state and plan-runtime views used elsewhere in the repo.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735384,
+    "lastReviewedAt": 1774735384,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

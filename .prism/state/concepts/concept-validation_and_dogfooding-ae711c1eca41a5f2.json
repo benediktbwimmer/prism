@@ -1,0 +1,77 @@
+{
+  "handle": "concept://validation_and_dogfooding",
+  "canonical_name": "validation and dogfooding loop",
+  "summary": "Cross-cutting validation pipeline for structural truth, lineage, memory anchoring, projections, coordination, and MCP/query behavior, plus direct dogfooding feedback capture.",
+  "aliases": [
+    "validation pipeline",
+    "dogfooding loop",
+    "trust gates"
+  ],
+  "confidence": 0.93,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_projections",
+      "path": "prism_projections",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::VALIDATION_md::7_validation_pipeline",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1533",
+    "lineage:5913",
+    "lineage:3894",
+    "lineage:6954"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::CONCEPT_MAINTENANCE_md::3_1_concepts_are_evidence_backed_semantic_packets",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:12524"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "docs/VALIDATION.md defines layered validation across structural truth, lineage, memory, projections, inference, coordination, and MCP/query surfaces.",
+    "prism-core owns validation_feedback support and prism-mcp exposes validation feedback mutation and validation-oriented resources."
+  ],
+  "risk_hint": "Without explicit feedback capture, PRISM can look coherent while shipping stale, noisy, or weakly grounded reasoning surfaces.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733268,
+    "lastReviewedAt": 1774733268,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

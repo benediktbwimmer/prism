@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://curator_rule_synthesis_and_proposal_types",
+  "targetHandle": "concept://projection_and_query_layer",
+  "kind": "depends_on",
+  "confidence": 0.9,
+  "evidence": [
+    "Curator context and proposal rules consume co-change and validation-check projections when ranking or deduplicating proposals."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

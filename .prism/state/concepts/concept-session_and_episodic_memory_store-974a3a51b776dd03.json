@@ -1,0 +1,61 @@
+{
+  "handle": "concept://session_and_episodic_memory_store",
+  "canonical_name": "session and episodic memory store",
+  "summary": "prism-memory modules that assemble the session-scoped memory composite, persist episodic entries, and snapshot memory state across workspace reloads.",
+  "aliases": [
+    "session memory store",
+    "episodic memory store"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::session",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::episodic",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_memory",
+      "path": "prism_memory::entry_store",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:5681",
+    "lineage:5601",
+    "lineage:5570"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`session.rs` composes episodic, structural, and semantic memory into the session runtime, while `episodic.rs` and `entry_store.rs` provide the concrete persisted entry path.",
+    "This slice governs session-level continuity rather than semantic scoring or outcome replay."
+  ],
+  "risk_hint": "If this store layer drifts, memory may appear to exist but fail to survive reloads or route correctly across kinds.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774735361,
+    "lastReviewedAt": 1774735361,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

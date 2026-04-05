@@ -1,0 +1,27 @@
+{
+  "entry": {
+    "id": "structural:9",
+    "anchors": [
+      {
+        "Lineage": "lineage:5723"
+      },
+      {
+        "Node": {
+          "crate_name": "prism_memory",
+          "path": "prism_memory::structural_features::derive_structural_features",
+          "kind": "Function"
+        }
+      }
+    ],
+    "kind": "Structural",
+    "scope": "repo",
+    "content": "Curator-promoted structural memories should carry structuralRule metadata and structural recall should derive rule kinds plus evidence strength so promoted rules outrank generic notes for focused repo recall.",
+    "metadata": null,
+    "created_at": 1774703989,
+    "source": "User",
+    "trust": 0.5
+  },
+  "latestEventId": "memory-event:1774703989129467000",
+  "latestRecordedAt": 1774703989,
+  "eventCount": 1
+}

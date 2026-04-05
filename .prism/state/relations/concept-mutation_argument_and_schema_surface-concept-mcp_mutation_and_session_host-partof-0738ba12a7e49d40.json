@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://mutation_argument_and_schema_surface",
+  "targetHandle": "concept://mcp_mutation_and_session_host",
+  "kind": "part_of",
+  "confidence": 0.96,
+  "evidence": [
+    "Argument decoding and mutation schemas are one half of the authenticated mutation host surface, including authenticated coordination and heartbeat contracts."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "coord-task:01kn6fa2xeg8f0rayk8n0zwtkm"
+  }
+}

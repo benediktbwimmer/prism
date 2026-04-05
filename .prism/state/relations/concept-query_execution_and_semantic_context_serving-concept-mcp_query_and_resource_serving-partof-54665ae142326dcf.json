@@ -1,0 +1,15 @@
+{
+  "sourceHandle": "concept://query_execution_and_semantic_context_serving",
+  "targetHandle": "concept://mcp_query_and_resource_serving",
+  "kind": "part_of",
+  "confidence": 0.96,
+  "evidence": [
+    "Live query execution and semantic context serving are one half of the MCP query/resource surface."
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "manual_concept_relation",
+    "kind": "manual_concept_relation",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  }
+}

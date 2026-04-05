@@ -1,0 +1,94 @@
+{
+  "handle": "concept://prism_architecture",
+  "canonical_name": "PRISM architecture",
+  "summary": "Top-level monorepo architecture spanning semantic IR, language parsing, workspace indexing, persistence/history, memory/projections/query, coordination/curation, and MCP-facing product surfaces.",
+  "aliases": [
+    "repo architecture",
+    "crate architecture",
+    "overall architecture"
+  ],
+  "confidence": 0.97,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_ir",
+      "path": "prism_ir",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_query",
+      "path": "prism_query",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_store",
+      "path": "prism_store",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:1533",
+    "lineage:2211",
+    "lineage:6074",
+    "lineage:3894",
+    "lineage:6426"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::SPEC_md::1_crate_architecture",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::VALIDATION_md::7_validation_pipeline",
+      "kind": "MarkdownHeading"
+    },
+    {
+      "crate_name": "prism",
+      "path": "prism::document::docs::PRISM_VAULT_HARBOR_md::7_1_prism_code_cognition",
+      "kind": "MarkdownHeading"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:6841",
+    "lineage:6954",
+    "lineage:6811"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "Workspace members are split into focused crates for IR, core indexing, store, history, memory, projections, query, coordination, curator, MCP, and language adapters.",
+    "docs/SPEC.md frames the crate architecture while prism-mcp and prism-cli provide the operator-facing product surfaces."
+  ],
+  "risk_hint": "Refresh this concept when crate ownership changes or subsystem boundaries are extracted into new crates.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774733199,
+    "lastReviewedAt": 1774733199,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

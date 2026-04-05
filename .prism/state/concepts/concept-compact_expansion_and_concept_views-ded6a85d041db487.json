@@ -1,0 +1,62 @@
+{
+  "handle": "concept://compact_expansion_and_concept_views",
+  "canonical_name": "compact expansion and concept views",
+  "summary": "compact-tool modules that decode concept packets, expand bounded diagnostics, and summarize coordination tasks without dropping to raw query output.",
+  "aliases": [
+    "compact expand path",
+    "compact concept/task views"
+  ],
+  "confidence": 0.91,
+  "core_members": [
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::expand",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::concept",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_mcp",
+      "path": "prism_mcp::compact_tools::task_brief",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:10149",
+    "lineage:10760",
+    "lineage:10624"
+  ],
+  "supporting_members": [],
+  "supporting_member_lineages": [],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "`prism-mcp/src/compact_tools.rs` groups expand, concept, and task_brief beside the discovery modules as the deeper decode surface of the compact layer.",
+    "These modules are what let later agents stay on concept/task handles instead of falling back to raw repo reads."
+  ],
+  "risk_hint": "If these views drift, handle reuse stops compressing architecture work and agents revert to code rereads.",
+  "decode_lenses": [
+    "open",
+    "workset",
+    "validation",
+    "timeline",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "task:map-the-full-prism-architecture-into-durable-repo-concepts-and-concept-relations-for-future-agent-reasoning:85"
+  },
+  "publication": {
+    "publishedAt": 1774734408,
+    "lastReviewedAt": 1774734408,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}
