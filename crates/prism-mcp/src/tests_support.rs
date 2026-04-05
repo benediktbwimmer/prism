@@ -21,7 +21,8 @@ use serde_json::{json, Value};
 use super::*;
 use prism_core::{
     default_workspace_shared_runtime, index_workspace_session,
-    index_workspace_session_with_options, BootstrapOwnerInput, WorkspaceSessionOptions,
+    index_workspace_session_with_options, BootstrapOwnerInput, PrismPaths, WorktreeMode,
+    WorkspaceSessionOptions,
 };
 use prism_ir::new_sortable_token;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
@@ -140,6 +141,10 @@ pub(crate) fn workspace_session_with_owner_credential(
         },
     )
     .expect("workspace session should index");
+    PrismPaths::for_workspace_root(root)
+        .expect("paths should resolve")
+        .register_worktree("operator-a", WorktreeMode::Human)
+        .expect("default human worktree registration should persist");
     let issued = session
         .bootstrap_owner_principal(BootstrapOwnerInput {
             authority_id: None,

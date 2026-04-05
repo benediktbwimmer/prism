@@ -2,7 +2,7 @@ use prism_core::{
     AdmissionBusyError, AuthenticatedPrincipal, ObservedChangeFlushTrigger, PrismPaths,
     WorktreeMode, WorktreeMutatorSlotError,
 };
-use prism_ir::{CredentialCapability, CredentialId};
+use prism_ir::{CredentialCapability, CredentialId, PrincipalKind};
 use prism_js::{
     AgentConceptResultView, AgentExpandResultView, AgentGatherResultView, AgentLocateResultView,
     AgentOpenResultView, AgentWorksetResultView, QueryPhaseView,
@@ -101,6 +101,78 @@ impl MutationOutcomeMeta {
 }
 
 impl PrismMcpServer {
+    fn worktree_mode_label(mode: WorktreeMode) -> &'static str {
+        match mode {
+            WorktreeMode::Human => "human",
+            WorktreeMode::Agent => "agent",
+        }
+    }
+
+    fn required_worktree_mode_for_principal(kind: PrincipalKind) -> WorktreeMode {
+        match kind {
+            PrincipalKind::Human => WorktreeMode::Human,
+            PrincipalKind::Agent
+            | PrincipalKind::Service
+            | PrincipalKind::System
+            | PrincipalKind::Ci
+            | PrincipalKind::External => WorktreeMode::Agent,
+        }
+    }
+
+    fn load_registered_worktree_for_authenticated_mutation(
+        &self,
+        workspace: &prism_core::WorkspaceSession,
+        authenticated: &AuthenticatedPrincipal,
+    ) -> Result<prism_core::WorktreeRegistrationRecord, McpError> {
+        let paths = PrismPaths::for_workspace_root(workspace.root()).map_err(|error| {
+            McpError::internal_error(
+                "failed to resolve the current PRISM worktree paths",
+                Some(json!({
+                    "code": "mutation_worktree_paths_failed",
+                    "error": error.to_string(),
+                })),
+            )
+        })?;
+        let registration = paths.worktree_registration().map_err(|error| {
+            McpError::internal_error(
+                "failed to read the current PRISM worktree registration",
+                Some(json!({
+                    "code": "mutation_worktree_registration_load_failed",
+                    "error": error.to_string(),
+                })),
+            )
+        })?;
+        let registration = registration.ok_or_else(|| {
+            McpError::invalid_params(
+                "authoritative mutations require a registered worktree",
+                Some(json!({
+                    "code": "mutation_worktree_unregistered",
+                    "principalId": authenticated.principal.principal_id.0,
+                    "principalKind": authenticated.principal.kind,
+                    "nextAction": "Register this worktree in the correct mode before retrying the mutation.",
+                })),
+            )
+        })?;
+        let required_mode =
+            Self::required_worktree_mode_for_principal(authenticated.principal.kind);
+        if registration.mode != required_mode {
+            return Err(McpError::invalid_params(
+                "principal kind does not match the current registered worktree mode",
+                Some(json!({
+                    "code": "mutation_worktree_mode_mismatch",
+                    "principalId": authenticated.principal.principal_id.0,
+                    "principalKind": authenticated.principal.kind,
+                    "worktreeId": registration.worktree_id,
+                    "agentLabel": registration.agent_label,
+                    "worktreeMode": Self::worktree_mode_label(registration.mode),
+                    "requiredWorktreeMode": Self::worktree_mode_label(required_mode),
+                    "nextAction": "Use a worktree registered in the matching mode for this actor, or retry through the appropriate bridge or human session.",
+                })),
+            ));
+        }
+        Ok(registration)
+    }
+
     fn map_worktree_mutator_slot_error(error: WorktreeMutatorSlotError) -> McpError {
         match error {
             WorktreeMutatorSlotError::Conflict(conflict) => McpError::invalid_params(
@@ -385,6 +457,7 @@ impl PrismMcpServer {
                     })),
                 )
             })?;
+        self.load_registered_worktree_for_authenticated_mutation(workspace.as_ref(), &authenticated)?;
         workspace
             .acquire_or_refresh_worktree_mutator_slot(&authenticated, &self.session.session_id())
             .map_err(Self::map_worktree_mutator_slot_error)?;
@@ -575,6 +648,40 @@ impl PrismMcpServer {
                         return Err(error);
                     }
                 };
+                let registration_started = Instant::now();
+                let registration_result = self
+                    .load_registered_worktree_for_authenticated_mutation(
+                        workspace.as_ref(),
+                        &authenticated,
+                    );
+                let registration = match registration_result {
+                    Ok(registration) => {
+                        run.record_phase(
+                            "mutation.auth.requireRegisteredWorktree",
+                            &json!({
+                                "principalKind": authenticated.principal.kind,
+                                "worktreeId": registration.worktree_id,
+                                "worktreeMode": Self::worktree_mode_label(registration.mode),
+                            }),
+                            registration_started.elapsed(),
+                            true,
+                            None,
+                        );
+                        registration
+                    }
+                    Err(error) => {
+                        run.record_phase(
+                            "mutation.auth.requireRegisteredWorktree",
+                            &json!({
+                                "principalKind": authenticated.principal.kind,
+                            }),
+                            registration_started.elapsed(),
+                            false,
+                            Some(error.to_string()),
+                        );
+                        return Err(error);
+                    }
+                };
                 let bind_started = Instant::now();
                 if let Err(error) = workspace.acquire_or_refresh_worktree_mutator_slot(
                     &authenticated,
@@ -592,7 +699,11 @@ impl PrismMcpServer {
                 }
                 run.record_phase(
                     "mutation.auth.acquireWorktreeMutatorSlot",
-                    &json!({ "credentialId": credential.credential_id }),
+                    &json!({
+                        "credentialId": credential.credential_id,
+                        "worktreeId": registration.worktree_id,
+                        "worktreeMode": Self::worktree_mode_label(registration.mode),
+                    }),
                     bind_started.elapsed(),
                     true,
                     None,

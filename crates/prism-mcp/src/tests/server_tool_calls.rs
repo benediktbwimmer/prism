@@ -8,7 +8,10 @@ use crate::tests_support::{
     server_with_node, temp_workspace, workspace_session_with_owner_credential,
 };
 use prism_coordination::TaskCreateInput;
-use prism_core::{index_workspace_session, MintPrincipalRequest, PrismPaths, WorktreeMode};
+use prism_core::{
+    default_workspace_shared_runtime, index_workspace_session, index_workspace_session_with_options,
+    BootstrapOwnerInput, MintPrincipalRequest, PrismPaths, WorkspaceSessionOptions, WorktreeMode,
+};
 use prism_ir::{
     CoordinationTaskStatus, CredentialCapability, CredentialId, EventActor, EventId, EventMeta,
     PlanStatus, PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalKind, SessionId,
@@ -1843,6 +1846,172 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
     assert!(response["error"]["data"]["currentOwner"]["sessionId"]
         .as_str()
         .is_some_and(|value| value.starts_with("session:")));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_rejects_authenticated_mutation_on_unregistered_worktree() {
+    let root = temp_workspace();
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root)
+                .expect("default shared runtime should resolve"),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .expect("workspace session should index");
+    let issued = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: None,
+            name: "Test Owner".to_string(),
+            role: Some("test_owner".to_string()),
+        })
+        .expect("owner bootstrap should succeed");
+    let credential = crate::tests_support::MutationCredentialFixture {
+        credential_id: issued.credential.credential_id.0.to_string(),
+        principal_id: issued.principal.principal_id.0.to_string(),
+        principal_token: issued.principal_token,
+    };
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Try direct mutation without registering the worktree"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = response_json(client.receive().await.unwrap());
+    assert_eq!(response["error"]["code"], -32602);
+    assert_eq!(
+        response["error"]["data"]["code"],
+        Value::String("mutation_worktree_unregistered".to_string())
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_allows_human_authenticated_mutation_on_registered_human_worktree() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    PrismPaths::for_workspace_root(&root)
+        .expect("paths should resolve")
+        .register_worktree("operator-a", WorktreeMode::Human)
+        .expect("human worktree registration should persist");
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Direct human mutation from a registered human worktree"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let declared = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared["action"], Value::String("declare_work".to_string()));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_rejects_human_authenticated_mutation_on_agent_worktree() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    PrismPaths::for_workspace_root(&root)
+        .expect("paths should resolve")
+        .register_worktree("agent-a", WorktreeMode::Agent)
+        .expect("agent worktree registration should persist");
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Human direct mutation on an agent worktree should fail"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = response_json(client.receive().await.unwrap());
+    assert_eq!(response["error"]["code"], -32602);
+    assert_eq!(
+        response["error"]["data"]["code"],
+        Value::String("mutation_worktree_mode_mismatch".to_string())
+    );
+    assert_eq!(
+        response["error"]["data"]["requiredWorktreeMode"],
+        Value::String("human".to_string())
+    );
+    assert_eq!(
+        response["error"]["data"]["worktreeMode"],
+        Value::String("agent".to_string())
+    );
 
     running.cancel().await.unwrap();
 }
