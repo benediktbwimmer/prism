@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "publishedAt": 1775347692,
+  "publishedAt": 1775347704,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds",
     "credentialId": "credential:01kn3xe812gb7a5d5qgs1wwpez"
   },
   "workContext": {
-    "workId": "coord-task:01knd322s9fg9bkged6xswqk6b",
+    "workId": "coord-task:01knd32ebkrxpmd7j56xm7ev2v",
     "kind": "coordination",
-    "title": "Validate bundled UI delivery polling reads and human mutation audit equivalence end to end",
-    "coordinationTaskId": "coord-task:01knd322s9fg9bkged6xswqk6b",
+    "title": "Remove the legacy dashboard and SSE-oriented backend surfaces in favor of the new polling API",
+    "coordinationTaskId": "coord-task:01knd32ebkrxpmd7j56xm7ev2v",
     "planId": "plan:01knd2zj2hgp4qs7qzfc7rxdgg",
     "planTitle": "Implement the operator console backend and bundled UI delivery"
   },
   "publishSummary": {
-    "title": "Validate bundled UI delivery polling reads and human mutation audit equivalence end to end"
+    "title": "Remove the legacy dashboard and SSE-oriented backend surfaces in favor of the new polling API"
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -36,7 +36,7 @@
     },
     ".prism/state/indexes/coordination_materialization.json": {
       "path": ".prism/state/indexes/coordination_materialization.json",
-      "sha256": "sha256:337c19ef9113050971aae204e8720a4b0ebebd07fe262ddc1edb98f3898f7604"
+      "sha256": "sha256:ad4b6f96483a82bf8cf3e31d3149e247a134bdb26c7ca30893f6dff64d22032d"
     },
     ".prism/state/indexes/memory.json": {
       "path": ".prism/state/indexes/memory.json",
@@ -51,12 +51,12 @@
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
     }
   },
-  "previousManifestDigest": "sha256:44bc42722fe9efd706dfd6c986e969957f32f0a130429976fdef94660723851b",
+  "previousManifestDigest": "sha256:13ca886fc0b1b2f06a020beb2f6f1cae6f91a8c3e15a36f39408d14333fbd44c",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:JLX0WcvA503XgrmpOLtyKTl7EmJiNg4DBSzZChPeLgtkDd7kaSHDJGZgQgiwyl9t/mmhhYancT65M22qGRo9AQ=="
+    "value": "base64:ywDsVjbkw5y0elXjdxq8LFdnkfq5MqORWI6CXSjjXiNt+G2CA3omZSpCEzzeoKUdgja7pHLGYj4gLnYsOuD9BA=="
   }
 }
