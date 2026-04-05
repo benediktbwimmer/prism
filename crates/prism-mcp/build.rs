@@ -28,7 +28,11 @@ fn collect_dist_files(root: &Path) -> std::io::Result<Vec<PathBuf>> {
     Ok(files)
 }
 
-fn collect_files_recursive(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> std::io::Result<()> {
+fn collect_files_recursive(
+    root: &Path,
+    dir: &Path,
+    files: &mut Vec<PathBuf>,
+) -> std::io::Result<()> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
@@ -44,7 +48,9 @@ fn collect_files_recursive(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) ->
 
 fn generate_assets_module(files: &[PathBuf]) -> String {
     let mut out = String::new();
-    out.push_str("pub(crate) fn embedded_prism_ui_asset(path: &str) -> Option<EmbeddedUiAsset> {\n");
+    out.push_str(
+        "pub(crate) fn embedded_prism_ui_asset(path: &str) -> Option<EmbeddedUiAsset> {\n",
+    );
     out.push_str("    match path {\n");
     for relative in files {
         let key = normalize_path(relative);

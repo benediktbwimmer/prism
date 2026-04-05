@@ -8,11 +8,12 @@ use prism_coordination::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    AgentId, AnchorRef, ChangeTrigger, CoordinationTaskId, Edge, EdgeKind, EventActor, EventId,
-    EventMeta, FileId, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdge,
-    PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanNode,
-    PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus,
-    SessionId, Span, TaskId, WorkspaceRevision,
+    new_prefixed_id, sortable_token_timestamp, AgentId, AnchorRef, ChangeTrigger,
+    CoordinationTaskId, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language, Node,
+    NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdge, PlanEdgeId, PlanEdgeKind,
+    PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeBlockerKind, PlanNodeId,
+    PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, SessionId, Span, TaskId,
+    WorkspaceRevision,
 };
 use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,
@@ -186,6 +187,90 @@ fn coordination_snapshot_preserves_task_lease_fields() {
             agent_id: Some(AgentId::new("agent:lease")),
         })
     );
+}
+
+#[test]
+fn plan_activity_falls_back_to_ids_and_embedded_timestamps_when_events_are_compacted() {
+    let plan_id = PlanId::new(new_prefixed_id("plan"));
+    let task_id = CoordinationTaskId::new(new_prefixed_id("coord-task"));
+    let expected_created_at =
+        sortable_token_timestamp(plan_id.0.as_str()).expect("plan id should encode a timestamp");
+    let expected_last_updated_at = expected_created_at + 50;
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        CoordinationSnapshot {
+            plans: vec![Plan {
+                id: plan_id.clone(),
+                goal: "Ship fallback".into(),
+                title: "Ship fallback".into(),
+                status: PlanStatus::Active,
+                policy: CoordinationPolicy::default(),
+                scope: PlanScope::Repo,
+                kind: PlanKind::TaskExecution,
+                revision: 1,
+                scheduling: PlanScheduling::default(),
+                tags: Vec::new(),
+                created_from: None,
+                metadata: serde_json::Value::Null,
+                authored_edges: Vec::new(),
+                root_tasks: vec![task_id.clone()],
+            }],
+            tasks: vec![CoordinationTask {
+                id: task_id.clone(),
+                plan: plan_id.clone(),
+                kind: PlanNodeKind::Edit,
+                title: "Fallback task".into(),
+                summary: None,
+                status: prism_ir::CoordinationTaskStatus::InProgress,
+                published_task_status: None,
+                assignee: Some(AgentId::new("agent:fallback")),
+                pending_handoff_to: None,
+                session: Some(SessionId::new("session:fallback")),
+                lease_holder: None,
+                lease_started_at: Some(expected_created_at + 10),
+                lease_refreshed_at: Some(expected_last_updated_at),
+                lease_stale_at: Some(expected_last_updated_at + 30),
+                lease_expires_at: Some(expected_last_updated_at + 60),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                bindings: prism_ir::PlanBinding::default(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+                git_execution: TaskGitExecution::default(),
+            }],
+            claims: Vec::new(),
+            artifacts: Vec::new(),
+            reviews: Vec::new(),
+            events: Vec::new(),
+            next_plan: 1,
+            next_task: 1,
+            next_claim: 0,
+            next_artifact: 0,
+            next_review: 0,
+        },
+        ProjectionIndex::default(),
+    );
+
+    let activity = prism
+        .plan_activity(&plan_id)
+        .expect("active plan should surface backfilled activity");
+
+    assert_eq!(activity.created_at, Some(expected_created_at));
+    assert_eq!(activity.last_updated_at, Some(expected_last_updated_at));
+    assert_eq!(activity.last_event_kind, None);
+    assert_eq!(activity.last_event_summary, None);
+    assert_eq!(activity.last_event_task_id, Some(task_id));
 }
 
 #[test]

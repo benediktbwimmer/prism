@@ -55,6 +55,7 @@ impl Prism {
             return entries;
         }
 
+        let activity_by_plan = self.plan_activity_index();
         let mut plans: Vec<(PlanListEntry, Option<f32>, bool)> = self
             .hydrated_plan_graphs_for_runtime(runtime)
             .into_iter()
@@ -77,6 +78,10 @@ impl Prism {
                         root_node_ids: graph.root_nodes,
                         summary: plan_discovery_summary(&summary),
                         plan_summary: summary,
+                        activity: activity_by_plan
+                            .get(graph.id.0.as_str())
+                            .cloned()
+                            .unwrap_or_default(),
                     },
                     top_recommendation
                         .as_ref()

@@ -1610,6 +1610,7 @@ pub struct PlanView {
     pub tags: Vec<String>,
     pub created_from: Option<String>,
     pub root_node_ids: Vec<String>,
+    pub activity: Option<PlanActivityView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1626,6 +1627,17 @@ pub struct PlanListEntryView {
     pub root_node_ids: Vec<String>,
     pub summary: String,
     pub plan_summary: PlanSummaryView,
+    pub activity: Option<PlanActivityView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanActivityView {
+    pub created_at: Option<u64>,
+    pub last_updated_at: Option<u64>,
+    pub last_event_kind: Option<String>,
+    pub last_event_summary: Option<String>,
+    pub last_event_task_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

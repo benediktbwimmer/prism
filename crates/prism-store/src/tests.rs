@@ -1063,6 +1063,35 @@ fn sqlite_store_load_task_replay_reads_persisted_events_by_task() {
 }
 
 #[test]
+fn sqlite_store_task_replay_query_uses_task_correlation_index() {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!("prism-store-task-replay-index-{nanos}.db"));
+    let store = SqliteStore::open(&path).unwrap();
+
+    let detail = store
+        .conn
+        .prepare(
+            "EXPLAIN QUERY PLAN
+             SELECT payload
+             FROM outcome_event_log
+             WHERE json_extract(payload, '$.meta.correlation') = 'task:lazy-replay'
+             ORDER BY ts DESC, sequence DESC",
+        )
+        .unwrap()
+        .query_map([], |row| row.get::<_, String>(3))
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert!(detail
+        .iter()
+        .any(|value| value.contains("idx_outcome_event_log_task_ts_sequence")));
+}
+
+#[test]
 fn sqlite_store_append_outcome_events_persists_authoritative_events_and_validation_deltas() {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)

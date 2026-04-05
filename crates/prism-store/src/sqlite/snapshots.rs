@@ -6,19 +6,21 @@ pub(super) fn load_snapshot_row<T>(conn: &Connection, key: &str) -> Result<Optio
 where
     T: for<'de> Deserialize<'de>,
 {
-    let raw = conn
-        .query_row(
-            "SELECT value FROM snapshots WHERE key = ?1",
-            params![key],
-            |row| row.get::<_, String>(0),
-        )
-        .optional()?;
-    raw.map(|value| {
-        serde_json::from_str(&value)
-            .with_context(|| format!("failed to decode snapshot `{key}` from sqlite"))
+    super::retry::retry_on_transient_sqlite_read(|| {
+        let raw = conn
+            .query_row(
+                "SELECT value FROM snapshots WHERE key = ?1",
+                params![key],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        raw.map(|value| {
+            serde_json::from_str(&value)
+                .with_context(|| format!("failed to decode snapshot `{key}` from sqlite"))
+        })
+        .transpose()
+        .map_err(Into::into)
     })
-    .transpose()
-    .map_err(Into::into)
 }
 
 pub(super) fn save_snapshot_row_tx<T>(tx: &Transaction<'_>, key: &str, snapshot: &T) -> Result<()>

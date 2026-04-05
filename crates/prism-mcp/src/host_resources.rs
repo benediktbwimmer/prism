@@ -473,7 +473,7 @@ impl QueryHost {
                         .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
                         .collect()
                 });
-            let plan = plan_view(plan, root_node_ids);
+            let plan = plan_view(plan, root_node_ids, prism.plan_activity(plan_id));
             let summary = prism.plan_summary(plan_id).map(plan_summary_view);
             let related_resources = vec![
                 session_resource_view_link(),

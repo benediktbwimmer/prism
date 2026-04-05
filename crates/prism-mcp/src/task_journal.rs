@@ -74,7 +74,7 @@ pub(crate) fn task_journal_view_from_replay(
     let description = metadata.description;
     let tags = metadata.tags;
     let anchors = task_focus(prism, &events);
-    let related_memory = if anchors.is_empty() {
+    let related_memory = if anchors.is_empty() || memory_limit == 0 {
         Vec::new()
     } else {
         session

@@ -25197,6 +25197,149 @@ return prism.taskJournal("task:journal", { eventLimit: 10, memoryLimit: 5 });
 }
 
 #[test]
+fn task_journal_memory_limit_zero_skips_related_memory_recall() {
+    let main = demo_node();
+    let main_id = main.id.clone();
+    let task_id = TaskId::new("task:journal:memory-zero");
+
+    let mut graph = Graph::default();
+    graph.nodes.insert(main_id.clone(), main);
+    graph.adjacency = HashMap::new();
+    graph.reverse_adjacency = HashMap::new();
+
+    let outcomes = OutcomeMemory::new();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:journal:memory-zero:plan"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: Some(task_id.clone()),
+                causation: None,
+                execution_context: None,
+            },
+            anchors: vec![AnchorRef::Node(main_id.clone())],
+            kind: OutcomeKind::PlanCreated,
+            result: OutcomeResult::Success,
+            summary: "Investigate main".into(),
+            evidence: Vec::new(),
+            metadata: json!({ "tags": ["bug"] }),
+        })
+        .unwrap();
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([NodeId::new("demo", "demo::main", NodeKind::Function)]);
+    let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
+    let mut memory = MemoryEntry::new(
+        MemoryKind::Structural,
+        "main changes should always get a regression check",
+    );
+    memory.anchors = vec![AnchorRef::Node(main_id)];
+    memory.trust = 0.9;
+    test_session(&host).notes.store(memory).unwrap();
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.taskJournal("task:journal:memory-zero", { eventLimit: 10, memoryLimit: 0 });
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("task journal query should succeed");
+
+    assert_eq!(result.result["taskId"], "task:journal:memory-zero");
+    assert_eq!(
+        result.result["relatedMemory"]
+            .as_array()
+            .map(|items| items.len()),
+        Some(0)
+    );
+}
+
+#[test]
+fn plan_queries_surface_activity_without_task_journal_replay() {
+    let prism = Prism::new(Graph::default());
+    let plan_id = prism
+        .create_native_plan(
+            EventMeta {
+                id: EventId::new("coordination:plan-activity:plan"),
+                ts: 10,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            "Track plan activity directly".to_string(),
+            "Track plan activity directly".to_string(),
+            Some(prism_ir::PlanStatus::Active),
+            Some(CoordinationPolicy::default()),
+        )
+        .expect("plan should be created");
+    let task = prism
+        .create_native_task(
+            EventMeta {
+                id: EventId::new("coordination:plan-activity:task"),
+                ts: 20,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Follow-up task".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism.workspace_revision(),
+            },
+        )
+        .expect("task should be created");
+    let host = host_with_prism(prism);
+
+    let result = host
+        .execute(
+            test_session(&host),
+            &format!(
+                r#"
+return {{
+  plans: prism.plans({{ status: "active" }}),
+  plan: prism.plan("{plan_id}"),
+}};
+"#,
+                plan_id = plan_id.0
+            ),
+            QueryLanguage::Ts,
+        )
+        .expect("plan activity query should succeed");
+
+    assert_eq!(
+        result.result["plans"][0]["planId"],
+        Value::from(plan_id.0.to_string())
+    );
+    assert_eq!(result.result["plans"][0]["activity"]["createdAt"], 10);
+    assert_eq!(result.result["plans"][0]["activity"]["lastUpdatedAt"], 20);
+    assert_eq!(
+        result.result["plans"][0]["activity"]["lastEventKind"],
+        "TaskCreated"
+    );
+    assert_eq!(
+        result.result["plans"][0]["activity"]["lastEventTaskId"],
+        Value::from(task.id.0.to_string())
+    );
+    assert_eq!(result.result["plan"]["activity"]["createdAt"], 10);
+    assert_eq!(result.result["plan"]["activity"]["lastUpdatedAt"], 20);
+}
+
+#[test]
 fn call_graph_depth_limit_diagnostic_includes_next_action() {
     let host = host_with_node(demo_node());
     let result = host
@@ -25902,10 +26045,7 @@ fn session_resource_surfaces_publish_failed_repair_action() {
     assert_eq!(repair.tool, "prism_mutate");
     assert_eq!(repair.input["action"], "coordination");
     assert_eq!(repair.input["input"]["kind"], "update");
-    assert_eq!(
-        repair.input["input"]["taskId"],
-        task_id.0.to_string()
-    );
+    assert_eq!(repair.input["input"]["taskId"], task_id.0.to_string());
     assert_eq!(
         repair.input["input"]["payload"]["id"],
         task_id.0.to_string()

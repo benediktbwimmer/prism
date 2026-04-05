@@ -1078,7 +1078,10 @@ async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_i
         resumed["result"]["state"]["id"],
         Value::from(task_id.0.to_string())
     );
-    assert_eq!(resumed["result"]["state"]["status"], Value::from("InProgress"));
+    assert_eq!(
+        resumed["result"]["state"]["status"],
+        Value::from("InProgress")
+    );
 
     running.cancel().await.unwrap();
 }

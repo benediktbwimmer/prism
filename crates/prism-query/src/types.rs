@@ -1,7 +1,7 @@
 use prism_ir::{
-    AgentId, ArtifactId, CoordinationTaskId, LineageId, NodeId, PlanEdgeId, PlanExecutionOverlay,
-    PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeBlocker, PlanNodeId, PlanNodeStatus, PlanScope,
-    PlanStatus, Timestamp,
+    AgentId, ArtifactId, CoordinationEventKind, CoordinationTaskId, LineageId, NodeId, PlanEdgeId,
+    PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeBlocker, PlanNodeId,
+    PlanNodeStatus, PlanScope, PlanStatus, Timestamp,
 };
 use prism_memory::OutcomeEvent;
 use serde::{Deserialize, Serialize};
@@ -125,6 +125,15 @@ pub struct PlanSummary {
     pub claim_conflicted_nodes: usize,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PlanActivity {
+    pub created_at: Option<u64>,
+    pub last_updated_at: Option<u64>,
+    pub last_event_kind: Option<CoordinationEventKind>,
+    pub last_event_summary: Option<String>,
+    pub last_event_task_id: Option<CoordinationTaskId>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlanListEntry {
     pub plan_id: PlanId,
@@ -138,6 +147,7 @@ pub struct PlanListEntry {
     pub root_node_ids: Vec<PlanNodeId>,
     pub summary: String,
     pub plan_summary: PlanSummary,
+    pub activity: PlanActivity,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

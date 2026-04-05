@@ -5,6 +5,7 @@ mod coordination;
 mod impact;
 mod intent;
 mod outcomes;
+mod plan_activity;
 mod plan_bindings;
 mod plan_completion;
 mod plan_discovery;
@@ -65,9 +66,9 @@ pub use crate::types::{
     ContractGuaranteeStrength, ContractHealth, ContractHealthSignals, ContractHealthStatus,
     ContractKind, ContractPacket, ContractProvenance, ContractPublication,
     ContractPublicationStatus, ContractResolution, ContractScope, ContractStability,
-    ContractStatus, ContractTarget, ContractValidation, DriftCandidate, PlanListEntry,
-    PlanNodeRecommendation, PlanSummary, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe,
-    ValidationCheck, ValidationRecipe,
+    ContractStatus, ContractTarget, ContractValidation, DriftCandidate, PlanActivity,
+    PlanListEntry, PlanNodeRecommendation, PlanSummary, QueryLimits, TaskIntent, TaskRisk,
+    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 
 pub struct Prism {

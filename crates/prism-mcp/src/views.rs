@@ -17,13 +17,13 @@ use prism_js::{
     ContractValidationView, CoordinationTaskLifecycleView, CoordinationTaskView, CuratorJobView,
     CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView,
     GitExecutionOverlayView, GitExecutionPolicyView, GitPreflightReportView, GitPublishReportView,
-    MemoryEntryView, MemoryEventView, NodeIdView, PlanAcceptanceCriterionView, PlanBindingView,
-    PlanEdgeView, PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
-    PlanNodeRecommendationView, PlanNodeView, PlanSchedulingView, PlanSummaryView, PlanView,
-    PolicyViolationRecordView, PolicyViolationView, ProjectionAuthorityPlaneView,
-    ProjectionClassView, QueryDiagnostic, ScoredMemoryView, TaskGitExecutionView, TaskIntentView,
-    TaskRiskView, TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView,
-    ValidationRefView, WorkspaceRevisionView,
+    MemoryEntryView, MemoryEventView, NodeIdView, PlanAcceptanceCriterionView, PlanActivityView,
+    PlanBindingView, PlanEdgeView, PlanExecutionOverlayView, PlanGraphView, PlanListEntryView,
+    PlanNodeBlockerView, PlanNodeRecommendationView, PlanNodeView, PlanSchedulingView,
+    PlanSummaryView, PlanView, PolicyViolationRecordView, PolicyViolationView,
+    ProjectionAuthorityPlaneView, ProjectionClassView, QueryDiagnostic, ScoredMemoryView,
+    TaskGitExecutionView, TaskIntentView, TaskRiskView, TaskValidationRecipeView,
+    ValidationCheckView, ValidationRecipeView, ValidationRefView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_projections::{ProjectionAuthorityPlane, ProjectionClass};
@@ -34,9 +34,9 @@ use prism_query::{
     ConceptResolution, ConceptScope, ContractCompatibility, ContractGuarantee,
     ContractGuaranteeStrength, ContractHealth, ContractHealthSignals, ContractHealthStatus,
     ContractKind, ContractPacket, ContractResolution, ContractStability, ContractStatus,
-    ContractTarget, ContractValidation, DriftCandidate, PlanListEntry, PlanNodeRecommendation,
-    PlanSummary, Prism, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck,
-    ValidationRecipe,
+    ContractTarget, ContractValidation, DriftCandidate, PlanActivity, PlanListEntry,
+    PlanNodeRecommendation, PlanSummary, Prism, TaskIntent, TaskRisk, TaskValidationRecipe,
+    ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
 use std::path::Path;
@@ -1279,6 +1279,7 @@ pub(crate) fn workspace_revision_view(value: WorkspaceRevision) -> WorkspaceRevi
 pub(crate) fn plan_view(
     value: prism_coordination::Plan,
     root_node_ids: Vec<prism_ir::PlanNodeId>,
+    activity: Option<PlanActivity>,
 ) -> PlanView {
     PlanView {
         id: value.id.0.to_string(),
@@ -1296,6 +1297,7 @@ pub(crate) fn plan_view(
             .into_iter()
             .map(|node_id| node_id.0.to_string())
             .collect(),
+        activity: activity.map(plan_activity_view),
     }
 }
 
@@ -1316,6 +1318,19 @@ pub(crate) fn plan_list_entry_view(value: PlanListEntry) -> PlanListEntryView {
             .collect(),
         summary: value.summary,
         plan_summary: plan_summary_view(value.plan_summary),
+        activity: Some(plan_activity_view(value.activity)),
+    }
+}
+
+pub(crate) fn plan_activity_view(value: PlanActivity) -> PlanActivityView {
+    PlanActivityView {
+        created_at: value.created_at,
+        last_updated_at: value.last_updated_at,
+        last_event_kind: value.last_event_kind.map(|kind| format!("{kind:?}")),
+        last_event_summary: value.last_event_summary,
+        last_event_task_id: value
+            .last_event_task_id
+            .map(|task_id| task_id.0.to_string()),
     }
 }
 

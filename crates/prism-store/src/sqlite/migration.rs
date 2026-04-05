@@ -9,7 +9,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use tracing::{info, warn};
 
 use super::outcome_events::{append_local_projection_tx, LOCAL_OUTCOME_PROJECTION_LIMIT};
-use super::{configure_connection, schema};
+use super::{configure_connection, retry, schema};
 
 const ATTACHED_SHARED_DB: &str = "shared_runtime";
 const LOCAL_TABLES: &[&str] = &[
@@ -360,23 +360,25 @@ fn load_recent_shared_outcome_events(
     if limit == 0 {
         return Ok(Vec::new());
     }
-    let sql = format!(
-        "SELECT payload FROM {ATTACHED_SHARED_DB}.outcome_event_log
-         ORDER BY ts DESC, sequence DESC
-         LIMIT ?1"
-    );
-    let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map(params![i64::try_from(limit)?], |row| {
-        row.get::<_, String>(0)
-    })?;
-    let mut events = Vec::new();
-    for row in rows {
-        events.push(
-            serde_json::from_str::<OutcomeEvent>(&row?)
-                .context("failed to decode shared outcome event payload during migration")?,
+    retry::retry_on_transient_sqlite_read(|| {
+        let sql = format!(
+            "SELECT payload FROM {ATTACHED_SHARED_DB}.outcome_event_log
+             ORDER BY ts DESC, sequence DESC
+             LIMIT ?1"
         );
-    }
-    Ok(events)
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt.query_map(params![i64::try_from(limit)?], |row| {
+            row.get::<_, String>(0)
+        })?;
+        let mut events = Vec::new();
+        for row in rows {
+            events.push(
+                serde_json::from_str::<OutcomeEvent>(&row?)
+                    .context("failed to decode shared outcome event payload during migration")?,
+            );
+        }
+        Ok(events)
+    })
 }
 
 fn scrub_shared_episodic_snapshot(conn: &Connection) -> Result<usize> {
@@ -406,8 +408,10 @@ fn scrub_shared_episodic_snapshot(conn: &Connection) -> Result<usize> {
 }
 
 fn copy_table(conn: &Connection, source_db: &str, target_db: &str, table: &str) -> Result<usize> {
-    let sql = format!("INSERT INTO {target_db}.{table} SELECT * FROM {source_db}.{table}");
-    conn.execute(&sql, []).map_err(Into::into)
+    retry::retry_on_transient_sqlite_read(|| {
+        let sql = format!("INSERT INTO {target_db}.{table} SELECT * FROM {source_db}.{table}");
+        conn.execute(&sql, []).map_err(Into::into)
+    })
 }
 
 fn copy_filtered_rows(
@@ -417,21 +421,27 @@ fn copy_filtered_rows(
     target: &str,
     predicate: &str,
 ) -> Result<usize> {
-    let sql = format!("INSERT INTO {target} SELECT * FROM {source} WHERE {predicate}");
-    conn.execute(&sql, [])
-        .with_context(|| format!("failed to copy filtered rows for {table}"))
+    retry::retry_on_transient_sqlite_read(|| {
+        let sql = format!("INSERT INTO {target} SELECT * FROM {source} WHERE {predicate}");
+        conn.execute(&sql, [])
+            .with_context(|| format!("failed to copy filtered rows for {table}"))
+    })
 }
 
 fn delete_all_rows(conn: &Connection, db: &str, table: &str) -> Result<usize> {
-    execute_with_sqlite_lock_retry(|| conn.execute(&format!("DELETE FROM {db}.{table}"), []))
-        .with_context(|| format!("failed to delete migrated rows from {db}.{table}"))
+    retry::retry_on_transient_sqlite_read(|| {
+        execute_with_sqlite_lock_retry(|| conn.execute(&format!("DELETE FROM {db}.{table}"), []))
+            .with_context(|| format!("failed to delete migrated rows from {db}.{table}"))
+    })
 }
 
 fn delete_where(conn: &Connection, db: &str, table: &str, predicate: &str) -> Result<usize> {
-    execute_with_sqlite_lock_retry(|| {
-        conn.execute(&format!("DELETE FROM {db}.{table} WHERE {predicate}"), [])
+    retry::retry_on_transient_sqlite_read(|| {
+        execute_with_sqlite_lock_retry(|| {
+            conn.execute(&format!("DELETE FROM {db}.{table} WHERE {predicate}"), [])
+        })
+        .with_context(|| format!("failed to delete filtered rows from {db}.{table}"))
     })
-    .with_context(|| format!("failed to delete filtered rows from {db}.{table}"))
 }
 
 fn execute_with_sqlite_lock_retry(
@@ -477,19 +487,23 @@ fn table_has_rows(conn: &Connection, db: &str, table: &str) -> Result<bool> {
 }
 
 fn table_has_rows_where(conn: &Connection, db: &str, table: &str, predicate: &str) -> Result<bool> {
-    let sql = format!("SELECT 1 FROM {db}.{table} WHERE {predicate} LIMIT 1");
-    Ok(conn
-        .query_row(&sql, [], |row| row.get::<_, i64>(0))
-        .optional()?
-        .is_some())
+    retry::retry_on_transient_sqlite_read(|| {
+        let sql = format!("SELECT 1 FROM {db}.{table} WHERE {predicate} LIMIT 1");
+        Ok(conn
+            .query_row(&sql, [], |row| row.get::<_, i64>(0))
+            .optional()?
+            .is_some())
+    })
 }
 
 fn snapshot_exists(conn: &Connection, db: &str, key: &str) -> Result<bool> {
-    let sql = format!("SELECT 1 FROM {db}.snapshots WHERE key = ?1 LIMIT 1");
-    Ok(conn
-        .query_row(&sql, params![key], |row| row.get::<_, i64>(0))
-        .optional()?
-        .is_some())
+    retry::retry_on_transient_sqlite_read(|| {
+        let sql = format!("SELECT 1 FROM {db}.snapshots WHERE key = ?1 LIMIT 1");
+        Ok(conn
+            .query_row(&sql, params![key], |row| row.get::<_, i64>(0))
+            .optional()?
+            .is_some())
+    })
 }
 
 fn copy_snapshot_if_present(
@@ -510,15 +524,19 @@ fn copy_snapshot_if_present(
 }
 
 fn delete_snapshot_if_present(conn: &Connection, db: &str, key: &str) -> Result<usize> {
-    let sql = format!("DELETE FROM {db}.snapshots WHERE key = ?1");
-    Ok(conn.execute(&sql, params![key])?)
+    retry::retry_on_transient_sqlite_read(|| {
+        let sql = format!("DELETE FROM {db}.snapshots WHERE key = ?1");
+        Ok(conn.execute(&sql, params![key])?)
+    })
 }
 
 fn load_snapshot_raw(conn: &Connection, db: &str, key: &str) -> Result<Option<String>> {
-    let sql = format!("SELECT value FROM {db}.snapshots WHERE key = ?1");
-    conn.query_row(&sql, params![key], |row| row.get::<_, String>(0))
-        .optional()
-        .map_err(Into::into)
+    retry::retry_on_transient_sqlite_read(|| {
+        let sql = format!("SELECT value FROM {db}.snapshots WHERE key = ?1");
+        conn.query_row(&sql, params![key], |row| row.get::<_, String>(0))
+            .optional()
+            .map_err(Into::into)
+    })
 }
 
 fn load_snapshot<T>(conn: &Connection, db: &str, key: &str) -> Result<Option<T>>
@@ -537,12 +555,14 @@ fn save_snapshot<T>(conn: &Connection, db: &str, key: &str, value: &T) -> Result
 where
     T: Serialize,
 {
-    let sql = format!(
-        "INSERT INTO {db}.snapshots(key, value) VALUES (?1, ?2)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-    );
-    conn.execute(&sql, params![key, serde_json::to_string(value)?])?;
-    Ok(())
+    retry::retry_on_transient_sqlite_read(|| {
+        let sql = format!(
+            "INSERT INTO {db}.snapshots(key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+        );
+        conn.execute(&sql, params![key, serde_json::to_string(value)?])?;
+        Ok(())
+    })
 }
 
 fn copy_metadata_if_present(
@@ -563,13 +583,17 @@ fn copy_metadata_if_present(
 }
 
 fn delete_metadata_if_present(conn: &Connection, db: &str, key: &str) -> Result<usize> {
-    let sql = format!("DELETE FROM {db}.metadata WHERE key = ?1");
-    Ok(conn.execute(&sql, params![key])?)
+    retry::retry_on_transient_sqlite_read(|| {
+        let sql = format!("DELETE FROM {db}.metadata WHERE key = ?1");
+        Ok(conn.execute(&sql, params![key])?)
+    })
 }
 
 fn load_metadata(conn: &Connection, db: &str, key: &str) -> Result<Option<i64>> {
-    let sql = format!("SELECT value FROM {db}.metadata WHERE key = ?1");
-    conn.query_row(&sql, params![key], |row| row.get::<_, i64>(0))
-        .optional()
-        .map_err(Into::into)
+    retry::retry_on_transient_sqlite_read(|| {
+        let sql = format!("SELECT value FROM {db}.metadata WHERE key = ?1");
+        conn.query_row(&sql, params![key], |row| row.get::<_, i64>(0))
+            .optional()
+            .map_err(Into::into)
+    })
 }

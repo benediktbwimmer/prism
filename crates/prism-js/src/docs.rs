@@ -1591,6 +1591,7 @@ type PlanView = {
   tags: string[];
   createdFrom?: string;
   rootNodeIds: string[];
+  activity?: PlanActivityView;
 };
 
 type PlanListEntryView = {
@@ -1604,6 +1605,15 @@ type PlanListEntryView = {
   rootNodeIds: string[];
   summary: string;
   planSummary: PlanSummaryView;
+  activity?: PlanActivityView;
+};
+
+type PlanActivityView = {
+  createdAt?: number;
+  lastUpdatedAt?: number;
+  lastEventKind?: string;
+  lastEventSummary?: string;
+  lastEventTaskId?: string;
 };
 
 type PlanSchedulingView = {

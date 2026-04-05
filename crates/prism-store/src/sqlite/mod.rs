@@ -11,6 +11,7 @@ mod outcome_events;
 mod outcome_patch_projection;
 mod path_identity_repair;
 mod projections;
+mod retry;
 mod schema;
 mod snapshots;
 
@@ -458,29 +459,31 @@ impl SqliteStore {
     }
 
     pub fn snapshot_revisions(&self) -> Result<SnapshotRevisions> {
-        let mut revisions = SnapshotRevisions::default();
-        let mut stmt = self.conn.prepare(
-            "SELECT key, value FROM metadata
-             WHERE key IN (?1, ?2, ?3, ?4)",
-        )?;
-        let mut rows = stmt.query(params![
-            WORKSPACE_REVISION_KEY,
-            EPISODIC_REVISION_KEY,
-            INFERENCE_REVISION_KEY,
-            COORDINATION_REVISION_KEY,
-        ])?;
-        while let Some(row) = rows.next()? {
-            let key = row.get::<_, String>(0)?;
-            let value = row.get::<_, i64>(1)? as u64;
-            match key.as_str() {
-                WORKSPACE_REVISION_KEY => revisions.workspace = value,
-                EPISODIC_REVISION_KEY => revisions.episodic = value,
-                INFERENCE_REVISION_KEY => revisions.inference = value,
-                COORDINATION_REVISION_KEY => revisions.coordination = value,
-                _ => {}
+        retry::retry_on_transient_sqlite_read(|| {
+            let mut revisions = SnapshotRevisions::default();
+            let mut stmt = self.conn.prepare(
+                "SELECT key, value FROM metadata
+                 WHERE key IN (?1, ?2, ?3, ?4)",
+            )?;
+            let mut rows = stmt.query(params![
+                WORKSPACE_REVISION_KEY,
+                EPISODIC_REVISION_KEY,
+                INFERENCE_REVISION_KEY,
+                COORDINATION_REVISION_KEY,
+            ])?;
+            while let Some(row) = rows.next()? {
+                let key = row.get::<_, String>(0)?;
+                let value = row.get::<_, i64>(1)? as u64;
+                match key.as_str() {
+                    WORKSPACE_REVISION_KEY => revisions.workspace = value,
+                    EPISODIC_REVISION_KEY => revisions.episodic = value,
+                    INFERENCE_REVISION_KEY => revisions.inference = value,
+                    COORDINATION_REVISION_KEY => revisions.coordination = value,
+                    _ => {}
+                }
             }
-        }
-        Ok(revisions)
+            Ok(revisions)
+        })
     }
 
     pub fn load_lineage_history(
@@ -1536,15 +1539,17 @@ fn current_episodic_snapshot_tx(
 }
 
 fn metadata_value(conn: &Connection, key: &str) -> Result<u64> {
-    let value = conn
-        .query_row(
-            "SELECT value FROM metadata WHERE key = ?1",
-            params![key],
-            |row| row.get::<_, i64>(0),
-        )
-        .optional()?
-        .unwrap_or(0);
-    Ok(value as u64)
+    retry::retry_on_transient_sqlite_read(|| {
+        let value = conn
+            .query_row(
+                "SELECT value FROM metadata WHERE key = ?1",
+                params![key],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()?
+            .unwrap_or(0);
+        Ok(value as u64)
+    })
 }
 
 fn metadata_value_tx(tx: &Transaction<'_>, key: &str) -> Result<u64> {

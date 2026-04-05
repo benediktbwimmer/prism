@@ -1234,7 +1234,7 @@ impl QueryExecution {
                                         .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
                                         .collect()
                                 });
-                            plan_view(plan, root_node_ids)
+                            plan_view(plan, root_node_ids, self.prism.plan_activity(&plan_id))
                         }),
                     )?)
                 }

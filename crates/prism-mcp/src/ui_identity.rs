@@ -8,20 +8,24 @@ pub(crate) fn ui_operator_identity_view(
     root: &Path,
     workspace: Option<&WorkspaceSession>,
 ) -> BridgeIdentityView {
-    let credentials_path = match PrismPaths::for_workspace_root(root).and_then(|paths| paths.credentials_path()) {
-        Ok(path) => path,
-        Err(error) => {
-            return BridgeIdentityView {
-                status: "unavailable".to_string(),
-                profile: None,
-                principal_id: None,
-                credential_id: None,
-                error: Some(format!("failed to resolve local PRISM credentials path: {error}")),
-                next_action: "Bootstrap a local PRISM owner profile before using the operator console."
-                    .to_string(),
-            };
-        }
-    };
+    let credentials_path =
+        match PrismPaths::for_workspace_root(root).and_then(|paths| paths.credentials_path()) {
+            Ok(path) => path,
+            Err(error) => {
+                return BridgeIdentityView {
+                    status: "unavailable".to_string(),
+                    profile: None,
+                    principal_id: None,
+                    credential_id: None,
+                    error: Some(format!(
+                        "failed to resolve local PRISM credentials path: {error}"
+                    )),
+                    next_action:
+                        "Bootstrap a local PRISM owner profile before using the operator console."
+                            .to_string(),
+                };
+            }
+        };
     let credentials = match CredentialsFile::load(&credentials_path) {
         Ok(credentials) => credentials,
         Err(error) => {

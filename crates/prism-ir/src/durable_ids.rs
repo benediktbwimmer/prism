@@ -18,6 +18,12 @@ pub fn new_sortable_token() -> SmolStr {
     Ulid::new().to_string().to_ascii_lowercase().into()
 }
 
+pub fn sortable_token_timestamp(value: &str) -> Option<u64> {
+    let token = value.rsplit(':').next()?;
+    let ulid = Ulid::from_string(token).ok()?;
+    Some(ulid.timestamp_ms() / 1000)
+}
+
 pub fn slugify_id_fragment(value: &str) -> String {
     let mut slug = value
         .chars()
@@ -37,13 +43,14 @@ pub fn slugify_id_fragment(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{new_prefixed_id, new_slugged_id, slugify_id_fragment};
+    use super::{new_prefixed_id, new_slugged_id, slugify_id_fragment, sortable_token_timestamp};
 
     #[test]
     fn prefixed_ids_keep_prefix_and_sortable_token() {
         let value = new_prefixed_id("plan");
         assert!(value.starts_with("plan:"));
         assert_eq!(value.matches(':').count(), 1);
+        assert!(sortable_token_timestamp(&value).is_some());
     }
 
     #[test]

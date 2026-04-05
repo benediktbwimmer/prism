@@ -4743,7 +4743,7 @@ impl QueryHost {
                 Ok(json!({
                     "id": bootstrap.plan_id.0,
                     "planId": bootstrap.plan_id.0,
-                    "plan": plan_view(plan, root_node_ids),
+                    "plan": plan_view(plan, root_node_ids, prism.plan_activity(&bootstrap.plan_id)),
                     "taskIdsByClientId": bootstrap.task_ids_by_client_id,
                     "nodeIdsByClientId": bootstrap
                         .node_ids_by_client_id
@@ -4777,7 +4777,11 @@ impl QueryHost {
                             .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
                             .collect()
                     });
-                Ok(serde_json::to_value(plan_view(plan, root_node_ids))?)
+                Ok(serde_json::to_value(plan_view(
+                    plan,
+                    root_node_ids,
+                    prism.plan_activity(&plan_id),
+                ))?)
             }
             CoordinationMutationKindInput::PlanUpdate => {
                 let payload: PlanUpdatePayload = serde_json::from_value(args.payload)?;
@@ -4812,7 +4816,11 @@ impl QueryHost {
                             .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
                             .collect()
                     });
-                Ok(serde_json::to_value(plan_view(plan, root_node_ids))?)
+                Ok(serde_json::to_value(plan_view(
+                    plan,
+                    root_node_ids,
+                    prism.plan_activity(&plan_id),
+                ))?)
             }
             CoordinationMutationKindInput::PlanArchive => {
                 let payload: PlanArchivePayload = serde_json::from_value(args.payload)?;
@@ -4837,7 +4845,11 @@ impl QueryHost {
                             .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
                             .collect()
                     });
-                Ok(serde_json::to_value(plan_view(plan, root_node_ids))?)
+                Ok(serde_json::to_value(plan_view(
+                    plan,
+                    root_node_ids,
+                    prism.plan_activity(&plan_id),
+                ))?)
             }
             CoordinationMutationKindInput::TaskCreate => {
                 let payload: TaskCreatePayload = serde_json::from_value(args.payload)?;

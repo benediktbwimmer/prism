@@ -10,6 +10,7 @@ use prism_ir::{ClaimStatus, CoordinationEventKind, CoordinationTaskStatus};
 use prism_ir::{PlanId, PlanStatus, TaskId};
 use prism_memory::OutcomeRecallQuery;
 
+use crate::ui_identity::ui_operator_identity_view;
 use crate::ui_types::{
     GraphPlanTouchpointView, GraphTouchedNodeView, OverviewConceptSpotlightView,
     OverviewPlanSignalsView, OverviewPlanSpotlightView, PrismGraphView,
@@ -21,14 +22,12 @@ use crate::ui_types::{
     PrismUiTaskDetailView, PrismUiTaskEditableMetadataView,
 };
 use crate::views::{
-    artifact_view, blocker_view, concept_packet_view, plan_execution_overlay_view,
-    plan_graph_view,
+    artifact_view, blocker_view, concept_packet_view, plan_execution_overlay_view, plan_graph_view,
     plan_list_entry_view, plan_node_recommendation_view, plan_summary_view,
     policy_violation_record_view, ConceptVerbosity,
 };
 use crate::{claim_view, coordination_task_view, current_timestamp, QueryHost, SessionState};
 use crate::{host_resources::session_task_view, runtime_views::runtime_status};
-use crate::ui_identity::ui_operator_identity_view;
 
 const OVERVIEW_PLAN_LIMIT: usize = 3;
 const OVERVIEW_PLAN_NEXT_LIMIT: usize = 2;
@@ -547,7 +546,8 @@ impl QueryHostUiReadModelsExt for QueryHost {
                 )
             })
             .filter_map(|event| {
-                event.claim
+                event
+                    .claim
                     .as_ref()
                     .map(|claim| (claim.0.to_string(), event.meta.ts))
             })
@@ -713,14 +713,23 @@ fn fleet_bar_from_claim(
 
     let lane_id = ensure_fleet_lane(
         lanes,
-        claim.worktree_id.as_deref().or(task.and_then(|task| task.worktree_id.as_deref())),
-        claim.branch_ref.as_deref().or(task.and_then(|task| task.branch_ref.as_deref())),
+        claim
+            .worktree_id
+            .as_deref()
+            .or(task.and_then(|task| task.worktree_id.as_deref())),
+        claim
+            .branch_ref
+            .as_deref()
+            .or(task.and_then(|task| task.branch_ref.as_deref())),
         Some(claim.holder.0.as_str()),
         claim.agent.as_ref().map(|agent| agent.0.as_str()),
     );
     let duration_end = ended_at.unwrap_or(now);
     let duration_seconds = duration_end.checked_sub(claim.since);
-    let stale = !active && claim.stale_at.is_some_and(|stale_at| stale_at <= duration_end);
+    let stale = !active
+        && claim
+            .stale_at
+            .is_some_and(|stale_at| stale_at <= duration_end);
     if let Some(lane) = lanes.get_mut(lane_id.as_str()) {
         if active {
             lane.active_bar_count += 1;
@@ -789,7 +798,10 @@ fn fleet_bar_from_task_lease(
         task.assignee.as_ref().map(|agent| agent.0.as_str()),
     );
     let duration_end = ended_at.unwrap_or(now);
-    let stale = !active && task.lease_stale_at.is_some_and(|stale_at| stale_at <= duration_end);
+    let stale = !active
+        && task
+            .lease_stale_at
+            .is_some_and(|stale_at| stale_at <= duration_end);
     if let Some(lane) = lanes.get_mut(lane_id.as_str()) {
         if active {
             lane.active_bar_count += 1;
@@ -851,18 +863,20 @@ fn ensure_fleet_lane(
         .or_else(|| branch_ref.map(|branch_ref| format!("branch:{branch_ref}")))
         .or_else(|| agent.map(|agent| format!("agent:{agent}")))
         .unwrap_or_else(|| "runtime:unknown".to_string());
-    lanes.entry(id.clone()).or_insert_with(|| FleetLaneAccumulator {
-        id: id.clone(),
-        runtime_id: None,
-        label: fleet_lane_label(None, branch_ref, agent, worktree_id.unwrap_or("unknown")),
-        principal_id: holder.map(str::to_string),
-        worktree_id: worktree_id.map(str::to_string),
-        branch_ref: branch_ref.map(str::to_string),
-        discovery_mode: None,
-        last_seen_at: None,
-        active_bar_count: 0,
-        stale_bar_count: 0,
-    });
+    lanes
+        .entry(id.clone())
+        .or_insert_with(|| FleetLaneAccumulator {
+            id: id.clone(),
+            runtime_id: None,
+            label: fleet_lane_label(None, branch_ref, agent, worktree_id.unwrap_or("unknown")),
+            principal_id: holder.map(str::to_string),
+            worktree_id: worktree_id.map(str::to_string),
+            branch_ref: branch_ref.map(str::to_string),
+            discovery_mode: None,
+            last_seen_at: None,
+            active_bar_count: 0,
+            stale_bar_count: 0,
+        });
     id
 }
 
@@ -1250,9 +1264,9 @@ fn ui_session_view(host: &QueryHost, session: Option<&SessionState>) -> crate::S
     let limits = session
         .map(SessionState::limits)
         .unwrap_or(host.default_limits);
-    let bridge_identity = host
-        .workspace_root()
-        .map(|root| ui_operator_identity_view(root, host.workspace_session().map(|workspace| &**workspace)));
+    let bridge_identity = host.workspace_root().map(|root| {
+        ui_operator_identity_view(root, host.workspace_session().map(|workspace| &**workspace))
+    });
     crate::SessionView {
         workspace_root: host
             .workspace_session()
