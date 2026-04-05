@@ -14,7 +14,10 @@ use crate::server_surface::{MutationOutcomeMeta, MutationRefreshPolicy};
 use crate::tests_support::*;
 use crate::ui_read_models::QueryHostUiReadModelsExt;
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
-use prism_coordination::{CoordinationPolicy, CoordinationStore, PlanCreateInput, TaskCreateInput};
+use prism_coordination::{
+    CoordinationPolicy, CoordinationStore, GitExecutionCompletionMode, GitExecutionPolicy,
+    GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
+};
 use prism_core::{
     hydrate_workspace_session, hydrate_workspace_session_with_options, index_workspace_session,
     index_workspace_session_with_curator, index_workspace_session_with_options, PrismPaths,
@@ -469,6 +472,155 @@ fn git_execution_policy_start_combines_requested_mutation_and_git_execution_reco
             result.state["id"].as_str().unwrap(),
         ))
         .unwrap();
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
+    assert_eq!(
+        task.git_execution.status,
+        prism_ir::GitExecutionStatus::InProgress
+    );
+}
+
+#[test]
+fn git_execution_start_auto_resumes_stale_same_principal_task() {
+    let branch = "task/git-execution-start-auto-resume";
+    let root = init_git_workspace(branch);
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    workspace
+        .bind_or_validate_worktree_principal(&authenticated)
+        .expect("principal should bind to the worktree");
+
+    let prior_session = prism_ir::SessionId::new("session:stale-git-exec-start");
+    let stale_ts = crate::current_timestamp().saturating_sub(8_000);
+    let actor = EventActor::Principal(PrincipalActor {
+        authority_id: authenticated.principal.authority_id.clone(),
+        principal_id: authenticated.principal.principal_id.clone(),
+        kind: Some(authenticated.principal.kind),
+        name: Some(authenticated.principal.name.clone()),
+    });
+    let execution_context = Some(workspace.event_execution_context(
+        Some(&prior_session),
+        None,
+        Some(&authenticated.credential.credential_id),
+    ));
+    let (plan_id, task_id) = workspace
+        .mutate_coordination_with_session_wait_observed(
+            Some(&prior_session),
+            |prism| {
+                let plan_id = prism.create_native_plan(
+                    EventMeta {
+                        id: EventId::new("coordination:stale-git-start:plan"),
+                        ts: stale_ts,
+                        actor: actor.clone(),
+                        correlation: None,
+                        causation: None,
+                        execution_context: execution_context.clone(),
+                    },
+                    "Git execution stale auto-resume".to_string(),
+                    "Git execution stale auto-resume".to_string(),
+                    Some(prism_ir::PlanStatus::Active),
+                    Some(CoordinationPolicy {
+                        git_execution: GitExecutionPolicy {
+                            start_mode: GitExecutionStartMode::Require,
+                            completion_mode: GitExecutionCompletionMode::Require,
+                            target_branch: "main".to_string(),
+                            require_task_branch: true,
+                            ..Default::default()
+                        },
+                        ..CoordinationPolicy::default()
+                    }),
+                )?;
+                let task = prism.create_native_task(
+                    EventMeta {
+                        id: EventId::new("coordination:stale-git-start:task"),
+                        ts: stale_ts,
+                        actor: actor.clone(),
+                        correlation: None,
+                        causation: None,
+                        execution_context: execution_context.clone(),
+                    },
+                    TaskCreateInput {
+                        plan_id: plan_id.clone(),
+                        title: "Resume stale task into git execution start".to_string(),
+                        status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                        assignee: None,
+                        session: Some(prior_session.clone()),
+                        worktree_id: None,
+                        branch_ref: None,
+                        anchors: Vec::new(),
+                        depends_on: Vec::new(),
+                        coordination_depends_on: Vec::new(),
+                        integrated_depends_on: Vec::new(),
+                        acceptance: Vec::new(),
+                        base_revision: prism.workspace_revision(),
+                    },
+                )?;
+                Ok((plan_id, task.id))
+            },
+            |_operation, _duration, _args, _success, _error| {},
+        )
+        .expect("seed mutation should succeed")
+        .expect("seed mutation should acquire refresh lock");
+
+    let server = PrismMcpServer::with_session_and_features(
+        workspace,
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+    let session_state = test_session(&server.host);
+
+    let result = server
+        .execute_logged_mutation_with_run(
+            "mutate.coordination",
+            MutationRefreshPolicy::None,
+            |run| {
+                server.host.store_coordination_traced_authenticated(
+                    session_state.as_ref(),
+                    PrismCoordinationArgs {
+                        kind: CoordinationMutationKindInput::Update,
+                        payload: json!({
+                            "id": task_id.0,
+                            "status": "in_progress"
+                        }),
+                        task_id: None,
+                    },
+                    run,
+                    Some(&authenticated),
+                )
+            },
+            |result| {
+                MutationOutcomeMeta::coordination(result.event_ids.clone(), result.violations.len())
+            },
+        )
+        .expect("git execution start should auto-resume and succeed");
+
+    assert_eq!(result.state["id"], Value::from(task_id.0.to_string()));
+    assert_eq!(result.state["planId"], Value::from(plan_id.0.to_string()));
+    assert_eq!(result.state["status"], Value::from("InProgress"));
+
+    let detail = server
+        .host
+        .mutation_trace_view("mutation:1")
+        .expect("mutation detail should exist");
+    let trace = detail else {
+        panic!("expected mutation trace");
+    };
+    let operations = trace
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+    assert!(operations.contains(&"mutation.gitExecution.autoResumeStaleTask"));
+    assert!(operations.contains(&"mutation.gitExecution.applyRequestedMutationStep"));
+
+    let task = server
+        .host
+        .current_prism()
+        .coordination_task(&task_id)
+        .expect("task should remain readable");
     assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
     assert_eq!(
         task.git_execution.status,
