@@ -1,4 +1,4 @@
-export type PrismRouteKey = 'overview' | 'dashboard' | 'plans' | 'graph'
+export type PrismRouteKey = 'overview' | 'plans' | 'graph'
 
 export type PrismRoute = {
   key: PrismRouteKey
@@ -15,13 +15,6 @@ export const PRISM_ROUTES: PrismRoute[] = [
     label: 'Overview',
     title: 'PRISM Overview',
     summary: 'Orient to the repo, the runtime, and the current work.',
-  },
-  {
-    key: 'dashboard',
-    path: '/dashboard',
-    label: 'Dashboard',
-    title: 'PRISM Dashboard',
-    summary: 'Inspect live server activity, runtime health, and operation traces.',
   },
   {
     key: 'plans',

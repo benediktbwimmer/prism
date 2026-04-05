@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react'
 
 import { PRISM_ROUTES, resolveRoute } from './appRoutes'
 import { AppFrame } from './components/AppFrame'
-import { useDashboardData } from './hooks/useDashboardData'
+import { useSessionBootstrap } from './hooks/useSessionBootstrap'
 import { useThemeChoice } from './hooks/useThemeChoice'
-import { DashboardPage } from './pages/DashboardPage'
 import { GraphPage } from './pages/GraphPage'
 import { OverviewPage } from './pages/OverviewPage'
 import { PlansPage } from './pages/PlansPage'
@@ -15,7 +14,7 @@ export function App() {
     search: window.location.search,
   }))
   const route = resolveRoute(locationState.pathname)
-  const dashboardState = useDashboardData()
+  const { bootstrap, connection } = useSessionBootstrap()
   const { themeChoice, setThemeChoice } = useThemeChoice()
 
   useEffect(() => {
@@ -50,16 +49,12 @@ export function App() {
 
   let page = (
     <OverviewPage
-      dashboard={dashboardState.dashboard}
-      connection={dashboardState.connection}
-      search={locationState.search}
+      connection={connection}
       onNavigate={navigate}
     />
   )
 
-  if (route.key === 'dashboard') {
-    page = <DashboardPage {...dashboardState} search={locationState.search} />
-  } else if (route.key === 'plans') {
+  if (route.key === 'plans') {
     page = <PlansPage search={locationState.search} onNavigate={navigate} />
   } else if (route.key === 'graph') {
     page = <GraphPage search={locationState.search} onNavigate={navigate} />
@@ -67,11 +62,11 @@ export function App() {
 
   return (
     <AppFrame
-      connection={dashboardState.connection}
+      connection={connection}
       currentPath={route.path}
       routes={PRISM_ROUTES}
       themeChoice={themeChoice}
-      workspaceRoot={dashboardState.dashboard?.summary.session.workspaceRoot ?? null}
+      workspaceRoot={bootstrap?.session.workspaceRoot ?? null}
       onNavigate={navigate}
       onThemeChange={setThemeChoice}
     >

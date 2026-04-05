@@ -28,8 +28,18 @@ export type SessionView = {
   workspaceRoot: string | null
   currentTask: SessionTaskView | null
   currentAgent?: string | null
+  bridgeIdentity?: BridgeIdentityView | null
   limits?: SessionLimitsView
   features?: FeatureFlagsView
+}
+
+export type BridgeIdentityView = {
+  status: string
+  profile?: string | null
+  principalId?: string | null
+  credentialId?: string | null
+  error?: string | null
+  nextAction?: string | null
 }
 
 export type RuntimeHealthView = {
@@ -264,6 +274,12 @@ export type DashboardBootstrapView = {
   operations: DashboardOperationsView
   task: DashboardTaskSnapshotView
   coordination: DashboardCoordinationSummaryView
+}
+
+export type PrismUiSessionBootstrapView = {
+  session: SessionView
+  runtime: RuntimeStatusView
+  pollingIntervalMs: number
 }
 
 export type DashboardOperationDetailView =

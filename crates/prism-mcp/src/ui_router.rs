@@ -39,10 +39,6 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
         .route("/api/v1/tasks/{task_id}", get(prism_ui_task_detail))
         .route("/api/v1/fleet", get(prism_ui_fleet))
         .route("/api/v1/mutate", post(prism_ui_mutate))
-        .route("/dashboard", get(prism_ui_index))
-        .route("/dashboard/", get(prism_ui_index))
-        .route("/dashboard/favicon.svg", get(prism_ui_favicon))
-        .route("/dashboard/assets/{*path}", get(prism_ui_dashboard_asset))
         .route("/favicon.svg", get(prism_ui_favicon))
         .route("/assets/{*path}", get(prism_ui_root_asset))
         .route("/", get(prism_ui_index))
@@ -188,13 +184,6 @@ async fn prism_ui_favicon(
     prism_ui_asset_response(&state, "favicon.svg")
 }
 
-async fn prism_ui_dashboard_asset(
-    State(state): State<PrismUiState>,
-    Path(path): Path<String>,
-) -> std::result::Result<Response<Body>, (StatusCode, String)> {
-    prism_ui_asset_response(&state, &format!("assets/{path}"))
-}
-
 async fn prism_ui_root_asset(
     State(state): State<PrismUiState>,
     Path(path): Path<String>,
@@ -254,7 +243,7 @@ mod tests {
         let root = temp_workspace();
         let router = routes(ui_state_from_root(&root));
 
-        for path in ["/", "/plans", "/graph", "/fleet", "/dashboard"] {
+        for path in ["/", "/plans", "/graph", "/fleet"] {
             let response = router
                 .clone()
                 .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
@@ -272,8 +261,8 @@ mod tests {
         let index = prism_ui_index_html(&root).unwrap().unwrap();
         let asset_path = index
             .split('"')
-            .find(|segment| segment.starts_with("/dashboard/assets/"))
-            .expect("embedded dashboard asset path")
+            .find(|segment| segment.starts_with("/assets/"))
+            .expect("embedded ui asset path")
             .to_string();
         let router = routes(ui_state_from_root(&root));
 
@@ -281,7 +270,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::builder()
-                    .uri("/dashboard/favicon.svg")
+                    .uri("/favicon.svg")
                     .body(Body::empty())
                     .unwrap(),
             )

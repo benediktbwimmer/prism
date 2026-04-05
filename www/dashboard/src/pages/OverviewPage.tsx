@@ -1,32 +1,14 @@
 import { useOverviewData } from '../hooks/useOverviewData'
-import type { DashboardBootstrapView } from '../types'
 
 type OverviewPageProps = {
-  dashboard: DashboardBootstrapView | null
   connection: 'connecting' | 'open' | 'closed'
-  search: string
   onNavigate: (path: string) => void
 }
 
-export function OverviewPage({ dashboard, connection, onNavigate }: OverviewPageProps) {
+export function OverviewPage({ connection, onNavigate }: OverviewPageProps) {
   const overview = useOverviewData()
-  const activeOverview = overview ?? (dashboard ? {
-    summary: dashboard.summary,
-    task: dashboard.task,
-    coordination: dashboard.coordination,
-    planSignals: {
-      blockedNodes: 0,
-      reviewGatedNodes: dashboard.coordination.inReviewTaskCount,
-      validationGatedNodes: 0,
-      claimConflictedNodes: 0,
-    },
-    spotlightPlans: [],
-    hotConcepts: [],
-    recentOutcomes: [],
-    pendingHandoffs: [],
-  } : null)
 
-  if (!activeOverview) {
+  if (!overview) {
     return (
       <section className="panel hero-panel">
         <p className="eyebrow">PRISM Overview</p>
@@ -36,8 +18,7 @@ export function OverviewPage({ dashboard, connection, onNavigate }: OverviewPage
     )
   }
 
-  const { summary, task, coordination, planSignals, spotlightPlans, hotConcepts, recentOutcomes, pendingHandoffs } = activeOverview
-  const operations = dashboard?.operations
+  const { summary, task, coordination, planSignals, spotlightPlans, hotConcepts, recentOutcomes, pendingHandoffs } = overview
 
   return (
     <div className="page-stack">
@@ -78,14 +59,6 @@ export function OverviewPage({ dashboard, connection, onNavigate }: OverviewPage
       </section>
 
       <section className="route-grid">
-        <RouteCard
-          eyebrow="Operational"
-          title="Dashboard"
-          description="Inspect live MCP activity, runtime refreshes, task focus, and operation traces."
-          metric={`${operations?.active.length ?? 0} active`}
-          path="/dashboard?section=operations"
-          onNavigate={onNavigate}
-        />
         <RouteCard
           eyebrow="Execution"
           title="Plans"
@@ -166,8 +139,8 @@ export function OverviewPage({ dashboard, connection, onNavigate }: OverviewPage
             ) : (
               <p className="empty-state">Attach a task to surface journal state, validations, and outcomes here.</p>
             )}
-            <button type="button" className="ghost-button" onClick={() => onNavigate('/dashboard?section=task')}>
-              Inspect task in dashboard
+            <button type="button" className="ghost-button" onClick={() => onNavigate('/plans')}>
+              Inspect task in plans
             </button>
           </div>
         </article>
