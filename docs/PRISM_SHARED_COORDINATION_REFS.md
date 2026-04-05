@@ -55,8 +55,8 @@ shared coordination ref as a startup database:
 - daemon startup timing boundaries live in `crates/prism-core/src/indexer.rs`,
   `crates/prism-core/src/session_bootstrap.rs`, `crates/prism-mcp/src/lib.rs`, and
   `crates/prism-mcp/src/daemon_mode.rs`
-- the startup-decoupling execution plan is already closed in
-  `docs/prism/plans/active/plan-01knb0f1xztpmmbjjzetw9xbwg.md`
+- the startup-decoupling execution plan is already closed in the shared coordination history and
+  can be rendered through an explicit docs export when needed
 - the full validation matrix and release-daemon dogfooding evidence live in
   `docs/SHARED_COORDINATION_REFS_VALIDATION.md`
 
@@ -82,7 +82,7 @@ This matrix is the authoritative closure record for the shared-ref work tracked 
 | `13.2` to `13.4`, `14.1`, operator health surfaces in `17` | Completed | Compaction rewrites the live ref with continuity metadata, retry counters are durable, and operator diagnostics expose health, retention, and publish history explicitly. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/session.rs`, `crates/prism-mcp/src/runtime_views.rs`, `crates/prism-mcp/src/runtime_state.rs` | `coord-task:01knavpwvj8r99x8yarrsam19g` |
 | `14.2` to `14.4` | Completed | Verification failure, degraded-mode behavior, and split publication recovery block silent fallback and remain explicitly diagnosable and retryable. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/protected_state/operators.rs`, `crates/prism-mcp/src/runtime_views.rs`, `crates/prism-mcp/src/host_resources.rs` | `coord-task:01knax3zr6tyxkcev2vzd2ptyg` |
 | `16` | Completed | Targeted coverage for every lifecycle and integration mode, plus release-binary dogfooding against the live daemon, is recorded in the validation matrix. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/tests.rs`, `crates/prism-mcp/src/tests.rs`, `crates/prism-mcp/src/tests/server_tool_calls.rs` | `coord-task:01knax49ge8qvv6yabya0k2xrc` |
-| status and closure text across `1`, `15`, `17`, and the published repo projections | Completed | This document now describes implemented reality, and PRISM-managed plan projections can close with no remaining shared-ref gap list. | `docs/PRISM_SHARED_COORDINATION_REFS.md`, `docs/prism/plans/active/plan-01knav51cj8vgw0zp49qgktzps.md`, `docs/prism/plans/index.md`, `PRISM.md` | `coord-task:01knax5mvp5x40c6wnae7s3r9d` |
+| status and closure text across `1`, `15`, `17`, and the exportable repo projections | Completed | This document now describes implemented reality, and the repo projection renderer can close with no remaining shared-ref gap list. | `docs/PRISM_SHARED_COORDINATION_REFS.md`, `crates/prism-core/src/prism_doc.rs`, `crates/prism-core/src/prism_doc/repo_state.rs` | `coord-task:01knax5mvp5x40c6wnae7s3r9d` |
 
 ---
 

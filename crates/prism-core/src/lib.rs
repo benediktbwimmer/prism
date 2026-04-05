@@ -78,7 +78,10 @@ pub use peer_runtime::{local_runtime_id, runtime_query_endpoint, PEER_RUNTIME_QU
 pub use principal_registry::{
     AuthenticatedPrincipal, BootstrapOwnerInput, MintPrincipalRequest, MintedPrincipalCredential,
 };
-pub use prism_doc::{PrismDocSyncResult, PrismDocSyncStatus};
+pub use prism_doc::{
+    PrismDocBundleFormat, PrismDocExportBundle, PrismDocExportResult, PrismDocSyncResult,
+    PrismDocSyncStatus,
+};
 pub use prism_paths::PrismPaths;
 pub use protected_state::migration::{
     migrate_legacy_protected_repo_state, ProtectedStateMigrationReport,

@@ -32,13 +32,7 @@ fn run_git(root: &Path, args: &[&str]) -> Result<String> {
 }
 
 fn is_prism_managed_path(path: &str) -> bool {
-    path.starts_with(".prism/")
-        || path == ".prism"
-        || path == "PRISM.md"
-        || path == "docs"
-        || path == "docs/"
-        || path == "docs/prism"
-        || path.starts_with("docs/prism/")
+    path.starts_with(".prism/") || path == ".prism"
 }
 
 pub(crate) fn user_dirty_paths(paths: &[String]) -> Vec<String> {
@@ -309,15 +303,9 @@ pub(crate) fn restore_prism_managed_paths(root: &Path, paths: &[String]) -> Resu
         }
     }
 
-    let _ = run_git(
-        root,
-        &["clean", "-fd", "--", ".prism", "PRISM.md", "docs/prism"],
-    );
+    let _ = run_git(root, &["clean", "-fd", "--", ".prism"]);
 
     cleanup_untracked_prism_root(root, ".prism")?;
-    cleanup_untracked_prism_root(root, "docs/prism")?;
-    cleanup_empty_untracked_dir(root, "docs")?;
-    cleanup_untracked_file(root, "PRISM.md")?;
 
     Ok(())
 }
@@ -332,15 +320,10 @@ pub(crate) fn restore_prism_managed_roots(root: &Path) -> Result<()> {
             "--worktree",
             "--",
             ".prism",
-            "PRISM.md",
-            "docs",
         ],
     );
-    let _ = run_git(root, &["clean", "-fd", "--", ".prism", "PRISM.md", "docs"]);
+    let _ = run_git(root, &["clean", "-fd", "--", ".prism"]);
     cleanup_untracked_prism_root(root, ".prism")?;
-    cleanup_untracked_prism_root(root, "docs/prism")?;
-    cleanup_empty_untracked_dir(root, "docs")?;
-    cleanup_untracked_file(root, "PRISM.md")?;
     Ok(())
 }
 

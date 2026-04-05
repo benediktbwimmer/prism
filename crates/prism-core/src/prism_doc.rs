@@ -14,8 +14,8 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::published_plans::HydratedCoordinationPlanState;
-use crate::util::prism_doc_path;
 
+mod export;
 mod repo_state;
 
 const ARCHITECTURE_HANDLE: &str = "concept://prism_architecture";
@@ -41,30 +41,32 @@ pub struct PrismDocSyncResult {
     pub files: Vec<PrismDocFileSync>,
 }
 
-pub(crate) fn sync_repo_prism_doc(
-    root: &Path,
-    concepts: &[ConceptPacket],
-    relations: &[ConceptRelation],
-    contracts: &[ContractPacket],
-) -> Result<PrismDocSyncResult> {
-    sync_repo_prism_doc_with_plan_state(root, concepts, relations, contracts, None)
+pub use export::{PrismDocBundleFormat, PrismDocExportBundle, PrismDocExportResult};
+
+pub(crate) fn bundle_prism_doc_export(
+    output_root: &Path,
+    files: &[PrismDocFileSync],
+    format: PrismDocBundleFormat,
+) -> Result<PrismDocExportBundle> {
+    export::write_bundle(output_root, files, format)
 }
 
-pub(crate) fn sync_repo_prism_doc_with_plan_state(
-    root: &Path,
+pub(crate) fn export_repo_prism_doc_with_plan_state(
+    workspace_root: &Path,
+    output_root: &Path,
     concepts: &[ConceptPacket],
     relations: &[ConceptRelation],
     contracts: &[ContractPacket],
     plan_state: Option<HydratedCoordinationPlanState>,
 ) -> Result<PrismDocSyncResult> {
-    let state_catalog = repo_state::RepoStateCatalog::load(root, plan_state)?;
+    let state_catalog = repo_state::RepoStateCatalog::load(workspace_root, plan_state)?;
     let catalog = PrismDocCatalog::new(concepts, relations, contracts, state_catalog.summary());
-    let prism_docs_dir = root.join("docs").join("prism");
+    let prism_docs_dir = output_root.join("docs").join("prism");
     fs::create_dir_all(&prism_docs_dir)?;
 
     let mut files = Vec::new();
     files.push(write_generated_file(
-        prism_doc_path(root),
+        output_root.join("PRISM.md"),
         render_root_prism_doc(&catalog),
     )?);
     files.push(write_generated_file(
@@ -79,7 +81,10 @@ pub(crate) fn sync_repo_prism_doc_with_plan_state(
         prism_docs_dir.join("contracts.md"),
         render_contracts_doc(&catalog),
     )?);
-    files.extend(repo_state::sync_repo_state_docs(root, &state_catalog)?);
+    files.extend(repo_state::export_repo_state_docs(
+        output_root,
+        &state_catalog,
+    )?);
 
     let status = if files
         .iter()

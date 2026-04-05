@@ -149,8 +149,8 @@ mod tests {
         assert!(!walked.iter().any(|path| path.starts_with(".prism")));
         assert!(!walked.iter().any(|path| path.starts_with("target")));
         assert!(!walked.iter().any(|path| path.starts_with("node_modules")));
-        assert!(!walked.iter().any(|path| path == &PathBuf::from("PRISM.md")));
-        assert!(!walked.iter().any(|path| path.starts_with("docs/prism")));
+        assert!(walked.iter().any(|path| path == &PathBuf::from("PRISM.md")));
+        assert!(walked.iter().any(|path| path.starts_with("docs/prism")));
         assert!(!walked
             .iter()
             .any(|path| path.starts_with(".codex-target-trash-123")));
@@ -159,15 +159,12 @@ mod tests {
     }
 
     #[test]
-    fn generated_projection_paths_are_detected() {
-        assert!(is_generated_projection_relative_path(
+    fn generated_projection_paths_are_not_reserved_anymore() {
+        assert!(!is_generated_projection_relative_path(
             PathBuf::from("PRISM.md").as_path()
         ));
-        assert!(is_generated_projection_relative_path(
-            PathBuf::from("docs/prism/plans/index.md").as_path()
-        ));
         assert!(!is_generated_projection_relative_path(
-            PathBuf::from("docs/notes.md").as_path()
+            PathBuf::from("docs/prism/plans/index.md").as_path()
         ));
     }
 
@@ -199,10 +196,6 @@ pub(crate) fn repo_memory_events_path(root: &Path) -> PathBuf {
 
 pub(crate) fn repo_patch_events_path(root: &Path) -> PathBuf {
     root.join(".prism").join("changes").join("events.jsonl")
-}
-
-pub(crate) fn prism_doc_path(root: &Path) -> PathBuf {
-    root.join("PRISM.md")
 }
 
 pub(crate) fn repo_concept_events_path(root: &Path) -> PathBuf {
@@ -264,12 +257,8 @@ fn should_skip_workspace_walk_entry(root: &Path, entry: &DirEntry) -> bool {
 }
 
 pub(crate) fn is_generated_projection_relative_path(relative: &Path) -> bool {
-    let components = relative
-        .components()
-        .map(|component| component.as_os_str().to_string_lossy().into_owned())
-        .collect::<Vec<_>>();
-    components.as_slice() == ["PRISM.md"]
-        || (components.len() >= 2 && components[0] == "docs" && components[1] == "prism")
+    let _ = relative;
+    false
 }
 
 pub(crate) fn is_generated_projection_path(root: &Path, path: &Path) -> bool {
@@ -279,9 +268,6 @@ pub(crate) fn is_generated_projection_path(root: &Path, path: &Path) -> bool {
 }
 
 fn is_ignored_workspace_walk_relative_path(relative: &Path) -> bool {
-    if is_generated_projection_relative_path(relative) {
-        return true;
-    }
     relative.components().any(|component| {
         let name = component.as_os_str().to_string_lossy();
         matches!(name.as_ref(), ".git" | ".prism" | "target" | "node_modules")

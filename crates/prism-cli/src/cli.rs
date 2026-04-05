@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
 #[command(name = "prism")]
@@ -243,7 +243,20 @@ pub enum PrincipalCommand {
 
 #[derive(Subcommand)]
 pub enum DocsCommand {
-    Generate,
+    #[command(alias = "generate")]
+    Export {
+        #[arg(long = "output-dir")]
+        output_dir: PathBuf,
+        #[arg(long, value_enum)]
+        bundle: Option<DocsBundleArg>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum DocsBundleArg {
+    Zip,
+    #[value(name = "tar-gz")]
+    TarGz,
 }
 
 #[derive(Subcommand)]
@@ -394,7 +407,7 @@ mod tests {
     use clap::Parser;
 
     use super::{
-        AuthCommand, Cli, Command, DocsCommand, McpCommand, PrincipalCommand,
+        AuthCommand, Cli, Command, DocsBundleArg, DocsCommand, McpCommand, PrincipalCommand,
         ProtectedStateCommand, ProtectedStateTrustCommand,
     };
 
@@ -543,13 +556,39 @@ mod tests {
     }
 
     #[test]
-    fn docs_generate_parses() {
-        let cli = Cli::parse_from(["prism", "docs", "generate"]);
+    fn docs_export_parses() {
+        let cli = Cli::parse_from(["prism", "docs", "export", "--output-dir", "out/prism"]);
         assert!(cli.root.is_none());
         match cli.command {
             Command::Docs {
-                command: DocsCommand::Generate,
-            } => {}
+                command: DocsCommand::Export { output_dir, bundle },
+            } => {
+                assert_eq!(output_dir, PathBuf::from("out/prism"));
+                assert_eq!(bundle, None);
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn docs_export_with_bundle_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "docs",
+            "export",
+            "--output-dir",
+            "out/prism",
+            "--bundle",
+            "tar-gz",
+        ]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Docs {
+                command: DocsCommand::Export { output_dir, bundle },
+            } => {
+                assert_eq!(output_dir, PathBuf::from("out/prism"));
+                assert_eq!(bundle, Some(DocsBundleArg::TarGz));
+            }
             _ => panic!("unexpected command"),
         }
     }

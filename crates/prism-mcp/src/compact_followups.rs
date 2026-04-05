@@ -330,7 +330,9 @@ mod tests {
         assert!(same_workspace_file(
             Some(root.as_path()),
             "src/lib.rs",
-            root.join("src/./nested/../lib.rs").to_string_lossy().as_ref()
+            root.join("src/./nested/../lib.rs")
+                .to_string_lossy()
+                .as_ref()
         ));
     }
 

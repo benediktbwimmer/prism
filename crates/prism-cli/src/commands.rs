@@ -1,6 +1,7 @@
 use anyhow::Result;
 use prism_core::{
-    index_workspace_session, PrismDocSyncStatus, ValidationFeedbackRecord, WorkspaceSession,
+    index_workspace_session, PrismDocBundleFormat, PrismDocSyncStatus, ValidationFeedbackRecord,
+    WorkspaceSession,
 };
 use prism_ir::{AnchorRef, EventActor, EventMeta, TaskId};
 use prism_memory::{
@@ -10,7 +11,8 @@ use prism_memory::{
 
 use crate::auth_commands::{handle_auth_command, handle_principal_command};
 use crate::cli::{
-    Cli, Command, DocsCommand, FeedbackCommand, MemoryCommand, OutcomeCommand, TaskCommand,
+    Cli, Command, DocsBundleArg, DocsCommand, FeedbackCommand, MemoryCommand, OutcomeCommand,
+    TaskCommand,
 };
 use crate::display::{
     print_lineage, print_memory_event, print_relation_section, print_relations,
@@ -269,18 +271,25 @@ fn should_auto_setup_repo_git_support(command: &Command) -> bool {
 
 fn handle_docs_command(session: &WorkspaceSession, command: DocsCommand) -> Result<()> {
     match command {
-        DocsCommand::Generate => {
-            let sync = session.sync_prism_doc()?;
-            match sync.status {
-                PrismDocSyncStatus::Updated => println!("updated generated docs"),
-                PrismDocSyncStatus::Unchanged => println!("generated docs unchanged"),
+        DocsCommand::Export { output_dir, bundle } => {
+            let bundle = bundle.map(|bundle| match bundle {
+                DocsBundleArg::Zip => PrismDocBundleFormat::Zip,
+                DocsBundleArg::TarGz => PrismDocBundleFormat::TarGz,
+            });
+            let export = session.export_prism_docs(&output_dir, bundle)?;
+            match export.sync.status {
+                PrismDocSyncStatus::Updated => println!("updated exported docs"),
+                PrismDocSyncStatus::Unchanged => println!("exported docs unchanged"),
             }
-            for file in sync.files {
+            for file in export.sync.files {
                 let status = match file.status {
                     PrismDocSyncStatus::Updated => "updated",
                     PrismDocSyncStatus::Unchanged => "unchanged",
                 };
                 println!("{status} {}", file.path.display());
+            }
+            if let Some(bundle) = export.bundle {
+                println!("bundle {}", bundle.path.display());
             }
         }
     }

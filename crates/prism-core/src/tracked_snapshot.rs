@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
@@ -169,13 +168,6 @@ pub(crate) struct TrackedCoordinationSnapshotState {
 
 fn snapshot_root(root: &Path) -> PathBuf {
     root.join(".prism").join("state")
-}
-
-fn now_epoch_seconds() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
 }
 
 fn snapshot_manifest_path(root: &Path) -> PathBuf {
@@ -445,13 +437,11 @@ pub(crate) fn sync_coordination_snapshot_state(
     _plan_graphs: &[PlanGraph],
     _execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
     publish: Option<&TrackedSnapshotPublishContext>,
-    coordination_revision: Option<u64>,
+    _coordination_revision: Option<u64>,
 ) -> Result<()> {
     cleanup_tracked_plan_snapshot_exports(root)?;
     cleanup_shared_coordination_mirror_exports(root)?;
-    if let Some(coordination_revision) = coordination_revision {
-        sync_coordination_materialization_status(root, coordination_revision, publish)?;
-    }
+    remove_file_if_exists(&snapshot_indexes_dir(root).join("coordination_materialization.json"))?;
     refresh_manifest(root, publish)
 }
 
@@ -643,23 +633,6 @@ fn cleanup_shared_coordination_mirror_exports(root: &Path) -> Result<()> {
     remove_dir_if_empty(&snapshot_coordination_artifacts_dir(root))?;
     remove_dir_if_empty(&snapshot_root(root).join("coordination"))?;
     Ok(())
-}
-
-fn sync_coordination_materialization_status(
-    root: &Path,
-    coordination_revision: u64,
-    publish: Option<&TrackedSnapshotPublishContext>,
-) -> Result<()> {
-    let materialized_at = publish
-        .map(|ctx| ctx.published_at)
-        .unwrap_or_else(now_epoch_seconds);
-    write_json_file(
-        &snapshot_indexes_dir(root).join("coordination_materialization.json"),
-        &TrackedCoordinationMaterializationStatus {
-            coordination_revision,
-            materialized_at,
-        },
-    )
 }
 
 fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>) -> Result<()> {

@@ -144,7 +144,7 @@ Authority planes:
 
 Projection classes:
 
-* published projections: deterministic committed artifacts such as `PRISM.md` and `docs/prism/*`
+* exported projections: deterministic on-demand artifacts such as `PRISM.md` and `docs/prism/*`
 * serving projections: bounded read models for MCP, CLI, IDE, dashboards, and query/runtime
   surfaces
 * ad hoc projections: parameterized historical, diff, audit, or time-scoped views requested on
@@ -156,8 +156,8 @@ Rules:
 * projections may read from published repo authority, shared runtime authority, or both
 * projections must surface freshness or materialization state when it affects trust in the answer
 * persisted projection accelerators remain derived and rebuildable, not hidden write authority
-* published projection artifacts are committed because they are useful interfaces, not because they
-  replace the underlying snapshot authority format
+* exported projection artifacts are useful interfaces, but they remain derived and optional; they
+  do not replace the underlying snapshot authority format
 
 Tracked `.prism` is no longer the repo-committed operational ledger.
 

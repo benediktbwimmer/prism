@@ -3951,17 +3951,6 @@ impl QueryHost {
             &flush_result,
         );
         flush_result?;
-
-        let prism_doc_started = std::time::Instant::now();
-        let prism_doc_result = workspace.sync_prism_doc();
-        record_optional_trace_result(
-            trace,
-            "mutation.gitExecution.syncPrismDoc",
-            json!({ "taskId": task_id.0.as_str() }),
-            prism_doc_started,
-            &prism_doc_result,
-        );
-        prism_doc_result?;
         Ok(())
     }
 

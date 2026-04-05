@@ -231,7 +231,7 @@ graph TD
         C --> F{"Projection layer"}
         D --> F
         E --> F
-        F --> G["Published projections (PRISM.md, docs/prism/*)"]
+        F --> G["Exported projections (PRISM.md, docs/prism/*)"]
         F --> H["Serving projections (MCP, IDE, dashboard, compact tools)"]
         F --> I["Ad hoc projections (time-travel, diffs, audits)"]
     end
@@ -239,18 +239,19 @@ graph TD
 
 ## What This Means in Practice
 
-### Published Projections: Living Docs
+### Exported Projections: Living Docs
 
-The repo should continue generating concise and expanded markdown views from published PRISM
-knowledge so a reviewer can browse architecture, contracts, and relations directly in GitHub.
+PRISM should continue generating concise and expanded markdown views from published PRISM
+knowledge so a reviewer can browse architecture, contracts, and relations directly when an export
+is requested.
 
-This is already the pattern used by:
+This is the pattern produced by `prism docs export --output-dir <dir>`:
 
 - `PRISM.md`
 - `docs/prism/*`
 
-The key design stance is that these files are committed projections of published knowledge, not
-hand-authored canonical specs.
+The key design stance is that these files are derived exports of published knowledge, not
+hand-authored canonical specs and not automatically committed repo state.
 
 Every generated materialization should carry source metadata such as:
 

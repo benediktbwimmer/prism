@@ -48,7 +48,7 @@ use crate::shared_coordination_ref::{
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::shared_runtime_store::SharedRuntimeStore;
-use crate::util::{cache_path, current_timestamp, is_generated_projection_relative_path};
+use crate::util::{cache_path, current_timestamp};
 use crate::workspace_identity::{
     coordination_persist_context_for_root, workspace_identity_for_root,
 };
@@ -1402,10 +1402,6 @@ fn is_ignored_watch_relative_path(relative: &Path) -> bool {
         return false;
     }
 
-    if is_generated_projection_relative_path(relative) {
-        return true;
-    }
-
     if components.iter().any(|component| {
         matches!(
             component.as_str(),
@@ -1472,10 +1468,10 @@ mod tests {
 
     #[test]
     fn ignored_watch_paths_skip_generated_benchmark_results() {
-        assert!(is_ignored_watch_relative_path(
+        assert!(!is_ignored_watch_relative_path(
             PathBuf::from("PRISM.md").as_path()
         ));
-        assert!(is_ignored_watch_relative_path(
+        assert!(!is_ignored_watch_relative_path(
             PathBuf::from("docs/prism/plans/index.md").as_path()
         ));
         assert!(is_ignored_watch_relative_path(
@@ -1512,7 +1508,14 @@ mod tests {
         };
 
         let paths = relevant_watch_paths(&root, &event);
-        assert_eq!(paths, vec![root.join("crates/prism-core/src/watch.rs")]);
+        assert_eq!(
+            paths,
+            vec![
+                root.join("PRISM.md"),
+                root.join("docs/prism/plans/index.md"),
+                root.join("crates/prism-core/src/watch.rs"),
+            ]
+        );
     }
 
     #[test]

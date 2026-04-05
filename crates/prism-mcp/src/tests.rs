@@ -1244,12 +1244,13 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
     );
     assert_eq!(task.git_execution.review_artifact_ref, None);
     assert_eq!(task.git_execution.integration_commit, None);
-    assert!(task
-        .git_execution
-        .last_publish
-        .as_ref()
-        .and_then(|publish| publish.coordination_commit.as_ref())
-        .is_some());
+    assert_eq!(
+        task.git_execution
+            .last_publish
+            .as_ref()
+            .and_then(|publish| publish.coordination_commit.as_deref()),
+        None
+    );
     assert_eq!(
         task.git_execution.publish_commit.as_deref(),
         task.git_execution
@@ -1267,11 +1268,7 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
         .git_execution
         .last_publish
         .as_ref()
-        .map(
-            |publish| publish.staged_paths.iter().all(|path| path == "PRISM.md"
-                || path.starts_with(".prism/")
-                || path.starts_with("docs/prism/"))
-        )
+        .map(|publish| publish.staged_paths.is_empty())
         .unwrap_or(false));
     if let Some(workspace) = host.workspace_session() {
         workspace.flush_materializations().unwrap();
@@ -1432,7 +1429,6 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
         .and_then(|phase| phase.args_summary.as_ref())
         .is_some_and(|args| args["suppressed"] == Value::Bool(true)));
     assert!(operations.contains(&"mutation.gitExecution.flushMaterializations"));
-    assert!(operations.contains(&"mutation.gitExecution.syncPrismDoc"));
     assert!(operations.contains(&"mutation.gitExecution.syncSessionAfter"));
     assert!(operations.contains(&"mutation.gitExecution.persistSessionSeed"));
     let authoritative_step = operations
@@ -1443,12 +1439,7 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
         .iter()
         .position(|operation| *operation == "mutation.gitExecution.flushMaterializations")
         .expect("workflow-boundary materialization flush should be traced");
-    let sync_prism_doc = operations
-        .iter()
-        .position(|operation| *operation == "mutation.gitExecution.syncPrismDoc")
-        .expect("workflow-boundary PRISM doc sync should be traced");
     assert!(authoritative_step < flush_materializations);
-    assert!(flush_materializations < sync_prism_doc);
     assert!(!operations.contains(&"mutation.publishTaskUpdate.buildSnapshot"));
     assert!(!operations.contains(&"mutation.publishCoordinationUpdate"));
 }

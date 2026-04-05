@@ -72,7 +72,10 @@ use crate::memory_events::{append_repo_memory_event, filter_memory_events};
 use crate::mutation_trace;
 use crate::observed_change_tracker::SharedObservedChangeTracker;
 use crate::outcome_backend::StoreOutcomeReadBackend;
-use crate::prism_doc::{sync_repo_prism_doc_with_plan_state, PrismDocSyncResult};
+use crate::prism_doc::{
+    bundle_prism_doc_export, export_repo_prism_doc_with_plan_state, PrismDocBundleFormat,
+    PrismDocExportResult,
+};
 use crate::projection_hydration::persisted_projection_load_plan;
 use crate::protected_state::runtime_sync::{
     load_repo_protected_knowledge, load_repo_protected_plan_state, sync_repo_protected_state,
@@ -966,7 +969,11 @@ impl WorkspaceSession {
             .store(workspace_revision, Ordering::Relaxed);
     }
 
-    pub fn sync_prism_doc(&self) -> Result<PrismDocSyncResult> {
+    pub fn export_prism_docs(
+        &self,
+        output_root: &Path,
+        bundle: Option<PrismDocBundleFormat>,
+    ) -> Result<PrismDocExportResult> {
         let prism = self.prism_arc();
         let concepts = prism.curated_concepts_snapshot();
         let relations = prism.concept_relations_snapshot();
@@ -978,9 +985,18 @@ impl WorkspaceSession {
                 plan_graphs: prism.authored_plan_graphs(),
                 execution_overlays: prism.plan_execution_overlays_by_plan(),
             });
-        sync_repo_prism_doc_with_plan_state(
-            &self.root, &concepts, &relations, &contracts, plan_state,
-        )
+        let sync = export_repo_prism_doc_with_plan_state(
+            &self.root,
+            output_root,
+            &concepts,
+            &relations,
+            &contracts,
+            plan_state,
+        )?;
+        let bundle = bundle
+            .map(|format| bundle_prism_doc_export(output_root, &sync.files, format))
+            .transpose()?;
+        Ok(PrismDocExportResult { sync, bundle })
     }
 
     pub fn refresh_fs(&self) -> Result<Vec<ObservedChangeSet>> {

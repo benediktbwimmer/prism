@@ -97,11 +97,8 @@ pub(crate) fn handle_protected_state_command(
             }
         }
         ProtectedStateCommand::RepairSnapshotArtifacts => {
-            let sync = regenerate_repo_snapshot_derived_artifacts(root)?;
+            regenerate_repo_snapshot_derived_artifacts(root)?;
             println!("regenerated snapshot-derived PRISM artifacts");
-            for file in sync.files {
-                println!("{}", file.path.display());
-            }
         }
         ProtectedStateCommand::RepairPathIdentity { check } => {
             let report = if check {

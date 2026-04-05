@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -110,6 +110,10 @@ fn background_worker_test_guard() -> MutexGuard<'static, ()> {
 
 fn flush_coordination_materializations(session: &crate::session::WorkspaceSession) {
     session.flush_materializations().unwrap();
+}
+
+fn prism_doc_export_root(root: &Path) -> PathBuf {
+    root.join("exported-prism-docs")
 }
 
 fn load_hydrated_plan_state_from_runtime_store(
@@ -1471,9 +1475,10 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
     assert!(changed_symbols
         .iter()
         .all(|symbol| symbol["filePath"].as_str() == Some("src/lib.rs")));
-    session.sync_prism_doc().unwrap();
+    let export_root = prism_doc_export_root(&root);
+    session.export_prism_docs(&export_root, None).unwrap();
     assert!(
-        !root.join("docs/prism/changes.md").exists(),
+        !export_root.join("docs/prism/changes.md").exists(),
         "tracked repo docs should not publish operational change history"
     );
 
@@ -4478,22 +4483,24 @@ fn repo_concept_events_require_explicit_prism_doc_sync() {
         })
         .unwrap();
 
-    assert!(!root.join("PRISM.md").exists());
-    assert!(!root.join("docs/prism/concepts.md").exists());
-    assert!(!root.join("docs/prism/relations.md").exists());
-    assert!(!root.join("docs/prism/contracts.md").exists());
-    assert!(!root.join("docs/prism/memory.md").exists());
-    assert!(!root.join("docs/prism/plans/index.md").exists());
+    let export_root = prism_doc_export_root(&root);
+    assert!(!export_root.join("PRISM.md").exists());
+    assert!(!export_root.join("docs/prism/concepts.md").exists());
+    assert!(!export_root.join("docs/prism/relations.md").exists());
+    assert!(!export_root.join("docs/prism/contracts.md").exists());
+    assert!(!export_root.join("docs/prism/memory.md").exists());
+    assert!(!export_root.join("docs/prism/plans/index.md").exists());
 
-    let sync = session.sync_prism_doc().unwrap();
-    assert_eq!(sync.status, PrismDocSyncStatus::Updated);
+    let export = session.export_prism_docs(&export_root, None).unwrap();
+    assert!(export.bundle.is_none());
+    assert_eq!(export.sync.status, PrismDocSyncStatus::Updated);
 
-    let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
-    let concepts_doc = fs::read_to_string(root.join("docs/prism/concepts.md")).unwrap();
-    let relations_doc = fs::read_to_string(root.join("docs/prism/relations.md")).unwrap();
-    let contracts_doc = fs::read_to_string(root.join("docs/prism/contracts.md")).unwrap();
-    let memory_doc = fs::read_to_string(root.join("docs/prism/memory.md")).unwrap();
-    let plans_doc = fs::read_to_string(root.join("docs/prism/plans/index.md")).unwrap();
+    let prism_doc = fs::read_to_string(export_root.join("PRISM.md")).unwrap();
+    let concepts_doc = fs::read_to_string(export_root.join("docs/prism/concepts.md")).unwrap();
+    let relations_doc = fs::read_to_string(export_root.join("docs/prism/relations.md")).unwrap();
+    let contracts_doc = fs::read_to_string(export_root.join("docs/prism/contracts.md")).unwrap();
+    let memory_doc = fs::read_to_string(export_root.join("docs/prism/memory.md")).unwrap();
+    let plans_doc = fs::read_to_string(export_root.join("docs/prism/plans/index.md")).unwrap();
     assert!(prism_doc.contains("# PRISM"));
     assert!(prism_doc.contains("## Projection Metadata"));
     assert!(prism_doc.contains("- Projection class: `published`"));
@@ -4523,12 +4530,13 @@ fn repo_concept_events_require_explicit_prism_doc_sync() {
     assert!(contracts_doc.contains("No active repo-scoped contracts are currently published."));
     assert!(memory_doc.contains("# PRISM Memory"));
     assert!(memory_doc.contains("No active repo-scoped memories are currently published."));
-    assert!(!root.join("docs/prism/changes.md").exists());
+    assert!(!export_root.join("docs/prism/changes.md").exists());
     assert!(plans_doc.contains("# PRISM Plans"));
     assert!(plans_doc.contains("No repo-scoped plans are currently published."));
 
-    let sync = session.sync_prism_doc().unwrap();
-    assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
+    let export = session.export_prism_docs(&export_root, None).unwrap();
+    assert!(export.bundle.is_none());
+    assert_eq!(export.sync.status, PrismDocSyncStatus::Unchanged);
 
     let _ = fs::remove_dir_all(root);
 }
@@ -4649,14 +4657,16 @@ fn repo_concept_relations_require_explicit_prism_doc_sync() {
         })
         .unwrap();
 
-    assert!(!root.join("PRISM.md").exists());
-    assert!(!root.join("docs/prism/relations.md").exists());
+    let export_root = prism_doc_export_root(&root);
+    assert!(!export_root.join("PRISM.md").exists());
+    assert!(!export_root.join("docs/prism/relations.md").exists());
 
-    let sync = session.sync_prism_doc().unwrap();
-    assert_eq!(sync.status, PrismDocSyncStatus::Updated);
+    let export = session.export_prism_docs(&export_root, None).unwrap();
+    assert!(export.bundle.is_none());
+    assert_eq!(export.sync.status, PrismDocSyncStatus::Updated);
 
-    let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
-    let relations_doc = fs::read_to_string(root.join("docs/prism/relations.md")).unwrap();
+    let prism_doc = fs::read_to_string(export_root.join("PRISM.md")).unwrap();
+    let relations_doc = fs::read_to_string(export_root.join("docs/prism/relations.md")).unwrap();
     assert!(prism_doc.contains("- Active repo concepts: 2"));
     assert!(prism_doc.contains("- Active repo relations: 1"));
     assert!(prism_doc.contains("## Generated Docs"));
@@ -4666,8 +4676,9 @@ fn repo_concept_relations_require_explicit_prism_doc_sync() {
     assert!(relations_doc.contains("depends on: `beta_system` (`concept://beta_system`)"));
     assert!(relations_doc.contains("confidence 0.88"));
 
-    let sync = session.sync_prism_doc().unwrap();
-    assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
+    let export = session.export_prism_docs(&export_root, None).unwrap();
+    assert!(export.bundle.is_none());
+    assert_eq!(export.sync.status, PrismDocSyncStatus::Unchanged);
 
     let _ = fs::remove_dir_all(root);
 }
@@ -4755,14 +4766,16 @@ fn repo_contract_events_require_explicit_prism_doc_sync() {
         })
         .unwrap();
 
-    assert!(!root.join("PRISM.md").exists());
-    assert!(!root.join("docs/prism/contracts.md").exists());
+    let export_root = prism_doc_export_root(&root);
+    assert!(!export_root.join("PRISM.md").exists());
+    assert!(!export_root.join("docs/prism/contracts.md").exists());
 
-    let sync = session.sync_prism_doc().unwrap();
-    assert_eq!(sync.status, PrismDocSyncStatus::Updated);
+    let export = session.export_prism_docs(&export_root, None).unwrap();
+    assert!(export.bundle.is_none());
+    assert_eq!(export.sync.status, PrismDocSyncStatus::Updated);
 
-    let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
-    let contracts_doc = fs::read_to_string(root.join("docs/prism/contracts.md")).unwrap();
+    let prism_doc = fs::read_to_string(export_root.join("PRISM.md")).unwrap();
+    let contracts_doc = fs::read_to_string(export_root.join("docs/prism/contracts.md")).unwrap();
     assert!(prism_doc.contains("- Active repo contracts: 1"));
     assert!(prism_doc.contains("docs/prism/contracts.md"));
     assert!(contracts_doc.contains("# PRISM Contracts"));
@@ -4788,8 +4801,9 @@ fn repo_contract_events_require_explicit_prism_doc_sync() {
     assert!(contracts_doc.contains("### Evidence"));
     assert!(contracts_doc.contains("Promoted from repo curation."));
 
-    let sync = session.sync_prism_doc().unwrap();
-    assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
+    let export = session.export_prism_docs(&export_root, None).unwrap();
+    assert!(export.bundle.is_none());
+    assert_eq!(export.sync.status, PrismDocSyncStatus::Unchanged);
 
     let _ = fs::remove_dir_all(root);
 }
@@ -4845,14 +4859,16 @@ fn repo_memory_events_require_explicit_prism_doc_sync() {
         ))
         .unwrap();
 
-    assert!(!root.join("PRISM.md").exists());
-    assert!(!root.join("docs/prism/memory.md").exists());
+    let export_root = prism_doc_export_root(&root);
+    assert!(!export_root.join("PRISM.md").exists());
+    assert!(!export_root.join("docs/prism/memory.md").exists());
 
-    let sync = session.sync_prism_doc().unwrap();
-    assert_eq!(sync.status, PrismDocSyncStatus::Updated);
+    let export = session.export_prism_docs(&export_root, None).unwrap();
+    assert!(export.bundle.is_none());
+    assert_eq!(export.sync.status, PrismDocSyncStatus::Updated);
 
-    let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
-    let memory_doc = fs::read_to_string(root.join("docs/prism/memory.md")).unwrap();
+    let prism_doc = fs::read_to_string(export_root.join("PRISM.md")).unwrap();
+    let memory_doc = fs::read_to_string(export_root.join("docs/prism/memory.md")).unwrap();
     assert!(prism_doc.contains("- Active repo memories: 1"));
     assert!(prism_doc.contains("docs/prism/memory.md"));
     assert!(memory_doc.contains("# PRISM Memory"));
@@ -4860,8 +4876,9 @@ fn repo_memory_events_require_explicit_prism_doc_sync() {
     assert!(memory_doc.contains("Alpha ownership is published repo memory for generated docs."));
     assert!(memory_doc.contains("kind: `repo_memory_prism_doc`"));
 
-    let sync = session.sync_prism_doc().unwrap();
-    assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
+    let export = session.export_prism_docs(&export_root, None).unwrap();
+    assert!(export.bundle.is_none());
+    assert_eq!(export.sync.status, PrismDocSyncStatus::Unchanged);
 
     let _ = fs::remove_dir_all(root);
 }
@@ -4914,15 +4931,17 @@ fn repo_plan_events_require_explicit_prism_doc_sync() {
     assert!(!root.join(".prism/plans/index.jsonl").exists());
     assert!(!root.join(".prism/plans/active").exists());
     assert!(!root.join(".prism/state/plans").exists());
-    assert!(!root.join("PRISM.md").exists());
-    assert!(!root.join("docs/prism/plans/index.md").exists());
+    let export_root = prism_doc_export_root(&root);
+    assert!(!export_root.join("PRISM.md").exists());
+    assert!(!export_root.join("docs/prism/plans/index.md").exists());
 
-    let sync = session.sync_prism_doc().unwrap();
-    assert_eq!(sync.status, PrismDocSyncStatus::Updated);
+    let export = session.export_prism_docs(&export_root, None).unwrap();
+    assert!(export.bundle.is_none());
+    assert_eq!(export.sync.status, PrismDocSyncStatus::Updated);
 
-    let prism_doc_path = root.join("PRISM.md");
-    let plans_doc_path = root.join("docs/prism/plans/index.md");
-    let active_plans_dir = root.join("docs/prism/plans/active");
+    let prism_doc_path = export_root.join("PRISM.md");
+    let plans_doc_path = export_root.join("docs/prism/plans/index.md");
+    let active_plans_dir = export_root.join("docs/prism/plans/active");
     let prism_doc = fs::read_to_string(&prism_doc_path).unwrap();
     let plans_doc = fs::read_to_string(&plans_doc_path).unwrap();
     assert!(prism_doc.contains("- Published plans: 1"));
@@ -4954,8 +4973,39 @@ fn repo_plan_events_require_explicit_prism_doc_sync() {
         "- Branch-local tracked `.prism/state/plans/**` export: disabled; plans no longer mirror into tracked repo snapshot state"
     ));
 
-    let sync = session.sync_prism_doc().unwrap();
-    assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
+    let export = session.export_prism_docs(&export_root, None).unwrap();
+    assert!(export.bundle.is_none());
+    assert_eq!(export.sync.status, PrismDocSyncStatus::Unchanged);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn prism_doc_export_can_emit_zip_bundle() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let export_root = prism_doc_export_root(&root);
+    let export = session
+        .export_prism_docs(&export_root, Some(crate::PrismDocBundleFormat::Zip))
+        .unwrap();
+    let bundle = export.bundle.expect("zip bundle should be created");
+    assert!(bundle.path.exists());
+
+    let file = fs::File::open(&bundle.path).unwrap();
+    let mut archive = zip::ZipArchive::new(file).unwrap();
+    let names = (0..archive.len())
+        .map(|index| archive.by_index(index).unwrap().name().to_string())
+        .collect::<Vec<_>>();
+    assert!(names.contains(&"PRISM.md".to_string()));
+    assert!(names.contains(&"docs/prism/plans/index.md".to_string()));
 
     let _ = fs::remove_dir_all(root);
 }
@@ -4983,8 +5033,9 @@ fn source_refresh_does_not_auto_sync_prism_doc() {
     assert_ne!(outcome.status, crate::session::FsRefreshStatus::Clean);
     std::thread::sleep(Duration::from_millis(300));
 
-    assert!(!root.join("PRISM.md").exists());
-    assert!(!root.join("docs/prism/plans/index.md").exists());
+    let export_root = prism_doc_export_root(&root);
+    assert!(!export_root.join("PRISM.md").exists());
+    assert!(!export_root.join("docs/prism/plans/index.md").exists());
 
     let _ = fs::remove_dir_all(root);
 }
@@ -5029,8 +5080,9 @@ fn automatic_prism_doc_sync_is_skipped_on_main_branch() {
 
     std::thread::sleep(Duration::from_millis(300));
 
-    assert!(!root.join("PRISM.md").exists());
-    assert!(!root.join("docs/prism/plans/index.md").exists());
+    let export_root = prism_doc_export_root(&root);
+    assert!(!export_root.join("PRISM.md").exists());
+    assert!(!export_root.join("docs/prism/plans/index.md").exists());
 
     let _ = fs::remove_dir_all(root);
 }
@@ -5659,18 +5711,9 @@ fn repo_plan_state_requires_sqlite_or_shared_ref_authority() {
             .exists(),
         "tracked snapshot authority should not emit a legacy plan log"
     );
-    let manifest_contents = fs::read_to_string(root.join(".prism/state/manifest.json")).unwrap();
     assert!(
-        !manifest_contents.contains("session:published-plan"),
-        "tracked snapshot manifests should not persist runtime session ids"
-    );
-    assert!(
-        !manifest_contents.contains("worktree:published-plan"),
-        "tracked snapshot manifests should not persist runtime worktree ids"
-    );
-    assert!(
-        !manifest_contents.contains("refs/heads/published-plan"),
-        "tracked snapshot manifests should not persist runtime branch refs"
+        !root.join(".prism/state/manifest.json").exists(),
+        "coordination publication alone should not emit tracked snapshot manifests"
     );
 
     drop(session);
@@ -5692,7 +5735,7 @@ fn repo_plan_state_requires_sqlite_or_shared_ref_authority() {
 }
 
 #[test]
-fn repo_published_plans_write_tracked_snapshot_manifest() {
+fn repo_published_plans_do_not_write_tracked_snapshot_manifest() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -5777,33 +5820,10 @@ fn repo_published_plans_write_tracked_snapshot_manifest() {
 
     assert!(!root.join(".prism/state/plans").exists());
     assert!(!root.join(".prism/state/coordination/tasks").exists());
-
-    let manifest: serde_json::Value =
-        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
-            .unwrap();
-    assert_eq!(manifest["publisher"]["principalId"], "codex-plan");
-    assert_eq!(
-        manifest["workContext"]["workId"],
-        "work:tracked-snapshot-plan"
+    assert!(
+        !root.join(".prism/state/manifest.json").exists(),
+        "plan publication should not emit tracked snapshot manifests anymore"
     );
-    assert_eq!(
-        manifest["publishSummary"]["title"],
-        "Publish tracked plan snapshot"
-    );
-    assert_eq!(
-        manifest["publishSummary"]["summary"],
-        "Persist published plan state into tracked snapshot shards."
-    );
-    assert!(manifest["migrationSourceDigest"].is_null());
-    let manifest_files = manifest["files"]
-        .as_object()
-        .expect("snapshot manifest files should be an object");
-    assert!(!manifest_files
-        .keys()
-        .any(|path| path.starts_with(".prism/state/plans/")));
-    assert!(!manifest_files
-        .keys()
-        .any(|path| path.starts_with(".prism/state/coordination/")));
 
     let _ = fs::remove_dir_all(root);
 }
@@ -6778,13 +6798,11 @@ fn coordination_session_materializes_read_models_off_request_path() {
         .expect("persisted coordination queue model should materialize after flush");
     assert!(persisted_queue_model.pending_handoff_tasks.is_empty());
     assert_eq!(persisted_queue_model.revision, authoritative_revision);
-    let tracked_snapshot_status =
+    assert!(
         crate::tracked_snapshot::load_tracked_coordination_materialization_status(&root)
             .unwrap()
-            .expect("tracked snapshot materialization status should materialize after flush");
-    assert_eq!(
-        tracked_snapshot_status.coordination_revision,
-        authoritative_revision
+            .is_none(),
+        "coordination materialization should no longer write tracked snapshot revision state"
     );
 
     let _ = fs::remove_dir_all(root);
@@ -7632,6 +7650,14 @@ fn regenerate_repo_published_plan_artifacts_removes_legacy_plan_artifacts_when_s
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
     let _plan_id = session
         .mutate_coordination(|prism| {
             prism.create_native_plan(
@@ -7651,6 +7677,35 @@ fn regenerate_repo_published_plan_artifacts_removes_legacy_plan_artifacts_when_s
         })
         .unwrap();
     flush_coordination_materializations(&session);
+    let mut entry = MemoryEntry::new(
+        MemoryKind::Structural,
+        "Seed tracked snapshot authority for artifact cleanup.",
+    );
+    entry.id = MemoryId("memory:regen-plan-authority".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::User;
+    entry.trust = 0.9;
+    entry.metadata = json!({
+        "provenance": {
+            "origin": "test",
+            "kind": "regen_plan_authority",
+        },
+        "publication": {
+            "publishedAt": 1,
+            "lastReviewedAt": 1,
+            "status": "active",
+        }
+    });
+    session
+        .append_memory_event(MemoryEvent::from_entry(
+            MemoryEventKind::Promoted,
+            entry,
+            Some("task:regen-plan".to_string()),
+            Vec::new(),
+            Vec::new(),
+        ))
+        .unwrap();
     drop(session);
 
     let stream_path = root.join(".prism/plans/streams/managed.jsonl");

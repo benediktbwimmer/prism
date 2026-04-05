@@ -1810,12 +1810,10 @@ mod tests {
     #[test]
     fn parse_process_snapshot_reads_ps_layout() {
         let root = temp_root("parse-process-snapshot");
-        let snapshot = parse_process_snapshot(
-            &format!(
-                "33725     1 1006400    05:04 {} --mode daemon --daemonize",
-                root.join("target/release/prism-mcp").display()
-            ),
-        )
+        let snapshot = parse_process_snapshot(&format!(
+            "33725     1 1006400    05:04 {} --mode daemon --daemonize",
+            root.join("target/release/prism-mcp").display()
+        ))
         .expect("ps snapshot should parse");
 
         assert_eq!(snapshot.pid, 33725);

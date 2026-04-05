@@ -33,6 +33,7 @@ anyhow = "1.0"
 base64 = "0.22.1"
 clap = { version = "4.5", features = ["derive"] }
 ed25519-dalek = { version = "2.1.1", features = ["rand_core"] }
+flate2 = "1.1"
 ignore = "0.4"
 notify = "8.2"
 rand = "0.8"
@@ -45,9 +46,11 @@ serde_yaml = "0.9"
 sha2 = "0.10"
 smol_str = { version = "0.2", features = ["serde"] }
 toml = "0.8"
+tar = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 tree-sitter = "0.26"
 tree-sitter-python = "0.25.0"
 ulid = "1.2"
 walkdir = "2.5"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }

@@ -217,7 +217,10 @@ mod tests {
         assert_eq!(
             parsed_paths,
             (0..4)
-                .map(|index| root.join(format!("src/file_{index}.rs")).display().to_string())
+                .map(|index| root
+                    .join(format!("src/file_{index}.rs"))
+                    .display()
+                    .to_string())
                 .collect::<Vec<_>>()
         );
         if parsed.worker_count > 1 {

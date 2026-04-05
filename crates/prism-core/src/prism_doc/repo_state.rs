@@ -177,11 +177,11 @@ impl PlanDocBucket {
     }
 }
 
-pub(super) fn sync_repo_state_docs(
-    root: &Path,
+pub(super) fn export_repo_state_docs(
+    output_root: &Path,
     catalog: &RepoStateCatalog,
 ) -> Result<Vec<PrismDocFileSync>> {
-    let prism_docs_dir = root.join("docs").join("prism");
+    let prism_docs_dir = output_root.join("docs").join("prism");
     let plan_docs_dir = prism_docs_dir.join("plans");
     fs::create_dir_all(&plan_docs_dir)?;
 
@@ -203,11 +203,11 @@ pub(super) fn sync_repo_state_docs(
     for plan in &catalog.plans {
         expected_plan_docs.insert(plan.doc_path.clone());
         files.push(write_generated_file(
-            root.join(&plan.doc_path),
+            output_root.join(&plan.doc_path),
             render_plan_doc(plan),
         )?);
     }
-    remove_stale_plan_docs(root, &expected_plan_docs)?;
+    remove_stale_plan_docs(output_root, &expected_plan_docs)?;
 
     Ok(files)
 }
@@ -461,7 +461,7 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
         "- Branch-local tracked `.prism/state/plans/**` export: disabled; plans no longer mirror into tracked repo snapshot state\n",
     );
     markdown.push_str(
-        "- Manual markdown export path: `docs/prism/plans/**` only when `sync_prism_doc` or `repair-snapshot-artifacts` is invoked explicitly\n\n",
+        "- Manual markdown export path: `docs/prism/plans/**` only when `prism docs export --output-dir <dir>` is invoked explicitly\n\n",
     );
 
     if !plan.graph.root_nodes.is_empty() {

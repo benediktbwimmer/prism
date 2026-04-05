@@ -62,7 +62,7 @@ Record a **screen capture** (or a narrated walkthrough) of this workflow:
 1. Clone a fresh copy of a well-known repo.
 2. Start PRISM. Show the empty state.
 3. Run ~45 minutes of agent sessions that map the concepts and contracts. Show PRISM's state growing in real-time.
-4. Show the final `PRISM.md`. Let people read it and recognize their own architecture.
+4. Export the final PRISM docs bundle and show the generated `PRISM.md`. Let people read it and recognize their own architecture.
 5. Now give an agent a complex task. Show it orienting through the concept graph, following relations, reading contracts, and converging on the right edit target in 3-5 calls.
 6. Show the same task without PRISM for contrast.
 
@@ -96,7 +96,7 @@ That honesty will earn you more credibility than showing PRISM as a universal si
 
 When all of this is assembled, the story you tell is:
 
-> *"I cloned [famous repo]. I spent 45 minutes letting an agent map its architecture into PRISM concepts and contracts. After that one-time investment, every agent task against this repo was faster, cheaper, and more correct. Here are the numbers. Here's the video. Here's what the agents themselves said. And here's the PRISM.md that was auto-generated—a living architectural map that didn't exist before and will never go stale."*
+> *"I cloned [famous repo]. I spent 45 minutes letting an agent map its architecture into PRISM concepts and contracts. After that one-time investment, every agent task against this repo was faster, cheaper, and more correct. Here are the numbers. Here's the video. Here's what the agents themselves said. And here's the exported PRISM.md bundle—a living architectural map that didn't exist before and can be regenerated on demand."*
 
 That's not a benchmark result. That's a **product pitch** backed by evidence. And it's the kind of thing that gets shared on Hacker News, on the Rust subreddit, and in engineering Slack channels.
 

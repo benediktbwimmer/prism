@@ -2425,6 +2425,7 @@ mod tests {
     use crate::published_plans::load_hydrated_coordination_plan_state;
     use crate::tracked_snapshot::TrackedSnapshotPublishContext;
     use crate::util::current_timestamp;
+    use crate::workspace_identity::workspace_identity_for_root;
 
     static NEXT_TEMP_REPO: AtomicU64 = AtomicU64::new(0);
 
@@ -3482,14 +3483,23 @@ mod tests {
         .lines()
         .map(str::to_string)
         .collect::<BTreeSet<_>>();
-        assert_eq!(
-            changed_paths,
-            BTreeSet::from([
-                "coordination/manifest.json".to_string(),
-                expected_plan_path.clone(),
-                expected_task_path.clone(),
-            ]),
-            "live shared-ref publish should only commit the changed task payload, its containing plan record, and the manifest"
+        let base_changed_paths = BTreeSet::from([
+            "coordination/manifest.json".to_string(),
+            expected_plan_path.clone(),
+            expected_task_path.clone(),
+        ]);
+        let changed_paths_with_runtime = BTreeSet::from([
+            format!(
+                "coordination/coordination/runtimes/{}",
+                super::snapshot_file_name(&workspace_identity_for_root(&root).worktree_id)
+            ),
+            "coordination/manifest.json".to_string(),
+            expected_plan_path.clone(),
+            expected_task_path.clone(),
+        ]);
+        assert!(
+            changed_paths == base_changed_paths || changed_paths == changed_paths_with_runtime,
+            "live shared-ref publish should only commit the changed task payload, its containing plan record, the manifest, and optionally the runtime descriptor; saw {changed_paths:?}"
         );
 
         let loaded = load_shared_coordination_ref_state(&root)
