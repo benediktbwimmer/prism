@@ -80,6 +80,7 @@ mod resources;
 mod runtime_state;
 mod runtime_views;
 mod schema_examples;
+mod self_description;
 mod semantic_contexts;
 mod server_surface;
 mod serving_projection_models;
@@ -140,6 +141,7 @@ use resource_schemas::*;
 use resources::*;
 use runtime_state::*;
 use schema_examples::*;
+use self_description::*;
 use semantic_contexts::*;
 use session_seed::{
     load_session_seed, persist_session_seed, restore_session_seed, PersistedSessionSeed,
@@ -191,6 +193,27 @@ const SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/{resourceKind}";
 const TOOL_SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/tool/{toolName}";
 const TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI: &str =
     "prism://schema/tool/{toolName}/action/{action}";
+const TOOL_VARIANT_SCHEMA_RESOURCE_TEMPLATE_URI: &str =
+    "prism://schema/tool/{toolName}/action/{action}/variant/{tag}";
+const TOOL_EXAMPLE_RESOURCE_TEMPLATE_URI: &str = "prism://example/tool/{toolName}";
+const TOOL_ACTION_EXAMPLE_RESOURCE_TEMPLATE_URI: &str =
+    "prism://example/tool/{toolName}/action/{action}";
+const TOOL_VARIANT_EXAMPLE_RESOURCE_TEMPLATE_URI: &str =
+    "prism://example/tool/{toolName}/action/{action}/variant/{tag}";
+const TOOL_SHAPE_RESOURCE_TEMPLATE_URI: &str = "prism://shape/tool/{toolName}";
+const TOOL_ACTION_SHAPE_RESOURCE_TEMPLATE_URI: &str =
+    "prism://shape/tool/{toolName}/action/{action}";
+const TOOL_VARIANT_SHAPE_RESOURCE_TEMPLATE_URI: &str =
+    "prism://shape/tool/{toolName}/action/{action}/variant/{tag}";
+const RESOURCE_EXAMPLE_RESOURCE_TEMPLATE_URI: &str = "prism://example/resource/{resourceKind}";
+const RESOURCE_SHAPE_RESOURCE_TEMPLATE_URI: &str = "prism://shape/resource/{resourceKind}";
+const TOOL_ACTION_RECIPE_RESOURCE_TEMPLATE_URI: &str =
+    "prism://recipe/tool/{toolName}/action/{action}";
+const TOOL_VARIANT_RECIPE_RESOURCE_TEMPLATE_URI: &str =
+    "prism://recipe/tool/{toolName}/action/{action}/variant/{tag}";
+const CAPABILITIES_SECTION_RESOURCE_TEMPLATE_URI: &str = "prism://capabilities/{section}";
+const VOCAB_ENTRY_RESOURCE_TEMPLATE_URI: &str = "prism://vocab/{key}";
+const SELF_DESCRIPTION_AUDIT_URI: &str = "prism://self-description";
 #[cfg(test)]
 fn default_query_worker_pool() -> JsWorkerPool {
     JsWorkerPool::with_worker_count(1)

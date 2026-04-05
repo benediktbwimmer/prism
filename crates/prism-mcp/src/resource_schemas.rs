@@ -207,6 +207,7 @@ pub(crate) struct ResourceCapabilityView {
     pub(crate) description: String,
     pub(crate) schema_uri: Option<String>,
     pub(crate) example_uri: Option<String>,
+    pub(crate) shape_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -217,6 +218,7 @@ pub(crate) struct ResourceTemplateCapabilityView {
     pub(crate) mime_type: String,
     pub(crate) description: String,
     pub(crate) example_uri: Option<String>,
+    pub(crate) shape_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -226,6 +228,8 @@ pub(crate) struct ToolCapabilityView {
     pub(crate) description: String,
     pub(crate) schema_uri: String,
     pub(crate) example_input: Value,
+    pub(crate) example_uri: Option<String>,
+    pub(crate) shape_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -458,6 +462,7 @@ pub(crate) struct ResourceSchemaCatalogEntry {
     pub(crate) schema_uri: String,
     pub(crate) resource_uri: Option<String>,
     pub(crate) example_uri: Option<String>,
+    pub(crate) shape_uri: Option<String>,
     pub(crate) description: String,
 }
 
@@ -467,5 +472,165 @@ pub(crate) struct ResourceSchemaCatalogPayload {
     pub(crate) uri: String,
     pub(crate) schema_uri: String,
     pub(crate) schemas: Vec<ResourceSchemaCatalogEntry>,
+    pub(crate) related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ShapeFieldView {
+    pub(crate) name: String,
+    pub(crate) required: bool,
+    pub(crate) description: Option<String>,
+    pub(crate) types: Vec<String>,
+    pub(crate) enum_values: Vec<String>,
+    #[serde(default)]
+    pub(crate) nested_fields: Vec<ShapeFieldView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ToolVariantShapeView {
+    pub(crate) tag: String,
+    pub(crate) discriminator: String,
+    pub(crate) schema_uri: String,
+    pub(crate) example_uri: Option<String>,
+    pub(crate) shape_uri: String,
+    pub(crate) recipe_uri: Option<String>,
+    pub(crate) required_fields: Vec<String>,
+    pub(crate) optional_fields: Vec<String>,
+    pub(crate) fields: Vec<ShapeFieldView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ToolActionShapeView {
+    pub(crate) action: String,
+    pub(crate) schema_uri: String,
+    pub(crate) example_uri: Option<String>,
+    pub(crate) shape_uri: String,
+    pub(crate) recipe_uri: Option<String>,
+    pub(crate) description: Option<String>,
+    pub(crate) required_fields: Vec<String>,
+    pub(crate) optional_fields: Vec<String>,
+    pub(crate) fields: Vec<ShapeFieldView>,
+    pub(crate) payload_discriminator: Option<String>,
+    pub(crate) variants: Vec<ToolVariantShapeView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ToolShapeResourcePayload {
+    pub(crate) uri: String,
+    pub(crate) schema_uri: String,
+    pub(crate) tool_name: String,
+    pub(crate) tool_schema_uri: String,
+    pub(crate) example_uri: Option<String>,
+    pub(crate) description: String,
+    pub(crate) required_fields: Vec<String>,
+    pub(crate) optional_fields: Vec<String>,
+    pub(crate) fields: Vec<ShapeFieldView>,
+    pub(crate) actions: Vec<ToolActionShapeView>,
+    pub(crate) related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ToolExampleResourcePayload {
+    pub(crate) uri: String,
+    pub(crate) schema_uri: String,
+    pub(crate) tool_name: String,
+    pub(crate) action: Option<String>,
+    pub(crate) variant: Option<String>,
+    pub(crate) discriminator: Option<String>,
+    pub(crate) target_schema_uri: Option<String>,
+    pub(crate) shape_uri: Option<String>,
+    pub(crate) recipe_uri: Option<String>,
+    pub(crate) example: Value,
+    pub(crate) examples: Vec<Value>,
+    pub(crate) related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ResourceShapeResourcePayload {
+    pub(crate) uri: String,
+    pub(crate) schema_uri: String,
+    pub(crate) resource_kind: String,
+    pub(crate) resource_schema_uri: String,
+    pub(crate) example_uri: Option<String>,
+    pub(crate) description: String,
+    pub(crate) required_fields: Vec<String>,
+    pub(crate) optional_fields: Vec<String>,
+    pub(crate) fields: Vec<ShapeFieldView>,
+    pub(crate) related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ResourceExampleResourcePayload {
+    pub(crate) uri: String,
+    pub(crate) schema_uri: String,
+    pub(crate) resource_kind: String,
+    pub(crate) resource_schema_uri: String,
+    pub(crate) shape_uri: String,
+    pub(crate) example: Value,
+    pub(crate) related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CapabilitiesSectionResourcePayload {
+    pub(crate) uri: String,
+    pub(crate) schema_uri: String,
+    pub(crate) section: String,
+    pub(crate) value: Value,
+    pub(crate) related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct VocabularyEntryResourcePayload {
+    pub(crate) uri: String,
+    pub(crate) schema_uri: String,
+    pub(crate) key: String,
+    pub(crate) vocabulary: Value,
+    pub(crate) related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SelfDescriptionAuditEntry {
+    pub(crate) surface_kind: String,
+    pub(crate) name: String,
+    pub(crate) full_uri: Option<String>,
+    pub(crate) schema_uri: Option<String>,
+    pub(crate) example_uri: Option<String>,
+    pub(crate) shape_uri: Option<String>,
+    pub(crate) recipe_uri: Option<String>,
+    pub(crate) full_bytes: Option<usize>,
+    pub(crate) schema_bytes: Option<usize>,
+    pub(crate) example_bytes: Option<usize>,
+    pub(crate) shape_bytes: Option<usize>,
+    pub(crate) recipe_bytes: Option<usize>,
+    pub(crate) example_valid: Option<bool>,
+    #[serde(default)]
+    pub(crate) example_validation_issue_codes: Vec<String>,
+    pub(crate) source_free_operable: bool,
+    pub(crate) issues: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SelfDescriptionAuditPayload {
+    pub(crate) uri: String,
+    pub(crate) schema_uri: String,
+    pub(crate) budget_bytes: usize,
+    pub(crate) total_entries: usize,
+    pub(crate) oversize_entries: usize,
+    pub(crate) missing_companion_entries: usize,
+    pub(crate) missing_recipe_entries: usize,
+    pub(crate) invalid_example_entries: usize,
+    pub(crate) non_operable_entries: usize,
+    pub(crate) entries: Vec<SelfDescriptionAuditEntry>,
     pub(crate) related_resources: Vec<ResourceLinkView>,
 }

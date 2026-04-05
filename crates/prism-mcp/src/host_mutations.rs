@@ -75,16 +75,16 @@ use crate::{
     PrismArtifactArgs, PrismCheckpointArgs, PrismClaimArgs, PrismConceptLensInput,
     PrismConceptMutationArgs, PrismConceptRelationMutationArgs, PrismContractMutationArgs,
     PrismCoordinationArgs, PrismCuratorApplyProposalArgs, PrismCuratorPromoteConceptArgs,
-    PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs,
-    PrismCuratorRejectProposalArgs, PrismDeclareWorkArgs, PrismFinishTaskArgs,
-    PrismHeartbeatLeaseArgs, PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs,
-    PrismSessionRepairArgs, PrismValidationFeedbackArgs, QueryHost,
-    SessionRepairMutationResult, SessionRepairOperationInput, SessionRepairOperationSchema,
-    SessionState, SparsePatch, SparsePatchInput, TaskCompletionContextPayload, TaskCreatePayload,
-    TaskReclaimPayload, TaskResumePayload, ValidationFeedbackCategoryInput,
-    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput, WorkDeclarationKindInput,
-    WorkDeclarationResult, WorkflowStatusInput, WorkflowUpdatePayload,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs,
+    PrismDeclareWorkArgs, PrismFinishTaskArgs, PrismHeartbeatLeaseArgs, PrismInferEdgeArgs,
+    PrismMemoryArgs, PrismOutcomeArgs, PrismSessionRepairArgs, PrismValidationFeedbackArgs,
+    QueryHost, SessionRepairMutationResult, SessionRepairOperationInput,
+    SessionRepairOperationSchema, SessionState, SparsePatch, SparsePatchInput,
+    TaskCompletionContextPayload, TaskCreatePayload, TaskReclaimPayload, TaskResumePayload,
+    ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
+    ValidationFeedbackVerdictInput, WorkDeclarationKindInput, WorkDeclarationResult,
+    WorkflowStatusInput, WorkflowUpdatePayload, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
 fn record_optional_trace_phase(
@@ -4398,9 +4398,13 @@ impl QueryHost {
                 let nodes = bootstrap
                     .node_ids_by_client_id
                     .iter()
-                    .filter(|(client_id, _)| !bootstrap.task_ids_by_client_id.contains_key(*client_id))
-                    .map(|(client_id, node_id)| current_plan_node_state(prism, &bootstrap.plan_id, &node_id.0)
-                        .map(|state| state_with_client_id(client_id, state)))
+                    .filter(|(client_id, _)| {
+                        !bootstrap.task_ids_by_client_id.contains_key(*client_id)
+                    })
+                    .map(|(client_id, node_id)| {
+                        current_plan_node_state(prism, &bootstrap.plan_id, &node_id.0)
+                            .map(|state| state_with_client_id(client_id, state))
+                    })
                     .collect::<Result<Vec<_>>>()?;
                 let edges = bootstrap
                     .edges
@@ -4577,7 +4581,8 @@ impl QueryHost {
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
             CoordinationMutationKindInput::Update => {
-                let mut payload: WorkflowUpdatePayload = serde_json::from_value(args.payload.clone())?;
+                let mut payload: WorkflowUpdatePayload =
+                    serde_json::from_value(args.payload.clone())?;
                 if payload.completion_context.is_none() {
                     payload.completion_context = args
                         .payload

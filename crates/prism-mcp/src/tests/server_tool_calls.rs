@@ -4,15 +4,22 @@ use serde_json::{json, Value};
 use super::*;
 use crate::tests_support::{
     call_tool_request, demo_node, first_tool_content_json, initialize_client,
-    initialized_notification, mutation_credential_json, response_json, server_with_node,
-    temp_workspace, workspace_session_with_owner_credential,
+    initialized_notification, mutation_credential_json, read_resource_request, response_json,
+    server_with_node, temp_workspace, workspace_session_with_owner_credential,
 };
-use prism_core::{index_workspace_session, MintPrincipalRequest};
 use prism_coordination::TaskCreateInput;
+use prism_core::{index_workspace_session, MintPrincipalRequest};
 use prism_ir::{
     CoordinationTaskStatus, CredentialCapability, CredentialId, EventActor, EventId, EventMeta,
-    PrincipalActor, PrincipalId, PrincipalKind, PlanStatus, SessionId,
+    PlanStatus, PrincipalActor, PrincipalId, PrincipalKind, SessionId,
 };
+
+fn resource_text(response: serde_json::Value) -> String {
+    response["result"]["contents"][0]["text"]
+        .as_str()
+        .expect("resource should be text")
+        .to_string()
+}
 
 #[tokio::test]
 async fn mcp_server_reports_actionable_tool_input_errors() {
@@ -811,7 +818,10 @@ async fn mcp_server_resumes_stale_same_principal_task_before_follow_up_update() 
         resumed["result"]["state"]["id"],
         Value::from(task_id.0.to_string())
     );
-    assert_eq!(resumed["result"]["state"]["status"], Value::from("InProgress"));
+    assert_eq!(
+        resumed["result"]["state"]["status"],
+        Value::from("InProgress")
+    );
 
     client
         .send(call_tool_request(
@@ -1022,6 +1032,384 @@ async fn mcp_server_rejects_invalid_prism_mutate_credential() {
     assert_eq!(response["error"]["code"], -32602);
     let message = response["error"]["message"].as_str().unwrap_or_default();
     assert!(message.contains("credential rejected"), "{message}");
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_supports_mcp_only_self_described_workflows() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(read_resource_request(200, "prism://capabilities/tools"))
+        .await
+        .unwrap();
+    let tools = serde_json::from_str::<Value>(&resource_text(response_json(
+        client.receive().await.unwrap(),
+    )))
+    .unwrap();
+    assert!(tools["value"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|tool| tool["name"] == "prism_mutate"));
+
+    for (id, uri) in [
+        (
+            201_u64,
+            "prism://shape/tool/prism_mutate/action/declare_work",
+        ),
+        (
+            202,
+            "prism://shape/tool/prism_mutate/action/coordination/variant/plan_bootstrap",
+        ),
+        (
+            203,
+            "prism://shape/tool/prism_mutate/action/coordination/variant/update",
+        ),
+        (
+            204,
+            "prism://shape/tool/prism_mutate/action/claim/variant/acquire",
+        ),
+        (
+            205,
+            "prism://shape/tool/prism_mutate/action/artifact/variant/review",
+        ),
+        (
+            206,
+            "prism://shape/tool/prism_mutate/action/validation_feedback",
+        ),
+        (
+            207,
+            "prism://example/tool/prism_mutate/action/coordination/variant/plan_bootstrap",
+        ),
+        (
+            208,
+            "prism://recipe/tool/prism_mutate/action/coordination/variant/plan_bootstrap",
+        ),
+        (
+            209,
+            "prism://recipe/tool/prism_mutate/action/claim/variant/acquire",
+        ),
+        (
+            210,
+            "prism://recipe/tool/prism_mutate/action/artifact/variant/review",
+        ),
+    ] {
+        client.send(read_resource_request(id, uri)).await.unwrap();
+        let text = resource_text(response_json(client.receive().await.unwrap()));
+        assert!(!text.is_empty(), "{uri}");
+    }
+
+    client
+        .send(call_tool_request(
+            211,
+            "prism_mutate",
+            json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Exercise self-described MCP workflows",
+                    "summary": "Drive planning, coordination, claim, artifact, and feedback flows from discovery resources."
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let declared_work = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared_work["action"], Value::from("declare_work"));
+
+    let bootstrap_input = json!({
+        "action": "coordination",
+        "credential": mutation_credential_json(&credential),
+        "input": {
+            "kind": "plan_bootstrap",
+            "payload": {
+                "plan": {
+                    "title": "Self-described MCP workflow plan",
+                    "goal": "Validate source-free planning and execution flows"
+                },
+                "tasks": [{
+                    "clientId": "t0",
+                    "title": "Create reviewable state",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }]
+            }
+        }
+    });
+    client
+        .send(call_tool_request(
+            212,
+            "prism_query",
+            json!({
+                "code": format!(
+                    "return prism.validateToolInput(\"prism_mutate\", {});",
+                    bootstrap_input
+                )
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let bootstrap_validation = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(bootstrap_validation["result"]["valid"], Value::Bool(true));
+
+    client
+        .send(call_tool_request(
+            213,
+            "prism_mutate",
+            bootstrap_input
+                .as_object()
+                .expect("bootstrap input should be an object")
+                .clone(),
+        ))
+        .await
+        .unwrap();
+    let bootstrap = first_tool_content_json(client.receive().await.unwrap());
+    let task_id = bootstrap["result"]["state"]["taskIdsByClientId"]["t0"]
+        .as_str()
+        .expect("bootstrapped task id should exist")
+        .to_string();
+
+    let update_input = json!({
+        "action": "coordination",
+        "credential": mutation_credential_json(&credential),
+        "input": {
+            "kind": "update",
+            "payload": {
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }
+        }
+    });
+    client
+        .send(call_tool_request(
+            214,
+            "prism_query",
+            json!({
+                "code": format!(
+                    "return prism.validateToolInput(\"prism_mutate\", {});",
+                    update_input
+                )
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let update_validation = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(update_validation["result"]["valid"], Value::Bool(true));
+
+    client
+        .send(call_tool_request(
+            215,
+            "prism_mutate",
+            update_input
+                .as_object()
+                .expect("update input should be an object")
+                .clone(),
+        ))
+        .await
+        .unwrap();
+    let updated = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(
+        updated["result"]["state"]["status"],
+        Value::from("InProgress")
+    );
+
+    let claim_input = json!({
+        "action": "claim",
+        "credential": mutation_credential_json(&credential),
+        "input": {
+            "action": "acquire",
+            "payload": {
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::alpha",
+                    "kind": "function"
+                }],
+                "capability": "edit",
+                "mode": "soft_exclusive",
+                "coordinationTaskId": task_id.clone()
+            }
+        }
+    });
+    client
+        .send(call_tool_request(
+            216,
+            "prism_query",
+            json!({
+                "code": format!(
+                    "return prism.validateToolInput(\"prism_mutate\", {});",
+                    claim_input
+                )
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let claim_validation = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(claim_validation["result"]["valid"], Value::Bool(true));
+
+    client
+        .send(call_tool_request(
+            217,
+            "prism_mutate",
+            claim_input
+                .as_object()
+                .expect("claim input should be an object")
+                .clone(),
+        ))
+        .await
+        .unwrap();
+    let claim = first_tool_content_json(client.receive().await.unwrap());
+    assert!(claim["result"]["claimId"].as_str().is_some());
+
+    let propose_artifact_input = json!({
+        "action": "artifact",
+        "credential": mutation_credential_json(&credential),
+        "input": {
+            "action": "propose",
+            "payload": {
+                "taskId": task_id.clone(),
+                "diffRef": "patch:self-described"
+            }
+        }
+    });
+    client
+        .send(call_tool_request(
+            218,
+            "prism_mutate",
+            propose_artifact_input
+                .as_object()
+                .expect("artifact proposal should be an object")
+                .clone(),
+        ))
+        .await
+        .unwrap();
+    let artifact = first_tool_content_json(client.receive().await.unwrap());
+    let artifact_id = artifact["result"]["artifactId"]
+        .as_str()
+        .expect("artifact id should exist")
+        .to_string();
+
+    let review_input = json!({
+        "action": "artifact",
+        "credential": mutation_credential_json(&credential),
+        "input": {
+            "action": "review",
+            "payload": {
+                "artifactId": artifact_id.clone(),
+                "verdict": "approved",
+                "summary": "Reviewed entirely through the self-description surface."
+            }
+        }
+    });
+    client
+        .send(call_tool_request(
+            219,
+            "prism_query",
+            json!({
+                "code": format!(
+                    "return prism.validateToolInput(\"prism_mutate\", {});",
+                    review_input
+                )
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let review_validation = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(review_validation["result"]["valid"], Value::Bool(true));
+
+    client
+        .send(call_tool_request(
+            220,
+            "prism_mutate",
+            review_input
+                .as_object()
+                .expect("artifact review should be an object")
+                .clone(),
+        ))
+        .await
+        .unwrap();
+    let review = first_tool_content_json(client.receive().await.unwrap());
+    assert!(review["result"]["reviewId"].as_str().is_some());
+    assert_eq!(review["result"]["state"]["status"], Value::from("Approved"));
+
+    let feedback_input = json!({
+        "action": "validation_feedback",
+        "credential": mutation_credential_json(&credential),
+        "input": {
+            "context": "Exercise the self-described mutation workflow.",
+            "prismSaid": "The compact companion ladder should be enough.",
+            "actuallyTrue": "The workflow succeeded through shapes, examples, recipes, validateToolInput, and direct tool calls.",
+            "category": "other",
+            "verdict": "helpful"
+        }
+    });
+    client
+        .send(call_tool_request(
+            221,
+            "prism_query",
+            json!({
+                "code": format!(
+                    "return prism.validateToolInput(\"prism_mutate\", {});",
+                    feedback_input
+                )
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let feedback_validation = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(feedback_validation["result"]["valid"], Value::Bool(true));
+
+    client
+        .send(call_tool_request(
+            222,
+            "prism_mutate",
+            feedback_input
+                .as_object()
+                .expect("feedback input should be an object")
+                .clone(),
+        ))
+        .await
+        .unwrap();
+    let feedback = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(feedback["action"], Value::from("validation_feedback"));
+    assert!(feedback["result"]["entryId"].as_str().is_some());
+    assert!(feedback["result"]["taskId"].as_str().is_some());
 
     running.cancel().await.unwrap();
 }

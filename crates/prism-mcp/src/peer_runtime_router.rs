@@ -886,11 +886,7 @@ mod tests {
         std::fs::create_dir_all(uri_path.parent().unwrap()).unwrap();
         std::fs::create_dir_all(public_url_path.parent().unwrap()).unwrap();
         std::fs::write(&uri_path, format!("http://{addr}/mcp")).unwrap();
-        std::fs::write(
-            &public_url_path,
-            "http://127.0.0.1:9/peer/query\n",
-        )
-        .unwrap();
+        std::fs::write(&public_url_path, "http://127.0.0.1:9/peer/query\n").unwrap();
         sync_live_runtime_descriptor(&root).unwrap();
 
         let runtime_id = local_runtime_id(&root);
@@ -908,7 +904,10 @@ mod tests {
         .unwrap()
         .unwrap();
         assert_eq!(result.response.runtime_id, runtime_id);
-        assert_eq!(result.response.result.result["peerFallback"], Value::Bool(true));
+        assert_eq!(
+            result.response.result.result["peerFallback"],
+            Value::Bool(true)
+        );
 
         let _ = shutdown.send(());
     }

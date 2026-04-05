@@ -23,13 +23,13 @@ use crate::peer_runtime::{
     configured_public_runtime_endpoint, local_peer_runtime_discovery_mode,
     local_peer_runtime_endpoint,
 };
-use crate::published_plans::load_hydrated_coordination_plan_state;
 use crate::protected_state::canonical::{canonical_json_bytes, sha256_prefixed};
 use crate::protected_state::envelope::ProtectedSignatureAlgorithm;
 use crate::protected_state::repo_streams::{
     implicit_principal_identity, ProtectedPrincipalIdentity,
 };
 use crate::protected_state::trust::{load_active_runtime_signing_key, resolve_trusted_runtime_key};
+use crate::published_plans::load_hydrated_coordination_plan_state;
 use crate::tracked_snapshot::{SnapshotManifestPublishSummary, TrackedSnapshotPublishContext};
 use crate::util::{current_timestamp, stable_hash_bytes};
 use crate::workspace_identity::workspace_identity_for_root;
