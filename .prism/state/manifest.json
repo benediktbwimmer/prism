@@ -1,23 +1,21 @@
 {
   "version": 1,
-  "publishedAt": 1775347733,
+  "publishedAt": 1775349454,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds",
     "credentialId": "credential:01kn3xe812gb7a5d5qgs1wwpez"
   },
   "workContext": {
-    "workId": "work:validate-bundled-ui-delivery-and-polling-backend-end-to-end:01kndfd8nvdd386hbc4hm8x8yk",
+    "workId": "coord-task:01kndg3q265m0jjy4ztzgcxp3h",
     "kind": "coordination",
-    "title": "Validate bundled UI delivery and polling backend end to end",
-    "summary": "Confirm the bundled operator console assets, polling session bootstrap, legacy dashboard removal, REST reads, and human mutation path all validate cleanly on the rebuilt release daemon.",
-    "coordinationTaskId": "coord-task:01knd39trsk58srmkt33fgxwd9",
-    "planId": "plan:01knd2zj2hgp4qs7qzfc7rxdgg",
-    "planTitle": "Implement the operator console backend and bundled UI delivery"
+    "title": "Reframe the app shell and routing around the operator console",
+    "coordinationTaskId": "coord-task:01kndg3q265m0jjy4ztzgcxp3h",
+    "planId": "plan:01kndg3q264dzzywbztrqshw05",
+    "planTitle": "Implement the operator console frontend UI"
   },
   "publishSummary": {
-    "title": "Validate bundled UI delivery and polling backend end to end",
-    "summary": "Confirm the bundled operator console assets, polling session bootstrap, legacy dashboard removal, REST reads, and human mutation path all validate cleanly on the rebuilt release daemon."
+    "title": "Reframe the app shell and routing around the operator console"
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -38,7 +36,7 @@
     },
     ".prism/state/indexes/coordination_materialization.json": {
       "path": ".prism/state/indexes/coordination_materialization.json",
-      "sha256": "sha256:a35d51523a625a16d6d85f0f9d6bfbb4db7a542fc60f0225825aa7696012bf2b"
+      "sha256": "sha256:64187f633c7d38ce75d75d45872bec3a31812fa4e0b2ee7d564dcadaacb6b0b0"
     },
     ".prism/state/indexes/memory.json": {
       "path": ".prism/state/indexes/memory.json",
@@ -53,12 +51,12 @@
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
     }
   },
-  "previousManifestDigest": "sha256:76c92c84707c659a1c1bc6bfa9d24e8ae9664d07bb5add044d027b3dc60ce50f",
+  "previousManifestDigest": "sha256:b06c89260cc0cbd6e28895950c972b1c802d099dbc9171a282635e78d59a3514",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:Nj8F4kk0Ce+99dtIogqp9wi12p8tWwq4RCHzOyk/EY22ALzhGkdvvFvIJskJXwzcrobE0TOEJAJ3k5gPQan8BA=="
+    "value": "base64:/hkEfPv9MunZhJ8BNGvRXMRb2F6UGljPRNRcIDr2o3t3R8scZ1PxFanYagpzkIcA8/w+WMxSW78/XNgR2Y4xCw=="
   }
 }
