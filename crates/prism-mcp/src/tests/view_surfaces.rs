@@ -108,8 +108,8 @@ fn lineage_views_expose_summaries_and_evidence_details() {
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
-        previous_path: Some("/workspace/src/lib.rs".into()),
-        current_path: Some("/workspace/src/lib.rs".into()),
+        previous_path: Some("workspace/src/lib.rs".into()),
+        current_path: Some("workspace/src/lib.rs".into()),
         added: vec![ObservedNode {
             node: Node {
                 id: renamed.clone(),

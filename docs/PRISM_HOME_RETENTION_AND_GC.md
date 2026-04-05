@@ -4,7 +4,7 @@ This document defines the retention and cleanup policy for user-local PRISM
 state under `~/.prism`.
 
 It complements
-[PRISM_HOME_LAYOUT.md](/Users/bene/code/prism/docs/PRISM_HOME_LAYOUT.md)
+[PRISM_HOME_LAYOUT.md](PRISM_HOME_LAYOUT.md)
 by turning the layout's cleanup rules into a concrete product policy.
 
 ## Goal

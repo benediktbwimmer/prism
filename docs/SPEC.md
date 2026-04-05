@@ -120,7 +120,7 @@ Critical boundaries:
 * `prism-core` owns workspace loading, adapter registration, incremental reindex coordination, and long-lived service construction
 * `prism-core` is intentionally thin: it wires subsystems together, but does not redefine their storage, query, or memory semantics
 * `prism-store` owns persistence and raw observed change capture
-* the authoritative-vs-derived persistence contract for the migration is documented in [`docs/PERSISTENCE_STATE_CLASSIFICATION.md`](/Users/bene/code/prism/docs/PERSISTENCE_STATE_CLASSIFICATION.md)
+* the authoritative-vs-derived persistence contract for the migration is documented in [`docs/PERSISTENCE_STATE_CLASSIFICATION.md`](PERSISTENCE_STATE_CLASSIFICATION.md)
 * `prism-history` owns lineage assignment and time-aware projection
 * `prism-memory` owns structured memory and outcomes, but not graph construction
 * `prism-projections` owns derived signals built from history and outcomes, including concept packets
@@ -181,7 +181,7 @@ Protected-state runtime import rule:
   separate watcher or sync path so repo-published state does not masquerade as source indexing work
 
 Freshness semantics for projection-facing read surfaces must preserve the repo-wide runtime
-contract documented in [`docs/RUNTIME_REWRITE_ARCHITECTURE.md`](/Users/bene/code/prism/docs/RUNTIME_REWRITE_ARCHITECTURE.md):
+contract documented in [`docs/RUNTIME_REWRITE_ARCHITECTURE.md`](RUNTIME_REWRITE_ARCHITECTURE.md):
 
 * `current`: the serving view is up to date for the relevant domain
 * `pending`: upstream authoritative change exists, but projection settlement is still in flight

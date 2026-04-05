@@ -168,7 +168,7 @@ live refs.
 ### 4.2 The shared ref should be snapshot-oriented
 
 The shared coordination ref should use the same fundamental model that
-[`docs/PRISM_REPO_SNAPSHOT_REWRITE.md`](/Users/bene/code/prism-codex-d/docs/PRISM_REPO_SNAPSHOT_REWRITE.md)
+[`docs/PRISM_REPO_SNAPSHOT_REWRITE.md`](PRISM_REPO_SNAPSHOT_REWRITE.md)
 defines for tracked `.prism`:
 
 - stable snapshot shards
@@ -333,7 +333,7 @@ Each publish boundary should update one signed manifest that:
 - chains to the previous manifest digest
 
 This follows the same model used in
-[`tracked_snapshot.rs`](/Users/bene/code/prism-codex-d/crates/prism-core/src/tracked_snapshot.rs).
+[`tracked_snapshot.rs`](../crates/prism-core/src/tracked_snapshot.rs).
 
 PRISM should also support signed commits on the shared ref, but the manifest remains valuable even
 if commit-signature policy varies by environment.
@@ -476,7 +476,7 @@ This order matters:
 ### 9.2 Live sync
 
 The protected-state runtime sync work described in
-[`docs/PROTECTED_STATE_RUNTIME_SYNC.md`](/Users/bene/code/prism-codex-d/docs/PROTECTED_STATE_RUNTIME_SYNC.md)
+[`docs/PROTECTED_STATE_RUNTIME_SYNC.md`](PROTECTED_STATE_RUNTIME_SYNC.md)
 should be extended conceptually to shared coordination ref updates.
 
 The runtime needs:
@@ -836,7 +836,7 @@ The agent renews only when needed, for example:
 - when PRISM explicitly instructs it to call `heartbeat_lease`
 
 This matches the lease rules already described in
-[`docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md`](/Users/bene/code/prism-codex-d/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md).
+[`docs/PRISM_AUTH_AND_IDENTITY_MODEL.md`](./PRISM_AUTH_AND_IDENTITY_MODEL.md).
 
 ### 12.3 Assisted renewal remains optional and local
 

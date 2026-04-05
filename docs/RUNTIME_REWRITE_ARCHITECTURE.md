@@ -43,7 +43,7 @@ PRISM should stop behaving like "an index that gets rebuilt and swapped in" and 
 ## Three-Plane Persistence Split
 
 The rewrite must preserve the existing three-plane split from
-[PERSISTENCE_STATE_CLASSIFICATION.md](/Users/bene/code/prism/docs/PERSISTENCE_STATE_CLASSIFICATION.md).
+[PERSISTENCE_STATE_CLASSIFICATION.md](PERSISTENCE_STATE_CLASSIFICATION.md).
 
 The three planes are:
 

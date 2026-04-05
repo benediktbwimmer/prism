@@ -213,9 +213,23 @@ fn is_identifier_like(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use prism_js::ValidationCheckView;
 
     use super::*;
+
+    fn temp_root(label: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "prism-compact-followups-tests-{label}-{}-{stamp}",
+            std::process::id()
+        ))
+    }
 
     #[test]
     fn compact_validation_checks_trim_shell_chains() {
@@ -238,75 +252,85 @@ mod tests {
 
     #[test]
     fn same_workspace_file_accepts_relative_and_absolute_matches() {
-        let root = Path::new("/Users/bene/code/prism");
-        assert!(same_workspace_file(Some(root), "Cargo.toml", "Cargo.toml"));
+        let root = temp_root("same-workspace-file");
         assert!(same_workspace_file(
-            Some(root),
+            Some(root.as_path()),
             "Cargo.toml",
-            "/Users/bene/code/prism/Cargo.toml"
+            "Cargo.toml"
+        ));
+        assert!(same_workspace_file(
+            Some(root.as_path()),
+            "Cargo.toml",
+            root.join("Cargo.toml").to_string_lossy().as_ref()
         ));
         assert!(!same_workspace_file(
-            Some(root),
+            Some(root.as_path()),
             "Cargo.toml",
             "crates/prism-cli/Cargo.toml"
         ));
         assert!(!same_workspace_file(
-            Some(root),
+            Some(root.as_path()),
             "Cargo.toml",
-            "/Users/bene/code/prism/crates/prism-cli/Cargo.toml"
+            root.join("crates/prism-cli/Cargo.toml")
+                .to_string_lossy()
+                .as_ref()
         ));
     }
 
     #[test]
     fn workspace_scoped_path_resolves_relative_paths_against_workspace_root() {
-        let root = Path::new("/Users/bene/code/prism");
+        let root = temp_root("workspace-scoped-path");
         assert_eq!(
-            workspace_scoped_path(Some(root), "Cargo.toml"),
-            "/Users/bene/code/prism/Cargo.toml"
+            workspace_scoped_path(Some(root.as_path()), "Cargo.toml"),
+            root.join("Cargo.toml").to_string_lossy()
         );
         assert_eq!(
-            workspace_scoped_path(Some(root), "crates/prism-cli/Cargo.toml"),
-            "/Users/bene/code/prism/crates/prism-cli/Cargo.toml"
+            workspace_scoped_path(Some(root.as_path()), "crates/prism-cli/Cargo.toml"),
+            root.join("crates/prism-cli/Cargo.toml").to_string_lossy()
         );
         assert_eq!(
-            workspace_scoped_path(Some(root), "/Users/bene/code/prism/Cargo.toml"),
-            "/Users/bene/code/prism/Cargo.toml"
+            workspace_scoped_path(
+                Some(root.as_path()),
+                root.join("Cargo.toml").to_string_lossy().as_ref()
+            ),
+            root.join("Cargo.toml").to_string_lossy()
         );
         assert_eq!(
-            workspace_scoped_path(Some(root), "./crates/../Cargo.toml"),
-            "/Users/bene/code/prism/Cargo.toml"
+            workspace_scoped_path(Some(root.as_path()), "./crates/../Cargo.toml"),
+            root.join("Cargo.toml").to_string_lossy()
         );
     }
 
     #[test]
     fn workspace_display_path_prefers_repo_relative_paths() {
-        let root = Path::new("/Users/bene/code/prism");
+        let root = temp_root("workspace-display-path");
         assert_eq!(
-            workspace_display_path(Some(root), &root.join("src/lib.rs")),
+            workspace_display_path(Some(root.as_path()), &root.join("src/lib.rs")),
             "src/lib.rs"
         );
         assert_eq!(
-            workspace_display_path(Some(root), &root.join("src/./nested/../lib.rs")),
+            workspace_display_path(Some(root.as_path()), &root.join("src/./nested/../lib.rs")),
             "src/lib.rs"
         );
     }
 
     #[test]
     fn workspace_display_path_keeps_external_absolute_paths() {
-        let root = Path::new("/Users/bene/code/prism");
+        let root = temp_root("workspace-display-external");
+        let external = std::env::temp_dir().join("elsewhere.rs");
         assert_eq!(
-            workspace_display_path(Some(root), Path::new("/tmp/elsewhere.rs")),
-            "/tmp/elsewhere.rs"
+            workspace_display_path(Some(root.as_path()), &external),
+            external.to_string_lossy()
         );
     }
 
     #[test]
     fn same_workspace_file_accepts_dot_segment_variants() {
-        let root = Path::new("/Users/bene/code/prism");
+        let root = temp_root("same-workspace-dot-segments");
         assert!(same_workspace_file(
-            Some(root),
+            Some(root.as_path()),
             "src/lib.rs",
-            "/Users/bene/code/prism/src/./nested/../lib.rs"
+            root.join("src/./nested/../lib.rs").to_string_lossy().as_ref()
         ));
     }
 

@@ -1475,7 +1475,7 @@ mod tests {
                 name: path.rsplit("::").next().unwrap_or(path).to_string(),
                 kind: NodeKind::Function,
                 signature: format!("function {path}"),
-                file_path: Some("/workspace/src/tests.rs".to_string()),
+                file_path: Some("workspace/src/tests.rs".to_string()),
                 span: prism_ir::Span { start: 0, end: 0 },
                 location: None,
                 language: prism_ir::Language::Rust,

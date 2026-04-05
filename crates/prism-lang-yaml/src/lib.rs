@@ -286,8 +286,8 @@ mod tests {
         let input = ParseInput {
             package_name: "demo",
             crate_name: "demo",
-            package_root: Path::new("/workspace"),
-            path: Path::new("/workspace/config/app.yaml"),
+            package_root: Path::new("workspace"),
+            path: Path::new("workspace/config/app.yaml"),
             file_id: FileId(1),
             parse_depth: ParseDepth::Deep,
             source: "service:\n  port: 8080\n",

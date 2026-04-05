@@ -20,15 +20,15 @@ The current refresh model has too many overlapping authorities and too many requ
 
 In particular, normal reads and many mutations still synchronously enter persisted refresh logic:
 
-- [`crates/prism-mcp/src/workspace_runtime.rs`](/Users/bene/code/prism/crates/prism-mcp/src/workspace_runtime.rs)
+- [`crates/prism-mcp/src/workspace_runtime.rs`](../crates/prism-mcp/src/workspace_runtime.rs)
   `QueryHost::refresh_workspace_for_query`
-- [`crates/prism-mcp/src/workspace_runtime.rs`](/Users/bene/code/prism/crates/prism-mcp/src/workspace_runtime.rs)
+- [`crates/prism-mcp/src/workspace_runtime.rs`](../crates/prism-mcp/src/workspace_runtime.rs)
   `QueryHost::refresh_workspace_for_mutation`
-- [`crates/prism-mcp/src/workspace_runtime.rs`](/Users/bene/code/prism/crates/prism-mcp/src/workspace_runtime.rs)
+- [`crates/prism-mcp/src/workspace_runtime.rs`](../crates/prism-mcp/src/workspace_runtime.rs)
   `sync_persisted_workspace_state`
-- [`crates/prism-core/src/session.rs`](/Users/bene/code/prism/crates/prism-core/src/session.rs)
+- [`crates/prism-core/src/session.rs`](../crates/prism-core/src/session.rs)
   `WorkspaceSession::reload_persisted_prism_with_guard`
-- [`crates/prism-mcp/src/server_surface.rs`](/Users/bene/code/prism/crates/prism-mcp/src/server_surface.rs)
+- [`crates/prism-mcp/src/server_surface.rs`](../crates/prism-mcp/src/server_surface.rs)
   `execute_logged_mutation`
 
 This is the direct cause of the observed stalls: request paths are still allowed to block on
@@ -144,11 +144,11 @@ These are not “maybe later” cleanups. They are design-level deletions.
 
 Remove normal request-path dependence on:
 
-- [`crates/prism-mcp/src/workspace_runtime.rs`](/Users/bene/code/prism/crates/prism-mcp/src/workspace_runtime.rs)
+- [`crates/prism-mcp/src/workspace_runtime.rs`](../crates/prism-mcp/src/workspace_runtime.rs)
   `QueryHost::refresh_workspace_for_query`
-- [`crates/prism-mcp/src/workspace_runtime.rs`](/Users/bene/code/prism/crates/prism-mcp/src/workspace_runtime.rs)
+- [`crates/prism-mcp/src/workspace_runtime.rs`](../crates/prism-mcp/src/workspace_runtime.rs)
   `QueryHost::refresh_workspace_for_mutation`
-- [`crates/prism-mcp/src/workspace_runtime.rs`](/Users/bene/code/prism/crates/prism-mcp/src/workspace_runtime.rs)
+- [`crates/prism-mcp/src/workspace_runtime.rs`](../crates/prism-mcp/src/workspace_runtime.rs)
   `sync_persisted_workspace_state`
 
 These should be replaced by a lightweight runtime observation API that:
@@ -161,9 +161,9 @@ These should be replaced by a lightweight runtime observation API that:
 
 Remove the current “persisted-only pre-refresh” behavior from:
 
-- [`crates/prism-mcp/src/server_surface.rs`](/Users/bene/code/prism/crates/prism-mcp/src/server_surface.rs)
+- [`crates/prism-mcp/src/server_surface.rs`](../crates/prism-mcp/src/server_surface.rs)
   `MutationRefreshPolicy::PersistedOnly`
-- [`crates/prism-mcp/src/server_surface.rs`](/Users/bene/code/prism/crates/prism-mcp/src/server_surface.rs)
+- [`crates/prism-mcp/src/server_surface.rs`](../crates/prism-mcp/src/server_surface.rs)
   `execute_logged_mutation`
 
 The default mutation posture should become:
@@ -176,9 +176,9 @@ The default mutation posture should become:
 
 Remove full-runtime rebuild from steady-state serving:
 
-- [`crates/prism-core/src/session.rs`](/Users/bene/code/prism/crates/prism-core/src/session.rs)
+- [`crates/prism-core/src/session.rs`](../crates/prism-core/src/session.rs)
   `WorkspaceSession::try_reload_persisted_prism`
-- [`crates/prism-core/src/session.rs`](/Users/bene/code/prism/crates/prism-core/src/session.rs)
+- [`crates/prism-core/src/session.rs`](../crates/prism-core/src/session.rs)
   `WorkspaceSession::reload_persisted_prism_with_guard`
 
 Keep only an explicit recovery or admin path for:
@@ -212,7 +212,7 @@ considered invalid under the new design.
 ### A. Runtime planes
 
 The redesign should use three planes, aligned with
-[`docs/PERSISTENCE_STATE_CLASSIFICATION.md`](/Users/bene/code/prism/docs/PERSISTENCE_STATE_CLASSIFICATION.md):
+[`docs/PERSISTENCE_STATE_CLASSIFICATION.md`](PERSISTENCE_STATE_CLASSIFICATION.md):
 
 - Repo truth plane: committed `.prism` events and source tree reality
 - Runtime state plane: live mutable in-memory serving state

@@ -92,12 +92,12 @@ Current code should converge on the following naming rule:
 
 Representative surfaces:
 
-- [lib.rs](/Users/bene/code/prism/crates/prism-query/src/lib.rs): `hot_lineage_history`,
+- [lib.rs](../crates/prism-query/src/lib.rs): `hot_lineage_history`,
   `cold_lineage_history`, `lineage_history`, `hot_history_snapshot`, `cold_history_snapshot`,
   `history_snapshot`, `hot_outcome_event`, `cold_outcome_event`, `outcome_event`
-- [outcomes.rs](/Users/bene/code/prism/crates/prism-query/src/outcomes.rs): `query_hot_outcomes`,
+- [outcomes.rs](../crates/prism-query/src/outcomes.rs): `query_hot_outcomes`,
   `query_cold_outcomes`, `query_outcomes`, `hot_task_replay`, `cold_task_replay`, `resume_task`
-- [session.rs](/Users/bene/code/prism/crates/prism-core/src/session.rs): `load_hot_*`,
+- [session.rs](../crates/prism-core/src/session.rs): `load_hot_*`,
   `load_cold_*`, and merged `load_*` wrappers for runtime-facing callers
 
 ## Classification
@@ -368,7 +368,7 @@ State that is often worktree- or branch-scoped even when a shared backend exists
 
 ## Current Transitional Caveats
 
-The current store boundary is still snapshot-shaped in several places. In particular, [`crates/prism-store/src/store.rs`](/Users/bene/code/prism/crates/prism-store/src/store.rs) still exposes load/save methods for `HistorySnapshot`, `OutcomeMemorySnapshot`, `ProjectionSnapshot`, `CoordinationSnapshot`, and other snapshot forms.
+The current store boundary is still snapshot-shaped in several places. In particular, [`crates/prism-store/src/store.rs`](../crates/prism-store/src/store.rs) still exposes load/save methods for `HistorySnapshot`, `OutcomeMemorySnapshot`, `ProjectionSnapshot`, `CoordinationSnapshot`, and other snapshot forms.
 
 That does not make those snapshots the desired long-term authority.
 

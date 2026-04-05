@@ -833,8 +833,8 @@ mod tests {
 
     #[test]
     fn explicit_root_still_parses() {
-        let cli = Cli::parse_from(["prism", "--root", "/tmp/worktree", "mcp", "status"]);
-        assert_eq!(cli.root, Some(PathBuf::from("/tmp/worktree")));
+        let cli = Cli::parse_from(["prism", "--root", "worktree", "mcp", "status"]);
+        assert_eq!(cli.root, Some(PathBuf::from("worktree")));
         match cli.command {
             Command::Mcp {
                 command: McpCommand::Status,

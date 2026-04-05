@@ -191,7 +191,7 @@ The generated output includes:
 Track notes:
 
 - `swe-bench-multilingual-rust` expects `.venv-swebench/bin/python` to exist, emits list-style predictions with explicit `instance_id`, and uses `python -m swebench.harness.run_evaluation` with `dataset_name=SWE-bench/SWE-bench_Multilingual` and `split=test`.
-- `swe-bench-pro` expects a local checkout at [benchmarks/external/SWE-bench_Pro-os](/Users/bene/code/prism/benchmarks/external/SWE-bench_Pro-os) and a raw sample JSONL export referenced by the config’s `benchmark.raw_sample_path`.
+- `swe-bench-pro` expects a local checkout at `benchmarks/external/SWE-bench_Pro-os` and a raw sample JSONL export referenced by the config’s `benchmark.raw_sample_path`.
 - The harness now derives `docker_host` from the active Docker context when `DOCKER_HOST` is not already set and passes it to evaluator commands through harness environment templates.
 
 The configs in `tracks/*/configs/` are the source of truth for the first benchmark runs.

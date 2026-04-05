@@ -345,7 +345,7 @@ fn spawn_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         args = ?cli.daemon_spawn_args(root)?,
         "spawning detached prism-mcp daemon"
     );
-    let mut command = Command::new("/bin/sh");
+    let mut command = Command::new("sh");
     command
         .arg("-c")
         .arg(detached_daemon_launcher_script())
@@ -639,7 +639,7 @@ mod tests {
 
     #[test]
     fn detached_daemon_launcher_script_is_valid_sh() {
-        let status = Command::new("/bin/sh")
+        let status = Command::new("sh")
             .arg("-n")
             .arg("-c")
             .arg(detached_daemon_launcher_script())

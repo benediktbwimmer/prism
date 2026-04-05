@@ -67,9 +67,9 @@ follow-on request-path work.
 
 The key request-path chain is:
 
-- [`run_workspace_coordination_step()`](/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs)
-- [`mutate_coordination_with_session_guarded()`](/Users/bene/code/prism-codex-d/crates/prism-core/src/session.rs)
-- [`persist_coordination_mutation_state_for_root_with_session_observed()`](/Users/bene/code/prism-codex-d/crates/prism-core/src/coordination_persistence.rs)
+- [`run_workspace_coordination_step()`](../crates/prism-mcp/src/host_mutations.rs)
+- [`mutate_coordination_with_session_guarded()`](../crates/prism-core/src/session.rs)
+- [`persist_coordination_mutation_state_for_root_with_session_observed()`](../crates/prism-core/src/coordination_persistence.rs)
 
 Inside the current persistence path, a tiny authoritative mutation still synchronously does:
 
@@ -397,19 +397,19 @@ The rewrite should happen in this order:
 
 The first code changes should focus on:
 
-- [`host_mutations.rs`](/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs)
+- [`host_mutations.rs`](../crates/prism-mcp/src/host_mutations.rs)
   - stop routing git-execution micro-updates through the full generic coordination mutation path
-- [`session.rs`](/Users/bene/code/prism-codex-d/crates/prism-core/src/session.rs)
+- [`session.rs`](../crates/prism-core/src/session.rs)
   - split authoritative mutation commit from derived-surface materialization
-- [`coordination_persistence.rs`](/Users/bene/code/prism-codex-d/crates/prism-core/src/coordination_persistence.rs)
+- [`coordination_persistence.rs`](../crates/prism-core/src/coordination_persistence.rs)
   - separate authoritative commit from tracked snapshot sync, checkpoint save, read-model writes,
     and compaction
-- [`shared_coordination_ref.rs`](/Users/bene/code/prism-codex-d/crates/prism-core/src/shared_coordination_ref.rs)
+- [`shared_coordination_ref.rs`](../crates/prism-core/src/shared_coordination_ref.rs)
   - reduce publish cost from full snapshot restage toward incremental touched-object updates
-- [`tracked_snapshot.rs`](/Users/bene/code/prism-codex-d/crates/prism-core/src/tracked_snapshot.rs)
+- [`tracked_snapshot.rs`](../crates/prism-core/src/tracked_snapshot.rs)
   - reframe coordination snapshot publication as a lagging derived surface rather than a blocking
     mutation obligation
-- [`coordination_startup_checkpoint.rs`](/Users/bene/code/prism-codex-d/crates/prism-core/src/coordination_startup_checkpoint.rs)
+- [`coordination_startup_checkpoint.rs`](../crates/prism-core/src/coordination_startup_checkpoint.rs)
   - make checkpoint persistence explicitly cache-like and revision-keyed
 
 ---

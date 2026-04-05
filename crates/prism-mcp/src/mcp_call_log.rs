@@ -1093,7 +1093,7 @@ mod tests {
         McpCallLogRuntime {
             instance_id: "mcp-instance:test".to_string(),
             process_id: 4242,
-            workspace_root: Some("/tmp/prism-mcp-log-tests".to_string()),
+            workspace_root: Some(temp_test_dir().display().to_string()),
         }
     }
 
@@ -1367,10 +1367,10 @@ mod tests {
     #[test]
     fn default_mcp_call_log_path_is_stable_across_restarts() {
         let _ = crate::tests_support::ensure_process_test_prism_home();
-        let root = Path::new("/tmp/prism-mcp-log-tests");
+        let root = temp_test_dir();
         assert_eq!(
-            default_mcp_call_log_path(root),
-            PrismPaths::for_workspace_root(root)
+            default_mcp_call_log_path(&root),
+            PrismPaths::for_workspace_root(&root)
                 .unwrap()
                 .mcp_call_log_path()
                 .unwrap()

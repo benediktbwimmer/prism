@@ -4,7 +4,7 @@ This document defines the filesystem split between repo-owned PRISM state and
 user-local PRISM state.
 
 It extends the persistence rules in
-[PERSISTENCE_STATE_CLASSIFICATION.md](/Users/bene/code/prism/docs/PERSISTENCE_STATE_CLASSIFICATION.md)
+[PERSISTENCE_STATE_CLASSIFICATION.md](PERSISTENCE_STATE_CLASSIFICATION.md)
 with a concrete on-disk layout.
 
 ## Goal
@@ -428,7 +428,7 @@ This layout will accumulate stale local state over time, so cleanup semantics ar
 part of the design rather than an afterthought.
 
 The concrete retention policy for those semantics lives in
-[PRISM_HOME_RETENTION_AND_GC.md](/Users/bene/code/prism/docs/PRISM_HOME_RETENTION_AND_GC.md).
+[PRISM_HOME_RETENTION_AND_GC.md](PRISM_HOME_RETENTION_AND_GC.md).
 
 Rules:
 

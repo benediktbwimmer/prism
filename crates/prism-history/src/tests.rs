@@ -40,8 +40,8 @@ fn change_set(added: Vec<ObservedNode>, removed: Vec<ObservedNode>) -> ObservedC
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
-        previous_path: Some("/workspace/src/lib.rs".into()),
-        current_path: Some("/workspace/src/lib.rs".into()),
+        previous_path: Some("workspace/src/lib.rs".into()),
+        current_path: Some("workspace/src/lib.rs".into()),
         added,
         removed,
         updated: Vec::new(),
@@ -238,8 +238,8 @@ fn adds_file_move_hint_when_path_changes() {
         vec![observed(function("demo::renamed::alpha", 1), 10, 20)],
         vec![observed(function("demo::feature::alpha", 1), 10, 20)],
     );
-    moved.previous_path = Some("/workspace/src/feature.rs".into());
-    moved.current_path = Some("/workspace/src/renamed.rs".into());
+    moved.previous_path = Some("workspace/src/feature.rs".into());
+    moved.current_path = Some("workspace/src/renamed.rs".into());
 
     let events = history.apply(&moved);
     assert_eq!(events[0].kind, prism_ir::LineageEventKind::Moved);
@@ -262,8 +262,8 @@ fn adds_git_rename_hint_for_git_triggered_moves() {
         vec![observed(function("demo::feature::alpha", 1), 10, 20)],
     );
     moved.trigger = ChangeTrigger::GitCheckout;
-    moved.previous_path = Some("/workspace/src/feature.rs".into());
-    moved.current_path = Some("/workspace/src/renamed.rs".into());
+    moved.previous_path = Some("workspace/src/feature.rs".into());
+    moved.current_path = Some("workspace/src/renamed.rs".into());
 
     let events = history.apply(&moved);
     assert!(events[0]

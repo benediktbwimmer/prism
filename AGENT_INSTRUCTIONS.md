@@ -1,6 +1,6 @@
 # PRISM MCP Instructions Source
 
-Canonical MCP instruction resources now live under [docs/prism/instructions](/Users/bene/code/prism/docs/prism/instructions).
+Canonical MCP instruction resources now live under [docs/prism/instructions](docs/prism/instructions).
 
 Use:
 - `prism://instructions` for the role index

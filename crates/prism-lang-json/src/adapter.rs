@@ -518,8 +518,8 @@ mod tests {
         let input = ParseInput {
             package_name: "demo",
             crate_name: "demo",
-            package_root: Path::new("/workspace"),
-            path: Path::new("/workspace/config/app.json"),
+            package_root: Path::new("workspace"),
+            path: Path::new("workspace/config/app.json"),
             file_id: FileId(1),
             parse_depth: ParseDepth::Deep,
             source: "{\n  \"service\": {\n    \"port\": 8080\n  }\n}",
@@ -548,8 +548,8 @@ mod tests {
         let input = ParseInput {
             package_name: "demo",
             crate_name: "demo",
-            package_root: Path::new("/workspace"),
-            path: Path::new("/workspace/config/tsconfig.json"),
+            package_root: Path::new("workspace"),
+            path: Path::new("workspace/config/tsconfig.json"),
             file_id: FileId(1),
             parse_depth: ParseDepth::Deep,
             source: r#"{

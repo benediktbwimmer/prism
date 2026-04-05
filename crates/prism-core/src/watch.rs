@@ -1498,7 +1498,7 @@ mod tests {
 
     #[test]
     fn relevant_watch_paths_drop_ignored_generated_paths() {
-        let root = PathBuf::from("/workspace/prism");
+        let root = PathBuf::from("workspace/prism");
         let event = Event {
             kind: EventKind::Modify(ModifyKind::Any),
             paths: vec![
@@ -1517,7 +1517,7 @@ mod tests {
 
     #[test]
     fn relevant_protected_state_streams_detect_authoritative_prism_paths() {
-        let root = PathBuf::from("/workspace/prism");
+        let root = PathBuf::from("workspace/prism");
         let event = Event {
             kind: EventKind::Modify(ModifyKind::Any),
             paths: vec![
@@ -1538,7 +1538,7 @@ mod tests {
 
     #[test]
     fn relevant_protected_state_streams_fallback_for_prism_directory_events() {
-        let root = PathBuf::from("/workspace/prism");
+        let root = PathBuf::from("workspace/prism");
         let event = Event {
             kind: EventKind::Modify(ModifyKind::Any),
             paths: vec![root.join(".prism/memory")],
@@ -1559,7 +1559,7 @@ mod tests {
 
     #[test]
     fn relevant_protected_state_streams_ignore_snapshot_outputs() {
-        let root = PathBuf::from("/workspace/prism");
+        let root = PathBuf::from("workspace/prism");
         let event = Event {
             kind: EventKind::Modify(ModifyKind::Any),
             paths: vec![
@@ -1576,8 +1576,8 @@ mod tests {
 
     #[test]
     fn relevant_watch_paths_keep_out_of_root_events() {
-        let root = PathBuf::from("/workspace/prism");
-        let outside = PathBuf::from("/tmp/external.rs");
+        let root = temp_root("watch-root");
+        let outside = std::env::temp_dir().join("external.rs");
         let event = modify_event(outside.clone());
         let paths = relevant_watch_paths(&root, &event);
         assert_eq!(paths, vec![outside]);
@@ -1585,7 +1585,7 @@ mod tests {
 
     #[test]
     fn scoped_watch_refresh_requires_in_root_paths() {
-        let root = PathBuf::from("/workspace/prism");
+        let root = temp_root("watch-scope");
         assert!(can_scope_watch_refresh(
             &root,
             &[root.join("docs/guide.md"), root.join("src/lib.rs")]
@@ -1594,7 +1594,7 @@ mod tests {
             &root,
             &[
                 root.join("docs/guide.md"),
-                PathBuf::from("/tmp/editor-copy.md")
+                std::env::temp_dir().join("editor-copy.md")
             ]
         ));
     }

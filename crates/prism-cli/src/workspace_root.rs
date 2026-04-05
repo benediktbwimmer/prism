@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn explicit_root_wins() {
-        let root = PathBuf::from("/tmp/prism-explicit-root");
+        let root = unique_temp_dir("explicit-root");
         assert_eq!(resolve(Some(&root)).unwrap(), root);
     }
 
@@ -75,7 +75,7 @@ mod tests {
         let root = unique_temp_dir("git-file-root");
         let nested = root.join("nested");
         fs::create_dir_all(&nested).unwrap();
-        fs::write(root.join(".git"), "gitdir: /tmp/prism-linked-worktree\n").unwrap();
+        fs::write(root.join(".git"), "gitdir: ../prism-linked-worktree\n").unwrap();
 
         assert_eq!(discover_git_root(&nested).unwrap(), root);
 

@@ -2237,7 +2237,7 @@ fn git_execution_policy_completion_require_push_failure_keeps_task_in_progress()
             "set-url",
             "--push",
             "origin",
-            "/definitely/missing/prism-push-remote.git",
+            "definitely/missing/prism-push-remote.git",
         ],
     );
 
@@ -12285,7 +12285,7 @@ pub fn runtime_status() {}
             session.as_ref(),
             PrismConceptMutationArgs {
                 operation: ConceptMutationOperationInput::Promote,
-                handle: Some("concept://workspace_validation".to_string()),
+                handle: Some("concept:/workspace_validation".to_string()),
                 canonical_name: Some("workspace_validation".to_string()),
                 summary: Some("Workspace-scoped validation concept for local reuse.".to_string()),
                 aliases: Some(vec![
@@ -12362,7 +12362,7 @@ pub fn runtime_status() {}
             test_session(&host),
             r#"
 return {
-  session: prism.conceptByHandle("concept://workspace_validation"),
+  session: prism.conceptByHandle("concept:/workspace_validation"),
   local: prism.conceptByHandle("concept://local_validation_probe"),
 };
 "#,
@@ -12378,7 +12378,7 @@ return {
             test_session(&reloaded),
             r#"
 return {
-  session: prism.conceptByHandle("concept://workspace_validation"),
+  session: prism.conceptByHandle("concept:/workspace_validation"),
   local: prism.conceptByHandle("concept://local_validation_probe"),
 };
 "#,
@@ -14383,8 +14383,8 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
-        previous_path: Some("/workspace/src/lib.rs".into()),
-        current_path: Some("/workspace/src/lib.rs".into()),
+        previous_path: Some("workspace/src/lib.rs".into()),
+        current_path: Some("workspace/src/lib.rs".into()),
         added: Vec::new(),
         removed: Vec::new(),
         updated: vec![(
@@ -19441,7 +19441,7 @@ version.workspace = true
 
     let payload = host
         .search_resource_value(test_session(&host),
-            "prism://search/workspace?strategy=direct&kind=toml-key&path=Cargo.toml&pathMode=exact&structuredPath=workspace&topLevelOnly=true&preferCallableCode=false&preferEditableTargets=true&preferBehavioralOwners=true&includeInferred=false",
+            "prism://searchworkspace?strategy=direct&kind=toml-key&path=Cargo.toml&pathMode=exact&structuredPath=workspace&topLevelOnly=true&preferCallableCode=false&preferEditableTargets=true&preferBehavioralOwners=true&includeInferred=false",
             "workspace",
         )
         .unwrap();
@@ -25448,8 +25448,8 @@ fn session_resource_surfaces_stale_current_task_context() {
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
-        previous_path: Some("/workspace/src/lib.rs".into()),
-        current_path: Some("/workspace/src/lib.rs".into()),
+        previous_path: Some("workspace/src/lib.rs".into()),
+        current_path: Some("workspace/src/lib.rs".into()),
         added: Vec::new(),
         removed: Vec::new(),
         updated: vec![(
@@ -25583,8 +25583,8 @@ fn session_resource_derives_coordination_binding_from_coord_task_id_for_stale_re
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
-        previous_path: Some("/workspace/src/lib.rs".into()),
-        current_path: Some("/workspace/src/lib.rs".into()),
+        previous_path: Some("workspace/src/lib.rs".into()),
+        current_path: Some("workspace/src/lib.rs".into()),
         added: Vec::new(),
         removed: Vec::new(),
         updated: vec![(

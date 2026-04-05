@@ -636,7 +636,7 @@ The key rule remains:
 - secret credential material remains local
 
 This stays consistent with
-[SHARED_IDENTITY_FUTURE_STATE.md](./SHARED_IDENTITY_FUTURE_STATE.md),
+[PRISM_AUTH_AND_IDENTITY_MODEL.md](./PRISM_AUTH_AND_IDENTITY_MODEL.md),
 but changes the storage substrate from "necessarily Postgres" to "federated shared state."
 
 ### 10.2 Secrets stay local

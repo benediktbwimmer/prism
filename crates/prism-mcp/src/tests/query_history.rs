@@ -1107,10 +1107,11 @@ return prism.searchText("read context", {
     )
     .expect("seed query should succeed");
 
+    let sibling_root = root.join("sibling-query-history");
     let sibling_dir = sibling_worktree_dir(
         &root,
         "worktree:sibling",
-        "/tmp/prism-query-history-sibling",
+        sibling_root.to_string_lossy().as_ref(),
     );
     let sibling_log_path = sibling_dir.join("mcp/logs/prism-mcp-call-log.jsonl");
     fs::write(
@@ -1119,7 +1120,7 @@ return prism.searchText("read context", {
             "{}\n",
             serde_json::to_string(&sibling_mcp_record(
                 "mcp-call:sibling",
-                "/tmp/prism-query-history-sibling",
+                sibling_root.to_string_lossy().as_ref(),
             ))
             .unwrap()
         ),
@@ -1201,10 +1202,11 @@ fn prism_runtime_logs_repo_scope_merges_worktrees_and_keeps_default_worktree_vie
         }],
     );
 
+    let sibling_root = root.join("sibling-runtime-history");
     let sibling_dir = sibling_worktree_dir(
         &root,
         "worktree:sibling-runtime",
-        "/tmp/prism-query-history-runtime-sibling",
+        sibling_root.to_string_lossy().as_ref(),
     );
     write_runtime_log(
         &sibling_dir.join("mcp/logs/prism-mcp-daemon.log"),

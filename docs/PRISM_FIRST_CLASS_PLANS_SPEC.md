@@ -536,7 +536,7 @@ that:
 `.prism/state/plans/<plan-id>.json`, `.prism/state/coordination/**/*.json`, the derived indexes,
 and `.prism/state/manifest.json` are the committed source of truth for published plan intent.
 
-This plan-specific persistence policy follows the repo-wide classification in [`docs/PERSISTENCE_STATE_CLASSIFICATION.md`](/Users/bene/code/prism/docs/PERSISTENCE_STATE_CLASSIFICATION.md): authored plan intent and durable workflow continuity are authoritative, while hydrated graph materializations, compatibility task projections, summaries, recommendations, and snapshots remain derived.
+This plan-specific persistence policy follows the repo-wide classification in [`docs/PERSISTENCE_STATE_CLASSIFICATION.md`](PERSISTENCE_STATE_CLASSIFICATION.md): authored plan intent and durable workflow continuity are authoritative, while hydrated graph materializations, compatibility task projections, summaries, recommendations, and snapshots remain derived.
 
 The indexes should remain intentionally small and hold only compact plan-level metadata needed for
 discovery and navigation.

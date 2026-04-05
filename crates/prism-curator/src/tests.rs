@@ -45,14 +45,14 @@ fn sample_context() -> CuratorContext {
 
 #[test]
 fn invocation_includes_typed_codex_options() {
-    let mut config = CodexCliCuratorConfig::codex("codex", "/tmp/demo");
+    let mut config = CodexCliCuratorConfig::codex("codex", "workspace/demo");
     config.model = Some("gpt-5.4".to_string());
     config.profile = Some("curator".to_string());
     config.sandbox = Some(CodexSandboxMode::WorkspaceWrite);
     config.approval_policy = Some(CodexApprovalPolicy::Never);
     config.reasoning_effort = Some(CodexReasoningEffort::High);
     config.execution_mode = CodexExecutionMode::FullAuto;
-    config.add_dirs.push("/tmp/extra".into());
+    config.add_dirs.push("workspace/extra".into());
     config.skip_git_repo_check = true;
     config.ephemeral = true;
     config.enable_features.push("foo".to_string());
@@ -152,7 +152,7 @@ printf '%s' '{"proposals":[{"kind":"risk_summary","anchors":[],"summary":"watch 
 
     let curator = CodexCliCurator::new(CodexCliCuratorConfig::codex(
         script_path.clone(),
-        "/tmp/demo",
+        "workspace/demo",
     ));
     let run = curator
         .run(&sample_job(), &sample_context())

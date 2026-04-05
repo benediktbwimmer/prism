@@ -27,7 +27,7 @@ The recommended order for the next phase is:
 
 Several crates have reached the size where file-level decomposition will improve change safety and review speed.
 
-The detailed execution plan for this work lives in [MODULARIZATION_PLAN.md](MODULARIZATION_PLAN.md).
+The detailed execution plan for this work previously lived in a separate modularization plan document; the current status is summarized below.
 
 Status as of 2026-03-26:
 

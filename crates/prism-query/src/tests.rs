@@ -924,8 +924,8 @@ fn search_can_filter_by_kind_and_path() {
     use std::path::Path;
 
     let mut graph = Graph::new();
-    let spec_file = graph.ensure_file(Path::new("/workspace/docs/SPEC.md"));
-    let source_file = graph.ensure_file(Path::new("/workspace/src/spec.rs"));
+    let spec_file = graph.ensure_file(Path::new("workspace/docs/SPEC.md"));
+    let source_file = graph.ensure_file(Path::new("workspace/src/spec.rs"));
 
     graph.add_node(Node {
         id: NodeId::new("demo", "demo::document::docs::SPEC_md", NodeKind::Document),
@@ -1252,11 +1252,11 @@ fn broad_identifier_search_prefers_code_over_replay_and_lockfile_noise() {
     use std::path::Path;
 
     let mut graph = Graph::new();
-    let planner_file = graph.ensure_file(Path::new("/workspace/src/planner.rs"));
+    let planner_file = graph.ensure_file(Path::new("workspace/src/planner.rs"));
     let replay_file = graph.ensure_file(Path::new(
-        "/workspace/crates/prism-mcp/src/query_replay_cases.rs",
+        "workspace/crates/prism-mcp/src/query_replay_cases.rs",
     ));
-    let lockfile = graph.ensure_file(Path::new("/workspace/www/dashboard/package-lock.json"));
+    let lockfile = graph.ensure_file(Path::new("workspace/www/dashboard/package-lock.json"));
 
     graph.add_node(Node {
         id: NodeId::new(
@@ -1312,8 +1312,8 @@ fn broad_identifier_search_suppresses_test_noise_when_non_test_code_exists() {
     use std::path::Path;
 
     let mut graph = Graph::new();
-    let lib_file = graph.ensure_file(Path::new("/workspace/src/lib.rs"));
-    let helpers_file = graph.ensure_file(Path::new("/workspace/src/query_helpers.rs"));
+    let lib_file = graph.ensure_file(Path::new("workspace/src/lib.rs"));
+    let helpers_file = graph.ensure_file(Path::new("workspace/src/query_helpers.rs"));
 
     graph.add_node(Node {
         id: NodeId::new("demo", "demo::build_helper_plan", NodeKind::Function),
@@ -1354,7 +1354,7 @@ fn broad_identifier_search_prefers_owner_module_over_path_inherited_functions() 
     use std::path::Path;
 
     let mut graph = Graph::new();
-    let helpers_file = graph.ensure_file(Path::new("/workspace/src/helpers.rs"));
+    let helpers_file = graph.ensure_file(Path::new("workspace/src/helpers.rs"));
 
     graph.add_node(Node {
         id: NodeId::new("demo", "demo::helpers", NodeKind::Module),
@@ -1443,8 +1443,8 @@ fn outcome_queries_expand_node_to_lineage() {
         },
         trigger: prism_ir::ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
-        previous_path: Some("/workspace/src/lib.rs".into()),
-        current_path: Some("/workspace/src/lib.rs".into()),
+        previous_path: Some("workspace/src/lib.rs".into()),
+        current_path: Some("workspace/src/lib.rs".into()),
         added: vec![prism_ir::ObservedNode {
             node: Node {
                 id: new_id.clone(),
@@ -1693,8 +1693,8 @@ fn blast_radius_uses_co_change_history_and_neighbor_validations() {
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
-        previous_path: Some("/workspace/src/lib.rs".into()),
-        current_path: Some("/workspace/src/lib.rs".into()),
+        previous_path: Some("workspace/src/lib.rs".into()),
+        current_path: Some("workspace/src/lib.rs".into()),
         added: Vec::new(),
         removed: Vec::new(),
         updated: vec![
@@ -4914,8 +4914,8 @@ fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
-        previous_path: Some("/workspace/src/lib.rs".into()),
-        current_path: Some("/workspace/src/lib.rs".into()),
+        previous_path: Some("workspace/src/lib.rs".into()),
+        current_path: Some("workspace/src/lib.rs".into()),
         added: Vec::new(),
         removed: Vec::new(),
         updated: vec![(
@@ -5147,8 +5147,8 @@ fn replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy() {
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
-        previous_path: Some("/workspace/src/lib.rs".into()),
-        current_path: Some("/workspace/src/lib.rs".into()),
+        previous_path: Some("workspace/src/lib.rs".into()),
+        current_path: Some("workspace/src/lib.rs".into()),
         added: Vec::new(),
         removed: Vec::new(),
         updated: vec![(

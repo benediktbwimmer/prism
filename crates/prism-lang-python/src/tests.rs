@@ -11,8 +11,8 @@ fn parses_top_level_function_and_call() {
     let input = ParseInput {
         package_name: "demo",
         crate_name: "demo",
-        package_root: Path::new("/workspace"),
-        path: Path::new("/workspace/demo/service.py"),
+        package_root: Path::new("workspace"),
+        path: Path::new("workspace/demo/service.py"),
         file_id: FileId(1),
         parse_depth: ParseDepth::Deep,
         source: "def alpha():\n    beta()\n\ndef beta():\n    pass\n",
@@ -35,8 +35,8 @@ fn parses_classes_methods_and_fields() {
     let input = ParseInput {
         package_name: "demo",
         crate_name: "demo",
-        package_root: Path::new("/workspace"),
-        path: Path::new("/workspace/demo/__init__.py"),
+        package_root: Path::new("workspace"),
+        path: Path::new("workspace/demo/__init__.py"),
         file_id: FileId(1),
         parse_depth: ParseDepth::Deep,
         source: r#"
@@ -81,8 +81,8 @@ fn collects_imports_and_inheritance_references() {
     let input = ParseInput {
         package_name: "demo",
         crate_name: "demo",
-        package_root: Path::new("/workspace"),
-        path: Path::new("/workspace/demo/models.py"),
+        package_root: Path::new("workspace"),
+        path: Path::new("workspace/demo/models.py"),
         file_id: FileId(1),
         parse_depth: ParseDepth::Deep,
         source: r#"
@@ -117,8 +117,8 @@ fn shallow_parse_skips_body_derived_calls_and_fields() {
     let input = ParseInput {
         package_name: "demo",
         crate_name: "demo",
-        package_root: Path::new("/workspace"),
-        path: Path::new("/workspace/demo/__init__.py"),
+        package_root: Path::new("workspace"),
+        path: Path::new("workspace/demo/__init__.py"),
         file_id: FileId(1),
         parse_depth: ParseDepth::Shallow,
         source: r#"

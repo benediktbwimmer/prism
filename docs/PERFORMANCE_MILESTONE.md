@@ -19,7 +19,7 @@ That means each meaningful optimization should leave behind at least one of:
 
 ## Original Audit Baseline
 
-Observed on March 26, 2026 in `/Users/bene/code/prism` before the milestone work landed:
+Observed on March 26, 2026 in this repo before the milestone work landed:
 
 - `prism-mcp` bridge/daemon topology was active through Codex launcher configuration.
 - 21 `--mode bridge` processes were connected to a single `--mode daemon` process.
@@ -94,8 +94,8 @@ Primary sources:
 - `prism.mcpStats({ minDurationMs: 50 })`
 - `prism.slowMcpCalls({ limit: 8, minDurationMs: 1000 })`
 - `prism.slowQueries({ limit: 8, minDurationMs: 1000 })`
-- `/Users/bene/.prism/repos/repo-8719dd7db144e96f/worktrees/worktree-8719dd7db144e96f/mcp/logs/prism-mcp-daemon.log`
-- `/Users/bene/.prism/repos/repo-8719dd7db144e96f/worktrees/worktree-8719dd7db144e96f/mcp/logs/prism-mcp-call-log.jsonl`
+- `~/.prism/repos/repo-8719dd7db144e96f/worktrees/worktree-8719dd7db144e96f/mcp/logs/prism-mcp-daemon.log`
+- `~/.prism/repos/repo-8719dd7db144e96f/worktrees/worktree-8719dd7db144e96f/mcp/logs/prism-mcp-call-log.jsonl`
 
 ### Live daemon shape
 
@@ -237,9 +237,9 @@ These hypotheses are now tracked explicitly in
 ### 1. Request handling used to force full workspace refresh
 
 `QueryHost::refresh_workspace()` in
-[crates/prism-mcp/src/lib.rs](/Users/bene/code/prism/crates/prism-mcp/src/lib.rs)
+[crates/prism-mcp/src/lib.rs](../crates/prism-mcp/src/lib.rs)
 used to unconditionally reach `workspace.refresh_fs()`, and that refresh path reached
-[crates/prism-core/src/watch.rs](/Users/bene/code/prism/crates/prism-core/src/watch.rs), which
+[crates/prism-core/src/watch.rs](../crates/prism-core/src/watch.rs), which
 constructed a fresh `WorkspaceIndexer` and ran `index_with_trigger()`.
 
 Status:

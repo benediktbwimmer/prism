@@ -921,7 +921,7 @@ fn session_payload_example() -> Value {
     json!({
         "uri": session_resource_uri(),
         "schemaUri": schema_resource_uri("session"),
-        "workspaceRoot": "/workspace/demo",
+        "workspaceRoot": "workspace/demo",
         "currentTask": {
             "taskId": "task:demo-main",
             "description": "Inspect the read-context flow.",
@@ -956,7 +956,7 @@ fn protected_state_payload_example() -> Value {
     json!({
         "uri": protected_state_resource_uri_with_options(Some("concepts:events")),
         "schemaUri": schema_resource_uri("protected-state"),
-        "workspaceRoot": "/workspace/demo",
+        "workspaceRoot": "workspace/demo",
         "streamSelector": "concepts:events",
         "streams": [{
             "stream": "repo_concept_events",

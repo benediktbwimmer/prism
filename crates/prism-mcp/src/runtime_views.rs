@@ -1607,12 +1607,16 @@ mod tests {
 
     #[test]
     fn health_status_uses_process_state_instead_of_self_http_probe() {
+        let root = temp_root("health-status");
         let daemon = McpProcess {
             pid: 29267,
             ppid: 1,
             rss_kb: 4454352,
             elapsed: "02:12:24".to_string(),
-            command: "/Users/bene/code/prism/target/release/prism-mcp --mode daemon".to_string(),
+            command: format!(
+                "{} --mode daemon",
+                root.join("target/release/prism-mcp").display()
+            ),
             kind: McpProcessKind::Daemon,
             health_path: Some("/healthz".to_string()),
             http_uri: Some("http://127.0.0.1:52695/mcp".to_string()),
@@ -1740,7 +1744,7 @@ mod tests {
 
     #[test]
     fn runtime_state_processes_filter_out_dead_runtime_records() {
-        let root = Path::new("/tmp/prism-runtime-status-test");
+        let root = temp_root("runtime-status-test");
         let live = RuntimeProcessRecord {
             pid: std::process::id(),
             kind: "daemon".to_string(),
@@ -1760,14 +1764,14 @@ mod tests {
             restart_nonce: Some("dead".to_string()),
         };
 
-        let processes = runtime_state_processes(root, &[live, dead]).unwrap();
+        let processes = runtime_state_processes(&root, &[live, dead]).unwrap();
         assert_eq!(processes.len(), 1);
         assert_eq!(processes[0].pid, std::process::id());
     }
 
     #[test]
     fn runtime_process_from_record_prefers_live_process_snapshot_metadata() {
-        let root = Path::new("/tmp/prism-runtime-status-test");
+        let root = temp_root("runtime-process-from-record");
         let record = RuntimeProcessRecord {
             pid: 42,
             kind: "daemon".to_string(),
@@ -1782,11 +1786,14 @@ mod tests {
             ppid: 7,
             rss_kb: 123_456,
             elapsed: "00:12".to_string(),
-            command: "/tmp/prism-mcp --mode daemon --root /tmp/prism-runtime-status-test"
-                .to_string(),
+            command: format!(
+                "{} --mode daemon --root {}",
+                root.join("bin/prism-mcp").display(),
+                root.display()
+            ),
         }];
 
-        let process = runtime_process_from_record(root, &record, &snapshots)
+        let process = runtime_process_from_record(&root, &record, &snapshots)
             .expect("runtime process should be built");
 
         assert_eq!(process.pid, 42);
@@ -1802,8 +1809,12 @@ mod tests {
 
     #[test]
     fn parse_process_snapshot_reads_ps_layout() {
+        let root = temp_root("parse-process-snapshot");
         let snapshot = parse_process_snapshot(
-            "33725     1 1006400    05:04 /Users/bene/code/prism/target/release/prism-mcp --mode daemon --daemonize",
+            &format!(
+                "33725     1 1006400    05:04 {} --mode daemon --daemonize",
+                root.join("target/release/prism-mcp").display()
+            ),
         )
         .expect("ps snapshot should parse");
 

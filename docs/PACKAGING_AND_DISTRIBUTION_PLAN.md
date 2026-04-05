@@ -35,15 +35,15 @@ Observed product shape:
 Observed implementation split:
 
 - the user-facing CLI is parsed in
-  [crates/prism-cli/src/cli.rs](/Users/bene/code/prism/crates/prism-cli/src/cli.rs)
+  [crates/prism-cli/src/cli.rs](../crates/prism-cli/src/cli.rs)
 - the CLI entrypoint is a thin facade in
-  [crates/prism-cli/src/main.rs](/Users/bene/code/prism/crates/prism-cli/src/main.rs)
+  [crates/prism-cli/src/main.rs](../crates/prism-cli/src/main.rs)
 - MCP lifecycle orchestration lives in
-  [crates/prism-cli/src/mcp.rs](/Users/bene/code/prism/crates/prism-cli/src/mcp.rs)
+  [crates/prism-cli/src/mcp.rs](../crates/prism-cli/src/mcp.rs)
 - the MCP server entrypoint is a thin facade in
-  [crates/prism-mcp/src/main.rs](/Users/bene/code/prism/crates/prism-mcp/src/main.rs)
+  [crates/prism-mcp/src/main.rs](../crates/prism-mcp/src/main.rs)
 - `PrismMcpCli` and `serve_with_mode` are already exposed from
-  [crates/prism-mcp/src/lib.rs](/Users/bene/code/prism/crates/prism-mcp/src/lib.rs)
+  [crates/prism-mcp/src/lib.rs](../crates/prism-mcp/src/lib.rs)
 
 The main gaps are:
 
@@ -182,12 +182,12 @@ Recommended implementation:
 
 Likely touch points:
 
-- [Cargo.toml](/Users/bene/code/prism/Cargo.toml)
-- [crates/prism-cli/Cargo.toml](/Users/bene/code/prism/crates/prism-cli/Cargo.toml)
-- [crates/prism-cli/src/cli.rs](/Users/bene/code/prism/crates/prism-cli/src/cli.rs)
-- [crates/prism-cli/src/commands.rs](/Users/bene/code/prism/crates/prism-cli/src/commands.rs)
-- [crates/prism-cli/src/mcp.rs](/Users/bene/code/prism/crates/prism-cli/src/mcp.rs)
-- [crates/prism-mcp/src/lib.rs](/Users/bene/code/prism/crates/prism-mcp/src/lib.rs)
+- [Cargo.toml](../Cargo.toml)
+- [crates/prism-cli/Cargo.toml](../crates/prism-cli/Cargo.toml)
+- [crates/prism-cli/src/cli.rs](../crates/prism-cli/src/cli.rs)
+- [crates/prism-cli/src/commands.rs](../crates/prism-cli/src/commands.rs)
+- [crates/prism-cli/src/mcp.rs](../crates/prism-cli/src/mcp.rs)
+- [crates/prism-mcp/src/lib.rs](../crates/prism-mcp/src/lib.rs)
 
 Acceptance criteria:
 
@@ -287,7 +287,7 @@ are desired.
 
 Likely touch points:
 
-- [Cargo.toml](/Users/bene/code/prism/Cargo.toml)
+- [Cargo.toml](../Cargo.toml)
 - optional `dist-workspace.toml`
 - generated `.github/workflows/release.yml`
 - release documentation and changelog surfaces if needed
@@ -385,18 +385,18 @@ remaining Unix-only lifecycle assumptions from the CLI and MCP runtime.
 Current blockers:
 
 - daemon spawning in
-  [crates/prism-mcp/src/daemon_mode.rs](/Users/bene/code/prism/crates/prism-mcp/src/daemon_mode.rs)
+  [crates/prism-mcp/src/daemon_mode.rs](../crates/prism-mcp/src/daemon_mode.rs)
   uses `/bin/sh` and `nohup`
 - process inspection in
-  [crates/prism-cli/src/mcp.rs](/Users/bene/code/prism/crates/prism-cli/src/mcp.rs)
+  [crates/prism-cli/src/mcp.rs](../crates/prism-cli/src/mcp.rs)
   uses `ps`
 - port-owner inspection uses `lsof`
 - process termination uses POSIX signal semantics
 - daemonization in
-  [crates/prism-mcp/src/process_lifecycle.rs](/Users/bene/code/prism/crates/prism-mcp/src/process_lifecycle.rs)
+  [crates/prism-mcp/src/process_lifecycle.rs](../crates/prism-mcp/src/process_lifecycle.rs)
   is Unix-only
 - runtime liveness checks in
-  [crates/prism-mcp/src/runtime_state.rs](/Users/bene/code/prism/crates/prism-mcp/src/runtime_state.rs)
+  [crates/prism-mcp/src/runtime_state.rs](../crates/prism-mcp/src/runtime_state.rs)
   use `libc::kill`
 
 Required direction:

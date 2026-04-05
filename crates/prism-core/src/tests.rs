@@ -702,6 +702,7 @@ fn prism_paths_migrates_legacy_canonical_repo_home_into_git_common_dir_repo_home
         .unwrap();
 
     let sibling_worktree_dir = current_repo_home.join("worktrees/worktree-sibling");
+    let sibling_root = temp_workspace();
     fs::create_dir_all(sibling_worktree_dir.join("mcp/logs")).unwrap();
     fs::create_dir_all(current_repo_home.join("feedback")).unwrap();
     fs::write(
@@ -710,7 +711,7 @@ fn prism_paths_migrates_legacy_canonical_repo_home_into_git_common_dir_repo_home
             "version": 1,
             "repo_id": identity.repo_id,
             "worktree_id": "worktree:sibling",
-            "canonical_root": "/tmp/sibling",
+            "canonical_root": sibling_root,
             "branch_ref": "refs/heads/main",
             "created_at": 2,
             "last_seen_at": 2,
@@ -1507,6 +1508,10 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
 
 #[test]
 fn repo_published_patch_validation_rejects_absolute_file_paths() {
+    let absolute_path = std::env::temp_dir()
+        .join("demo/src/lib.rs")
+        .to_string_lossy()
+        .to_string();
     let event = OutcomeEvent {
         meta: EventMeta {
             id: EventId::new("outcome:absolute-paths"),
@@ -1541,10 +1546,10 @@ fn repo_published_patch_validation_rejects_absolute_file_paths() {
         evidence: Vec::new(),
         metadata: json!({
             "reason": "work Reject absolute patch paths (work:absolute-paths)",
-            "filePaths": ["/tmp/demo/src/lib.rs"],
+            "filePaths": [absolute_path],
             "changedFilesSummary": [
                 {
-                    "filePath": "/tmp/demo/src/lib.rs",
+                    "filePath": absolute_path,
                     "changedSymbolCount": 1,
                     "addedCount": 0,
                     "removedCount": 0,
@@ -1553,7 +1558,7 @@ fn repo_published_patch_validation_rejects_absolute_file_paths() {
             ],
             "changedSymbols": [
                 {
-                    "filePath": "/tmp/demo/src/lib.rs",
+                    "filePath": absolute_path,
                     "id": {
                         "crate_name": "demo",
                         "kind": "Function",
@@ -8955,7 +8960,7 @@ fn refresh_state_throttles_clean_fallback_checks() {
 #[test]
 fn refresh_state_keeps_later_dirty_path_revisions_pending() {
     let state = crate::session::WorkspaceRefreshState::new();
-    let path = PathBuf::from("/tmp/demo.rs");
+    let path = temp_workspace().join("demo.rs");
 
     let first_revision = state.mark_fs_dirty_paths([path.clone()]);
     let second_revision = state.mark_fs_dirty_paths([path.clone()]);
@@ -8974,7 +8979,7 @@ fn refresh_state_keeps_later_dirty_path_revisions_pending() {
 #[test]
 fn refresh_state_filters_stale_path_requests_to_latest_revision_only() {
     let state = crate::session::WorkspaceRefreshState::new();
-    let path = PathBuf::from("/tmp/demo.rs");
+    let path = temp_workspace().join("demo.rs");
 
     let first_revision = state.mark_fs_dirty_paths([path.clone()]);
     let second_revision = state.mark_fs_dirty_paths([path.clone()]);
@@ -9016,7 +9021,7 @@ fn refresh_fs_falls_back_to_full_reindex_for_out_of_root_watch_paths() {
     .unwrap();
     session
         .refresh_state
-        .mark_fs_dirty_paths([PathBuf::from("/tmp/editor-copy-created.md")]);
+        .mark_fs_dirty_paths([std::env::temp_dir().join("editor-copy-created.md")]);
 
     let observed = session.refresh_fs().unwrap();
 

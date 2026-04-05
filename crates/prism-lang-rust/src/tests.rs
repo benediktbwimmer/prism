@@ -11,8 +11,8 @@ fn parses_top_level_function_and_call() {
     let input = ParseInput {
         package_name: "demo",
         crate_name: "demo",
-        package_root: Path::new("/workspace"),
-        path: Path::new("/workspace/src/lib.rs"),
+        package_root: Path::new("workspace"),
+        path: Path::new("workspace/src/lib.rs"),
         file_id: FileId(1),
         parse_depth: ParseDepth::Deep,
         source: "fn alpha() { beta(); }\nfn beta() {}\n",
@@ -39,8 +39,8 @@ fn parses_impls_nested_modules_and_fields() {
     let input = ParseInput {
         package_name: "demo",
         crate_name: "demo",
-        package_root: Path::new("/workspace"),
-        path: Path::new("/workspace/src/lib.rs"),
+        package_root: Path::new("workspace"),
+        path: Path::new("workspace/src/lib.rs"),
         file_id: FileId(1),
         parse_depth: ParseDepth::Deep,
         source: r#"
@@ -99,8 +99,8 @@ fn collects_imports_and_trait_references() {
     let input = ParseInput {
         package_name: "demo",
         crate_name: "demo",
-        package_root: Path::new("/workspace"),
-        path: Path::new("/workspace/src/lib.rs"),
+        package_root: Path::new("workspace"),
+        path: Path::new("workspace/src/lib.rs"),
         file_id: FileId(1),
         parse_depth: ParseDepth::Deep,
         source: r#"
@@ -140,8 +140,8 @@ fn shallow_parse_skips_body_derived_calls() {
     let input = ParseInput {
         package_name: "demo",
         crate_name: "demo",
-        package_root: Path::new("/workspace"),
-        path: Path::new("/workspace/src/lib.rs"),
+        package_root: Path::new("workspace"),
+        path: Path::new("workspace/src/lib.rs"),
         file_id: FileId(1),
         parse_depth: ParseDepth::Shallow,
         source: "fn alpha() { beta(); }\nfn beta() {}\n",

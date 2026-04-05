@@ -298,8 +298,8 @@ mod tests {
         let input = ParseInput {
             package_name: "demo",
             crate_name: "demo",
-            package_root: Path::new("/workspace"),
-            path: Path::new("/workspace/Cargo.toml"),
+            package_root: Path::new("workspace"),
+            path: Path::new("workspace/Cargo.toml"),
             file_id: FileId(1),
             parse_depth: ParseDepth::Deep,
             source: "[workspace]\nmembers = [\"crates/alpha\"]\n[dependencies]\nserde = \"1.0\"\n",

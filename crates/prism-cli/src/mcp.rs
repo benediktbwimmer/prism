@@ -1724,8 +1724,16 @@ mod tests {
 
     #[test]
     fn parses_ps_lines_for_prism_mcp() {
+        let root = temp_root("parse-ps-lines");
+        let prism_mcp = root.join("target/release/prism-mcp");
+        let uri_file = root.join(".prism/prism-mcp-http-uri");
         let process = parse_ps_line(
-            "29267 1 4454352 02:12:24 /Users/bene/code/prism/target/release/prism-mcp --mode daemon --root /Users/bene/code/prism --http-uri-file /Users/bene/code/prism/.prism/prism-mcp-http-uri --http-path /mcp --health-path /healthz --no-coordination",
+            &format!(
+                "29267 1 4454352 02:12:24 {} --mode daemon --root {} --http-uri-file {} --http-path /mcp --health-path /healthz --no-coordination",
+                prism_mcp.display(),
+                root.display(),
+                uri_file.display()
+            ),
         )
         .expect("process should parse");
         assert_eq!(process.pid, 29267);
@@ -2127,10 +2135,10 @@ mod tests {
 
     #[test]
     fn command_option_value_reads_flag_arguments() {
-        let command = "prism-mcp --mode bridge --root /tmp/work --http-uri-file /tmp/uri";
+        let command = "prism-mcp --mode bridge --root workspace --http-uri-file workspace/uri";
         assert_eq!(
             command_option_value(command, "--http-uri-file").as_deref(),
-            Some("/tmp/uri")
+            Some("workspace/uri")
         );
         assert_eq!(command_option_value(command, "--missing"), None);
     }
@@ -2279,7 +2287,8 @@ mod tests {
         let owner = PortOwner {
             pid: 42,
             command: format!(
-                "/tmp/prism-mcp --mode daemon --root {} --http-bind 127.0.0.1:52695",
+                "{} --mode daemon --root {} --http-bind 127.0.0.1:52695",
+                root.join("bin/prism-mcp").display(),
                 root.display()
             ),
         };

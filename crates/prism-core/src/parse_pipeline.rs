@@ -132,7 +132,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
     use std::thread;
-    use std::time::Duration;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     use anyhow::Result;
     use prism_ir::{FileId, Language};
@@ -145,6 +145,17 @@ mod tests {
     struct SlowTestAdapter {
         active: Arc<AtomicUsize>,
         max_active: Arc<AtomicUsize>,
+    }
+
+    fn temp_workspace_root() -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "prism-parse-pipeline-tests-{}-{stamp}",
+            std::process::id()
+        ))
     }
 
     impl LanguageAdapter for SlowTestAdapter {
@@ -174,15 +185,16 @@ mod tests {
                 active: Arc::clone(&active),
                 max_active: Arc::clone(&max_active),
             })];
+        let root = temp_workspace_root();
         let package = PackageInfo::new(
             "prism-core".to_owned(),
-            PathBuf::from("/tmp/workspace"),
-            PathBuf::from("/tmp/workspace/Cargo.toml"),
+            root.clone(),
+            root.join("Cargo.toml"),
         );
         let jobs = (0..4)
             .map(|index| PreparedParseJob {
                 pending: PendingFileParse {
-                    path: PathBuf::from(format!("/tmp/workspace/src/file_{index}.rs")),
+                    path: root.join(format!("src/file_{index}.rs")),
                     source: format!("fn file_{index}() {{}}\n"),
                     hash: index,
                     previous_path: None,
@@ -204,12 +216,9 @@ mod tests {
 
         assert_eq!(
             parsed_paths,
-            vec![
-                "/tmp/workspace/src/file_0.rs",
-                "/tmp/workspace/src/file_1.rs",
-                "/tmp/workspace/src/file_2.rs",
-                "/tmp/workspace/src/file_3.rs",
-            ]
+            (0..4)
+                .map(|index| root.join(format!("src/file_{index}.rs")).display().to_string())
+                .collect::<Vec<_>>()
         );
         if parsed.worker_count > 1 {
             assert!(max_active.load(Ordering::SeqCst) > 1);

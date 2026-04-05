@@ -1199,7 +1199,7 @@ mod tests {
                 handle_category: SessionHandleCategory::TextFragment,
                 name: path.to_string(),
                 kind: NodeKind::Function,
-                file_path: Some("/repo/src/lib.rs".to_string()),
+                file_path: Some("repo/src/lib.rs".to_string()),
                 query: None,
                 why_short: "ranked candidate".to_string(),
                 start_line: Some(1),
