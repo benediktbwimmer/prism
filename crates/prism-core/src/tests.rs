@@ -4171,7 +4171,7 @@ fn shared_runtime_sqlite_shares_principal_registry_across_workspaces() {
 }
 
 #[test]
-fn bootstrap_owner_and_mint_child_principal_round_trip_through_shared_runtime_registry() {
+fn bootstrap_owner_and_mint_child_service_round_trip_through_shared_runtime_registry() {
     let shared_runtime_root = temp_workspace();
     let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
     let root = temp_workspace();
@@ -4226,15 +4226,16 @@ fn bootstrap_owner_and_mint_child_principal_round_trip_through_shared_runtime_re
             &authenticated,
             MintPrincipalRequest {
                 authority_id: Some(PrincipalAuthorityId::new("local-daemon")),
-                kind: PrincipalKind::Agent,
-                name: "Worker".to_string(),
-                role: Some("coordination_worker".to_string()),
+                kind: PrincipalKind::Service,
+                name: "Indexer".to_string(),
+                role: Some("background_indexer".to_string()),
                 parent_principal_id: Some(owner.principal.principal_id.clone()),
                 capabilities: vec![CredentialCapability::MutateCoordination],
-                profile: json!({ "lane": "coordination" }),
+                profile: json!({ "service": "indexer" }),
             },
         )
         .unwrap();
+    assert_eq!(child.principal.kind, PrincipalKind::Service);
     assert_eq!(
         child.principal.parent_principal_id,
         Some(owner.principal.principal_id.clone())
@@ -4255,6 +4256,65 @@ fn bootstrap_owner_and_mint_child_principal_round_trip_through_shared_runtime_re
         principal.principal_id == child.principal.principal_id
             && principal.parent_principal_id == Some(owner.principal.principal_id.clone())
     }));
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn mint_child_principal_rejects_legacy_agent_principals() {
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: false,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    let owner = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: Some(PrincipalAuthorityId::new("local-daemon")),
+            name: "Owner".to_string(),
+            role: Some("repo_owner".to_string()),
+        })
+        .unwrap();
+    let authenticated = session
+        .authenticate_principal_credential(&owner.credential.credential_id, &owner.principal_token)
+        .unwrap();
+
+    let error = session
+        .mint_principal_credential(
+            &authenticated,
+            MintPrincipalRequest {
+                authority_id: Some(PrincipalAuthorityId::new("local-daemon")),
+                kind: PrincipalKind::Agent,
+                name: "Worker".to_string(),
+                role: Some("coordination_worker".to_string()),
+                parent_principal_id: Some(owner.principal.principal_id.clone()),
+                capabilities: vec![CredentialCapability::MutateCoordination],
+                profile: json!({ "lane": "coordination" }),
+            },
+        )
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("legacy local agent principals are no longer mintable"));
 
     let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(shared_runtime_root);

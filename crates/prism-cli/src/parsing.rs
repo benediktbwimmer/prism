@@ -95,6 +95,7 @@ pub fn parse_outcome_result(value: &str) -> Result<OutcomeResult> {
 pub fn parse_principal_kind(value: &str) -> Result<PrincipalKind> {
     match value.to_ascii_lowercase().as_str() {
         "human" => Ok(PrincipalKind::Human),
+        "service" => Ok(PrincipalKind::Service),
         "agent" => Ok(PrincipalKind::Agent),
         "system" => Ok(PrincipalKind::System),
         "ci" => Ok(PrincipalKind::Ci),
@@ -168,8 +169,8 @@ pub fn build_evidence(
 
 #[cfg(test)]
 mod tests {
-    use super::parse_credential_capability;
-    use prism_ir::CredentialCapability;
+    use super::{parse_credential_capability, parse_principal_kind};
+    use prism_ir::{CredentialCapability, PrincipalKind};
 
     #[test]
     fn parse_legacy_read_peer_runtime_capability() {
@@ -181,5 +182,15 @@ mod tests {
             parse_credential_capability("peer_runtime").unwrap(),
             CredentialCapability::ReadPeerRuntime
         );
+    }
+
+    #[test]
+    fn parse_principal_kind_supports_service_and_legacy_agent_values() {
+        assert_eq!(parse_principal_kind("human").unwrap(), PrincipalKind::Human);
+        assert_eq!(
+            parse_principal_kind("service").unwrap(),
+            PrincipalKind::Service
+        );
+        assert_eq!(parse_principal_kind("agent").unwrap(), PrincipalKind::Agent);
     }
 }
