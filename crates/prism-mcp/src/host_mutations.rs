@@ -3,8 +3,9 @@ use std::path::Path;
 
 use prism_coordination::{
     CoordinationTask, GitExecutionCompletionMode, GitExecutionStartMode, GitPreflightReport,
-    GitPublishReport, HandoffAcceptInput, HandoffInput, PolicyViolation, TaskCompletionContext,
-    TaskCreateInput, TaskGitExecution, TaskReclaimInput, TaskResumeInput, TaskUpdateInput,
+    GitPublishReport, HandoffAcceptInput, HandoffInput, LeaseHolder, PolicyViolation,
+    TaskCompletionContext, TaskCreateInput, TaskGitExecution, TaskReclaimInput, TaskResumeInput,
+    TaskUpdateInput,
 };
 use prism_core::{
     AdmissionBusyError, AuthenticatedPrincipal, ValidationFeedbackCategory,
@@ -1133,6 +1134,157 @@ fn mutation_provenance(
             MutationProvenance::authenticated(workspace, session, prism.clone(), authenticated)
         },
     )
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TaskLeaseStateView {
+    Unleased,
+    Active,
+    Stale,
+    Expired,
+}
+
+fn task_lease_state_at(task: &CoordinationTask, now: u64) -> TaskLeaseStateView {
+    let Some(expires_at) = task.lease_expires_at else {
+        return TaskLeaseStateView::Unleased;
+    };
+    if expires_at < now {
+        return TaskLeaseStateView::Expired;
+    }
+    if task.lease_stale_at.is_some_and(|stale_at| stale_at <= now) {
+        return TaskLeaseStateView::Stale;
+    }
+    TaskLeaseStateView::Active
+}
+
+fn session_id_from_meta(meta: &EventMeta) -> Option<prism_ir::SessionId> {
+    meta.execution_context
+        .as_ref()
+        .and_then(|context| context.session_id.as_ref())
+        .map(|value| prism_ir::SessionId::new(value.clone()))
+}
+
+fn principal_from_meta(meta: &EventMeta) -> Option<prism_ir::PrincipalActor> {
+    match &meta.actor {
+        prism_ir::EventActor::Principal(principal) => Some(principal.clone()),
+        _ => None,
+    }
+}
+
+fn same_principal(
+    left: &prism_ir::PrincipalActor,
+    right: &prism_ir::PrincipalActor,
+) -> bool {
+    left.authority_id == right.authority_id && left.principal_id == right.principal_id
+}
+
+fn same_task_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
+    if let Some(left_principal) = left.principal.as_ref() {
+        return right
+            .principal
+            .as_ref()
+            .is_some_and(|right_principal| same_principal(left_principal, right_principal));
+    }
+    if let (Some(left_session), Some(right_session)) =
+        (left.session_id.as_ref(), right.session_id.as_ref())
+    {
+        return left_session == right_session;
+    }
+    if let (Some(left_agent), Some(right_agent)) = (left.agent_id.as_ref(), right.agent_id.as_ref())
+    {
+        return left_agent == right_agent;
+    }
+    false
+}
+
+fn authoritative_task_holder(task: &CoordinationTask) -> Option<LeaseHolder> {
+    task.lease_holder.clone().or_else(|| {
+        let holder = LeaseHolder {
+            principal: None,
+            session_id: task.session.clone(),
+            agent_id: task.assignee.clone(),
+        };
+        (holder.principal.is_some() || holder.session_id.is_some() || holder.agent_id.is_some())
+            .then_some(holder)
+    })
+}
+
+fn current_task_holder(meta: &EventMeta, task: &CoordinationTask) -> LeaseHolder {
+    LeaseHolder {
+        principal: principal_from_meta(meta),
+        session_id: session_id_from_meta(meta).or_else(|| task.session.clone()),
+        agent_id: task.assignee.clone(),
+    }
+}
+
+fn next_coordination_meta(
+    session: &SessionState,
+    task_id: &CoordinationTaskId,
+    base: &EventMeta,
+) -> EventMeta {
+    EventMeta {
+        id: session.next_event_id("coordination"),
+        ts: current_timestamp(),
+        actor: base.actor.clone(),
+        correlation: Some(TaskId::new(task_id.0.clone())),
+        causation: Some(base.id.clone()),
+        execution_context: base.execution_context.clone(),
+    }
+}
+
+fn maybe_auto_resume_stale_same_holder_task(
+    prism: &Prism,
+    session: &SessionState,
+    meta: &EventMeta,
+    task_id: &CoordinationTaskId,
+) -> Result<bool> {
+    let Some(task) = prism.coordination_task(task_id) else {
+        return Ok(false);
+    };
+    let lease_state = task_lease_state_at(&task, meta.ts);
+    if !matches!(
+        lease_state,
+        TaskLeaseStateView::Stale | TaskLeaseStateView::Expired
+    ) {
+        return Ok(false);
+    }
+    let Some(lease_holder) = authoritative_task_holder(&task) else {
+        return Ok(false);
+    };
+    let current_holder = current_task_holder(meta, &task);
+    if !same_task_holder(&lease_holder, &current_holder) {
+        return Ok(false);
+    }
+    prism.resume_native_task(
+        next_coordination_meta(session, task_id, meta),
+        TaskResumeInput {
+            task_id: task_id.clone(),
+            agent: session.current_agent(),
+            worktree_id: None,
+            branch_ref: None,
+        },
+    )?;
+    Ok(true)
+}
+
+fn coordination_task_target_for_auto_resume(
+    prism: &Prism,
+    args: &PrismCoordinationArgs,
+) -> Result<Option<CoordinationTaskId>> {
+    match args.kind {
+        CoordinationMutationKindInput::Update => {
+            let payload: WorkflowUpdatePayload = serde_json::from_value(args.payload.clone())?;
+            match resolve_workflow_update_target(prism, &payload.id)? {
+                WorkflowUpdateTarget::CoordinationTask(task_id) => Ok(Some(task_id)),
+                _ => Ok(None),
+            }
+        }
+        CoordinationMutationKindInput::Handoff => {
+            let payload: crate::HandoffPayload = serde_json::from_value(args.payload.clone())?;
+            Ok(Some(CoordinationTaskId::new(payload.task_id)))
+        }
+        _ => Ok(None),
+    }
 }
 
 fn current_plan_node_state(prism: &Prism, plan_id: &PlanId, node_id: &str) -> Result<Value> {
@@ -2527,6 +2679,29 @@ impl QueryHost {
                                 return Err(error);
                             }
                         }
+                        let auto_resume_started = std::time::Instant::now();
+                        let auto_resume_result = coordination_task_target_for_auto_resume(prism, &args)
+                            .and_then(|task_id| {
+                                task_id
+                                    .as_ref()
+                                    .map(|task_id| {
+                                        maybe_auto_resume_stale_same_holder_task(
+                                            prism, session, &meta, task_id,
+                                        )
+                                    })
+                                    .transpose()
+                                    .map(|result| result.unwrap_or(false))
+                            });
+                        record_optional_trace_result(
+                            Some(trace),
+                            "mutation.coordination.autoResumeStaleTask",
+                            json!({
+                                "kind": mutation_kind,
+                            }),
+                            auto_resume_started,
+                            &auto_resume_result,
+                        );
+                        auto_resume_result?;
                         let apply_started = std::time::Instant::now();
                         let state =
                             self.apply_coordination_mutation(session, prism, args, meta.clone());
@@ -2554,6 +2729,12 @@ impl QueryHost {
                     Some(&session.session_id()),
                     |prism| {
                         let _ = self.ensure_coordination_runtime_current(workspace)?;
+                        if let Some(task_id) = coordination_task_target_for_auto_resume(prism, &args)?
+                        {
+                            let _ = maybe_auto_resume_stale_same_holder_task(
+                                prism, session, &meta, &task_id,
+                            )?;
+                        }
                         self.apply_coordination_mutation(session, prism, args, meta.clone())
                     },
                     |_operation, _duration, _args, _success, _error| {},
@@ -3616,6 +3797,17 @@ impl QueryHost {
             Some(&session.session_id()),
             |prism| {
                 let _ = self.ensure_coordination_runtime_current(workspace)?;
+                let auto_resume_started = std::time::Instant::now();
+                let auto_resume_result =
+                    maybe_auto_resume_stale_same_holder_task(prism, session, &apply_meta, &task_id);
+                record_optional_trace_result(
+                    trace,
+                    "mutation.gitExecution.autoResumeStaleTask",
+                    json!({ "taskId": task_id.0.as_str() }),
+                    auto_resume_started,
+                    &auto_resume_result,
+                );
+                auto_resume_result?;
                 let apply_started = std::time::Instant::now();
                 let apply_result =
                     self.apply_coordination_mutation(session, prism, args, apply_meta.clone());
@@ -3948,6 +4140,7 @@ impl QueryHost {
                 Some(&session.session_id()),
                 |prism| {
                     let _ = self.ensure_coordination_runtime_current(workspace)?;
+                    let _ = maybe_auto_resume_stale_same_holder_task(prism, session, &meta, task_id)?;
                     mutate(prism, meta)
                 },
                 observed,
@@ -3957,6 +4150,7 @@ impl QueryHost {
                 Some(&session.session_id()),
                 |prism| {
                     let _ = self.ensure_coordination_runtime_current(workspace)?;
+                    let _ = maybe_auto_resume_stale_same_holder_task(prism, session, &meta, task_id)?;
                     mutate(prism, meta)
                 },
                 observed,
