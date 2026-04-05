@@ -1,35 +1,79 @@
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Result};
 use prism_core::{
-    hydrate_workspace_session_with_options, BootstrapOwnerInput, CredentialProfile,
+    hydrate_workspace_session_with_options, AttestedHumanPrincipalInput, CredentialProfile,
     CredentialsFile, MintPrincipalRequest, PrismPaths, SharedRuntimeBackend, WorkspaceSession,
     WorkspaceSessionOptions,
 };
-use prism_ir::{CredentialId, PrincipalAuthorityId, PrincipalId, PrincipalKind};
+use prism_ir::{
+    CredentialId, HumanAttestationAssurance, HumanAttestationOperation, HumanAttestationRecord,
+    HumanPrincipalProfile, PrincipalAuthorityId, PrincipalId, PrincipalKind,
+};
 use serde_json::Value;
 
-use crate::cli::{AuthCommand, PrincipalCommand};
+use crate::cli::{AuthAssuranceArg, AuthCommand, PrincipalCommand};
 use crate::git_support::ensure_repo_git_support;
 use crate::parsing::{parse_credential_capability, parse_principal_kind};
 
 pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<()> {
     match command {
-        AuthCommand::Init {
+        AuthCommand::Bootstrap {
             name,
             authority,
             role,
+            issuer,
+            subject,
+            assurance,
         } => {
             let (session, credentials_path) = load_auth_session(root)?;
-            let issued = session.bootstrap_owner_principal(BootstrapOwnerInput {
-                authority_id: Some(PrincipalAuthorityId::new(authority)),
-                name,
-                role,
-            })?;
+            let issued = session.bootstrap_owner_principal_with_attestation(
+                AttestedHumanPrincipalInput {
+                    authority_id: Some(PrincipalAuthorityId::new(authority)),
+                    name,
+                    role,
+                    attestation: HumanAttestationRecord {
+                        issuer,
+                        subject,
+                        assurance: map_assurance_arg(assurance),
+                        operation: HumanAttestationOperation::Bootstrap,
+                        verified_at: current_unix_timestamp(),
+                    },
+                },
+            )?;
             let mut credentials = CredentialsFile::load(&credentials_path)?;
             let stored = store_issued_credential(&mut credentials, &issued, None, false);
             credentials.save(&credentials_path)?;
             println!("initialized principal registry");
+            print_issued_credential(&stored, &issued);
+        }
+        AuthCommand::Recover {
+            name,
+            authority,
+            role,
+            issuer,
+            subject,
+            assurance,
+        } => {
+            let (session, credentials_path) = load_auth_session(root)?;
+            let issued =
+                session.recover_owner_principal_with_attestation(AttestedHumanPrincipalInput {
+                    authority_id: Some(PrincipalAuthorityId::new(authority)),
+                    name,
+                    role,
+                    attestation: HumanAttestationRecord {
+                        issuer,
+                        subject,
+                        assurance: map_assurance_arg(assurance),
+                        operation: HumanAttestationOperation::Recovery,
+                        verified_at: current_unix_timestamp(),
+                    },
+                })?;
+            let mut credentials = CredentialsFile::load(&credentials_path)?;
+            let stored = store_issued_credential(&mut credentials, &issued, None, false);
+            credentials.save(&credentials_path)?;
+            println!("initialized principal registry from recovery attestation");
             print_issued_credential(&stored, &issued);
         }
         AuthCommand::Login {
@@ -56,9 +100,51 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             println!("principal_id = {}", selected.principal_id);
             println!("credential_id = {}", selected.credential_id);
         }
+        AuthCommand::Whoami => {
+            let (session, credentials_path) = load_auth_session(root)?;
+            let credentials_file = CredentialsFile::load(&credentials_path)?;
+            let selected = credentials_file.find_by_selector(None, None, None)?.clone();
+            let authenticated = session.authenticate_principal_credential(
+                &CredentialId::new(selected.credential_id.clone()),
+                &selected.principal_token,
+            )?;
+            println!("profile = {}", selected.profile);
+            println!("authority_id = {}", authenticated.principal.authority_id.0);
+            println!("principal_id = {}", authenticated.principal.principal_id.0);
+            println!("principal_kind = {:?}", authenticated.principal.kind);
+            println!(
+                "credential_id = {}",
+                authenticated.credential.credential_id.0
+            );
+            if let Ok(profile) =
+                serde_json::from_value::<HumanPrincipalProfile>(authenticated.principal.profile)
+            {
+                if let Some(attestation) = profile.attestation {
+                    println!("attestation_issuer = {}", attestation.issuer);
+                    println!("attestation_subject = {}", attestation.subject);
+                    println!("attestation_assurance = {:?}", attestation.assurance);
+                    println!("attestation_operation = {:?}", attestation.operation);
+                }
+            }
+        }
     }
 
     Ok(())
+}
+
+fn map_assurance_arg(value: AuthAssuranceArg) -> HumanAttestationAssurance {
+    match value {
+        AuthAssuranceArg::High => HumanAttestationAssurance::High,
+        AuthAssuranceArg::Moderate => HumanAttestationAssurance::Moderate,
+        AuthAssuranceArg::Legacy => HumanAttestationAssurance::Legacy,
+    }
+}
+
+fn current_unix_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("current time should be after unix epoch")
+        .as_secs()
 }
 
 pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -> Result<()> {

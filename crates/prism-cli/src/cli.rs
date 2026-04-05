@@ -102,13 +102,33 @@ pub enum Command {
 
 #[derive(Subcommand)]
 pub enum AuthCommand {
-    Init {
+    Bootstrap {
         #[arg(long)]
         name: String,
         #[arg(long, default_value = "local-daemon")]
         authority: String,
         #[arg(long)]
         role: Option<String>,
+        #[arg(long)]
+        issuer: String,
+        #[arg(long)]
+        subject: String,
+        #[arg(long, value_enum)]
+        assurance: AuthAssuranceArg,
+    },
+    Recover {
+        #[arg(long)]
+        name: String,
+        #[arg(long, default_value = "local-daemon")]
+        authority: String,
+        #[arg(long)]
+        role: Option<String>,
+        #[arg(long)]
+        issuer: String,
+        #[arg(long)]
+        subject: String,
+        #[arg(long, value_enum)]
+        assurance: AuthAssuranceArg,
     },
     Login {
         #[arg(long)]
@@ -118,6 +138,14 @@ pub enum AuthCommand {
         #[arg(long)]
         credential: Option<String>,
     },
+    Whoami,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum AuthAssuranceArg {
+    High,
+    Moderate,
+    Legacy,
 }
 
 #[derive(Subcommand)]
@@ -409,8 +437,8 @@ mod tests {
     use clap::Parser;
 
     use super::{
-        AuthCommand, Cli, Command, DocsBundleArg, DocsCommand, McpCommand, PrincipalCommand,
-        ProtectedStateCommand, ProtectedStateTrustCommand,
+        AuthAssuranceArg, AuthCommand, Cli, Command, DocsBundleArg, DocsCommand, McpCommand,
+        PrincipalCommand, ProtectedStateCommand, ProtectedStateTrustCommand,
     };
 
     #[test]
@@ -596,21 +624,73 @@ mod tests {
     }
 
     #[test]
-    fn auth_init_parses() {
-        let cli = Cli::parse_from(["prism", "auth", "init", "--name", "Bene"]);
+    fn auth_bootstrap_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "auth",
+            "bootstrap",
+            "--name",
+            "Bene",
+            "--issuer",
+            "github-device-flow",
+            "--subject",
+            "bene",
+            "--assurance",
+            "high",
+        ]);
         assert!(cli.root.is_none());
         match cli.command {
             Command::Auth {
                 command:
-                    AuthCommand::Init {
+                    AuthCommand::Bootstrap {
                         name,
                         authority,
                         role,
+                        issuer,
+                        subject,
+                        assurance,
                     },
             } => {
                 assert_eq!(name, "Bene");
                 assert_eq!(authority, "local-daemon");
                 assert!(role.is_none());
+                assert_eq!(issuer, "github-device-flow");
+                assert_eq!(subject, "bene");
+                assert_eq!(assurance, AuthAssuranceArg::High);
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn auth_recover_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "auth",
+            "recover",
+            "--name",
+            "Bene",
+            "--issuer",
+            "ssh-signature",
+            "--subject",
+            "bene@laptop",
+            "--assurance",
+            "moderate",
+        ]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Auth {
+                command:
+                    AuthCommand::Recover {
+                        issuer,
+                        subject,
+                        assurance,
+                        ..
+                    },
+            } => {
+                assert_eq!(issuer, "ssh-signature");
+                assert_eq!(subject, "bene@laptop");
+                assert_eq!(assurance, AuthAssuranceArg::Moderate);
             }
             _ => panic!("unexpected command"),
         }
@@ -633,6 +713,18 @@ mod tests {
                 assert!(profile.is_none());
                 assert!(credential.is_none());
             }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn auth_whoami_parses() {
+        let cli = Cli::parse_from(["prism", "auth", "whoami"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Auth {
+                command: AuthCommand::Whoami,
+            } => {}
             _ => panic!("unexpected command"),
         }
     }

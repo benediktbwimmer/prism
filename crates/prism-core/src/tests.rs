@@ -20,10 +20,11 @@ use prism_curator::{
 use prism_ir::{
     AnchorRef, ChangeTrigger, CoordinationEventKind, CredentialCapability, CredentialId,
     CredentialRecord, CredentialStatus, EdgeKind, EventActor, EventExecutionContext, EventId,
-    EventMeta, GraphChange, LineageEvent, LineageEventKind, LineageEvidence, LineageId, NodeId,
-    NodeKind, PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile,
-    PrincipalRegistrySnapshot, PrincipalStatus, SessionId, TaskId, WorkContextKind,
-    WorkContextSnapshot,
+    EventMeta, GraphChange, HumanAttestationAssurance, HumanAttestationOperation,
+    HumanAttestationRecord, HumanPrincipalProfile, LineageEvent, LineageEventKind, LineageEvidence,
+    LineageId, NodeId, NodeKind, PrincipalAuthorityId, PrincipalId, PrincipalKind,
+    PrincipalProfile, PrincipalRegistrySnapshot, PrincipalStatus, SessionId, TaskId,
+    WorkContextKind, WorkContextSnapshot,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
@@ -47,10 +48,10 @@ use super::{
     index_workspace_session, index_workspace_session_with_curator,
     index_workspace_session_with_options, inspect_legacy_path_identity_state,
     inspect_repo_published_plan_artifacts, regenerate_repo_published_plan_artifacts,
-    repair_legacy_path_identity_state, repair_repo_published_plan_artifacts, BootstrapOwnerInput,
-    MintPrincipalRequest, PrismDocSyncStatus, PrismPaths, SharedRuntimeBackend,
-    ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
-    WorkspaceIndexer, WorkspaceSessionOptions,
+    repair_legacy_path_identity_state, repair_repo_published_plan_artifacts,
+    AttestedHumanPrincipalInput, BootstrapOwnerInput, MintPrincipalRequest, PrismDocSyncStatus,
+    PrismPaths, SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
 use crate::concept_events::append_repo_concept_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
@@ -4256,6 +4257,111 @@ fn bootstrap_owner_and_mint_child_service_round_trip_through_shared_runtime_regi
         principal.principal_id == child.principal.principal_id
             && principal.parent_principal_id == Some(owner.principal.principal_id.clone())
     }));
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn bootstrap_owner_with_attestation_records_shared_human_profile_metadata() {
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: false,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    let issued = session
+        .bootstrap_owner_principal_with_attestation(AttestedHumanPrincipalInput {
+            authority_id: Some(PrincipalAuthorityId::new("github")),
+            name: "Bene".to_string(),
+            role: Some("repo_owner".to_string()),
+            attestation: HumanAttestationRecord {
+                issuer: "github-device-flow".to_string(),
+                subject: "bene".to_string(),
+                assurance: HumanAttestationAssurance::High,
+                operation: HumanAttestationOperation::Bootstrap,
+                verified_at: 123,
+            },
+        })
+        .unwrap();
+
+    let profile: HumanPrincipalProfile =
+        serde_json::from_value(issued.principal.profile.clone()).unwrap();
+    let attestation = profile.attestation.expect("attestation should be recorded");
+    assert_eq!(attestation.issuer, "github-device-flow");
+    assert_eq!(attestation.subject, "bene");
+    assert_eq!(attestation.assurance, HumanAttestationAssurance::High);
+    assert_eq!(attestation.operation, HumanAttestationOperation::Bootstrap);
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn recover_owner_with_attestation_records_recovery_operation() {
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: false,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    let issued = session
+        .recover_owner_principal_with_attestation(AttestedHumanPrincipalInput {
+            authority_id: Some(PrincipalAuthorityId::new("ssh")),
+            name: "Bene".to_string(),
+            role: Some("repo_owner".to_string()),
+            attestation: HumanAttestationRecord {
+                issuer: "ssh-signature".to_string(),
+                subject: "bene@laptop".to_string(),
+                assurance: HumanAttestationAssurance::Moderate,
+                operation: HumanAttestationOperation::Recovery,
+                verified_at: 456,
+            },
+        })
+        .unwrap();
+
+    let profile: HumanPrincipalProfile =
+        serde_json::from_value(issued.principal.profile.clone()).unwrap();
+    assert_eq!(
+        profile.attestation.unwrap().operation,
+        HumanAttestationOperation::Recovery
+    );
 
     let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(shared_runtime_root);

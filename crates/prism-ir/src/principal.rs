@@ -51,6 +51,38 @@ pub enum CredentialCapability {
     All,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HumanAttestationOperation {
+    Bootstrap,
+    Recovery,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HumanAttestationAssurance {
+    High,
+    Moderate,
+    Legacy,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HumanAttestationRecord {
+    pub issuer: String,
+    pub subject: String,
+    pub assurance: HumanAttestationAssurance,
+    pub operation: HumanAttestationOperation,
+    pub verified_at: Timestamp,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct HumanPrincipalProfile {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attestation: Option<HumanAttestationRecord>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct PrincipalRef {
     pub authority_id: PrincipalAuthorityId,
@@ -118,7 +150,10 @@ pub struct PrincipalRegistrySnapshot {
 
 #[cfg(test)]
 mod tests {
-    use super::PrincipalKind;
+    use super::{
+        HumanAttestationAssurance, HumanAttestationOperation, HumanAttestationRecord,
+        HumanPrincipalProfile, PrincipalKind,
+    };
 
     #[test]
     fn only_human_and_service_are_durable_principal_kinds() {
@@ -135,5 +170,22 @@ mod tests {
         assert!(PrincipalKind::Agent.is_legacy_local_agent());
         assert!(!PrincipalKind::Human.is_legacy_local_agent());
         assert!(!PrincipalKind::Service.is_legacy_local_agent());
+    }
+
+    #[test]
+    fn human_principal_profile_round_trips_attestation_metadata() {
+        let profile = HumanPrincipalProfile {
+            attestation: Some(HumanAttestationRecord {
+                issuer: "github-device-flow".to_string(),
+                subject: "bene".to_string(),
+                assurance: HumanAttestationAssurance::High,
+                operation: HumanAttestationOperation::Bootstrap,
+                verified_at: 42,
+            }),
+        };
+
+        let json = serde_json::to_value(&profile).unwrap();
+        let restored: HumanPrincipalProfile = serde_json::from_value(json).unwrap();
+        assert_eq!(restored, profile);
     }
 }
