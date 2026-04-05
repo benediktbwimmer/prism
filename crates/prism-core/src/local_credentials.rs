@@ -7,14 +7,16 @@ use anyhow::{anyhow, bail, Context, Result};
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use pbkdf2::pbkdf2_hmac_array;
+use prism_ir::{CredentialCapability, CredentialStatus, PrincipalKind, PrincipalStatus};
 use rand::rngs::OsRng;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sha2::Sha256;
 
 use crate::util::current_timestamp;
 
-const CREDENTIALS_FILE_VERSION: u32 = 2;
+const CREDENTIALS_FILE_VERSION: u32 = 3;
 const HUMAN_SESSION_FILE_VERSION: u32 = 1;
 const HUMAN_SESSION_IDLE_TIMEOUT_SECS: u64 = 15 * 60;
 const HUMAN_SESSION_MAX_LIFETIME_SECS: u64 = 8 * 60 * 60;
@@ -33,7 +35,7 @@ pub struct CredentialsFile {
     pub profiles: Vec<CredentialProfile>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CredentialProfile {
     pub profile: String,
     pub authority_id: String,
@@ -43,6 +45,10 @@ pub struct CredentialProfile {
     pub principal_token: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted_secret: Option<EncryptedCredentialSecret>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub principal_metadata: Option<CredentialProfilePrincipalMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_metadata: Option<CredentialProfileCredentialMetadata>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -53,6 +59,36 @@ pub struct EncryptedCredentialSecret {
     pub salt_b64: String,
     pub nonce_b64: String,
     pub ciphertext_b64: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CredentialProfilePrincipalMetadata {
+    pub kind: PrincipalKind,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+    pub status: PrincipalStatus,
+    pub created_at: u64,
+    pub updated_at: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_principal_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub profile: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CredentialProfileCredentialMetadata {
+    pub token_verifier: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<CredentialCapability>,
+    pub status: CredentialStatus,
+    pub created_at: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_used_at: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -86,7 +122,7 @@ impl CredentialsFile {
         }
         let content = fs::read_to_string(path)?;
         let mut file: Self = toml::from_str(&content)?;
-        if file.version == 0 || file.version == 1 {
+        if matches!(file.version, 0..=2) {
             file.version = CREDENTIALS_FILE_VERSION;
         }
         Ok(file)
@@ -199,6 +235,12 @@ impl CredentialProfile {
 
     pub fn has_encrypted_secret(&self) -> bool {
         self.encrypted_secret.is_some()
+    }
+
+    pub fn token_verifier(&self) -> Option<&str> {
+        self.credential_metadata
+            .as_ref()
+            .map(|metadata| metadata.token_verifier.as_str())
     }
 
     pub fn encrypt_principal_token(
@@ -367,7 +409,14 @@ fn decode_fixed_bytes<const N: usize>(value: &str, label: &str) -> Result<[u8; N
 
 #[cfg(test)]
 mod tests {
-    use super::{CredentialProfile, CredentialsFile, HumanSessionFile, HUMAN_SESSION_FILE_VERSION};
+    use serde_json::json;
+
+    use prism_ir::{CredentialCapability, CredentialStatus, PrincipalKind, PrincipalStatus};
+
+    use super::{
+        CredentialProfile, CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata,
+        CredentialsFile, HumanSessionFile, HUMAN_SESSION_FILE_VERSION,
+    };
 
     #[test]
     fn find_by_principal_selects_matching_profile_without_mutating_active() {
@@ -382,6 +431,8 @@ mod tests {
                     credential_id: "credential:owner".to_string(),
                     principal_token: "token:owner".to_string(),
                     encrypted_secret: None,
+                    principal_metadata: None,
+                    credential_metadata: None,
                 },
                 CredentialProfile {
                     profile: "worker".to_string(),
@@ -390,6 +441,8 @@ mod tests {
                     credential_id: "credential:worker".to_string(),
                     principal_token: "token:worker".to_string(),
                     encrypted_secret: None,
+                    principal_metadata: None,
+                    credential_metadata: None,
                 },
             ],
         };
@@ -414,6 +467,8 @@ mod tests {
                 credential_id: "credential:owner".to_string(),
                 principal_token: "token:owner".to_string(),
                 encrypted_secret: None,
+                principal_metadata: None,
+                credential_metadata: None,
             }],
         };
 
@@ -425,6 +480,8 @@ mod tests {
                 credential_id: "credential:worker".to_string(),
                 principal_token: "token:worker".to_string(),
                 encrypted_secret: None,
+                principal_metadata: None,
+                credential_metadata: None,
             },
             false,
         );
@@ -442,6 +499,8 @@ mod tests {
             credential_id: "credential:owner".to_string(),
             principal_token: String::new(),
             encrypted_secret: None,
+            principal_metadata: None,
+            credential_metadata: None,
         };
 
         profile
@@ -468,6 +527,8 @@ mod tests {
             credential_id: "credential:owner".to_string(),
             principal_token: String::new(),
             encrypted_secret: None,
+            principal_metadata: None,
+            credential_metadata: None,
         };
         let mut session = HumanSessionFile {
             version: HUMAN_SESSION_FILE_VERSION,
@@ -477,5 +538,45 @@ mod tests {
         session.activate(&profile, "token:owner".to_string(), 100);
         assert!(session.active_session(100 + 60, false).is_some());
         assert!(session.active_session(100 + (15 * 60) + 1, false).is_none());
+    }
+
+    #[test]
+    fn credential_profile_round_trips_principal_and_credential_metadata() {
+        let profile = CredentialProfile {
+            profile: "owner".to_string(),
+            authority_id: "local-daemon".to_string(),
+            principal_id: "principal:owner".to_string(),
+            credential_id: "credential:owner".to_string(),
+            principal_token: String::new(),
+            encrypted_secret: None,
+            principal_metadata: Some(CredentialProfilePrincipalMetadata {
+                kind: PrincipalKind::Human,
+                name: "Owner".to_string(),
+                role: Some("repo_owner".to_string()),
+                status: PrincipalStatus::Active,
+                created_at: 11,
+                updated_at: 12,
+                parent_principal_id: None,
+                profile: json!({ "attestation": { "issuer": "github", "subject": "owner" } }),
+            }),
+            credential_metadata: Some(CredentialProfileCredentialMetadata {
+                token_verifier: "verifier".to_string(),
+                capabilities: vec![CredentialCapability::All],
+                status: CredentialStatus::Active,
+                created_at: 13,
+                last_used_at: Some(14),
+                revoked_at: None,
+            }),
+        };
+
+        let encoded = toml::to_string_pretty(&CredentialsFile {
+            version: 3,
+            active_profile: Some("owner".to_string()),
+            profiles: vec![profile.clone()],
+        })
+        .unwrap();
+        let decoded: CredentialsFile = toml::from_str(&encoded).unwrap();
+
+        assert_eq!(decoded.profiles, vec![profile]);
     }
 }

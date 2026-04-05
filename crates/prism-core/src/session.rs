@@ -1969,18 +1969,40 @@ impl WorkspaceSession {
         credential_id: &CredentialId,
         principal_token: &str,
     ) -> Result<crate::AuthenticatedPrincipal> {
-        let mut snapshot = self
-            .principal_registry
-            .write()
-            .expect("principal registry lock poisoned");
-        if snapshot.principals.is_empty() && snapshot.credentials.is_empty() {
-            return Err(anyhow!("principal registry is not initialized"));
+        let mut repair_attempted = false;
+        loop {
+            let mut snapshot = self
+                .principal_registry
+                .write()
+                .expect("principal registry lock poisoned");
+            if snapshot.principals.is_empty() && snapshot.credentials.is_empty() {
+                drop(snapshot);
+                if repair_attempted {
+                    return Err(anyhow!("principal registry is not initialized"));
+                }
+                repair_attempted = true;
+                if let Some(shared_runtime_store) = self.shared_runtime_store.as_ref() {
+                    let mut store = shared_runtime_store
+                        .lock()
+                        .expect("shared runtime store lock poisoned");
+                    if let Some(snapshot) =
+                        crate::ensure_local_principal_registry_snapshot(&self.root, &mut *store)?
+                    {
+                        *self
+                            .principal_registry
+                            .write()
+                            .expect("principal registry lock poisoned") = snapshot;
+                        continue;
+                    }
+                }
+                return Err(anyhow!("principal registry is not initialized"));
+            }
+            return crate::principal_registry::authenticate_principal_credential_without_persist(
+                &mut snapshot,
+                credential_id,
+                principal_token,
+            );
         }
-        crate::principal_registry::authenticate_principal_credential_without_persist(
-            &mut snapshot,
-            credential_id,
-            principal_token,
-        )
     }
 
     pub fn event_execution_context(

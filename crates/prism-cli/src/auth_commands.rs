@@ -4,9 +4,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{anyhow, bail, Result};
 use prism_core::{
     authenticate_principal_credential_in_registry, bootstrap_owner_principal_in_registry,
-    mint_principal_credential_in_registry, recover_owner_principal_in_registry,
-    AttestedHumanPrincipalInput, CredentialProfile, CredentialsFile, HumanSessionFile,
-    MintPrincipalRequest, PrismPaths,
+    ensure_local_principal_registry_snapshot, mint_principal_credential_in_registry,
+    recover_owner_principal_in_registry, AttestedHumanPrincipalInput, CredentialProfile,
+    CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata, CredentialsFile,
+    HumanSessionFile, MintPrincipalRequest, PrismPaths,
 };
 use prism_ir::{
     CredentialId, HumanAttestationAssurance, HumanAttestationOperation, HumanAttestationRecord,
@@ -287,7 +288,8 @@ fn load_auth_registry_store(root: &Path) -> Result<(SqliteStore, PathBuf, PathBu
     let paths = PrismPaths::for_workspace_root(root)?;
     let credentials_path = paths.credentials_path()?;
     let human_session_path = paths.human_session_path()?;
-    let store = SqliteStore::open(paths.shared_runtime_db_path()?)?;
+    let mut store = SqliteStore::open(paths.shared_runtime_db_path()?)?;
+    let _ = ensure_local_principal_registry_snapshot(root, &mut store)?;
     Ok((store, credentials_path, human_session_path))
 }
 
@@ -328,6 +330,28 @@ fn store_issued_credential(
         credential_id: issued.credential.credential_id.0.to_string(),
         principal_token: String::new(),
         encrypted_secret: None,
+        principal_metadata: Some(CredentialProfilePrincipalMetadata {
+            kind: issued.principal.kind,
+            name: issued.principal.name.clone(),
+            role: issued.principal.role.clone(),
+            status: issued.principal.status,
+            created_at: issued.principal.created_at,
+            updated_at: issued.principal.updated_at,
+            parent_principal_id: issued
+                .principal
+                .parent_principal_id
+                .as_ref()
+                .map(|value| value.0.to_string()),
+            profile: issued.principal.profile.clone(),
+        }),
+        credential_metadata: Some(CredentialProfileCredentialMetadata {
+            token_verifier: issued.credential.token_verifier.clone(),
+            capabilities: issued.credential.capabilities.clone(),
+            status: issued.credential.status,
+            created_at: issued.credential.created_at,
+            last_used_at: issued.credential.last_used_at,
+            revoked_at: issued.credential.revoked_at,
+        }),
     };
     stored.encrypt_principal_token(&issued.principal_token, passphrase)?;
     credentials.upsert_profile(stored.clone(), set_active);

@@ -330,6 +330,8 @@ mod tests {
                 credential_id: credential.credential_id.clone(),
                 principal_token: credential.principal_token.clone(),
                 encrypted_secret: None,
+                principal_metadata: None,
+                credential_metadata: None,
             },
             true,
         );
@@ -645,6 +647,8 @@ mod tests {
                 credential_id: credential.credential_id.clone(),
                 principal_token: credential.principal_token.clone(),
                 encrypted_secret: None,
+                principal_metadata: None,
+                credential_metadata: None,
             },
             true,
         );

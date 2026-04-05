@@ -13,6 +13,7 @@ mod indexer_support;
 mod invalidation;
 mod layout;
 mod local_credentials;
+mod local_principal_registry;
 mod materialization;
 mod memory_events;
 mod memory_refresh;
@@ -66,9 +67,10 @@ pub use admission::AdmissionBusyError;
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
 pub use local_credentials::{
-    CredentialProfile, CredentialsFile, EncryptedCredentialSecret, HumanSessionFile,
-    HumanSessionRecord,
+    CredentialProfile, CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata,
+    CredentialsFile, EncryptedCredentialSecret, HumanSessionFile, HumanSessionRecord,
 };
+pub use local_principal_registry::ensure_local_principal_registry_snapshot;
 pub use materialization::{
     WorkspaceBoundaryRegion, WorkspaceMaterializationCoverage, WorkspaceMaterializationSummary,
 };

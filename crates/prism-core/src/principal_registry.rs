@@ -134,7 +134,7 @@ pub(crate) fn authenticate_principal_credential_without_persist(
         .position(|credential| credential.credential_id == *credential_id)
         .ok_or_else(|| anyhow!("credential `{}` not found", credential_id.0))?;
     let now = current_timestamp();
-    let verifier = credential_verifier(principal_token);
+    let verifier = credential_token_verifier(principal_token);
     let credential = snapshot.credentials[credential_index].clone();
     if credential.status != CredentialStatus::Active {
         bail!("credential `{}` is not active", credential.credential_id.0);
@@ -323,7 +323,7 @@ fn issue_principal_credential(
         credential_id: CredentialId::new(new_prefixed_id("credential")),
         authority_id,
         principal_id: principal.principal_id.clone(),
-        token_verifier: credential_verifier(&principal_token),
+        token_verifier: credential_token_verifier(&principal_token),
         capabilities: normalized_capabilities(request.capabilities),
         status: CredentialStatus::Active,
         created_at: now,
@@ -391,7 +391,7 @@ fn generate_principal_token() -> String {
     format!("prism_ptok_{}", hex_encode(&bytes))
 }
 
-fn credential_verifier(principal_token: &str) -> String {
+pub(crate) fn credential_token_verifier(principal_token: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(principal_token.as_bytes());
     format!("sha256:{}", hex_encode(&hasher.finalize()))

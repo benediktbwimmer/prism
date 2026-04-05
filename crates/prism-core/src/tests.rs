@@ -49,8 +49,10 @@ use super::{
     index_workspace_session_with_options, inspect_legacy_path_identity_state,
     inspect_repo_published_plan_artifacts, regenerate_repo_published_plan_artifacts,
     repair_legacy_path_identity_state, repair_repo_published_plan_artifacts,
-    AttestedHumanPrincipalInput, BootstrapOwnerInput, MintPrincipalRequest, PrismDocSyncStatus,
-    PrismPaths, SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    AttestedHumanPrincipalInput, BootstrapOwnerInput, CredentialProfile,
+    CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata, CredentialsFile,
+    HumanSessionFile, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
+    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode,
     WorktreeMutatorSlotError, WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
 };
@@ -4658,6 +4660,95 @@ fn recover_owner_with_attestation_records_recovery_operation() {
 
     let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn workspace_session_rehydrates_missing_principal_registry_from_local_credentials() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+    let prism_home = temp_workspace();
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let issued = session
+        .bootstrap_owner_principal_with_attestation(AttestedHumanPrincipalInput {
+            authority_id: Some(PrincipalAuthorityId::new("github")),
+            name: "Benedikt Wimmer".to_string(),
+            role: Some("repo_owner".to_string()),
+            attestation: HumanAttestationRecord {
+                issuer: "github-device-flow".to_string(),
+                subject: "bene".to_string(),
+                assurance: HumanAttestationAssurance::High,
+                operation: HumanAttestationOperation::Bootstrap,
+                verified_at: 123,
+            },
+        })
+        .unwrap();
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let mut credentials = CredentialsFile::load(&paths.credentials_path().unwrap()).unwrap();
+    let profile = CredentialProfile {
+        profile: issued.principal.principal_id.0.to_string(),
+        authority_id: issued.principal.authority_id.0.to_string(),
+        principal_id: issued.principal.principal_id.0.to_string(),
+        credential_id: issued.credential.credential_id.0.to_string(),
+        principal_token: String::new(),
+        encrypted_secret: None,
+        principal_metadata: Some(CredentialProfilePrincipalMetadata {
+            kind: issued.principal.kind,
+            name: issued.principal.name.clone(),
+            role: issued.principal.role.clone(),
+            status: issued.principal.status,
+            created_at: issued.principal.created_at,
+            updated_at: issued.principal.updated_at,
+            parent_principal_id: issued
+                .principal
+                .parent_principal_id
+                .as_ref()
+                .map(|value| value.0.to_string()),
+            profile: issued.principal.profile.clone(),
+        }),
+        credential_metadata: Some(CredentialProfileCredentialMetadata {
+            token_verifier: issued.credential.token_verifier.clone(),
+            capabilities: issued.credential.capabilities.clone(),
+            status: issued.credential.status,
+            created_at: issued.credential.created_at,
+            last_used_at: issued.credential.last_used_at,
+            revoked_at: issued.credential.revoked_at,
+        }),
+    };
+    credentials.upsert_profile(profile.clone(), true);
+    credentials.save(&paths.credentials_path().unwrap()).unwrap();
+    let mut human_sessions = HumanSessionFile::load(&paths.human_session_path().unwrap()).unwrap();
+    human_sessions.activate(&profile, issued.principal_token.clone(), 200);
+    human_sessions.save(&paths.human_session_path().unwrap()).unwrap();
+
+    let mut shared_runtime = SqliteStore::open(paths.shared_runtime_db_path().unwrap()).unwrap();
+    shared_runtime
+        .save_principal_registry_snapshot(&PrincipalRegistrySnapshot::default())
+        .unwrap();
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let authenticated = reloaded
+        .authenticate_principal_credential(&issued.credential.credential_id, &issued.principal_token)
+        .unwrap();
+    assert_eq!(authenticated.principal.kind, PrincipalKind::Human);
+    assert_eq!(
+        authenticated.principal.principal_id,
+        issued.principal.principal_id
+    );
+    assert!(reloaded.load_principal_registry().unwrap().is_some());
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(prism_home);
 }
 
 #[test]
