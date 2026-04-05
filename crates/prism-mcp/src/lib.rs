@@ -87,6 +87,7 @@ mod serving_projection_models;
 mod session_seed;
 mod session_state;
 mod slow_call_snapshot;
+mod ssr_console;
 mod spec_insights;
 mod suggested_queries;
 mod task_journal;
@@ -975,7 +976,7 @@ impl QueryHost {
         Ok(self.session_view_without_refresh(session))
     }
 
-    fn current_prism(&self) -> Arc<Prism> {
+    pub(crate) fn current_prism(&self) -> Arc<Prism> {
         self.workspace_runtime_binding_ref()
             .map(|binding| binding.workspace().prism_arc())
             .unwrap_or_else(|| Arc::clone(&self.prism))

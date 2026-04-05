@@ -34,9 +34,32 @@ When touching code that violates this policy, move it toward the target architec
 
 ## Validation Expectations
 
-- After making edits, run targeted tests for the area you changed.
-- After targeted tests pass, always run the full workspace test suite to confirm the entire repo is green before finishing the task.
-- If a full `cargo test` suite run flakes on individual tests, rerun the failing tests in isolation.
+Use tiered validation to balance velocity and correctness.
+
+### Tier 1: Targeted tests (always required)
+
+- After making edits, run targeted tests for the crate(s) you changed.
+- This is the minimum validation bar for every change.
+
+### Tier 2: Downstream dependents (when public API changes)
+
+- If you changed a public type, trait, function signature, or shared data structure in a crate that other crates depend on, also run tests for direct downstream dependents.
+- Example: changes to `prism-core` should also test `prism-mcp` and `prism-cli`.
+
+### Tier 3: Full workspace test suite (selective)
+
+Run the full `cargo test` workspace suite only when:
+
+- You changed shared coordination ref formats or SQLite schema.
+- You changed the daemon startup, shutdown, or bridge transport path.
+- You are about to merge and push to `main` (pre-merge validation).
+- The current PRISM plan or task explicitly requires it in its validation requirements.
+
+Do not run the full suite after every small edit. Tier 1 and Tier 2 are sufficient for most work.
+
+### Flake policy
+
+- If a full suite run flakes on individual tests, rerun the failing tests in isolation.
 - When those isolated reruns pass, treat validation as successful and do not keep rerunning the full workspace suite only to chase the same non-deterministic flakes.
 
 ## Multi-Worktree Workflow

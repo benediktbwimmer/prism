@@ -20,6 +20,7 @@ use tracing::{debug, info, warn};
 use crate::peer_runtime_router::{routes as peer_runtime_routes, PeerRuntimeAppState};
 use crate::proxy_server::ProxyMcpServer;
 use crate::runtime_state;
+use crate::ssr_console::{routes as prism_console_routes, PrismConsoleState};
 use crate::ui_router::{routes as prism_ui_routes, PrismUiState};
 use crate::{PrismMcpCli, PrismMcpServer};
 
@@ -106,6 +107,11 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         host: Arc::clone(&server.host),
         root: root.to_path_buf(),
     };
+    let prism_console_state = PrismConsoleState {
+        server: Arc::new(server.clone()),
+        host: Arc::clone(&server.host),
+        root: root.to_path_buf(),
+    };
     let peer_runtime_state = PeerRuntimeAppState {
         host: Arc::clone(&server.host),
         root: root.to_path_buf(),
@@ -121,7 +127,9 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         .merge(mcp_router)
         .merge(peer_runtime_routes(peer_runtime_state));
     if features.ui {
-        router = router.merge(prism_ui_routes(prism_ui_state));
+        router = router
+            .merge(prism_ui_routes(prism_ui_state))
+            .merge(prism_console_routes(prism_console_state));
     }
 
     axum::serve(listener, router)

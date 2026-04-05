@@ -1,23 +1,21 @@
 {
   "version": 1,
-  "publishedAt": 1775356330,
+  "publishedAt": 1775412232,
   "publisher": {
     "principalAuthorityId": "local-daemon",
-    "principalId": "principal:codex-shared-coordination-refs-gaps-2026-04-04:01knaqj9pv4p1vc9tfw82zvp6y",
-    "credentialId": "credential:01knaqj9pv0vx0h59cvge430j7"
+    "principalId": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds",
+    "credentialId": "credential:01kn3xe812gb7a5d5qgs1wwpez"
   },
   "workContext": {
-    "workId": "work:validate-coordination-mutation-performance-improvements-against-representative-workflows:01kndqf8wpgpg5fkch18pkekhq",
+    "workId": "coord-task:01knfcza3w2x083jxnvss4cr99",
     "kind": "coordination",
-    "title": "Validate coordination mutation performance improvements against representative workflows",
-    "summary": "Close the plan with final validation after the targeted suites, full cargo test, and release-daemon restart all succeeded.",
-    "coordinationTaskId": "coord-task:01kndb7x9p7fsxqgdghg2f02a8",
-    "planId": "plan:01kndb7x9ntbr6ja2fh30ejm4n",
-    "planTitle": "Optimize Coordination Mutation Performance"
+    "title": "Land the SSR console skeleton, route family, and shared HTML rendering foundation",
+    "coordinationTaskId": "coord-task:01knfcza3w2x083jxnvss4cr99",
+    "planId": "plan:01knfcza3w9aezqbr2p883q85m",
+    "planTitle": "Implement the SSR operator console"
   },
   "publishSummary": {
-    "title": "Validate coordination mutation performance improvements against representative workflows",
-    "summary": "Close the plan with final validation after the targeted suites, full cargo test, and release-daemon restart all succeeded."
+    "title": "Land the SSR console skeleton, route family, and shared HTML rendering foundation"
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -38,7 +36,7 @@
     },
     ".prism/state/indexes/coordination_materialization.json": {
       "path": ".prism/state/indexes/coordination_materialization.json",
-      "sha256": "sha256:6d07c7d9c3b2bc5296e4773397feea635c4bcc72c117a9ae385550a6f2346766"
+      "sha256": "sha256:ee6b092131145badaa6e611c85fde216fce90362b8ddf5513554f1436fb5fc5d"
     },
     ".prism/state/indexes/memory.json": {
       "path": ".prism/state/indexes/memory.json",
@@ -53,12 +51,12 @@
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
     }
   },
-  "previousManifestDigest": "sha256:7f5524a88e1d286ec19354a914a14151eff4d938ae97b9477c647ee642caaecf",
+  "previousManifestDigest": "sha256:f683de443d2fd82a206a4baa861b82e011e799e77b88778eaea12c6f3f1190c5",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:KEM6vvLSxILV0k419jJkKSk1Dbzztcj7ifhvtzxUO/I0mfhLGdPY/Z4Kk0+i+XjVRFZX414UCKjIsDvU+HooAQ=="
+    "value": "base64:JsmKOQG7MvjcU7ENYMQqSqfmEwszN3C3V4fMkwIhAhNcZ9jO67mYD/uc2g4Wp+2SroFcyo0l9u3H4HvZNbUzCw=="
   }
 }
