@@ -797,6 +797,7 @@ fn maybe_link_review_artifact_to_task_git_execution(
     Ok(())
 }
 
+#[allow(dead_code)]
 fn ensure_auto_pr_review_artifact(
     host: &QueryHost,
     session: &SessionState,
@@ -839,56 +840,84 @@ fn ensure_auto_pr_review_artifact(
         json!({ "taskId": task_id.0.as_str(), "mode": "auto_pr" }),
         true,
         move |prism, meta| {
-            let task = prism
-                .coordination_task(task_id)
-                .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
-
-            if let Some(existing_ref) = task.git_execution.review_artifact_ref.as_ref() {
-                let existing_id = ArtifactId::new(existing_ref.clone());
-                if let Some(existing) = prism.coordination_artifact(&existing_id) {
-                    if auto_pr_review_artifact_is_current(&existing, task_id, &desired_diff_ref) {
-                        return Ok(existing_id);
-                    }
-                    if existing.status != ArtifactStatus::Superseded {
-                        prism.supersede_native_artifact(
-                            meta.clone(),
-                            prism_coordination::ArtifactSupersedeInput {
-                                artifact_id: existing_id,
-                            },
-                        )?;
-                    }
-                }
-            }
-
-            let recipe = prism.task_validation_recipe(task_id);
-            let risk = prism.task_risk(task_id, meta.ts);
-            let (artifact_id, artifact) = prism.propose_native_artifact(
-                meta.clone(),
-                prism_coordination::ArtifactProposeInput {
-                    task_id: task_id.clone(),
-                    anchors: task.anchors.clone(),
-                    diff_ref: Some(desired_diff_ref.clone()),
-                    evidence: Vec::new(),
-                    base_revision: prism.workspace_revision(),
-                    current_revision: prism.workspace_revision(),
-                    required_validations: recipe.map(|recipe| recipe.checks).unwrap_or_default(),
-                    validated_checks: Vec::new(),
-                    risk_score: risk.map(|risk| risk.risk_score),
-                    worktree_id: None,
-                    branch_ref: task.branch_ref.clone(),
+            ensure_auto_pr_review_artifact_in_mutation(session, prism, &meta, task_id).and_then(
+                |artifact_id| {
+                    artifact_id.ok_or_else(|| {
+                        anyhow!(
+                            "auto-pr review artifact could not be ensured for task `{}`",
+                            task_id.0
+                        )
+                    })
                 },
-            )?;
-            maybe_link_review_artifact_to_task_git_execution(
-                session,
-                prism,
-                &meta,
-                &artifact.task,
-                &artifact_id,
-            )?;
-            Ok(artifact_id)
+            )
         },
     )
     .map(Some)
+}
+
+fn ensure_auto_pr_review_artifact_in_mutation(
+    session: &SessionState,
+    prism: &Prism,
+    meta: &EventMeta,
+    task_id: &CoordinationTaskId,
+) -> Result<Option<ArtifactId>> {
+    let Some(task) = prism.coordination_task(task_id) else {
+        return Ok(None);
+    };
+    if !matches!(
+        task.git_execution.integration_mode,
+        prism_ir::GitIntegrationMode::AutoPr
+    ) {
+        return Ok(None);
+    }
+    let Some(publish_ref) = task.git_execution.publish_ref.clone() else {
+        return Ok(None);
+    };
+    let desired_diff_ref = auto_pr_review_diff_ref(&publish_ref);
+
+    if let Some(existing_ref) = task.git_execution.review_artifact_ref.as_ref() {
+        let existing_id = ArtifactId::new(existing_ref.clone());
+        if let Some(existing) = prism.coordination_artifact(&existing_id) {
+            if auto_pr_review_artifact_is_current(&existing, task_id, &desired_diff_ref) {
+                return Ok(Some(existing_id));
+            }
+            if existing.status != ArtifactStatus::Superseded {
+                prism.supersede_native_artifact(
+                    next_coordination_meta(session, task_id, meta),
+                    prism_coordination::ArtifactSupersedeInput {
+                        artifact_id: existing_id,
+                    },
+                )?;
+            }
+        }
+    }
+
+    let recipe = prism.task_validation_recipe(task_id);
+    let risk = prism.task_risk(task_id, meta.ts);
+    let (artifact_id, artifact) = prism.propose_native_artifact(
+        next_coordination_meta(session, task_id, meta),
+        prism_coordination::ArtifactProposeInput {
+            task_id: task_id.clone(),
+            anchors: task.anchors.clone(),
+            diff_ref: Some(desired_diff_ref),
+            evidence: Vec::new(),
+            base_revision: prism.workspace_revision(),
+            current_revision: prism.workspace_revision(),
+            required_validations: recipe.map(|recipe| recipe.checks).unwrap_or_default(),
+            validated_checks: Vec::new(),
+            risk_score: risk.map(|risk| risk.risk_score),
+            worktree_id: None,
+            branch_ref: task.branch_ref.clone(),
+        },
+    )?;
+    maybe_link_review_artifact_to_task_git_execution(
+        session,
+        prism,
+        meta,
+        &artifact.task,
+        &artifact_id,
+    )?;
+    Ok(Some(artifact_id))
 }
 
 fn coordination_status_bypasses_git_execution(status: prism_ir::CoordinationTaskStatus) -> bool {
@@ -1171,10 +1200,7 @@ fn principal_from_meta(meta: &EventMeta) -> Option<prism_ir::PrincipalActor> {
     }
 }
 
-fn same_principal(
-    left: &prism_ir::PrincipalActor,
-    right: &prism_ir::PrincipalActor,
-) -> bool {
+fn same_principal(left: &prism_ir::PrincipalActor, right: &prism_ir::PrincipalActor) -> bool {
     left.authority_id == right.authority_id && left.principal_id == right.principal_id
 }
 
@@ -1265,6 +1291,39 @@ fn maybe_auto_resume_stale_same_holder_task(
         },
     )?;
     Ok(true)
+}
+
+fn ensure_git_execution_task_admissible(task: &CoordinationTask, meta: &EventMeta) -> Result<()> {
+    let lease_state = task_lease_state_at(task, meta.ts);
+    if matches!(lease_state, TaskLeaseStateView::Unleased) {
+        return Ok(());
+    }
+    let Some(lease_holder) = authoritative_task_holder(task) else {
+        return Ok(());
+    };
+    let current_holder = current_task_holder(meta, task);
+    if matches!(lease_state, TaskLeaseStateView::Active)
+        && same_task_holder(&lease_holder, &current_holder)
+    {
+        return Ok(());
+    }
+    match lease_state {
+        TaskLeaseStateView::Active => Err(anyhow!(
+            "coordination task `{}` is actively leased by another principal and cannot be mutated",
+            task.id.0
+        )),
+        TaskLeaseStateView::Stale | TaskLeaseStateView::Expired
+            if same_task_holder(&lease_holder, &current_holder) =>
+        {
+            Ok(())
+        }
+        TaskLeaseStateView::Stale | TaskLeaseStateView::Expired => Err(anyhow!(
+            "coordination task `{}` has a {:?} lease owned by another principal and must be reclaimed before it can be mutated",
+            task.id.0,
+            lease_state
+        )),
+        TaskLeaseStateView::Unleased => Ok(()),
+    }
 }
 
 fn coordination_task_target_for_auto_resume(
@@ -2680,18 +2739,20 @@ impl QueryHost {
                             }
                         }
                         let auto_resume_started = std::time::Instant::now();
-                        let auto_resume_result = coordination_task_target_for_auto_resume(prism, &args)
-                            .and_then(|task_id| {
-                                task_id
-                                    .as_ref()
-                                    .map(|task_id| {
-                                        maybe_auto_resume_stale_same_holder_task(
-                                            prism, session, &meta, task_id,
-                                        )
-                                    })
-                                    .transpose()
-                                    .map(|result| result.unwrap_or(false))
-                            });
+                        let auto_resume_result = coordination_task_target_for_auto_resume(
+                            prism, &args,
+                        )
+                        .and_then(|task_id| {
+                            task_id
+                                .as_ref()
+                                .map(|task_id| {
+                                    maybe_auto_resume_stale_same_holder_task(
+                                        prism, session, &meta, task_id,
+                                    )
+                                })
+                                .transpose()
+                                .map(|result| result.unwrap_or(false))
+                        });
                         record_optional_trace_result(
                             Some(trace),
                             "mutation.coordination.autoResumeStaleTask",
@@ -2729,7 +2790,8 @@ impl QueryHost {
                     Some(&session.session_id()),
                     |prism| {
                         let _ = self.ensure_coordination_runtime_current(workspace)?;
-                        if let Some(task_id) = coordination_task_target_for_auto_resume(prism, &args)?
+                        if let Some(task_id) =
+                            coordination_task_target_for_auto_resume(prism, &args)?
                         {
                             let _ = maybe_auto_resume_stale_same_holder_task(
                                 prism, session, &meta, &task_id,
@@ -2981,6 +3043,28 @@ impl QueryHost {
 
         let before_events = prism.coordination_events().len();
         let now = current_timestamp();
+        let admissibility_meta = mutation_provenance(self, session, authenticated).event_meta(
+            EventId::new(format!(
+                "coordination:git-execution-admissibility:{}",
+                request.task_id.0
+            )),
+            Some(TaskId::new(request.task_id.0.clone())),
+            None,
+            now,
+        );
+        let admissibility_started = std::time::Instant::now();
+        let admissibility_result = ensure_git_execution_task_admissible(&task, &admissibility_meta);
+        record_optional_trace_result(
+            trace,
+            "mutation.gitExecution.checkAdmissibility",
+            json!({
+                "workflow": format!("{:?}", request.workflow),
+                "taskId": request.task_id.0.as_str(),
+            }),
+            admissibility_started,
+            &admissibility_result,
+        );
+        admissibility_result?;
         let require_clean_worktree = matches!(request.workflow, GitExecutionWorkflow::Start);
         let preflight_started = std::time::Instant::now();
         let preflight_result = run_preflight(root, &policy, now, require_clean_worktree);
@@ -3309,23 +3393,26 @@ impl QueryHost {
                     return Err(anyhow!(failure));
                 }
                 let authoritative_started = std::time::Instant::now();
-                let authoritative_result = self.record_task_git_execution_authoritative_state(
-                    session,
-                    authenticated,
-                    &request.task_id,
-                    Some(desired_status),
-                    Some(None),
-                    task_git_execution_record(
-                        &task.git_execution,
-                        &policy,
-                        &preflight.report,
-                        prism_ir::GitExecutionStatus::CoordinationPublished,
-                        None,
-                        Some(published.clone()),
-                        integration_status_after_coordination_publication(policy.integration_mode),
-                    ),
-                    trace,
-                );
+                let authoritative_result = self
+                    .record_task_git_execution_authoritative_state_with_review_artifact(
+                        session,
+                        authenticated,
+                        &request.task_id,
+                        Some(desired_status),
+                        Some(None),
+                        task_git_execution_record(
+                            &task.git_execution,
+                            &policy,
+                            &preflight.report,
+                            prism_ir::GitExecutionStatus::CoordinationPublished,
+                            None,
+                            Some(published.clone()),
+                            integration_status_after_coordination_publication(
+                                policy.integration_mode,
+                            ),
+                        ),
+                        trace,
+                    );
                 record_optional_trace_result(
                     trace,
                     "mutation.gitExecution.recordAuthoritativeState",
@@ -3337,13 +3424,6 @@ impl QueryHost {
                     &authoritative_result,
                 );
                 authoritative_result?;
-                ensure_auto_pr_review_artifact(
-                    self,
-                    session,
-                    authenticated,
-                    &request.task_id,
-                    trace,
-                )?;
                 self.flush_workspace_prism_managed_outputs(workspace, &request.task_id, trace)?;
                 let final_authoritative_paths = worktree_dirty_paths(root)?;
                 let unexpected_user_paths = user_dirty_paths(&final_authoritative_paths);
@@ -3444,13 +3524,6 @@ impl QueryHost {
                         &finalize_record_result,
                     );
                     finalize_record_result?;
-                    ensure_auto_pr_review_artifact(
-                        self,
-                        session,
-                        authenticated,
-                        &request.task_id,
-                        trace,
-                    )?;
                 }
             }
         }
@@ -4040,6 +4113,69 @@ impl QueryHost {
         )
     }
 
+    fn record_task_git_execution_authoritative_state_with_review_artifact(
+        &self,
+        session: &SessionState,
+        authenticated: Option<&AuthenticatedPrincipal>,
+        task_id: &CoordinationTaskId,
+        status: Option<prism_ir::CoordinationTaskStatus>,
+        published_task_status: Option<Option<prism_ir::CoordinationTaskStatus>>,
+        git_execution: TaskGitExecution,
+        trace: Option<&MutationRun>,
+    ) -> Result<prism_coordination::CoordinationTask> {
+        let task_id = task_id.clone();
+        let task_ref = task_id.clone();
+        self.run_workspace_coordination_step(
+            session,
+            authenticated,
+            &task_ref,
+            trace,
+            "mutation.gitExecution.recordAuthoritativeStateStep",
+            json!({ "taskId": task_ref.0.as_str() }),
+            false,
+            move |prism, meta| {
+                let _ = prism.update_native_task_authoritative_only(
+                    meta.clone(),
+                    TaskUpdateInput {
+                        task_id: task_id.clone(),
+                        kind: None,
+                        status,
+                        published_task_status,
+                        git_execution: Some(git_execution),
+                        assignee: None,
+                        session: None,
+                        worktree_id: None,
+                        branch_ref: None,
+                        title: None,
+                        summary: None,
+                        anchors: None,
+                        bindings: None,
+                        depends_on: None,
+                        coordination_depends_on: None,
+                        integrated_depends_on: None,
+                        acceptance: None,
+                        validation_refs: None,
+                        is_abstract: None,
+                        base_revision: Some(prism.workspace_revision()),
+                        priority: None,
+                        tags: None,
+                        completion_context: None,
+                    },
+                    prism.workspace_revision(),
+                    current_timestamp(),
+                )?;
+                let _ =
+                    ensure_auto_pr_review_artifact_in_mutation(session, prism, &meta, &task_id)?;
+                prism.coordination_task(&task_id).ok_or_else(|| {
+                    anyhow!(
+                        "unknown coordination task `{}` after authoritative publish update",
+                        task_id.0
+                    )
+                })
+            },
+        )
+    }
+
     fn record_task_publish_intent(
         &self,
         session: &SessionState,
@@ -4140,7 +4276,8 @@ impl QueryHost {
                 Some(&session.session_id()),
                 |prism| {
                     let _ = self.ensure_coordination_runtime_current(workspace)?;
-                    let _ = maybe_auto_resume_stale_same_holder_task(prism, session, &meta, task_id)?;
+                    let _ =
+                        maybe_auto_resume_stale_same_holder_task(prism, session, &meta, task_id)?;
                     mutate(prism, meta)
                 },
                 observed,
@@ -4150,7 +4287,8 @@ impl QueryHost {
                 Some(&session.session_id()),
                 |prism| {
                     let _ = self.ensure_coordination_runtime_current(workspace)?;
-                    let _ = maybe_auto_resume_stale_same_holder_task(prism, session, &meta, task_id)?;
+                    let _ =
+                        maybe_auto_resume_stale_same_holder_task(prism, session, &meta, task_id)?;
                     mutate(prism, meta)
                 },
                 observed,

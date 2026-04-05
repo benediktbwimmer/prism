@@ -55,7 +55,7 @@ use crate::concept_events::append_repo_concept_event;
 use crate::concept_relation_events::append_repo_concept_relation_event;
 use crate::contract_events::append_repo_contract_event;
 use crate::coordination_persistence::{
-    CoordinationDerivedPersistenceMode, CoordinationPersistenceBackend,
+    coordination_event_delta, CoordinationDerivedPersistenceMode, CoordinationPersistenceBackend,
 };
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
 use crate::history_backend::StoreHistoryReadBackend;
@@ -2583,17 +2583,7 @@ impl WorkspaceSession {
         );
         let delta_started = Instant::now();
         let snapshot = prism.coordination_snapshot();
-        let appended_events = snapshot
-            .events
-            .iter()
-            .filter(|event| {
-                !before
-                    .events
-                    .iter()
-                    .any(|stored| stored.meta.id == event.meta.id)
-            })
-            .cloned()
-            .collect::<Vec<_>>();
+        let appended_events = coordination_event_delta(&before.events, &snapshot.events);
         observe_phase(
             "mutation.coordination.captureDelta",
             delta_started.elapsed(),

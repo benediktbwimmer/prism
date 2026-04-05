@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 use std::time::{Duration, Instant};
 
@@ -608,17 +608,29 @@ impl<T: CoordinationJournal + CoordinationCheckpointStore + ?Sized> Coordination
 {
 }
 
-fn coordination_event_delta(
+pub(crate) fn coordination_event_delta(
     existing_events: &[CoordinationEvent],
     next_events: &[CoordinationEvent],
 ) -> Vec<CoordinationEvent> {
+    if existing_events.is_empty() {
+        return next_events.to_vec();
+    }
+    if existing_events.len() <= next_events.len()
+        && existing_events
+            .iter()
+            .zip(next_events.iter())
+            .all(|(stored, next)| stored.meta.id == next.meta.id)
+    {
+        return next_events[existing_events.len()..].to_vec();
+    }
+
+    let existing_ids = existing_events
+        .iter()
+        .map(|event| event.meta.id.0.as_str())
+        .collect::<HashSet<_>>();
     next_events
         .iter()
-        .filter(|event| {
-            !existing_events
-                .iter()
-                .any(|stored| stored.meta.id == event.meta.id)
-        })
+        .filter(|event| !existing_ids.contains(event.meta.id.0.as_str()))
         .cloned()
         .collect()
 }

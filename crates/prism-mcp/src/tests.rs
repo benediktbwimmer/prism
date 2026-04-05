@@ -629,6 +629,139 @@ fn git_execution_start_auto_resumes_stale_same_principal_task() {
 }
 
 #[test]
+fn git_execution_start_rejects_other_principal_before_preflight() {
+    let branch = "task/git-execution-start-admissibility";
+    let root = init_git_workspace(branch);
+    let (workspace, owner_credential) = workspace_session_with_owner_credential(&root);
+    let authenticated_owner = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(owner_credential.credential_id.clone()),
+            &owner_credential.principal_token,
+        )
+        .expect("owner credential should authenticate");
+    workspace
+        .bind_or_validate_worktree_principal(&authenticated_owner)
+        .expect("owner principal should bind to the worktree");
+
+    let prior_session = prism_ir::SessionId::new("session:other-principal-git-exec");
+    let active_ts = crate::current_timestamp();
+    let actor = EventActor::Principal(PrincipalActor {
+        authority_id: PrincipalAuthorityId::new("principal-authority:test-other".to_string()),
+        principal_id: PrincipalId::new("principal:test-other".to_string()),
+        kind: Some(prism_ir::PrincipalKind::Human),
+        name: Some("Other Owner".to_string()),
+    });
+    let execution_context =
+        Some(workspace.event_execution_context(Some(&prior_session), None, None));
+    let task_id = workspace
+        .mutate_coordination_with_session_wait_observed(
+            Some(&prior_session),
+            |prism| {
+                let plan_id = prism.create_native_plan(
+                    EventMeta {
+                        id: EventId::new("coordination:other-principal-git-start:plan"),
+                        ts: active_ts,
+                        actor: actor.clone(),
+                        correlation: None,
+                        causation: None,
+                        execution_context: execution_context.clone(),
+                    },
+                    "Git execution admissibility".to_string(),
+                    "Git execution admissibility".to_string(),
+                    Some(prism_ir::PlanStatus::Active),
+                    Some(CoordinationPolicy {
+                        git_execution: GitExecutionPolicy {
+                            start_mode: GitExecutionStartMode::Require,
+                            completion_mode: GitExecutionCompletionMode::Require,
+                            target_branch: "main".to_string(),
+                            require_task_branch: true,
+                            ..Default::default()
+                        },
+                        ..CoordinationPolicy::default()
+                    }),
+                )?;
+                let task = prism.create_native_task(
+                    EventMeta {
+                        id: EventId::new("coordination:other-principal-git-start:task"),
+                        ts: active_ts,
+                        actor: actor.clone(),
+                        correlation: None,
+                        causation: None,
+                        execution_context: execution_context.clone(),
+                    },
+                    TaskCreateInput {
+                        plan_id,
+                        title: "Reject before preflight".to_string(),
+                        status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                        assignee: None,
+                        session: Some(prior_session.clone()),
+                        worktree_id: None,
+                        branch_ref: None,
+                        anchors: Vec::new(),
+                        depends_on: Vec::new(),
+                        coordination_depends_on: Vec::new(),
+                        integrated_depends_on: Vec::new(),
+                        acceptance: Vec::new(),
+                        base_revision: prism.workspace_revision(),
+                    },
+                )?;
+                Ok(task.id)
+            },
+            |_operation, _duration, _args, _success, _error| {},
+        )
+        .expect("seed mutation should succeed")
+        .expect("seed mutation should acquire refresh lock");
+
+    let server = PrismMcpServer::with_session_and_features(
+        workspace,
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+    let session_state = test_session(&server.host);
+
+    let error = server
+        .execute_logged_mutation_with_run(
+            "mutate.coordination",
+            MutationRefreshPolicy::None,
+            |run| {
+                server.host.store_coordination_traced_authenticated(
+                    session_state.as_ref(),
+                    PrismCoordinationArgs {
+                        kind: CoordinationMutationKindInput::Update,
+                        payload: json!({
+                            "id": task_id.0,
+                            "status": "in_progress"
+                        }),
+                        task_id: None,
+                    },
+                    run,
+                    Some(&authenticated_owner),
+                )
+            },
+            |result| {
+                MutationOutcomeMeta::coordination(result.event_ids.clone(), result.violations.len())
+            },
+        )
+        .unwrap_err();
+
+    assert!(error
+        .to_string()
+        .contains("actively leased by another principal"));
+
+    let detail = server
+        .host
+        .mutation_trace_view("mutation:1")
+        .expect("mutation detail should exist");
+    let trace = detail;
+    let operations = trace
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+    assert!(operations.contains(&"mutation.gitExecution.checkAdmissibility"));
+    assert!(!operations.contains(&"mutation.gitExecution.preflight"));
+}
+
+#[test]
 fn git_execution_policy_defaults_to_off_modes() {
     let root = init_git_workspace("task/git-execution-default-policy");
     let session = index_workspace_session_with_options(
@@ -1289,8 +1422,33 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
     assert!(operations.contains(&"mutation.gitExecution.pushBranch"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeState"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeStateStep"));
+    assert!(trace
+        .phases
+        .iter()
+        .find(|phase| {
+            phase.operation
+                == "mutation.gitExecution.recordAuthoritativeStateStep.scheduleMaterialization"
+        })
+        .and_then(|phase| phase.args_summary.as_ref())
+        .is_some_and(|args| args["suppressed"] == Value::Bool(true)));
+    assert!(operations.contains(&"mutation.gitExecution.flushMaterializations"));
+    assert!(operations.contains(&"mutation.gitExecution.syncPrismDoc"));
     assert!(operations.contains(&"mutation.gitExecution.syncSessionAfter"));
     assert!(operations.contains(&"mutation.gitExecution.persistSessionSeed"));
+    let authoritative_step = operations
+        .iter()
+        .position(|operation| *operation == "mutation.gitExecution.recordAuthoritativeStateStep")
+        .expect("authoritative state step should be traced");
+    let flush_materializations = operations
+        .iter()
+        .position(|operation| *operation == "mutation.gitExecution.flushMaterializations")
+        .expect("workflow-boundary materialization flush should be traced");
+    let sync_prism_doc = operations
+        .iter()
+        .position(|operation| *operation == "mutation.gitExecution.syncPrismDoc")
+        .expect("workflow-boundary PRISM doc sync should be traced");
+    assert!(authoritative_step < flush_materializations);
+    assert!(flush_materializations < sync_prism_doc);
     assert!(!operations.contains(&"mutation.publishTaskUpdate.buildSnapshot"));
     assert!(!operations.contains(&"mutation.publishCoordinationUpdate"));
 }

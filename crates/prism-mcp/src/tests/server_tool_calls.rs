@@ -788,10 +788,7 @@ async fn mcp_server_auto_resumes_stale_same_principal_task_on_update() {
         updated["result"]["state"]["id"],
         Value::from(task_id.0.to_string())
     );
-    assert_eq!(
-        updated["result"]["state"]["status"],
-        Value::from("Ready")
-    );
+    assert_eq!(updated["result"]["state"]["status"], Value::from("Ready"));
 
     client
         .send(call_tool_request(
@@ -819,7 +816,10 @@ async fn mcp_server_auto_resumes_stale_same_principal_task_on_update() {
         updated_again["result"]["state"]["id"],
         Value::from(task_id.0.to_string())
     );
-    assert_eq!(updated_again["result"]["state"]["status"], Value::from("Ready"));
+    assert_eq!(
+        updated_again["result"]["state"]["status"],
+        Value::from("Ready")
+    );
 
     running.cancel().await.unwrap();
 }
@@ -941,10 +941,7 @@ async fn mcp_server_auto_resumes_stale_same_principal_ready_task_on_update() {
         resumed["result"]["state"]["id"],
         Value::from(task_id.0.to_string())
     );
-    assert_eq!(
-        resumed["result"]["state"]["status"],
-        Value::from("Ready")
-    );
+    assert_eq!(resumed["result"]["state"]["status"], Value::from("Ready"));
     assert_eq!(
         resumed["result"]["state"]["summary"],
         Value::from("resume should unblock ready follow-up updates")

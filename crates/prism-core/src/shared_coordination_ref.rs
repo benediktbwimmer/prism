@@ -556,7 +556,14 @@ fn sync_shared_coordination_ref_state_inner(
             Some(attempt as u32),
             None,
         )?;
-        publish_stage_to_ref(root, stage_dir, ref_name)?;
+        let mut publish_patch = build_shared_coordination_publish_patch_from_stage(
+            stage_dir,
+            current_previous_manifest.as_ref(),
+        )?;
+        publish_patch
+            .upserts
+            .insert("coordination/manifest.json".to_string());
+        publish_stage_patch_to_ref(root, stage_dir, ref_name, &publish_patch)?;
         match push_shared_coordination_ref(
             root,
             shared_coordination_remote_name(),
@@ -1030,6 +1037,7 @@ where
     Ok(result.into_values().collect())
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shared_coordination_ref_exists(root: &Path) -> Result<bool> {
     if !git_repo_available(root) {
         return Ok(false);
@@ -1620,8 +1628,27 @@ fn verify_shared_coordination_manifest(
     Ok(())
 }
 
+#[cfg(test)]
 fn publish_stage_to_ref(root: &Path, stage_dir: &Path, ref_name: &str) -> Result<()> {
     let tree = write_stage_tree(root, stage_dir)?;
+    let parent = resolve_ref_commit(root, ref_name)?;
+    let message = if parent.is_some() {
+        "prism: update shared coordination ref"
+    } else {
+        "prism: initialize shared coordination ref"
+    };
+    let commit = create_tree_commit(root, tree.trim(), parent.as_deref(), message)?;
+    update_ref_to_commit(root, ref_name, commit.trim(), parent.as_deref(), message)?;
+    Ok(())
+}
+
+fn publish_stage_patch_to_ref(
+    root: &Path,
+    stage_dir: &Path,
+    ref_name: &str,
+    patch: &SharedCoordinationPublishPatch,
+) -> Result<()> {
+    let tree = write_stage_tree_patch(root, stage_dir, ref_name, patch)?;
     let parent = resolve_ref_commit(root, ref_name)?;
     let message = if parent.is_some() {
         "prism: update shared coordination ref"
@@ -1650,6 +1677,41 @@ fn write_stage_tree(root: &Path, stage_dir: &Path) -> Result<String> {
             "coordination",
         ],
     )?;
+    run_git_with_env(root, &envs, &["write-tree"])
+}
+
+fn write_stage_tree_patch(
+    root: &Path,
+    stage_dir: &Path,
+    ref_name: &str,
+    patch: &SharedCoordinationPublishPatch,
+) -> Result<String> {
+    let index_path = stage_dir.join(".shared-coordination.index");
+    let index_path_str = index_path.to_string_lossy().to_string();
+    let envs = [("GIT_INDEX_FILE", index_path_str.as_str())];
+    if let Some(parent) = resolve_ref_commit(root, ref_name)? {
+        let _ = run_git_with_env(root, &envs, &["read-tree", parent.as_str()])?;
+    } else {
+        let _ = run_git_with_env(root, &envs, &["read-tree", "--empty"])?;
+    }
+    for delete in &patch.deletes {
+        let _ = run_git_with_env(
+            root,
+            &envs,
+            &["rm", "--cached", "--ignore-unmatch", "--", delete.as_str()],
+        )?;
+    }
+    if !patch.upserts.is_empty() {
+        let mut args = vec![
+            "--work-tree".to_string(),
+            stage_dir.to_string_lossy().to_string(),
+            "add".to_string(),
+            "--".to_string(),
+        ];
+        args.extend(patch.upserts.iter().cloned());
+        let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+        let _ = run_git_with_env(root, &envs, &arg_refs)?;
+    }
     run_git_with_env(root, &envs, &["write-tree"])
 }
 
@@ -1860,7 +1922,6 @@ fn update_ref_to_commit(
     Ok(())
 }
 
-#[cfg(test)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SharedCoordinationPublishPatch {
     upserts: BTreeSet<String>,
@@ -1893,7 +1954,13 @@ fn build_shared_coordination_publish_patch(
     rebuild_claim_index(stage_dir, &desired_state.snapshot.claims)?;
     rebuild_review_index(stage_dir, &desired_state.snapshot.reviews)?;
     rebuild_runtime_descriptor_index(stage_dir, &desired_state.runtime_descriptors)?;
+    build_shared_coordination_publish_patch_from_stage(stage_dir, previous_manifest)
+}
 
+fn build_shared_coordination_publish_patch_from_stage(
+    stage_dir: &Path,
+    previous_manifest: Option<&SharedCoordinationManifest>,
+) -> Result<SharedCoordinationPublishPatch> {
     let previous_files = previous_manifest
         .map(|manifest| manifest.files.clone())
         .unwrap_or_default();
@@ -3392,11 +3459,12 @@ mod tests {
         );
         assert_eq!(
             patch.upserts,
-            BTreeSet::from([expected_plan_path, expected_task_path]),
+            BTreeSet::from([expected_plan_path.clone(), expected_task_path.clone()]),
             "summary-only task edits should touch the task payload and its containing plan record, but not unrelated indexes"
         );
         assert!(patch.deletes.is_empty());
 
+        let head_before = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
         sync_shared_coordination_ref_state(
             &root,
             &changed_snapshot,
@@ -3405,6 +3473,24 @@ mod tests {
             Some(&sample_publish_context()),
         )
         .unwrap();
+        let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
+        let changed_paths = super::run_git(
+            &root,
+            &["diff", "--name-only", head_before.trim(), head_after.trim()],
+        )
+        .unwrap()
+        .lines()
+        .map(str::to_string)
+        .collect::<BTreeSet<_>>();
+        assert_eq!(
+            changed_paths,
+            BTreeSet::from([
+                "coordination/manifest.json".to_string(),
+                expected_plan_path.clone(),
+                expected_task_path.clone(),
+            ]),
+            "live shared-ref publish should only commit the changed task payload, its containing plan record, and the manifest"
+        );
 
         let loaded = load_shared_coordination_ref_state(&root)
             .unwrap()
