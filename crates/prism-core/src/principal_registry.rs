@@ -60,21 +60,7 @@ impl WorkspaceSession {
         input: AttestedHumanPrincipalInput,
     ) -> Result<MintedPrincipalCredential> {
         let mut snapshot = self.load_principal_registry()?.unwrap_or_default();
-        if !snapshot.principals.is_empty() || !snapshot.credentials.is_empty() {
-            bail!("principal registry is already initialized");
-        }
-        let issued = issue_principal_credential(
-            &mut snapshot,
-            MintPrincipalRequest {
-                authority_id: input.authority_id,
-                kind: PrincipalKind::Human,
-                name: input.name,
-                role: input.role,
-                parent_principal_id: None,
-                capabilities: vec![CredentialCapability::All],
-                profile: human_principal_profile_value(input.attestation)?,
-            },
-        )?;
+        let issued = bootstrap_owner_principal_in_registry(&mut snapshot, input)?;
         self.persist_principal_registry(&snapshot)?;
         Ok(issued)
     }
@@ -83,10 +69,10 @@ impl WorkspaceSession {
         &self,
         input: AttestedHumanPrincipalInput,
     ) -> Result<MintedPrincipalCredential> {
-        if input.attestation.operation != HumanAttestationOperation::Recovery {
-            bail!("recovery attestation input must use operation `recovery`");
-        }
-        self.bootstrap_owner_principal_with_attestation(input)
+        let mut snapshot = self.load_principal_registry()?.unwrap_or_default();
+        let issued = recover_owner_principal_in_registry(&mut snapshot, input)?;
+        self.persist_principal_registry(&snapshot)?;
+        Ok(issued)
     }
 
     pub fn bootstrap_owner_principal(
@@ -125,9 +111,7 @@ impl WorkspaceSession {
         request: MintPrincipalRequest,
     ) -> Result<MintedPrincipalCredential> {
         let mut snapshot = self.load_principal_registry()?.unwrap_or_default();
-        verify_actor_still_active(&snapshot, actor)?;
-        ensure_mint_capability(actor, &request)?;
-        let issued = issue_principal_credential(&mut snapshot, request)?;
+        let issued = mint_principal_credential_in_registry(&mut snapshot, actor, request)?;
         self.persist_principal_registry(&snapshot)?;
         Ok(issued)
     }
@@ -175,6 +159,55 @@ pub(crate) fn authenticate_principal_credential_without_persist(
         principal,
         credential: snapshot.credentials[credential_index].clone(),
     })
+}
+
+pub fn authenticate_principal_credential_in_registry(
+    snapshot: &mut PrincipalRegistrySnapshot,
+    credential_id: &CredentialId,
+    principal_token: &str,
+) -> Result<AuthenticatedPrincipal> {
+    authenticate_principal_credential_without_persist(snapshot, credential_id, principal_token)
+}
+
+pub fn bootstrap_owner_principal_in_registry(
+    snapshot: &mut PrincipalRegistrySnapshot,
+    input: AttestedHumanPrincipalInput,
+) -> Result<MintedPrincipalCredential> {
+    if !snapshot.principals.is_empty() || !snapshot.credentials.is_empty() {
+        bail!("principal registry is already initialized");
+    }
+    issue_principal_credential(
+        snapshot,
+        MintPrincipalRequest {
+            authority_id: input.authority_id,
+            kind: PrincipalKind::Human,
+            name: input.name,
+            role: input.role,
+            parent_principal_id: None,
+            capabilities: vec![CredentialCapability::All],
+            profile: human_principal_profile_value(input.attestation)?,
+        },
+    )
+}
+
+pub fn recover_owner_principal_in_registry(
+    snapshot: &mut PrincipalRegistrySnapshot,
+    input: AttestedHumanPrincipalInput,
+) -> Result<MintedPrincipalCredential> {
+    if input.attestation.operation != HumanAttestationOperation::Recovery {
+        bail!("recovery attestation input must use operation `recovery`");
+    }
+    bootstrap_owner_principal_in_registry(snapshot, input)
+}
+
+pub fn mint_principal_credential_in_registry(
+    snapshot: &mut PrincipalRegistrySnapshot,
+    actor: &AuthenticatedPrincipal,
+    request: MintPrincipalRequest,
+) -> Result<MintedPrincipalCredential> {
+    verify_actor_still_active(snapshot, actor)?;
+    ensure_mint_capability(actor, &request)?;
+    issue_principal_credential(snapshot, request)
 }
 
 fn verify_actor_still_active(
