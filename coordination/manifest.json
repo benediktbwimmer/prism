@@ -1,21 +1,24 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775481148,
+  "publishedAt": 1775483293,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01knhcah0q0qny1c4fwcjecvkq",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01knhcah0q0qny1c4fwcjecvkq"
+    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "work:publish-runtime-layer-composability-plan:01knhcxvjaas0a0jcfmasab53x",
-    "kind": "ad_hoc",
-    "title": "Publish runtime layer composability plan",
-    "summary": "Publish a coordination plan bootstrap for composable and independently shippable PRISM runtime layers."
+    "workId": "work:rewrite-the-ssr-coordination-ui-around-canonical-direct-child-plan-task-views:01knhgt1wc9p1zzmn0eskn8nqb",
+    "kind": "coordination",
+    "title": "Rewrite the SSR coordination UI around canonical direct-child plan/task views",
+    "summary": "Implement task 9 of the coordination graph rewrite: move the SSR console plan and task rendering to canonical v2 direct children, external dependency stubs, and root-plan views without touching the React UI.",
+    "coordinationTaskId": "coord-task:01kng20vv9wdjd1jannvnb52pn",
+    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
+    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
   },
   "publishSummary": {
-    "title": "Publish runtime layer composability plan",
-    "summary": "Publish a coordination plan bootstrap for composable and independently shippable PRISM runtime layers."
+    "title": "Rewrite the SSR coordination UI around canonical direct-child plan/task views",
+    "summary": "Implement task 9 of the coordination graph rewrite: move the SSR console plan and task rendering to canonical v2 direct children, external dependency stubs, and root-plan views without touching the React UI."
   },
   "files": {
     "coordination/tasks/coord-task-01kn2nj1wbag9jvvajz4ma081y-0e810e179f125947.json": {
@@ -32,7 +35,7 @@
     },
     "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json": {
       "path": "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json",
-      "sha256": "sha256:909ea53fb9fadde4ed6bfcd59edd58b41673c33c87b20ff8b2d22d9b44d680cf"
+      "sha256": "sha256:46bba66a413c1d2f285b038592f67e8e0fb5079d31e3a58e3fcda27947a0ae91"
     },
     "coordination/tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json": {
       "path": "coordination/tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json",
@@ -44,10 +47,10 @@
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:3d52ad5d5ad490dc0ebd4e408e05739bd49cadaa3ab73af3e24293e0b005b9a4"
+      "sha256": "sha256:21caf8b8d7f2388f412be7500f25feb245afb03a0bea9d17aa747a8d132dd905"
     }
   },
-  "previousManifestDigest": "sha256:a6045b9271f902cf77326ef12cd9d82e13d48b4ee5f4cb1fb230ae978f36be06",
+  "previousManifestDigest": "sha256:9d2f3eb356df007ee650c11d4bf41379af7fc3c8e914885dd8a42c4ed98f4599",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -57,6 +60,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:CMLlh07Bs3wjAIEYbeXa2EgMJPVkSXQhJsAoxttDxEvgirHh3fVUZVNRGZhiOpxwGRFb1D4INMXfZNapmwfxAw=="
+    "value": "base64:Rp0URWj1SSdQcXg8eZoh4zvN1b7vrl9A8X2bCI8jpvvcdcj7nxjspxpL7NWkcC1toOOhNsy5PGYpWqQpxlkPBw=="
   }
 }
