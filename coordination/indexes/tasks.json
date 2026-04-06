@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn55f0wgfw5rcrxzbqa0qpm4",
+    "title": "Separate hot commit persistence from asynchronous materialization and remove SQLite contention",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55f0wgfw5rcrxzbqa0qpm4-3f1124058f7771e7.json"
+  },
+  {
+    "id": "coord-task:01kn8dr8dw1b6t5726j9sy76xe",
+    "title": "Validate the new default test path with before/after timings and record the updated repo guidance.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8dr8dw1b6t5726j9sy76xe-50468e30eca3bcae.json"
+  },
+  {
+    "id": "coord-task:01knfddqewpk8b7vxba6y2cpaz",
+    "title": "Implement portable human principal bootstrap and recovery flows backed by external attestation and shared registry metadata",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knfddqewpk8b7vxba6y2cpaz-bd8d4eeb124e058e.json"
+  }
+]
