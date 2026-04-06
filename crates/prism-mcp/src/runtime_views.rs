@@ -435,6 +435,14 @@ fn runtime_shared_coordination_ref_view(
         compaction_previous_head_commit: value.compaction_previous_head_commit,
         compaction_previous_history_depth: value.compaction_previous_history_depth,
         archive_boundary_manifest_digest: value.archive_boundary_manifest_digest,
+        summary_published_at: value.summary_published_at,
+        summary_freshness_status: value.summary_freshness_status,
+        authoritative_fallback_required: value.authoritative_fallback_required,
+        freshness_reason: value.freshness_reason,
+        lagging_task_shard_refs: value.lagging_task_shard_refs,
+        lagging_claim_shard_refs: value.lagging_claim_shard_refs,
+        lagging_runtime_refs: value.lagging_runtime_refs,
+        newest_authoritative_ref_at: value.newest_authoritative_ref_at,
         runtime_descriptor_count: value.runtime_descriptor_count,
         runtime_descriptors: value
             .runtime_descriptors

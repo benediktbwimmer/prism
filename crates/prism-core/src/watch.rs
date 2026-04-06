@@ -10,9 +10,8 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
 use prism_coordination::{
-    assisted_heartbeat_window, claim_heartbeat_due_state, claim_lease_state,
-    task_heartbeat_due_state, task_lease_state, CoordinationPolicy, CoordinationTask,
-    LeaseHeartbeatDueState, LeaseState, WorkClaim,
+    assisted_heartbeat_window, CoordinationPolicy, CoordinationTask, LeaseHeartbeatDueState,
+    LeaseState, WorkClaim,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
@@ -612,6 +611,7 @@ fn refresh_prism_snapshot_with_guard(
                     current_prism.coordination_snapshot(),
                     current_prism.authored_plan_graphs(),
                     current_prism.plan_execution_overlays_by_plan(),
+                    current_prism.runtime_descriptors(),
                     ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
                 );
                 return Err(error);
@@ -665,6 +665,7 @@ fn refresh_prism_snapshot_with_guard(
                     prism.coordination_snapshot(),
                     prism.authored_plan_graphs(),
                     prism.plan_execution_overlays_by_plan(),
+                    prism.runtime_descriptors(),
                 );
                 let republish_started = Instant::now();
                 next = next_state.publish_generation(
@@ -782,10 +783,14 @@ impl AssistedLeaseTarget {
         }
     }
 
-    fn due_state(&self, now: u64) -> LeaseHeartbeatDueState {
+    fn due_state(&self, prism: &Prism, now: u64) -> LeaseHeartbeatDueState {
         match self {
-            Self::Task { task, policy, .. } => task_heartbeat_due_state(task, policy, now),
-            Self::Claim { claim, policy, .. } => claim_heartbeat_due_state(claim, policy, now),
+            Self::Task { task, policy, .. } => {
+                prism.effective_task_heartbeat_due_state(task, policy, now)
+            }
+            Self::Claim { claim, policy, .. } => {
+                prism.effective_claim_heartbeat_due_state(claim, policy, now)
+            }
         }
     }
 
@@ -874,7 +879,7 @@ where
         return Ok(false);
     };
     if !matches!(
-        target.due_state(now),
+        target.due_state(prism, now),
         LeaseHeartbeatDueState::DueSoon | LeaseHeartbeatDueState::DueNow
     ) {
         return Ok(false);
@@ -928,7 +933,10 @@ fn assisted_task_target(
     if task.worktree_id.as_deref() != Some(worktree_id) || task.pending_handoff_to.is_some() {
         return None;
     }
-    if !matches!(task_lease_state(&task, now), LeaseState::Active) {
+    if !matches!(
+        prism.effective_task_lease_state(&task, now),
+        LeaseState::Active
+    ) {
         return None;
     }
     let holder = task.lease_holder.clone()?;
@@ -953,7 +961,10 @@ fn assisted_claim_target(
     if claim.worktree_id.as_deref() != Some(worktree_id) || claim.status != ClaimStatus::Active {
         return None;
     }
-    if !matches!(claim_lease_state(&claim, now), LeaseState::Active) {
+    if !matches!(
+        prism.effective_claim_lease_state(&claim, now),
+        LeaseState::Active
+    ) {
         return None;
     }
     let holder = claim.lease_holder.as_ref()?;
@@ -1242,6 +1253,10 @@ pub(crate) fn sync_protected_state_watch_update(
                 .as_ref()
                 .map(|state| state.execution_overlays.clone())
                 .unwrap_or_default(),
+            plan_state
+                .as_ref()
+                .map(|state| state.runtime_descriptors.clone())
+                .unwrap_or_default(),
         );
     }
     let stream_ids = streams
@@ -1333,11 +1348,13 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
         &shared.snapshot,
         &shared.plan_graphs,
         &shared.execution_overlays,
+        &shared.runtime_descriptors,
     )?;
     next_state.replace_coordination_runtime(
         shared.snapshot.clone(),
         shared.plan_graphs.clone(),
         shared.execution_overlays.clone(),
+        shared.runtime_descriptors.clone(),
     );
     let next = next_state.publish_generation(
         prism_ir::WorkspaceRevision {
@@ -1675,7 +1692,7 @@ mod tests {
                 )
             });
         assert!(matches!(
-            target.due_state(current_timestamp()),
+            target.due_state(&prism, current_timestamp()),
             prism_coordination::LeaseHeartbeatDueState::DueSoon
                 | prism_coordination::LeaseHeartbeatDueState::DueNow
         ));

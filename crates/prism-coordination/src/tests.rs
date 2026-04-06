@@ -85,6 +85,131 @@ fn revision() -> prism_ir::WorkspaceRevision {
     }
 }
 
+fn runtime_descriptor(
+    worktree_id: &str,
+    instance_started_at: u64,
+    last_seen_at: u64,
+) -> RuntimeDescriptor {
+    RuntimeDescriptor {
+        runtime_id: format!("runtime:{worktree_id}:{instance_started_at}"),
+        repo_id: "repo:test".into(),
+        worktree_id: worktree_id.into(),
+        principal_id: "principal:test".into(),
+        instance_started_at,
+        last_seen_at,
+        branch_ref: None,
+        checked_out_commit: None,
+        capabilities: Vec::new(),
+        discovery_mode: RuntimeDiscoveryMode::None,
+        peer_endpoint: None,
+        public_endpoint: None,
+        peer_transport_identity: None,
+        blob_snapshot_head: None,
+        export_policy: None,
+    }
+}
+
+#[test]
+fn task_lease_state_extends_from_matching_runtime_descriptor() {
+    let task = CoordinationTask {
+        id: prism_ir::CoordinationTaskId::new("coord-task:lease-runtime"),
+        plan: prism_ir::PlanId::new("plan:lease-runtime"),
+        kind: prism_ir::PlanNodeKind::Edit,
+        title: "Lease runtime join".into(),
+        summary: None,
+        status: prism_ir::CoordinationTaskStatus::InProgress,
+        published_task_status: None,
+        assignee: None,
+        pending_handoff_to: None,
+        session: Some(prism_ir::SessionId::new("session:lease-runtime")),
+        lease_holder: Some(LeaseHolder {
+            principal: None,
+            session_id: Some(prism_ir::SessionId::new("session:lease-runtime")),
+            worktree_id: Some("worktree:lease-runtime".into()),
+            agent_id: None,
+        }),
+        lease_started_at: Some(10),
+        lease_refreshed_at: Some(10),
+        lease_stale_at: Some(40),
+        lease_expires_at: Some(70),
+        worktree_id: Some("worktree:lease-runtime".into()),
+        branch_ref: None,
+        anchors: Vec::new(),
+        bindings: prism_ir::PlanBinding::default(),
+        depends_on: Vec::new(),
+        coordination_depends_on: Vec::new(),
+        integrated_depends_on: Vec::new(),
+        acceptance: Vec::new(),
+        validation_refs: Vec::new(),
+        is_abstract: false,
+        base_revision: revision(),
+        priority: None,
+        tags: Vec::new(),
+        metadata: serde_json::Value::Null,
+        git_execution: TaskGitExecution::default(),
+    };
+
+    assert_eq!(task_lease_state(&task, 50), LeaseState::Stale);
+    assert_eq!(
+        task_lease_state_with_runtime_descriptors(
+            &task,
+            &[runtime_descriptor("worktree:lease-runtime", 5, 55)],
+            50,
+        ),
+        LeaseState::Active
+    );
+}
+
+#[test]
+fn task_lease_state_rejects_newer_runtime_instance_for_same_worktree() {
+    let task = CoordinationTask {
+        id: prism_ir::CoordinationTaskId::new("coord-task:lease-restart"),
+        plan: prism_ir::PlanId::new("plan:lease-restart"),
+        kind: prism_ir::PlanNodeKind::Edit,
+        title: "Lease restart join".into(),
+        summary: None,
+        status: prism_ir::CoordinationTaskStatus::InProgress,
+        published_task_status: None,
+        assignee: None,
+        pending_handoff_to: None,
+        session: Some(prism_ir::SessionId::new("session:lease-restart")),
+        lease_holder: Some(LeaseHolder {
+            principal: None,
+            session_id: Some(prism_ir::SessionId::new("session:lease-restart")),
+            worktree_id: Some("worktree:lease-restart".into()),
+            agent_id: None,
+        }),
+        lease_started_at: Some(10),
+        lease_refreshed_at: Some(10),
+        lease_stale_at: Some(40),
+        lease_expires_at: Some(70),
+        worktree_id: Some("worktree:lease-restart".into()),
+        branch_ref: None,
+        anchors: Vec::new(),
+        bindings: prism_ir::PlanBinding::default(),
+        depends_on: Vec::new(),
+        coordination_depends_on: Vec::new(),
+        integrated_depends_on: Vec::new(),
+        acceptance: Vec::new(),
+        validation_refs: Vec::new(),
+        is_abstract: false,
+        base_revision: revision(),
+        priority: None,
+        tags: Vec::new(),
+        metadata: serde_json::Value::Null,
+        git_execution: TaskGitExecution::default(),
+    };
+
+    assert_eq!(
+        task_lease_state_with_runtime_descriptors(
+            &task,
+            &[runtime_descriptor("worktree:lease-restart", 20, 60)],
+            50,
+        ),
+        LeaseState::Stale
+    );
+}
+
 #[test]
 fn create_task_rejects_duplicate_logical_dependency_edges_across_legacy_buckets() {
     let store = CoordinationStore::new();

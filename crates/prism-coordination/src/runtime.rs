@@ -9,11 +9,16 @@ use crate::blockers::{completion_blockers, readiness_blockers};
 use crate::canonical_graph::CoordinationSnapshotV2;
 use crate::executor_routing::{caller_matches_task_executor_policy, TaskExecutorCaller};
 use crate::helpers::{
-    anchors_overlap, artifact_matches_worktree_scope, claim_is_active,
-    claim_matches_worktree_scope, conflict_between, dedupe_conflicts, editor_capacity_conflicts,
-    expire_claims_locked, plan_policy_for_task, simulate_conflicts, task_matches_worktree_scope,
+    anchors_overlap, artifact_matches_worktree_scope, claim_matches_worktree_scope,
+    conflict_between, dedupe_conflicts, editor_capacity_conflicts, expire_claims_locked,
+    plan_policy_for_task, simulate_conflicts, task_matches_worktree_scope,
 };
-use crate::lease::claim_blocks_new_work;
+use crate::lease::{
+    claim_blocks_new_work_with_runtime_descriptors,
+    claim_heartbeat_due_state_with_runtime_descriptors, claim_is_live_with_runtime_descriptors,
+    claim_lease_state_with_runtime_descriptors, task_heartbeat_due_state_with_runtime_descriptors,
+    task_lease_state_with_runtime_descriptors,
+};
 use crate::mutations::{
     accept_handoff_mutation, acquire_claim_mutation, create_plan_mutation, create_task_mutation,
     handoff_mutation, heartbeat_task_mutation, propose_artifact_mutation, reclaim_task_mutation,
@@ -26,8 +31,8 @@ use crate::types::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     ClaimAcquireInput, CoordinationConflict, CoordinationEvent, CoordinationSnapshot,
     CoordinationTask, HandoffAcceptInput, HandoffInput, Plan, PlanCreateInput, PlanScheduling,
-    PlanUpdateInput, PolicyViolation, PolicyViolationRecord, TaskBlocker, TaskCreateInput,
-    TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
+    PlanUpdateInput, PolicyViolation, PolicyViolationRecord, RuntimeDescriptor, TaskBlocker,
+    TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
 };
 
 pub struct CoordinationRuntimeState {
@@ -36,13 +41,34 @@ pub struct CoordinationRuntimeState {
 
 impl CoordinationRuntimeState {
     pub fn from_snapshot(snapshot: CoordinationSnapshot) -> Self {
+        Self::from_snapshot_with_runtime_descriptors(snapshot, Vec::new())
+    }
+
+    pub fn from_snapshot_with_runtime_descriptors(
+        snapshot: CoordinationSnapshot,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
+    ) -> Self {
         Self {
-            state: CoordinationState::from_raw_snapshot(snapshot),
+            state: CoordinationState::from_raw_snapshot_with_runtime_descriptors(
+                snapshot,
+                runtime_descriptors,
+            ),
         }
     }
 
     pub fn replace_from_snapshot(&mut self, snapshot: CoordinationSnapshot) {
-        self.state = CoordinationState::from_raw_snapshot(snapshot);
+        self.replace_from_snapshot_with_runtime_descriptors(snapshot, Vec::new());
+    }
+
+    pub fn replace_from_snapshot_with_runtime_descriptors(
+        &mut self,
+        snapshot: CoordinationSnapshot,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
+    ) {
+        self.state = CoordinationState::from_raw_snapshot_with_runtime_descriptors(
+            snapshot,
+            runtime_descriptors,
+        );
     }
 
     pub fn snapshot(&self) -> CoordinationSnapshot {
@@ -51,6 +77,50 @@ impl CoordinationRuntimeState {
 
     pub fn snapshot_v2(&self) -> CoordinationSnapshotV2 {
         self.snapshot().to_canonical_snapshot_v2()
+    }
+
+    pub fn replace_runtime_descriptors(&mut self, runtime_descriptors: Vec<RuntimeDescriptor>) {
+        self.state.runtime_descriptors = runtime_descriptors;
+    }
+
+    pub fn task_lease_state(
+        &self,
+        task: &CoordinationTask,
+        now: Timestamp,
+    ) -> crate::lease::LeaseState {
+        task_lease_state_with_runtime_descriptors(task, &self.state.runtime_descriptors, now)
+    }
+
+    pub fn claim_lease_state(&self, claim: &WorkClaim, now: Timestamp) -> crate::lease::LeaseState {
+        claim_lease_state_with_runtime_descriptors(claim, &self.state.runtime_descriptors, now)
+    }
+
+    pub fn task_heartbeat_due_state(
+        &self,
+        task: &CoordinationTask,
+        policy: &crate::types::CoordinationPolicy,
+        now: Timestamp,
+    ) -> crate::lease::LeaseHeartbeatDueState {
+        task_heartbeat_due_state_with_runtime_descriptors(
+            task,
+            policy,
+            &self.state.runtime_descriptors,
+            now,
+        )
+    }
+
+    pub fn claim_heartbeat_due_state(
+        &self,
+        claim: &WorkClaim,
+        policy: &crate::types::CoordinationPolicy,
+        now: Timestamp,
+    ) -> crate::lease::LeaseHeartbeatDueState {
+        claim_heartbeat_due_state_with_runtime_descriptors(
+            claim,
+            policy,
+            &self.state.runtime_descriptors,
+            now,
+        )
     }
 
     pub fn plan(&self, id: &PlanId) -> Option<Plan> {
@@ -238,7 +308,9 @@ impl CoordinationRuntimeState {
             .state
             .claims
             .values()
-            .filter(|claim| claim_is_active(claim, now))
+            .filter(|claim| {
+                claim_is_live_with_runtime_descriptors(claim, &self.state.runtime_descriptors, now)
+            })
             .filter(|claim| claim_matches_worktree_scope(claim, worktree_id))
             .filter(|claim| anchors_overlap(&claim.anchors, anchors))
             .cloned()
@@ -290,7 +362,13 @@ impl CoordinationRuntimeState {
             .state
             .claims
             .values()
-            .filter(|claim| claim_blocks_new_work(claim, now))
+            .filter(|claim| {
+                claim_blocks_new_work_with_runtime_descriptors(
+                    claim,
+                    &self.state.runtime_descriptors,
+                    now,
+                )
+            })
             .filter(|claim| claim_matches_worktree_scope(claim, worktree_id))
             .filter(|claim| anchors_overlap(&claim.anchors, anchors))
             .cloned()
@@ -341,7 +419,13 @@ impl CoordinationRuntimeState {
             self.state
                 .claims
                 .values()
-                .filter(|claim| claim_blocks_new_work(claim, now))
+                .filter(|claim| {
+                    claim_blocks_new_work_with_runtime_descriptors(
+                        claim,
+                        &self.state.runtime_descriptors,
+                        now,
+                    )
+                })
                 .filter(|claim| claim_matches_worktree_scope(claim, worktree_id)),
             anchors,
             capability,

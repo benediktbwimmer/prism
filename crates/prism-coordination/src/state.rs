@@ -6,7 +6,7 @@ use crate::event_replay::rehydrate_coordination_snapshot;
 use crate::helpers::sorted_values;
 use crate::types::{
     Artifact, ArtifactReview, CoordinationEvent, CoordinationSnapshot, CoordinationTask, Plan,
-    WorkClaim,
+    RuntimeDescriptor, WorkClaim,
 };
 use prism_ir::{ArtifactId, ClaimId, CoordinationTaskId, PlanId, ReviewId};
 
@@ -23,6 +23,7 @@ pub(crate) struct CoordinationState {
     pub(crate) artifacts: HashMap<ArtifactId, Artifact>,
     pub(crate) reviews: HashMap<ReviewId, ArtifactReview>,
     pub(crate) events: Vec<CoordinationEvent>,
+    pub(crate) runtime_descriptors: Vec<RuntimeDescriptor>,
     pub(crate) next_plan: u64,
     pub(crate) next_task: u64,
     pub(crate) next_claim: u64,
@@ -32,6 +33,13 @@ pub(crate) struct CoordinationState {
 
 impl CoordinationState {
     pub(crate) fn from_raw_snapshot(snapshot: CoordinationSnapshot) -> Self {
+        Self::from_raw_snapshot_with_runtime_descriptors(snapshot, Vec::new())
+    }
+
+    pub(crate) fn from_raw_snapshot_with_runtime_descriptors(
+        snapshot: CoordinationSnapshot,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
+    ) -> Self {
         Self {
             plans: snapshot
                 .plans
@@ -59,6 +67,7 @@ impl CoordinationState {
                 .map(|review| (review.id.clone(), review))
                 .collect(),
             events: snapshot.events,
+            runtime_descriptors,
             next_plan: snapshot.next_plan,
             next_task: snapshot.next_task,
             next_claim: snapshot.next_claim,
@@ -68,7 +77,17 @@ impl CoordinationState {
     }
 
     pub(crate) fn from_snapshot(snapshot: CoordinationSnapshot) -> Self {
-        Self::from_raw_snapshot(rehydrate_coordination_snapshot(snapshot))
+        Self::from_snapshot_with_runtime_descriptors(snapshot, Vec::new())
+    }
+
+    pub(crate) fn from_snapshot_with_runtime_descriptors(
+        snapshot: CoordinationSnapshot,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
+    ) -> Self {
+        Self::from_raw_snapshot_with_runtime_descriptors(
+            rehydrate_coordination_snapshot(snapshot),
+            runtime_descriptors,
+        )
     }
 
     pub(crate) fn snapshot(&self) -> CoordinationSnapshot {
@@ -99,12 +118,32 @@ impl CoordinationStore {
         store
     }
 
+    pub fn from_snapshot_with_runtime_descriptors(
+        snapshot: CoordinationSnapshot,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
+    ) -> Self {
+        let store = Self::new();
+        store.replace_from_snapshot_with_runtime_descriptors(snapshot, runtime_descriptors);
+        store
+    }
+
     pub fn replace_from_snapshot(&self, snapshot: CoordinationSnapshot) {
+        self.replace_from_snapshot_with_runtime_descriptors(snapshot, Vec::new());
+    }
+
+    pub fn replace_from_snapshot_with_runtime_descriptors(
+        &self,
+        snapshot: CoordinationSnapshot,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
+    ) {
         let mut state = self
             .state
             .write()
             .expect("coordination store lock poisoned");
-        *state = CoordinationState::from_snapshot(snapshot);
+        *state = CoordinationState::from_snapshot_with_runtime_descriptors(
+            snapshot,
+            runtime_descriptors,
+        );
     }
 
     pub fn snapshot(&self) -> CoordinationSnapshot {

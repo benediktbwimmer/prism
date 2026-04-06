@@ -11,8 +11,8 @@ use base64::Engine;
 use ed25519_dalek::{Signer, Verifier};
 use prism_coordination::{
     execution_overlays_from_tasks, migrate_legacy_hybrid_snapshot_to_canonical_v2,
-    plan_graph_from_coordination, snapshot_plan_graphs, Artifact, ArtifactReview,
-    CoordinationSnapshot, CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor,
+    plan_graph_from_coordination, Artifact, ArtifactReview, CoordinationSnapshot,
+    CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor,
     RuntimeDescriptorCapability, WorkClaim, COORDINATION_SCHEMA_V2,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkContextKind, WorkContextSnapshot};
@@ -146,6 +146,8 @@ struct SharedCoordinationManifest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     previous_manifest_digest: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    summary_sources: Option<SharedCoordinationSummarySourceHeads>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     publish_diagnostics: Option<SharedCoordinationManifestPublishDiagnostics>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     compaction: Option<SharedCoordinationManifestCompaction>,
@@ -164,6 +166,8 @@ struct SharedCoordinationManifestSigningView<'a> {
     publish_summary: &'a Option<SnapshotManifestPublishSummary>,
     files: &'a BTreeMap<String, SharedCoordinationManifestFile>,
     previous_manifest_digest: &'a Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    summary_sources: &'a Option<SharedCoordinationSummarySourceHeads>,
     #[serde(skip_serializing_if = "Option::is_none")]
     publish_diagnostics: &'a Option<SharedCoordinationManifestPublishDiagnostics>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -195,6 +199,25 @@ struct SharedCoordinationManifestSignatureMetadata<'a> {
     runtime_authority_id: &'a str,
     runtime_key_id: &'a str,
     trust_bundle_id: &'a str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct SharedCoordinationSummarySourceHeads {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    task_shard_heads: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    claim_shard_heads: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    runtime_ref_heads: BTreeMap<String, String>,
+}
+
+impl SharedCoordinationSummarySourceHeads {
+    fn is_empty(&self) -> bool {
+        self.task_shard_heads.is_empty()
+            && self.claim_shard_heads.is_empty()
+            && self.runtime_ref_heads.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -250,6 +273,14 @@ pub struct SharedCoordinationRefDiagnostics {
     pub compaction_previous_head_commit: Option<String>,
     pub compaction_previous_history_depth: Option<u64>,
     pub archive_boundary_manifest_digest: Option<String>,
+    pub summary_published_at: Option<u64>,
+    pub summary_freshness_status: String,
+    pub authoritative_fallback_required: bool,
+    pub freshness_reason: Option<String>,
+    pub lagging_task_shard_refs: usize,
+    pub lagging_claim_shard_refs: usize,
+    pub lagging_runtime_refs: usize,
+    pub newest_authoritative_ref_at: Option<u64>,
     pub runtime_descriptor_count: usize,
     pub runtime_descriptors: Vec<RuntimeDescriptor>,
 }
@@ -257,6 +288,68 @@ pub struct SharedCoordinationRefDiagnostics {
 pub(crate) enum SharedCoordinationRefLiveSync {
     Unchanged,
     Changed(SharedCoordinationRefState),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SharedCoordinationSummaryFreshnessStatus {
+    Current,
+    Stale,
+    Ambiguous,
+}
+
+impl SharedCoordinationSummaryFreshnessStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Current => "current",
+            Self::Stale => "stale",
+            Self::Ambiguous => "ambiguous",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SharedCoordinationSummaryFreshness {
+    summary_published_at: Option<u64>,
+    status: SharedCoordinationSummaryFreshnessStatus,
+    authoritative_fallback_required: bool,
+    reason: Option<String>,
+    lagging_task_shard_refs: usize,
+    lagging_claim_shard_refs: usize,
+    lagging_runtime_refs: usize,
+    newest_authoritative_ref_at: Option<u64>,
+    task_fallback_required: bool,
+    claim_fallback_required: bool,
+    runtime_fallback_required: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SharedCoordinationRefHead {
+    head: String,
+    published_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+struct SharedCoordinationAuthoritativeHeads {
+    task_shard_heads: BTreeMap<String, SharedCoordinationRefHead>,
+    claim_shard_heads: BTreeMap<String, SharedCoordinationRefHead>,
+    runtime_ref_heads: BTreeMap<String, SharedCoordinationRefHead>,
+}
+
+impl SharedCoordinationAuthoritativeHeads {
+    fn is_empty(&self) -> bool {
+        self.task_shard_heads.is_empty()
+            && self.claim_shard_heads.is_empty()
+            && self.runtime_ref_heads.is_empty()
+    }
+
+    fn newest_published_at(&self) -> Option<u64> {
+        self.task_shard_heads
+            .values()
+            .chain(self.claim_shard_heads.values())
+            .chain(self.runtime_ref_heads.values())
+            .filter_map(|head| head.published_at)
+            .max()
+    }
 }
 
 fn shared_coordination_manifest_kind() -> String {
@@ -390,6 +483,39 @@ fn list_local_coordination_ref_heads(
     Ok(refs)
 }
 
+fn list_local_coordination_ref_head_metadata(
+    root: &Path,
+    prefix: &str,
+) -> Result<BTreeMap<String, SharedCoordinationRefHead>> {
+    let output = run_git(
+        root,
+        &[
+            "for-each-ref",
+            "--format=%(refname) %(objectname) %(committerdate:unix)",
+            prefix,
+        ],
+    )?;
+    let mut refs = BTreeMap::new();
+    for line in output.lines().filter(|line| !line.trim().is_empty()) {
+        let mut parts = line.split_whitespace();
+        let Some(ref_name) = parts.next() else {
+            continue;
+        };
+        let Some(head) = parts.next() else {
+            continue;
+        };
+        let published_at = parts.next().and_then(|value| value.parse::<u64>().ok());
+        refs.insert(
+            ref_name.to_string(),
+            SharedCoordinationRefHead {
+                head: head.to_string(),
+                published_at,
+            },
+        );
+    }
+    Ok(refs)
+}
+
 fn list_remote_coordination_ref_heads(
     root: &Path,
     remote: &str,
@@ -468,6 +594,162 @@ fn authoritative_shared_coordination_state_key(root: &Path) -> Result<Option<Str
     Ok(Some(
         blake3::hash(canonical.as_bytes()).to_hex().to_string(),
     ))
+}
+
+fn current_shared_coordination_authoritative_heads(
+    root: &Path,
+) -> Result<SharedCoordinationAuthoritativeHeads> {
+    Ok(SharedCoordinationAuthoritativeHeads {
+        task_shard_heads: list_local_coordination_ref_head_metadata(
+            root,
+            &shared_coordination_task_ref_prefix(root),
+        )?,
+        claim_shard_heads: list_local_coordination_ref_head_metadata(
+            root,
+            &shared_coordination_claim_ref_prefix(root),
+        )?,
+        runtime_ref_heads: list_local_coordination_ref_head_metadata(
+            root,
+            &shared_coordination_runtime_ref_prefix(root),
+        )?,
+    })
+}
+
+fn current_shared_coordination_summary_source_heads(
+    root: &Path,
+) -> Result<SharedCoordinationSummarySourceHeads> {
+    let authoritative_heads = current_shared_coordination_authoritative_heads(root)?;
+    Ok(SharedCoordinationSummarySourceHeads {
+        task_shard_heads: authoritative_heads
+            .task_shard_heads
+            .into_iter()
+            .map(|(ref_name, head)| (ref_name, head.head))
+            .collect(),
+        claim_shard_heads: authoritative_heads
+            .claim_shard_heads
+            .into_iter()
+            .map(|(ref_name, head)| (ref_name, head.head))
+            .collect(),
+        runtime_ref_heads: authoritative_heads
+            .runtime_ref_heads
+            .into_iter()
+            .map(|(ref_name, head)| (ref_name, head.head))
+            .collect(),
+    })
+}
+
+fn differing_ref_head_count(
+    summary_heads: &BTreeMap<String, String>,
+    authoritative_heads: &BTreeMap<String, SharedCoordinationRefHead>,
+) -> usize {
+    summary_heads
+        .keys()
+        .chain(authoritative_heads.keys())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .filter(|ref_name| {
+            summary_heads.get(*ref_name).map(String::as_str)
+                != authoritative_heads
+                    .get(*ref_name)
+                    .map(|head| head.head.as_str())
+        })
+        .count()
+}
+
+fn inspect_shared_coordination_summary_freshness(
+    summary_manifest: Option<&SharedCoordinationManifest>,
+    summary_state: Option<&SharedCoordinationRefState>,
+    authoritative_heads: &SharedCoordinationAuthoritativeHeads,
+) -> SharedCoordinationSummaryFreshness {
+    let summary_published_at = summary_manifest.map(|manifest| manifest.published_at);
+    if summary_state.is_none() && !authoritative_heads.is_empty() {
+        return SharedCoordinationSummaryFreshness {
+            summary_published_at,
+            status: SharedCoordinationSummaryFreshnessStatus::Ambiguous,
+            authoritative_fallback_required: true,
+            reason: Some(
+                "summary ref is missing or unreadable while authoritative shard/runtime state exists"
+                    .to_string(),
+            ),
+            lagging_task_shard_refs: authoritative_heads.task_shard_heads.len(),
+            lagging_claim_shard_refs: authoritative_heads.claim_shard_heads.len(),
+            lagging_runtime_refs: authoritative_heads.runtime_ref_heads.len(),
+            newest_authoritative_ref_at: authoritative_heads.newest_published_at(),
+            task_fallback_required: !authoritative_heads.task_shard_heads.is_empty(),
+            claim_fallback_required: !authoritative_heads.claim_shard_heads.is_empty(),
+            runtime_fallback_required: !authoritative_heads.runtime_ref_heads.is_empty(),
+        };
+    }
+    if authoritative_heads.is_empty() {
+        return SharedCoordinationSummaryFreshness {
+            summary_published_at,
+            status: SharedCoordinationSummaryFreshnessStatus::Current,
+            authoritative_fallback_required: false,
+            reason: None,
+            lagging_task_shard_refs: 0,
+            lagging_claim_shard_refs: 0,
+            lagging_runtime_refs: 0,
+            newest_authoritative_ref_at: None,
+            task_fallback_required: false,
+            claim_fallback_required: false,
+            runtime_fallback_required: false,
+        };
+    }
+    let Some(summary_sources) =
+        summary_manifest.and_then(|manifest| manifest.summary_sources.as_ref())
+    else {
+        return SharedCoordinationSummaryFreshness {
+            summary_published_at,
+            status: SharedCoordinationSummaryFreshnessStatus::Ambiguous,
+            authoritative_fallback_required: true,
+            reason: Some(
+                "summary manifest is missing authoritative source-head metadata".to_string(),
+            ),
+            lagging_task_shard_refs: authoritative_heads.task_shard_heads.len(),
+            lagging_claim_shard_refs: authoritative_heads.claim_shard_heads.len(),
+            lagging_runtime_refs: authoritative_heads.runtime_ref_heads.len(),
+            newest_authoritative_ref_at: authoritative_heads.newest_published_at(),
+            task_fallback_required: !authoritative_heads.task_shard_heads.is_empty(),
+            claim_fallback_required: !authoritative_heads.claim_shard_heads.is_empty(),
+            runtime_fallback_required: !authoritative_heads.runtime_ref_heads.is_empty(),
+        };
+    };
+    let lagging_task_shard_refs = differing_ref_head_count(
+        &summary_sources.task_shard_heads,
+        &authoritative_heads.task_shard_heads,
+    );
+    let lagging_claim_shard_refs = differing_ref_head_count(
+        &summary_sources.claim_shard_heads,
+        &authoritative_heads.claim_shard_heads,
+    );
+    let lagging_runtime_refs = differing_ref_head_count(
+        &summary_sources.runtime_ref_heads,
+        &authoritative_heads.runtime_ref_heads,
+    );
+    let lagging_total = lagging_task_shard_refs + lagging_claim_shard_refs + lagging_runtime_refs;
+    SharedCoordinationSummaryFreshness {
+        summary_published_at,
+        status: if lagging_total > 0 {
+            SharedCoordinationSummaryFreshnessStatus::Stale
+        } else {
+            SharedCoordinationSummaryFreshnessStatus::Current
+        },
+        authoritative_fallback_required: lagging_total > 0,
+        reason: if lagging_total > 0 {
+            Some(format!(
+                "summary source heads lag {lagging_task_shard_refs} task shard ref(s), {lagging_claim_shard_refs} claim shard ref(s), and {lagging_runtime_refs} runtime ref(s)"
+            ))
+        } else {
+            None
+        },
+        lagging_task_shard_refs,
+        lagging_claim_shard_refs,
+        lagging_runtime_refs,
+        newest_authoritative_ref_at: authoritative_heads.newest_published_at(),
+        task_fallback_required: lagging_task_shard_refs > 0,
+        claim_fallback_required: lagging_claim_shard_refs > 0,
+        runtime_fallback_required: lagging_runtime_refs > 0,
+    }
 }
 
 fn cache_shared_coordination_state(root: &Path, head: String, state: &SharedCoordinationRefState) {
@@ -659,6 +941,8 @@ pub(crate) fn sync_shared_coordination_ref_state(
     if !git_repo_available(root) {
         return Ok(());
     }
+    sync_task_shard_refs(root, &snapshot.tasks, publish)?;
+    sync_claim_shard_refs(root, &snapshot.claims, publish)?;
     sync_shared_coordination_summary_ref_state(
         root,
         snapshot,
@@ -666,8 +950,6 @@ pub(crate) fn sync_shared_coordination_ref_state(
         execution_overlays,
         publish,
     )?;
-    sync_task_shard_refs(root, &snapshot.tasks, publish)?;
-    sync_claim_shard_refs(root, &snapshot.claims, publish)?;
     record_observed_shared_coordination_head(
         root,
         authoritative_shared_coordination_state_key(root)?,
@@ -749,15 +1031,18 @@ fn sync_shared_coordination_ref_state_inner(
     let force_manifest_republish = baseline_state.is_none() && expected_remote_head.is_some();
     let mut current_snapshot = desired_snapshot.clone();
     let mut current_plan_graphs = desired_plan_graphs.clone();
-    let mut current_execution_overlays = desired_execution_overlays.clone();
-    let mut current_runtime_descriptors = baseline_state
-        .map(|state| state.runtime_descriptors.clone())
-        .unwrap_or_default();
+    let mut current_execution_overlays = baseline_state
+        .map(|state| state.execution_overlays.clone())
+        .unwrap_or_else(|| desired_execution_overlays.clone());
     let mut current_expected_head = expected_remote_head.map(str::to_string);
     let mut current_previous_manifest =
         load_shared_coordination_manifest_from_ref_lenient(root, ref_name)?;
 
     for attempt in 0..=SHARED_COORDINATION_PUSH_MAX_RETRIES {
+        current_snapshot.tasks = load_shared_coordination_task_shards(root)?;
+        current_snapshot.claims = load_shared_coordination_claim_shards(root)?;
+        let current_runtime_descriptors = load_shared_coordination_runtime_refs(root)?;
+        let summary_sources = current_shared_coordination_summary_source_heads(root)?;
         sync_plan_objects(
             stage_dir,
             &current_snapshot,
@@ -772,11 +1057,15 @@ fn sync_shared_coordination_ref_state_inner(
         )?;
         sync_task_objects(stage_dir, &current_snapshot.tasks)?;
         sync_artifact_objects(stage_dir, &current_snapshot.artifacts)?;
+        sync_claim_objects(stage_dir, &current_snapshot.claims)?;
         sync_review_objects(stage_dir, &current_snapshot.reviews)?;
+        sync_runtime_descriptor_objects(stage_dir, &current_runtime_descriptors)?;
         rebuild_plan_index(stage_dir, &current_snapshot.plans)?;
+        rebuild_task_index(stage_dir, &current_snapshot.tasks)?;
         rebuild_artifact_index(stage_dir, &current_snapshot.artifacts)?;
+        rebuild_claim_index(stage_dir, &current_snapshot.claims)?;
         rebuild_review_index(stage_dir, &current_snapshot.reviews)?;
-        rebuild_summary_runtime_descriptor_index(root, stage_dir, &current_runtime_descriptors)?;
+        rebuild_runtime_descriptor_index(stage_dir, &current_runtime_descriptors)?;
         write_manifest(
             stage_dir,
             paths,
@@ -784,10 +1073,12 @@ fn sync_shared_coordination_ref_state_inner(
             current_previous_manifest.as_ref(),
             Some(attempt as u32),
             None,
+            Some(&summary_sources),
         )?;
         let mut publish_patch = build_shared_coordination_publish_patch_from_stage(
             stage_dir,
             current_previous_manifest.as_ref(),
+            true,
         )?;
         if publish_patch.upserts.is_empty()
             && publish_patch.deletes.is_empty()
@@ -855,9 +1146,6 @@ fn sync_shared_coordination_ref_state_inner(
                 current_snapshot = reconciled.snapshot;
                 current_plan_graphs = reconciled.plan_graphs;
                 current_execution_overlays = reconciled.execution_overlays;
-                current_runtime_descriptors = latest_state
-                    .map(|state| state.runtime_descriptors)
-                    .unwrap_or_default();
             }
             Err(error) => return Err(error),
         }
@@ -1096,10 +1384,12 @@ where
             current_previous_manifest.as_ref(),
             Some(attempt as u32),
             None,
+            None,
         )?;
         let mut publish_patch = build_shared_coordination_publish_patch_from_stage(
             stage_dir,
             current_previous_manifest.as_ref(),
+            false,
         )?;
         if publish_patch.upserts.is_empty()
             && publish_patch.deletes.is_empty()
@@ -1235,7 +1525,22 @@ pub(crate) fn load_shared_coordination_ref_state(
     {
         return Ok(Some(cached.state));
     }
-    let Some(state) = load_authoritative_shared_coordination_ref_state(root, false)? else {
+    let ref_name = shared_coordination_ref_name(root);
+    let summary_manifest = load_shared_coordination_manifest_from_ref_lenient(root, &ref_name)?;
+    let summary_state =
+        load_shared_coordination_ref_state_from_current_ref_lenient(root, &ref_name)?;
+    let authoritative_heads = current_shared_coordination_authoritative_heads(root)?;
+    let freshness = inspect_shared_coordination_summary_freshness(
+        summary_manifest.as_ref(),
+        summary_state.as_ref(),
+        &authoritative_heads,
+    );
+    let state = if freshness.authoritative_fallback_required {
+        overlay_shared_coordination_authoritative_fallback(root, summary_state, &freshness)?
+    } else {
+        summary_state
+    };
+    let Some(state) = state else {
         return Ok(None);
     };
     cache_shared_coordination_state(root, current_head, &state);
@@ -1287,6 +1592,7 @@ fn load_authoritative_shared_coordination_ref_state(
     {
         return Ok(None);
     }
+    let had_summary = summary_state.is_some();
     let mut state = summary_state.unwrap_or_else(empty_shared_coordination_ref_state);
     let runtime_refs_present = !runtime_refs.is_empty();
     let task_shards_present = !task_shards.is_empty();
@@ -1308,9 +1614,61 @@ fn load_authoritative_shared_coordination_ref_state(
         .snapshot
         .claims
         .sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    state.plan_graphs = snapshot_plan_graphs(&state.snapshot);
-    state.execution_overlays = execution_overlays_by_plan(&state.snapshot);
+    if !had_summary && !state.snapshot.plans.is_empty() {
+        state.plan_graphs = authored_summary_plan_graphs(&state.snapshot);
+    }
+    if task_shards_present || !had_summary {
+        state.execution_overlays = execution_overlays_by_plan(&state.snapshot);
+    }
     Ok(Some(state))
+}
+
+fn overlay_shared_coordination_authoritative_fallback(
+    root: &Path,
+    summary_state: Option<SharedCoordinationRefState>,
+    freshness: &SharedCoordinationSummaryFreshness,
+) -> Result<Option<SharedCoordinationRefState>> {
+    if !freshness.authoritative_fallback_required {
+        return Ok(summary_state);
+    }
+
+    let had_summary = summary_state.is_some();
+    let mut state = summary_state.unwrap_or_else(empty_shared_coordination_ref_state);
+    if freshness.task_fallback_required {
+        state.snapshot.tasks = load_shared_coordination_task_shards(root)?;
+    }
+    if freshness.claim_fallback_required {
+        state.snapshot.claims = load_shared_coordination_claim_shards(root)?;
+    }
+    if freshness.runtime_fallback_required {
+        state.runtime_descriptors = load_shared_coordination_runtime_refs(root)?;
+    }
+    state
+        .snapshot
+        .tasks
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    state
+        .snapshot
+        .claims
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    if !had_summary && !state.snapshot.plans.is_empty() {
+        state.plan_graphs = authored_summary_plan_graphs(&state.snapshot);
+    }
+    if freshness.task_fallback_required || !had_summary {
+        state.execution_overlays = execution_overlays_by_plan(&state.snapshot);
+    }
+    if had_summary
+        || !state.snapshot.plans.is_empty()
+        || !state.snapshot.tasks.is_empty()
+        || !state.snapshot.claims.is_empty()
+        || !state.snapshot.artifacts.is_empty()
+        || !state.snapshot.reviews.is_empty()
+        || !state.runtime_descriptors.is_empty()
+    {
+        Ok(Some(state))
+    } else {
+        Ok(None)
+    }
 }
 
 fn load_shared_coordination_runtime_refs(root: &Path) -> Result<Vec<RuntimeDescriptor>> {
@@ -1501,6 +1859,21 @@ fn load_shared_coordination_ref_state_from_current_ref(
             )
         })
         .collect::<BTreeMap<_, _>>();
+    if !tasks.is_empty() {
+        execution_overlays = execution_overlays_by_plan(&CoordinationSnapshot {
+            plans: plans.clone(),
+            tasks: tasks.clone(),
+            claims: claims.clone(),
+            artifacts: artifacts.clone(),
+            reviews: reviews.clone(),
+            events: Vec::new(),
+            next_plan: 0,
+            next_task: 0,
+            next_claim: 0,
+            next_artifact: 0,
+            next_review: 0,
+        });
+    }
     plans.sort_by(|left, right| left.id.0.cmp(&right.id.0));
     plan_graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
 
@@ -1871,6 +2244,14 @@ pub fn shared_coordination_ref_diagnostics(
     } else {
         None
     };
+    let summary_read_state =
+        load_shared_coordination_ref_state_from_current_ref_lenient(root, &ref_name)?;
+    let authoritative_heads = current_shared_coordination_authoritative_heads(root)?;
+    let freshness = inspect_shared_coordination_summary_freshness(
+        manifest.as_ref(),
+        summary_read_state.as_ref(),
+        &authoritative_heads,
+    );
     let current_manifest_digest = manifest
         .as_ref()
         .map(canonical_manifest_digest)
@@ -1962,6 +2343,14 @@ pub fn shared_coordination_ref_diagnostics(
         compaction_previous_head_commit,
         compaction_previous_history_depth,
         archive_boundary_manifest_digest,
+        summary_published_at: freshness.summary_published_at,
+        summary_freshness_status: freshness.status.as_str().to_string(),
+        authoritative_fallback_required: freshness.authoritative_fallback_required,
+        freshness_reason: freshness.reason,
+        lagging_task_shard_refs: freshness.lagging_task_shard_refs,
+        lagging_claim_shard_refs: freshness.lagging_claim_shard_refs,
+        lagging_runtime_refs: freshness.lagging_runtime_refs,
+        newest_authoritative_ref_at: freshness.newest_authoritative_ref_at,
         runtime_descriptor_count: runtime_descriptors.len(),
         runtime_descriptors,
     }))
@@ -2308,6 +2697,7 @@ fn write_manifest(
     previous_manifest: Option<&SharedCoordinationManifest>,
     publish_retry_count: Option<u32>,
     compaction: Option<SharedCoordinationManifestCompaction>,
+    summary_sources: Option<&SharedCoordinationSummarySourceHeads>,
 ) -> Result<()> {
     let previous_manifest_digest = previous_manifest
         .map(canonical_manifest_digest)
@@ -2343,6 +2733,9 @@ fn write_manifest(
         publish_summary: publish.publish_summary,
         files,
         previous_manifest_digest,
+        summary_sources: summary_sources
+            .cloned()
+            .filter(|sources| !sources.is_empty()),
         publish_diagnostics,
         compaction,
         signature: SharedCoordinationManifestSignature {
@@ -2492,6 +2885,7 @@ fn canonical_shared_coordination_manifest_signing_bytes(
         publish_summary: &manifest.publish_summary,
         files: &manifest.files,
         previous_manifest_digest: &manifest.previous_manifest_digest,
+        summary_sources: &manifest.summary_sources,
         publish_diagnostics: &manifest.publish_diagnostics,
         compaction: &manifest.compaction,
         signature: SharedCoordinationManifestSignatureMetadata {
@@ -2759,6 +3153,7 @@ fn create_compacted_shared_coordination_commit(
                 previous_history_depth,
                 archive_boundary_manifest_digest: None,
             }),
+            previous_manifest.summary_sources.as_ref(),
         )?;
         let tree = write_stage_tree(root, &stage_dir)?;
         create_tree_commit(
@@ -2841,9 +3236,21 @@ struct SharedCoordinationPublishPatch {
     deletes: BTreeSet<String>,
 }
 
+fn is_authoritative_summary_only_path(path: &str) -> bool {
+    matches!(
+        path,
+        "coordination/manifest.json"
+            | "coordination/indexes/tasks.json"
+            | "coordination/indexes/claims.json"
+            | "coordination/indexes/runtimes.json"
+    ) || path.starts_with("coordination/coordination/tasks/")
+        || path.starts_with("coordination/coordination/claims/")
+        || path.starts_with("coordination/coordination/runtimes/")
+}
+
 #[cfg(test)]
 fn build_shared_coordination_publish_patch(
-    root: &Path,
+    _root: &Path,
     stage_dir: &Path,
     previous_manifest: Option<&SharedCoordinationManifest>,
     _baseline_state: Option<&SharedCoordinationRefState>,
@@ -2865,17 +3272,22 @@ fn build_shared_coordination_publish_patch(
     )?;
     sync_task_objects(stage_dir, &desired_state.snapshot.tasks)?;
     sync_artifact_objects(stage_dir, &desired_state.snapshot.artifacts)?;
+    sync_claim_objects(stage_dir, &desired_state.snapshot.claims)?;
     sync_review_objects(stage_dir, &desired_state.snapshot.reviews)?;
+    sync_runtime_descriptor_objects(stage_dir, &desired_state.runtime_descriptors)?;
     rebuild_plan_index(stage_dir, &desired_state.snapshot.plans)?;
+    rebuild_task_index(stage_dir, &desired_state.snapshot.tasks)?;
     rebuild_artifact_index(stage_dir, &desired_state.snapshot.artifacts)?;
+    rebuild_claim_index(stage_dir, &desired_state.snapshot.claims)?;
     rebuild_review_index(stage_dir, &desired_state.snapshot.reviews)?;
-    rebuild_summary_runtime_descriptor_index(root, stage_dir, &desired_state.runtime_descriptors)?;
-    build_shared_coordination_publish_patch_from_stage(stage_dir, previous_manifest)
+    rebuild_runtime_descriptor_index(stage_dir, &desired_state.runtime_descriptors)?;
+    build_shared_coordination_publish_patch_from_stage(stage_dir, previous_manifest, true)
 }
 
 fn build_shared_coordination_publish_patch_from_stage(
     stage_dir: &Path,
     previous_manifest: Option<&SharedCoordinationManifest>,
+    suppress_authoritative_only: bool,
 ) -> Result<SharedCoordinationPublishPatch> {
     let previous_files = previous_manifest
         .map(|manifest| manifest.files.clone())
@@ -2899,6 +3311,17 @@ fn build_shared_coordination_publish_patch_from_stage(
             }
             (None, None) => {}
         }
+    }
+    if suppress_authoritative_only
+        && upserts
+            .iter()
+            .chain(deletes.iter())
+            .all(|path| is_authoritative_summary_only_path(path))
+    {
+        return Ok(SharedCoordinationPublishPatch {
+            upserts: BTreeSet::new(),
+            deletes: BTreeSet::new(),
+        });
     }
     Ok(SharedCoordinationPublishPatch { upserts, deletes })
 }
@@ -3848,7 +4271,10 @@ mod tests {
             loaded.canonical_snapshot_v2,
             snapshot.to_canonical_snapshot_v2()
         );
-        assert_eq!(loaded.plan_graphs, vec![graph]);
+        assert_eq!(
+            loaded.plan_graphs,
+            super::authored_summary_plan_graphs(&snapshot)
+        );
         assert_eq!(
             loaded
                 .execution_overlays
@@ -4007,6 +4433,7 @@ mod tests {
                 canonical_snapshot_v2: Some(canonical_snapshot_v2.clone()),
                 plan_graphs: vec![graph.clone()],
                 execution_overlays: execution_overlays.clone(),
+                runtime_descriptors: Vec::new(),
             })
             .unwrap();
 
@@ -4656,6 +5083,15 @@ mod tests {
             loaded.canonical_snapshot_v2,
             changed_snapshot.to_canonical_snapshot_v2()
         );
+        let diagnostics = shared_coordination_ref_diagnostics(&root)
+            .unwrap()
+            .expect("shared coordination diagnostics should exist");
+        assert_eq!(diagnostics.summary_freshness_status, "current");
+        assert!(!diagnostics.authoritative_fallback_required);
+        assert_eq!(diagnostics.lagging_task_shard_refs, 0);
+        assert_eq!(diagnostics.lagging_claim_shard_refs, 0);
+        assert_eq!(diagnostics.lagging_runtime_refs, 0);
+        assert!(diagnostics.freshness_reason.is_none());
     }
 
     #[test]
@@ -5197,6 +5633,12 @@ mod tests {
             diagnostics.current_manifest_digest,
             diagnostics.last_verified_manifest_digest
         );
+        assert_eq!(diagnostics.summary_freshness_status, "stale");
+        assert!(diagnostics.authoritative_fallback_required);
+        assert_eq!(diagnostics.lagging_task_shard_refs, 0);
+        assert_eq!(diagnostics.lagging_claim_shard_refs, 0);
+        assert_eq!(diagnostics.lagging_runtime_refs, 1);
+        assert_eq!(diagnostics.summary_published_at, Some(publish.published_at));
         assert_eq!(
             diagnostics.last_successful_publish_at,
             Some(publish.published_at)
@@ -5212,6 +5654,12 @@ mod tests {
         assert_eq!(
             raw_manifest["kind"],
             serde_json::json!(super::SHARED_COORDINATION_KIND_MANIFEST)
+        );
+        assert_eq!(
+            raw_manifest["summarySources"]["taskShardHeads"][task_shard_ref.as_str()],
+            serde_json::json!(super::run_git(&root, &["rev-parse", &task_shard_ref])
+                .unwrap()
+                .trim())
         );
         assert!(raw_manifest.get("version").is_none());
         assert_eq!(raw_task["schema_version"], serde_json::json!(1));
@@ -5247,6 +5695,62 @@ mod tests {
             diagnostics.compaction_status.as_str(),
             "healthy" | "compacted"
         ));
+    }
+
+    #[test]
+    fn shared_coordination_summary_materializes_current_task_snapshots() {
+        let (root, _remote) = temp_git_repo_with_origin();
+        let (snapshot, graph, execution_map) = sample_snapshot_for(
+            "plan:summary-materialized",
+            "coord-task:summary-materialized",
+        );
+        sync_shared_coordination_ref_state(
+            &root,
+            &snapshot,
+            &[graph],
+            &execution_map,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
+
+        let diagnostics = shared_coordination_ref_diagnostics(&root)
+            .unwrap()
+            .expect("shared coordination diagnostics should exist");
+        assert_eq!(diagnostics.summary_freshness_status, "current");
+        assert!(!diagnostics.authoritative_fallback_required);
+        assert_eq!(diagnostics.lagging_task_shard_refs, 0);
+        assert_eq!(diagnostics.lagging_claim_shard_refs, 0);
+        assert_eq!(diagnostics.lagging_runtime_refs, 0);
+
+        let ref_name = super::shared_coordination_ref_name(&root);
+        let raw_task: serde_json::Value = serde_json::from_str(
+            &super::run_git(
+                &root,
+                &[
+                    "show",
+                    &format!(
+                        "{ref_name}:coordination/{}",
+                        super::task_snapshot_relative_path("coord-task:summary-materialized")
+                    ),
+                ],
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            raw_task["payload"]["id"],
+            serde_json::json!("coord-task:summary-materialized")
+        );
+
+        let loaded = load_shared_coordination_ref_state(&root)
+            .unwrap()
+            .expect("shared coordination state should load");
+        assert_eq!(loaded.snapshot.tasks.len(), snapshot.tasks.len());
+        assert!(loaded
+            .snapshot
+            .tasks
+            .iter()
+            .any(|task| task.id.0 == "coord-task:summary-materialized"));
     }
 
     #[test]

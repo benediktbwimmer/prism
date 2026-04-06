@@ -1,6 +1,8 @@
 use prism_ir::{EventActor, EventMeta, SessionId, Timestamp};
 
-use crate::types::{CoordinationPolicy, CoordinationTask, LeaseHolder, WorkClaim};
+use crate::types::{
+    CoordinationPolicy, CoordinationTask, LeaseHolder, RuntimeDescriptor, WorkClaim,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LeaseState {
@@ -66,30 +68,123 @@ fn holder_has_identity(holder: &LeaseHolder) -> bool {
         || holder.agent_id.is_some()
 }
 
+fn matching_runtime_descriptor<'a>(
+    runtime_descriptors: &'a [RuntimeDescriptor],
+    worktree_id: Option<&str>,
+    acquired_at: Option<Timestamp>,
+) -> Option<&'a RuntimeDescriptor> {
+    let worktree_id = worktree_id?;
+    let acquired_at = acquired_at?;
+    runtime_descriptors
+        .iter()
+        .filter(|descriptor| descriptor.worktree_id == worktree_id)
+        .filter(|descriptor| descriptor.instance_started_at <= acquired_at)
+        .max_by_key(|descriptor| (descriptor.instance_started_at, descriptor.last_seen_at))
+}
+
+fn effective_lease_anchor(
+    anchor: Option<Timestamp>,
+    runtime_descriptors: &[RuntimeDescriptor],
+    worktree_id: Option<&str>,
+) -> Option<Timestamp> {
+    let anchor = anchor?;
+    let runtime = matching_runtime_descriptor(runtime_descriptors, worktree_id, Some(anchor));
+    Some(
+        anchor.max(
+            runtime
+                .map(|descriptor| descriptor.last_seen_at)
+                .unwrap_or(anchor),
+        ),
+    )
+}
+
+fn effective_absolute_deadline(
+    anchor: Option<Timestamp>,
+    deadline: Option<Timestamp>,
+    runtime_descriptors: &[RuntimeDescriptor],
+    worktree_id: Option<&str>,
+) -> Option<Timestamp> {
+    let anchor = anchor?;
+    let deadline = deadline?;
+    let window = deadline.saturating_sub(anchor);
+    effective_lease_anchor(Some(anchor), runtime_descriptors, worktree_id)
+        .map(|effective_anchor| effective_anchor.saturating_add(window))
+}
+
 pub fn task_lease_state(task: &CoordinationTask, now: Timestamp) -> LeaseState {
+    task_lease_state_with_runtime_descriptors(task, &[], now)
+}
+
+pub fn task_lease_state_with_runtime_descriptors(
+    task: &CoordinationTask,
+    runtime_descriptors: &[RuntimeDescriptor],
+    now: Timestamp,
+) -> LeaseState {
     let Some(expires_at) = task.lease_expires_at else {
         return LeaseState::Unleased;
     };
-    if expires_at < now {
+    let anchor = task.lease_refreshed_at.or(task.lease_started_at);
+    let worktree_id = task.worktree_id.as_deref().or(task
+        .lease_holder
+        .as_ref()
+        .and_then(|holder| holder.worktree_id.as_deref()));
+    let effective_expires_at =
+        effective_absolute_deadline(anchor, Some(expires_at), runtime_descriptors, worktree_id)
+            .unwrap_or(expires_at);
+    if effective_expires_at < now {
         return LeaseState::Expired;
     }
-    if task.lease_stale_at.is_some_and(|stale_at| stale_at <= now) {
+    let effective_stale_at = effective_absolute_deadline(
+        anchor,
+        task.lease_stale_at,
+        runtime_descriptors,
+        worktree_id,
+    )
+    .or(task.lease_stale_at);
+    if effective_stale_at.is_some_and(|stale_at| stale_at <= now) {
         return LeaseState::Stale;
     }
     LeaseState::Active
 }
 
 pub fn claim_lease_state(claim: &WorkClaim, now: Timestamp) -> LeaseState {
+    claim_lease_state_with_runtime_descriptors(claim, &[], now)
+}
+
+pub fn claim_lease_state_with_runtime_descriptors(
+    claim: &WorkClaim,
+    runtime_descriptors: &[RuntimeDescriptor],
+    now: Timestamp,
+) -> LeaseState {
     if matches!(
         claim.status,
         prism_ir::ClaimStatus::Released | prism_ir::ClaimStatus::Expired
     ) {
         return LeaseState::Expired;
     }
-    if claim.expires_at < now {
+    let anchor = claim.refreshed_at.or(Some(claim.since));
+    let worktree_id = claim.worktree_id.as_deref().or(claim
+        .lease_holder
+        .as_ref()
+        .and_then(|holder| holder.worktree_id.as_deref()));
+    let effective_expires_at = effective_absolute_deadline(
+        anchor,
+        Some(claim.expires_at),
+        runtime_descriptors,
+        worktree_id,
+    )
+    .unwrap_or(claim.expires_at);
+    if effective_expires_at < now {
         return LeaseState::Expired;
     }
-    if claim.stale_at.unwrap_or(claim.expires_at) <= now {
+    let effective_stale_at = effective_absolute_deadline(
+        anchor,
+        claim.stale_at.or(Some(claim.expires_at)),
+        runtime_descriptors,
+        worktree_id,
+    )
+    .unwrap_or(claim.stale_at.unwrap_or(claim.expires_at));
+    if effective_stale_at <= now {
         return LeaseState::Stale;
     }
     LeaseState::Active
@@ -100,13 +195,33 @@ pub fn task_heartbeat_due_state(
     policy: &CoordinationPolicy,
     now: Timestamp,
 ) -> LeaseHeartbeatDueState {
-    if !matches!(task_lease_state(task, now), LeaseState::Active) {
+    task_heartbeat_due_state_with_runtime_descriptors(task, policy, &[], now)
+}
+
+pub fn task_heartbeat_due_state_with_runtime_descriptors(
+    task: &CoordinationTask,
+    policy: &CoordinationPolicy,
+    runtime_descriptors: &[RuntimeDescriptor],
+    now: Timestamp,
+) -> LeaseHeartbeatDueState {
+    if !matches!(
+        task_lease_state_with_runtime_descriptors(task, runtime_descriptors, now),
+        LeaseState::Active
+    ) {
         return LeaseHeartbeatDueState::NotDue;
     }
     let Some(stale_at) = task.lease_stale_at else {
         return LeaseHeartbeatDueState::NotDue;
     };
-    let remaining = stale_at.saturating_sub(now);
+    let anchor = task.lease_refreshed_at.or(task.lease_started_at);
+    let worktree_id = task.worktree_id.as_deref().or(task
+        .lease_holder
+        .as_ref()
+        .and_then(|holder| holder.worktree_id.as_deref()));
+    let effective_stale_at =
+        effective_absolute_deadline(anchor, Some(stale_at), runtime_descriptors, worktree_id)
+            .unwrap_or(stale_at);
+    let remaining = effective_stale_at.saturating_sub(now);
     if remaining <= 60 {
         LeaseHeartbeatDueState::DueNow
     } else if remaining <= heartbeat_due_soon_window(policy) {
@@ -121,13 +236,33 @@ pub fn claim_heartbeat_due_state(
     policy: &CoordinationPolicy,
     now: Timestamp,
 ) -> LeaseHeartbeatDueState {
-    if !matches!(claim_lease_state(claim, now), LeaseState::Active) {
+    claim_heartbeat_due_state_with_runtime_descriptors(claim, policy, &[], now)
+}
+
+pub fn claim_heartbeat_due_state_with_runtime_descriptors(
+    claim: &WorkClaim,
+    policy: &CoordinationPolicy,
+    runtime_descriptors: &[RuntimeDescriptor],
+    now: Timestamp,
+) -> LeaseHeartbeatDueState {
+    if !matches!(
+        claim_lease_state_with_runtime_descriptors(claim, runtime_descriptors, now),
+        LeaseState::Active
+    ) {
         return LeaseHeartbeatDueState::NotDue;
     }
     let Some(stale_at) = claim.stale_at else {
         return LeaseHeartbeatDueState::NotDue;
     };
-    let remaining = stale_at.saturating_sub(now);
+    let anchor = claim.refreshed_at.or(Some(claim.since));
+    let worktree_id = claim.worktree_id.as_deref().or(claim
+        .lease_holder
+        .as_ref()
+        .and_then(|holder| holder.worktree_id.as_deref()));
+    let effective_stale_at =
+        effective_absolute_deadline(anchor, Some(stale_at), runtime_descriptors, worktree_id)
+            .unwrap_or(stale_at);
+    let remaining = effective_stale_at.saturating_sub(now);
     if remaining <= 60 {
         LeaseHeartbeatDueState::DueNow
     } else if remaining <= heartbeat_due_soon_window(policy) {
@@ -140,10 +275,11 @@ pub fn claim_heartbeat_due_state(
 pub(crate) fn task_heartbeat_should_refresh(
     task: &CoordinationTask,
     policy: &CoordinationPolicy,
+    runtime_descriptors: &[RuntimeDescriptor],
     now: Timestamp,
 ) -> bool {
     matches!(
-        task_heartbeat_due_state(task, policy, now),
+        task_heartbeat_due_state_with_runtime_descriptors(task, policy, runtime_descriptors, now),
         LeaseHeartbeatDueState::DueSoon | LeaseHeartbeatDueState::DueNow
     )
 }
@@ -151,15 +287,24 @@ pub(crate) fn task_heartbeat_should_refresh(
 pub(crate) fn claim_renewal_should_refresh(
     claim: &WorkClaim,
     policy: Option<&CoordinationPolicy>,
+    runtime_descriptors: &[RuntimeDescriptor],
     now: Timestamp,
     expires_after_seconds: Option<u64>,
 ) -> bool {
     let policy = policy.cloned().unwrap_or_default();
-    if !matches!(claim_lease_state(claim, now), LeaseState::Active) {
+    if !matches!(
+        claim_lease_state_with_runtime_descriptors(claim, runtime_descriptors, now),
+        LeaseState::Active
+    ) {
         return true;
     }
     if matches!(
-        claim_heartbeat_due_state(claim, &policy, now),
+        claim_heartbeat_due_state_with_runtime_descriptors(
+            claim,
+            &policy,
+            runtime_descriptors,
+            now,
+        ),
         LeaseHeartbeatDueState::DueSoon | LeaseHeartbeatDueState::DueNow
     ) {
         return true;
@@ -171,17 +316,39 @@ pub(crate) fn claim_renewal_should_refresh(
 }
 
 pub(crate) fn claim_is_live(claim: &WorkClaim, now: Timestamp) -> bool {
+    claim_is_live_with_runtime_descriptors(claim, &[], now)
+}
+
+pub(crate) fn claim_is_live_with_runtime_descriptors(
+    claim: &WorkClaim,
+    runtime_descriptors: &[RuntimeDescriptor],
+    now: Timestamp,
+) -> bool {
     matches!(
         claim.status,
         prism_ir::ClaimStatus::Active | prism_ir::ClaimStatus::Contended
-    ) && !matches!(claim_lease_state(claim, now), LeaseState::Expired)
+    ) && !matches!(
+        claim_lease_state_with_runtime_descriptors(claim, runtime_descriptors, now),
+        LeaseState::Expired
+    )
 }
 
 pub(crate) fn claim_blocks_new_work(claim: &WorkClaim, now: Timestamp) -> bool {
+    claim_blocks_new_work_with_runtime_descriptors(claim, &[], now)
+}
+
+pub(crate) fn claim_blocks_new_work_with_runtime_descriptors(
+    claim: &WorkClaim,
+    runtime_descriptors: &[RuntimeDescriptor],
+    now: Timestamp,
+) -> bool {
     matches!(
         claim.status,
         prism_ir::ClaimStatus::Active | prism_ir::ClaimStatus::Contended
-    ) && matches!(claim_lease_state(claim, now), LeaseState::Active)
+    ) && matches!(
+        claim_lease_state_with_runtime_descriptors(claim, runtime_descriptors, now),
+        LeaseState::Active
+    )
 }
 
 pub(crate) fn clear_task_lease(task: &mut CoordinationTask) {

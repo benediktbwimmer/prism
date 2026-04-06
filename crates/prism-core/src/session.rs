@@ -197,6 +197,7 @@ pub struct CoordinationPlanState {
     pub canonical_snapshot_v2: CoordinationSnapshotV2,
     pub plan_graphs: Vec<PlanGraph>,
     pub execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    pub runtime_descriptors: Vec<prism_coordination::RuntimeDescriptor>,
 }
 
 pub(crate) struct WorkspaceRefreshState {
@@ -988,6 +989,7 @@ impl WorkspaceSession {
                 snapshot: prism.coordination_snapshot(),
                 plan_graphs: prism.authored_plan_graphs(),
                 execution_overlays: prism.plan_execution_overlays_by_plan(),
+                runtime_descriptors: prism.runtime_descriptors(),
             });
         let sync = export_repo_prism_doc_with_plan_state(
             &self.root,
@@ -1277,6 +1279,7 @@ impl WorkspaceSession {
                 current_prism.coordination_snapshot(),
                 current_prism.authored_plan_graphs(),
                 current_prism.plan_execution_overlays_by_plan(),
+                current_prism.runtime_descriptors(),
                 ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
             );
             *self
@@ -1645,6 +1648,10 @@ impl WorkspaceSession {
             plan_state
                 .as_ref()
                 .map(|state| state.execution_overlays.clone())
+                .unwrap_or_default(),
+            plan_state
+                .as_ref()
+                .map(|state| state.runtime_descriptors.clone())
                 .unwrap_or_default(),
             projections,
         );
@@ -2466,6 +2473,7 @@ impl WorkspaceSession {
             canonical_snapshot_v2: state.canonical_snapshot_v2,
             plan_graphs: state.plan_graphs,
             execution_overlays: state.execution_overlays,
+            runtime_descriptors: state.runtime_descriptors,
         }))
     }
 
@@ -2488,6 +2496,10 @@ impl WorkspaceSession {
                 snapshot,
                 plan_graphs,
                 execution_overlays,
+                state
+                    .as_ref()
+                    .map(|state| state.runtime_descriptors.clone())
+                    .unwrap_or_default(),
             );
         self.runtime_state
             .lock()
@@ -2504,6 +2516,10 @@ impl WorkspaceSession {
                 state
                     .as_ref()
                     .map(|state| state.execution_overlays.clone())
+                    .unwrap_or_default(),
+                state
+                    .as_ref()
+                    .map(|state| state.runtime_descriptors.clone())
                     .unwrap_or_default(),
             );
         Ok(state)
@@ -2542,6 +2558,7 @@ impl WorkspaceSession {
         let snapshot = prism.coordination_snapshot();
         let plan_graphs = prism.authored_plan_graphs();
         let execution_overlays = prism.plan_execution_overlays_by_plan();
+        let runtime_descriptors = prism.runtime_descriptors();
         self.runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned")
@@ -2549,6 +2566,7 @@ impl WorkspaceSession {
                 snapshot.clone(),
                 plan_graphs.clone(),
                 execution_overlays.clone(),
+                runtime_descriptors,
             );
         let authoritative_revision = if let Some(shared_runtime_store) = self.shared_runtime_store()
         {
@@ -2719,6 +2737,7 @@ impl WorkspaceSession {
         );
         let plan_graphs = prism.authored_plan_graphs();
         let execution_overlays = prism.plan_execution_overlays_by_plan();
+        let runtime_descriptors = prism.runtime_descriptors();
         let publish_context = publish_context_from_coordination_events(&appended_events);
         self.runtime_state
             .lock()
@@ -2727,6 +2746,7 @@ impl WorkspaceSession {
                 snapshot.clone(),
                 plan_graphs.clone(),
                 execution_overlays.clone(),
+                runtime_descriptors,
             );
         let should_persist = !appended_events.is_empty() || snapshot != before;
         if should_persist {

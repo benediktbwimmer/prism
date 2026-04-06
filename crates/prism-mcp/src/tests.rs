@@ -19,7 +19,8 @@ use prism_coordination::{
     GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
 };
 use prism_core::{
-    hydrate_workspace_session, hydrate_workspace_session_with_options, index_workspace_session,
+    default_workspace_shared_runtime, hydrate_workspace_session,
+    hydrate_workspace_session_with_options, index_workspace_session,
     index_workspace_session_with_curator, index_workspace_session_with_options, PrismPaths,
     SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceSessionOptions,
@@ -2695,6 +2696,7 @@ fn plan_node_mutations_return_graph_native_views() {
             edges: Vec::new(),
         }],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let updated = host
@@ -2871,6 +2873,7 @@ fn native_plan_node_completion_rejects_missing_review_and_validation() {
             edges: Vec::new(),
         }],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let execution = QueryExecution::new(
@@ -2987,6 +2990,7 @@ fn coordination_update_routes_plain_ids_to_native_plan_nodes() {
             edges: Vec::new(),
         }],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let updated = host
@@ -3848,6 +3852,7 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
             ],
         }],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let execution = QueryExecution::new(
@@ -4858,6 +4863,7 @@ fn mcp_plan_update_rehydrates_stale_coordination_runtime_before_mutating() {
             prism_coordination::CoordinationSnapshot::default(),
             state.plan_graphs.clone(),
             state.execution_overlays.clone(),
+            Vec::new(),
         );
     host.loaded_coordination_revision_handle()
         .expect("coordination revision handle")
@@ -5109,10 +5115,11 @@ fn mcp_plan_archive_terminalizes_active_task_execution_plan_before_archiving() {
                     tags: Vec::new(),
                     metadata: serde_json::Value::Null,
                 }],
-                edges: Vec::new(),
-            }],
-            std::collections::BTreeMap::new(),
-        );
+            edges: Vec::new(),
+        }],
+        std::collections::BTreeMap::new(),
+        Vec::new(),
+    );
 
     let archived = host
         .store_coordination(
@@ -6883,6 +6890,7 @@ fn validation_plan_accepts_native_plan_node_task_ids() {
         prism.coordination_snapshot(),
         vec![native_graph],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let envelope = host
@@ -6980,6 +6988,7 @@ fn task_surfaces_accept_native_plan_node_task_ids() {
         prism.coordination_snapshot(),
         vec![native_graph],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let envelope = host
@@ -7128,6 +7137,7 @@ fn task_backed_query_surfaces_follow_published_plan_validation_fields() {
         prism.coordination_snapshot(),
         vec![native_graph],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let envelope = host
@@ -7380,6 +7390,7 @@ fn coordination_inbox_and_task_brief_share_authoritative_task_backed_status() {
             edges: Vec::new(),
         }],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let envelope = host
@@ -14785,6 +14796,7 @@ fn compact_task_brief_self_contained_native_node_ignores_related_plan_neighbors(
             }],
         }],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let brief = host
@@ -21369,7 +21381,16 @@ fn authenticated_outcome_mutation_records_principal_actor_and_execution_context(
         )
         .expect("authenticated outcome should persist");
 
-    let reloaded = hydrate_workspace_session(&root).unwrap();
+    let reloaded = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
     let replay = reloaded
         .prism()
         .resume_task(&TaskId::new("task:authenticated-outcome"));
@@ -21470,7 +21491,16 @@ fn authenticated_outcome_mutation_records_coordination_work_context_snapshot() {
         )
         .expect("authenticated coordination outcome should persist");
 
-    let reloaded = hydrate_workspace_session(&root).unwrap();
+    let reloaded = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
     let replay = reloaded.prism().resume_task(&TaskId::new(task_id.clone()));
     let event = replay
         .events
@@ -22820,6 +22850,21 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
     assert_eq!(
         shared.current_manifest_digest,
         shared.last_verified_manifest_digest
+    );
+    assert!(shared.summary_published_at.is_some());
+    let lagging_total =
+        shared.lagging_task_shard_refs + shared.lagging_claim_shard_refs + shared.lagging_runtime_refs;
+    assert_eq!(
+        shared.authoritative_fallback_required,
+        lagging_total > 0 || shared.summary_freshness_status == "ambiguous"
+    );
+    assert!(
+        matches!(
+            shared.summary_freshness_status.as_str(),
+            "current" | "stale" | "ambiguous"
+        ),
+        "unexpected shared coordination freshness status: {}",
+        shared.summary_freshness_status
     );
     assert!(shared.last_successful_publish_at.is_some());
     assert_eq!(shared.last_successful_publish_retry_count, 0);

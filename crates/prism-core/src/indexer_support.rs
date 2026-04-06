@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 
 use anyhow::Result;
-use prism_coordination::CoordinationSnapshot;
+use prism_coordination::{CoordinationSnapshot, RuntimeDescriptor};
 use prism_curator::CuratorBackend;
 use prism_history::HistoryStore;
 use prism_ir::{EdgeKind, PlanExecutionOverlay, PlanGraph};
@@ -52,6 +52,7 @@ pub(crate) fn build_workspace_session(
     coordination_snapshot: CoordinationSnapshot,
     plan_graphs: Vec<PlanGraph>,
     plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    runtime_descriptors: Vec<RuntimeDescriptor>,
     projections: ProjectionIndex,
     initial_refresh: Option<WorkspaceRefreshSeed>,
     coordination_enabled: bool,
@@ -106,6 +107,7 @@ pub(crate) fn build_workspace_session(
         coordination_snapshot,
         plan_graphs,
         plan_execution_overlays,
+        runtime_descriptors,
         projections,
     )));
     let build_runtime_state_ms = runtime_state_started.elapsed().as_millis();

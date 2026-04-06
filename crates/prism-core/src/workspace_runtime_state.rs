@@ -1,4 +1,4 @@
-use prism_coordination::CoordinationSnapshot;
+use prism_coordination::{CoordinationSnapshot, RuntimeDescriptor};
 use prism_history::HistoryStore;
 use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkspaceRevision};
 use prism_memory::OutcomeMemory;
@@ -55,6 +55,7 @@ pub(crate) struct WorkspaceRuntimeState {
     pub(crate) coordination_snapshot: CoordinationSnapshot,
     pub(crate) plan_graphs: Vec<PlanGraph>,
     pub(crate) plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    pub(crate) runtime_descriptors: Vec<RuntimeDescriptor>,
     pub(crate) projections: ProjectionIndex,
 }
 
@@ -67,6 +68,7 @@ impl WorkspaceRuntimeState {
         coordination_snapshot: CoordinationSnapshot,
         plan_graphs: Vec<PlanGraph>,
         plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
         projections: ProjectionIndex,
     ) -> Self {
         Self {
@@ -77,6 +79,7 @@ impl WorkspaceRuntimeState {
             coordination_snapshot,
             plan_graphs,
             plan_execution_overlays,
+            runtime_descriptors,
             projections,
         }
     }
@@ -94,6 +97,7 @@ impl WorkspaceRuntimeState {
             CoordinationSnapshot::default(),
             Vec::new(),
             BTreeMap::new(),
+            Vec::new(),
             ProjectionIndex::default(),
         )
     }
@@ -121,6 +125,7 @@ impl WorkspaceRuntimeState {
                 self.projections.clone(),
                 self.plan_graphs.clone(),
                 self.plan_execution_overlays.clone(),
+                self.runtime_descriptors.clone(),
                 intent_override,
             );
         prism.set_workspace_revision(workspace_revision.clone());
@@ -133,10 +138,12 @@ impl WorkspaceRuntimeState {
         snapshot: CoordinationSnapshot,
         plan_graphs: Vec<PlanGraph>,
         plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
     ) {
         self.coordination_snapshot = snapshot;
         self.plan_graphs = plan_graphs;
         self.plan_execution_overlays = plan_execution_overlays;
+        self.runtime_descriptors = runtime_descriptors;
     }
 
     pub(crate) fn overlay_live_projection_knowledge(&mut self, prism: &Prism) {

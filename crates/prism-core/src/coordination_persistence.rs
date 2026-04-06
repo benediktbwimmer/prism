@@ -170,6 +170,7 @@ where
                 &repo_semantic_snapshot,
                 &derived.plan_graphs,
                 &repo_semantic_execution_overlays,
+                &[],
             )
         },
     )?;
@@ -293,6 +294,7 @@ pub(crate) trait CoordinationPersistenceBackend:
                     snapshot,
                     plan_graphs,
                     execution_overlays,
+                    &[],
                 )?;
             }
             _ => {
@@ -305,6 +307,7 @@ pub(crate) trait CoordinationPersistenceBackend:
                     snapshot,
                     &plan_graphs,
                     &execution_overlays,
+                    &[],
                 )?;
             }
         }
