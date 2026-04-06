@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775494680,
+  "publishedAt": 1775494738,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
@@ -23,14 +23,14 @@
   "files": {
     "coordination/tasks/coord-task-01kng209dwy330am5tc7qr7z74-922e3dffcc0aa73a.json": {
       "path": "coordination/tasks/coord-task-01kng209dwy330am5tc7qr7z74-922e3dffcc0aa73a.json",
-      "sha256": "sha256:7b123baed86858b660b4fc7720ac2ace7c98ca718eb3d49561c4684cb4d489d8"
+      "sha256": "sha256:7bafc30e5858c112d6278608fe94db2019ce88ac88de0cad06ec52cd5bbd41b2"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:3f7b2653ae3fee9c382112ec655ccd93a263ee92a1afe6dd0c9431f53790b9bd"
+      "sha256": "sha256:20bf4de4a9a5643512d6564a09855de1222bac11be3f0fe918f5aab039dc56f6"
     }
   },
-  "previousManifestDigest": "sha256:c0413d646f3c9dadad6bebf597c2d1fc2e8b2ddb16b6bc7cb029ae74d9d35214",
+  "previousManifestDigest": "sha256:3d5c2ec746bc336777bb6b5f24d4fa1feec7413149ac0bd45f02f1ef9ad650a7",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -40,6 +40,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:waoAokxsDm2zr2OzT3MzbDdsxv1ZrQJMRWlCDX+o68pTRPai6gDKPHE5bX0yq8yGOZbY2JoRWQnTVH39CPDHDw=="
+    "value": "base64:WPbERg5J7VFcpCNvfYi1faU2/wm2MOXBXCZ6bKZiVLK+86i8efA7tyngaViQnWSM5SAJr90t4y6f5PH+VAkdBQ=="
   }
 }
