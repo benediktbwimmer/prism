@@ -21,10 +21,24 @@ const HUMAN_SESSION_FILE_VERSION: u32 = 1;
 const HUMAN_SESSION_IDLE_TIMEOUT_SECS: u64 = 15 * 60;
 const HUMAN_SESSION_MAX_LIFETIME_SECS: u64 = 8 * 60 * 60;
 const HUMAN_SESSION_FRESH_REAUTH_WINDOW_SECS: u64 = 5 * 60;
+#[cfg(not(test))]
 const PBKDF2_ROUNDS: u32 = 600_000;
+#[cfg(test)]
+const TEST_PBKDF2_ROUNDS: u32 = 10_000;
 const ENCRYPTION_SALT_LEN: usize = 16;
 const ENCRYPTION_KEY_LEN: usize = 32;
 const ENCRYPTION_NONCE_LEN: usize = 12;
+
+fn pbkdf2_rounds() -> u32 {
+    #[cfg(test)]
+    {
+        TEST_PBKDF2_ROUNDS
+    }
+    #[cfg(not(test))]
+    {
+        PBKDF2_ROUNDS
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CredentialsFile {
@@ -264,7 +278,7 @@ impl CredentialProfile {
         let key = pbkdf2_hmac_array::<Sha256, ENCRYPTION_KEY_LEN>(
             passphrase.as_bytes(),
             &salt,
-            PBKDF2_ROUNDS,
+            pbkdf2_rounds(),
         );
         let cipher = Aes256GcmSiv::new_from_slice(&key)
             .map_err(|_| anyhow!("failed to initialize credential cipher"))?;
@@ -275,7 +289,7 @@ impl CredentialProfile {
         self.encrypted_secret = Some(EncryptedCredentialSecret {
             algorithm: "aes-256-gcm-siv".to_string(),
             kdf: "pbkdf2-sha256".to_string(),
-            rounds: PBKDF2_ROUNDS,
+            rounds: pbkdf2_rounds(),
             salt_b64: BASE64_STANDARD.encode(salt),
             nonce_b64: BASE64_STANDARD.encode(nonce_bytes),
             ciphertext_b64: BASE64_STANDARD.encode(ciphertext),

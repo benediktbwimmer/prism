@@ -44,215 +44,11 @@ static SELF_DESCRIPTION_AUDIT_CACHE: OnceLock<Mutex<HashMap<String, SelfDescript
     OnceLock::new();
 
 fn self_description_static_cache() -> &'static Mutex<SelfDescriptionStaticCache> {
-    SELF_DESCRIPTION_STATIC_CACHE.get_or_init(|| Mutex::new(build_self_description_static_cache()))
+    SELF_DESCRIPTION_STATIC_CACHE.get_or_init(|| Mutex::new(SelfDescriptionStaticCache::default()))
 }
 
 fn self_description_audit_cache() -> &'static Mutex<HashMap<String, SelfDescriptionAuditPayload>> {
     SELF_DESCRIPTION_AUDIT_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-fn build_self_description_static_cache() -> SelfDescriptionStaticCache {
-    let mut cache = SelfDescriptionStaticCache::default();
-
-    for tool in crate::tool_schema_catalog_entries() {
-        let tool_name = tool.tool_name.clone();
-        if let Some(schema_bytes) = crate::tool_input_schema_value(&tool_name)
-            .as_ref()
-            .and_then(value_bytes)
-        {
-            cache.schema_bytes.insert(tool.schema_uri.clone(), schema_bytes);
-        }
-        if let Some(uri) = tool.shape_uri.as_deref() {
-            if let Some(payload) = build_tool_shape_payload(&tool_name, uri) {
-                record_serialized_bytes(&mut cache.compact_surface_bytes, uri, &payload);
-                cache.tool_shapes.insert(uri.to_string(), payload);
-            }
-        }
-        if let Some(uri) = tool.example_uri.as_deref() {
-            if let Some(payload) = build_tool_example_payload(&tool_name, None, None, uri) {
-                record_serialized_bytes(&mut cache.compact_surface_bytes, uri, &payload);
-                cache.tool_examples.insert(uri.to_string(), payload);
-            }
-        }
-        if let Some(validation) = build_tool_example_validation(&tool_name, None, None) {
-            cache
-                .tool_example_validations
-                .insert(tool_example_validation_cache_key(&tool_name, None, None), validation);
-        }
-        if let Some(tool_view) = tool_schema_view(&tool_name) {
-            for action in tool_view.actions {
-                let action_schema_uri =
-                    crate::tool_action_schema_resource_uri(&tool_name, &action.action);
-                if let Some(schema_bytes) = tool_action_schema_value(&tool_name, &action.action)
-                    .as_ref()
-                    .and_then(value_bytes)
-                {
-                    cache.schema_bytes.insert(action_schema_uri, schema_bytes);
-                }
-
-                let action_shape_uri = tool_action_shape_resource_uri(&tool_name, &action.action);
-                if let Some(payload) =
-                    build_tool_action_shape_payload(&tool_name, &action.action, &action_shape_uri)
-                {
-                    record_serialized_bytes(
-                        &mut cache.compact_surface_bytes,
-                        &action_shape_uri,
-                        &payload,
-                    );
-                    cache.tool_shapes.insert(action_shape_uri, payload);
-                }
-
-                let action_example_uri =
-                    tool_action_example_resource_uri(&tool_name, &action.action);
-                if let Some(payload) = build_tool_example_payload(
-                    &tool_name,
-                    Some(&action.action),
-                    None,
-                    &action_example_uri,
-                ) {
-                    record_serialized_bytes(
-                        &mut cache.compact_surface_bytes,
-                        &action_example_uri,
-                        &payload,
-                    );
-                    cache.tool_examples.insert(action_example_uri, payload);
-                }
-                if let Some(validation) =
-                    build_tool_example_validation(&tool_name, Some(&action.action), None)
-                {
-                    cache.tool_example_validations.insert(
-                        tool_example_validation_cache_key(&tool_name, Some(&action.action), None),
-                        validation,
-                    );
-                }
-
-                let action_recipe_uri =
-                    tool_action_recipe_resource_uri(&tool_name, &action.action);
-                if let Some(markdown) =
-                    build_tool_recipe_markdown(&tool_name, &action.action, None)
-                {
-                    cache
-                        .compact_surface_bytes
-                        .insert(action_recipe_uri.clone(), markdown.len());
-                    cache
-                        .tool_recipe_markdowns
-                        .insert(action_recipe_uri, markdown);
-                }
-
-                for variant in action.payload_variants {
-                    let variant_schema_uri =
-                        tool_variant_schema_resource_uri(&tool_name, &action.action, &variant.tag);
-                    if let Some(schema_bytes) =
-                        tool_variant_schema_value(&tool_name, &action.action, &variant.tag)
-                            .as_ref()
-                            .and_then(value_bytes)
-                    {
-                        cache.schema_bytes.insert(variant_schema_uri, schema_bytes);
-                    }
-
-                    let variant_shape_uri =
-                        tool_variant_shape_resource_uri(&tool_name, &action.action, &variant.tag);
-                    if let Some(payload) = build_tool_variant_shape_payload(
-                        &tool_name,
-                        &action.action,
-                        &variant.tag,
-                        &variant_shape_uri,
-                    ) {
-                        record_serialized_bytes(
-                            &mut cache.compact_surface_bytes,
-                            &variant_shape_uri,
-                            &payload,
-                        );
-                        cache.tool_shapes.insert(variant_shape_uri, payload);
-                    }
-
-                    let variant_example_uri =
-                        tool_variant_example_resource_uri(&tool_name, &action.action, &variant.tag);
-                    if let Some(payload) = build_tool_example_payload(
-                        &tool_name,
-                        Some(&action.action),
-                        Some(&variant.tag),
-                        &variant_example_uri,
-                    ) {
-                        record_serialized_bytes(
-                            &mut cache.compact_surface_bytes,
-                            &variant_example_uri,
-                            &payload,
-                        );
-                        cache.tool_examples.insert(variant_example_uri, payload);
-                    }
-                    if let Some(validation) = build_tool_example_validation(
-                        &tool_name,
-                        Some(&action.action),
-                        Some(&variant.tag),
-                    ) {
-                        cache.tool_example_validations.insert(
-                            tool_example_validation_cache_key(
-                                &tool_name,
-                                Some(&action.action),
-                                Some(&variant.tag),
-                            ),
-                            validation,
-                        );
-                    }
-
-                    let variant_recipe_uri =
-                        tool_variant_recipe_resource_uri(&tool_name, &action.action, &variant.tag);
-                    if let Some(markdown) =
-                        build_tool_recipe_markdown(&tool_name, &action.action, Some(&variant.tag))
-                    {
-                        cache
-                            .compact_surface_bytes
-                            .insert(variant_recipe_uri.clone(), markdown.len());
-                        cache
-                            .tool_recipe_markdowns
-                            .insert(variant_recipe_uri, markdown);
-                    }
-                }
-            }
-        }
-    }
-
-    for resource in crate::resource_schema_catalog_entries() {
-        let resource_kind = resource.resource_kind;
-        let schema_uri = schema_resource_uri(&resource_kind);
-        if let Some(schema_bytes) = resource_schema_shape_source(&resource_kind)
-            .as_ref()
-            .and_then(|(schema, _)| value_bytes(schema))
-        {
-            cache.schema_bytes.insert(schema_uri, schema_bytes);
-        }
-
-        let shape_uri = resource_shape_resource_uri(&resource_kind);
-        if let Some(payload) = build_resource_shape_payload(&resource_kind, &shape_uri) {
-            record_serialized_bytes(&mut cache.compact_surface_bytes, &shape_uri, &payload);
-            cache.resource_shapes.insert(shape_uri, payload);
-        }
-
-        let example_uri = resource_example_resource_uri(&resource_kind);
-        if let Some(payload) = build_resource_example_payload(&resource_kind, &example_uri) {
-            record_serialized_bytes(&mut cache.compact_surface_bytes, &example_uri, &payload);
-            cache.resource_examples.insert(example_uri, payload);
-        }
-    }
-
-    cache
-}
-
-fn record_serialized_bytes<T: serde::Serialize>(
-    cache: &mut HashMap<String, usize>,
-    uri: &str,
-    value: &T,
-) {
-    if let Some(bytes) = serialized_bytes(value) {
-        cache.insert(uri.to_string(), bytes);
-    }
-}
-
-fn serialized_bytes<T: serde::Serialize>(value: &T) -> Option<usize> {
-    serde_json::to_vec_pretty(value)
-        .ok()
-        .map(|bytes| bytes.len())
 }
 
 fn tool_example_validation_cache_key(
@@ -1140,19 +936,16 @@ fn build_self_description_audit_payload(
 ) -> Result<SelfDescriptionAuditPayload, McpError> {
     let mut entries = Vec::new();
     for tool in crate::tool_schema_catalog_entries() {
-        let schema = crate::tool_input_schema_value(&tool.tool_name);
-        let full_bytes = schema.as_ref().and_then(value_bytes);
+        let full_bytes = schema_uri_to_bytes(&tool.schema_uri);
         let example_validation = tool_example_validation(&tool.tool_name, None, None);
         let example_bytes = tool
             .example_uri
-            .as_ref()
-            .and_then(|uri| tool_example_payload(&tool.tool_name, None, None, uri))
-            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
+            .as_deref()
+            .and_then(compact_surface_bytes);
         let shape_bytes = tool
             .shape_uri
-            .as_ref()
-            .and_then(|uri| tool_shape_payload(&tool.tool_name, uri))
-            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
+            .as_deref()
+            .and_then(compact_surface_bytes);
         entries.push(SelfDescriptionAuditEntry {
             surface_kind: "tool".to_string(),
             name: tool.tool_name.clone(),
@@ -1215,21 +1008,15 @@ fn build_self_description_audit_payload(
                 let action_recipe_bytes =
                     tool_recipe_markdown(&tool.tool_name, &action.action, None)
                         .map(|markdown| markdown.len());
-                let schema_bytes = tool_action_schema_value(&tool.tool_name, &action.action)
-                    .as_ref()
-                    .and_then(value_bytes);
+                let schema_bytes = schema_uri_to_bytes(&action_schema_uri);
                 let example_validation =
                     tool_example_validation(&tool.tool_name, Some(&action.action), None);
                 let example_bytes = action_example_uri
-                    .as_ref()
-                    .and_then(|uri| {
-                        tool_example_payload(&tool.tool_name, Some(&action.action), None, uri)
-                    })
-                    .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
+                    .as_deref()
+                    .and_then(compact_surface_bytes);
                 let shape_bytes = action_shape_uri
-                    .as_ref()
-                    .and_then(|uri| tool_action_shape_payload(&tool.tool_name, &action.action, uri))
-                    .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
+                    .as_deref()
+                    .and_then(compact_surface_bytes);
                 entries.push(SelfDescriptionAuditEntry {
                     surface_kind: "tool_action".to_string(),
                     name: format!("{}.{}", tool.tool_name, action.action),
@@ -1297,37 +1084,18 @@ fn build_self_description_audit_payload(
                     let recipe_bytes =
                         tool_recipe_markdown(&tool.tool_name, &action.action, Some(&variant.tag))
                             .map(|markdown| markdown.len());
-                    let schema_bytes =
-                        tool_variant_schema_value(&tool.tool_name, &action.action, &variant.tag)
-                            .as_ref()
-                            .and_then(value_bytes);
+                    let schema_bytes = schema_uri_to_bytes(&schema_uri);
                     let example_validation = tool_example_validation(
                         &tool.tool_name,
                         Some(&action.action),
                         Some(&variant.tag),
                     );
                     let example_bytes = example_uri
-                        .as_ref()
-                        .and_then(|uri| {
-                            tool_example_payload(
-                                &tool.tool_name,
-                                Some(&action.action),
-                                Some(&variant.tag),
-                                uri,
-                            )
-                        })
-                        .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
+                        .as_deref()
+                        .and_then(compact_surface_bytes);
                     let shape_bytes = shape_uri
-                        .as_ref()
-                        .and_then(|uri| {
-                            tool_variant_shape_payload(
-                                &tool.tool_name,
-                                &action.action,
-                                &variant.tag,
-                                uri,
-                            )
-                        })
-                        .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
+                        .as_deref()
+                        .and_then(compact_surface_bytes);
                     entries.push(SelfDescriptionAuditEntry {
                         surface_kind: "tool_variant".to_string(),
                         name: format!("{}.{}.{}", tool.tool_name, action.action, variant.tag),
@@ -1386,13 +1154,11 @@ fn build_self_description_audit_payload(
         });
         let shape_bytes = resource
             .shape_uri
-            .as_ref()
-            .and_then(|uri| resource_shape_payload(resource_kind, uri))
-            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
+            .as_deref()
+            .and_then(compact_surface_bytes);
         let example_bytes = compact_example_uri
-            .as_ref()
-            .and_then(|uri| resource_example_payload(resource_kind, uri))
-            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
+            .as_deref()
+            .and_then(compact_surface_bytes);
         entries.push(SelfDescriptionAuditEntry {
             surface_kind: "resource".to_string(),
             name: resource.name.clone(),
@@ -1404,11 +1170,7 @@ fn build_self_description_audit_payload(
             shape_uri: resource.shape_uri.clone(),
             recipe_uri: None,
             full_bytes,
-            schema_bytes: resource.schema_uri.as_ref().and_then(|_schema_uri| {
-                resource_schema_shape_source(resource_kind)
-                    .as_ref()
-                    .and_then(|(schema, _)| value_bytes(schema))
-            }),
+            schema_bytes: resource.schema_uri.as_deref().and_then(schema_uri_to_bytes),
             example_bytes,
             shape_bytes,
             recipe_bytes: None,

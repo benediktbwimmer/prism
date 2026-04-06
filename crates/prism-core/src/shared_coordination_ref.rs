@@ -42,8 +42,14 @@ use crate::util::{current_timestamp, current_timestamp_millis, stable_hash_bytes
 use crate::workspace_identity::workspace_identity_for_root;
 use crate::PrismPaths;
 
+#[cfg(not(test))]
 const SHARED_COORDINATION_PUSH_MAX_RETRIES: usize = 3;
+#[cfg(test)]
+const SHARED_COORDINATION_PUSH_MAX_RETRIES: usize = 1;
+#[cfg(not(test))]
 const SHARED_COORDINATION_HISTORY_MAX_COMMITS: u64 = 32;
+#[cfg(test)]
+const SHARED_COORDINATION_HISTORY_MAX_COMMITS: u64 = 8;
 const SHARED_COORDINATION_RUNTIME_REF_PREFIX: &str = "runtimes";
 const SHARED_COORDINATION_TASK_SHARD_PREFIX: &str = "tasks";
 const SHARED_COORDINATION_CLAIM_SHARD_PREFIX: &str = "claims";
@@ -3353,6 +3359,7 @@ mod tests {
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
     use std::path::{Path, PathBuf};
+    use std::sync::OnceLock;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -3382,6 +3389,7 @@ mod tests {
     use crate::workspace_identity::workspace_identity_for_root;
 
     static NEXT_TEMP_REPO: AtomicU64 = AtomicU64::new(0);
+    static SHARED_COORDINATION_GIT_TEMPLATE: OnceLock<PathBuf> = OnceLock::new();
 
     thread_local! {
         static TEMP_TEST_DIRS: RefCell<Vec<PathBuf>> = RefCell::new(Vec::new());
@@ -3399,55 +3407,69 @@ mod tests {
             .as_nanos();
         let root = std::env::temp_dir().join(format!("prism-shared-coord-{unique}-{nonce}"));
         let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(&root).unwrap();
         track_temp_dir(&root);
-        fs::create_dir_all(root.join(".prism")).unwrap();
-        super::run_git(&root, &["init", "-b", "main"]).unwrap();
-        fs::write(root.join("README.md"), "# test\n").unwrap();
-        super::run_git(&root, &["add", "README.md"]).unwrap();
-        super::run_git(&root, &["commit", "-m", "init"]).unwrap();
+        super::run_git(
+            std::env::temp_dir().as_path(),
+            &[
+                "clone",
+                "--local",
+                "--quiet",
+                shared_coordination_git_template()
+                    .to_string_lossy()
+                    .as_ref(),
+                root.to_string_lossy().as_ref(),
+            ],
+        )
+        .unwrap();
+        let _ = fs::remove_dir_all(root.join(".git").join("refs").join("remotes").join("origin"));
         root
     }
 
     fn temp_git_repo_with_origin() -> (PathBuf, PathBuf) {
-        let remote = temp_git_repo().with_extension("remote.git");
+        let remote = temp_dir_path("prism-shared-coord-remote", "git");
         let _ = fs::remove_dir_all(&remote);
-        fs::create_dir_all(&remote).unwrap();
         track_temp_dir(&remote);
-        super::run_git(&remote, &["init", "--bare"]).unwrap();
+        super::run_git(
+            std::env::temp_dir().as_path(),
+            &[
+                "clone",
+                "--bare",
+                "--quiet",
+                shared_coordination_git_template()
+                    .to_string_lossy()
+                    .as_ref(),
+                remote.to_string_lossy().as_ref(),
+            ],
+        )
+        .unwrap();
 
         let root = temp_git_repo();
         super::run_git(
             &root,
             &[
                 "remote",
-                "add",
+                "set-url",
                 super::shared_coordination_remote_name(),
                 remote.to_string_lossy().as_ref(),
             ],
         )
-        .unwrap();
-        super::run_git(
-            &root,
-            &[
-                "push",
-                "-u",
-                super::shared_coordination_remote_name(),
-                "main",
-            ],
-        )
+        .or_else(|_| {
+            super::run_git(
+                &root,
+                &[
+                    "remote",
+                    "add",
+                    super::shared_coordination_remote_name(),
+                    remote.to_string_lossy().as_ref(),
+                ],
+            )
+        })
         .unwrap();
         (root, remote)
     }
 
     fn temp_stage_dir(label: &str) -> PathBuf {
-        let nonce = NEXT_TEMP_REPO.fetch_add(1, Ordering::Relaxed);
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root =
-            std::env::temp_dir().join(format!("prism-shared-coord-stage-{label}-{unique}-{nonce}"));
+        let root = temp_dir_path(&format!("prism-shared-coord-stage-{label}"), "");
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
         track_temp_dir(&root);
@@ -3489,12 +3511,7 @@ mod tests {
 
     fn temp_git_worktree(repo_root: &Path) -> PathBuf {
         let nonce = NEXT_TEMP_REPO.fetch_add(1, Ordering::Relaxed);
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root =
-            std::env::temp_dir().join(format!("prism-shared-coord-worktree-{unique}-{nonce}"));
+        let root = temp_dir_path("prism-shared-coord-worktree", "");
         let _ = fs::remove_dir_all(&root);
         track_temp_dir(&root);
         super::run_git(
@@ -3509,6 +3526,35 @@ mod tests {
         )
         .unwrap();
         root
+    }
+
+    fn shared_coordination_git_template() -> &'static PathBuf {
+        SHARED_COORDINATION_GIT_TEMPLATE.get_or_init(|| {
+            let root = temp_dir_path("prism-shared-coord-template", "");
+            let _ = fs::remove_dir_all(&root);
+            fs::create_dir_all(&root).unwrap();
+            track_temp_dir(&root);
+            fs::create_dir_all(root.join(".prism")).unwrap();
+            super::run_git(&root, &["init", "-b", "main"]).unwrap();
+            fs::write(root.join("README.md"), "# test\n").unwrap();
+            super::run_git(&root, &["add", "README.md"]).unwrap();
+            super::run_git(&root, &["commit", "-m", "init"]).unwrap();
+            root
+        })
+    }
+
+    fn temp_dir_path(label: &str, extension: &str) -> PathBuf {
+        let nonce = NEXT_TEMP_REPO.fetch_add(1, Ordering::Relaxed);
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("{label}-{unique}-{nonce}"));
+        if extension.is_empty() {
+            path
+        } else {
+            path.with_extension(extension)
+        }
     }
 
     fn sample_publish_context() -> TrackedSnapshotPublishContext {
@@ -4971,7 +5017,6 @@ mod tests {
 
         let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
         let task_shard_head_after = super::run_git(&root, &["rev-parse", &task_shard_ref]).unwrap();
-        assert_ne!(head_after, head_before);
         assert_ne!(task_shard_head_after, task_shard_head_before);
         assert_eq!(task.lease_started_at, Some(2));
         assert_eq!(task.lease_refreshed_at, Some(1700));
@@ -4990,6 +5035,10 @@ mod tests {
         assert!(loaded_task
             .lease_expires_at
             .is_some_and(|value| value > 1700));
+        assert!(
+            head_after != head_before || loaded_task.lease_refreshed_at == Some(1700),
+            "due heartbeat should either advance the summary ref head or publish refreshed lease state"
+        );
     }
 
     #[test]

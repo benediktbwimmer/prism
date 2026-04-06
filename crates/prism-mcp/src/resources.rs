@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::OnceLock};
 
 use prism_agent::EdgeId;
 use prism_ir::{AnchorRef, EventId, LineageId, NodeId, PlanId, TaskId};
@@ -1010,7 +1010,11 @@ pub(crate) fn symbol_resource_uri_from_node_id(id: &NodeId) -> String {
 }
 
 pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntry> {
-    vec![
+    static RESOURCE_SCHEMA_CATALOG_CACHE: OnceLock<Vec<ResourceSchemaCatalogEntry>> =
+        OnceLock::new();
+    RESOURCE_SCHEMA_CATALOG_CACHE
+        .get_or_init(|| {
+            vec![
         ResourceSchemaCatalogEntry {
             resource_kind: "capabilities".to_string(),
             schema_uri: schema_resource_uri("capabilities"),
@@ -1227,7 +1231,9 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             shape_uri: Some(resource_shape_resource_uri("self-description-audit")),
             description: "Schema for the self-description audit resource.".to_string(),
         },
-    ]
+            ]
+        })
+        .clone()
 }
 
 pub(crate) fn anchor_resource_view_links(

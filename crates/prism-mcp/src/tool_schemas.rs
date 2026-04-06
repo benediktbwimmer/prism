@@ -1,3 +1,5 @@
+use std::{collections::HashMap, sync::OnceLock};
+
 use prism_js::{
     ToolActionSchemaView, ToolCatalogEntryView, ToolFieldSchemaView, ToolPayloadVariantSchemaView,
     ToolSchemaView,
@@ -29,6 +31,9 @@ use rmcp::{model::ResourceContents, ErrorData as McpError};
 
 const MAX_SCHEMA_SUMMARY_DEPTH: usize = 3;
 
+static TOOL_SCHEMA_CATALOG_CACHE: OnceLock<Vec<ToolSchemaCatalogEntry>> = OnceLock::new();
+static TOOL_SCHEMA_VIEW_CACHE: OnceLock<HashMap<String, ToolSchemaView>> = OnceLock::new();
+
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ToolSchemaCatalogEntry {
@@ -50,7 +55,9 @@ pub(crate) struct ToolSchemaCatalogPayload {
 }
 
 pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
-    vec![
+    TOOL_SCHEMA_CATALOG_CACHE
+        .get_or_init(|| {
+            vec![
         ToolSchemaCatalogEntry {
             tool_name: "prism_locate".to_string(),
             schema_uri: tool_schema_resource_uri("prism_locate"),
@@ -129,7 +136,9 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
             example_uri: Some(tool_example_resource_uri("prism_mutate")),
             shape_uri: Some(tool_shape_resource_uri("prism_mutate")),
         },
-    ]
+            ]
+        })
+        .clone()
 }
 
 pub(crate) fn tool_schemas_resource_value() -> ToolSchemaCatalogPayload {
@@ -176,36 +185,41 @@ pub(crate) fn tool_catalog_views() -> Vec<ToolCatalogEntryView> {
 }
 
 pub(crate) fn tool_schema_view(tool_name: &str) -> Option<ToolSchemaView> {
-    let entry = tool_schema_catalog_entries()
-        .into_iter()
-        .find(|entry| entry.tool_name == tool_name)?;
-    let input_schema = tool_input_schema_value(tool_name)?;
-    Some(ToolSchemaView {
-        tool_name: entry.tool_name,
-        schema_uri: entry.schema_uri,
-        description: entry.description,
-        example_input: entry.example_input.clone(),
-        example_uri: entry.example_uri.clone(),
-        shape_uri: entry.shape_uri.clone(),
-        example_inputs: tool_input_examples(tool_name)
-            .unwrap_or_else(|| vec![entry.example_input.clone()]),
-        actions: tool_action_views(tool_name, &input_schema, &entry.example_input),
-        input_schema,
-    })
+    TOOL_SCHEMA_VIEW_CACHE
+        .get_or_init(|| {
+            tool_schema_catalog_entries()
+                .into_iter()
+                .filter_map(|entry| {
+                    let input_schema = tool_input_schema_value(&entry.tool_name)?;
+                    let example_input = entry.example_input.clone();
+                    let tool_name = entry.tool_name.clone();
+                    let schema = ToolSchemaView {
+                        tool_name: tool_name.clone(),
+                        schema_uri: entry.schema_uri,
+                        description: entry.description,
+                        example_input: example_input.clone(),
+                        example_uri: entry.example_uri,
+                        shape_uri: entry.shape_uri,
+                        example_inputs: tool_input_examples(&tool_name)
+                            .unwrap_or_else(|| vec![example_input.clone()]),
+                        actions: tool_action_views(&tool_name, &input_schema, &example_input),
+                        input_schema,
+                    };
+                    Some((tool_name, schema))
+                })
+                .collect()
+        })
+        .get(tool_name)
+        .cloned()
 }
 
 pub(crate) fn tool_action_schema_view(
     tool_name: &str,
     action: &str,
 ) -> Option<ToolActionSchemaView> {
-    let root_schema = tool_input_schema_value(tool_name)?;
-    let example_input = tool_input_example(tool_name)?;
-    root_schema
-        .get("oneOf")
-        .and_then(Value::as_array)
+    tool_schema_view(tool_name)?
+        .actions
         .into_iter()
-        .flat_map(|variants| variants.iter())
-        .filter_map(|variant| tool_action_view(tool_name, &root_schema, variant, &example_input))
         .find(|candidate| candidate.action == action)
 }
 
