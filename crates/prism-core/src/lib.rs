@@ -36,7 +36,6 @@ mod reanchor;
 mod repo_patch_events;
 mod resolution;
 pub mod runtime_engine;
-mod runtime_mode;
 mod session;
 mod session_bootstrap;
 mod shared_coordination_ref;
@@ -99,6 +98,7 @@ pub use prism_doc::{
     render_repo_published_plan_markdown, PrismDocBundleFormat, PrismDocExportBundle,
     PrismDocExportResult, PrismDocSyncResult, PrismDocSyncStatus,
 };
+pub use prism_ir::{PrismLayerSet, PrismRuntimeCapabilities, PrismRuntimeLayer, PrismRuntimeMode};
 pub use prism_paths::PrismPaths;
 pub use protected_state::migration::{
     migrate_legacy_protected_repo_state, ProtectedStateMigrationReport,
@@ -115,9 +115,6 @@ pub use published_plans::{
     inspect_repo_published_plan_artifacts, regenerate_repo_published_plan_artifacts,
     repair_repo_published_plan_artifacts, PublishedPlanArtifactRepairEntry,
     PublishedPlanArtifactRepairReport,
-};
-pub use runtime_mode::{
-    PrismLayerSet, PrismRuntimeCapabilities, PrismRuntimeLayer, PrismRuntimeMode,
 };
 pub use session::{
     CoordinationPlanState, FsRefreshStatus, PersistedObservedChangeCheckpointResult,

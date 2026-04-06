@@ -185,6 +185,12 @@ fn cli_runtime_mode_flag_selects_coordination_only_runtime() {
     assert!(features.coordination_layer_enabled());
     assert!(!features.knowledge_storage_layer_enabled());
     assert!(!features.cognition_layer_enabled());
+    assert!(features.is_tool_enabled("prism_mutate"));
+    assert!(features.is_tool_enabled("prism_task_brief"));
+    assert!(!features.is_tool_enabled("prism_query"));
+    assert!(!features.is_tool_enabled("prism_locate"));
+    assert!(!features.query_method_visible("symbol"));
+    assert!(!features.query_view_enabled(crate::QueryViewFeatureFlag::RepoPlaybook));
 }
 
 #[test]
@@ -195,6 +201,29 @@ fn cli_runtime_mode_flag_selects_knowledge_storage_runtime() {
     assert!(features.coordination_layer_enabled());
     assert!(features.knowledge_storage_layer_enabled());
     assert!(!features.cognition_layer_enabled());
+}
+
+#[test]
+fn coordination_only_instructions_strip_cognition_guidance() {
+    let index = crate::instructions::render_instructions_index(PrismRuntimeMode::CoordinationOnly);
+    assert!(index.contains("PRISM Coordination-Only Instructions"));
+    assert!(index.contains("`coordination_only`"));
+    assert!(index.contains("`coordination`"));
+    assert!(!index.contains("`execution`"));
+    assert!(!index.contains("`planning`"));
+
+    assert!(crate::instructions::render_instruction_set(
+        "execution",
+        PrismRuntimeMode::CoordinationOnly
+    )
+    .is_none());
+    let coordination = crate::instructions::render_instruction_set(
+        "coordination",
+        PrismRuntimeMode::CoordinationOnly,
+    )
+    .expect("coordination instructions should remain available");
+    assert!(coordination.contains("without cognition"));
+    assert!(coordination.contains("coordination"));
 }
 
 #[test]

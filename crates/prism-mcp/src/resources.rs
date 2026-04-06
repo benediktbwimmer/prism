@@ -625,8 +625,10 @@ pub(crate) fn instructions_resource_link() -> RawResource {
     crate::instructions::instructions_resource_link()
 }
 
-pub(crate) fn instruction_set_resource_links() -> Vec<RawResource> {
-    crate::instructions::instruction_set_resource_links()
+pub(crate) fn instruction_set_resource_links(
+    runtime_mode: prism_core::PrismRuntimeMode,
+) -> Vec<RawResource> {
+    crate::instructions::instruction_set_resource_links(runtime_mode)
 }
 
 pub(crate) fn capabilities_resource_link() -> RawResource {

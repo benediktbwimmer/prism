@@ -68,14 +68,23 @@ fn contract_target_matches(
 }
 
 fn anchor_matches_target(prism: &Prism, target: &NodeId, anchor: &AnchorRef) -> bool {
+    if anchor.matches_node_without_graph(target) {
+        return true;
+    }
+    if anchor.requires_graph_resolution()
+        && !prism
+            .runtime_capabilities()
+            .graph_backed_resolution_enabled()
+    {
+        return false;
+    }
     match anchor {
-        AnchorRef::Node(node) => node == target,
         AnchorRef::Lineage(lineage) => prism.lineage_of(target).as_ref() == Some(lineage),
         AnchorRef::File(file_id) => prism
             .graph()
             .node(target)
             .is_some_and(|node| node.file == *file_id),
-        AnchorRef::Kind(kind) => target.kind == *kind,
+        AnchorRef::Node(_) | AnchorRef::Kind(_) => false,
     }
 }
 
@@ -91,6 +100,12 @@ fn concept_handle_matches_target(prism: &Prism, target: &NodeId, handle: &str) -
         || packet.likely_tests.iter().any(|member| member == target)
     {
         return true;
+    }
+    if !prism
+        .runtime_capabilities()
+        .graph_backed_resolution_enabled()
+    {
+        return false;
     }
     let Some(target_lineage) = prism.lineage_of(target) else {
         return false;
@@ -116,13 +131,21 @@ fn resolve_contract_target_nodes(
     let mut nodes = Vec::<NodeId>::new();
     for anchor in &contract_target.anchors {
         match anchor {
-            AnchorRef::Node(node) => {
-                if prism.graph().node(node).is_some() {
-                    nodes.push(node.clone());
-                }
+            AnchorRef::Node(node) => nodes.push(node.clone()),
+            AnchorRef::Lineage(lineage)
+                if prism
+                    .runtime_capabilities()
+                    .graph_backed_resolution_enabled() =>
+            {
+                nodes.extend(prism.current_nodes_for_lineage(lineage))
             }
-            AnchorRef::Lineage(lineage) => nodes.extend(prism.current_nodes_for_lineage(lineage)),
             AnchorRef::File(file_id) => {
+                if !prism
+                    .runtime_capabilities()
+                    .graph_backed_resolution_enabled()
+                {
+                    continue;
+                }
                 nodes.extend(
                     prism
                         .graph()
@@ -133,6 +156,12 @@ fn resolve_contract_target_nodes(
                 );
             }
             AnchorRef::Kind(kind) => {
+                if !prism
+                    .runtime_capabilities()
+                    .graph_backed_resolution_enabled()
+                {
+                    continue;
+                }
                 nodes.extend(
                     prism
                         .graph()
@@ -142,6 +171,7 @@ fn resolve_contract_target_nodes(
                         .map(|node| node.id.clone()),
                 );
             }
+            AnchorRef::Lineage(_) => {}
         }
     }
 

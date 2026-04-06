@@ -1,6 +1,6 @@
 use prism_coordination::{CoordinationSnapshot, RuntimeDescriptor};
 use prism_history::HistoryStore;
-use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkspaceRevision};
+use prism_ir::{PlanExecutionOverlay, PlanGraph, PrismRuntimeCapabilities, WorkspaceRevision};
 use prism_memory::OutcomeMemory;
 use prism_projections::{IntentIndex, ProjectionIndex};
 use prism_query::Prism;
@@ -57,6 +57,7 @@ pub(crate) struct WorkspaceRuntimeState {
     pub(crate) plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     pub(crate) runtime_descriptors: Vec<RuntimeDescriptor>,
     pub(crate) projections: ProjectionIndex,
+    pub(crate) runtime_capabilities: PrismRuntimeCapabilities,
 }
 
 impl WorkspaceRuntimeState {
@@ -70,6 +71,7 @@ impl WorkspaceRuntimeState {
         plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
         runtime_descriptors: Vec<RuntimeDescriptor>,
         projections: ProjectionIndex,
+        runtime_capabilities: PrismRuntimeCapabilities,
     ) -> Self {
         Self {
             layout: Arc::new(layout),
@@ -81,6 +83,7 @@ impl WorkspaceRuntimeState {
             plan_execution_overlays,
             runtime_descriptors,
             projections,
+            runtime_capabilities,
         }
     }
 
@@ -99,6 +102,7 @@ impl WorkspaceRuntimeState {
             BTreeMap::new(),
             Vec::new(),
             ProjectionIndex::default(),
+            prism_ir::PrismRuntimeMode::Full.capabilities(),
         )
     }
 
@@ -128,6 +132,7 @@ impl WorkspaceRuntimeState {
                 self.runtime_descriptors.clone(),
                 intent_override,
             );
+        prism.set_runtime_capabilities(self.runtime_capabilities);
         prism.set_workspace_revision(workspace_revision.clone());
         prism.set_coordination_context(coordination_context.clone());
         WorkspacePublishedGeneration::new(prism, workspace_revision, coordination_context)

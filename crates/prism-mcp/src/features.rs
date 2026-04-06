@@ -194,6 +194,10 @@ impl PrismMcpFeatures {
 
     pub fn with_runtime_mode(mut self, runtime_mode: PrismRuntimeMode) -> Self {
         self.runtime_mode = runtime_mode;
+        if !self.runtime_mode.capabilities().cognition_enabled() {
+            self.query_views = QueryViewFeatureSet::default();
+            self.internal_developer = false;
+        }
         self
     }
 
@@ -231,6 +235,9 @@ impl PrismMcpFeatures {
     }
 
     pub(crate) fn is_tool_enabled(&self, name: &str) -> bool {
+        if self.runtime_mode == PrismRuntimeMode::CoordinationOnly {
+            return matches!(name, "prism_task_brief" | "prism_mutate");
+        }
         match name {
             "prism_coordination" => self.coordination.workflow,
             "prism_claim" => self.coordination.claims,
@@ -240,6 +247,9 @@ impl PrismMcpFeatures {
     }
 
     pub(crate) fn disabled_query_group(&self, operation: &str) -> Option<&'static str> {
+        if self.runtime_mode == PrismRuntimeMode::CoordinationOnly {
+            return Some("cognition");
+        }
         match operation {
             "runtimeStatus" | "runtimeLogs" | "runtimeTimeline" | "mcpLog" | "slowMcpCalls"
             | "mcpTrace" | "mcpStats" | "queryLog" | "slowQueries" | "queryTrace"
@@ -320,12 +330,12 @@ impl PrismMcpFeatures {
     pub(crate) fn query_method_visible(&self, operation: &str) -> bool {
         !matches!(
             self.disabled_query_group(operation),
-            Some("internal_developer")
+            Some("internal_developer") | Some("cognition")
         )
     }
 
     pub(crate) fn query_view_enabled(&self, flag: QueryViewFeatureFlag) -> bool {
-        self.query_views.enabled(flag)
+        self.cognition_layer_enabled() && self.query_views.enabled(flag)
     }
 }
 

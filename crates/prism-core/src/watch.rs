@@ -23,7 +23,7 @@ use prism_memory::OutcomeMemory;
 use prism_projections::ProjectionIndex;
 use prism_query::Prism;
 use prism_store::CoordinationJournal;
-use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
+use prism_store::{CoordinationPersistContext, Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, info, warn};
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
@@ -31,7 +31,7 @@ use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::curator::{enqueue_curator_for_observed_async, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
-use crate::layout::discover_layout;
+use crate::layout::{discover_layout, WorkspaceLayout};
 use crate::observed_change_tracker::SharedObservedChangeTracker;
 use crate::protected_state::runtime_sync::{
     load_repo_protected_knowledge, load_repo_protected_plan_state,
@@ -54,7 +54,7 @@ use crate::workspace_identity::{
 use crate::workspace_runtime_state::{WorkspacePublishedGeneration, WorkspaceRuntimeState};
 use crate::workspace_tree::{
     diff_workspace_tree_snapshot, plan_full_refresh, plan_incremental_refresh,
-    populate_package_regions, WorkspaceRefreshMode,
+    populate_package_regions, WorkspaceRefreshMode, WorkspaceRefreshPlan,
 };
 use crate::worktree_principal::BoundWorktreePrincipal;
 
@@ -535,6 +535,7 @@ fn refresh_prism_snapshot_with_guard(
         .read()
         .expect("workspace published generation lock poisoned")
         .prism_arc();
+    let runtime_capabilities = current_prism.runtime_capabilities();
     let coordination_context = current_prism.coordination_context();
     let runtime_state_value = {
         let mut state = runtime_state
@@ -553,6 +554,30 @@ fn refresh_prism_snapshot_with_guard(
     } else {
         cached_layout.clone()
     };
+    if !runtime_capabilities.cognition_enabled() {
+        return refresh_coordination_only_snapshot(
+            root,
+            published_generation,
+            runtime_state,
+            store,
+            cold_query_store,
+            shared_runtime_store,
+            refresh_state,
+            loaded_workspace_revision,
+            fs_snapshot,
+            coordination_enabled,
+            trigger,
+            dirty_paths,
+            observed_revision,
+            started,
+            plan,
+            plan_refresh_ms,
+            build_indexer_started,
+            runtime_state_value,
+            next_layout,
+            coordination_context,
+        );
+    }
     let refresh_runtime_roots = layout_refresh_required
         || next_layout.workspace_manifest != cached_layout.workspace_manifest
         || next_layout.packages.len() != cached_layout.packages.len();
@@ -578,11 +603,10 @@ fn refresh_prism_snapshot_with_guard(
         Some(cached_snapshot),
         checkpoint_materializer,
         crate::WorkspaceSessionOptions {
-            runtime_mode: if coordination_enabled {
-                crate::PrismRuntimeMode::Full
-            } else {
-                crate::PrismRuntimeMode::CoreLegacy
-            },
+            runtime_mode: crate::PrismRuntimeMode::from_capabilities(
+                current_prism.runtime_capabilities(),
+            )
+            .expect("workspace refresh should preserve a supported runtime mode"),
             shared_runtime: shared_runtime_sqlite
                 .map(|path| SharedRuntimeBackend::Sqlite {
                     path: path.to_path_buf(),
@@ -617,6 +641,7 @@ fn refresh_prism_snapshot_with_guard(
                     current_prism.plan_execution_overlays_by_plan(),
                     current_prism.runtime_descriptors(),
                     ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
+                    current_prism.runtime_capabilities(),
                 );
                 return Err(error);
             }
@@ -764,6 +789,126 @@ fn refresh_prism_snapshot_with_guard(
         observed,
         breakdown,
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn refresh_coordination_only_snapshot(
+    root: &Path,
+    published_generation: &Arc<RwLock<WorkspacePublishedGeneration>>,
+    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
+    store: &Arc<Mutex<SqliteStore>>,
+    cold_query_store: &Arc<Mutex<SqliteStore>>,
+    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
+    refresh_state: &Arc<WorkspaceRefreshState>,
+    loaded_workspace_revision: &Arc<AtomicU64>,
+    fs_snapshot: &Arc<Mutex<WorkspaceTreeSnapshot>>,
+    coordination_enabled: bool,
+    trigger: ChangeTrigger,
+    dirty_paths: Vec<PathBuf>,
+    observed_revision: u64,
+    started: Instant,
+    plan: WorkspaceRefreshPlan,
+    plan_refresh_ms: u64,
+    build_indexer_started: Instant,
+    mut runtime_state_value: WorkspaceRuntimeState,
+    next_layout: WorkspaceLayout,
+    coordination_context: Option<CoordinationPersistContext>,
+) -> Result<WorkspaceRefreshResult> {
+    let result = (|| -> Result<WorkspaceRefreshResult> {
+        runtime_state_value.layout = Arc::new(next_layout);
+        let build_indexer_ms =
+            u64::try_from(build_indexer_started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        let local_workspace_revision = store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .workspace_revision()?;
+        let workspace_revision = composite_workspace_revision(
+            local_workspace_revision,
+            shared_runtime_store
+                .map(|store| {
+                    store
+                        .lock()
+                        .expect("shared runtime store lock poisoned")
+                        .workspace_revision()
+                })
+                .transpose()?,
+        );
+        let published_workspace_revision = prism_ir::WorkspaceRevision {
+            graph_version: local_workspace_revision,
+            git_commit: None,
+        };
+        let publish_generation_started = Instant::now();
+        let next = runtime_state_value
+            .publish_generation(published_workspace_revision, coordination_context);
+        let publish_generation_ms =
+            u64::try_from(publish_generation_started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        let assisted_lease_ms = 0;
+        *fs_snapshot
+            .lock()
+            .expect("workspace tree snapshot lock poisoned") = plan.next_snapshot;
+        let curator_enqueue_ms = 0;
+        let attach_cold_query_backends_started = Instant::now();
+        WorkspaceSession::attach_cold_query_backends(
+            next.prism_arc().as_ref(),
+            cold_query_store,
+            shared_runtime_store,
+        );
+        let attach_cold_query_backends_ms =
+            u64::try_from(attach_cold_query_backends_started.elapsed().as_millis())
+                .unwrap_or(u64::MAX);
+        let finalize_refresh_state_started = Instant::now();
+        *runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned") = runtime_state_value.clone();
+        *published_generation
+            .write()
+            .expect("workspace published generation lock poisoned") = next;
+        loaded_workspace_revision.store(workspace_revision, Ordering::Relaxed);
+        refresh_state.mark_refreshed_revision(observed_revision, &dirty_paths);
+        refresh_state.record_refresh(
+            plan.mode.as_str(),
+            started.elapsed().as_millis() as u64,
+            workspace_revision,
+            &plan.delta,
+        );
+        let finalize_refresh_state_ms =
+            u64::try_from(finalize_refresh_state_started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        let breakdown = WorkspaceRefreshBreakdown {
+            plan_refresh_ms,
+            build_indexer_ms,
+            index_workspace_ms: 0,
+            publish_generation_ms,
+            assisted_lease_ms,
+            curator_enqueue_ms,
+            attach_cold_query_backends_ms,
+            finalize_refresh_state_ms,
+        };
+        info!(
+            root = %root.display(),
+            trigger = ?trigger,
+            refresh_mode = %plan.mode.as_str(),
+            coordination_enabled,
+            plan_refresh_ms,
+            build_indexer_ms,
+            publish_generation_ms,
+            attach_cold_query_backends_ms,
+            finalize_refresh_state_ms,
+            total_ms = started.elapsed().as_millis(),
+            "completed coordination-only workspace refresh without graph indexing"
+        );
+        Ok(WorkspaceRefreshResult {
+            mode: Some(plan.mode),
+            observed: Vec::new(),
+            breakdown,
+        })
+    })();
+    if let Err(error) = result {
+        *runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned") = runtime_state_value;
+        return Err(error);
+    }
+    result
 }
 
 #[derive(Debug, Clone)]

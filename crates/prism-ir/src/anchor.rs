@@ -22,3 +22,17 @@ impl From<&NodeId> for AnchorRef {
         Self::Node(value.clone())
     }
 }
+
+impl AnchorRef {
+    pub fn requires_graph_resolution(&self) -> bool {
+        matches!(self, Self::Lineage(_) | Self::File(_))
+    }
+
+    pub fn matches_node_without_graph(&self, target: &NodeId) -> bool {
+        match self {
+            Self::Node(node) => node == target,
+            Self::Kind(kind) => target.kind == *kind,
+            Self::Lineage(_) | Self::File(_) => false,
+        }
+    }
+}

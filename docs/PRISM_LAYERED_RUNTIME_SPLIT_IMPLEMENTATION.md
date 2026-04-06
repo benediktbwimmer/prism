@@ -302,6 +302,54 @@ Required change:
 
 The work should land in this order.
 
+### Priority target: make coordination-only mode usable first
+
+Before broad mode coverage, the rewrite should optimize for one immediate outcome:
+
+- coordination-only mode must become the simplest viable PRISM configuration
+- every mandatory dependency on cognition must be removed from that mode
+- MCP and `prism://instructions` must strip down aggressively so only coordination-relevant public
+  APIs remain
+- coordination-only should fail closed for cognition-backed behavior instead of exposing noisy or
+  misleading partial surfaces
+
+Execution order for that target:
+
+1. Finish non-cognition runtime paths in `prism-core`.
+   Remove mandatory graph/indexer work from startup, refresh, fs watch, protected-state reload,
+   and fallback recovery when `runtime_mode = coordination_only`.
+   Estimated effort: 1.5-2.5 days
+
+2. Lock down the coordination-only runtime contract in `prism-core`.
+   Make the mode authoritative so coordination-only sessions build only the coordination-owned
+   runtime state and minimal persistence/checkpoint flows.
+   Estimated effort: 0.5 day after step 1
+
+3. Strip the MCP surface hard for coordination-only mode.
+   Tool registration, resources, query views, and UI read models should expose only
+   coordination-relevant capabilities in this mode.
+   Estimated effort: 1.5-2 days
+
+4. Rewrite `prism://instructions` for coordination-only mode.
+   This surface should become a minimal operator guide for plans, tasks, claims, artifacts,
+   reviews, and coordination persistence only.
+   Estimated effort: 0.5 day
+
+5. Remove residual query-layer cognition dependencies from coordination-only public APIs.
+   Any coordination-facing reads that still depend on graph-backed helpers should be replaced or
+   removed from the public surface.
+   Estimated effort: 1-1.5 days
+
+6. Make persistence and checkpoints explicitly coordination-only safe.
+   Persist and reload only what this mode owns, and avoid loading knowledge/cognition artifacts by
+   default.
+   Estimated effort: 1 day
+
+7. Add the minimum validation matrix for coordination-only mode.
+   Cover startup, mutate, reload, watcher refresh, MCP surface gating, and
+   `prism://instructions`.
+   Estimated effort: 1 day
+
 ### Phase 0: Freeze the layer contract
 
 Deliverable:

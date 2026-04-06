@@ -31,12 +31,13 @@ fn compact_self_description_resource_text(server: &PrismMcpServer, uri: &str) ->
     if let Some(instruction_set_id) = crate::instructions::parse_instruction_resource_uri(uri) {
         return match instruction_set_id {
             None => {
-                crate::instructions::render_instructions_index(server.host.features.mode_label())
+                crate::instructions::render_instructions_index(server.host.features.runtime_mode())
             }
-            Some(id) => {
-                crate::instructions::render_instruction_set(&id, server.host.features.mode_label())
-                    .unwrap_or_else(|| panic!("instruction set should exist for {uri}"))
-            }
+            Some(id) => crate::instructions::render_instruction_set(
+                &id,
+                server.host.features.runtime_mode(),
+            )
+            .unwrap_or_else(|| panic!("instruction set should exist for {uri}")),
         };
     }
     if uri == CAPABILITIES_URI {
@@ -464,6 +465,87 @@ async fn mcp_surface_request_logs_include_common_envelope_phases() {
     assert!(ping_operations.contains(&"mcp.encodeResponse"));
 
     running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn coordination_only_server_strips_cognition_tools_and_resources() {
+    let server = server_with_node_and_features(
+        demo_node(),
+        PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
+    );
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let initialize = initialize_client(&mut client).await;
+    let instructions = initialize["result"]["instructions"]
+        .as_str()
+        .expect("initialize should include instructions");
+    assert!(instructions.contains("PRISM Coordination-Only Instructions"));
+    assert!(!instructions.contains("`prism://instructions/execution`"));
+
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client.send(list_tools_request(2)).await.unwrap();
+    let tools = response_json(client.receive().await.unwrap());
+    let tool_names = tools["result"]["tools"]
+        .as_array()
+        .expect("tools/list should return an array")
+        .iter()
+        .filter_map(|tool| tool["name"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        tool_names,
+        std::collections::BTreeSet::from(["prism_mutate", "prism_task_brief"])
+    );
+
+    client.send(list_resources_request(3)).await.unwrap();
+    let resources = response_json(client.receive().await.unwrap());
+    let resource_uris = resources["result"]["resources"]
+        .as_array()
+        .expect("resources/list should return an array")
+        .iter()
+        .filter_map(|resource| resource["uri"].as_str())
+        .collect::<Vec<_>>();
+    assert!(resource_uris.contains(&INSTRUCTIONS_URI));
+    assert!(resource_uris.contains(&"prism://instructions/coordination"));
+    assert!(!resource_uris.contains(&"prism://instructions/execution"));
+    assert!(!resource_uris.contains(&API_REFERENCE_URI));
+
+    client
+        .send(read_resource_request(4, CAPABILITIES_URI))
+        .await
+        .unwrap();
+    let capabilities = response_json(client.receive().await.unwrap());
+    let capabilities_payload = serde_json::from_str::<Value>(
+        capabilities["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("capabilities resource should be text"),
+    )
+    .unwrap();
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .expect("query methods should be an array")
+        .is_empty());
+    assert!(capabilities_payload["queryViews"]
+        .as_array()
+        .expect("query views should be an array")
+        .is_empty());
+    assert_eq!(
+        capabilities_payload["tools"]
+            .as_array()
+            .expect("tools should be an array")
+            .iter()
+            .filter_map(|tool| tool["name"].as_str())
+            .collect::<std::collections::BTreeSet<_>>(),
+        std::collections::BTreeSet::from(["prism_mutate", "prism_task_brief"])
+    );
+
+    let _ = running.cancel().await;
 }
 
 #[tokio::test]

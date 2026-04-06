@@ -38,7 +38,8 @@ use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, EdgeKind, EventId, EventMeta,
     LineageEvent, LineageId, NodeId, NodeKind, ObservedChangeSet, PlanEdgeKind,
     PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanStatus,
-    ReviewId, SessionId, TaskId, ValidationRef, WorkspaceRevision,
+    PrismRuntimeCapabilities, PrismRuntimeMode, ReviewId, SessionId, TaskId, ValidationRef,
+    WorkspaceRevision,
 };
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
 use prism_memory::{OutcomeRecallQuery, TaskReplay};
@@ -88,6 +89,7 @@ pub struct Prism {
     coordination_context: RwLock<Option<CoordinationPersistContext>>,
     projections: RwLock<ProjectionIndex>,
     intent: RwLock<IntentIndex>,
+    runtime_capabilities: RwLock<PrismRuntimeCapabilities>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -371,7 +373,22 @@ impl Prism {
             coordination_context: RwLock::new(None),
             projections: RwLock::new(projections),
             intent: RwLock::new(intent),
+            runtime_capabilities: RwLock::new(PrismRuntimeMode::Full.capabilities()),
         }
+    }
+
+    pub fn runtime_capabilities(&self) -> PrismRuntimeCapabilities {
+        *self
+            .runtime_capabilities
+            .read()
+            .expect("runtime capabilities lock poisoned")
+    }
+
+    pub fn set_runtime_capabilities(&self, capabilities: PrismRuntimeCapabilities) {
+        *self
+            .runtime_capabilities
+            .write()
+            .expect("runtime capabilities lock poisoned") = capabilities;
     }
 
     pub fn graph(&self) -> &Graph {

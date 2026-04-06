@@ -1242,11 +1242,10 @@ impl WorkspaceSession {
             Some(cached_snapshot.clone()),
             self.checkpoint_materializer.clone(),
             crate::WorkspaceSessionOptions {
-                runtime_mode: if self.coordination_enabled {
-                    crate::PrismRuntimeMode::Full
-                } else {
-                    crate::PrismRuntimeMode::CoreLegacy
-                },
+                runtime_mode: crate::PrismRuntimeMode::from_capabilities(
+                    current_prism.runtime_capabilities(),
+                )
+                .expect("workspace refresh should preserve a supported runtime mode"),
                 shared_runtime: self.shared_runtime.sqlite_path().map_or(
                     SharedRuntimeBackend::Disabled,
                     |path| SharedRuntimeBackend::Sqlite {
@@ -1285,6 +1284,7 @@ impl WorkspaceSession {
                 current_prism.plan_execution_overlays_by_plan(),
                 current_prism.runtime_descriptors(),
                 ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
+                current_prism.runtime_capabilities(),
             );
             *self
                 .runtime_state
@@ -1637,6 +1637,7 @@ impl WorkspaceSession {
                 .map(|state| state.execution_overlays.clone())
                 .unwrap_or_default(),
         )?;
+        let runtime_capabilities = self.prism_arc().runtime_capabilities();
         drop(store);
 
         let runtime_state = WorkspaceRuntimeState::new(
@@ -1658,6 +1659,7 @@ impl WorkspaceSession {
                 .map(|state| state.runtime_descriptors.clone())
                 .unwrap_or_default(),
             projections,
+            runtime_capabilities,
         );
         self.publish_runtime_state(
             runtime_state,

@@ -14,8 +14,8 @@ use prism_ir::{
     CoordinationTaskId, Edge, EdgeKind, EventActor, EventId, EventMeta, ExecutorClass, FileId,
     Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdge, PlanEdgeId,
     PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeBlockerKind,
-    PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, PrincipalId, SessionId, Span,
-    TaskId, WorkspaceRevision,
+    PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, PrincipalId, PrismRuntimeMode,
+    SessionId, Span, TaskId, WorkspaceRevision,
 };
 use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,
@@ -531,6 +531,7 @@ fn effective_task_lease_state_joins_runtime_descriptors() {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
+                authored_nodes: Vec::new(),
                 authored_edges: Vec::new(),
                 root_tasks: vec![task_id.clone()],
             }],
@@ -7501,6 +7502,74 @@ fn validation_recipe_reuses_blast_radius_signal() {
         recipe.recent_failures[0].summary,
         "alpha broke an integration test"
     );
+}
+
+#[test]
+fn contract_target_nodes_preserve_node_anchor_without_live_graph() {
+    let target = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let prism = Prism::new(Graph::new());
+
+    let nodes = prism.contract_target_nodes(
+        &ContractTarget {
+            anchors: vec![AnchorRef::Node(target.clone())],
+            concept_handles: Vec::new(),
+        },
+        8,
+    );
+
+    assert_eq!(nodes, vec![target]);
+}
+
+#[test]
+fn contract_target_matching_skips_graph_enrichment_without_cognition() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+
+    let contract = ContractPacket {
+        handle: "contract://alpha_file".into(),
+        name: "alpha file".into(),
+        summary: "File-backed contract target.".into(),
+        aliases: Vec::new(),
+        kind: ContractKind::Interface,
+        subject: ContractTarget {
+            anchors: vec![AnchorRef::File(FileId(1))],
+            concept_handles: Vec::new(),
+        },
+        guarantees: Vec::new(),
+        assumptions: Vec::new(),
+        consumers: Vec::new(),
+        validations: Vec::new(),
+        stability: Default::default(),
+        compatibility: Default::default(),
+        evidence: Vec::new(),
+        status: ContractStatus::Active,
+        scope: ContractScope::Session,
+        provenance: Default::default(),
+        publication: None,
+    };
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        CoordinationSnapshot::default(),
+        ProjectionIndex::default(),
+    );
+    prism.replace_curated_contracts(vec![contract.clone()]);
+
+    assert!(prism.contract_subject_matches_target(&alpha, &contract));
+
+    prism.set_runtime_capabilities(PrismRuntimeMode::KnowledgeStorage.capabilities());
+
+    assert!(!prism.contract_subject_matches_target(&alpha, &contract));
 }
 
 #[test]

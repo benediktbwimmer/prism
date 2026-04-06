@@ -45,7 +45,7 @@ use prism_curator::CuratorBackend;
 use prism_history::HistoryStore;
 use prism_ir::{
     ChangeTrigger, Edge, EdgeKind, EdgeOrigin, EventMeta, LineageEvent, ObservedChangeSet,
-    PlanExecutionOverlay, PlanGraph,
+    PlanExecutionOverlay, PlanGraph, PrismRuntimeCapabilities,
 };
 use prism_memory::OutcomeMemory;
 use prism_parser::{LanguageAdapter, ParseDepth, ParseResult};
@@ -107,6 +107,7 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) hydrate_persisted_projections: bool,
     pub(crate) hydrate_persisted_co_change: bool,
     pub(crate) coordination_enabled: bool,
+    pub(crate) runtime_capabilities: PrismRuntimeCapabilities,
     pub(crate) startup_refresh: Option<WorkspaceRefreshSeed>,
 }
 
@@ -359,6 +360,7 @@ impl WorkspaceIndexer<SqliteStore> {
             self.projections,
             self.startup_refresh,
             self.coordination_enabled,
+            self.runtime_capabilities,
             backend,
         )
     }
@@ -381,12 +383,13 @@ impl<S: Store> WorkspaceIndexer<S> {
         let started = Instant::now();
         let root = root.as_ref().canonicalize()?;
         let WorkspaceSessionOptions {
-            runtime_mode,
+            runtime_mode: _,
             shared_runtime,
             hydrate_persisted_projections: _,
             hydrate_persisted_co_change: _,
         } = options;
-        let coordination = runtime_mode.capabilities().coordination_enabled();
+        let runtime_capabilities = prism.runtime_capabilities();
+        let coordination = runtime_capabilities.coordination_enabled();
         let layout_started = Instant::now();
         let layout = discover_layout(&root)?;
         let discover_layout_ms = layout_started.elapsed().as_millis();
@@ -454,6 +457,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: true,
             coordination_enabled: coordination,
+            runtime_capabilities,
             startup_refresh: None,
         })
     }
@@ -488,6 +492,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             plan_execution_overlays,
             runtime_descriptors: _,
             projections,
+            runtime_capabilities,
         } = runtime_state;
         merge_repo_patch_events_into_memory(&root, &outcomes)?;
         if refresh_runtime_roots {
@@ -505,7 +510,7 @@ impl<S: Store> WorkspaceIndexer<S> {
 
         info!(
             root = %root.display(),
-            coordination_enabled = coordination,
+            coordination_enabled = runtime_capabilities.coordination_enabled(),
             node_count = graph.node_count(),
             edge_count = graph.edge_count(),
             file_count = graph.file_count(),
@@ -548,7 +553,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             shared_runtime_store: None,
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: true,
-            coordination_enabled: coordination,
+            coordination_enabled: runtime_capabilities.coordination_enabled(),
+            runtime_capabilities,
             startup_refresh: None,
         })
     }
@@ -687,6 +693,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             "prepared prism workspace indexer"
         );
         let coordination_enabled = options.coordination_enabled();
+        let runtime_capabilities = options.runtime_capabilities();
 
         Ok(Self {
             root,
@@ -710,11 +717,12 @@ impl<S: Store> WorkspaceIndexer<S> {
             checkpoint_materializer: None,
             shared_runtime_materializer: None,
             workspace_tree_snapshot,
-            shared_runtime: options.shared_runtime,
+            shared_runtime: options.shared_runtime.clone(),
             shared_runtime_store: None,
             hydrate_persisted_projections: options.hydrate_persisted_projections,
             hydrate_persisted_co_change: options.hydrate_persisted_co_change,
             coordination_enabled,
+            runtime_capabilities,
             startup_refresh,
         })
     }
@@ -1565,7 +1573,7 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn into_prism(self) -> Prism {
-        Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
             self.graph,
             self.history,
             self.outcomes,
@@ -1573,7 +1581,9 @@ impl<S: Store> WorkspaceIndexer<S> {
             self.projections,
             self.plan_graphs,
             self.plan_execution_overlays,
-        )
+        );
+        prism.set_runtime_capabilities(self.runtime_capabilities);
+        prism
     }
 
     pub(crate) fn into_runtime_state(self) -> WorkspaceRuntimeState {
@@ -1587,6 +1597,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             self.plan_execution_overlays,
             Vec::new(),
             self.projections,
+            self.runtime_capabilities,
         )
     }
 

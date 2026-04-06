@@ -145,6 +145,9 @@ pub(crate) fn known_query_view_names() -> Vec<&'static str> {
 
 impl QueryHost {
     pub(crate) fn query_view_capabilities(&self) -> Vec<QueryViewCapabilityView> {
+        if !self.features.cognition_layer_enabled() {
+            return Vec::new();
+        }
         query_view_definitions()
             .into_iter()
             .filter(|view| view.advertise_when_disabled || view.enabled(&self.features))
@@ -153,6 +156,9 @@ impl QueryHost {
     }
 
     pub(crate) fn enabled_query_view_capabilities(&self) -> Vec<QueryViewCapabilityView> {
+        if !self.features.cognition_layer_enabled() {
+            return Vec::new();
+        }
         query_view_definitions()
             .into_iter()
             .filter(|view| view.enabled(&self.features))

@@ -10,6 +10,7 @@ mod parse;
 mod plans;
 mod primitives;
 mod principal;
+mod runtime_mode;
 
 pub use anchor::AnchorRef;
 pub use change::{ChangeTrigger, GraphChange, ObservedChangeSet, ObservedNode};
@@ -50,4 +51,7 @@ pub use principal::{
     CredentialCapability, CredentialRecord, CredentialStatus, HumanAttestationAssurance,
     HumanAttestationOperation, HumanAttestationRecord, HumanPrincipalProfile, PrincipalActor,
     PrincipalKind, PrincipalProfile, PrincipalRef, PrincipalRegistrySnapshot, PrincipalStatus,
+};
+pub use runtime_mode::{
+    PrismLayerSet, PrismRuntimeCapabilities, PrismRuntimeLayer, PrismRuntimeMode,
 };

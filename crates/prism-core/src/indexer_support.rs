@@ -11,7 +11,7 @@ use anyhow::Result;
 use prism_coordination::{CoordinationSnapshot, RuntimeDescriptor};
 use prism_curator::CuratorBackend;
 use prism_history::HistoryStore;
-use prism_ir::{EdgeKind, PlanExecutionOverlay, PlanGraph};
+use prism_ir::{EdgeKind, PlanExecutionOverlay, PlanGraph, PrismRuntimeCapabilities};
 use prism_memory::OutcomeMemory;
 use prism_parser::LanguageAdapter;
 use prism_projections::ProjectionIndex;
@@ -56,6 +56,7 @@ pub(crate) fn build_workspace_session(
     projections: ProjectionIndex,
     initial_refresh: Option<WorkspaceRefreshSeed>,
     coordination_enabled: bool,
+    runtime_capabilities: PrismRuntimeCapabilities,
     backend: Option<Arc<dyn CuratorBackend>>,
 ) -> Result<WorkspaceSession> {
     let started = Instant::now();
@@ -109,6 +110,7 @@ pub(crate) fn build_workspace_session(
         plan_execution_overlays,
         runtime_descriptors,
         projections,
+        runtime_capabilities,
     )));
     let build_runtime_state_ms = runtime_state_started.elapsed().as_millis();
     let publish_generation_started = Instant::now();

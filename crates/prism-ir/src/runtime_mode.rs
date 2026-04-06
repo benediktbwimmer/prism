@@ -1,11 +1,16 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum PrismRuntimeLayer {
     Coordination,
     KnowledgeStorage,
     Cognition,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct PrismLayerSet {
     pub coordination: bool,
     pub knowledge_storage: bool,
@@ -46,7 +51,8 @@ impl PrismLayerSet {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum PrismRuntimeMode {
     #[default]
     Full,
@@ -74,12 +80,36 @@ impl PrismRuntimeMode {
         }
     }
 
+    pub const fn from_capabilities(capabilities: PrismRuntimeCapabilities) -> Option<Self> {
+        if capabilities.coordination && capabilities.knowledge_storage && capabilities.cognition {
+            Some(Self::Full)
+        } else if capabilities.coordination
+            && !capabilities.knowledge_storage
+            && !capabilities.cognition
+        {
+            Some(Self::CoordinationOnly)
+        } else if capabilities.coordination
+            && capabilities.knowledge_storage
+            && !capabilities.cognition
+        {
+            Some(Self::KnowledgeStorage)
+        } else if !capabilities.coordination
+            && capabilities.knowledge_storage
+            && capabilities.cognition
+        {
+            Some(Self::CoreLegacy)
+        } else {
+            None
+        }
+    }
+
     pub const fn capabilities(self) -> PrismRuntimeCapabilities {
         PrismRuntimeCapabilities::from_layers(self.layers())
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct PrismRuntimeCapabilities {
     pub coordination: bool,
     pub knowledge_storage: bool,
@@ -144,5 +174,33 @@ mod tests {
         assert!(knowledge_storage.coordination_enabled());
         assert!(knowledge_storage.knowledge_storage_enabled());
         assert!(!knowledge_storage.graph_backed_resolution_enabled());
+    }
+
+    #[test]
+    fn supported_runtime_capabilities_map_back_to_modes() {
+        assert_eq!(
+            PrismRuntimeMode::from_capabilities(PrismRuntimeMode::Full.capabilities()),
+            Some(PrismRuntimeMode::Full)
+        );
+        assert_eq!(
+            PrismRuntimeMode::from_capabilities(PrismRuntimeMode::CoordinationOnly.capabilities()),
+            Some(PrismRuntimeMode::CoordinationOnly)
+        );
+        assert_eq!(
+            PrismRuntimeMode::from_capabilities(PrismRuntimeMode::KnowledgeStorage.capabilities()),
+            Some(PrismRuntimeMode::KnowledgeStorage)
+        );
+        assert_eq!(
+            PrismRuntimeMode::from_capabilities(PrismRuntimeMode::CoreLegacy.capabilities()),
+            Some(PrismRuntimeMode::CoreLegacy)
+        );
+        assert_eq!(
+            PrismRuntimeMode::from_capabilities(PrismRuntimeCapabilities {
+                coordination: false,
+                knowledge_storage: false,
+                cognition: false,
+            }),
+            None
+        );
     }
 }

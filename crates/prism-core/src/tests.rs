@@ -10531,6 +10531,7 @@ fn publish_generation_with_incremental_intent_matches_fresh_derivation() {
         std::collections::BTreeMap::new(),
         Vec::new(),
         prism_projections::ProjectionIndex::default(),
+        prism_ir::PrismRuntimeMode::Full.capabilities(),
     );
     let current = old_state.publish_generation(prism_ir::WorkspaceRevision::default(), None);
 
@@ -10563,6 +10564,7 @@ fn publish_generation_with_incremental_intent_matches_fresh_derivation() {
         std::collections::BTreeMap::new(),
         Vec::new(),
         prism_projections::ProjectionIndex::default(),
+        prism_ir::PrismRuntimeMode::Full.capabilities(),
     );
 
     let incremental_intent = current.prism_arc().updated_intent_for_observed_changes(
@@ -11563,6 +11565,109 @@ fn workspace_session_can_disable_coordination_entirely() {
         error.to_string(),
         "coordination is disabled for this workspace session"
     );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn hydrate_coordination_only_session_skips_graph_indexing_and_reloads_coordination_state() {
+    let _guard = background_worker_test_guard();
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let options = WorkspaceSessionOptions {
+        runtime_mode: PrismRuntimeMode::CoordinationOnly,
+        shared_runtime: SharedRuntimeBackend::Disabled,
+        hydrate_persisted_projections: false,
+        hydrate_persisted_co_change: true,
+    };
+
+    let session = hydrate_workspace_session_with_options(&root, options.clone()).unwrap();
+    assert_eq!(
+        session.prism().runtime_capabilities(),
+        PrismRuntimeMode::CoordinationOnly.capabilities()
+    );
+    assert!(session.prism().symbol("alpha").is_empty());
+
+    session
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:coordination-only-bootstrap"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:coordination-only-bootstrap")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Coordinate alpha without cognition".into(),
+                "Keep coordination state live without indexing".into(),
+                None,
+                None,
+            )
+        })
+        .unwrap();
+    flush_coordination_materializations(&session);
+    drop(session);
+
+    let reloaded = hydrate_workspace_session_with_options(&root, options).unwrap();
+    assert_eq!(
+        reloaded.prism().runtime_capabilities(),
+        PrismRuntimeMode::CoordinationOnly.capabilities()
+    );
+    assert!(reloaded.prism().symbol("alpha").is_empty());
+    assert!(reloaded
+        .prism()
+        .coordination_snapshot()
+        .plans
+        .iter()
+        .any(|plan| plan.title == "Coordinate alpha without cognition"));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_only_refresh_fs_updates_snapshot_without_graph_indexing() {
+    let _guard = background_worker_test_guard();
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+    assert!(session.prism().symbol("alpha").is_empty());
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() {}\npub fn beta() {}\n",
+    )
+    .unwrap();
+    let outcome = session
+        .refresh_fs_with_paths(vec![root.join("src/lib.rs")])
+        .unwrap();
+
+    assert!(outcome.observed.is_empty());
+    assert!(session.prism().symbol("alpha").is_empty());
+    assert!(session.prism().symbol("beta").is_empty());
 
     let _ = fs::remove_dir_all(root);
 }

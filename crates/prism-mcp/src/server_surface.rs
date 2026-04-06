@@ -2379,18 +2379,22 @@ impl ServerHandler for PrismMcpServer {
             .with_title("PRISM Instruction Sets")
             .no_annotation()];
         resources.extend(
-            instruction_set_resource_links()
+            instruction_set_resource_links(self.host.features.runtime_mode())
                 .into_iter()
                 .map(|resource| resource.no_annotation()),
         );
+        if self.host.features.cognition_layer_enabled() {
+            resources.push(
+                RawResource::new(API_REFERENCE_URI, "PRISM API Reference")
+                    .with_description(
+                        "TypeScript query surface, d.ts-style contract, and usage recipes",
+                    )
+                    .with_mime_type("text/markdown")
+                    .with_title("PRISM API Reference")
+                    .no_annotation(),
+            );
+        }
         resources.extend([
-            RawResource::new(API_REFERENCE_URI, "PRISM API Reference")
-                .with_description(
-                    "TypeScript query surface, d.ts-style contract, and usage recipes",
-                )
-                .with_mime_type("text/markdown")
-                .with_title("PRISM API Reference")
-                .no_annotation(),
             capabilities_resource_link()
                 .with_title("PRISM Capabilities")
                 .no_annotation(),
@@ -2513,7 +2517,7 @@ impl ServerHandler for PrismMcpServer {
                             None => self.server_instructions(),
                             Some(id) => crate::instructions::render_instruction_set(
                                 &id,
-                                self.host.features.mode_label(),
+                                self.host.features.runtime_mode(),
                             )
                             .ok_or_else(|| {
                                 McpError::resource_not_found(
@@ -2525,6 +2529,12 @@ impl ServerHandler for PrismMcpServer {
                         ResourceContents::text(markdown, request.uri.clone())
                             .with_mime_type("text/markdown")
                     } else if base_uri == API_REFERENCE_URI {
+                        if !self.host.features.cognition_layer_enabled() {
+                            return Err(McpError::resource_not_found(
+                                "resource_not_found",
+                                Some(json!({ "uri": request.uri })),
+                            ));
+                        }
                         ResourceContents::text(
                             self.host.api_reference_markdown(),
                             request.uri.clone(),
@@ -3267,6 +3277,6 @@ impl ServerHandler for PrismMcpServer {
 
 impl PrismMcpServer {
     fn server_instructions(&self) -> String {
-        crate::instructions::render_instructions_index(self.host.features.mode_label())
+        crate::instructions::render_instructions_index(self.host.features.runtime_mode())
     }
 }

@@ -1,3 +1,4 @@
+use prism_core::PrismRuntimeMode;
 use rmcp::model::RawResource;
 
 use crate::{
@@ -90,6 +91,13 @@ const COORDINATION_BLOCKS: &[&str] = &[
     CONCEPT_PACKS_BLOCK,
 ];
 
+const COORDINATION_ONLY_BLOCKS: &[&str] = &[
+    FAMILIARIZATION_BLOCK,
+    DEFAULT_PATH_BLOCK,
+    PLANS_BLOCK,
+    MUTATIONS_BLOCK,
+];
+
 const EXPLORATION_BLOCKS: &[&str] = &[
     FAMILIARIZATION_BLOCK,
     DEFAULT_PATH_BLOCK,
@@ -167,8 +175,26 @@ pub(crate) fn instructions_resource_link() -> RawResource {
         .with_mime_type("text/markdown")
 }
 
-pub(crate) fn instruction_set_resource_links() -> Vec<RawResource> {
-    instruction_set_definitions()
+fn available_instruction_set_definitions(
+    runtime_mode: PrismRuntimeMode,
+) -> Vec<InstructionSetDefinition> {
+    let definitions = instruction_set_definitions();
+    if runtime_mode == PrismRuntimeMode::CoordinationOnly {
+        return definitions
+            .iter()
+            .copied()
+            .filter(|definition| definition.id == "coordination")
+            .map(|mut definition| {
+                definition.block_markdowns = COORDINATION_ONLY_BLOCKS;
+                definition
+            })
+            .collect();
+    }
+    definitions.to_vec()
+}
+
+pub(crate) fn instruction_set_resource_links(runtime_mode: PrismRuntimeMode) -> Vec<RawResource> {
+    available_instruction_set_definitions(runtime_mode)
         .iter()
         .map(|definition| {
             RawResource::new(instruction_set_resource_uri(definition.id), definition.name)
@@ -186,7 +212,9 @@ pub(crate) fn instructions_resource_view_link() -> ResourceLinkView {
     )
 }
 
-pub(crate) fn instruction_resource_capabilities() -> Vec<ResourceCapabilityView> {
+pub(crate) fn instruction_resource_capabilities(
+    runtime_mode: PrismRuntimeMode,
+) -> Vec<ResourceCapabilityView> {
     let mut resources = vec![ResourceCapabilityView {
         name: "PRISM Instruction Sets".to_string(),
         uri: instructions_resource_uri(),
@@ -197,17 +225,19 @@ pub(crate) fn instruction_resource_capabilities() -> Vec<ResourceCapabilityView>
         example_uri: Some(instructions_resource_uri()),
         shape_uri: None,
     }];
-    resources.extend(instruction_set_definitions().iter().map(|definition| {
-        ResourceCapabilityView {
-            name: definition.name.to_string(),
-            uri: instruction_set_resource_uri(definition.id),
-            mime_type: "text/markdown".to_string(),
-            description: definition.description.to_string(),
-            schema_uri: None,
-            example_uri: Some(instruction_set_resource_uri(definition.id)),
-            shape_uri: None,
-        }
-    }));
+    resources.extend(
+        available_instruction_set_definitions(runtime_mode)
+            .iter()
+            .map(|definition| ResourceCapabilityView {
+                name: definition.name.to_string(),
+                uri: instruction_set_resource_uri(definition.id),
+                mime_type: "text/markdown".to_string(),
+                description: definition.description.to_string(),
+                schema_uri: None,
+                example_uri: Some(instruction_set_resource_uri(definition.id)),
+                shape_uri: None,
+            }),
+    );
     resources
 }
 
@@ -228,8 +258,14 @@ pub(crate) fn parse_instruction_resource_uri(uri: &str) -> Option<Option<String>
     }
 }
 
-pub(crate) fn render_instructions_index(mode_label: &str) -> String {
-    let catalog = instruction_set_definitions()
+pub(crate) fn render_instructions_index(runtime_mode: PrismRuntimeMode) -> String {
+    if runtime_mode == PrismRuntimeMode::CoordinationOnly {
+        return format!(
+            "# PRISM Coordination-Only Instructions\n\nThis server is running in `coordination_only` mode.\n\nAvailable instruction set:\n- `coordination`: coordination workflows only\n  Read: `{}`\n\nUnavailable in this mode:\n- graph-backed repo exploration\n- concept and contract enrichment\n- dynamic query views\n- programmable graph query surfaces",
+            instruction_set_resource_uri("coordination")
+        );
+    }
+    let catalog = available_instruction_set_definitions(runtime_mode)
         .iter()
         .map(|definition| {
             format!(
@@ -243,11 +279,13 @@ pub(crate) fn render_instructions_index(mode_label: &str) -> String {
         .collect::<Vec<_>>()
         .join("\n");
     let rendered = INDEX_MARKDOWN.replace(INDEX_PLACEHOLDER, &catalog);
-    append_coordination_mode_note(rendered, mode_label)
+    append_coordination_mode_note(rendered, runtime_mode)
 }
 
-pub(crate) fn render_instruction_set(id: &str, mode_label: &str) -> Option<String> {
-    let definition = instruction_set_definition(id)?;
+pub(crate) fn render_instruction_set(id: &str, runtime_mode: PrismRuntimeMode) -> Option<String> {
+    let definition = available_instruction_set_definitions(runtime_mode)
+        .into_iter()
+        .find(|definition| definition.id == id)?;
     let blocks = definition
         .block_markdowns
         .iter()
@@ -257,7 +295,7 @@ pub(crate) fn render_instruction_set(id: &str, mode_label: &str) -> Option<Strin
     let rendered = definition
         .markdown
         .replace(SHARED_BLOCKS_PLACEHOLDER, &blocks);
-    Some(append_coordination_mode_note(rendered, mode_label))
+    Some(append_coordination_mode_note(rendered, runtime_mode))
 }
 
 fn instruction_set_definition(id: &str) -> Option<&'static InstructionSetDefinition> {
@@ -266,8 +304,14 @@ fn instruction_set_definition(id: &str) -> Option<&'static InstructionSetDefinit
         .find(|definition| definition.id == id)
 }
 
-fn append_coordination_mode_note(mut markdown: String, mode_label: &str) -> String {
-    if mode_label != "full" {
+fn append_coordination_mode_note(mut markdown: String, runtime_mode: PrismRuntimeMode) -> String {
+    if runtime_mode == PrismRuntimeMode::CoordinationOnly {
+        markdown.push_str(
+            "\n\nThis instruction set is running without cognition. Use only coordination workflows and avoid graph-backed repo understanding or enrichment flows.",
+        );
+        return markdown;
+    }
+    if runtime_mode != PrismRuntimeMode::Full {
         markdown.push_str(
             "\n\nCoordination features are gated on this server; check `prism://session` before using plan, claim, or artifact workflows.",
         );

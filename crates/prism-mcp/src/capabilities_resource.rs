@@ -100,10 +100,11 @@ pub(crate) fn capabilities_resource_value(
         },
         query_methods: query_method_capabilities(&host.features),
         query_views: host.query_view_capabilities(),
-        resources: resource_capabilities(),
+        resources: resource_capabilities(&host.features),
         resource_templates: resource_template_capabilities(),
         tools: tool_schema_catalog_entries()
             .into_iter()
+            .filter(|entry| host.features.is_tool_enabled(&entry.tool_name))
             .map(|entry| ToolCapabilityView {
                 name: entry.tool_name,
                 description: entry.description,
@@ -631,10 +632,11 @@ pub(crate) fn query_method_specs() -> Vec<(
     ]
 }
 
-fn resource_capabilities() -> Vec<ResourceCapabilityView> {
-    let mut resources = crate::instructions::instruction_resource_capabilities();
-    resources.extend([
-        ResourceCapabilityView {
+fn resource_capabilities(features: &PrismMcpFeatures) -> Vec<ResourceCapabilityView> {
+    let mut resources =
+        crate::instructions::instruction_resource_capabilities(features.runtime_mode());
+    if features.cognition_layer_enabled() {
+        resources.push(ResourceCapabilityView {
             name: "PRISM API Reference".to_string(),
             uri: API_REFERENCE_URI.to_string(),
             mime_type: "text/markdown".to_string(),
@@ -643,7 +645,9 @@ fn resource_capabilities() -> Vec<ResourceCapabilityView> {
             schema_uri: None,
             example_uri: None,
             shape_uri: None,
-        },
+        });
+    }
+    resources.extend([
         ResourceCapabilityView {
             name: "PRISM Capabilities".to_string(),
             uri: CAPABILITIES_URI.to_string(),
