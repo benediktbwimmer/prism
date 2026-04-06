@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn385ddnwb09zzn36a69f4mm",
+    "title": "Clarify session and task-context UX",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn385ddnwb09zzn36a69f4mm-79070ae0e1400496.json"
+  },
+  {
+    "id": "coord-task:01kn6s12m8w9qgs766n8453aa4",
+    "title": "Audit and enforce `.prism` self-containment boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6s12m8w9qgs766n8453aa4-c749fb2a90e5efd0.json"
+  }
+]

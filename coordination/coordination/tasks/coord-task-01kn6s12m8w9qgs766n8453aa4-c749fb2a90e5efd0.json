@@ -1,0 +1,77 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Defines the concrete enforcement points so repo-published writes cannot introduce unresolved shared-runtime-only references."
+      },
+      {
+        "anchors": [],
+        "label": "Enumerates all repo-published event and artifact families that can carry references into provenance or coordination state."
+      },
+      {
+        "anchors": [],
+        "label": "For each reference shape, classifies semantic versus correlation usage and forbids runtime-only semantic dependencies in `.prism`."
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 368
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn6rm7bf7k1qnmhcegvypt86"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn6s12m8w9qgs766n8453aa4",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn6rkat0t02ncv5pj0756yyz",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Audited the live .prism publication paths, codified the semantic-versus-correlation boundary, and tightened plan-stream export/tests so runtime session/worktree/branch scope cannot leak into repo-published plan logs.",
+    "tags": [],
+    "title": "Audit and enforce `.prism` self-containment boundaries",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
