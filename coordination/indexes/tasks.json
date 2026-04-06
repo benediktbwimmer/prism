@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn55e93ftgm9bra7wfs4fnfs",
+    "title": "Move file-local delta construction out of the serialized refresh path",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55e93ftgm9bra7wfs4fnfs-73f7ef9482418e46.json"
+  },
+  {
+    "id": "coord-task:16",
+    "title": "Instrument and benchmark the refresh path for no-op, one-file, and contention cases",
+    "status": "Ready",
+    "path": "tasks/coord-task-16-e1c20850321b9cf1.json"
+  }
+]
