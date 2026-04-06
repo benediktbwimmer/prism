@@ -82,7 +82,7 @@
       "integrationStatus": "published_to_branch",
       "lastPreflight": {
         "behindTargetCommits": 0,
-        "checkedAt": 1775476461,
+        "checkedAt": 1775476497,
         "currentBranch": "task/shared-coordination-plan-followup",
         "dirtyPaths": [],
         "failure": null,
@@ -99,7 +99,7 @@
         "worktreeDirty": false
       },
       "lastPublish": {
-        "attemptedAt": 1775476480,
+        "attemptedAt": 1775476521,
         "codeCommit": "84d657319c2d0ad89482991b2ac78f7132ae66d8",
         "coordinationCommit": null,
         "failure": null,
@@ -133,7 +133,7 @@
     "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01knha8ta0cejqmmg4vh907kc0",
+    "session": "session:01knhaadzgm3t5xyxjqfstqs7a",
     "status": "Completed",
     "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy.",
     "tags": [],
