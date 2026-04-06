@@ -1,0 +1,85 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Cross-plan Task->Task, Task->Plan, Plan->Task, and Plan->Plan dependencies all normalize through the same runtime graph traversal path."
+      },
+      {
+        "anchors": [],
+        "label": "One validator checks both plan and task nodes in a single graph and rejects containment cycles, self-dependencies, duplicate edges, and mixed cycle introductions."
+      },
+      {
+        "anchors": [],
+        "label": "Parent reassignment and dependency edits re-evaluate graph validity against the final staged graph shape, not piecemeal intermediate state."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 400
+      }
+    ],
+    "assignee": "codex-a",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 25
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 400
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/codex/coordination-graph-rewrite",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kng1z0tggx52pxg4qvnjkfdw"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kng1z8k1hzkyh0ptbw17b84z",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01kng7srhy1cyx9rb0eya8gs8d",
+    "status": "Completed",
+    "summary": null,
+    "tags": [],
+    "title": "Implement unified graph traversal and mutation-time validation for nested plan containment, cross-plan dependencies, duplicate-edge rejection, and mixed containment-plus-dependency DAG safety",
+    "validation_refs": [],
+    "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+  },
+  "schema_version": 1
+}

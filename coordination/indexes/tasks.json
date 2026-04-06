@@ -1,0 +1,8 @@
+[
+  {
+    "id": "coord-task:01kng1z8k1hzkyh0ptbw17b84z",
+    "title": "Implement unified graph traversal and mutation-time validation for nested plan containment, cross-plan dependencies, duplicate-edge rejection, and mixed containment-plus-dependency DAG safety",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kng1z8k1hzkyh0ptbw17b84z-14be04222a5da6e2.json"
+  }
+]
