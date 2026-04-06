@@ -82,7 +82,7 @@
       "integrationStatus": "not_started",
       "lastPreflight": {
         "behindTargetCommits": 0,
-        "checkedAt": 1775476145,
+        "checkedAt": 1775476189,
         "currentBranch": "task/shared-coordination-plan-followup",
         "dirtyPaths": [],
         "failure": null,
@@ -99,7 +99,7 @@
         "worktreeDirty": false
       },
       "lastPublish": {
-        "attemptedAt": 1775476145,
+        "attemptedAt": 1775476189,
         "codeCommit": "84d657319c2d0ad89482991b2ac78f7132ae66d8",
         "coordinationCommit": null,
         "failure": null,
@@ -123,7 +123,7 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775483346,
+    "lease_expires_at": 1775483390,
     "lease_holder": {
       "agent_id": "codex-d",
       "principal": {
@@ -132,18 +132,18 @@
         "name": "codex-d",
         "principal_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
       },
-      "session_id": "session:01knh9y1m1b2hme9d30fmgn002",
+      "session_id": "session:01knh9yyxskdnzz7t0a91ez991",
       "worktree_id": "worktree:5820c89d186523db"
     },
-    "lease_refreshed_at": 1775476146,
-    "lease_stale_at": 1775477946,
+    "lease_refreshed_at": 1775476190,
+    "lease_stale_at": 1775477990,
     "lease_started_at": 1775436372,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
     "priority": null,
     "published_task_status": "Completed",
-    "session": "session:01knh9y1m1b2hme9d30fmgn002",
+    "session": "session:01knh9yyxskdnzz7t0a91ez991",
     "status": "InProgress",
     "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy.",
     "tags": [],
