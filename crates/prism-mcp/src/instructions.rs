@@ -2,8 +2,9 @@ use prism_core::PrismRuntimeMode;
 use rmcp::model::RawResource;
 
 use crate::{
-    resource_link_view, resource_schemas::ResourceCapabilityView, ResourceLinkView,
-    INSTRUCTIONS_URI,
+    resource_link_view, resource_schemas::ResourceCapabilityView, PrismMcpFeatures,
+    ResourceLinkView, CAPABILITIES_URI, INSTRUCTIONS_URI, PLANS_URI, PROTECTED_STATE_URI,
+    SESSION_URI, TOOL_SCHEMAS_URI, VOCAB_URI,
 };
 
 const INDEX_PLACEHOLDER: &str = "{{INSTRUCTION_SET_INDEX}}";
@@ -193,6 +194,10 @@ fn available_instruction_set_definitions(
     definitions.to_vec()
 }
 
+fn default_features_for_runtime_mode(runtime_mode: PrismRuntimeMode) -> PrismMcpFeatures {
+    PrismMcpFeatures::full().with_runtime_mode(runtime_mode)
+}
+
 pub(crate) fn instruction_set_resource_links(runtime_mode: PrismRuntimeMode) -> Vec<RawResource> {
     available_instruction_set_definitions(runtime_mode)
         .iter()
@@ -259,12 +264,14 @@ pub(crate) fn parse_instruction_resource_uri(uri: &str) -> Option<Option<String>
 }
 
 pub(crate) fn render_instructions_index(runtime_mode: PrismRuntimeMode) -> String {
-    if runtime_mode == PrismRuntimeMode::CoordinationOnly {
-        return format!(
-            "# PRISM Coordination-Only Instructions\n\nThis server is running in `coordination_only` mode.\n\nAvailable instruction set:\n- `coordination`: coordination workflows only\n  Read: `{}`\n\nUnavailable in this mode:\n- graph-backed repo exploration\n- concept and contract enrichment\n- dynamic query views\n- programmable graph query surfaces",
-            instruction_set_resource_uri("coordination")
-        );
+    render_instructions_index_with_features(&default_features_for_runtime_mode(runtime_mode))
+}
+
+pub(crate) fn render_instructions_index_with_features(features: &PrismMcpFeatures) -> String {
+    if features.runtime_mode() == PrismRuntimeMode::CoordinationOnly {
+        return coordination_only_index_markdown(features);
     }
+    let runtime_mode = features.runtime_mode();
     let catalog = available_instruction_set_definitions(runtime_mode)
         .iter()
         .map(|definition| {
@@ -279,10 +286,18 @@ pub(crate) fn render_instructions_index(runtime_mode: PrismRuntimeMode) -> Strin
         .collect::<Vec<_>>()
         .join("\n");
     let rendered = INDEX_MARKDOWN.replace(INDEX_PLACEHOLDER, &catalog);
-    append_coordination_mode_note(rendered, runtime_mode)
+    append_coordination_mode_note(rendered, features)
 }
 
 pub(crate) fn render_instruction_set(id: &str, runtime_mode: PrismRuntimeMode) -> Option<String> {
+    render_instruction_set_with_features(id, &default_features_for_runtime_mode(runtime_mode))
+}
+
+pub(crate) fn render_instruction_set_with_features(
+    id: &str,
+    features: &PrismMcpFeatures,
+) -> Option<String> {
+    let runtime_mode = features.runtime_mode();
     let definition = available_instruction_set_definitions(runtime_mode)
         .into_iter()
         .find(|definition| definition.id == id)?;
@@ -295,7 +310,7 @@ pub(crate) fn render_instruction_set(id: &str, runtime_mode: PrismRuntimeMode) -
     let rendered = definition
         .markdown
         .replace(SHARED_BLOCKS_PLACEHOLDER, &blocks);
-    Some(append_coordination_mode_note(rendered, runtime_mode))
+    Some(append_coordination_mode_note(rendered, features))
 }
 
 fn instruction_set_definition(id: &str) -> Option<&'static InstructionSetDefinition> {
@@ -304,17 +319,65 @@ fn instruction_set_definition(id: &str) -> Option<&'static InstructionSetDefinit
         .find(|definition| definition.id == id)
 }
 
-fn append_coordination_mode_note(mut markdown: String, runtime_mode: PrismRuntimeMode) -> String {
-    if runtime_mode == PrismRuntimeMode::CoordinationOnly {
+fn append_coordination_mode_note(mut markdown: String, features: &PrismMcpFeatures) -> String {
+    if features.runtime_mode() == PrismRuntimeMode::CoordinationOnly {
         markdown.push_str(
-            "\n\nThis instruction set is running without cognition. Use only coordination workflows and avoid graph-backed repo understanding or enrichment flows.",
+            "\n\nThis instruction set is running without cognition. Use `prism_query` only for the reduced coordination and operator surface, use `prism_mutate` only for coordination-related actions, and avoid graph-backed repo understanding or enrichment flows.",
         );
         return markdown;
     }
-    if runtime_mode != PrismRuntimeMode::Full {
+    if features.runtime_mode() != PrismRuntimeMode::Full {
         markdown.push_str(
             "\n\nCoordination features are gated on this server; check `prism://session` before using plan, claim, or artifact workflows.",
         );
     }
     markdown
+}
+
+fn coordination_only_index_markdown(features: &PrismMcpFeatures) -> String {
+    let tools = ["prism_query", "prism_mutate", "prism_task_brief"]
+        .into_iter()
+        .filter(|tool| features.is_tool_enabled(tool))
+        .map(|tool| format!("`{tool}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut query_scope = vec![
+        "coordination reads".to_string(),
+        "tool/schema inspection".to_string(),
+    ];
+    if features.internal_developer_enabled() {
+        query_scope.push("runtime and MCP diagnostics".to_string());
+    }
+    let resources = [
+        CAPABILITIES_URI,
+        SESSION_URI,
+        PROTECTED_STATE_URI,
+        VOCAB_URI,
+        PLANS_URI,
+        TOOL_SCHEMAS_URI,
+    ]
+    .into_iter()
+    .filter(|uri| coordination_only_resource_uri_visible(features, uri))
+    .map(|uri| format!("`{uri}`"))
+    .collect::<Vec<_>>()
+    .join(", ");
+    format!(
+        "# PRISM Coordination-Only Instructions\n\nThis server is running in `coordination_only` mode.\n\nAvailable instruction set:\n- `coordination`: coordination workflows only\n  Read: `{}`\n\nAvailable public APIs in this mode:\n- tools: {}\n- query scope: {}\n- resources: {}\n\nUnavailable in this mode:\n- graph-backed repo exploration\n- concept and contract enrichment\n- dynamic query views\n- programmable graph query surfaces outside the reduced coordination and ops set",
+        instruction_set_resource_uri("coordination"),
+        tools,
+        query_scope.join(", "),
+        resources,
+    )
+}
+
+fn coordination_only_resource_uri_visible(features: &PrismMcpFeatures, uri: &str) -> bool {
+    match uri {
+        CAPABILITIES_URI => features.resource_kind_visible("capabilities"),
+        SESSION_URI => features.resource_kind_visible("session"),
+        PROTECTED_STATE_URI => features.resource_kind_visible("protected-state"),
+        VOCAB_URI => features.resource_kind_visible("vocab"),
+        PLANS_URI => features.resource_kind_visible("plans"),
+        TOOL_SCHEMAS_URI => features.resource_kind_visible("tool-schemas"),
+        _ => false,
+    }
 }

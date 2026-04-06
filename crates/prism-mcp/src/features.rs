@@ -196,7 +196,6 @@ impl PrismMcpFeatures {
         self.runtime_mode = runtime_mode;
         if !self.runtime_mode.capabilities().cognition_enabled() {
             self.query_views = QueryViewFeatureSet::default();
-            self.internal_developer = false;
         }
         self
     }
@@ -236,7 +235,7 @@ impl PrismMcpFeatures {
 
     pub(crate) fn is_tool_enabled(&self, name: &str) -> bool {
         if self.runtime_mode == PrismRuntimeMode::CoordinationOnly {
-            return matches!(name, "prism_task_brief" | "prism_mutate");
+            return matches!(name, "prism_query" | "prism_task_brief" | "prism_mutate");
         }
         match name {
             "prism_coordination" => self.coordination.workflow,
@@ -259,13 +258,45 @@ impl PrismMcpFeatures {
         }
     }
 
-    pub(crate) fn hides_prism_mutate_self_describing_resources(&self) -> bool {
-        self.runtime_mode == PrismRuntimeMode::CoordinationOnly
+    pub(crate) fn tool_example_resources_visible(&self) -> bool {
+        self.runtime_mode != PrismRuntimeMode::CoordinationOnly
+    }
+
+    pub(crate) fn resource_example_resources_visible(&self) -> bool {
+        self.runtime_mode != PrismRuntimeMode::CoordinationOnly
+    }
+
+    fn coordination_only_query_method_enabled(&self, operation: &str) -> bool {
+        match operation {
+            "from" | "tools" | "tool" | "validateToolInput" | "diagnostics" => true,
+            "plans" | "plan" | "planGraph" | "planProjectionAt" | "planProjectionDiff"
+            | "planExecution" | "planReadyNodes" | "planNodeBlockers" | "planSummary"
+            | "planNext" | "portfolioNext" | "coordinationTask" | "readyTasks" | "blockers"
+            | "policyViolations"
+                if self.coordination.workflow =>
+            {
+                true
+            }
+            "claims" | "conflicts" | "simulateClaim" if self.coordination.claims => true,
+            "pendingReviews" | "artifacts" | "artifactRisk" if self.coordination.artifacts => true,
+            "runtimeStatus" | "runtimeLogs" | "runtimeTimeline" | "mcpLog" | "slowMcpCalls"
+            | "mcpTrace" | "mcpStats" | "queryLog" | "slowQueries" | "queryTrace"
+            | "validationFeedback"
+                if self.internal_developer =>
+            {
+                true
+            }
+            _ => false,
+        }
     }
 
     pub(crate) fn disabled_query_group(&self, operation: &str) -> Option<&'static str> {
         if self.runtime_mode == PrismRuntimeMode::CoordinationOnly {
-            return Some("cognition");
+            return if self.coordination_only_query_method_enabled(operation) {
+                None
+            } else {
+                Some("cognition")
+            };
         }
         match operation {
             "runtimeStatus" | "runtimeLogs" | "runtimeTimeline" | "mcpLog" | "slowMcpCalls"
@@ -344,6 +375,10 @@ impl PrismMcpFeatures {
         self.internal_developer
     }
 
+    pub(crate) fn internal_developer_enabled(&self) -> bool {
+        self.internal_developer
+    }
+
     pub(crate) fn query_method_visible(&self, operation: &str) -> bool {
         !matches!(
             self.disabled_query_group(operation),
@@ -364,12 +399,10 @@ impl PrismMcpFeatures {
             | "plans"
             | "plan"
             | "tool-schemas"
-            | "tool-example"
-            | "tool-shape"
-            | "resource-example"
-            | "resource-shape"
             | "capabilities-section"
             | "vocab-entry" => true,
+            "tool-example" | "tool-shape" => self.tool_example_resources_visible(),
+            "resource-example" | "resource-shape" => self.resource_example_resources_visible(),
             "contracts"
             | "schemas"
             | "self-description-audit"

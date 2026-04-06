@@ -196,6 +196,26 @@ pub(crate) fn tool_catalog_views() -> Vec<ToolCatalogEntryView> {
         .collect()
 }
 
+pub(crate) fn tool_catalog_views_with_features(
+    features: &PrismMcpFeatures,
+) -> Vec<ToolCatalogEntryView> {
+    tool_schema_catalog_entries()
+        .into_iter()
+        .filter(|entry| features.is_tool_enabled(&entry.tool_name))
+        .filter_map(|entry| {
+            let schema = tool_schema_view_with_features(&entry.tool_name, features)?;
+            Some(ToolCatalogEntryView {
+                tool_name: entry.tool_name,
+                schema_uri: entry.schema_uri,
+                description: entry.description,
+                example_input: schema.example_input,
+                example_uri: schema.example_uri,
+                shape_uri: schema.shape_uri,
+            })
+        })
+        .collect()
+}
+
 pub(crate) fn tool_schema_view(tool_name: &str) -> Option<ToolSchemaView> {
     TOOL_SCHEMA_VIEW_CACHE
         .get_or_init(|| {
@@ -230,16 +250,14 @@ pub(crate) fn tool_schema_view_with_features(
     features: &PrismMcpFeatures,
 ) -> Option<ToolSchemaView> {
     let mut schema = tool_schema_view(tool_name)?;
-    if tool_name != "prism_mutate" {
-        return Some(schema);
+    if tool_name == "prism_mutate" {
+        schema.input_schema = tool_input_schema_value_with_features(tool_name, features)?;
+        schema.actions = schema
+            .actions
+            .into_iter()
+            .filter(|action| features.prism_mutate_action_enabled(&action.action))
+            .collect();
     }
-
-    schema.input_schema = tool_input_schema_value_with_features(tool_name, features)?;
-    schema.actions = schema
-        .actions
-        .into_iter()
-        .filter(|action| features.prism_mutate_action_enabled(&action.action))
-        .collect();
     schema.example_inputs =
         filter_tool_examples_for_features(tool_name, schema.example_inputs, features);
     schema.example_input = schema
@@ -254,9 +272,19 @@ pub(crate) fn tool_schema_view_with_features(
                 .and_then(|examples| examples.first().cloned())
         })
         .unwrap_or_else(|| schema.example_input.clone());
-    if features.hides_prism_mutate_self_describing_resources() {
+    if !features.tool_example_resources_visible() {
         schema.example_uri = None;
         schema.shape_uri = None;
+        for action in &mut schema.actions {
+            action.example_uri = None;
+            action.shape_uri = None;
+            action.recipe_uri = None;
+            for variant in &mut action.payload_variants {
+                variant.example_uri = None;
+                variant.shape_uri = None;
+                variant.recipe_uri = None;
+            }
+        }
     }
     Some(schema)
 }

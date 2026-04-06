@@ -185,12 +185,24 @@ fn cli_runtime_mode_flag_selects_coordination_only_runtime() {
     assert!(features.coordination_layer_enabled());
     assert!(!features.knowledge_storage_layer_enabled());
     assert!(!features.cognition_layer_enabled());
+    assert!(features.is_tool_enabled("prism_query"));
     assert!(features.is_tool_enabled("prism_mutate"));
     assert!(features.is_tool_enabled("prism_task_brief"));
-    assert!(!features.is_tool_enabled("prism_query"));
     assert!(!features.is_tool_enabled("prism_locate"));
+    assert!(features.query_method_visible("plans"));
+    assert!(features.query_method_visible("tool"));
     assert!(!features.query_method_visible("symbol"));
     assert!(!features.query_view_enabled(crate::QueryViewFeatureFlag::RepoPlaybook));
+}
+
+#[test]
+fn coordination_only_runtime_preserves_internal_developer_ops_queries() {
+    let features = PrismMcpFeatures::full()
+        .with_internal_developer(true)
+        .with_runtime_mode(PrismRuntimeMode::CoordinationOnly);
+    assert!(features.query_method_visible("runtimeStatus"));
+    assert!(features.query_method_visible("mcpLog"));
+    assert!(features.query_method_visible("queryTrace"));
 }
 
 #[test]
@@ -209,6 +221,15 @@ fn coordination_only_instructions_strip_cognition_guidance() {
     assert!(index.contains("PRISM Coordination-Only Instructions"));
     assert!(index.contains("`coordination_only`"));
     assert!(index.contains("`coordination`"));
+    assert!(index.contains("`prism_query`"));
+    assert!(index.contains("`prism_mutate`"));
+    assert!(index.contains("`prism_task_brief`"));
+    assert!(index.contains("`prism://protected-state`"));
+    assert!(index.contains("`prism://vocab`"));
+    assert!(index.contains("`prism://tool-schemas`"));
+    assert!(index.contains("`prism://plans`"));
+    assert!(index.contains("`prism://session`"));
+    assert!(index.contains("`prism://capabilities`"));
     assert!(!index.contains("`execution`"));
     assert!(!index.contains("`planning`"));
 
@@ -224,6 +245,107 @@ fn coordination_only_instructions_strip_cognition_guidance() {
     .expect("coordination instructions should remain available");
     assert!(coordination.contains("without cognition"));
     assert!(coordination.contains("coordination"));
+}
+
+#[test]
+fn coordination_only_prism_query_keeps_coordination_reads_and_rejects_cognition_reads() {
+    let mut graph = Graph::default();
+    graph.nodes.insert(demo_node().id.clone(), demo_node());
+    graph.adjacency = HashMap::new();
+    graph.reverse_adjacency = HashMap::new();
+    let host = QueryHost::new_with_limits_and_features(
+        Prism::new(graph),
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
+    );
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+const tools = prism.tools().map((tool) => tool.toolName).sort();
+const plans = prism.plans();
+return {
+  tools,
+  planCount: plans.length,
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("coordination-only prism_query should execute reduced coordination reads");
+    assert_eq!(
+        result.result["tools"]
+            .as_array()
+            .expect("tool names should be an array")
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<Vec<_>>(),
+        vec!["prism_mutate", "prism_query", "prism_task_brief"]
+    );
+    assert_eq!(result.result["planCount"], 0);
+
+    let error = host
+        .execute(
+            test_session(&host),
+            r#"return prism.symbol("demo::main");"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("coordination-only prism_query should reject cognition reads");
+    assert!(error.to_string().contains("cognition"), "{}", error);
+}
+
+#[test]
+fn coordination_only_prism_query_filters_mutate_schema_and_validation() {
+    let host = QueryHost::new_with_limits_and_features(
+        Prism::new(Graph::default()),
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
+    );
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+const tool = prism.tool("prism_mutate");
+const invalid = prism.validateToolInput("prism_mutate", {
+  action: "memory",
+  input: { action: "store", payload: { scope: "session", text: "x" } },
+});
+return {
+  actions: tool?.actions.map((action) => action.action).sort() ?? [],
+  invalid,
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("coordination-only mutate schema should remain queryable");
+
+    assert_eq!(
+        result.result["actions"]
+            .as_array()
+            .expect("actions should be an array")
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "artifact",
+            "claim",
+            "coordination",
+            "declare_work",
+            "heartbeat_lease",
+        ]
+    );
+    assert_eq!(result.result["invalid"]["valid"], false);
+    assert!(
+        result.result["invalid"]["summary"]
+            .as_str()
+            .expect("invalid summary should be a string")
+            .contains(
+                "valid actions: declare_work, heartbeat_lease, coordination, claim, artifact",
+            ),
+        "{}",
+        result.result["invalid"]
+    );
 }
 
 #[test]
@@ -16197,6 +16319,19 @@ async fn coordination_only_task_brief_avoids_stripped_tool_guidance() {
         .as_str()
         .expect("task brief nextAction should be text");
     assert_eq!(brief["title"], "Inspect main");
+    assert_eq!(
+        brief["nextReads"]
+            .as_array()
+            .expect("task brief nextReads should be an array")
+            .len(),
+        0
+    );
+    assert!(
+        brief["suggestedActions"].is_null()
+            || brief["suggestedActions"]
+                .as_array()
+                .is_some_and(|items| items.is_empty())
+    );
     assert!(!next_action.contains("prism_query"));
     assert!(!next_action.contains("prism_open"));
     assert!(!next_action.contains("prism.blockers"));

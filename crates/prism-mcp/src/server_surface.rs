@@ -1346,7 +1346,7 @@ impl PrismMcpServer {
 
     #[tool(
         name = "prism_query",
-        description = "Execute a read-only TypeScript query against the live PRISM graph. Read prism://api-reference for the available prism API.",
+        description = "Execute a read-only TypeScript query against the live PRISM runtime. Read the capabilities and schema resources for the currently available API surface.",
         annotations(title = "Programmable PRISM Query", read_only_hint = true),
         output_schema = rmcp::handler::server::tool::schema_for_output::<QueryEnvelopeSchema>()
             .unwrap()
@@ -2410,9 +2410,6 @@ impl ServerHandler for PrismMcpServer {
             capabilities_resource_link()
                 .with_title("PRISM Capabilities")
                 .no_annotation(),
-            protected_state_resource_link()
-                .with_title("PRISM Protected State")
-                .no_annotation(),
             RawResource::new(SESSION_URI, "PRISM Session")
                 .with_description(
                     "Active workspace root, current task context, and runtime query limits",
@@ -2427,6 +2424,11 @@ impl ServerHandler for PrismMcpServer {
                 .no_annotation(),
             plans_resource_link()
                 .with_title("PRISM Plans")
+                .no_annotation(),
+        ]);
+        resources.extend([
+            protected_state_resource_link()
+                .with_title("PRISM Protected State")
                 .no_annotation(),
             RawResource::new(VOCAB_URI, "PRISM Vocabulary")
                 .with_description(
@@ -2539,6 +2541,20 @@ impl ServerHandler for PrismMcpServer {
                 Err(resource_not_found())
             }
         };
+        let require_tool_examples = || {
+            if self.host.features.tool_example_resources_visible() {
+                Ok(())
+            } else {
+                Err(resource_not_found())
+            }
+        };
+        let require_resource_examples = || {
+            if self.host.features.resource_example_resources_visible() {
+                Ok(())
+            } else {
+                Err(resource_not_found())
+            }
+        };
         let require_tool_action_name = |tool_name: &str, action: &str| {
             require_tool_name(tool_name)?;
             if tool_name == "prism_mutate"
@@ -2556,9 +2572,9 @@ impl ServerHandler for PrismMcpServer {
                     {
                         let markdown = match instruction_set_id {
                             None => self.server_instructions(),
-                            Some(id) => crate::instructions::render_instruction_set(
+                            Some(id) => crate::instructions::render_instruction_set_with_features(
                                 &id,
-                                self.host.features.runtime_mode(),
+                                &self.host.features,
                             )
                             .ok_or_else(|| {
                                 McpError::resource_not_found(
@@ -2602,6 +2618,7 @@ impl ServerHandler for PrismMcpServer {
                             request.uri.as_str(),
                         )?
                     } else if base_uri == PROTECTED_STATE_URI {
+                        require_resource_kind("protected-state")?;
                         json_resource_contents_with_meta(
                             self.host
                                 .protected_state_resource_value(uri)
@@ -2614,6 +2631,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if base_uri == VOCAB_URI {
+                        require_resource_kind("vocab")?;
                         json_resource_contents_with_meta(
                             self.host.vocab_resource_value(),
                             request.uri.clone(),
@@ -2641,6 +2659,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if base_uri == TOOL_SCHEMAS_URI {
+                        require_resource_kind("tool-schemas")?;
                         json_resource_contents_with_meta(
                             self.host.tool_schemas_resource_value(),
                             request.uri.clone(),
@@ -2832,53 +2851,53 @@ impl ServerHandler for PrismMcpServer {
                     } else if let Some((tool_name, action, tag)) =
                         parse_tool_variant_example_resource_uri(uri)
                     {
+                        require_tool_examples()?;
                         require_tool_action_name(&tool_name, &action)?;
                         tool_variant_example_resource_contents(&tool_name, &action, &tag, uri)?
                     } else if let Some((tool_name, action, tag)) =
                         parse_tool_variant_shape_resource_uri(uri)
                     {
+                        require_tool_examples()?;
                         require_tool_action_name(&tool_name, &action)?;
                         tool_variant_shape_resource_contents(&tool_name, &action, &tag, uri)?
                     } else if let Some((tool_name, action, tag)) =
                         parse_tool_variant_recipe_resource_uri(uri)
                     {
+                        require_tool_examples()?;
                         require_tool_action_name(&tool_name, &action)?;
                         tool_recipe_resource_contents(&tool_name, &action, Some(&tag), uri)?
                     } else if let Some((tool_name, action)) =
                         parse_tool_action_example_resource_uri(uri)
                     {
+                        require_tool_examples()?;
                         require_tool_action_name(&tool_name, &action)?;
                         tool_action_example_resource_contents(&tool_name, &action, uri)?
                     } else if let Some((tool_name, action)) =
                         parse_tool_action_shape_resource_uri(uri)
                     {
+                        require_tool_examples()?;
                         require_tool_action_name(&tool_name, &action)?;
                         tool_action_shape_resource_contents(&tool_name, &action, uri)?
                     } else if let Some((tool_name, action)) =
                         parse_tool_action_recipe_resource_uri(uri)
                     {
+                        require_tool_examples()?;
                         require_tool_action_name(&tool_name, &action)?;
                         tool_recipe_resource_contents(&tool_name, &action, None, uri)?
                     } else if let Some(tool_name) = parse_tool_example_resource_uri(uri) {
+                        require_tool_examples()?;
                         require_tool_name(&tool_name)?;
-                        if tool_name == "prism_mutate"
-                            && self.host.features.hides_prism_mutate_self_describing_resources()
-                        {
-                            return Err(resource_not_found());
-                        }
                         tool_example_resource_contents(&tool_name, uri)?
                     } else if let Some(tool_name) = parse_tool_shape_resource_uri(uri) {
+                        require_tool_examples()?;
                         require_tool_name(&tool_name)?;
-                        if tool_name == "prism_mutate"
-                            && self.host.features.hides_prism_mutate_self_describing_resources()
-                        {
-                            return Err(resource_not_found());
-                        }
                         tool_shape_resource_contents(&tool_name, uri)?
                     } else if let Some(resource_kind) = parse_resource_example_resource_uri(uri) {
+                        require_resource_examples()?;
                         require_resource_kind(&resource_kind)?;
                         resource_example_resource_contents(&resource_kind, uri)?
                     } else if let Some(resource_kind) = parse_resource_shape_resource_uri(uri) {
+                        require_resource_examples()?;
                         require_resource_kind(&resource_kind)?;
                         resource_shape_resource_contents(&resource_kind, uri)?
                     } else if let Some((tool_name, action)) =
@@ -3156,6 +3175,6 @@ impl ServerHandler for PrismMcpServer {
 
 impl PrismMcpServer {
     fn server_instructions(&self) -> String {
-        crate::instructions::render_instructions_index(self.host.features.runtime_mode())
+        crate::instructions::render_instructions_index_with_features(&self.host.features)
     }
 }

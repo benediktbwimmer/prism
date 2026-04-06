@@ -108,6 +108,7 @@ impl QueryHost {
 
                 let next_reads_started = Instant::now();
                 let next_reads = compact_task_next_reads(
+                    host.features.cognition_layer_enabled(),
                     session.as_ref(),
                     prism.as_ref(),
                     &subject.node_id,
@@ -384,6 +385,7 @@ fn load_task_brief_recent_outcomes(
 }
 
 fn compact_task_next_reads(
+    cognition_enabled: bool,
     session: &SessionState,
     prism: &Prism,
     current_node_id: &PlanNodeId,
@@ -392,6 +394,9 @@ fn compact_task_next_reads(
     anchors: &[AnchorRef],
     plan_graph: Option<&PlanGraph>,
 ) -> Result<Vec<AgentTargetHandleView>> {
+    if !cognition_enabled {
+        return Ok(Vec::new());
+    }
     let seed_nodes = anchors
         .iter()
         .filter_map(|anchor| match anchor {

@@ -500,7 +500,7 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(
         tool_names,
-        std::collections::BTreeSet::from(["prism_mutate", "prism_task_brief"])
+        std::collections::BTreeSet::from(["prism_mutate", "prism_query", "prism_task_brief"])
     );
     let mutate_tool_schema = tools["result"]["tools"]
         .as_array()
@@ -530,6 +530,9 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
     assert!(!resource_uris.contains(&ENTRYPOINTS_URI));
     assert!(!resource_uris.contains(&SCHEMAS_URI));
     assert!(!resource_uris.contains(&SELF_DESCRIPTION_AUDIT_URI));
+    assert!(resource_uris.contains(&PROTECTED_STATE_URI));
+    assert!(resource_uris.contains(&VOCAB_URI));
+    assert!(resource_uris.contains(&TOOL_SCHEMAS_URI));
 
     client
         .send(read_resource_request(4, CAPABILITIES_URI))
@@ -542,10 +545,17 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
             .expect("capabilities resource should be text"),
     )
     .unwrap();
-    assert!(capabilities_payload["queryMethods"]
+    let query_methods = capabilities_payload["queryMethods"]
         .as_array()
         .expect("query methods should be an array")
-        .is_empty());
+        .iter()
+        .filter_map(|method| method["name"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert!(query_methods.contains("plans"));
+    assert!(query_methods.contains("planGraph"));
+    assert!(query_methods.contains("blockers"));
+    assert!(query_methods.contains("tool"));
+    assert!(!query_methods.contains("symbol"));
     assert!(capabilities_payload["queryViews"]
         .as_array()
         .expect("query views should be an array")
@@ -558,7 +568,7 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
             .iter()
             .filter_map(|tool| tool["name"].as_str())
             .collect::<std::collections::BTreeSet<_>>(),
-        std::collections::BTreeSet::from(["prism_mutate", "prism_task_brief"])
+        std::collections::BTreeSet::from(["prism_mutate", "prism_query", "prism_task_brief"])
     );
     let related_resource_uris = capabilities_payload["relatedResources"]
         .as_array()
@@ -568,25 +578,23 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .collect::<std::collections::BTreeSet<_>>();
     assert!(!related_resource_uris.contains(API_REFERENCE_URI));
     assert!(!related_resource_uris.contains("prism://search/read%20context"));
+    assert!(related_resource_uris.contains(PROTECTED_STATE_URI));
+    assert!(related_resource_uris.contains(VOCAB_URI));
+    assert!(related_resource_uris.contains(TOOL_SCHEMAS_URI));
     let capability_template_uris = capabilities_payload["resourceTemplates"]
         .as_array()
         .expect("resource templates should be an array")
         .iter()
         .filter_map(|template| template["uriTemplate"].as_str())
         .collect::<std::collections::BTreeSet<_>>();
-    let tool_action_schema_template = capabilities_payload["resourceTemplates"]
-        .as_array()
-        .expect("resource templates should be an array")
-        .iter()
-        .find(|template| template["uriTemplate"] == TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI)
-        .expect("tool action schema template should remain visible");
-    assert_eq!(
-        tool_action_schema_template["exampleUri"],
-        "prism://schema/tool/prism_mutate/action/coordination"
-    );
-    assert_eq!(tool_action_schema_template["shapeUri"], Value::Null);
     assert!(capability_template_uris.contains(PLANS_RESOURCE_TEMPLATE_URI));
     assert!(capability_template_uris.contains(PLAN_RESOURCE_TEMPLATE_URI));
+    assert!(capability_template_uris.contains(crate::SCHEMA_RESOURCE_TEMPLATE_URI));
+    assert!(capability_template_uris.contains(TOOL_SCHEMA_RESOURCE_TEMPLATE_URI));
+    assert!(capability_template_uris.contains(TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI));
+    assert!(capability_template_uris.contains(TOOL_VARIANT_SCHEMA_RESOURCE_TEMPLATE_URI));
+    assert!(capability_template_uris.contains(CAPABILITIES_SECTION_RESOURCE_TEMPLATE_URI));
+    assert!(capability_template_uris.contains(VOCAB_ENTRY_RESOURCE_TEMPLATE_URI));
     assert!(!capability_template_uris.contains(CONTRACTS_RESOURCE_TEMPLATE_URI));
     assert!(!capability_template_uris.contains(ENTRYPOINTS_RESOURCE_TEMPLATE_URI));
     assert!(!capability_template_uris.contains(SEARCH_RESOURCE_TEMPLATE_URI));
@@ -611,7 +619,12 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .collect::<std::collections::BTreeSet<_>>();
     assert!(template_uris.contains(PLANS_RESOURCE_TEMPLATE_URI));
     assert!(template_uris.contains(PLAN_RESOURCE_TEMPLATE_URI));
+    assert!(template_uris.contains(crate::SCHEMA_RESOURCE_TEMPLATE_URI));
     assert!(template_uris.contains(TOOL_SCHEMA_RESOURCE_TEMPLATE_URI));
+    assert!(template_uris.contains(TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI));
+    assert!(template_uris.contains(TOOL_VARIANT_SCHEMA_RESOURCE_TEMPLATE_URI));
+    assert!(template_uris.contains(CAPABILITIES_SECTION_RESOURCE_TEMPLATE_URI));
+    assert!(template_uris.contains(VOCAB_ENTRY_RESOURCE_TEMPLATE_URI));
     assert!(!template_uris.contains(CONTRACTS_RESOURCE_TEMPLATE_URI));
     assert!(!template_uris.contains(ENTRYPOINTS_RESOURCE_TEMPLATE_URI));
     assert!(!template_uris.contains(TOOL_EXAMPLE_RESOURCE_TEMPLATE_URI));
@@ -653,9 +666,35 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
     assert!(!session_related_resource_uris.contains(ENTRYPOINTS_URI));
     assert!(!session_related_resource_uris.contains(SCHEMAS_URI));
     assert!(!session_related_resource_uris.contains("prism://schema/session"));
+    assert!(session_related_resource_uris.contains(VOCAB_URI));
+
+    for (id, uri) in [
+        (7_u64, PROTECTED_STATE_URI),
+        (8, ENTRYPOINTS_URI),
+        (9, "prism://schema/search"),
+        (10, "prism://search/read%20context"),
+        (
+            11,
+            "prism://schema/tool/prism_mutate/action/validation_feedback",
+        ),
+        (12, "prism://example/tool/prism_mutate"),
+        (13, "prism://shape/tool/prism_query"),
+        (14, "prism://example/resource/plan"),
+    ] {
+        client.send(read_resource_request(id, uri)).await.unwrap();
+        let response = response_json(client.receive().await.unwrap());
+        assert!(response.get("error").is_some(), "{uri}: {response}");
+    }
 
     client
-        .send(read_resource_request(7, TOOL_SCHEMAS_URI))
+        .send(read_resource_request(15, VOCAB_URI))
+        .await
+        .unwrap();
+    let vocab = response_json(client.receive().await.unwrap());
+    assert!(vocab.get("error").is_none(), "{vocab}");
+
+    client
+        .send(read_resource_request(16, TOOL_SCHEMAS_URI))
         .await
         .unwrap();
     let tool_schemas = response_json(client.receive().await.unwrap());
@@ -672,43 +711,29 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
             .iter()
             .filter_map(|tool| tool["toolName"].as_str())
             .collect::<std::collections::BTreeSet<_>>(),
-        std::collections::BTreeSet::from(["prism_mutate", "prism_task_brief"])
+        std::collections::BTreeSet::from(["prism_mutate", "prism_query", "prism_task_brief"])
     );
-    let mutate_schema_resources = tool_schemas_payload["relatedResources"]
+    assert!(tool_schemas_payload["tools"]
         .as_array()
-        .expect("tool schema related resources should be an array")
+        .expect("tool schemas should be an array")
         .iter()
-        .filter_map(|resource| resource["uri"].as_str())
-        .filter(|uri| uri.contains("prism://schema/tool/prism_mutate/action/"))
-        .collect::<std::collections::BTreeSet<_>>();
-    assert!(
-        mutate_schema_resources.contains("prism://schema/tool/prism_mutate/action/coordination")
-    );
-    assert!(
-        mutate_schema_resources.contains("prism://schema/tool/prism_mutate/action/declare_work")
-    );
-    assert!(!mutate_schema_resources
-        .contains("prism://schema/tool/prism_mutate/action/validation_feedback"));
+        .all(|tool| tool["exampleUri"].is_null()));
+    assert!(tool_schemas_payload["tools"]
+        .as_array()
+        .expect("tool schemas should be an array")
+        .iter()
+        .all(|tool| tool["shapeUri"].is_null()));
 
-    for (id, uri) in [
-        (8_u64, ENTRYPOINTS_URI),
-        (9, "prism://schema/search"),
-        (10, "prism://search/read%20context"),
-        (11, "prism://schema/tool/prism_query"),
-        (
-            12,
-            "prism://schema/tool/prism_mutate/action/validation_feedback",
-        ),
-        (13, "prism://example/tool/prism_mutate"),
-    ] {
-        client.send(read_resource_request(id, uri)).await.unwrap();
-        let response = response_json(client.receive().await.unwrap());
-        assert!(response.get("error").is_some(), "{uri}: {response}");
-    }
+    client
+        .send(read_resource_request(17, "prism://schema/tool/prism_query"))
+        .await
+        .unwrap();
+    let query_schema = response_json(client.receive().await.unwrap());
+    assert!(query_schema.get("error").is_none());
 
     client
         .send(read_resource_request(
-            14,
+            18,
             "prism://schema/tool/prism_mutate",
         ))
         .await
@@ -725,6 +750,16 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
     assert!(mutate_schema_text.contains("\"declare_work\""));
     assert!(!mutate_schema_text.contains("validation_feedback"));
     assert!(!mutate_schema_text.contains("concept_relation"));
+
+    client
+        .send(read_resource_request(
+            19,
+            "prism://schema/tool/prism_mutate/action/coordination",
+        ))
+        .await
+        .unwrap();
+    let coordination_action_schema = response_json(client.receive().await.unwrap());
+    assert!(coordination_action_schema.get("error").is_none());
 
     let _ = running.cancel().await;
 }

@@ -8,7 +8,8 @@ use serde_json::Value;
 use std::borrow::Cow;
 
 use crate::{
-    tool_schema_resource_uri, tool_schema_view, vocabulary_error, ContractPacketView, SessionView,
+    tool_schema_resource_uri, tool_schema_view, tool_schema_view_with_features, vocabulary_error,
+    ContractPacketView, PrismMcpFeatures, SessionView,
 };
 
 fn ensure_root_object_input_schema(schema: &mut Schema) {
@@ -91,7 +92,27 @@ pub(crate) fn normalize_tagged_tool_input(tool_name: &str, mut value: Value) -> 
 }
 
 pub(crate) fn validate_tool_input_value(tool_name: &str, value: Value) -> ToolInputValidationView {
-    let Some(tool) = tool_schema_view(tool_name) else {
+    validate_tool_input_value_with_schema(tool_name, value, tool_schema_view(tool_name))
+}
+
+pub(crate) fn validate_tool_input_value_with_features(
+    tool_name: &str,
+    value: Value,
+    features: &PrismMcpFeatures,
+) -> ToolInputValidationView {
+    validate_tool_input_value_with_schema(
+        tool_name,
+        value,
+        tool_schema_view_with_features(tool_name, features),
+    )
+}
+
+fn validate_tool_input_value_with_schema(
+    tool_name: &str,
+    value: Value,
+    tool: Option<prism_js::ToolSchemaView>,
+) -> ToolInputValidationView {
+    let Some(tool) = tool else {
         let summary = format!("Unknown PRISM MCP tool `{tool_name}`.");
         return ToolInputValidationView {
             tool_name: tool_name.to_string(),

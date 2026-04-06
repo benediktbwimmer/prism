@@ -1296,3 +1296,21 @@ fn current_timestamp_ms() -> u64 {
         .unwrap_or_default()
         .as_millis() as u64
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn coordination_only_bootstrap_tool_cache_matches_reduced_surface() {
+        let cache = bootstrap_tool_cache(
+            PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
+        );
+        let mut tool_names = cache.keys().cloned().collect::<Vec<_>>();
+        tool_names.sort();
+        assert_eq!(
+            tool_names,
+            vec!["prism_mutate", "prism_query", "prism_task_brief"]
+        );
+    }
+}

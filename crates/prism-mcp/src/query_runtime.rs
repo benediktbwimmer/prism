@@ -56,8 +56,9 @@ use crate::{
     recent_patches_from_events, relations_view, resolve_concepts_for_session, result_decode_error,
     runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
     spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_intent_view, task_risk_view, task_validation_recipe_view, tool_catalog_views,
-    tool_schema_view, validate_tool_input_value, validation_context_view_cached,
+    task_intent_view, task_risk_view, task_validation_recipe_view,
+    tool_catalog_views_with_features, tool_schema_view_with_features,
+    validate_tool_input_value_with_features, validation_context_view_cached,
     validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
     weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
     ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs, ConceptVerbosity, ContractQueryArgs,
@@ -2195,15 +2196,15 @@ return prism.file(__prismFileAroundArgs.path).around({
     }
 
     fn tools(&self) -> Vec<ToolCatalogEntryView> {
-        tool_catalog_views()
+        tool_catalog_views_with_features(&self.host.features)
     }
 
     fn tool(&self, name: &str) -> Result<Option<ToolSchemaView>> {
-        Ok(tool_schema_view(name))
+        Ok(tool_schema_view_with_features(name, &self.host.features))
     }
 
     fn validate_tool_input(&self, name: &str, input: Value) -> ToolInputValidationView {
-        validate_tool_input_value(name, input)
+        validate_tool_input_value_with_features(name, input, &self.host.features)
     }
 
     pub(crate) fn plans(&self, args: PlansQueryArgs) -> Result<Vec<prism_js::PlanListEntryView>> {

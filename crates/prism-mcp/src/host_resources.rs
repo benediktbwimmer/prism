@@ -170,8 +170,10 @@ impl QueryHost {
                 instructions_resource_view_link(),
                 capabilities_resource_view_link(),
                 session_resource_view_link(),
-                vocab_resource_view_link(),
             ];
+            if self.features.resource_kind_visible("vocab") {
+                related_resources.push(vocab_resource_view_link());
+            }
             if self.features.cognition_layer_enabled() {
                 related_resources.extend([
                     schema_resource_view_link("session"),

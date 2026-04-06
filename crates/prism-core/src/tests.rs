@@ -12260,8 +12260,9 @@ fn coordination_only_shared_runtime_sqlite_hides_knowledge_when_reopened_from_fu
             concept: ConceptPacket {
                 handle: "concept://full_mode_alpha_shared_runtime".to_string(),
                 canonical_name: "full_mode_alpha_shared_runtime".to_string(),
-                summary: "Full-mode shared-runtime concept should stay hidden in coordination-only mode."
-                    .to_string(),
+                summary:
+                    "Full-mode shared-runtime concept should stay hidden in coordination-only mode."
+                        .to_string(),
                 aliases: vec!["alpha".to_string()],
                 confidence: 0.9,
                 core_members: vec![alpha.clone()],
