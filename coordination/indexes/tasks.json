@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kmwq21ymh3cqdzbggynehfxv",
+    "title": "Milestone 0: Establish performance baselines, budgets, and regression guardrails",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmwq21ymh3cqdzbggynehfxv-4dc2f536d6adcf4a.json"
+  },
+  {
+    "id": "coord-task:01kn09jebspnr1xzpwtypb938p",
+    "title": "Add lazy JIT deep parsing and selective structural enrichment on first touch",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09jebspnr1xzpwtypb938p-d1fa94a66b1101f3.json"
+  },
+  {
+    "id": "coord-task:01kn2edqccqazhjhrj7dfx4a2t",
+    "title": "Separate mutable engine state from published immutable generations",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqccqazhjhrj7dfx4a2t-84daacb22acd590d.json"
+  }
+]
