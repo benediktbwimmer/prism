@@ -1,24 +1,22 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775448521,
+  "publishedAt": 1775466792,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
   },
   "workContext": {
-    "workId": "coord-task:01kng427002152wgffzt627rta",
+    "workId": "coord-task:01kng42700ggvq0md11kyjkfqs",
     "kind": "coordination",
-    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
-    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics.",
-    "coordinationTaskId": "coord-task:01kng427002152wgffzt627rta",
+    "title": "Rework lease validity so task and claim records carry durable lease-boundary facts while runtime liveness comes from runtime refs, making lease freshness a join instead of a global summary rewrite.",
+    "coordinationTaskId": "coord-task:01kng42700ggvq0md11kyjkfqs",
     "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
     "planTitle": "Implement shared coordination v1 architecture hardening"
   },
   "publishSummary": {
-    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
-    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics."
+    "title": "Rework lease validity so task and claim records carry durable lease-boundary facts while runtime liveness comes from runtime refs, making lease freshness a join instead of a global summary rewrite."
   },
   "files": {
     "coordination/tasks/coord-task-01kn9vdqfnnkkywq1bb0jk5fq8-e8f227e8f9eb292e.json": {
@@ -27,13 +25,14 @@
     },
     "coordination/tasks/coord-task-01kng42700ggvq0md11kyjkfqs-b160fe670942fcdf.json": {
       "path": "coordination/tasks/coord-task-01kng42700ggvq0md11kyjkfqs-b160fe670942fcdf.json",
-      "sha256": "sha256:6459c7e060a26199aa2da471e4c5cdc8aeee6e64bbaea0e83a91ffd7fec6e910"
+      "sha256": "sha256:4fd9ebcb8dec28a59767c0bdf14d6699c27550ce880bb1d11c433262a3dc00d2"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:af4c4fc24ec5c4651019761c5f5e90601a94f09f5ef13927c18ea5b4c44e9e71"
+      "sha256": "sha256:8f6b69a5148ced095ed3c2ca14c64b96dfbc521c39749a340a7cc55e1ba38b36"
     }
   },
+  "previousManifestDigest": "sha256:76521dcd45ccce8dcc095a722ee5e8a1394871b7f9f97c6218c2456d6737db45",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -43,6 +42,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:nhVXGNIPnHuuZIez/WRp/PZwwPtGsY7aNIOtJkseVBD7EY8PlmTBJ9nySokfDPmmENgldOvVynKJga2WLjZhBw=="
+    "value": "base64:nkOCC5nuHdib7OvHsjkcN+TY76wAqhONfCqbiJVYnJs1I0bno7qfREe4nzL+VcwzYYJD38LrGVJpV1rBLQ6GAw=="
   }
 }
