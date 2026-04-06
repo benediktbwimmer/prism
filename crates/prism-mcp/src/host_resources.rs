@@ -10,7 +10,7 @@ use std::time::Instant;
 
 use crate::file_queries::file_read;
 use crate::query_types::{parse_plan_scope, parse_plan_status};
-use crate::ui_read_models::{filtered_plan_entries_from_snapshot, PlansResourceSort};
+use crate::ui_read_models::{filtered_plan_entries_from_prism, PlansResourceSort};
 use crate::{
     anchor_resource_view_links, capabilities_resource_uri, capabilities_resource_value,
     capabilities_resource_view_link, co_change_view, compact_discovery_bundle_candidate_excerpts,
@@ -402,10 +402,9 @@ impl QueryHost {
             let parsed_status = status.as_deref().map(parse_plan_status).transpose()?;
             let parsed_scope = scope.as_deref().map(parse_plan_scope).transpose()?;
             let parsed_sort = PlansResourceSort::parse(sort.as_deref());
-            let snapshot = prism.coordination_snapshot();
             let paged = paginate_items(
-                filtered_plan_entries_from_snapshot(
-                    &snapshot,
+                filtered_plan_entries_from_prism(
+                    &prism,
                     parsed_status,
                     parsed_scope,
                     contains.as_deref(),

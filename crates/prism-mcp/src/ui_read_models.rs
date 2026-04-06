@@ -3,16 +3,15 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use anyhow::{anyhow, Result};
 use prism_coordination::{
     coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
-    ready_task_count_for_active_plans, snapshot_plan_graphs, CoordinationQueueReadModel,
-    CoordinationReadModel, CoordinationSnapshot, WorkClaim,
+    ready_task_count_for_active_plans, CoordinationQueueReadModel, CoordinationReadModel,
+    WorkClaim,
 };
 use prism_ir::{
-    sortable_token_timestamp, ClaimStatus, CoordinationEventKind, CoordinationTaskId,
-    CoordinationTaskStatus, NodeRef, NodeRefKind,
+    ClaimStatus, CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus, NodeRef,
+    NodeRefKind,
 };
-use prism_ir::{PlanId, PlanNodeStatus, PlanScope, PlanStatus, TaskId};
+use prism_ir::{PlanId, PlanScope, PlanStatus, TaskId};
 use prism_memory::OutcomeRecallQuery;
-use prism_query::PlanActivity;
 
 use crate::coordination_executor::current_executor_caller;
 use crate::ui_identity::ui_operator_identity_view;
@@ -30,10 +29,9 @@ use crate::ui_types::{
 };
 use crate::views::{
     artifact_view, blocker_view, concept_packet_view, coordination_plan_v2_view,
-    coordination_task_v2_view, git_execution_policy_view, plan_activity_view,
-    plan_execution_overlay_view, plan_graph_view, plan_list_entry_view,
-    plan_node_recommendation_view, plan_node_status_counts_view, plan_scheduling_view,
-    plan_summary_view, policy_violation_record_view, ConceptVerbosity,
+    coordination_task_v2_view, plan_execution_overlay_view, plan_graph_view,
+    plan_list_entry_view, plan_node_recommendation_view, plan_summary_view,
+    policy_violation_record_view, ConceptVerbosity,
 };
 use crate::{claim_view, coordination_task_view, current_timestamp, QueryHost, SessionState};
 use crate::{host_resources::session_task_view, runtime_views::runtime_status};
@@ -403,8 +401,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
 
     fn ui_plans_view(&self, options: UiPlansQueryOptions) -> Result<PrismPlansView> {
         let prism = self.current_prism();
-        let snapshot = prism.coordination_snapshot();
-        let all_plans = plan_entries_from_snapshot(&snapshot);
+        let all_plans = plan_entries_from_prism(&prism, None, None, None);
         let status_filter = UiPlanStatusFilter::parse(options.status.as_deref());
         let sort = UiPlanSort::parse(options.sort.as_deref());
         let search = options
@@ -1075,199 +1072,29 @@ fn plan_matches_agent(
     })
 }
 
-pub(crate) fn filtered_plan_entries_from_snapshot(
-    snapshot: &CoordinationSnapshot,
+pub(crate) fn filtered_plan_entries_from_prism(
+    prism: &prism_query::Prism,
     status: Option<PlanStatus>,
     scope: Option<PlanScope>,
     contains: Option<&str>,
     sort: PlansResourceSort,
 ) -> Vec<prism_js::PlanListEntryView> {
-    let contains = contains
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(|value| value.to_ascii_lowercase());
-    let mut plans = plan_entries_from_snapshot(snapshot)
-        .into_iter()
-        .filter(|plan| status.is_none_or(|expected| plan.status == expected))
-        .filter(|plan| scope.is_none_or(|expected| plan.scope == expected))
-        .filter(|plan| {
-            contains
-                .as_deref()
-                .is_none_or(|needle| plan_entry_matches_contains_filter(plan, needle))
-        })
-        .collect::<Vec<_>>();
+    let mut plans = plan_entries_from_prism(prism, status, scope, contains);
     sort_plan_entries_for_resource(&mut plans, sort);
     plans
 }
 
-fn plan_entry_matches_contains_filter(plan: &prism_js::PlanListEntryView, needle: &str) -> bool {
-    let id = plan.plan_id.to_ascii_lowercase();
-    let title = plan.title.to_ascii_lowercase();
-    let goal = plan.goal.to_ascii_lowercase();
-    if id.contains(needle) || title.contains(needle) || goal.contains(needle) {
-        return true;
-    }
-
-    let plan_terms = normalized_plan_terms(&format!("{id} {title} {goal}"));
-    let query_terms = normalized_plan_terms(needle);
-    !query_terms.is_empty()
-        && query_terms
-            .iter()
-            .all(|term| plan_terms.contains(term.as_str()))
-}
-
-fn normalized_plan_terms(value: &str) -> BTreeSet<String> {
-    value
-        .split(|ch: char| !ch.is_ascii_alphanumeric())
-        .filter(|token| !token.is_empty())
-        .map(|token| normalize_plan_term(&token.to_ascii_lowercase()))
-        .filter(|token| !token.is_empty())
-        .collect()
-}
-
-fn normalize_plan_term(token: &str) -> String {
-    if token.len() > 3 && token.ends_with("ies") {
-        let mut stem = token[..token.len() - 3].to_string();
-        stem.push('y');
-        return stem;
-    }
-    if token.len() > 3
-        && token.ends_with('s')
-        && !token.ends_with("ss")
-        && !token.ends_with("us")
-        && !token.ends_with("is")
-    {
-        return token[..token.len() - 1].to_string();
-    }
-    token.to_string()
-}
-
-pub(crate) fn plan_entries_from_snapshot(
-    snapshot: &CoordinationSnapshot,
+pub(crate) fn plan_entries_from_prism(
+    prism: &prism_query::Prism,
+    status: Option<PlanStatus>,
+    scope: Option<PlanScope>,
+    contains: Option<&str>,
 ) -> Vec<prism_js::PlanListEntryView> {
-    let activity_by_plan = plan_activity_index_from_snapshot(snapshot);
-    let graphs_by_id = snapshot_plan_graphs(snapshot)
+    prism
+        .plans(status, scope, contains)
         .into_iter()
-        .map(|graph| (graph.id.0.clone(), graph))
-        .collect::<BTreeMap<_, _>>();
-    snapshot
-        .plans
-        .iter()
-        .filter_map(|plan| {
-            graphs_by_id.get(plan.id.0.as_str()).map(|graph| {
-                plan_entry_from_snapshot(plan, graph, activity_by_plan.get(plan.id.0.as_str()))
-            })
-        })
+        .map(plan_list_entry_view)
         .collect()
-}
-
-fn plan_entry_from_snapshot(
-    plan: &prism_coordination::Plan,
-    graph: &prism_ir::PlanGraph,
-    activity: Option<&PlanActivity>,
-) -> prism_js::PlanListEntryView {
-    let plan_summary = lightweight_plan_summary_view(graph);
-    let activity = activity.cloned().unwrap_or_default();
-    let created_at = activity.created_at;
-    let last_updated_at = activity.last_updated_at;
-    let activity = plan_activity_present(&activity).then(|| plan_activity_view(activity));
-    prism_js::PlanListEntryView {
-        plan_id: plan.id.0.to_string(),
-        title: plan.title.clone(),
-        goal: plan.goal.clone(),
-        status: plan.status,
-        scope: plan.scope,
-        kind: plan.kind,
-        scheduling: plan_scheduling_view(plan.scheduling.clone()),
-        git_execution_policy: git_execution_policy_view(plan.policy.git_execution.clone()),
-        root_node_ids: graph
-            .root_nodes
-            .iter()
-            .map(|node_id| node_id.0.to_string())
-            .collect(),
-        created_at,
-        last_updated_at,
-        node_status_counts: plan_node_status_counts_view(plan_node_status_counts_from_graph(graph)),
-        summary: lightweight_plan_summary_text(&plan_summary),
-        plan_summary,
-        activity,
-    }
-}
-
-pub(crate) fn lightweight_plan_summary_view(
-    graph: &prism_ir::PlanGraph,
-) -> prism_js::PlanSummaryView {
-    let mut completed_nodes = 0;
-    let mut abandoned_nodes = 0;
-    let mut in_progress_nodes = 0;
-    let mut actionable_nodes = 0;
-
-    for node in graph.nodes.iter().filter(|node| !node.is_abstract) {
-        match node.status {
-            PlanNodeStatus::Completed => completed_nodes += 1,
-            PlanNodeStatus::Abandoned => abandoned_nodes += 1,
-            PlanNodeStatus::InProgress => {
-                in_progress_nodes += 1;
-                actionable_nodes += 1;
-            }
-            PlanNodeStatus::Ready => actionable_nodes += 1,
-            _ => {}
-        }
-    }
-
-    let execution_blocked_nodes = graph
-        .nodes
-        .iter()
-        .filter(|node| {
-            !node.is_abstract
-                && !matches!(
-                    node.status,
-                    PlanNodeStatus::Completed
-                        | PlanNodeStatus::Abandoned
-                        | PlanNodeStatus::Ready
-                        | PlanNodeStatus::InProgress
-                )
-        })
-        .count();
-
-    prism_js::PlanSummaryView {
-        plan_id: graph.id.0.to_string(),
-        status: graph.status,
-        total_nodes: graph.nodes.len(),
-        completed_nodes,
-        abandoned_nodes,
-        in_progress_nodes,
-        actionable_nodes,
-        execution_blocked_nodes,
-        completion_gated_nodes: 0,
-        review_gated_nodes: 0,
-        validation_gated_nodes: 0,
-        stale_nodes: 0,
-        claim_conflicted_nodes: 0,
-    }
-}
-
-fn lightweight_plan_summary_text(summary: &prism_js::PlanSummaryView) -> String {
-    let mut parts = Vec::new();
-    if summary.actionable_nodes > 0 {
-        parts.push(format!("{} actionable", summary.actionable_nodes));
-    }
-    if summary.in_progress_nodes > 0 {
-        parts.push(format!("{} in progress", summary.in_progress_nodes));
-    }
-    if summary.execution_blocked_nodes > 0 {
-        parts.push(format!("{} blocked", summary.execution_blocked_nodes));
-    }
-    if summary.completed_nodes > 0 {
-        parts.push(format!("{} completed", summary.completed_nodes));
-    }
-    if summary.abandoned_nodes > 0 {
-        parts.push(format!("{} abandoned", summary.abandoned_nodes));
-    }
-    if parts.is_empty() {
-        parts.push(format!("{} nodes", summary.total_nodes));
-    }
-    format!("{} of {} nodes", parts.join(", "), summary.total_nodes)
 }
 
 fn sort_plan_entries(plans: &mut [prism_js::PlanListEntryView], sort: UiPlanSort) {
@@ -1451,279 +1278,6 @@ fn status_count_desc_sort_cmp(
     select(&right.node_status_counts)
         .cmp(&select(&left.node_status_counts))
         .then_with(|| last_updated_desc_sort_cmp(left, right))
-}
-
-fn plan_activity_present(activity: &PlanActivity) -> bool {
-    activity.created_at.is_some()
-        || activity.last_updated_at.is_some()
-        || activity.last_event_kind.is_some()
-        || activity.last_event_summary.is_some()
-        || activity.last_event_task_id.is_some()
-}
-
-fn plan_node_status_counts_from_graph(
-    graph: &prism_ir::PlanGraph,
-) -> prism_query::PlanNodeStatusCounts {
-    let mut counts = prism_query::PlanNodeStatusCounts::default();
-    for node in &graph.nodes {
-        if node.is_abstract {
-            counts.abstract_nodes += 1;
-            continue;
-        }
-        match node.status {
-            PlanNodeStatus::Proposed => counts.proposed += 1,
-            PlanNodeStatus::Ready => counts.ready += 1,
-            PlanNodeStatus::InProgress => counts.in_progress += 1,
-            PlanNodeStatus::Blocked => counts.blocked += 1,
-            PlanNodeStatus::Waiting => counts.waiting += 1,
-            PlanNodeStatus::InReview => counts.in_review += 1,
-            PlanNodeStatus::Validating => counts.validating += 1,
-            PlanNodeStatus::Completed => counts.completed += 1,
-            PlanNodeStatus::Abandoned => counts.abandoned += 1,
-        }
-    }
-    counts
-}
-
-fn plan_activity_index_from_snapshot(
-    snapshot: &CoordinationSnapshot,
-) -> BTreeMap<String, PlanActivity> {
-    let mut fallback_last_updated = BTreeMap::<String, (u64, Option<CoordinationTaskId>)>::new();
-    let mut activity = snapshot
-        .plans
-        .iter()
-        .map(|plan| {
-            let mut entry = PlanActivity::default();
-            observe_created_at(&mut entry, sortable_token_timestamp(plan.id.0.as_str()));
-            observe_fallback_update(
-                &mut fallback_last_updated,
-                plan.id.0.as_str(),
-                sortable_token_timestamp(plan.id.0.as_str()),
-                None,
-            );
-            (plan.id.0.to_string(), entry)
-        })
-        .collect::<BTreeMap<_, _>>();
-    let task_to_plan = snapshot
-        .tasks
-        .iter()
-        .map(|task| (task.id.clone(), task.plan.clone()))
-        .collect::<BTreeMap<_, _>>();
-    let artifact_to_task = snapshot
-        .artifacts
-        .iter()
-        .map(|artifact| (artifact.id.clone(), artifact.task.clone()))
-        .collect::<BTreeMap<_, _>>();
-    let claim_to_plan = snapshot
-        .claims
-        .iter()
-        .filter_map(|claim| {
-            let task_id = claim.task.as_ref()?;
-            let plan_id = task_to_plan.get(task_id)?;
-            Some((claim.id.clone(), plan_id.clone()))
-        })
-        .collect::<BTreeMap<_, _>>();
-    let review_to_plan = snapshot
-        .reviews
-        .iter()
-        .filter_map(|review| {
-            let task_id = artifact_to_task.get(&review.artifact)?;
-            let plan_id = task_to_plan.get(task_id)?;
-            Some((review.id.clone(), plan_id.clone()))
-        })
-        .collect::<BTreeMap<_, _>>();
-
-    for task in &snapshot.tasks {
-        let Some(entry) = activity.get_mut(task.plan.0.as_str()) else {
-            continue;
-        };
-        let created_at = sortable_token_timestamp(task.id.0.as_str());
-        observe_created_at(entry, created_at);
-        observe_fallback_update(
-            &mut fallback_last_updated,
-            task.plan.0.as_str(),
-            created_at,
-            Some(&task.id),
-        );
-        observe_fallback_update(
-            &mut fallback_last_updated,
-            task.plan.0.as_str(),
-            task.lease_started_at,
-            Some(&task.id),
-        );
-        observe_fallback_update(
-            &mut fallback_last_updated,
-            task.plan.0.as_str(),
-            task.lease_refreshed_at,
-            Some(&task.id),
-        );
-    }
-
-    for claim in &snapshot.claims {
-        let Some(task_id) = claim.task.as_ref() else {
-            continue;
-        };
-        let Some(plan_id) = task_to_plan.get(task_id) else {
-            continue;
-        };
-        let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
-            continue;
-        };
-        let created_at = sortable_token_timestamp(claim.id.0.as_str()).or(Some(claim.since));
-        observe_created_at(entry, created_at);
-        observe_fallback_update(
-            &mut fallback_last_updated,
-            plan_id.0.as_str(),
-            sortable_token_timestamp(claim.id.0.as_str()),
-            Some(task_id),
-        );
-        observe_fallback_update(
-            &mut fallback_last_updated,
-            plan_id.0.as_str(),
-            Some(claim.since),
-            Some(task_id),
-        );
-        observe_fallback_update(
-            &mut fallback_last_updated,
-            plan_id.0.as_str(),
-            claim.refreshed_at,
-            Some(task_id),
-        );
-    }
-
-    for artifact in &snapshot.artifacts {
-        let Some(plan_id) = task_to_plan.get(&artifact.task) else {
-            continue;
-        };
-        let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
-            continue;
-        };
-        let created_at = sortable_token_timestamp(artifact.id.0.as_str());
-        observe_created_at(entry, created_at);
-        observe_fallback_update(
-            &mut fallback_last_updated,
-            plan_id.0.as_str(),
-            created_at,
-            Some(&artifact.task),
-        );
-    }
-
-    for review in &snapshot.reviews {
-        let Some(task_id) = artifact_to_task.get(&review.artifact) else {
-            continue;
-        };
-        let Some(plan_id) = task_to_plan.get(task_id) else {
-            continue;
-        };
-        let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
-            continue;
-        };
-        let created_at = sortable_token_timestamp(review.id.0.as_str()).or(Some(review.meta.ts));
-        observe_created_at(entry, created_at);
-        observe_fallback_update(
-            &mut fallback_last_updated,
-            plan_id.0.as_str(),
-            sortable_token_timestamp(review.id.0.as_str()),
-            Some(task_id),
-        );
-        observe_fallback_update(
-            &mut fallback_last_updated,
-            plan_id.0.as_str(),
-            Some(review.meta.ts),
-            Some(task_id),
-        );
-    }
-
-    for event in &snapshot.events {
-        let plan_id = event
-            .plan
-            .clone()
-            .or_else(|| {
-                event
-                    .task
-                    .as_ref()
-                    .and_then(|task_id| task_to_plan.get(task_id).cloned())
-            })
-            .or_else(|| {
-                event
-                    .claim
-                    .as_ref()
-                    .and_then(|claim_id| claim_to_plan.get(claim_id).cloned())
-            })
-            .or_else(|| {
-                event.artifact.as_ref().and_then(|artifact_id| {
-                    artifact_to_task
-                        .get(artifact_id)
-                        .and_then(|task_id| task_to_plan.get(task_id))
-                        .cloned()
-                })
-            })
-            .or_else(|| {
-                event
-                    .review
-                    .as_ref()
-                    .and_then(|review_id| review_to_plan.get(review_id).cloned())
-            });
-        let Some(plan_id) = plan_id else {
-            continue;
-        };
-        let entry = activity.entry(plan_id.0.to_string()).or_default();
-        entry.created_at = Some(match entry.created_at {
-            Some(existing) => existing.min(event.meta.ts),
-            None => event.meta.ts,
-        });
-        let replace_last = match entry.last_updated_at {
-            Some(existing) => event.meta.ts >= existing,
-            None => true,
-        };
-        if replace_last {
-            entry.last_updated_at = Some(event.meta.ts);
-            entry.last_event_kind = Some(event.kind);
-            entry.last_event_summary = Some(event.summary.clone());
-            entry.last_event_task_id = event.task.clone();
-        }
-    }
-
-    for (plan_id, (ts, task_id)) in fallback_last_updated {
-        let Some(entry) = activity.get_mut(plan_id.as_str()) else {
-            continue;
-        };
-        if entry.last_updated_at.is_none() {
-            entry.last_updated_at = Some(ts);
-            entry.last_event_kind = None;
-            entry.last_event_summary = None;
-            entry.last_event_task_id = task_id;
-        }
-    }
-
-    activity
-}
-
-fn observe_created_at(entry: &mut PlanActivity, ts: Option<u64>) {
-    let Some(ts) = ts else {
-        return;
-    };
-    entry.created_at = Some(match entry.created_at {
-        Some(existing) => existing.min(ts),
-        None => ts,
-    });
-}
-
-fn observe_fallback_update(
-    fallback: &mut BTreeMap<String, (u64, Option<CoordinationTaskId>)>,
-    plan_id: &str,
-    ts: Option<u64>,
-    task_id: Option<&CoordinationTaskId>,
-) {
-    let Some(ts) = ts else {
-        return;
-    };
-    let replace = fallback
-        .get(plan_id)
-        .is_none_or(|(existing, _)| ts > *existing);
-    if replace {
-        fallback.insert(plan_id.to_string(), (ts, task_id.cloned()));
-    }
 }
 
 fn clamp_overview_text(text: &str) -> String {
@@ -2609,18 +2163,13 @@ fn graph_plan_touchpoints(
 #[cfg(test)]
 mod tests {
     use super::{
-        lightweight_plan_summary_view, sort_plan_entries, sort_plan_entries_for_resource,
-        PlansResourceSort, UiPlanSort,
+        sort_plan_entries, sort_plan_entries_for_resource, PlansResourceSort, UiPlanSort,
     };
-    use prism_ir::{
-        PlanEdge, PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeId, PlanNodeKind, PlanScope,
-        PlanStatus,
-    };
+    use prism_ir::{PlanKind, PlanScope, PlanStatus};
     use prism_js::{
         GitExecutionPolicyView, PlanListEntryView, PlanNodeStatusCountsView, PlanSchedulingView,
         PlanSummaryView,
     };
-    use serde_json::Value;
 
     #[test]
     fn ui_plan_sort_defaults_to_newest() {
@@ -2692,37 +2241,6 @@ mod tests {
         sort_plan_entries_for_resource(&mut plans, PlansResourceSort::CompletedDesc);
         assert_eq!(plans[0].title, "many");
         assert_eq!(plans[1].title, "few");
-    }
-
-    #[test]
-    fn lightweight_plan_summary_tracks_progress_without_blocker_scoring() {
-        let summary = lightweight_plan_summary_view(&PlanGraph {
-            id: PlanId::new("plan:01kp0000000000000000000000"),
-            scope: PlanScope::Repo,
-            kind: PlanKind::TaskExecution,
-            title: "plan".to_string(),
-            goal: "goal".to_string(),
-            status: PlanStatus::Active,
-            revision: 0,
-            root_nodes: vec![PlanNodeId::new("root")],
-            tags: Vec::new(),
-            created_from: None,
-            metadata: Value::Null,
-            nodes: vec![
-                test_node("root", prism_ir::PlanNodeStatus::Ready, false),
-                test_node("progress", prism_ir::PlanNodeStatus::InProgress, false),
-                test_node("done", prism_ir::PlanNodeStatus::Completed, false),
-                test_node("abstract", prism_ir::PlanNodeStatus::Ready, true),
-                test_node("blocked", prism_ir::PlanNodeStatus::Blocked, false),
-            ],
-            edges: Vec::<PlanEdge>::new(),
-        });
-
-        assert_eq!(summary.total_nodes, 5);
-        assert_eq!(summary.actionable_nodes, 2);
-        assert_eq!(summary.in_progress_nodes, 1);
-        assert_eq!(summary.completed_nodes, 1);
-        assert_eq!(summary.execution_blocked_nodes, 1);
     }
 
     fn plan_with_activity(
@@ -2805,26 +2323,6 @@ mod tests {
                 claim_conflicted_nodes: 0,
             },
             activity: None,
-        }
-    }
-
-    fn test_node(node_id: &str, status: prism_ir::PlanNodeStatus, is_abstract: bool) -> PlanNode {
-        PlanNode {
-            id: PlanNodeId::new(node_id),
-            plan_id: PlanId::new("plan:01kp0000000000000000000000"),
-            kind: PlanNodeKind::Edit,
-            title: node_id.to_string(),
-            summary: None,
-            status,
-            bindings: prism_ir::PlanBinding::default(),
-            acceptance: Vec::new(),
-            validation_refs: Vec::new(),
-            is_abstract,
-            assignee: None,
-            base_revision: prism_ir::WorkspaceRevision::default(),
-            priority: None,
-            tags: Vec::new(),
-            metadata: Value::Null,
         }
     }
 }

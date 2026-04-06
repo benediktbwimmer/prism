@@ -25622,6 +25622,106 @@ fn plans_resource_supports_created_and_status_count_sorting() {
 }
 
 #[test]
+fn plans_resource_and_ui_use_hydrated_plan_summaries() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Validation-gated plan",
+                    "goal": "Verify the live plans surfaces use hydrated summaries",
+                    "policy": { "requireValidationForCompletion": true }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanNodeCreate,
+            payload: json!({
+                "planId": plan_id,
+                "kind": "validate",
+                "title": "Validate the work",
+                "acceptance": [{
+                    "label": "validation evidence is required",
+                    "requiredChecks": [
+                        { "id": "test:cargo test -p prism-mcp plans_resource_and_ui_use_hydrated_plan_summaries -- --nocapture" }
+                    ],
+                    "evidencePolicy": "validation-only"
+                }]
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let expected = host
+        .current_prism()
+        .plan_summary(&prism_ir::PlanId::new(plan_id.clone()))
+        .expect("plan summary should exist");
+    assert!(
+        expected.validation_gated_nodes > 0,
+        "test setup should produce a validation-gated summary"
+    );
+
+    let resource_payload = host
+        .plans_resource_value(
+            test_session(&host),
+            &format!("prism://plans?status=active&contains={plan_id}&limit=5"),
+        )
+        .expect("plans resource should succeed");
+    let resource_plan = resource_payload
+        .plans
+        .iter()
+        .find(|plan| plan.plan_id == plan_id)
+        .expect("resource should contain the plan");
+    assert_eq!(
+        resource_plan.plan_summary.validation_gated_nodes,
+        expected.validation_gated_nodes
+    );
+    assert_eq!(resource_plan.node_status_counts.ready, 1);
+
+    let ui_view = <crate::QueryHost as crate::ui_read_models::QueryHostUiReadModelsExt>::ui_plans_view(
+        &host,
+        crate::ui_read_models::UiPlansQueryOptions {
+            selected_plan_id: Some(plan_id.clone()),
+            status: Some("active".to_string()),
+            ..Default::default()
+        },
+    )
+    .expect("plans view should succeed");
+    let ui_plan = ui_view
+        .plans
+        .iter()
+        .find(|plan| plan.plan_id == plan_id)
+        .expect("ui plans view should contain the plan");
+    assert_eq!(
+        ui_plan.plan_summary.validation_gated_nodes,
+        expected.validation_gated_nodes
+    );
+    assert_eq!(ui_plan.node_status_counts.ready, 1);
+
+    let selected_plan = ui_view
+        .selected_plan
+        .expect("ui plans view should populate selected plan detail");
+    assert_eq!(
+        selected_plan.plan.plan_summary.validation_gated_nodes,
+        expected.validation_gated_nodes
+    );
+    assert_eq!(
+        selected_plan.summary.validation_gated_nodes,
+        expected.validation_gated_nodes
+    );
+}
+
+#[test]
 fn plan_resource_payload_surfaces_detail_summary_and_navigation_links() {
     let host = host_with_node(demo_node());
 
