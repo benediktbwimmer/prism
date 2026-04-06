@@ -1,21 +1,22 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775478127,
+  "publishedAt": 1775490002,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "work:plan-shared-runtime-db-removal:01knhbv1kcybb7j0y21e1xnmq0",
-    "kind": "ad_hoc",
-    "title": "Plan shared runtime DB removal",
-    "summary": "Create a detailed PRISM execution plan to eliminate the shared runtime SQLite backend and replace its responsibilities with shared refs, local SQLite, and federated runtime reads."
+    "workId": "coord-task:01knhbwesks6nwbgdg4jrxxmj5",
+    "kind": "coordination",
+    "title": "Lock the cutover contract and responsibility map for removing shared runtime SQLite",
+    "coordinationTaskId": "coord-task:01knhbwesks6nwbgdg4jrxxmj5",
+    "planId": "plan:01knhbwesj53rq8f301x6r51qj",
+    "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
   },
   "publishSummary": {
-    "title": "Plan shared runtime DB removal",
-    "summary": "Create a detailed PRISM execution plan to eliminate the shared runtime SQLite backend and replace its responsibilities with shared refs, local SQLite, and federated runtime reads."
+    "title": "Lock the cutover contract and responsibility map for removing shared runtime SQLite"
   },
   "files": {
     "coordination/tasks/coord-task-01kn3p3cy48hz6m3g42e0374xj-4dd0ba36a1a74421.json": {
@@ -28,14 +29,14 @@
     },
     "coordination/tasks/coord-task-01knhbwesks6nwbgdg4jrxxmj5-c614fa57eafabe96.json": {
       "path": "coordination/tasks/coord-task-01knhbwesks6nwbgdg4jrxxmj5-c614fa57eafabe96.json",
-      "sha256": "sha256:9e85a0dd9b1823eb0d6ece4e2fe418aa4479b253a8c235359a7a9519f1f6d1cd"
+      "sha256": "sha256:2af6635304360730859ca6a8bba549b2c8e8baec388f49ecdf54fd367aac3eee"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
       "sha256": "sha256:593e6fa6939f182d3bffa29f124788165648aed6f970b0b274ca78ae4c464bfe"
     }
   },
-  "previousManifestDigest": "sha256:2c9701fc7e9e19c1ee1cc12865ca4d95d3652f8722846a1c06199923baa72e90",
+  "previousManifestDigest": "sha256:5c93bd7e3507a02371f60884a193f0af5adc513c269728137c2de8f8f3d1b208",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -45,6 +46,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:KVbC2XcgEBeghmVi9w0P5beKBDv1Ye79eZNUvYVXY+d0eiH9X7OHnFmx7pKHQcbCZoD99XlDVTb7dHYGouN4Cg=="
+    "value": "base64:t/gwubH5uJEkJG7LGdmrZrNW0Z3ZR+IWuMfsxGeQ8BsYmwccpm9wv16Yy9QfsGDhGXFlsYKOe8vYQRdLzC7rAQ=="
   }
 }
