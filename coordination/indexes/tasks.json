@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn09jecg1haxe1vh7a7t13yd",
+    "title": "Add scalable architectural ranking signals for broad-query and impact precision",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn09jecg1haxe1vh7a7t13yd-365133501251a952.json"
+  },
+  {
+    "id": "coord-task:01kn2edqjy6xsjev29fs0jrs1x",
+    "title": "Move non-authoritative side effects off commit and demote snapshots",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqjy6xsjev29fs0jrs1x-0ce807af92856f28.json"
+  },
+  {
+    "id": "coord-task:01knavdeaf5qs3zp6vycxgkg9t",
+    "title": "Add trusted landing records for squash and rebase integration evidence",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knavdeaf5qs3zp6vycxgkg9t-c046f8aa0a476058.json"
+  },
+  {
+    "id": "coord-task:01knavf33fkvpsc79jd5k9tkdj",
+    "title": "Complete direct_integrate mode with trusted direct landing execution and immediate verification",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knavf33fkvpsc79jd5k9tkdj-e1d9955073e5b3c1.json"
+  }
+]

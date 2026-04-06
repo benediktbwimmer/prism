@@ -1,0 +1,75 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Routine commits no longer wait on memory reanchor or snapshot-shaped persistence, and snapshots are no longer the authoritative mutation substrate anywhere in the ordinary edit path."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1919
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn2edqh1zkhb8br4za6tx8ha",
+      "coord-task:01kn2edqj2yfbe50m4hgy6cspx"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn2edqjy6xsjev29fs0jrs1x",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn2edq9k2cr10t7p9pwscpjz",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Move non-authoritative side effects fully behind the fast commit and demote snapshots to their final roles only: immutable read views, query acceleration, and checkpoint recovery. Memory reanchor, projections, curator follow-up, checkpoints, and other secondary work must no longer hold up the authoritative runtime commit.",
+    "tags": [
+      "checkpoints",
+      "materialization",
+      "side-effects",
+      "snapshots"
+    ],
+    "title": "Move non-authoritative side effects off commit and demote snapshots",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
