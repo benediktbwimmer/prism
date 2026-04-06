@@ -82,7 +82,7 @@
       "integrationStatus": "not_started",
       "lastPreflight": {
         "behindTargetCommits": 0,
-        "checkedAt": 1775476052,
+        "checkedAt": 1775476145,
         "currentBranch": "task/shared-coordination-plan-followup",
         "dirtyPaths": [],
         "failure": null,
@@ -99,10 +99,10 @@
         "worktreeDirty": false
       },
       "lastPublish": {
-        "attemptedAt": 1775476072,
+        "attemptedAt": 1775476145,
         "codeCommit": "84d657319c2d0ad89482991b2ac78f7132ae66d8",
         "coordinationCommit": null,
-        "failure": "git push origin task/shared-coordination-plan-followup failed: To https://github.com/benediktbwimmer/prism.git\n ! [rejected]          task/shared-coordination-plan-followup -> task/shared-coordination-plan-followup (non-fast-forward)\nerror: failed to push some refs to 'https://github.com/benediktbwimmer/prism.git'\nhint: Updates were rejected because the tip of your current branch is behind\nhint: its remote counterpart. Integrate the remote changes (e.g.\nhint: 'git pull ...') before pushing again.\nhint: See the 'Note about fast-forwards' in 'git push --help' for details.",
+        "failure": null,
         "protectedPaths": [],
         "publishRef": "task/shared-coordination-plan-followup",
         "pushedRef": null,
@@ -114,7 +114,7 @@
       "reviewArtifactRef": null,
       "sourceCommit": "84d657319c2d0ad89482991b2ac78f7132ae66d8",
       "sourceRef": "task/shared-coordination-plan-followup",
-      "status": "publish_failed",
+      "status": "publish_pending",
       "targetBranch": "main",
       "targetCommitAtPublish": "a407c78ff2effe393e89daaa628357ba33d90610",
       "targetRef": "origin/main"
@@ -123,7 +123,7 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775483272,
+    "lease_expires_at": 1775483346,
     "lease_holder": {
       "agent_id": "codex-d",
       "principal": {
@@ -132,18 +132,18 @@
         "name": "codex-d",
         "principal_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
       },
-      "session_id": "session:01knh9nj7gwmz4d366s0vm4h6n",
+      "session_id": "session:01knh9y1m1b2hme9d30fmgn002",
       "worktree_id": "worktree:5820c89d186523db"
     },
-    "lease_refreshed_at": 1775476072,
-    "lease_stale_at": 1775477872,
+    "lease_refreshed_at": 1775476146,
+    "lease_stale_at": 1775477946,
     "lease_started_at": 1775436372,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
     "priority": null,
-    "published_task_status": null,
-    "session": "session:01knh9nj7gwmz4d366s0vm4h6n",
+    "published_task_status": "Completed",
+    "session": "session:01knh9y1m1b2hme9d30fmgn002",
     "status": "InProgress",
     "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy.",
     "tags": [],
