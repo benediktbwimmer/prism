@@ -1,0 +1,108 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Daemon startup no longer hydrates unbounded history co-change rows into in-memory runtime state"
+      },
+      {
+        "anchors": [],
+        "label": "Hot runtime memory is bounded by authoritative state plus serving projections rather than cold analytical history"
+      },
+      {
+        "anchors": [],
+        "label": "Startup and restart latency improve measurably on an existing large cache DB"
+      }
+    ],
+    "anchors": [
+      {
+        "File": 104
+      },
+      {
+        "File": 260
+      },
+      {
+        "File": 74
+      },
+      {
+        "File": 86
+      }
+    ],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 608
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 104
+        },
+        {
+          "File": 260
+        },
+        {
+          "File": 74
+        },
+        {
+          "File": 86
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn02mwy8twwr8mcjrc6w60qn"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn02nzdnkxkz5dc3fbmgjfkb",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Startup hydration now loads authoritative history and bounded serving projections only; legacy unbounded co-change history is no longer hydrated into the live daemon, which materially reduced restart memory and startup latency on the previously oversized cache DB.",
+    "tags": [
+      "history",
+      "hydration",
+      "memory",
+      "startup"
+    ],
+    "title": "Remove cold co-change history from hot runtime hydration",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

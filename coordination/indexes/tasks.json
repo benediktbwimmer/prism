@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn02nzdnkxkz5dc3fbmgjfkb",
+    "title": "Remove cold co-change history from hot runtime hydration",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn02nzdnkxkz5dc3fbmgjfkb-5342913bf5283100.json"
+  },
+  {
+    "id": "coord-task:01kn13qykg063n2zc3h5rt507q",
+    "title": "Convert graph snapshots, derived edges, projections, workspace tree state, and compatibility read models into asynchronous coalesced checkpoints and materializations",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13qykg063n2zc3h5rt507q-1d471db890d60878.json"
+  },
+  {
+    "id": "coord-task:01knb0nvvkchbygemh7gxc9b6a",
+    "title": "Add startup boundary observability and validate hot restart timing",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knb0nvvkchbygemh7gxc9b6a-484a7bf3dc8a9f5e.json"
+  },
+  {
+    "id": "coord-task:01knd31v4ya6jc36dc34m9r0mq",
+    "title": "Implement POST /api/v1/mutate through the exact MCP mutation authentication and audit path",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knd31v4ya6jc36dc34m9r0mq-f9a040ac55047366.json"
+  }
+]
