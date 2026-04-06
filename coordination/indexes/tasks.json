@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn3ccwdc8vykc0ctjpsxyn3n",
+    "title": "Harden workspace and path edge cases",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3ccwdc8vykc0ctjpsxyn3n-1a016c156e0e232f.json"
+  },
+  {
+    "id": "coord-task:01kn80bw4gasjmyaxhkd47x116",
+    "title": "Suppress self-writes and patch live runtime state directly on protected-state publishes",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn80bw4gasjmyaxhkd47x116-2498a65ee0ea219d.json"
+  },
+  {
+    "id": "coord-task:8",
+    "title": "Define refresh-runtime invariants and explicit delete list",
+    "status": "Completed",
+    "path": "tasks/coord-task-8-a7fbfd4a1542a493.json"
+  }
+]
