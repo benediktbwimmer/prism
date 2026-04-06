@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn09jed6ybpsksq7d7sp1phw",
+    "title": "Measure and validate the rewrite against startup, incremental latency, memory, and retrieval quality",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kn09jed6ybpsksq7d7sp1phw-3c7eb1823a98f0cd.json"
+  },
+  {
+    "id": "coord-task:01kn88mvdemb54hwcw9wczv19j",
+    "title": "Trace the prism://plans hot path and identify why the warm resource handler still spends about 1.27s outside runtime sync.",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn88mvdemb54hwcw9wczv19j-053edef89a4ab485.json"
+  },
+  {
+    "id": "coord-task:01knc6ffec2vfzbrw66hbmk559",
+    "title": "Rebind git-execution start and completion flows onto the minimal authoritative patch path",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6ffec2vfzbrw66hbmk559-88a68ecbeacab1ec.json"
+  },
+  {
+    "id": "coord-task:01kndb7x9nfk8d9h80sah88y5k",
+    "title": "Add targeted benchmarks and regression validation for coordination mutation latency and failure-path cost",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb7x9nfk8d9h80sah88y5k-42a1494c3b2dc1d8.json"
+  }
+]

@@ -1,0 +1,85 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Recent start and completion traces show git-execution task-state steps using the fast authoritative patch path rather than the generic full persistence wrapper"
+      },
+      {
+        "anchors": [],
+        "label": "Require-mode correctness remains intact for publish intent, branch push, publish failure, and final authoritative publication acknowledgement"
+      },
+      {
+        "anchors": [],
+        "label": "The common start and complete mutation path reaches the new warm latency budget in dogfooding traces"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 189
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knc6dqrewn2hah2p54xya9xw",
+      "coord-task:01knc6dzagp1zbg7ne0df1gyqh",
+      "coord-task:01knc6e8tbctzsqh0ngt4963ak",
+      "coord-task:01knc6egjk5ay9wm7amhm2p86c",
+      "coord-task:01knc6jcs2rn6sj8a60xwqkyxm"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knc6ffec2vfzbrw66hbmk559",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knc64s1zzzxq7x324fms1cyc",
+    "priority": 92,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Move require-mode start and completion workflows onto the new fast authoritative patch path so preflight results, publish intent, publish failure, and final authoritative publication state do not each trigger full coordination persistence and derived-surface regeneration.",
+    "tags": [
+      "git-execution",
+      "performance",
+      "workflow"
+    ],
+    "title": "Rebind git-execution start and completion flows onto the minimal authoritative patch path",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
