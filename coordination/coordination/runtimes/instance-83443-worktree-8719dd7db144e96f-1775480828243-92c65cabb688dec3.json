@@ -11,7 +11,7 @@
     "discoveryMode": "lan_direct",
     "exportPolicy": null,
     "instanceStartedAt": 1775480849,
-    "lastSeenAt": 1775480849,
+    "lastSeenAt": 1775480858,
     "peerEndpoint": "http://127.0.0.1:52695/peer/query",
     "peerTransportIdentity": null,
     "principalId": "legacy_agent_fallback",
