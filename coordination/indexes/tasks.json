@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn3p44q0f2yjwf1nhg936ekj",
+    "title": "Validate the end-to-end principal-authenticated coordination cutover",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p44q0f2yjwf1nhg936ekj-4e38d1a22b8dbc65.json"
+  },
+  {
+    "id": "coord-task:01kndg3q26609fmbrc92hpd2pd",
+    "title": "Remove remaining overview and graph explorer surfaces and align the navigation copy",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndg3q26609fmbrc92hpd2pd-749732fef5d76071.json"
+  }
+]
