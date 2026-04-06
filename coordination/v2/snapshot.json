@@ -50890,8 +50890,8 @@
   "events": [
     {
       "meta": {
-        "id": "coordination:01knhz587xc1c711sv5csrefe9:SessionId--session-01knhz4qcqbfdhfa9c8wy9nfqb--:2",
-        "ts": 1775498338,
+        "id": "coordination:01knjjck7d302c09y285tv7ftf:SessionId--session-01knjjc4f19sdjdteqn6d0d17z--:2",
+        "ts": 1775518502,
         "actor": {
           "Principal": {
             "authority_id": "worktree_executor",
@@ -50901,19 +50901,20 @@
           }
         },
         "correlation": "coord-task:01knhbwetedap4tdgcgz66yfkk",
-        "causation": "coordination:01knhz587thesqy5524qtth5r8:SessionId--session-01knhz4qcqbfdhfa9c8wy9nfqb--:1",
+        "causation": "coordination:01knjjck7a28znw5sz1x3n4qew:SessionId--session-01knjjc4f19sdjdteqn6d0d17z--:1",
         "execution_context": {
           "repo_id": "repo:763c8d2ae95d5376",
           "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
           "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
-          "session_id": "session:01knhz4qcqbfdhfa9c8wy9nfqb",
-          "instance_id": "instance:15508:worktree:38d65972b1359401:1775498213358",
-          "request_id": "22",
+          "session_id": "session:01knjjc4f19sdjdteqn6d0d17z",
+          "instance_id": "instance:51393:worktree:38d65972b1359401:1775518464150",
+          "request_id": "27",
           "work_context": {
-            "workId": "coord-task:01knhbwetedap4tdgcgz66yfkk",
+            "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
             "kind": "coordination",
-            "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
-            "coordinationTaskId": "coord-task:01knhbwetedap4tdgcgz66yfkk",
+            "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+            "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes.",
+            "coordinationTaskId": "coord-task:01knhbwesp16r75m614k3wkksj",
             "planId": "plan:01knhbwesj53rq8f301x6r51qj",
             "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
           }
@@ -50941,7 +50942,7 @@
         "patchValues": {
           "assignee": "codex-a",
           "branchRef": "refs/heads/task/remove-shared-runtime-sqlite",
-          "leaseExpiresAt": 1775505538,
+          "leaseExpiresAt": 1775525702,
           "leaseHolder": {
             "agent_id": "codex-a",
             "principal": {
@@ -50950,20 +50951,20 @@
               "name": "codex-a",
               "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
             },
-            "session_id": "session:01knhz4qcqbfdhfa9c8wy9nfqb",
+            "session_id": "session:01knjjc4f19sdjdteqn6d0d17z",
             "worktree_id": "worktree:38d65972b1359401"
           },
-          "leaseRefreshedAt": 1775498338,
-          "leaseStaleAt": 1775500138,
+          "leaseRefreshedAt": 1775518502,
+          "leaseStaleAt": 1775520302,
           "leaseStartedAt": 1775478127,
-          "session": "session:01knhz4qcqbfdhfa9c8wy9nfqb"
+          "session": "session:01knjjc4f19sdjdteqn6d0d17z"
         }
       }
     },
     {
       "meta": {
-        "id": "coordination:01knhz587thesqy5524qtth5r8:SessionId--session-01knhz4qcqbfdhfa9c8wy9nfqb--:1",
-        "ts": 1775498338,
+        "id": "coordination:01knjjck7a28znw5sz1x3n4qew:SessionId--session-01knjjc4f19sdjdteqn6d0d17z--:1",
+        "ts": 1775518502,
         "actor": {
           "Principal": {
             "authority_id": "worktree_executor",
@@ -50972,20 +50973,21 @@
             "name": "codex-a"
           }
         },
-        "correlation": "coord-task:01knhbwetedap4tdgcgz66yfkk",
+        "correlation": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
         "causation": null,
         "execution_context": {
           "repo_id": "repo:763c8d2ae95d5376",
           "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
           "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
-          "session_id": "session:01knhz4qcqbfdhfa9c8wy9nfqb",
-          "instance_id": "instance:15508:worktree:38d65972b1359401:1775498213358",
-          "request_id": "22",
+          "session_id": "session:01knjjc4f19sdjdteqn6d0d17z",
+          "instance_id": "instance:51393:worktree:38d65972b1359401:1775518464150",
+          "request_id": "27",
           "work_context": {
-            "workId": "coord-task:01knhbwetedap4tdgcgz66yfkk",
+            "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
             "kind": "coordination",
-            "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
-            "coordinationTaskId": "coord-task:01knhbwetedap4tdgcgz66yfkk",
+            "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+            "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes.",
+            "coordinationTaskId": "coord-task:01knhbwesp16r75m614k3wkksj",
             "planId": "plan:01knhbwesj53rq8f301x6r51qj",
             "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
           }
@@ -51009,7 +51011,7 @@
         "patchValues": {
           "baseRevision": {
             "git_commit": null,
-            "graph_version": 344
+            "graph_version": 367
           },
           "leaseHolder": {
             "agent_id": "codex-a",
@@ -51019,7 +51021,7 @@
               "name": "codex-a",
               "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
             },
-            "session_id": "session:01knhz4qcqbfdhfa9c8wy9nfqb",
+            "session_id": "session:01knjjc4f19sdjdteqn6d0d17z",
             "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
           },
           "status": "InProgress",
