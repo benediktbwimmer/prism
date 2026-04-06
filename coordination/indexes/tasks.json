@@ -10,5 +10,11 @@
     "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
     "status": "Ready",
     "path": "tasks/coord-task-01knhbxwdct07x27vadcvbhnp0-d4ae183f94f89dc3.json"
+  },
+  {
+    "id": "coord-task:01knhbywm4bty6bbr9jx1h1csj",
+    "title": "Lock the cutover contract and responsibility map for removing shared runtime SQLite",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbywm4bty6bbr9jx1h1csj-99fdc0695fb9d9cd.json"
   }
 ]
