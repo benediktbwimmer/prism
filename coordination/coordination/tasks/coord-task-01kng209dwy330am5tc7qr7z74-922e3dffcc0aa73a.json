@@ -23,7 +23,7 @@
     "assignee": "codex-a",
     "base_revision": {
       "git_commit": null,
-      "graph_version": 114
+      "graph_version": 167
     },
     "bindings": {
       "anchors": [
@@ -36,7 +36,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": "refs/heads/codex/coordination-graph-rewrite",
+    "branch_ref": "refs/heads/task/coordination-query-mcp-rewrite",
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng1z0tggx52pxg4qvnjkfdw",
@@ -65,33 +65,23 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775480504,
-    "lease_holder": {
-      "agent_id": "codex-a",
-      "principal": {
-        "authority_id": "worktree_executor",
-        "kind": "agent",
-        "name": "codex-a",
-        "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
-      },
-      "session_id": "session:01knh76ayk8pjyf1k9fp1a02cq",
-      "worktree_id": "worktree:38d65972b1359401"
-    },
-    "lease_refreshed_at": 1775473304,
-    "lease_stale_at": 1775475104,
-    "lease_started_at": 1775434212,
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01knh76ayk8pjyf1k9fp1a02cq",
-    "status": "InProgress",
+    "session": "session:01knhhv5cp18238hx3kvta9m2n",
+    "status": "Completed",
     "summary": null,
     "tags": [],
     "title": "Ship the deterministic v1-to-v2 migration path, dual-reader single-writer compatibility window, and compatibility aliases for legacy plan_node_create and plan_edge_create callers",
     "validation_refs": [],
-    "worktree_id": "worktree:38d65972b1359401"
+    "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "schema_version": 1
 }
