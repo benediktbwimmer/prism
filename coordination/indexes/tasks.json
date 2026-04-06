@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn80szsnae110gap6ca3gaqp",
+    "title": "Validate crash logging, bridge auto-recovery, and stale-auth recovery with injected failures",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80szsnae110gap6ca3gaqp-3ac0edfbe8e1f668.json"
+  },
+  {
+    "id": "coord-task:01kn891d13gpz3snkn2k5qfww2",
+    "title": "Validate regenerated projections and refresh live PRISM surfaces",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn891d13gpz3snkn2k5qfww2-321e17ee4d4de291.json"
+  },
+  {
+    "id": "coord-task:01kn9xv2a54t54pbzbbremqrc7",
+    "title": "Remove tracked changes read-path assumptions and redirect operational reports to shared runtime",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9xv2a54t54pbzbbremqrc7-bd684786fb6d98ab.json"
+  },
+  {
+    "id": "coord-task:01kndb8xs46tt2pgt67701jk6d",
+    "title": "Validate representative end-to-end agent workflows using MCP only and close final self-description gaps",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb8xs46tt2pgt67701jk6d-67860a1ba0deb8a1.json"
+  }
+]

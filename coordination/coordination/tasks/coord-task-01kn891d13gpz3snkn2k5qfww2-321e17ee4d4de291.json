@@ -1,0 +1,75 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Full cargo test passes or flakes are isolated per repo policy"
+      },
+      {
+        "anchors": [],
+        "label": "Release binaries are rebuilt and the MCP daemon is restarted if PRISM behavior changed"
+      },
+      {
+        "anchors": [],
+        "label": "Targeted validation passes for the projection implementation"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 52
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn891d13gpz3snkn2k5qfww2",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn89108wb4a78p35krmyn29t",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": null,
+    "tags": [],
+    "title": "Validate regenerated projections and refresh live PRISM surfaces",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
