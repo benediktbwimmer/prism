@@ -10,5 +10,11 @@
     "title": "Remove remaining overview and graph explorer surfaces and align the navigation copy",
     "status": "Completed",
     "path": "tasks/coord-task-01kndg3q26609fmbrc92hpd2pd-749732fef5d76071.json"
+  },
+  {
+    "id": "coord-task:01knhf1m9m357r90x9jyp2syn4",
+    "title": "Decouple persisted anchor and binding semantics from graph-required resolution assumptions",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhf1m9m357r90x9jyp2syn4-2d896c683db2da15.json"
   }
 ]
