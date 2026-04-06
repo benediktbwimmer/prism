@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kmzvjdhbwhnhz1fgkrebe94p",
+    "title": "Milestone 1: Generalize dashboard serving into a top-level Prism app shell",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmzvjdhbwhnhz1fgkrebe94p-dbf96b84e7d8dd81.json"
+  },
+  {
+    "id": "coord-task:01kn11gdk11zw3kmv05j66gdxb",
+    "title": "Route MCP coordination mutations and task-shaped query surfaces through task ownership for task-backed ids",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn11gdk11zw3kmv05j66gdxb-0fc884c5c70d43d7.json"
+  },
+  {
+    "id": "coord-task:01kn3p6wyqn4ecaczcsr51wy1m",
+    "title": "Preserve more co-change fidelity for oversized change sets without reintroducing hot-path blowups",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p6wyqn4ecaczcsr51wy1m-2ed2e3d0c13c1a26.json"
+  },
+  {
+    "id": "coord-task:01kn82pbhvpkb21qpmpwjb046k",
+    "title": "Expose scoped query options and add coverage",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn82pbhvpkb21qpmpwjb046k-7c089da57b576580.json"
+  }
+]
