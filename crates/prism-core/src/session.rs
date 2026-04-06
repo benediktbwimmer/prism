@@ -1203,7 +1203,10 @@ impl WorkspaceSession {
                 .runtime_state
                 .lock()
                 .expect("workspace runtime state lock poisoned");
-            let placeholder = WorkspaceRuntimeState::placeholder_with_layout(state.layout());
+            let placeholder = WorkspaceRuntimeState::placeholder_with_layout_and_capabilities(
+                state.layout(),
+                state.runtime_capabilities,
+            );
             std::mem::replace(&mut *state, placeholder)
         };
         let mut runtime_state = runtime_state;
@@ -1513,6 +1516,7 @@ impl WorkspaceSession {
     #[allow(dead_code)]
     fn recover_runtime_from_persisted_state_locked(&self) -> Result<()> {
         let started = Instant::now();
+        let runtime_capabilities = self.prism_arc().runtime_capabilities();
         let mut store = self.store.lock().expect("workspace store lock poisoned");
         let local_workspace_revision = store.workspace_revision()?;
         let shared_workspace_revision =
@@ -1520,36 +1524,60 @@ impl WorkspaceSession {
                 let mut shared_store = shared_runtime_store
                     .lock()
                     .expect("shared runtime store lock poisoned");
-                sync_repo_protected_state(&self.root, &mut *shared_store)?;
+                if runtime_capabilities.knowledge_storage_enabled() {
+                    sync_repo_protected_state(&self.root, &mut *shared_store)?;
+                }
                 Some(shared_store.workspace_revision()?)
             } else {
-                sync_repo_protected_state(&self.root, &mut *store)?;
+                if runtime_capabilities.knowledge_storage_enabled() {
+                    sync_repo_protected_state(&self.root, &mut *store)?;
+                }
                 None
             };
         let workspace_revision =
             composite_workspace_revision(local_workspace_revision, shared_workspace_revision);
-        let mut graph = store.load_graph()?.unwrap_or_default();
+        let mut graph = if runtime_capabilities.cognition_enabled() {
+            store.load_graph()?.unwrap_or_default()
+        } else {
+            Graph::default()
+        };
         graph.bind_workspace_root(&self.root);
         let layout = discover_layout(&self.root)?;
         sync_root_nodes(&mut graph, &layout);
-        resolve_graph_edges(&mut graph, None);
-        let projection_metadata = store.load_projection_materialization_metadata()?;
-        let local_projection_snapshot = if self.hydrate_persisted_projections {
-            store.load_projection_snapshot()?
-        } else if self.hydrate_persisted_co_change {
-            store.load_projection_snapshot()?
+        if runtime_capabilities.cognition_enabled() {
+            resolve_graph_edges(&mut graph, None);
+        }
+        let projection_metadata = if runtime_capabilities.knowledge_storage_enabled() {
+            store.load_projection_materialization_metadata()?
         } else {
-            store.load_projection_snapshot_without_co_change()?
+            prism_store::ProjectionMaterializationMetadata::default()
         };
-        let load_plan = persisted_projection_load_plan(
-            projection_metadata,
-            self.hydrate_persisted_projections,
-            self.hydrate_persisted_co_change,
-        );
+        let local_projection_snapshot = if runtime_capabilities.knowledge_storage_enabled() {
+            if self.hydrate_persisted_projections {
+                store.load_projection_snapshot()?
+            } else if self.hydrate_persisted_co_change {
+                store.load_projection_snapshot()?
+            } else {
+                store.load_projection_snapshot_without_co_change()?
+            }
+        } else {
+            None
+        };
+        let load_plan = if runtime_capabilities.knowledge_storage_enabled() {
+            persisted_projection_load_plan(
+                projection_metadata,
+                self.hydrate_persisted_projections,
+                self.hydrate_persisted_co_change,
+            )
+        } else {
+            crate::projection_hydration::PersistedProjectionLoadPlan::disabled()
+        };
         let shared_runtime_aliases_workspace_store = self
             .shared_runtime
             .aliases_sqlite_path(&cache_path(&self.root)?);
-        let shared_projection_snapshot = if shared_runtime_aliases_workspace_store {
+        let shared_projection_snapshot = if !runtime_capabilities.knowledge_storage_enabled()
+            || shared_runtime_aliases_workspace_store
+        {
             None
         } else if let Some(shared_runtime_store) = self.shared_runtime_store() {
             let mut shared_store = shared_runtime_store
@@ -1559,39 +1587,49 @@ impl WorkspaceSession {
         } else {
             None
         };
-        let mut history = store
-            .load_history_snapshot_with_options(load_plan.load_history_events)?
-            .map(HistoryStore::from_snapshot)
-            .unwrap_or_else(HistoryStore::new);
-        history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
-        let outcomes = if shared_runtime_aliases_workspace_store {
-            if load_plan.load_full_outcomes {
-                store.load_outcome_snapshot()?
-            } else {
-                store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
-            }
-        } else if let Some(shared_runtime_store) = self.shared_runtime_store() {
-            let mut shared_store = shared_runtime_store
-                .lock()
-                .expect("shared runtime store lock poisoned");
-            if load_plan.load_full_outcomes {
-                prism_store::ColdQueryStore::load_outcome_snapshot(&mut *shared_store)?
-            } else {
-                prism_store::ColdQueryStore::load_recent_outcome_snapshot(
-                    &mut *shared_store,
-                    HOT_OUTCOME_HYDRATION_LIMIT,
-                )?
-            }
+        let mut history = if runtime_capabilities.knowledge_storage_enabled() {
+            store
+                .load_history_snapshot_with_options(load_plan.load_history_events)?
+                .map(HistoryStore::from_snapshot)
+                .unwrap_or_else(HistoryStore::new)
         } else {
-            if load_plan.load_full_outcomes {
-                store.load_outcome_snapshot()?
+            HistoryStore::new()
+        };
+        history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
+        let outcomes = if runtime_capabilities.knowledge_storage_enabled() {
+            if shared_runtime_aliases_workspace_store {
+                if load_plan.load_full_outcomes {
+                    store.load_outcome_snapshot()?
+                } else {
+                    store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
+                }
+            } else if let Some(shared_runtime_store) = self.shared_runtime_store() {
+                let mut shared_store = shared_runtime_store
+                    .lock()
+                    .expect("shared runtime store lock poisoned");
+                if load_plan.load_full_outcomes {
+                    prism_store::ColdQueryStore::load_outcome_snapshot(&mut *shared_store)?
+                } else {
+                    prism_store::ColdQueryStore::load_recent_outcome_snapshot(
+                        &mut *shared_store,
+                        HOT_OUTCOME_HYDRATION_LIMIT,
+                    )?
+                }
             } else {
-                store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
+                if load_plan.load_full_outcomes {
+                    store.load_outcome_snapshot()?
+                } else {
+                    store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
+                }
             }
+            .map(OutcomeMemory::from_snapshot)
+            .unwrap_or_else(OutcomeMemory::new)
+        } else {
+            OutcomeMemory::new()
+        };
+        if runtime_capabilities.knowledge_storage_enabled() {
+            merge_repo_patch_events_into_memory(&self.root, &outcomes)?;
         }
-        .map(OutcomeMemory::from_snapshot)
-        .unwrap_or_else(OutcomeMemory::new);
-        merge_repo_patch_events_into_memory(&self.root, &outcomes)?;
         let plan_state = if self.coordination_enabled {
             if let Some(shared_runtime_store) = self.shared_runtime_store() {
                 let mut shared_store = shared_runtime_store
@@ -1611,8 +1649,16 @@ impl WorkspaceSession {
             .as_ref()
             .map(|state| state.snapshot.clone())
             .unwrap_or_default();
-        let repo_knowledge = load_repo_protected_knowledge(&self.root)?;
-        let protected_knowledge_work = protected_knowledge_recovery_work(&repo_knowledge)?;
+        let repo_knowledge = if runtime_capabilities.knowledge_storage_enabled() {
+            load_repo_protected_knowledge(&self.root)?
+        } else {
+            crate::protected_state::runtime_sync::RepoProtectedKnowledge::default()
+        };
+        let protected_knowledge_work = if runtime_capabilities.knowledge_storage_enabled() {
+            protected_knowledge_recovery_work(&repo_knowledge)?
+        } else {
+            WorkspaceRefreshWork::default()
+        };
         let projections = merged_projection_index(
             local_projection_snapshot,
             shared_projection_snapshot,
@@ -1637,7 +1683,6 @@ impl WorkspaceSession {
                 .map(|state| state.execution_overlays.clone())
                 .unwrap_or_default(),
         )?;
-        let runtime_capabilities = self.prism_arc().runtime_capabilities();
         drop(store);
 
         let runtime_state = WorkspaceRuntimeState::new(

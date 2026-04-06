@@ -2,6 +2,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use prism_coordination::coordination_snapshot_from_events;
+use prism_ir::PrismRuntimeCapabilities;
 use prism_projections::{ConceptPacket, ConceptRelation, ContractPacket};
 use prism_store::{CoordinationCheckpointStore, CoordinationJournal};
 
@@ -20,7 +21,7 @@ use crate::tracked_snapshot::{
     load_relation_snapshots,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) struct RepoProtectedKnowledge {
     pub(crate) curated_concepts: Vec<ConceptPacket>,
     pub(crate) curated_contracts: Vec<ContractPacket>,
@@ -77,6 +78,17 @@ impl ProtectedStateImportSelection {
             && !self.concept_relations
             && !self.contracts
             && !self.plans
+    }
+
+    pub(crate) fn filtered_for_runtime(self, runtime: PrismRuntimeCapabilities) -> Self {
+        Self {
+            memory: self.memory && runtime.knowledge_storage_enabled(),
+            patch_events: self.patch_events && runtime.knowledge_storage_enabled(),
+            concepts: self.concepts && runtime.knowledge_storage_enabled(),
+            concept_relations: self.concept_relations && runtime.knowledge_storage_enabled(),
+            contracts: self.contracts && runtime.knowledge_storage_enabled(),
+            plans: self.plans && runtime.coordination_enabled(),
+        }
     }
 }
 

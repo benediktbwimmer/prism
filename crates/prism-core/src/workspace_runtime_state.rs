@@ -91,7 +91,10 @@ impl WorkspaceRuntimeState {
         Arc::as_ref(&self.layout).clone()
     }
 
-    pub(crate) fn placeholder_with_layout(layout: WorkspaceLayout) -> Self {
+    pub(crate) fn placeholder_with_layout_and_capabilities(
+        layout: WorkspaceLayout,
+        runtime_capabilities: PrismRuntimeCapabilities,
+    ) -> Self {
         Self::new(
             layout,
             Graph::default(),
@@ -102,7 +105,7 @@ impl WorkspaceRuntimeState {
             BTreeMap::new(),
             Vec::new(),
             ProjectionIndex::default(),
-            prism_ir::PrismRuntimeMode::Full.capabilities(),
+            runtime_capabilities,
         )
     }
 

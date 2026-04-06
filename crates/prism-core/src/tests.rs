@@ -11673,6 +11673,245 @@ fn coordination_only_refresh_fs_updates_snapshot_without_graph_indexing() {
 }
 
 #[test]
+fn indexed_coordination_only_session_still_skips_graph_indexing() {
+    let _guard = background_worker_test_guard();
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        session.prism().runtime_capabilities(),
+        PrismRuntimeMode::CoordinationOnly.capabilities()
+    );
+    assert!(session.prism().symbol("alpha").is_empty());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_only_recovery_ignores_repo_memory_and_concept_state() {
+    let _guard = background_worker_test_guard();
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let options = WorkspaceSessionOptions {
+        runtime_mode: PrismRuntimeMode::CoordinationOnly,
+        shared_runtime: SharedRuntimeBackend::Disabled,
+        hydrate_persisted_projections: false,
+        hydrate_persisted_co_change: true,
+    };
+
+    let session = hydrate_workspace_session_with_options(&root, options.clone()).unwrap();
+    session
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:coordination-only-recovery"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:coordination-only-recovery")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Coordinate recovery without protected knowledge".into(),
+                "Coordination-only recovery should ignore repo memory and concepts.".into(),
+                None,
+                None,
+            )
+        })
+        .unwrap();
+    flush_coordination_materializations(&session);
+
+    let mut entry = MemoryEntry::new(MemoryKind::Structural, "repo memory should stay hidden");
+    entry.id = MemoryId("memory:coordination-only-recovery".to_string());
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::User;
+    entry.trust = 0.9;
+    append_repo_memory_event(
+        &root,
+        &MemoryEvent::from_entry(
+            MemoryEventKind::Promoted,
+            entry.clone(),
+            Some("task:coordination-only-recovery".to_string()),
+            Vec::new(),
+            Vec::new(),
+        ),
+    )
+    .unwrap();
+    crate::concept_events::append_repo_concept_event(
+        &root,
+        &ConceptEvent {
+            id: "concept-event:coordination-only-recovery".to_string(),
+            recorded_at: 2,
+            task_id: Some("task:coordination-only-recovery".to_string()),
+            actor: None,
+            execution_context: None,
+            action: ConceptEventAction::Promote,
+            patch: None,
+            concept: ConceptPacket {
+                handle: "concept://coordination_only_hidden".to_string(),
+                canonical_name: "coordination_only_hidden".to_string(),
+                summary: "Should not be visible in coordination-only mode.".to_string(),
+                aliases: vec!["hidden".to_string()],
+                confidence: 0.8,
+                core_members: Vec::new(),
+                core_member_lineages: Vec::new(),
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["coordination-only recovery test".to_string()],
+                risk_hint: None,
+                decode_lenses: vec![ConceptDecodeLens::Open],
+                scope: ConceptScope::Repo,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "coordination_only".to_string(),
+                    task_id: Some("task:coordination-only-recovery".to_string()),
+                },
+                publication: Some(ConceptPublication {
+                    published_at: 2,
+                    last_reviewed_at: Some(2),
+                    status: ConceptPublicationStatus::Active,
+                    supersedes: Vec::new(),
+                    retired_at: None,
+                    retirement_reason: None,
+                }),
+            },
+        },
+    )
+    .unwrap();
+    drop(session);
+
+    let recovered = hydrate_workspace_session_with_options(&root, options).unwrap();
+    assert!(recovered
+        .prism()
+        .coordination_snapshot()
+        .plans
+        .iter()
+        .any(|plan| plan.title == "Coordinate recovery without protected knowledge"));
+    assert!(recovered
+        .memory_events(&MemoryEventQuery {
+            memory_id: Some(entry.id.clone()),
+            focus: Vec::new(),
+            text: None,
+            limit: 5,
+            kinds: None,
+            actions: Some(vec![MemoryEventKind::Promoted]),
+            scope: Some(MemoryScope::Repo),
+            task_id: Some("task:coordination-only-recovery".to_string()),
+            since: None,
+        })
+        .unwrap()
+        .is_empty());
+    assert!(recovered
+        .prism()
+        .curated_concepts_snapshot()
+        .into_iter()
+        .all(|concept| concept.handle != "concept://coordination_only_hidden"));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_only_protected_state_watch_ignores_knowledge_streams() {
+    let _guard = background_worker_test_guard();
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    let mut entry = MemoryEntry::new(MemoryKind::Structural, "ignored protected memory");
+    entry.id = MemoryId("memory:coordination-only-watch".to_string());
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::User;
+    entry.trust = 0.9;
+    append_repo_memory_event(
+        &root,
+        &MemoryEvent::from_entry(
+            MemoryEventKind::Promoted,
+            entry.clone(),
+            Some("task:coordination-only-watch".to_string()),
+            Vec::new(),
+            Vec::new(),
+        ),
+    )
+    .unwrap();
+
+    crate::watch::sync_protected_state_watch_update(
+        &root,
+        &session.published_generation,
+        &session.runtime_state,
+        &session.store,
+        &session.cold_query_store,
+        session.shared_runtime_store.as_ref(),
+        session.shared_runtime.sqlite_path(),
+        &session.refresh_lock,
+        &session.loaded_workspace_revision,
+        session.coordination_enabled,
+        &[
+            crate::protected_state::streams::ProtectedRepoStream::memory_stream("events.jsonl")
+                .expect("memory stream should classify"),
+        ],
+    )
+    .unwrap();
+
+    assert!(session
+        .memory_events(&MemoryEventQuery {
+            memory_id: Some(entry.id),
+            focus: Vec::new(),
+            text: None,
+            limit: 5,
+            kinds: None,
+            actions: Some(vec![MemoryEventKind::Promoted]),
+            scope: Some(MemoryScope::Repo),
+            task_id: Some("task:coordination-only-watch".to_string()),
+            since: None,
+        })
+        .unwrap()
+        .is_empty());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn curator_backend_processes_and_persists_task_boundary_jobs() {
     let _guard = background_worker_test_guard();
     let root = temp_workspace();

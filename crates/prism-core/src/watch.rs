@@ -541,7 +541,10 @@ fn refresh_prism_snapshot_with_guard(
         let mut state = runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned");
-        let placeholder = WorkspaceRuntimeState::placeholder_with_layout(state.layout());
+        let placeholder = WorkspaceRuntimeState::placeholder_with_layout_and_capabilities(
+            state.layout(),
+            state.runtime_capabilities,
+        );
         std::mem::replace(&mut *state, placeholder)
     };
     let mut runtime_state_value = runtime_state_value;
@@ -1320,7 +1323,12 @@ pub(crate) fn sync_protected_state_watch_update(
     coordination_enabled: bool,
     streams: &[ProtectedRepoStream],
 ) -> Result<()> {
-    let selection = ProtectedStateImportSelection::from_streams(streams.iter());
+    let runtime_capabilities = runtime_state
+        .lock()
+        .expect("workspace runtime state lock poisoned")
+        .runtime_capabilities;
+    let selection = ProtectedStateImportSelection::from_streams(streams.iter())
+        .filtered_for_runtime(runtime_capabilities);
     if selection.is_empty() {
         return Ok(());
     }
@@ -1376,7 +1384,8 @@ pub(crate) fn sync_protected_state_watch_update(
         .lock()
         .expect("workspace runtime state lock poisoned")
         .clone();
-    if selection.reloads_projection_knowledge() {
+    if runtime_capabilities.knowledge_storage_enabled() && selection.reloads_projection_knowledge()
+    {
         let repo_knowledge = load_repo_protected_knowledge(root)?;
         next_state
             .projections

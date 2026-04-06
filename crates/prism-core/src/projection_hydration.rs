@@ -7,6 +7,16 @@ pub(crate) struct PersistedProjectionLoadPlan {
     pub(crate) had_complete_derived_snapshot: bool,
 }
 
+impl PersistedProjectionLoadPlan {
+    pub(crate) const fn disabled() -> Self {
+        Self {
+            load_history_events: false,
+            load_full_outcomes: false,
+            had_complete_derived_snapshot: false,
+        }
+    }
+}
+
 pub(crate) fn persisted_projection_load_plan(
     metadata: ProjectionMaterializationMetadata,
     hydrate_persisted_projections: bool,

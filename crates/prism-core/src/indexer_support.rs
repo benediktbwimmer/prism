@@ -61,10 +61,12 @@ pub(crate) fn build_workspace_session(
 ) -> Result<WorkspaceSession> {
     let started = Instant::now();
     let sync_protected_started = Instant::now();
-    if let Some(shared_store) = shared_runtime_store.as_mut() {
-        sync_repo_protected_state(&root, shared_store)?;
-    } else {
-        sync_repo_protected_state(&root, &mut store)?;
+    if runtime_capabilities.knowledge_storage_enabled() {
+        if let Some(shared_store) = shared_runtime_store.as_mut() {
+            sync_repo_protected_state(&root, shared_store)?;
+        } else {
+            sync_repo_protected_state(&root, &mut store)?;
+        }
     }
     let sync_repo_protected_state_ms = sync_protected_started.elapsed().as_millis();
     let workspace_revision_started = Instant::now();

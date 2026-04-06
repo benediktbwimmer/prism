@@ -63,7 +63,10 @@ use std::sync::Arc;
 use anyhow::Result;
 use prism_curator::CuratorBackend;
 use prism_query::Prism;
-use session_bootstrap::hydrate_workspace_session_with_options as bootstrap_workspace_session;
+use session_bootstrap::{
+    hydrate_workspace_session_with_options as bootstrap_workspace_session,
+    index_workspace_session_with_options as bootstrap_indexed_workspace_session,
+};
 
 pub use admission::AdmissionBusyError;
 pub(crate) use indexer::PendingFileParse;
@@ -210,10 +213,7 @@ pub fn index_workspace_session_with_options(
     root: impl AsRef<std::path::Path>,
     options: WorkspaceSessionOptions,
 ) -> Result<WorkspaceSession> {
-    let root = root.as_ref().canonicalize()?;
-    let mut indexer = WorkspaceIndexer::new_with_options(&root, options)?;
-    indexer.index()?;
-    indexer.into_session(root, None)
+    bootstrap_indexed_workspace_session(root, options, None)
 }
 
 pub fn index_workspace_session_with_curator(
@@ -233,10 +233,7 @@ pub fn index_workspace_session_with_curator_and_options(
     backend: Arc<dyn CuratorBackend>,
     options: WorkspaceSessionOptions,
 ) -> Result<WorkspaceSession> {
-    let root = root.as_ref().canonicalize()?;
-    let mut indexer = WorkspaceIndexer::new_with_options(&root, options)?;
-    indexer.index()?;
-    indexer.into_session(root, Some(backend))
+    bootstrap_indexed_workspace_session(root, options, Some(backend))
 }
 
 #[cfg(test)]
