@@ -36,7 +36,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": null,
+    "branch_ref": "refs/heads/codex/coordination-graph-rewrite",
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng1yn34wwn8whre1egw851z"
@@ -73,13 +73,13 @@
     "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
     "priority": null,
     "published_task_status": null,
-    "session": null,
+    "session": "session:01kng7srhy1cyx9rb0eya8gs8d",
     "status": "Completed",
     "summary": "Persisted canonical v2 coordination snapshots through shared refs, checkpoints, hydration, and MCP task/claim mutation paths; validated on rebuilt release binaries with healthy daemon restart.",
     "tags": [],
     "title": "Build v2 shared-ref and SQLite persistence around explicit parent refs, plan operator state, task lifecycle and executor policy, and dependency rows keyed by NodeRef",
     "validation_refs": [],
-    "worktree_id": null
+    "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "schema_version": 1
 }

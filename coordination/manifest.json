@@ -1,37 +1,36 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775474474,
+  "publishedAt": 1775475744,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
+    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
   },
   "workContext": {
-    "workId": "work:ship-deterministic-v1-to-v2-migration-path:01kngcah43xga2sknxx2343j3e",
+    "workId": "coord-task:01kng42700xw977d4tq1ebr30s",
     "kind": "coordination",
-    "title": "Ship deterministic v1-to-v2 migration path",
-    "summary": "Implement deterministic migration from the legacy hybrid coordination model to canonical v2 plus the compatibility window for legacy callers.",
-    "parentWorkId": "work:implement-atomic-coordination-transaction-flow:01kngc3f85nwwf5zaqytqpjjvf",
-    "coordinationTaskId": "coord-task:01kng209dwy330am5tc7qr7z74",
-    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
-    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
+    "title": "Refactor the read path and materializer so the repo-wide summary ref is a compact derived read model with explicit freshness visibility and authoritative fallback reads from shard and runtime refs when needed.",
+    "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy.",
+    "coordinationTaskId": "coord-task:01kng42700xw977d4tq1ebr30s",
+    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
+    "planTitle": "Implement shared coordination v1 architecture hardening"
   },
   "publishSummary": {
-    "title": "Ship deterministic v1-to-v2 migration path",
-    "summary": "Implement deterministic migration from the legacy hybrid coordination model to canonical v2 plus the compatibility window for legacy callers."
+    "title": "Refactor the read path and materializer so the repo-wide summary ref is a compact derived read model with explicit freshness visibility and authoritative fallback reads from shard and runtime refs when needed.",
+    "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy."
   },
   "files": {
     "coordination/tasks/coord-task-01kng1z0tggx52pxg4qvnjkfdw-21f56c59967d326a.json": {
       "path": "coordination/tasks/coord-task-01kng1z0tggx52pxg4qvnjkfdw-21f56c59967d326a.json",
-      "sha256": "sha256:06f6dac1a982b3121d4198b42b2e38567df87dcf5eb5cc79342a4acaf19721e9"
+      "sha256": "sha256:dee764a2305fd7c4ecebdcffe77016865bbfd0f9a9b530fed684807d471c9c3e"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
       "sha256": "sha256:da79b0e32028583b35e87994e91ca467020e26a7414a4125afd248ff3cb027f6"
     }
   },
-  "previousManifestDigest": "sha256:a018d2c2b62ee6e619c91998307f85c86a21be09cde71fba993aa9805483df89",
+  "previousManifestDigest": "sha256:fa27ec7343c7d87059924496e98e86138bf2951b85c602277fbf9bad89941408",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -41,6 +40,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:9SIXQnmOXoF7JB/pn5/9S1wxQvN2HpZDJkWTAzj9CFQDsm9723y+WzoEoc6MRfHMQBuLZcPw6GOkgeQo1rrPAg=="
+    "value": "base64:AnhyeJQ7oWy5Kgb3aPmBy6rPFAKzoiv78j3PhVX8XaCqBZrqNFWvwDgeH38jOrOumOyolN+ANE5L7XAaRKvBCw=="
   }
 }
