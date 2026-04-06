@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn8rmqrchgcb1ym5btdszded",
+    "title": "Lock the logical repo identity contract and naming invariants",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8rmqrchgcb1ym5btdszded-3dd99482c88d51e3.json"
+  },
+  {
+    "id": "coord-task:01knaddcdxvdyh8akrc10b9npw",
+    "title": "Model target integration lifecycle and durable landing evidence",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knaddcdxvdyh8akrc10b9npw-dbffdb3517a4d26f.json"
+  }
+]
