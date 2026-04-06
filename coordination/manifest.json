@@ -1,24 +1,22 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775481810,
+  "publishedAt": 1775481897,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
   },
   "workContext": {
-    "workId": "coord-task:01kng427001ndsrj10d0z5mcez",
+    "workId": "coord-task:01kng42700ea25mhyxa665hh7n",
     "kind": "coordination",
-    "title": "Implement schema-aware semantic merge for refs/prism/** so shared-coordination conflicts are resolved by payload semantics and conflict classification instead of generic Git text merges or blind CAS retry loops.",
-    "summary": "Implemented schema-aware semantic merge for shared coordination refs, wired task/claim/runtime and summary retry paths to the new merge policies, and validated the new retry regression plus existing shared-ref diagnostics on graph revision 566.",
-    "coordinationTaskId": "coord-task:01kng427001ndsrj10d0z5mcez",
+    "title": "Expose diagnostics and operator signals for schema compatibility, summary freshness, per-ref-family CAS retry rates, shard contention, runtime lag, compaction health, and archive state so operators can see when the 1000-agent topology is behaving badly.",
+    "coordinationTaskId": "coord-task:01kng42700ea25mhyxa665hh7n",
     "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
     "planTitle": "Implement shared coordination v1 architecture hardening"
   },
   "publishSummary": {
-    "title": "Implement schema-aware semantic merge for refs/prism/** so shared-coordination conflicts are resolved by payload semantics and conflict classification instead of generic Git text merges or blind CAS retry loops.",
-    "summary": "Implemented schema-aware semantic merge for shared coordination refs, wired task/claim/runtime and summary retry paths to the new merge policies, and validated the new retry regression plus existing shared-ref diagnostics on graph revision 566."
+    "title": "Expose diagnostics and operator signals for schema compatibility, summary freshness, per-ref-family CAS retry rates, shard contention, runtime lag, compaction health, and archive state so operators can see when the 1000-agent topology is behaving badly."
   },
   "files": {
     "coordination/tasks/coord-task-01kmwxtrc6vbrsmv2xx2phnv8k-9f766974541452bf.json": {
@@ -47,14 +45,14 @@
     },
     "coordination/tasks/coord-task-01kng427001ndsrj10d0z5mcez-31bc0a99ab81d568.json": {
       "path": "coordination/tasks/coord-task-01kng427001ndsrj10d0z5mcez-31bc0a99ab81d568.json",
-      "sha256": "sha256:3849a2aec2691b57fb5c387f770e74939291fc573f11d8dbe3a08bf96237a004"
+      "sha256": "sha256:0e6de11d7c41857ce8f5d26260a709a0b382928d7a9927bf1694c66ee6284e63"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
       "sha256": "sha256:0f3e7007cbb9d4623aabaeb2d464c33dbd389f8b95bd7a8fa5d1fa7efebaea35"
     }
   },
-  "previousManifestDigest": "sha256:7c0d1514b38473624362c41cd1de8b81d4e154a776112169582e4cd9a77ea102",
+  "previousManifestDigest": "sha256:03dd815df4f8574ad0dbef683bd9f832fcb4b48b983972de0f74a8fe4ee037f2",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -64,6 +62,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:/FpsR29YsUTvHTXmJAM9frytGmd79VUf/1jSYDBUg5U/kFoEUas6Xt9ErlRNMYEWMlVkM/bnda1DvcuRAe6kAg=="
+    "value": "base64:aJvUoFclxxS04XtVP5rH1YEJDa/R8eaMnddBaZHbMgIuXpHrwi52Sdun5tJhGmKEo/ByFJ1zPONvBcvL3i+EDQ=="
   }
 }
