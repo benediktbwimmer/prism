@@ -1,36 +1,36 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775476284,
+  "publishedAt": 1775476310,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
+    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
   },
   "workContext": {
-    "workId": "work:ship-deterministic-v1-to-v2-migration-path:01knh793qggqjva8647mzz7q7f",
+    "workId": "coord-task:01kng42700xw977d4tq1ebr30s",
     "kind": "coordination",
-    "title": "Ship deterministic v1-to-v2 migration path",
-    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite.",
-    "coordinationTaskId": "coord-task:01kng209dwy330am5tc7qr7z74",
-    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
-    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
+    "title": "Refactor the read path and materializer so the repo-wide summary ref is a compact derived read model with explicit freshness visibility and authoritative fallback reads from shard and runtime refs when needed.",
+    "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy.",
+    "coordinationTaskId": "coord-task:01kng42700xw977d4tq1ebr30s",
+    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
+    "planTitle": "Implement shared coordination v1 architecture hardening"
   },
   "publishSummary": {
-    "title": "Ship deterministic v1-to-v2 migration path",
-    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite."
+    "title": "Refactor the read path and materializer so the repo-wide summary ref is a compact derived read model with explicit freshness visibility and authoritative fallback reads from shard and runtime refs when needed.",
+    "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy."
   },
   "files": {
     "coordination/tasks/coord-task-01kng209dwy330am5tc7qr7z74-922e3dffcc0aa73a.json": {
       "path": "coordination/tasks/coord-task-01kng209dwy330am5tc7qr7z74-922e3dffcc0aa73a.json",
-      "sha256": "sha256:8ea3b407544b35738fb148dcf61d6f5e76a0367465305dd94b752fd3169bd04f"
+      "sha256": "sha256:63d270309c153e4cdbfeb7492c9e039e1b518220dfec1ce8fb1bf4446f1dfd0a"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
       "sha256": "sha256:20bf4de4a9a5643512d6564a09855de1222bac11be3f0fe918f5aab039dc56f6"
     }
   },
-  "previousManifestDigest": "sha256:94257d6306f7fba8e7bc37f95c1d569af0d7e68bccb198ea2c373d1659ca7493",
+  "previousManifestDigest": "sha256:898fccb67188c0dcd3216854486bafc7ec3e1f4cb8d9492b18851ff953533c01",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -40,6 +40,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:evOjD63neaJNEVypikB+6MnGX40EMxpUwB6mZD6MXyl46MdUkGu7hBtznz6PQpUF67ku29OCg3TiTmzyq5xhBg=="
+    "value": "base64:C5NyJRzyp40MaJFMBloxNuMj0oJ3aVS7TjyPjJWXE+2HUlrztZSZ37h3ttAdauMtau4hpjJLwsjnH0QsdjFSCg=="
   }
 }
