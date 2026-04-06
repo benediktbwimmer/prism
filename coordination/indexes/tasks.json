@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn3g2b6expme2z26e91r8n9a",
+    "title": "Turn repairAction guidance into one-hop safe session repairs",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2b6expme2z26e91r8n9a-45c394cde47fdd59.json"
+  },
+  {
+    "id": "coord-task:01kn88n9bxjefsmjc8pqv1dhcq",
+    "title": "Profile the shared compact-tool hot path behind prism_open, prism_workset, prism_locate, and prism_gather.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn88n9bxjefsmjc8pqv1dhcq-d457c134e99a1c5c.json"
+  },
+  {
+    "id": "coord-task:01knavc6b8qhznt2e1yrn7mmwh",
+    "title": "Demote branch-local shared coordination mirrors to minimal derived exports",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knavc6b8qhznt2e1yrn7mmwh-e818733c2ee8095f.json"
+  },
+  {
+    "id": "coord-task:01kng213sqtqtx0b9z20eqbnyn",
+    "title": "Remove legacy execution-plan storage and compatibility-era authored graph constructs after the repo is v2-clean, including root_tasks, durable native plan nodes, and non-dependency execution edge kinds",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kng213sqtqtx0b9z20eqbnyn-ffddc3d9ebf566ef.json"
+  }
+]
