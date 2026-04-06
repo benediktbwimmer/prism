@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn3p6jbrntr931d9tqn8xrwk",
+    "title": "Profile the remaining large-edit hot path from live daemon evidence",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p6jbrntr931d9tqn8xrwk-3ec163765084a1a6.json"
+  },
+  {
+    "id": "coord-task:01knc6egjk5ay9wm7amhm2p86c",
+    "title": "Make shared coordination ref publication incremental over touched objects and indexes",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6egjk5ay9wm7amhm2p86c-6ec344e4251ce069.json"
+  }
+]

@@ -1,0 +1,81 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Small authoritative mutations no longer rewrite the full shared coordination staging tree"
+      },
+      {
+        "anchors": [],
+        "label": "Manifest generation and object publication reuse prior state for untouched files wherever correctness allows"
+      },
+      {
+        "anchors": [],
+        "label": "CAS retry and reconciliation still converge correctly when concurrent writers touch disjoint or overlapping coordination objects"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 189
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knc6d53pww48ryg7se29dp3y"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knc6egjk5ay9wm7amhm2p86c",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knc64s1zzzxq7x324fms1cyc",
+    "priority": 93,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Replace full shared-coordination restaging on each publish with incremental object and index updates keyed by the touched plans, tasks, claims, artifacts, and reviews so the authoritative CAS publish itself becomes much cheaper under normal small mutations.",
+    "tags": [
+      "cas",
+      "incremental",
+      "shared-ref"
+    ],
+    "title": "Make shared coordination ref publication incremental over touched objects and indexes",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
