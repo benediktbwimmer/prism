@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn55feg438a0sr325zc2k313",
+    "title": "Validate refresh latency against the document budgets and publish residual gaps",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55feg438a0sr325zc2k313-d17f4010ee7e7c75.json"
+  },
+  {
+    "id": "coord-task:01kn7kd857b3amezy4qd3v253j",
+    "title": "Validate deterministic rebuilds, cold-clone behavior, and latency/freshness guarantees",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd857b3amezy4qd3v253j-620d9d8bf4e2080e.json"
+  },
+  {
+    "id": "coord-task:01kn8n9ssejh5kkx8zb4hjxt09",
+    "title": "Audit remaining git execution gaps after the merged implementation",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn8n9ssejh5kkx8zb4hjxt09-6473d79e7051409a.json"
+  },
+  {
+    "id": "coord-task:01knd39n0f591864kc4p6aj3dd",
+    "title": "Expose active local principal binding and operator identity in the UI session payload",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knd39n0f591864kc4p6aj3dd-6f76b1f6ba93570f.json"
+  }
+]
