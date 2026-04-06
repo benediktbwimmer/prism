@@ -8228,6 +8228,261 @@ fn coordination_only_blockers_skip_graph_derived_risk_augmentation() {
 }
 
 #[test]
+fn coordination_only_native_plan_blockers_skip_graph_derived_risk_but_keep_authored_checks() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+
+    let outcomes = OutcomeMemory::new();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:native-risk"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:native-risk")),
+                causation: None,
+                execution_context: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "alpha changes usually fail validation".into(),
+            evidence: vec![OutcomeEvidence::Test {
+                name: "alpha_integration".into(),
+                passed: false,
+            }],
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:coordination-only-native-blockers"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Coordination-only native blockers".into(),
+                goal: "Skip graph-derived native risk in coordination-only mode".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    require_validation_for_completion: true,
+                    review_required_above_risk_score: Some(0.2),
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let node_id = PlanNodeId::new("plan-node:coordination-only-native-blockers");
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        outcomes,
+        coordination.snapshot(),
+        ProjectionIndex::default(),
+        vec![PlanGraph {
+            id: plan_id.clone(),
+            scope: PlanScope::Repo,
+            kind: PlanKind::Migration,
+            title: "Coordination-only native blockers graph".into(),
+            goal: "Skip graph-derived native risk in coordination-only mode".into(),
+            status: PlanStatus::Active,
+            revision: 1,
+            root_nodes: vec![node_id.clone()],
+            tags: Vec::new(),
+            created_from: None,
+            metadata: serde_json::Value::Null,
+            nodes: vec![PlanNode {
+                id: node_id.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Edit,
+                title: "Edit alpha".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding {
+                    anchors: vec![AnchorRef::Node(alpha.clone())],
+                    ..prism_ir::PlanBinding::default()
+                },
+                acceptance: vec![prism_ir::PlanAcceptanceCriterion {
+                    label: "graph-authored validation".into(),
+                    anchors: Vec::new(),
+                    required_checks: vec![prism_ir::ValidationRef {
+                        id: "test:graph-authored".into(),
+                    }],
+                    evidence_policy: prism_ir::AcceptanceEvidencePolicy::ValidationOnly,
+                }],
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            }],
+            edges: Vec::new(),
+        }],
+        BTreeMap::new(),
+    );
+
+    let full_blockers = prism.plan_node_blockers(&plan_id, &node_id);
+    assert!(full_blockers
+        .iter()
+        .any(|blocker| blocker.kind == PlanNodeBlockerKind::RiskReviewRequired));
+    assert!(full_blockers
+        .iter()
+        .any(|blocker| blocker.kind == PlanNodeBlockerKind::ValidationRequired));
+
+    prism.set_runtime_capabilities(PrismRuntimeMode::CoordinationOnly.capabilities());
+
+    let coordination_only_blockers = prism.plan_node_blockers(&plan_id, &node_id);
+    assert!(!coordination_only_blockers
+        .iter()
+        .any(|blocker| blocker.kind == PlanNodeBlockerKind::RiskReviewRequired));
+    let validation_blocker = coordination_only_blockers
+        .iter()
+        .find(|blocker| blocker.kind == PlanNodeBlockerKind::ValidationRequired)
+        .expect("coordination-only native blockers should keep authored validation checks");
+    assert_eq!(
+        validation_blocker.validation_checks,
+        vec!["test:graph-authored"]
+    );
+}
+
+#[test]
+fn coordination_only_artifact_risk_uses_artifact_fields_without_cognition() {
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:coordination-only-artifact-risk"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Coordination-only artifact risk".into(),
+                goal: "Artifact risk should not require cognition".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    review_required_above_risk_score: Some(0.2),
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:coordination-only-artifact-risk"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id,
+                title: "Edit alpha".into(),
+                status: None,
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+    let (artifact_id, _) = coordination
+        .propose_artifact(
+            EventMeta {
+                id: EventId::new("coord:artifact:coordination-only-artifact-risk"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            ArtifactProposeInput {
+                task_id: task_id.clone(),
+                anchors: Vec::new(),
+                diff_ref: Some("patch:artifact-risk".into()),
+                evidence: Vec::new(),
+                base_revision: WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                required_validations: vec!["test:artifact-check".into()],
+                validated_checks: Vec::new(),
+                risk_score: Some(0.7),
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap();
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        coordination.snapshot(),
+        ProjectionIndex::default(),
+    );
+    prism.set_runtime_capabilities(PrismRuntimeMode::CoordinationOnly.capabilities());
+
+    let artifact_risk = prism
+        .artifact_risk(&artifact_id, 5)
+        .expect("coordination-only artifact risk should use artifact fields");
+    assert_eq!(artifact_risk.task_id, task_id);
+    assert_eq!(artifact_risk.risk_score, 0.7);
+    assert!(artifact_risk.review_required);
+    assert_eq!(
+        artifact_risk.required_validations,
+        vec!["test:artifact-check"]
+    );
+    assert_eq!(
+        artifact_risk.missing_validations,
+        vec!["test:artifact-check"]
+    );
+    assert!(artifact_risk.contracts.is_empty());
+    assert!(artifact_risk.contract_review_notes.is_empty());
+    assert!(artifact_risk.co_change_neighbors.is_empty());
+    assert!(artifact_risk.risk_events.is_empty());
+}
+
+#[test]
 fn exposes_intent_links_and_task_intent() {
     let mut graph = Graph::new();
     let spec = NodeId::new(

@@ -206,6 +206,37 @@ impl Prism {
 
     pub fn artifact_risk(&self, artifact_id: &ArtifactId, now: Timestamp) -> Option<ArtifactRisk> {
         let artifact = self.coordinating_artifact(artifact_id)?;
+        if !self.runtime_capabilities().cognition_enabled() {
+            let required_validations = artifact.required_validations.clone();
+            let validated_checks = dedupe_strings(artifact.validated_checks.clone());
+            let missing_validations = required_validations
+                .iter()
+                .filter(|check| !validated_checks.iter().any(|value| value == *check))
+                .cloned()
+                .collect::<Vec<_>>();
+            let risk_score = artifact.risk_score.unwrap_or_default();
+            let review_required = self
+                .coordination_task(&artifact.task)
+                .and_then(|task| self.coordination_plan(&task.plan))
+                .and_then(|plan| plan.policy.review_required_above_risk_score)
+                .map(|threshold| risk_score >= threshold)
+                .unwrap_or(false);
+            return Some(ArtifactRisk {
+                artifact_id: artifact.id.clone(),
+                task_id: artifact.task.clone(),
+                risk_score,
+                review_required,
+                stale: artifact.base_revision.graph_version
+                    < self.workspace_revision().graph_version,
+                required_validations,
+                validated_checks,
+                missing_validations,
+                co_change_neighbors: Vec::new(),
+                risk_events: Vec::new(),
+                contracts: Vec::new(),
+                contract_review_notes: Vec::new(),
+            });
+        }
         let task_risk = self.task_risk(&artifact.task, now)?;
         let (contracts, contract_review_notes) = if artifact.anchors.is_empty() {
             (

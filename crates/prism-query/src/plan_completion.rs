@@ -208,11 +208,12 @@ impl Prism {
             });
         }
 
-        let impact = self.impact_for_anchors(&node.bindings.anchors);
-        let risk_score = score_change_impact(
-            &impact,
-            stale_workspace_binding || !stale_artifact_ids.is_empty(),
-        );
+        let impact = if self.runtime_capabilities().cognition_enabled() {
+            self.impact_for_anchors(&node.bindings.anchors)
+        } else {
+            crate::ChangeImpact::default()
+        };
+        let risk_score = score_change_impact(&impact, stale_workspace_binding);
 
         if policy.require_review_for_completion && approved_artifacts.is_empty() {
             blockers.push(PlanNodeBlocker {
