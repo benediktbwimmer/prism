@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn7cz3g0ks84qsqz565pfen9",
+    "title": "Trim daemon startup and recovery fixed costs",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7cz3g0ks84qsqz565pfen9-80405b40b5996e80.json"
+  },
+  {
+    "id": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9vd88apgdq35f4hr9tmsss-ff41bf160cc41b2a.json"
+  }
+]
