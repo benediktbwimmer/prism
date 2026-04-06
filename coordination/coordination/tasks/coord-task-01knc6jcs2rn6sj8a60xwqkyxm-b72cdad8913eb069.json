@@ -1,0 +1,81 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Task-scoped authoritative patches no longer require the generic full coordination mutation wrapper"
+      },
+      {
+        "anchors": [],
+        "label": "Git-execution micro-updates can patch a single task plus its execution overlay without rebuilding unrelated coordination state"
+      },
+      {
+        "anchors": [],
+        "label": "CAS conflict handling and retry semantics remain correct for concurrent patches to other tasks or plans"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 189
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knc6d53pww48ryg7se29dp3y"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knc6jcs2rn6sj8a60xwqkyxm",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knc64s1zzzxq7x324fms1cyc",
+    "priority": 97,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Introduce a narrow task-patch write path for micro-updates such as preflight status, publish intent, publish failure, authoritative publish acknowledgement, and small task status transitions so git-execution flows stop routing each step through the full generic coordination persistence pipeline.",
+    "tags": [
+      "coordination",
+      "git-execution",
+      "hot-path"
+    ],
+    "title": "Add a task-scoped fast-path patch API for git-execution and status micro-updates",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
