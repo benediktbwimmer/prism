@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn3p6jdzqwasz42a35dahesz",
+    "title": "Validate the large-edit follow-up on the live daemon log",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p6jdzqwasz42a35dahesz-d3ab2df0aaa00888.json"
+  },
+  {
+    "id": "coord-task:01kn5ydezjztsey6m03tvhrgn3",
+    "title": "Build the shared protected-stream append and verify engine",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydezjztsey6m03tvhrgn3-c8691be5a806bc36.json"
+  }
+]

@@ -1,0 +1,102 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Protected streams are verified as `Verified`, `LegacyUnsigned`, `UnknownTrust`, `Tampered`, `Corrupt`, `Truncated`, `Conflict`, or `MigrationRequired`."
+      },
+      {
+        "anchors": [],
+        "label": "Append rejects orphan tails, duplicate ids, bad predecessor hashes, and non-verified stream states."
+      },
+      {
+        "anchors": [],
+        "label": "Legacy migration emits a signed `LegacyImported` baseline and archives unsigned bytes outside repo `.prism`."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 100
+      },
+      {
+        "File": 340
+      },
+      {
+        "File": 99
+      }
+    ],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 359
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 100
+        },
+        {
+          "File": 340
+        },
+        {
+          "File": 99
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn5ydewgd87bncbkdehbrd41",
+      "coord-task:01kn5ydey4tjr0n6na2ymkejfj"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn5ydezjztsey6m03tvhrgn3",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn5y6qqpxt3qaecccg12h03e",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Implemented canonical JCS hashing, Ed25519 protected envelopes, protected JSONL append/verify classification, predecessor chaining, tamper/conflict/truncation detection, and deterministic legacy migration primitives.",
+    "tags": [
+      "migration",
+      "protected-state",
+      "verification"
+    ],
+    "title": "Build the shared protected-stream append and verify engine",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
