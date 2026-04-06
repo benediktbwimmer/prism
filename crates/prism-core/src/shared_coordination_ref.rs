@@ -11,9 +11,11 @@ use base64::Engine;
 use ed25519_dalek::{Signer, Verifier};
 use prism_coordination::{
     execution_overlays_from_tasks, migrate_legacy_hybrid_snapshot_to_canonical_v2,
-    plan_graph_from_coordination, Artifact, ArtifactReview, CoordinationSnapshot,
-    CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor, RuntimeDescriptorCapability,
-    WorkClaim, COORDINATION_SCHEMA_V2,
+    plan_graph_from_coordination, reconcile_artifact_records, reconcile_claim_records,
+    reconcile_plan_records, reconcile_review_records, reconcile_runtime_descriptor_records,
+    reconcile_task_records, Artifact, ArtifactReview, CoordinationSnapshot, CoordinationSnapshotV2,
+    CoordinationTask, Plan, RuntimeDescriptor, RuntimeDescriptorCapability, WorkClaim,
+    COORDINATION_SCHEMA_V2,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkContextKind, WorkContextSnapshot};
 use prism_store::CoordinationStartupCheckpointAuthority;
@@ -1241,9 +1243,7 @@ fn sync_task_shard_refs(
         sync_task_objects,
         rebuild_task_index,
         load_task_records_from_ref_lenient,
-        |baseline, desired, latest| {
-            reconcile_collection(baseline, desired, latest, |task| task.id.0.as_str(), "task")
-        },
+        reconcile_task_records,
     )
 }
 
@@ -1273,15 +1273,7 @@ fn sync_claim_shard_refs(
         sync_claim_objects,
         rebuild_claim_index,
         load_claim_records_from_ref_lenient,
-        |baseline, desired, latest| {
-            reconcile_collection(
-                baseline,
-                desired,
-                latest,
-                |claim| claim.id.0.as_str(),
-                "claim",
-            )
-        },
+        reconcile_claim_records,
     )
 }
 
@@ -1318,15 +1310,7 @@ fn sync_runtime_descriptor_ref(
         sync_runtime_descriptor_objects,
         rebuild_runtime_descriptor_index,
         load_runtime_descriptor_records_from_ref_lenient,
-        |baseline, desired, latest| {
-            reconcile_collection(
-                baseline,
-                desired,
-                latest,
-                |descriptor| descriptor.runtime_id.as_str(),
-                "runtime descriptor",
-            )
-        },
+        reconcile_runtime_descriptor_records,
     );
     let _ = fs::remove_dir_all(&stage_dir);
     result
@@ -2160,26 +2144,20 @@ fn reconcile_shared_coordination_ref_state(
         .cloned()
         .unwrap_or_else(empty_shared_coordination_ref_state);
 
-    let plans = reconcile_collection(
+    let plans = reconcile_plan_records(
         &baseline.snapshot.plans,
         &desired_snapshot.plans,
         &latest.snapshot.plans,
-        |plan| plan.id.0.as_str(),
-        "plan",
     )?;
-    let artifacts = reconcile_collection(
+    let artifacts = reconcile_artifact_records(
         &baseline.snapshot.artifacts,
         &desired_snapshot.artifacts,
         &latest.snapshot.artifacts,
-        |artifact| artifact.id.0.as_str(),
-        "artifact",
     )?;
-    let reviews = reconcile_collection(
+    let reviews = reconcile_review_records(
         &baseline.snapshot.reviews,
         &desired_snapshot.reviews,
         &latest.snapshot.reviews,
-        |review| review.id.0.as_str(),
-        "review",
     )?;
 
     let snapshot = CoordinationSnapshot {
@@ -2268,76 +2246,6 @@ where
         merged.insert(id_for(value).to_string(), value.clone());
     }
     merged.into_values().collect()
-}
-
-fn reconcile_collection<T, F>(
-    baseline: &[T],
-    desired: &[T],
-    latest: &[T],
-    key_for: F,
-    kind: &str,
-) -> Result<Vec<T>>
-where
-    T: Clone + PartialEq,
-    F: Fn(&T) -> &str,
-{
-    let baseline_map = baseline
-        .iter()
-        .cloned()
-        .map(|value| (key_for(&value).to_string(), value))
-        .collect::<BTreeMap<_, _>>();
-    let desired_map = desired
-        .iter()
-        .cloned()
-        .map(|value| (key_for(&value).to_string(), value))
-        .collect::<BTreeMap<_, _>>();
-    let latest_map = latest
-        .iter()
-        .cloned()
-        .map(|value| (key_for(&value).to_string(), value))
-        .collect::<BTreeMap<_, _>>();
-
-    let mut result = latest_map.clone();
-    let touched_ids = baseline_map
-        .keys()
-        .chain(desired_map.keys())
-        .cloned()
-        .collect::<BTreeSet<_>>();
-
-    for id in touched_ids {
-        let baseline_value = baseline_map.get(&id);
-        let desired_value = desired_map.get(&id);
-        if baseline_value == desired_value {
-            continue;
-        }
-        let latest_value = latest_map.get(&id);
-        match (baseline_value, desired_value, latest_value) {
-            (Some(base), Some(desired), Some(latest)) if latest == base || latest == desired => {
-                result.insert(id, desired.clone());
-            }
-            (Some(base), Some(desired), None) if desired == base => {}
-            (None, Some(desired), None) => {
-                result.insert(id, desired.clone());
-            }
-            (None, Some(desired), Some(latest)) if latest == desired => {
-                result.insert(id, desired.clone());
-            }
-            (Some(base), None, Some(latest)) if latest == base => {
-                result.remove(&id);
-            }
-            (Some(_base), None, None) => {
-                result.remove(&id);
-            }
-            (None, None, _) => {}
-            _ => {
-                return Err(anyhow!(
-                    "shared coordination ref {kind} `{id}` changed concurrently and cannot be retried safely"
-                ));
-            }
-        }
-    }
-
-    Ok(result.into_values().collect())
 }
 
 fn overlay_records<T, F>(baseline: &[T], desired: &[T], key_for: F) -> Vec<T>
@@ -5395,6 +5303,87 @@ mod tests {
         assert_eq!(
             diagnostics.publish_retry_budget,
             super::SHARED_COORDINATION_PUSH_MAX_RETRIES as u32
+        );
+    }
+
+    #[test]
+    fn shared_coordination_publish_retry_semantically_merges_concurrent_task_updates() {
+        let (root_a, _remote) = temp_git_repo_with_origin();
+        let root_b = temp_git_worktree(&root_a);
+        let (base_snapshot, _base_graph, _base_execution_map) =
+            sample_snapshot_for("plan:semantic-retry", "coord-task:semantic-retry");
+        super::sync_task_shard_refs(
+            &root_a,
+            &base_snapshot.tasks,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
+
+        let shard = super::shared_coordination_shard_key(base_snapshot.tasks[0].id.0.as_str());
+        let ref_name = super::shared_coordination_task_shard_ref_name(&root_b, &shard);
+        let expected_head = super::refresh_local_shared_coordination_ref(
+            &root_b,
+            super::shared_coordination_remote_name(),
+            &ref_name,
+        )
+        .unwrap();
+        let baseline_records =
+            super::load_task_records_from_ref_lenient(&root_b, &ref_name).unwrap();
+
+        let mut snapshot_a = base_snapshot.clone();
+        snapshot_a.tasks[0].status = CoordinationTaskStatus::Validating;
+        snapshot_a.tasks[0]
+            .validation_refs
+            .push(prism_ir::ValidationRef {
+                id: "test:remote".to_string(),
+            });
+        snapshot_a.tasks[0].metadata = serde_json::json!({ "remote": true });
+        super::sync_task_shard_refs(&root_a, &snapshot_a.tasks, Some(&sample_publish_context()))
+            .unwrap();
+
+        let mut snapshot_b = base_snapshot.clone();
+        snapshot_b.tasks[0].status = CoordinationTaskStatus::Completed;
+        snapshot_b.tasks[0].tags.push("local".to_string());
+        snapshot_b.tasks[0].metadata = serde_json::json!({ "local": true });
+        let paths_b = crate::PrismPaths::for_workspace_root(&root_b).unwrap();
+        let stage_parent = super::stage_root(&paths_b);
+        fs::create_dir_all(&stage_parent).unwrap();
+        let stage_dir = stage_parent.join("semantic-task-retry-stage");
+        let _ = fs::remove_dir_all(&stage_dir);
+        fs::create_dir_all(&stage_dir).unwrap();
+        super::sync_sharded_coordination_records_inner(
+            &root_b,
+            &stage_dir,
+            snapshot_b.tasks.clone(),
+            Some(&sample_publish_context()),
+            &ref_name,
+            expected_head.as_deref(),
+            &baseline_records,
+            |task| task.id.0.as_str(),
+            super::sync_task_objects,
+            super::rebuild_task_index,
+            super::load_task_records_from_ref_lenient,
+            prism_coordination::reconcile_task_records,
+        )
+        .unwrap();
+
+        let local_task = super::load_task_records_from_ref_lenient(
+            &root_b,
+            &super::shared_coordination_task_shard_ref_name(&root_b, &shard),
+        )
+        .unwrap()
+        .into_iter()
+        .find(|task| task.id.0 == "coord-task:semantic-retry")
+        .expect("merged task should exist locally after retry");
+        assert_eq!(local_task.status, CoordinationTaskStatus::Completed);
+        assert!(local_task.tags.iter().any(|tag| tag == "local"));
+        assert!(local_task
+            .validation_refs
+            .iter()
+            .any(|validation| validation.id == "test:remote"));
+        assert_eq!(
+            local_task.metadata,
+            serde_json::json!({ "local": true, "remote": true })
         );
     }
 
