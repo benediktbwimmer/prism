@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01knavehyd4a49fk7b4rnjxz67",
+    "title": "Complete auto_pr mode with review artifact creation, update flow, and post-land verification",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knavehyd4a49fk7b4rnjxz67-1b7d4ec5bf54ee99.json"
+  },
+  {
+    "id": "coord-task:01knavpwvj8r99x8yarrsam19g",
+    "title": "Finish compaction, archive-boundary trust continuity, and operator diagnostics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knavpwvj8r99x8yarrsam19g-21e7f6bd45c08f6b.json"
+  }
+]

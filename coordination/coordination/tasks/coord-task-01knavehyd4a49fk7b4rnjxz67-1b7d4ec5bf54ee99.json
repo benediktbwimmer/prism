@@ -1,0 +1,81 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "`auto_pr` mode can create or update the review artifact and persist the linkage on the task durably."
+      },
+      {
+        "anchors": [],
+        "label": "Policy-approved merge automation can be enabled and its result observed without losing integration evidence."
+      },
+      {
+        "anchors": [],
+        "label": "Failures leave an actionable retry state instead of collapsing to a generic pending status."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 269
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knavdeaf5qs3zp6vycxgkg9t"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knavehyd4a49fk7b4rnjxz67",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knav51cj8vgw0zp49qgktzps",
+    "priority": 94,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Implement the autonomous PR mode end to end so PRISM can create or refresh review artifacts, drive merge enablement within policy, and verify the eventual landing on the target branch.",
+    "tags": [
+      "auto-pr",
+      "integration",
+      "shared-ref"
+    ],
+    "title": "Complete auto_pr mode with review artifact creation, update flow, and post-land verification",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

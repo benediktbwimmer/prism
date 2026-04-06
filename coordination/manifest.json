@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "kind": "coordination_manifest",
+  "publishedAt": 1775448521,
+  "publisher": {
+    "principalAuthorityId": "worktree_executor",
+    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
+  },
+  "workContext": {
+    "workId": "coord-task:01kng427002152wgffzt627rta",
+    "kind": "coordination",
+    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
+    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics.",
+    "coordinationTaskId": "coord-task:01kng427002152wgffzt627rta",
+    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
+    "planTitle": "Implement shared coordination v1 architecture hardening"
+  },
+  "publishSummary": {
+    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
+    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics."
+  },
+  "files": {
+    "coordination/tasks/coord-task-01knavehyd4a49fk7b4rnjxz67-1b7d4ec5bf54ee99.json": {
+      "path": "coordination/tasks/coord-task-01knavehyd4a49fk7b4rnjxz67-1b7d4ec5bf54ee99.json",
+      "sha256": "sha256:fc3ebcd1d953e7d28111f158c8ced97dbc4ff543d48ce6a1bde84139e9d997f0"
+    },
+    "coordination/tasks/coord-task-01knavpwvj8r99x8yarrsam19g-21e7f6bd45c08f6b.json": {
+      "path": "coordination/tasks/coord-task-01knavpwvj8r99x8yarrsam19g-21e7f6bd45c08f6b.json",
+      "sha256": "sha256:87a37b221cbbf4fbec9ccb81aef103c42b0c195b662a5440d63e9662f3097562"
+    },
+    "indexes/tasks.json": {
+      "path": "indexes/tasks.json",
+      "sha256": "sha256:611d667365fbb13687eabaed499e3dddd9da7e344feafa84e4a01f5eae44b715"
+    }
+  },
+  "publishDiagnostics": {
+    "retryCount": 0,
+    "retryBudget": 3
+  },
+  "signature": {
+    "algorithm": "ed25519",
+    "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
+    "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
+    "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
+    "value": "base64:ZVlWXBXbwt6v7aQfmrSEfQszFOMK0vdLY2qrUJs2tIs0rwF7O5dNzdDZv1m5tamEG/h4xbgOhNxVZK55hFEmAw=="
+  }
+}
