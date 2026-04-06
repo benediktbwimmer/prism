@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn0yba1epg1zwxbfpwevnyva",
+    "title": "Remove full-log snapshot reloads from auxiliary persistence",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0yba1epg1zwxbfpwevnyva-cb4145699a99a1bb.json"
+  },
+  {
+    "id": "coord-task:01kn46t37cc06aaktw6z4rtsbm",
+    "title": "Split store interfaces so shared runtime and local semantic cache expose different capabilities",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn46t37cc06aaktw6z4rtsbm-0ba89ab200bd89d0.json"
+  },
+  {
+    "id": "coord-task:01kn887qhy3394rwdsqj43tzz3",
+    "title": "Make runtimeStatus trustworthy for process and memory diagnostics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn887qhy3394rwdsqj43tzz3-661ac6df335bbbdb.json"
+  }
+]

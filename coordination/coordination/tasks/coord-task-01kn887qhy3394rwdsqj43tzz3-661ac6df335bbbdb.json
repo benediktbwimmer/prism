@@ -1,0 +1,75 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Runtime diagnostics distinguish live daemons from stale ledger entries consistently"
+      },
+      {
+        "anchors": [],
+        "label": "Status regressions cover memory and process-reporting accuracy"
+      },
+      {
+        "anchors": [],
+        "label": "runtimeStatus exposes real per-process RSS and no longer zeros active daemon memory fields"
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 841
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn887qhy3394rwdsqj43tzz3",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn8868kh84bkb3rtdc12bdkc",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Made runtimeStatus trustworthy for process and memory diagnostics by merging real `ps` snapshots into runtime-state process records instead of synthesizing zeroed process metadata. Validated with focused runtime_views tests, `cargo test -p prism-mcp --quiet`, `cargo test --workspace --quiet`, release rebuild/restart, and live daemon verification showing runtimeStatus RSS/PPID closely matches direct ps output.",
+    "tags": [],
+    "title": "Make runtimeStatus trustworthy for process and memory diagnostics",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
