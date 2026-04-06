@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn5ydey4tjr0n6na2ymkejfj",
+    "title": "Extend the shared-runtime trust plane with signing keys and trust bundles",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydey4tjr0n6na2ymkejfj-5d155aa50096600d.json"
+  },
+  {
+    "id": "coord-task:01kng42700hg2hrewgm8542y9j",
+    "title": "Move authoritative task and claim mutations off the single live summary ref onto fixed hash-sharded task and claim ref families with deterministic shard routing and compare-and-swap publication per shard.",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kng42700hg2hrewgm8542y9j-e77df15e05151a74.json"
+  }
+]
