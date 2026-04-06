@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn09jea5pj0zgsd2m6n9c0f2",
+    "title": "Move history, outcomes, curator, and analytical evidence onto warm and cold lazy-read paths",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09jea5pj0zgsd2m6n9c0f2-ac148007304f7ee5.json"
+  },
+  {
+    "id": "coord-task:01kn2nj70jmf7vkecd8jdjn8b5",
+    "title": "Tighten runtimeStatus process and connection reporting semantics so cheap introspection stays correct for one or many local MCP daemons sharing the machine",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj70jmf7vkecd8jdjn8b5-e0a072dc14f19ae4.json"
+  },
+  {
+    "id": "coord-task:01kn3g2b0a14g01m2w768mawpp",
+    "title": "Explain why close alternatives lost in compact-tool ranking",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2b0a14g01m2w768mawpp-93790d4b7ee11195.json"
+  },
+  {
+    "id": "coord-task:01kndb8xs423hcme1y9ja8rcnm",
+    "title": "Add similarly compact summary and segmentation surfaces for large PRISM resources and resource schemas",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb8xs423hcme1y9ja8rcnm-ce73aef03e416238.json"
+  }
+]
