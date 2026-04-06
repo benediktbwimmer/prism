@@ -72,7 +72,7 @@
       "integrationStatus": "not_started",
       "lastPreflight": {
         "behindTargetCommits": 0,
-        "checkedAt": 1775479351,
+        "checkedAt": 1775479376,
         "currentBranch": "task/shared-coordination-archive-plane",
         "dirtyPaths": [],
         "failure": null,
@@ -89,7 +89,7 @@
         "worktreeDirty": false
       },
       "lastPublish": {
-        "attemptedAt": 1775479351,
+        "attemptedAt": 1775479376,
         "codeCommit": "056a5b013729fe19a9a58076c12f9490af6d0d09",
         "coordinationCommit": null,
         "failure": null,
