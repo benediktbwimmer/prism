@@ -34,7 +34,7 @@
     "assignee": "codex-d",
     "base_revision": {
       "git_commit": null,
-      "graph_version": 566
+      "graph_version": 547
     },
     "bindings": {
       "anchors": [
@@ -59,7 +59,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": "refs/heads/task/shared-coordination-semantic-merge",
+    "branch_ref": "refs/heads/task/shared-coordination-archive-plane",
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng427002152wgffzt627rta",
@@ -70,15 +70,15 @@
       "integrationCommit": null,
       "integrationEvidence": null,
       "integrationMode": "external",
-      "integrationStatus": "published_to_branch",
+      "integrationStatus": "not_started",
       "lastPreflight": {
         "behindTargetCommits": 0,
-        "checkedAt": 1775481841,
+        "checkedAt": 1775479471,
         "currentBranch": "task/shared-coordination-semantic-merge",
         "dirtyPaths": [],
         "failure": null,
         "fetchAgeSeconds": null,
-        "headCommit": "96488c8446c672b4458986da119bdd958de15a5e",
+        "headCommit": "056a5b013729fe19a9a58076c12f9490af6d0d09",
         "maxCommitsBehindTarget": 0,
         "mergeBaseCommit": "ce0029898e2cbd5ceae4e56d4b8a24240cb23858",
         "protectedDirtyPaths": [],
@@ -89,23 +89,14 @@
         "targetRef": "origin/main",
         "worktreeDirty": false
       },
-      "lastPublish": {
-        "attemptedAt": 1775481860,
-        "codeCommit": "96488c8446c672b4458986da119bdd958de15a5e",
-        "coordinationCommit": null,
-        "failure": null,
-        "protectedPaths": [],
-        "publishRef": "task/shared-coordination-semantic-merge",
-        "pushedRef": "refs/heads/task/shared-coordination-semantic-merge",
-        "stagedPaths": []
-      },
+      "lastPublish": null,
       "pendingTaskStatus": null,
-      "publishCommit": "96488c8446c672b4458986da119bdd958de15a5e",
+      "publishCommit": null,
       "publishRef": "task/shared-coordination-semantic-merge",
       "reviewArtifactRef": null,
-      "sourceCommit": "96488c8446c672b4458986da119bdd958de15a5e",
+      "sourceCommit": "056a5b013729fe19a9a58076c12f9490af6d0d09",
       "sourceRef": "task/shared-coordination-semantic-merge",
-      "status": "coordination_published",
+      "status": "in_progress",
       "targetBranch": "main",
       "targetCommitAtPublish": "ce0029898e2cbd5ceae4e56d4b8a24240cb23858",
       "targetRef": "origin/main"
@@ -114,23 +105,33 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": null,
-    "lease_holder": null,
-    "lease_refreshed_at": null,
-    "lease_stale_at": null,
-    "lease_started_at": null,
+    "lease_expires_at": 1775443572,
+    "lease_holder": {
+      "agent_id": null,
+      "principal": {
+        "authority_id": "local-daemon",
+        "kind": "human",
+        "name": "benedikt wimmer",
+        "principal_id": "principal:benedikt-wimmer:01knfv1e1gry3k011wp7q1a6nt"
+      },
+      "session_id": "session:01kng409n16se566xnq79c6e6x",
+      "worktree_id": "worktree:5820c89d186523db"
+    },
+    "lease_refreshed_at": 1775436372,
+    "lease_stale_at": 1775438172,
+    "lease_started_at": 1775436372,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01knhfdkby00q13zytsxc4v0fv",
-    "status": "Completed",
-    "summary": "Implemented schema-aware semantic merge for shared coordination refs, wired task/claim/runtime and summary retry paths to the new merge policies, and validated the new retry regression plus existing shared-ref diagnostics on graph revision 566.",
+    "session": "session:01knhd2jkj5de12zq8g4rd84e0",
+    "status": "InProgress",
+    "summary": "Continuing the plan on a fresh branch to implement schema-aware semantic merge for shared coordination refs.",
     "tags": [],
     "title": "Implement schema-aware semantic merge for refs/prism/** so shared-coordination conflicts are resolved by payload semantics and conflict classification instead of generic Git text merges or blind CAS retry loops.",
     "validation_refs": [],
-    "worktree_id": "worktree:5820c89d186523db"
+    "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
   },
   "schema_version": 1
 }

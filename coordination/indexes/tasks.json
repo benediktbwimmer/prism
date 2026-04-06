@@ -38,7 +38,7 @@
   {
     "id": "coord-task:01kng427001ndsrj10d0z5mcez",
     "title": "Implement schema-aware semantic merge for refs/prism/** so shared-coordination conflicts are resolved by payload semantics and conflict classification instead of generic Git text merges or blind CAS retry loops.",
-    "status": "Completed",
+    "status": "InProgress",
     "path": "tasks/coord-task-01kng427001ndsrj10d0z5mcez-31bc0a99ab81d568.json"
   }
 ]
