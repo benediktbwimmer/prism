@@ -10,5 +10,11 @@
     "title": "Establish current coordination-mutation baselines and success criteria",
     "status": "Completed",
     "path": "tasks/coord-task-01kndb7x9nn4nk1h4enpjajyzp-10988207735349ac.json"
+  },
+  {
+    "id": "coord-task:01knhbwesks6nwbgdg4jrxxmj5",
+    "title": "Lock the cutover contract and responsibility map for removing shared runtime SQLite",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbwesks6nwbgdg4jrxxmj5-c614fa57eafabe96.json"
   }
 ]
