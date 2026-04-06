@@ -4,5 +4,11 @@
     "title": "Improve heading-aware doc discovery and first-hop ranking",
     "status": "Completed",
     "path": "tasks/coord-task-01kn385db3vr1skpmntyn34vcq-780dad310d166c6c.json"
+  },
+  {
+    "id": "coord-task:01knhbxwdct07x27vadcvbhnp0",
+    "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbxwdct07x27vadcvbhnp0-d4ae183f94f89dc3.json"
   }
 ]
