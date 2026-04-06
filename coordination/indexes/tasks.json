@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn8na0axebh607nk06be0hkg",
+    "title": "Implement cross-plan relations and blocking semantics",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8na0axebh607nk06be0hkg-c8952febcaf5afc2.json"
+  },
+  {
+    "id": "coord-task:01kna9hjbctvt9e3j32d6cgmte",
+    "title": "Add shared coordination runtime descriptors for live runtime discovery and capability advertisement",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hjbctvt9e3j32d6cgmte-c1d3fdffefd17784.json"
+  }
+]
