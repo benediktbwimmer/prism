@@ -69,6 +69,7 @@ pub(crate) fn ensure_process_test_prism_home() -> &'static PathBuf {
         // helper-driven temp workspaces are indexed. We never mutate it again.
         unsafe {
             env::set_var("PRISM_HOME", &path);
+            env::set_var("PRISM_TEST_DISABLE_LIVE_WATCHERS", "1");
         }
         path
     })

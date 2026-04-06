@@ -1,10 +1,11 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -11638,6 +11639,7 @@ def helper():
 }
 
 fn temp_workspace() -> PathBuf {
+    ensure_test_live_watches_disabled();
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -11649,4 +11651,14 @@ fn temp_workspace() -> PathBuf {
     ));
     track_temp_dir(&root);
     root
+}
+
+fn ensure_test_live_watches_disabled() {
+    static TEST_WATCH_FLAG: OnceLock<()> = OnceLock::new();
+    TEST_WATCH_FLAG.get_or_init(|| {
+        // SAFETY: tests set this process-wide flag once and never mutate it again.
+        unsafe {
+            env::set_var("PRISM_TEST_DISABLE_LIVE_WATCHERS", "1");
+        }
+    });
 }

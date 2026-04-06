@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashSet};
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
@@ -161,51 +162,57 @@ pub(crate) fn build_workspace_session(
         Some(checkpoint_materializer.clone()),
         Arc::clone(&refresh_lock),
     );
+    let live_watches_enabled = !env_flag_enabled("PRISM_TEST_DISABLE_LIVE_WATCHERS");
     let watch_started = Instant::now();
-    let watch = Some(spawn_fs_watch(
-        root.clone(),
-        Arc::clone(&published_generation),
-        Arc::clone(&runtime_state),
-        Arc::clone(&store),
-        Arc::clone(&cold_query_store),
-        shared_runtime_store.as_ref().map(Arc::clone),
-        shared_runtime.sqlite_path().map(Path::to_path_buf),
-        Arc::clone(&refresh_lock),
-        Arc::clone(&refresh_state),
-        Arc::clone(&loaded_workspace_revision),
-        Arc::clone(&fs_snapshot),
-        Some(checkpoint_materializer.clone()),
-        shared_runtime_materializer.clone(),
-        coordination_enabled,
-        Some(CuratorHandleRef::from(&curator)),
-        Arc::clone(&observed_change_tracker),
-        Arc::clone(&worktree_principal_binding),
-    )?);
-    let protected_state_watch = Some(spawn_protected_state_watch(
-        root.clone(),
-        Arc::clone(&published_generation),
-        Arc::clone(&runtime_state),
-        Arc::clone(&store),
-        Arc::clone(&cold_query_store),
-        shared_runtime_store.as_ref().map(Arc::clone),
-        shared_runtime.sqlite_path().map(Path::to_path_buf),
-        Arc::clone(&refresh_lock),
-        Arc::clone(&loaded_workspace_revision),
-        coordination_enabled,
-    )?);
-    initialize_shared_coordination_ref_live_sync(&root)?;
-    let shared_coordination_ref_watch = Some(spawn_shared_coordination_ref_watch(
-        root.clone(),
-        Arc::clone(&published_generation),
-        Arc::clone(&runtime_state),
-        Arc::clone(&store),
-        Arc::clone(&cold_query_store),
-        shared_runtime_store.as_ref().map(Arc::clone),
-        Arc::clone(&refresh_lock),
-        Arc::clone(&loaded_workspace_revision),
-        Arc::clone(&coordination_runtime_revision),
-        coordination_enabled,
-    )?);
+    let (watch, protected_state_watch, shared_coordination_ref_watch) = if live_watches_enabled {
+        let watch = Some(spawn_fs_watch(
+            root.clone(),
+            Arc::clone(&published_generation),
+            Arc::clone(&runtime_state),
+            Arc::clone(&store),
+            Arc::clone(&cold_query_store),
+            shared_runtime_store.as_ref().map(Arc::clone),
+            shared_runtime.sqlite_path().map(Path::to_path_buf),
+            Arc::clone(&refresh_lock),
+            Arc::clone(&refresh_state),
+            Arc::clone(&loaded_workspace_revision),
+            Arc::clone(&fs_snapshot),
+            Some(checkpoint_materializer.clone()),
+            shared_runtime_materializer.clone(),
+            coordination_enabled,
+            Some(CuratorHandleRef::from(&curator)),
+            Arc::clone(&observed_change_tracker),
+            Arc::clone(&worktree_principal_binding),
+        )?);
+        let protected_state_watch = Some(spawn_protected_state_watch(
+            root.clone(),
+            Arc::clone(&published_generation),
+            Arc::clone(&runtime_state),
+            Arc::clone(&store),
+            Arc::clone(&cold_query_store),
+            shared_runtime_store.as_ref().map(Arc::clone),
+            shared_runtime.sqlite_path().map(Path::to_path_buf),
+            Arc::clone(&refresh_lock),
+            Arc::clone(&loaded_workspace_revision),
+            coordination_enabled,
+        )?);
+        initialize_shared_coordination_ref_live_sync(&root)?;
+        let shared_coordination_ref_watch = Some(spawn_shared_coordination_ref_watch(
+            root.clone(),
+            Arc::clone(&published_generation),
+            Arc::clone(&runtime_state),
+            Arc::clone(&store),
+            Arc::clone(&cold_query_store),
+            shared_runtime_store.as_ref().map(Arc::clone),
+            Arc::clone(&refresh_lock),
+            Arc::clone(&loaded_workspace_revision),
+            Arc::clone(&coordination_runtime_revision),
+            coordination_enabled,
+        )?);
+        (watch, protected_state_watch, shared_coordination_ref_watch)
+    } else {
+        (None, None, None)
+    };
     let watch_start_ms = watch_started.elapsed().as_millis();
     let graph = published_generation
         .read()
@@ -218,6 +225,7 @@ pub(crate) fn build_workspace_session(
     info!(
         root = %root.display(),
         coordination_enabled,
+        live_watches_enabled,
         node_count,
         edge_count,
         file_count,
@@ -262,6 +270,16 @@ pub(crate) fn build_workspace_session(
         worktree_principal_binding,
         observed_change_tracker,
     })
+}
+
+fn env_flag_enabled(name: &str) -> bool {
+    env::var_os(name)
+        .and_then(|value| value.into_string().ok())
+        .map(|value| {
+            let normalized = value.trim().to_ascii_lowercase();
+            !normalized.is_empty() && normalized != "0" && normalized != "false"
+        })
+        .unwrap_or(false)
 }
 
 pub(crate) fn collect_pending_file_parses(
