@@ -4,5 +4,11 @@
     "title": "Move startup checkpoint persistence off the request path and make it a revision-keyed cache",
     "status": "Ready",
     "path": "tasks/coord-task-01knc6dzagp1zbg7ne0df1gyqh-194c2934ed6ac59a.json"
+  },
+  {
+    "id": "coord-task:01knhbywm9rqmsmrs44jf3cvgf",
+    "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbywm9rqmsmrs44jf3cvgf-b4bc86fe58317b3a.json"
   }
 ]
