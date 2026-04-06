@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn6t41ekhqwqedjg2p7pctt7",
+    "title": "Accumulate watcher-observed file changes by worktree, principal, and work with automatic flush boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6t41ekhqwqedjg2p7pctt7-f8078622b2868120.json"
+  },
+  {
+    "id": "coord-task:01kn9hmj8kajwtre6xq83jbt12",
+    "title": "Define the tracked snapshot file layout and shard strategy",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hmj8kajwtre6xq83jbt12-fd66df504d586ce4.json"
+  },
+  {
+    "id": "coord-task:20",
+    "title": "Validate latency improvements and regression risk for request-path and background refresh behavior",
+    "status": "Ready",
+    "path": "tasks/coord-task-20-18533c849066454e.json"
+  }
+]
