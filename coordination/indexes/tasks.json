@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn7kd7jzw8ss2yj734zffnv1",
+    "title": "Integrate projection persistence, invalidation, and refresh boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd7jzw8ss2yj734zffnv1-c8e53008b4069a46.json"
+  },
+  {
+    "id": "coord-task:01kna9hjenyhw6ge6wb4eb8h7p",
+    "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hjenyhw6ge6wb4eb8h7p-d43324e33ccf6378.json"
+  }
+]
