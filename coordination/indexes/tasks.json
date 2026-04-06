@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn11hc4p50xjgr374gqqe624",
+    "title": "Validate the rewrite end-to-end and document migration rules for task-backed versus standalone plan nodes",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn11hc4p50xjgr374gqqe624-59d38f333af155f5.json"
+  },
+  {
+    "id": "coord-task:01kn7wpf732s15kpc7fnwj50ns",
+    "title": "Validate compact-read latency improvements against live MCP traces and full repo checks",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7wpf732s15kpc7fnwj50ns-ccdbc43e9e7dae7e.json"
+  }
+]
