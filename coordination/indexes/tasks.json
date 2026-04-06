@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn11fy74f41qhc9qb5grrceq",
+    "title": "Define canonical ownership boundaries for task-execution plans versus graph-native standalone plan nodes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn11fy74f41qhc9qb5grrceq-22358ebcbf1a2dc2.json"
+  },
+  {
+    "id": "coord-task:01knfcza3wgxrxqsgzctmbb6ar",
+    "title": "Render the fleet page with vis-timeline swimlanes from runtime and lease read models",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knfcza3wgxrxqsgzctmbb6ar-f460813289996ae0.json"
+  }
+]
