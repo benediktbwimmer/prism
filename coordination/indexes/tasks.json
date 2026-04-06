@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn3g2b58twgvqcb0ftsra75n",
+    "title": "Improve frontend-language degradation behavior when semantic coverage is thin",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2b58twgvqcb0ftsra75n-152e3afa2637677f.json"
+  },
+  {
+    "id": "coord-task:01kn3p3rzhgskr8vc63c5yr9af",
+    "title": "Surface lease holder, heartbeat advisories, and task-scoped next actions on reads",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p3rzhgskr8vc63c5yr9af-e9a77360141e52c9.json"
+  },
+  {
+    "id": "coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+    "title": "Build serving projection read models with explicit freshness",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd5vsbjjt95a5m6axdcpk-b6566c05b7352491.json"
+  },
+  {
+    "id": "coord-task:01kng201q5kredgpk0fsvx60sm",
+    "title": "Implement atomic coordination_transaction staging, final-graph validation, single-publish semantics, and rebase plan_bootstrap plus other structural helpers onto that transaction engine",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kng201q5kredgpk0fsvx60sm-8f4ca40fb5c5e886.json"
+  }
+]
