@@ -12134,6 +12134,308 @@ fn full_mode_reopens_coordination_only_workspace_and_rehydrates_graph_state() {
 }
 
 #[test]
+fn coordination_only_shared_runtime_sqlite_reloads_coordination_without_graph_state() {
+    let _guard = background_worker_test_guard();
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let options = WorkspaceSessionOptions {
+        runtime_mode: PrismRuntimeMode::CoordinationOnly,
+        shared_runtime: SharedRuntimeBackend::Sqlite {
+            path: shared_runtime_sqlite.clone(),
+        },
+        hydrate_persisted_projections: false,
+        hydrate_persisted_co_change: true,
+    };
+
+    let session = hydrate_workspace_session_with_options(&root, options.clone()).unwrap();
+    assert!(session.prism().symbol("alpha").is_empty());
+    session
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:coordination-only-sqlite-bootstrap"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:coordination-only-sqlite-bootstrap")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Keep coordination alive with shared runtime sqlite".into(),
+                "Coordination-only reload should stay graph-free when shared runtime sqlite is enabled."
+                    .into(),
+                None,
+                None,
+            )
+        })
+        .unwrap();
+    flush_coordination_materializations(&session);
+    drop(session);
+
+    let reloaded = hydrate_workspace_session_with_options(&root, options).unwrap();
+    assert!(reloaded.prism().symbol("alpha").is_empty());
+    assert!(reloaded
+        .prism()
+        .coordination_snapshot()
+        .plans
+        .iter()
+        .any(|plan| plan.title == "Keep coordination alive with shared runtime sqlite"));
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn coordination_only_shared_runtime_sqlite_hides_knowledge_when_reopened_from_full_mode() {
+    let _guard = background_worker_test_guard();
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let full = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::Full,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+    let alpha = full
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let mut entry = MemoryEntry::new(
+        MemoryKind::Structural,
+        "shared-runtime full-mode memory should stay hidden",
+    );
+    entry.id = MemoryId("memory:full-to-coordination-only-sqlite".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::User;
+    entry.trust = 0.9;
+    append_repo_memory_event(
+        &root,
+        &MemoryEvent::from_entry(
+            MemoryEventKind::Promoted,
+            entry.clone(),
+            Some("task:full-to-coordination-only-sqlite".to_string()),
+            Vec::new(),
+            Vec::new(),
+        ),
+    )
+    .unwrap();
+    crate::concept_events::append_repo_concept_event(
+        &root,
+        &ConceptEvent {
+            id: "concept-event:full-to-coordination-only-sqlite".to_string(),
+            recorded_at: 2,
+            task_id: Some("task:full-to-coordination-only-sqlite".to_string()),
+            actor: None,
+            execution_context: None,
+            action: ConceptEventAction::Promote,
+            patch: None,
+            concept: ConceptPacket {
+                handle: "concept://full_mode_alpha_shared_runtime".to_string(),
+                canonical_name: "full_mode_alpha_shared_runtime".to_string(),
+                summary: "Full-mode shared-runtime concept should stay hidden in coordination-only mode."
+                    .to_string(),
+                aliases: vec!["alpha".to_string()],
+                confidence: 0.9,
+                core_members: vec![alpha.clone()],
+                core_member_lineages: vec![full.prism().lineage_of(&alpha)],
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["shared runtime mode transition test".to_string()],
+                risk_hint: None,
+                decode_lenses: vec![ConceptDecodeLens::Open],
+                scope: ConceptScope::Repo,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "mode_transition".to_string(),
+                    task_id: Some("task:full-to-coordination-only-sqlite".to_string()),
+                },
+                publication: Some(ConceptPublication {
+                    published_at: 2,
+                    last_reviewed_at: Some(2),
+                    status: ConceptPublicationStatus::Active,
+                    supersedes: Vec::new(),
+                    retired_at: None,
+                    retirement_reason: None,
+                }),
+            },
+        },
+    )
+    .unwrap();
+    let plan_id = full
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:full-to-coordination-only-sqlite"),
+                    ts: 3,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:full-to-coordination-only-sqlite")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Retain coordination across shared-runtime mode changes".into(),
+                "Coordination-only mode should keep coordination while hiding knowledge layers."
+                    .into(),
+                None,
+                None,
+            )
+        })
+        .unwrap();
+    flush_coordination_materializations(&full);
+    drop(full);
+
+    let coordination_only = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite,
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    assert!(coordination_only.prism().symbol("alpha").is_empty());
+    assert!(coordination_only
+        .memory_events(&MemoryEventQuery {
+            memory_id: Some(entry.id),
+            focus: Vec::new(),
+            text: None,
+            limit: 5,
+            kinds: None,
+            actions: Some(vec![MemoryEventKind::Promoted]),
+            scope: Some(MemoryScope::Repo),
+            task_id: Some("task:full-to-coordination-only-sqlite".to_string()),
+            since: None,
+        })
+        .unwrap()
+        .is_empty());
+    assert!(coordination_only
+        .prism()
+        .curated_concepts_snapshot()
+        .into_iter()
+        .all(|concept| concept.handle != "concept://full_mode_alpha_shared_runtime"));
+    assert!(coordination_only
+        .prism()
+        .coordination_snapshot()
+        .plans
+        .iter()
+        .any(|plan| plan.id == plan_id));
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn full_mode_shared_runtime_sqlite_reopens_coordination_only_workspace_and_rehydrates_graph_state()
+{
+    let _guard = background_worker_test_guard();
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let coordination_only = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+    let plan_id = coordination_only
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:coordination-only-to-full-sqlite"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:coordination-only-to-full-sqlite")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Rehydrate graph state after coordination-only sqlite startup".into(),
+                "Full mode should restore graph-backed state from a shared-runtime sqlite session."
+                    .into(),
+                None,
+                None,
+            )
+        })
+        .unwrap();
+    flush_coordination_materializations(&coordination_only);
+    drop(coordination_only);
+
+    let full = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::Full,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite,
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    assert!(full
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .any(|symbol| symbol.id().path == "demo::alpha"));
+    assert!(full
+        .prism()
+        .coordination_snapshot()
+        .plans
+        .iter()
+        .any(|plan| plan.id == plan_id));
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
 fn curator_backend_processes_and_persists_task_boundary_jobs() {
     let _guard = background_worker_test_guard();
     let root = temp_workspace();
