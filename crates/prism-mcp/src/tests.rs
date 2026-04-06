@@ -15,8 +15,9 @@ use crate::tests_support::*;
 use crate::ui_read_models::QueryHostUiReadModelsExt;
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_coordination::{
-    CoordinationPolicy, CoordinationSnapshot, CoordinationStore, GitExecutionCompletionMode,
-    GitExecutionPolicy, GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
+    ArtifactProposeInput, CoordinationPolicy, CoordinationSnapshot, CoordinationStore,
+    GitExecutionCompletionMode, GitExecutionPolicy, GitExecutionStartMode, PlanCreateInput,
+    TaskCreateInput,
 };
 use prism_core::{
     default_workspace_shared_runtime, hydrate_workspace_session,
@@ -532,6 +533,124 @@ return {
             .expect("anchors should be an array")
             .len(),
         0
+    );
+}
+
+#[test]
+fn coordination_only_prism_query_artifact_risk_uses_degraded_artifact_view() {
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:coordination-only-artifact-view"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Coordination-only artifact view".into(),
+                goal: "Serve artifact risk without cognition".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    review_required_above_risk_score: Some(0.2),
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:coordination-only-artifact-view"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id,
+                title: "Edit alpha".into(),
+                status: None,
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let (artifact_id, _) = coordination
+        .propose_artifact(
+            EventMeta {
+                id: EventId::new("coord:artifact:coordination-only-artifact-view"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            ArtifactProposeInput {
+                task_id,
+                anchors: Vec::new(),
+                diff_ref: Some("patch:coordination-only-artifact-view".into()),
+                evidence: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+                current_revision: WorkspaceRevision::default(),
+                required_validations: vec!["test:artifact-check".into()],
+                validated_checks: Vec::new(),
+                risk_score: Some(0.7),
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::default(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        coordination.snapshot(),
+        ProjectionIndex::default(),
+    );
+    prism.set_runtime_capabilities(PrismRuntimeMode::CoordinationOnly.capabilities());
+    let host = QueryHost::new_with_limits_and_features(
+        prism,
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
+    );
+
+    let result = host
+        .execute(
+            test_session(&host),
+            &format!(r#"return prism.artifactRisk("{}");"#, artifact_id.0),
+            QueryLanguage::Ts,
+        )
+        .expect("coordination-only artifact risk should execute through prism_query");
+
+    assert!(
+        (result.result["riskScore"]
+            .as_f64()
+            .expect("risk score should be numeric")
+            - 0.7)
+            .abs()
+            < 0.0001
+    );
+    assert_eq!(result.result["reviewRequired"], Value::Bool(true));
+    assert_eq!(
+        result.result["missingValidations"],
+        Value::Array(vec![Value::String("test:artifact-check".into())])
+    );
+    assert_eq!(result.result["contracts"], Value::Array(Vec::new()));
+    assert_eq!(
+        result.result["contractReviewNotes"],
+        Value::Array(Vec::new())
     );
 }
 
