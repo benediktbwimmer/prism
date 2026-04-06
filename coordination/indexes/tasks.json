@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kmzvjdhbgcw86tj5tjs7cd1b",
+    "title": "Milestone 6: Implement a contract-ready graph explorer baseline on typed read models",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmzvjdhbgcw86tj5tjs7cd1b-fceb82e899bbcb39.json"
+  },
+  {
+    "id": "coord-task:01knax3zr6tyxkcev2vzd2ptyg",
+    "title": "Harden degraded verification behavior, silent-fallback prevention, and partial publication recovery",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knax3zr6tyxkcev2vzd2ptyg-dc0aba8fe8733855.json"
+  },
+  {
+    "id": "coord-task:01knd39trsk58srmkt33fgxwd9",
+    "title": "Validate bundled UI delivery polling reads and human mutation audit equivalence end to end",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knd39trsk58srmkt33fgxwd9-4a28c674416753cf.json"
+  }
+]
