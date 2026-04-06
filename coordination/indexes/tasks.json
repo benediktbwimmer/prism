@@ -4,5 +4,11 @@
     "title": "Expose git execution policy and state clearly in MCP, query, and docs surfaces",
     "status": "InProgress",
     "path": "tasks/coord-task-01kn8n9txdczd5dmtf1maheqpw-76d0f87f6efc2f37.json"
+  },
+  {
+    "id": "coord-task:01knhbywmk749g72vmdrabxdkd",
+    "title": "Rewrite workspace runtime sync, freshness, and diagnostics to stop consulting shared runtime DB revisions",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbywmk749g72vmdrabxdkd-2d5a28329c2cf213.json"
   }
 ]
