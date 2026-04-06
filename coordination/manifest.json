@@ -16,13 +16,14 @@
   "files": {
     "coordination/runtimes/instance-63736-worktree-38d65972b1359401-1775484338657-f277fe7d3322083e.json": {
       "path": "coordination/runtimes/instance-63736-worktree-38d65972b1359401-1775484338657-f277fe7d3322083e.json",
-      "sha256": "sha256:06433981fc452a58d912c102e5957f27a05639785eab7e28a6bcad757936762f"
+      "sha256": "sha256:73efad9e61e77d9a914ab5efd49895e49ba0820451912c53ff41b561ae3062b8"
     },
     "indexes/runtimes.json": {
       "path": "indexes/runtimes.json",
       "sha256": "sha256:35f2287318683e0dbd8a278010867e69a1183730e013f44b47c69fb60414513a"
     }
   },
+  "previousManifestDigest": "sha256:1d52d96acadf721eca1d7caeb406cae04bd036f68b634180c782a3cb1b228586",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -32,6 +33,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:IaZzsq+nikppwWiNHp9gDjxySEHaXT3WpqomO5i9oQf0XnojRpJDFzHIYmkZTCOqGJMWl590TQcBHdXGvjedBw=="
+    "value": "base64:AorsQUsHIZn8ZXI8iQF4KHe6jthSSwRTs2IcsDHTQQSU93qINnTUj8xRkKX1ijRUcQTOAo8+ajntlxfCsSU0Aw=="
   }
 }
