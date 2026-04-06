@@ -502,6 +502,17 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         tool_names,
         std::collections::BTreeSet::from(["prism_mutate", "prism_task_brief"])
     );
+    let mutate_tool_schema = tools["result"]["tools"]
+        .as_array()
+        .expect("tools/list should return an array")
+        .iter()
+        .find(|tool| tool["name"] == "prism_mutate")
+        .expect("coordination-only mode should expose prism_mutate")["inputSchema"]
+        .to_string();
+    assert!(mutate_tool_schema.contains("\"coordination\""));
+    assert!(mutate_tool_schema.contains("\"declare_work\""));
+    assert!(!mutate_tool_schema.contains("validation_feedback"));
+    assert!(!mutate_tool_schema.contains("concept_relation"));
 
     client.send(list_resources_request(3)).await.unwrap();
     let resources = response_json(client.receive().await.unwrap());
@@ -515,6 +526,10 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
     assert!(resource_uris.contains(&"prism://instructions/coordination"));
     assert!(!resource_uris.contains(&"prism://instructions/execution"));
     assert!(!resource_uris.contains(&API_REFERENCE_URI));
+    assert!(!resource_uris.contains(&CONTRACTS_URI));
+    assert!(!resource_uris.contains(&ENTRYPOINTS_URI));
+    assert!(!resource_uris.contains(&SCHEMAS_URI));
+    assert!(!resource_uris.contains(&SELF_DESCRIPTION_AUDIT_URI));
 
     client
         .send(read_resource_request(4, CAPABILITIES_URI))
@@ -535,6 +550,7 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .as_array()
         .expect("query views should be an array")
         .is_empty());
+    assert_eq!(capabilities_payload["build"]["apiReferenceUri"], "");
     assert_eq!(
         capabilities_payload["tools"]
             .as_array()
@@ -544,6 +560,171 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
             .collect::<std::collections::BTreeSet<_>>(),
         std::collections::BTreeSet::from(["prism_mutate", "prism_task_brief"])
     );
+    let related_resource_uris = capabilities_payload["relatedResources"]
+        .as_array()
+        .expect("related resources should be an array")
+        .iter()
+        .filter_map(|resource| resource["uri"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert!(!related_resource_uris.contains(API_REFERENCE_URI));
+    assert!(!related_resource_uris.contains("prism://search/read%20context"));
+    let capability_template_uris = capabilities_payload["resourceTemplates"]
+        .as_array()
+        .expect("resource templates should be an array")
+        .iter()
+        .filter_map(|template| template["uriTemplate"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    let tool_action_schema_template = capabilities_payload["resourceTemplates"]
+        .as_array()
+        .expect("resource templates should be an array")
+        .iter()
+        .find(|template| template["uriTemplate"] == TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI)
+        .expect("tool action schema template should remain visible");
+    assert_eq!(
+        tool_action_schema_template["exampleUri"],
+        "prism://schema/tool/prism_mutate/action/coordination"
+    );
+    assert_eq!(tool_action_schema_template["shapeUri"], Value::Null);
+    assert!(capability_template_uris.contains(PLANS_RESOURCE_TEMPLATE_URI));
+    assert!(capability_template_uris.contains(PLAN_RESOURCE_TEMPLATE_URI));
+    assert!(!capability_template_uris.contains(CONTRACTS_RESOURCE_TEMPLATE_URI));
+    assert!(!capability_template_uris.contains(ENTRYPOINTS_RESOURCE_TEMPLATE_URI));
+    assert!(!capability_template_uris.contains(SEARCH_RESOURCE_TEMPLATE_URI));
+    assert!(!capability_template_uris.contains(FILE_RESOURCE_TEMPLATE_URI));
+    assert!(!capability_template_uris.contains(SYMBOL_RESOURCE_TEMPLATE_URI));
+    assert!(!capability_template_uris.contains(LINEAGE_RESOURCE_TEMPLATE_URI));
+    assert!(!capability_template_uris.contains(TASK_RESOURCE_TEMPLATE_URI));
+    assert!(!capability_template_uris.contains(EVENT_RESOURCE_TEMPLATE_URI));
+    assert!(!capability_template_uris.contains(MEMORY_RESOURCE_TEMPLATE_URI));
+    assert!(!capability_template_uris.contains(EDGE_RESOURCE_TEMPLATE_URI));
+
+    client
+        .send(list_resource_templates_request(5))
+        .await
+        .unwrap();
+    let templates = response_json(client.receive().await.unwrap());
+    let template_uris = templates["result"]["resourceTemplates"]
+        .as_array()
+        .expect("resource templates should be an array")
+        .iter()
+        .filter_map(|template| template["uriTemplate"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert!(template_uris.contains(PLANS_RESOURCE_TEMPLATE_URI));
+    assert!(template_uris.contains(PLAN_RESOURCE_TEMPLATE_URI));
+    assert!(template_uris.contains(TOOL_SCHEMA_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(CONTRACTS_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(ENTRYPOINTS_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(TOOL_EXAMPLE_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(TOOL_ACTION_EXAMPLE_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(TOOL_VARIANT_EXAMPLE_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(TOOL_SHAPE_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(TOOL_ACTION_SHAPE_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(TOOL_VARIANT_SHAPE_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(TOOL_ACTION_RECIPE_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(TOOL_VARIANT_RECIPE_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(RESOURCE_EXAMPLE_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(RESOURCE_SHAPE_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(SEARCH_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(FILE_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(SYMBOL_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(LINEAGE_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(TASK_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(EVENT_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(MEMORY_RESOURCE_TEMPLATE_URI));
+    assert!(!template_uris.contains(EDGE_RESOURCE_TEMPLATE_URI));
+
+    client
+        .send(read_resource_request(6, SESSION_URI))
+        .await
+        .unwrap();
+    let session = response_json(client.receive().await.unwrap());
+    let session_payload = serde_json::from_str::<Value>(
+        session["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("session resource should be text"),
+    )
+    .unwrap();
+    let session_related_resource_uris = session_payload["relatedResources"]
+        .as_array()
+        .expect("session related resources should be an array")
+        .iter()
+        .filter_map(|resource| resource["uri"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert!(!session_related_resource_uris.contains(ENTRYPOINTS_URI));
+    assert!(!session_related_resource_uris.contains(SCHEMAS_URI));
+    assert!(!session_related_resource_uris.contains("prism://schema/session"));
+
+    client
+        .send(read_resource_request(7, TOOL_SCHEMAS_URI))
+        .await
+        .unwrap();
+    let tool_schemas = response_json(client.receive().await.unwrap());
+    let tool_schemas_payload = serde_json::from_str::<Value>(
+        tool_schemas["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("tool schemas resource should be text"),
+    )
+    .unwrap();
+    assert_eq!(
+        tool_schemas_payload["tools"]
+            .as_array()
+            .expect("tool schemas should be an array")
+            .iter()
+            .filter_map(|tool| tool["toolName"].as_str())
+            .collect::<std::collections::BTreeSet<_>>(),
+        std::collections::BTreeSet::from(["prism_mutate", "prism_task_brief"])
+    );
+    let mutate_schema_resources = tool_schemas_payload["relatedResources"]
+        .as_array()
+        .expect("tool schema related resources should be an array")
+        .iter()
+        .filter_map(|resource| resource["uri"].as_str())
+        .filter(|uri| uri.contains("prism://schema/tool/prism_mutate/action/"))
+        .collect::<std::collections::BTreeSet<_>>();
+    assert!(
+        mutate_schema_resources.contains("prism://schema/tool/prism_mutate/action/coordination")
+    );
+    assert!(
+        mutate_schema_resources.contains("prism://schema/tool/prism_mutate/action/declare_work")
+    );
+    assert!(!mutate_schema_resources
+        .contains("prism://schema/tool/prism_mutate/action/validation_feedback"));
+
+    for (id, uri) in [
+        (8_u64, ENTRYPOINTS_URI),
+        (9, "prism://schema/search"),
+        (10, "prism://search/read%20context"),
+        (11, "prism://schema/tool/prism_query"),
+        (
+            12,
+            "prism://schema/tool/prism_mutate/action/validation_feedback",
+        ),
+        (13, "prism://example/tool/prism_mutate"),
+    ] {
+        client.send(read_resource_request(id, uri)).await.unwrap();
+        let response = response_json(client.receive().await.unwrap());
+        assert!(response.get("error").is_some(), "{uri}: {response}");
+    }
+
+    client
+        .send(read_resource_request(
+            14,
+            "prism://schema/tool/prism_mutate",
+        ))
+        .await
+        .unwrap();
+    let mutate_schema = response_json(client.receive().await.unwrap());
+    let mutate_schema_payload = serde_json::from_str::<Value>(
+        mutate_schema["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("coordination-only mutate schema should be text"),
+    )
+    .unwrap();
+    let mutate_schema_text = mutate_schema_payload.to_string();
+    assert!(mutate_schema_text.contains("\"coordination\""));
+    assert!(mutate_schema_text.contains("\"declare_work\""));
+    assert!(!mutate_schema_text.contains("validation_feedback"));
+    assert!(!mutate_schema_text.contains("concept_relation"));
 
     let _ = running.cancel().await;
 }

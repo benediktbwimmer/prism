@@ -11912,6 +11912,228 @@ fn coordination_only_protected_state_watch_ignores_knowledge_streams() {
 }
 
 #[test]
+fn coordination_only_mode_reopens_full_workspace_without_exposing_knowledge_layers() {
+    let _guard = background_worker_test_guard();
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let full = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::Full,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+    let alpha = full
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let mut entry = MemoryEntry::new(MemoryKind::Structural, "full-mode repo memory");
+    entry.id = MemoryId("memory:full-to-coordination-only".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::User;
+    entry.trust = 0.9;
+    append_repo_memory_event(
+        &root,
+        &MemoryEvent::from_entry(
+            MemoryEventKind::Promoted,
+            entry.clone(),
+            Some("task:full-to-coordination-only".to_string()),
+            Vec::new(),
+            Vec::new(),
+        ),
+    )
+    .unwrap();
+    crate::concept_events::append_repo_concept_event(
+        &root,
+        &ConceptEvent {
+            id: "concept-event:full-to-coordination-only".to_string(),
+            recorded_at: 2,
+            task_id: Some("task:full-to-coordination-only".to_string()),
+            actor: None,
+            execution_context: None,
+            action: ConceptEventAction::Promote,
+            patch: None,
+            concept: ConceptPacket {
+                handle: "concept://full_mode_alpha".to_string(),
+                canonical_name: "full_mode_alpha".to_string(),
+                summary: "Full-mode concept should stay hidden in coordination-only mode."
+                    .to_string(),
+                aliases: vec!["alpha".to_string()],
+                confidence: 0.9,
+                core_members: vec![alpha.clone()],
+                core_member_lineages: vec![full.prism().lineage_of(&alpha)],
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["full mode transition test".to_string()],
+                risk_hint: None,
+                decode_lenses: vec![ConceptDecodeLens::Open],
+                scope: ConceptScope::Repo,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "mode_transition".to_string(),
+                    task_id: Some("task:full-to-coordination-only".to_string()),
+                },
+                publication: Some(ConceptPublication {
+                    published_at: 2,
+                    last_reviewed_at: Some(2),
+                    status: ConceptPublicationStatus::Active,
+                    supersedes: Vec::new(),
+                    retired_at: None,
+                    retirement_reason: None,
+                }),
+            },
+        },
+    )
+    .unwrap();
+    let plan_id = full
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:full-to-coordination-only"),
+                    ts: 3,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:full-to-coordination-only")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Carry coordination through runtime mode changes".into(),
+                "Coordination state should survive when cognition is disabled.".into(),
+                None,
+                None,
+            )
+        })
+        .unwrap();
+    flush_coordination_materializations(&full);
+    drop(full);
+
+    let coordination_only = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    assert!(coordination_only.prism().symbol("alpha").is_empty());
+    assert!(coordination_only
+        .memory_events(&MemoryEventQuery {
+            memory_id: Some(entry.id),
+            focus: Vec::new(),
+            text: None,
+            limit: 5,
+            kinds: None,
+            actions: Some(vec![MemoryEventKind::Promoted]),
+            scope: Some(MemoryScope::Repo),
+            task_id: Some("task:full-to-coordination-only".to_string()),
+            since: None,
+        })
+        .unwrap()
+        .is_empty());
+    assert!(coordination_only
+        .prism()
+        .curated_concepts_snapshot()
+        .into_iter()
+        .all(|concept| concept.handle != "concept://full_mode_alpha"));
+    assert!(coordination_only
+        .prism()
+        .coordination_snapshot()
+        .plans
+        .iter()
+        .any(|plan| plan.id == plan_id));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn full_mode_reopens_coordination_only_workspace_and_rehydrates_graph_state() {
+    let _guard = background_worker_test_guard();
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let coordination_only = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+    let plan_id = coordination_only
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:coordination-only-to-full"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:coordination-only-to-full")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Rehydrate graph state after coordination-only startup".into(),
+                "Full mode should restore graph-backed state without losing coordination.".into(),
+                None,
+                None,
+            )
+        })
+        .unwrap();
+    flush_coordination_materializations(&coordination_only);
+    drop(coordination_only);
+
+    let full = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::Full,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    assert!(full
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .any(|symbol| symbol.id().path == "demo::alpha"));
+    assert!(full
+        .prism()
+        .coordination_snapshot()
+        .plans
+        .iter()
+        .any(|plan| plan.id == plan_id));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn curator_backend_processes_and_persists_task_boundary_jobs() {
     let _guard = background_worker_test_guard();
     let root = temp_workspace();

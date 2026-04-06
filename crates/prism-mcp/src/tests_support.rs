@@ -375,6 +375,22 @@ pub(crate) fn server_with_node_and_features(
     PrismMcpServer::new_with_features(Prism::new(graph), features)
 }
 
+pub(crate) fn server_with_shared_session_and_features(
+    workspace: Arc<WorkspaceSession>,
+    features: PrismMcpFeatures,
+) -> PrismMcpServer {
+    let host = Arc::new(QueryHost::with_shared_session_and_limits_and_features(
+        workspace,
+        QueryLimits::default(),
+        features.with_runtime_diagnostics_auto_refresh(false),
+    ));
+    PrismMcpServer {
+        tool_router: PrismMcpServer::build_tool_router(),
+        session: host.new_session_state(),
+        host,
+    }
+}
+
 pub(crate) async fn spawn_http_upstream(
     server: PrismMcpServer,
 ) -> (String, tokio::task::JoinHandle<()>) {

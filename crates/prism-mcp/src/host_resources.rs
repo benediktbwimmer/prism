@@ -171,14 +171,18 @@ impl QueryHost {
                 capabilities_resource_view_link(),
                 session_resource_view_link(),
                 vocab_resource_view_link(),
-                schema_resource_view_link("session"),
-                schemas_resource_view_link(),
-                resource_link_view(
-                    ENTRYPOINTS_URI.to_string(),
-                    "PRISM Entrypoints",
-                    "Workspace entrypoints and top-level starting symbols",
-                ),
             ];
+            if self.features.cognition_layer_enabled() {
+                related_resources.extend([
+                    schema_resource_view_link("session"),
+                    schemas_resource_view_link(),
+                    resource_link_view(
+                        ENTRYPOINTS_URI.to_string(),
+                        "PRISM Entrypoints",
+                        "Workspace entrypoints and top-level starting symbols",
+                    ),
+                ]);
+            }
             if let Some(task) = &session.current_task {
                 related_resources.push(task_resource_view_link(&task.task_id));
             }
@@ -243,9 +247,21 @@ impl QueryHost {
                 capabilities_resource_view_link(),
                 session_resource_view_link(),
                 protected_state_resource_view_link(),
-                schema_resource_view_link("protected-state"),
-                schemas_resource_view_link(),
             ]);
+            let related_resources = if self.features.cognition_layer_enabled() {
+                dedupe_resource_link_views(
+                    [
+                        related_resources,
+                        vec![
+                            schema_resource_view_link("protected-state"),
+                            schemas_resource_view_link(),
+                        ],
+                    ]
+                    .concat(),
+                )
+            } else {
+                related_resources
+            };
             Ok(ProtectedStateResourcePayload {
                 uri: uri.to_string(),
                 schema_uri: schema_resource_uri("protected-state"),
@@ -288,7 +304,7 @@ impl QueryHost {
     }
 
     pub(crate) fn tool_schemas_resource_value(&self) -> crate::ToolSchemaCatalogPayload {
-        tool_schemas_resource_value()
+        tool_schemas_resource_value(&self.features)
     }
 
     pub(crate) fn vocab_resource_value(&self) -> VocabularyResourcePayload {
@@ -426,8 +442,6 @@ impl QueryHost {
                 (parsed_sort != PlansResourceSort::default()).then_some(parsed_sort.as_str());
             let related_resources = vec![
                 session_resource_view_link(),
-                schema_resource_view_link("plans"),
-                schemas_resource_view_link(),
                 if status.is_none()
                     && scope.is_none()
                     && contains.is_none()
@@ -444,6 +458,12 @@ impl QueryHost {
                 },
             ];
             let mut related_resources = related_resources;
+            if self.features.cognition_layer_enabled() {
+                related_resources.extend([
+                    schema_resource_view_link("plans"),
+                    schemas_resource_view_link(),
+                ]);
+            }
             related_resources.extend(
                 paged
                     .items
@@ -490,16 +510,28 @@ impl QueryHost {
                 session_resource_view_link(),
                 plans_resource_view_link(),
                 plan_resource_view_link(&plan.id),
-                schema_resource_view_link("plan"),
-                schemas_resource_view_link(),
             ];
+            let related_resources = if self.features.cognition_layer_enabled() {
+                dedupe_resource_link_views(
+                    [
+                        related_resources,
+                        vec![
+                            schema_resource_view_link("plan"),
+                            schemas_resource_view_link(),
+                        ],
+                    ]
+                    .concat(),
+                )
+            } else {
+                dedupe_resource_link_views(related_resources)
+            };
             Ok(PlanResourcePayload {
                 uri: uri.clone(),
                 schema_uri,
                 workspace_revision: workspace_revision_view(prism.workspace_revision()),
                 plan,
                 summary,
-                related_resources: dedupe_resource_link_views(related_resources),
+                related_resources,
             })
         })
     }

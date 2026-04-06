@@ -1829,7 +1829,34 @@ pub(crate) enum PrismMutationKindArgs {
     CuratorRejectProposal(PrismCuratorRejectProposalArgs),
 }
 
-impl PrismMutationKindArgs {}
+impl PrismMutationKindArgs {
+    pub(crate) fn action_tag(&self) -> &'static str {
+        match self {
+            Self::DeclareWork(_) => "declare_work",
+            Self::Checkpoint(_) => "checkpoint",
+            Self::Outcome(_) => "outcome",
+            Self::Memory(_) => "memory",
+            Self::Concept(_) => "concept",
+            Self::Contract(_) => "contract",
+            Self::ConceptRelation(_) => "concept_relation",
+            Self::ValidationFeedback(_) => "validation_feedback",
+            Self::SessionRepair(_) => "session_repair",
+            Self::InferEdge(_) => "infer_edge",
+            Self::HeartbeatLease(_) => "heartbeat_lease",
+            Self::Coordination(_) => "coordination",
+            Self::Claim(_) => "claim",
+            Self::Artifact(_) => "artifact",
+            Self::TestRan(_) => "test_ran",
+            Self::FailureObserved(_) => "failure_observed",
+            Self::FixValidated(_) => "fix_validated",
+            Self::CuratorApplyProposal(_) => "curator_apply_proposal",
+            Self::CuratorPromoteEdge(_) => "curator_promote_edge",
+            Self::CuratorPromoteConcept(_) => "curator_promote_concept",
+            Self::CuratorPromoteMemory(_) => "curator_promote_memory",
+            Self::CuratorRejectProposal(_) => "curator_reject_proposal",
+        }
+    }
+}
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[schemars(transform = ensure_root_object_input_schema)]

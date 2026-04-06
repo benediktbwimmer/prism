@@ -23,7 +23,9 @@ pub struct CoordinationStartupCheckpoint {
     pub snapshot: CoordinationSnapshot,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub canonical_snapshot_v2: Option<CoordinationSnapshotV2>,
+    #[serde(default)]
     pub plan_graphs: Vec<PlanGraph>,
+    #[serde(default)]
     pub execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     #[serde(default)]
     pub runtime_descriptors: Vec<RuntimeDescriptor>,

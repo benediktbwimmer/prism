@@ -1233,7 +1233,7 @@ fn bootstrap_tool_cache(features: PrismMcpFeatures) -> HashMap<String, Tool> {
         .list_all()
         .into_iter()
         .filter(|tool| features.is_tool_enabled(&tool.name))
-        .map(PrismMcpServer::transport_bind_tool_schema)
+        .map(|tool| PrismMcpServer::transport_bind_tool_schema(tool, &features))
         .map(|tool| (tool.name.to_string(), tool))
         .collect()
 }

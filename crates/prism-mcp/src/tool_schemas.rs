@@ -22,10 +22,10 @@ use crate::{
     ClaimRenewPayload, HandoffAcceptPayload, HandoffPayload, MemoryRetirePayload,
     MemoryStorePayload, PlanArchivePayload, PlanBootstrapPayload, PlanCreatePayload,
     PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanUpdatePayload,
-    PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs,
-    PrismOpenArgs, PrismQueryArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView,
-    TaskCreatePayload, TaskReclaimPayload, TaskResumePayload, WorkflowUpdatePayload,
-    TOOL_SCHEMAS_URI,
+    PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMcpFeatures,
+    PrismMutationArgs, PrismOpenArgs, PrismQueryArgs, PrismTaskBriefArgs, PrismWorksetArgs,
+    ResourceLinkView, TaskCreatePayload, TaskReclaimPayload, TaskResumePayload,
+    WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -141,7 +141,19 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
         .clone()
 }
 
-pub(crate) fn tool_schemas_resource_value() -> ToolSchemaCatalogPayload {
+pub(crate) fn tool_schemas_resource_value(features: &PrismMcpFeatures) -> ToolSchemaCatalogPayload {
+    let visible_entries = tool_schema_catalog_entries()
+        .into_iter()
+        .filter(|entry| features.is_tool_enabled(&entry.tool_name))
+        .map(|mut entry| {
+            if let Some(schema) = tool_schema_view_with_features(&entry.tool_name, features) {
+                entry.example_input = schema.example_input.clone();
+                entry.example_uri = schema.example_uri.clone();
+                entry.shape_uri = schema.shape_uri.clone();
+            }
+            entry
+        })
+        .collect::<Vec<_>>();
     let mut related_resources = vec![
         capabilities_resource_view_link(),
         tool_schemas_resource_view_link(),
@@ -150,12 +162,12 @@ pub(crate) fn tool_schemas_resource_value() -> ToolSchemaCatalogPayload {
         session_resource_view_link(),
     ];
     related_resources.extend(
-        tool_schema_catalog_entries()
+        visible_entries
             .iter()
             .map(|entry| tool_schema_resource_view_link(&entry.tool_name)),
     );
-    related_resources.extend(tool_schema_catalog_entries().iter().flat_map(|entry| {
-        tool_schema_view(&entry.tool_name)
+    related_resources.extend(visible_entries.iter().flat_map(|entry| {
+        tool_schema_view_with_features(&entry.tool_name, features)
             .into_iter()
             .flat_map(|schema| schema.actions.into_iter())
             .map(move |action| {
@@ -165,7 +177,7 @@ pub(crate) fn tool_schemas_resource_value() -> ToolSchemaCatalogPayload {
     ToolSchemaCatalogPayload {
         uri: TOOL_SCHEMAS_URI.to_string(),
         schema_uri: schema_resource_uri("tool-schemas"),
-        tools: tool_schema_catalog_entries(),
+        tools: visible_entries,
         related_resources: dedupe_resource_link_views(related_resources),
     }
 }
@@ -213,6 +225,42 @@ pub(crate) fn tool_schema_view(tool_name: &str) -> Option<ToolSchemaView> {
         .cloned()
 }
 
+pub(crate) fn tool_schema_view_with_features(
+    tool_name: &str,
+    features: &PrismMcpFeatures,
+) -> Option<ToolSchemaView> {
+    let mut schema = tool_schema_view(tool_name)?;
+    if tool_name != "prism_mutate" {
+        return Some(schema);
+    }
+
+    schema.input_schema = tool_input_schema_value_with_features(tool_name, features)?;
+    schema.actions = schema
+        .actions
+        .into_iter()
+        .filter(|action| features.prism_mutate_action_enabled(&action.action))
+        .collect();
+    schema.example_inputs =
+        filter_tool_examples_for_features(tool_name, schema.example_inputs, features);
+    schema.example_input = schema
+        .example_inputs
+        .first()
+        .cloned()
+        .or_else(|| {
+            schema
+                .input_schema
+                .get("examples")
+                .and_then(Value::as_array)
+                .and_then(|examples| examples.first().cloned())
+        })
+        .unwrap_or_else(|| schema.example_input.clone());
+    if features.hides_prism_mutate_self_describing_resources() {
+        schema.example_uri = None;
+        schema.shape_uri = None;
+    }
+    Some(schema)
+}
+
 pub(crate) fn tool_action_schema_view(
     tool_name: &str,
     action: &str,
@@ -223,8 +271,59 @@ pub(crate) fn tool_action_schema_view(
         .find(|candidate| candidate.action == action)
 }
 
+pub(crate) fn tool_action_schema_view_with_features(
+    tool_name: &str,
+    action: &str,
+    features: &PrismMcpFeatures,
+) -> Option<ToolActionSchemaView> {
+    tool_schema_view_with_features(tool_name, features)?
+        .actions
+        .into_iter()
+        .find(|candidate| candidate.action == action)
+}
+
 pub(crate) fn tool_action_schema_value(tool_name: &str, action: &str) -> Option<Value> {
     let action_view = tool_action_schema_view(tool_name, action)?;
+    let mut schema = action_view.input_schema.clone();
+    let description = action_view
+        .description
+        .clone()
+        .unwrap_or_else(|| format!("Exact input schema for `{tool_name}` action `{action}`."));
+    if let Some(object) = schema.as_object_mut() {
+        object.insert(
+            "$schema".to_string(),
+            Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+        );
+        object.insert(
+            "$id".to_string(),
+            Value::String(tool_action_schema_resource_uri(tool_name, action)),
+        );
+        object.insert(
+            "title".to_string(),
+            Value::String(format!("PRISM Tool Action Schema: {tool_name}.{action}")),
+        );
+        object.insert("description".to_string(), Value::String(description));
+        if !action_view.example_inputs.is_empty() {
+            object.insert(
+                "examples".to_string(),
+                Value::Array(action_view.example_inputs.clone()),
+            );
+        } else if let Some(example_input) = &action_view.example_input {
+            object.insert(
+                "examples".to_string(),
+                Value::Array(vec![example_input.clone()]),
+            );
+        }
+    }
+    Some(schema)
+}
+
+pub(crate) fn tool_action_schema_value_with_features(
+    tool_name: &str,
+    action: &str,
+    features: &PrismMcpFeatures,
+) -> Option<Value> {
+    let action_view = tool_action_schema_view_with_features(tool_name, action, features)?;
     let mut schema = action_view.input_schema.clone();
     let description = action_view
         .description
@@ -390,6 +489,25 @@ pub(crate) fn tool_schema_resource_contents(
     }
 }
 
+pub(crate) fn tool_schema_resource_contents_with_features(
+    tool_name: &str,
+    uri: &str,
+    features: &PrismMcpFeatures,
+) -> Result<ResourceContents, McpError> {
+    let schema = tool_input_schema_value_with_features(tool_name, features).ok_or_else(|| {
+        McpError::resource_not_found(
+            "resource_not_found",
+            Some(serde_json::json!({ "uri": uri })),
+        )
+    })?;
+    json_resource_contents_with_meta(
+        schema,
+        uri.to_string(),
+        Some(resource_meta("tool-schema", None, Some(tool_name))),
+    )
+    .map(|contents| contents.with_mime_type("application/schema+json"))
+}
+
 pub(crate) fn tool_input_schema_value(tool_name: &str) -> Option<Value> {
     match tool_name {
         "prism_locate" => Some(tool_input_schema_value_for::<PrismLocateArgs>(
@@ -432,9 +550,77 @@ pub(crate) fn tool_input_schema_value(tool_name: &str) -> Option<Value> {
     }
 }
 
+pub(crate) fn tool_input_schema_value_with_features(
+    tool_name: &str,
+    features: &PrismMcpFeatures,
+) -> Option<Value> {
+    let schema = tool_input_schema_value(tool_name)?;
+    Some(filter_tool_schema_for_features(tool_name, schema, features))
+}
+
 pub(crate) fn tool_transport_input_schema_value(tool_name: &str) -> Option<Value> {
     let schema = tool_input_schema_value(tool_name)?;
     Some(bind_transport_root_schema(tool_name, schema))
+}
+
+pub(crate) fn tool_transport_input_schema_value_with_features(
+    tool_name: &str,
+    features: &PrismMcpFeatures,
+) -> Option<Value> {
+    let schema = tool_input_schema_value_with_features(tool_name, features)?;
+    Some(bind_transport_root_schema(tool_name, schema))
+}
+
+fn filter_tool_schema_for_features(
+    tool_name: &str,
+    mut schema: Value,
+    features: &PrismMcpFeatures,
+) -> Value {
+    if tool_name != "prism_mutate" {
+        return schema;
+    }
+
+    if let Some(variants) = schema.get_mut("oneOf").and_then(Value::as_array_mut) {
+        variants.retain(|variant| {
+            variant
+                .get("properties")
+                .and_then(Value::as_object)
+                .and_then(|properties| properties.get("action"))
+                .and_then(Value::as_object)
+                .and_then(|action| action.get("const"))
+                .and_then(Value::as_str)
+                .is_some_and(|action| features.prism_mutate_action_enabled(action))
+        });
+    }
+    if let Some(examples) = schema.get_mut("examples").and_then(Value::as_array_mut) {
+        examples.retain(|example| tool_example_matches_features(tool_name, example, features));
+    }
+    schema
+}
+
+fn filter_tool_examples_for_features(
+    tool_name: &str,
+    examples: Vec<Value>,
+    features: &PrismMcpFeatures,
+) -> Vec<Value> {
+    examples
+        .into_iter()
+        .filter(|example| tool_example_matches_features(tool_name, example, features))
+        .collect()
+}
+
+fn tool_example_matches_features(
+    tool_name: &str,
+    example: &Value,
+    features: &PrismMcpFeatures,
+) -> bool {
+    if tool_name != "prism_mutate" {
+        return true;
+    }
+    example
+        .get("action")
+        .and_then(Value::as_str)
+        .is_some_and(|action| features.prism_mutate_action_enabled(action))
 }
 
 fn bind_transport_root_schema(tool_name: &str, schema: Value) -> Value {

@@ -16107,6 +16107,108 @@ async fn mcp_server_executes_prism_task_brief_round_trip() {
 }
 
 #[tokio::test]
+async fn coordination_only_task_brief_avoids_stripped_tool_guidance() {
+    let root = temp_workspace();
+    let workspace = shared_workspace_session(&root);
+    let writer =
+        host_with_shared_session_and_features(Arc::clone(&workspace), PrismMcpFeatures::full());
+    let server = server_with_shared_session_and_features(
+        workspace,
+        PrismMcpFeatures::full().with_runtime_mode(prism_core::PrismRuntimeMode::CoordinationOnly),
+    );
+    let plan = retry_on_runtime_sync_busy(|| {
+        writer.store_coordination(
+            test_session(&writer).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "title": "Coordinate main", "goal": "Coordinate main" }),
+                task_id: None,
+            },
+        )
+    })
+    .expect("plan create should succeed");
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+    let task = retry_on_runtime_sync_busy(|| {
+        writer.store_coordination(
+            test_session(&writer).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Inspect main",
+                    "status": "Ready",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+    })
+    .expect("task create should succeed");
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+    writer
+        .store_outcome(
+            test_session(&writer).as_ref(),
+            PrismOutcomeArgs {
+                kind: OutcomeKindInput::FixValidated,
+                anchors: vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::alpha".to_string(),
+                    kind: "function".to_string(),
+                }],
+                summary: "validated main".to_string(),
+                result: Some(OutcomeResultInput::Success),
+                evidence: None,
+                task_id: Some(task_id.clone()),
+            },
+        )
+        .expect("outcome should store");
+
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_task_brief",
+            json!({
+                "taskId": task_id,
+            })
+            .as_object()
+            .expect("tool args should be an object")
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let brief = first_tool_content_json(client.receive().await.unwrap());
+    let next_action = brief["nextAction"]
+        .as_str()
+        .expect("task brief nextAction should be text");
+    assert_eq!(brief["title"], "Inspect main");
+    assert!(!next_action.contains("prism_query"));
+    assert!(!next_action.contains("prism_open"));
+    assert!(!next_action.contains("prism.blockers"));
+    assert!(
+        next_action.contains("prism_task_brief") || next_action.contains("prism_mutate"),
+        "{next_action}"
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_keeps_compact_handles_stable_across_parallel_follow_up_calls() {
     let root = temp_workspace();
     write_memory_insight_workspace(&root);

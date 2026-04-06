@@ -12,8 +12,8 @@ use prism_store::{
 };
 
 use crate::published_plans::{
-    merge_shared_coordination_into_snapshot, merge_snapshot_bootstrap_into_plan_state,
-    HydratedCoordinationPlanState,
+    execution_overlays_by_plan, merge_shared_coordination_into_snapshot,
+    merge_snapshot_bootstrap_into_plan_state, HydratedCoordinationPlanState,
 };
 use crate::shared_coordination_ref::shared_coordination_startup_authority;
 use crate::util::current_timestamp;
@@ -162,6 +162,7 @@ where
     let Some(checkpoint) = store.load_coordination_startup_checkpoint()? else {
         return Ok(None);
     };
+    let checkpoint = normalize_coordination_startup_checkpoint(checkpoint);
     if store.coordination_revision()? > checkpoint.coordination_revision {
         return Ok(None);
     }
@@ -183,6 +184,18 @@ where
     Ok(Some(checkpoint))
 }
 
+fn normalize_coordination_startup_checkpoint(
+    mut checkpoint: CoordinationStartupCheckpoint,
+) -> CoordinationStartupCheckpoint {
+    if checkpoint.plan_graphs.is_empty() {
+        checkpoint.plan_graphs = prism_coordination::snapshot_plan_graphs(&checkpoint.snapshot);
+    }
+    if checkpoint.execution_overlays.is_empty() {
+        checkpoint.execution_overlays = execution_overlays_by_plan(&checkpoint.snapshot.tasks);
+    }
+    checkpoint
+}
+
 fn coordination_startup_authority(root: &Path) -> Result<CoordinationStartupCheckpointAuthority> {
     Ok(
         shared_coordination_startup_authority(root)?.unwrap_or_else(|| {
@@ -193,4 +206,104 @@ fn coordination_startup_authority(root: &Path) -> Result<CoordinationStartupChec
             }
         }),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_coordination_startup_checkpoint;
+    use crate::published_plans::execution_overlays_by_plan;
+    use prism_coordination::{CoordinationPolicy, CoordinationSnapshot, Plan, PlanScheduling};
+    use prism_ir::{
+        CoordinationTaskId, CoordinationTaskStatus, PlanId, PlanKind, PlanScope, PlanStatus,
+        SessionId, WorkspaceRevision,
+    };
+    use prism_store::{CoordinationStartupCheckpoint, CoordinationStartupCheckpointAuthority};
+
+    #[test]
+    fn legacy_checkpoint_without_plan_graphs_rebuilds_derived_plan_state() {
+        let plan_id = PlanId::new("plan:legacy-checkpoint");
+        let task_id = CoordinationTaskId::new("coord-task:legacy-checkpoint");
+        let snapshot = CoordinationSnapshot {
+            plans: vec![Plan {
+                id: plan_id.clone(),
+                goal: "ship".to_string(),
+                title: "ship".to_string(),
+                status: PlanStatus::Active,
+                policy: CoordinationPolicy::default(),
+                scope: PlanScope::Repo,
+                kind: PlanKind::TaskExecution,
+                revision: 1,
+                scheduling: PlanScheduling::default(),
+                tags: Vec::new(),
+                created_from: None,
+                metadata: serde_json::Value::Null,
+                authored_nodes: Vec::new(),
+                authored_edges: Vec::new(),
+                root_tasks: vec![task_id.clone()],
+            }],
+            tasks: vec![prism_coordination::CoordinationTask {
+                id: task_id,
+                plan: plan_id.clone(),
+                kind: prism_ir::PlanNodeKind::Edit,
+                title: "ship it".to_string(),
+                summary: None,
+                status: CoordinationTaskStatus::InProgress,
+                published_task_status: None,
+                assignee: None,
+                pending_handoff_to: None,
+                session: Some(SessionId::new("session:test".to_string())),
+                lease_holder: None,
+                lease_started_at: None,
+                lease_refreshed_at: None,
+                lease_stale_at: None,
+                lease_expires_at: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                bindings: prism_ir::PlanBinding::default(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+                git_execution: prism_coordination::TaskGitExecution::default(),
+            }],
+            claims: Vec::new(),
+            artifacts: Vec::new(),
+            reviews: Vec::new(),
+            events: Vec::new(),
+            next_plan: 1,
+            next_task: 1,
+            next_claim: 0,
+            next_artifact: 0,
+            next_review: 0,
+        };
+        let expected_graph = prism_coordination::snapshot_plan_graphs(&snapshot);
+        let expected_overlays = execution_overlays_by_plan(&snapshot.tasks);
+        let checkpoint = CoordinationStartupCheckpoint {
+            version: CoordinationStartupCheckpoint::VERSION,
+            materialized_at: 1,
+            coordination_revision: 1,
+            authority: CoordinationStartupCheckpointAuthority {
+                ref_name: "local-worktree".to_string(),
+                head_commit: None,
+                manifest_digest: None,
+            },
+            snapshot,
+            canonical_snapshot_v2: None,
+            plan_graphs: Vec::new(),
+            execution_overlays: Default::default(),
+            runtime_descriptors: Vec::new(),
+        };
+
+        let normalized = normalize_coordination_startup_checkpoint(checkpoint);
+
+        assert_eq!(normalized.plan_graphs, expected_graph);
+        assert_eq!(normalized.execution_overlays, expected_overlays);
+    }
 }

@@ -398,8 +398,10 @@ impl PrismMcpServer {
         })
     }
 
-    pub(crate) fn transport_bind_tool_schema(mut tool: Tool) -> Tool {
-        if let Some(Value::Object(schema)) = tool_transport_input_schema_value(tool.name.as_ref()) {
+    pub(crate) fn transport_bind_tool_schema(mut tool: Tool, features: &PrismMcpFeatures) -> Tool {
+        if let Some(Value::Object(schema)) =
+            tool_transport_input_schema_value_with_features(tool.name.as_ref(), features)
+        {
             tool.input_schema = Arc::new(schema);
         }
         tool
@@ -1388,6 +1390,16 @@ impl PrismMcpServer {
             bridge_execution,
             mutation,
         } = args;
+        let action = mutation.action_tag();
+        if !self.host.features.prism_mutate_action_enabled(action) {
+            return Err(McpError::invalid_params(
+                "prism_mutate action is unavailable in the active runtime mode",
+                Some(json!({
+                    "action": action,
+                    "runtimeMode": self.host.features.runtime_mode_label(),
+                })),
+            ));
+        }
         match mutation {
             PrismMutationKindArgs::DeclareWork(args) => {
                 let authenticated = self.authenticate_mutation(
@@ -2326,7 +2338,7 @@ impl ServerHandler for PrismMcpServer {
                 .list_all()
                 .into_iter()
                 .filter(|tool| self.host.features.is_tool_enabled(&tool.name))
-                .map(Self::transport_bind_tool_schema)
+                .map(|tool| Self::transport_bind_tool_schema(tool, &self.host.features))
                 .collect(),
             next_cursor: None,
             meta: None,
@@ -2363,7 +2375,7 @@ impl ServerHandler for PrismMcpServer {
                 self.tool_router
                     .get(name)
                     .cloned()
-                    .map(Self::transport_bind_tool_schema)
+                    .map(|tool| Self::transport_bind_tool_schema(tool, &self.host.features))
             })
             .flatten()
     }
@@ -2416,9 +2428,6 @@ impl ServerHandler for PrismMcpServer {
             plans_resource_link()
                 .with_title("PRISM Plans")
                 .no_annotation(),
-            contracts_resource_link()
-                .with_title("PRISM Contracts")
-                .no_annotation(),
             RawResource::new(VOCAB_URI, "PRISM Vocabulary")
                 .with_description(
                     "Canonical enum and action vocabularies for PRISM MCP resources, query args, and mutation payloads",
@@ -2428,30 +2437,6 @@ impl ServerHandler for PrismMcpServer {
                 .with_meta(resource_meta(
                     "vocab",
                     Some(schema_resource_uri("vocab")),
-                    None,
-                ))
-                .no_annotation(),
-            RawResource::new(ENTRYPOINTS_URI, "PRISM Entrypoints")
-                .with_description(
-                    "Workspace entrypoints and top-level starting symbols in structured JSON, with optional cursor-based pagination",
-                )
-                .with_mime_type("application/json")
-                .with_title("PRISM Entrypoints")
-                .with_meta(resource_meta(
-                    "entrypoints",
-                    Some(schema_resource_uri("entrypoints")),
-                    None,
-                ))
-                .no_annotation(),
-            RawResource::new(SCHEMAS_URI, "PRISM Resource Schemas")
-                .with_description(
-                    "Catalog of JSON Schemas for all structured PRISM resource payloads",
-                )
-                .with_mime_type("application/json")
-                .with_title("PRISM Resource Schemas")
-                .with_meta(resource_meta(
-                    "schemas",
-                    Some(schema_resource_uri("schemas")),
                     None,
                 ))
                 .no_annotation(),
@@ -2465,10 +2450,41 @@ impl ServerHandler for PrismMcpServer {
                     None,
                 ))
                 .no_annotation(),
-            self_description_audit_resource_link()
-                .with_title("PRISM Self-Description Audit")
-                .no_annotation(),
         ]);
+        if self.host.features.cognition_layer_enabled() {
+            resources.extend([
+                contracts_resource_link()
+                    .with_title("PRISM Contracts")
+                    .no_annotation(),
+                RawResource::new(ENTRYPOINTS_URI, "PRISM Entrypoints")
+                    .with_description(
+                        "Workspace entrypoints and top-level starting symbols in structured JSON, with optional cursor-based pagination",
+                    )
+                    .with_mime_type("application/json")
+                    .with_title("PRISM Entrypoints")
+                    .with_meta(resource_meta(
+                        "entrypoints",
+                        Some(schema_resource_uri("entrypoints")),
+                        None,
+                    ))
+                    .no_annotation(),
+                RawResource::new(SCHEMAS_URI, "PRISM Resource Schemas")
+                    .with_description(
+                        "Catalog of JSON Schemas for all structured PRISM resource payloads",
+                    )
+                    .with_mime_type("application/json")
+                    .with_title("PRISM Resource Schemas")
+                    .with_meta(resource_meta(
+                        "schemas",
+                        Some(schema_resource_uri("schemas")),
+                        None,
+                    ))
+                    .no_annotation(),
+                self_description_audit_resource_link()
+                    .with_title("PRISM Self-Description Audit")
+                    .no_annotation(),
+            ]);
+        }
         let result = ListResourcesResult {
             resources,
             next_cursor: None,
@@ -2507,6 +2523,31 @@ impl ServerHandler for PrismMcpServer {
         let started = Instant::now();
         let uri = request.uri.as_str();
         let (base_uri, _) = split_resource_uri(uri);
+        let resource_not_found =
+            || McpError::resource_not_found("resource_not_found", Some(json!({ "uri": uri })));
+        let require_resource_kind = |resource_kind: &str| {
+            if self.host.features.resource_kind_visible(resource_kind) {
+                Ok(())
+            } else {
+                Err(resource_not_found())
+            }
+        };
+        let require_tool_name = |tool_name: &str| {
+            if self.host.features.is_tool_enabled(tool_name) {
+                Ok(())
+            } else {
+                Err(resource_not_found())
+            }
+        };
+        let require_tool_action_name = |tool_name: &str, action: &str| {
+            require_tool_name(tool_name)?;
+            if tool_name == "prism_mutate"
+                && !self.host.features.prism_mutate_action_enabled(action)
+            {
+                return Err(resource_not_found());
+            }
+            Ok(())
+        };
         let (contents_result, resource_trace) =
             crate::resource_trace::ResourceTraceState::scope(async {
                 (|| -> Result<ResourceContents, McpError> {
@@ -2589,6 +2630,7 @@ impl ServerHandler for PrismMcpServer {
                             request.uri.as_str(),
                         )?
                     } else if base_uri == SCHEMAS_URI {
+                        require_resource_kind("schemas")?;
                         json_resource_contents_with_meta(
                             self.host.schemas_resource_value(),
                             request.uri.clone(),
@@ -2609,6 +2651,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if base_uri == SELF_DESCRIPTION_AUDIT_URI {
+                        require_resource_kind("self-description-audit")?;
                         self_description_audit_resource_contents(
                             self.host
                                 .capabilities_resource_value()
@@ -2640,6 +2683,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if base_uri == CONTRACTS_URI {
+                        require_resource_kind("contracts")?;
                         json_resource_contents_with_meta(
                             self.host
                                 .contracts_resource_value(Arc::clone(&self.session), uri)
@@ -2652,6 +2696,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if base_uri == ENTRYPOINTS_URI {
+                        require_resource_kind("entrypoints")?;
                         json_resource_contents_with_meta(
                             self.host
                                 .entrypoints_resource_value(Arc::clone(&self.session), uri)
@@ -2664,6 +2709,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if let Some(args) = parse_file_resource_uri(uri)? {
+                        require_resource_kind("file")?;
                         json_resource_contents_with_meta(
                             self.host
                                 .file_resource_value(self.session.as_ref(), uri, args)
@@ -2676,6 +2722,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if let Some(query) = parse_search_resource_uri(uri) {
+                        require_resource_kind("search")?;
                         json_resource_contents_with_meta(
                             self.host
                                 .search_resource_value(Arc::clone(&self.session), uri, &query)
@@ -2688,6 +2735,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if let Some(id) = parse_symbol_resource_uri(uri)? {
+                        require_resource_kind("symbol")?;
                         json_resource_contents_with_meta(
                             self.host
                                 .symbol_resource_value(Arc::clone(&self.session), &id)
@@ -2700,6 +2748,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if let Some(lineage) = parse_lineage_resource_uri(uri) {
+                        require_resource_kind("lineage")?;
                         json_resource_contents_with_meta(
                             self.host
                                 .lineage_resource_value(self.session.as_ref(), uri, &lineage)
@@ -2724,6 +2773,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if let Some(task_id) = parse_task_resource_uri(uri) {
+                        require_resource_kind("task")?;
                         json_resource_contents_with_meta(
                             self.host
                                 .task_resource_value(self.session.as_ref(), uri, &task_id)
@@ -2736,6 +2786,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if let Some(event_id) = parse_event_resource_uri(uri) {
+                        require_resource_kind("event")?;
                         json_resource_contents_with_meta(
                             self.host
                                 .event_resource_value(&event_id)
@@ -2748,6 +2799,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if let Some(memory_id) = parse_memory_resource_uri(uri) {
+                        require_resource_kind("memory")?;
                         json_resource_contents_with_meta(
                             self.host
                                 .memory_resource_value(self.session.as_ref(), &memory_id)
@@ -2760,6 +2812,7 @@ impl ServerHandler for PrismMcpServer {
                             )),
                         )?
                     } else if let Some(edge_id) = parse_edge_resource_uri(uri) {
+                        require_resource_kind("edge")?;
                         json_resource_contents_with_meta(
                             self.host
                                 .edge_resource_value(self.session.as_ref(), &edge_id)
@@ -2774,46 +2827,74 @@ impl ServerHandler for PrismMcpServer {
                     } else if let Some((tool_name, action, tag)) =
                         parse_tool_variant_schema_resource_uri(uri)
                     {
+                        require_tool_action_name(&tool_name, &action)?;
                         tool_variant_schema_resource_contents(&tool_name, &action, &tag, uri)?
                     } else if let Some((tool_name, action, tag)) =
                         parse_tool_variant_example_resource_uri(uri)
                     {
+                        require_tool_action_name(&tool_name, &action)?;
                         tool_variant_example_resource_contents(&tool_name, &action, &tag, uri)?
                     } else if let Some((tool_name, action, tag)) =
                         parse_tool_variant_shape_resource_uri(uri)
                     {
+                        require_tool_action_name(&tool_name, &action)?;
                         tool_variant_shape_resource_contents(&tool_name, &action, &tag, uri)?
                     } else if let Some((tool_name, action, tag)) =
                         parse_tool_variant_recipe_resource_uri(uri)
                     {
+                        require_tool_action_name(&tool_name, &action)?;
                         tool_recipe_resource_contents(&tool_name, &action, Some(&tag), uri)?
                     } else if let Some((tool_name, action)) =
                         parse_tool_action_example_resource_uri(uri)
                     {
+                        require_tool_action_name(&tool_name, &action)?;
                         tool_action_example_resource_contents(&tool_name, &action, uri)?
                     } else if let Some((tool_name, action)) =
                         parse_tool_action_shape_resource_uri(uri)
                     {
+                        require_tool_action_name(&tool_name, &action)?;
                         tool_action_shape_resource_contents(&tool_name, &action, uri)?
                     } else if let Some((tool_name, action)) =
                         parse_tool_action_recipe_resource_uri(uri)
                     {
+                        require_tool_action_name(&tool_name, &action)?;
                         tool_recipe_resource_contents(&tool_name, &action, None, uri)?
                     } else if let Some(tool_name) = parse_tool_example_resource_uri(uri) {
+                        require_tool_name(&tool_name)?;
+                        if tool_name == "prism_mutate"
+                            && self.host.features.hides_prism_mutate_self_describing_resources()
+                        {
+                            return Err(resource_not_found());
+                        }
                         tool_example_resource_contents(&tool_name, uri)?
                     } else if let Some(tool_name) = parse_tool_shape_resource_uri(uri) {
+                        require_tool_name(&tool_name)?;
+                        if tool_name == "prism_mutate"
+                            && self.host.features.hides_prism_mutate_self_describing_resources()
+                        {
+                            return Err(resource_not_found());
+                        }
                         tool_shape_resource_contents(&tool_name, uri)?
                     } else if let Some(resource_kind) = parse_resource_example_resource_uri(uri) {
+                        require_resource_kind(&resource_kind)?;
                         resource_example_resource_contents(&resource_kind, uri)?
                     } else if let Some(resource_kind) = parse_resource_shape_resource_uri(uri) {
+                        require_resource_kind(&resource_kind)?;
                         resource_shape_resource_contents(&resource_kind, uri)?
                     } else if let Some((tool_name, action)) =
                         parse_tool_action_schema_resource_uri(uri)
                     {
+                        require_tool_action_name(&tool_name, &action)?;
                         tool_action_schema_resource_contents(&tool_name, &action, uri)?
                     } else if let Some(tool_name) = parse_tool_schema_resource_uri(uri) {
-                        tool_schema_resource_contents(&tool_name, uri)?
+                        require_tool_name(&tool_name)?;
+                        tool_schema_resource_contents_with_features(
+                            &tool_name,
+                            uri,
+                            &self.host.features,
+                        )?
                     } else if let Some(resource_kind) = parse_schema_resource_uri(uri) {
+                        require_resource_kind(&resource_kind)?;
                         match resource_kind.as_str() {
                     "capabilities" => schema_resource_contents::<CapabilitiesResourcePayload>(
                         uri,
@@ -3033,221 +3114,19 @@ impl ServerHandler for PrismMcpServer {
         let started = Instant::now();
         let result = ListResourceTemplatesResult {
             next_cursor: None,
-            resource_templates: vec![
-                RawResourceTemplate::new(
-                    ENTRYPOINTS_RESOURCE_TEMPLATE_URI,
-                    "PRISM Entrypoints Page",
-                )
-                .with_description(
-                    "Read workspace entrypoints with optional `limit` and opaque `cursor` pagination",
-                )
-                .with_mime_type("application/json")
-                .no_annotation(),
-                RawResourceTemplate::new(PLANS_RESOURCE_TEMPLATE_URI, "PRISM Plans Page")
-                    .with_description(
-                        "Read structured plan discovery results with optional `status`, `scope`, `contains`, `sort`, `limit`, and opaque `cursor` pagination",
-                    )
-                    .with_mime_type("application/json")
-                    .with_title("PRISM Plans Page")
-                    .no_annotation(),
-                RawResourceTemplate::new(PLAN_RESOURCE_TEMPLATE_URI, "PRISM Plan")
-                    .with_description("Read a coordination plan by id")
-                    .with_mime_type("application/json")
-                    .with_title("PRISM Plan")
-                    .no_annotation(),
-                RawResourceTemplate::new(SCHEMA_RESOURCE_TEMPLATE_URI, "PRISM Resource Schema")
-                    .with_description(
-                        "Read a JSON Schema document for a structured PRISM resource payload kind such as `session`, `plans`, `plan`, `entrypoints`, `search`, `symbol`, `lineage`, `task`, `event`, `memory`, or `edge`",
-                    )
-                    .with_mime_type("application/schema+json")
-                    .with_title("PRISM Resource Schema")
-                    .no_annotation(),
-                RawResourceTemplate::new(TOOL_SCHEMA_RESOURCE_TEMPLATE_URI, "PRISM Tool Schema")
-                    .with_description(
-                        "Read a JSON Schema document for a PRISM MCP tool input payload such as `prism_query` or `prism_mutate`",
-                    )
-                    .with_mime_type("application/schema+json")
-                    .with_title("PRISM Tool Schema")
-                    .no_annotation(),
-                RawResourceTemplate::new(
-                    TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI,
-                    "PRISM Tool Action Schema",
-                )
-                .with_description(
-                    "Read an exact JSON Schema document for one tagged PRISM MCP tool action such as `prism_mutate` action `coordination`",
-                )
-                .with_mime_type("application/schema+json")
-                .with_title("PRISM Tool Action Schema")
-                .no_annotation(),
-                RawResourceTemplate::new(
-                    TOOL_VARIANT_SCHEMA_RESOURCE_TEMPLATE_URI,
-                    "PRISM Tool Variant Schema",
-                )
-                .with_description(
-                    "Read an exact JSON Schema document for one nested tool payload variant such as `prism_mutate` action `coordination` variant `plan_bootstrap`",
-                )
-                .with_mime_type("application/schema+json")
-                .with_title("PRISM Tool Variant Schema")
-                .no_annotation(),
-                RawResourceTemplate::new(TOOL_EXAMPLE_RESOURCE_TEMPLATE_URI, "PRISM Tool Example")
-                    .with_description(
-                        "Read compact example payloads for one PRISM MCP tool",
-                    )
-                    .with_mime_type("application/json")
-                    .with_title("PRISM Tool Example")
-                    .no_annotation(),
-                RawResourceTemplate::new(
-                    TOOL_ACTION_EXAMPLE_RESOURCE_TEMPLATE_URI,
-                    "PRISM Tool Action Example",
-                )
-                .with_description(
-                    "Read compact example payloads for one tagged PRISM MCP tool action",
-                )
-                .with_mime_type("application/json")
-                .with_title("PRISM Tool Action Example")
-                .no_annotation(),
-                RawResourceTemplate::new(
-                    TOOL_VARIANT_EXAMPLE_RESOURCE_TEMPLATE_URI,
-                    "PRISM Tool Variant Example",
-                )
-                .with_description(
-                    "Read compact example payloads for one nested tool payload variant",
-                )
-                .with_mime_type("application/json")
-                .with_title("PRISM Tool Variant Example")
-                .no_annotation(),
-                RawResourceTemplate::new(TOOL_SHAPE_RESOURCE_TEMPLATE_URI, "PRISM Tool Shape")
-                    .with_description(
-                        "Read a compact shape summary for one PRISM MCP tool",
-                    )
-                    .with_mime_type("application/json")
-                    .with_title("PRISM Tool Shape")
-                    .no_annotation(),
-                RawResourceTemplate::new(
-                    TOOL_ACTION_SHAPE_RESOURCE_TEMPLATE_URI,
-                    "PRISM Tool Action Shape",
-                )
-                .with_description(
-                    "Read a compact shape summary for one tagged PRISM MCP tool action",
-                )
-                .with_mime_type("application/json")
-                .with_title("PRISM Tool Action Shape")
-                .no_annotation(),
-                RawResourceTemplate::new(
-                    TOOL_VARIANT_SHAPE_RESOURCE_TEMPLATE_URI,
-                    "PRISM Tool Variant Shape",
-                )
-                .with_description(
-                    "Read a compact shape summary for one nested tool payload variant",
-                )
-                .with_mime_type("application/json")
-                .with_title("PRISM Tool Variant Shape")
-                .no_annotation(),
-                RawResourceTemplate::new(
-                    RESOURCE_EXAMPLE_RESOURCE_TEMPLATE_URI,
-                    "PRISM Resource Example",
-                )
-                .with_description(
-                    "Read a compact example payload for one structured PRISM resource kind",
-                )
-                .with_mime_type("application/json")
-                .with_title("PRISM Resource Example")
-                .no_annotation(),
-                RawResourceTemplate::new(
-                    RESOURCE_SHAPE_RESOURCE_TEMPLATE_URI,
-                    "PRISM Resource Shape",
-                )
-                .with_description(
-                    "Read a compact shape summary for one structured PRISM resource kind",
-                )
-                .with_mime_type("application/json")
-                .with_title("PRISM Resource Shape")
-                .no_annotation(),
-                RawResourceTemplate::new(
-                    CAPABILITIES_SECTION_RESOURCE_TEMPLATE_URI,
-                    "PRISM Capabilities Section",
-                )
-                .with_description(
-                    "Read one segmented section of the PRISM capabilities resource",
-                )
-                .with_mime_type("application/json")
-                .with_title("PRISM Capabilities Section")
-                .no_annotation(),
-                RawResourceTemplate::new(
-                    VOCAB_ENTRY_RESOURCE_TEMPLATE_URI,
-                    "PRISM Vocabulary Entry",
-                )
-                .with_description(
-                    "Read one segmented vocabulary entry by key",
-                )
-                .with_mime_type("application/json")
-                .with_title("PRISM Vocabulary Entry")
-                .no_annotation(),
-                RawResourceTemplate::new(
-                    TOOL_ACTION_RECIPE_RESOURCE_TEMPLATE_URI,
-                    "PRISM Tool Action Recipe",
-                )
-                .with_description(
-                    "Read a short markdown recipe for one tagged PRISM MCP tool action",
-                )
-                .with_mime_type("text/markdown")
-                .with_title("PRISM Tool Action Recipe")
-                .no_annotation(),
-                RawResourceTemplate::new(
-                    TOOL_VARIANT_RECIPE_RESOURCE_TEMPLATE_URI,
-                    "PRISM Tool Variant Recipe",
-                )
-                .with_description(
-                    "Read a short markdown recipe for one nested tool payload variant",
-                )
-                .with_mime_type("text/markdown")
-                .with_title("PRISM Tool Variant Recipe")
-                .no_annotation(),
-                RawResourceTemplate::new(SEARCH_RESOURCE_TEMPLATE_URI, "PRISM Search")
-                    .with_description(
-                        "Read structured PRISM search results and diagnostics for a query string with optional `limit`, `cursor`, `strategy`, `ownerKind`, `kind`, `path`, `module`, `taskId`, and `includeInferred` options",
-                    )
-                    .with_mime_type("application/json")
-                    .no_annotation(),
-                RawResourceTemplate::new(FILE_RESOURCE_TEMPLATE_URI, "PRISM File")
-                    .with_description(
-                        "Read a workspace file excerpt by path with optional `startLine`, `endLine`, and `maxChars` narrowing",
-                    )
-                    .with_mime_type("application/json")
-                    .no_annotation(),
-                RawResourceTemplate::new(SYMBOL_RESOURCE_TEMPLATE_URI, "PRISM Symbol Snapshot")
-                    .with_description(
-                        "Read a structured snapshot for an exact symbol, including relations, lineage, validation recipe, blast radius, and related failures",
-                    )
-                    .with_mime_type("application/json")
-                    .no_annotation(),
-                RawResourceTemplate::new(LINEAGE_RESOURCE_TEMPLATE_URI, "PRISM Lineage")
-                    .with_description(
-                        "Read structured lineage history, current nodes, and status for a lineage id with paged history",
-                    )
-                    .with_mime_type("application/json")
-                    .no_annotation(),
-                RawResourceTemplate::new(TASK_RESOURCE_TEMPLATE_URI, "PRISM Task Replay")
-                    .with_description(
-                        "Read the outcome-event timeline recorded for a specific task context with optional `limit` and opaque `cursor` pagination",
-                    )
-                    .with_mime_type("application/json")
-                    .no_annotation(),
-                RawResourceTemplate::new(EVENT_RESOURCE_TEMPLATE_URI, "PRISM Event")
-                    .with_description("Read a single recorded outcome event by id")
-                    .with_mime_type("application/json")
-                    .no_annotation(),
-                RawResourceTemplate::new(MEMORY_RESOURCE_TEMPLATE_URI, "PRISM Memory")
-                    .with_description("Read a single episodic memory entry by id")
-                    .with_mime_type("application/json")
-                    .no_annotation(),
-                RawResourceTemplate::new(EDGE_RESOURCE_TEMPLATE_URI, "PRISM Inferred Edge")
-                    .with_description(
-                        "Read a single inferred-edge record, including scope, task, and evidence",
-                    )
-                    .with_mime_type("application/json")
-                    .no_annotation(),
-            ],
+            resource_templates: crate::capabilities_resource::resource_template_capabilities(
+                &self.host.features,
+            )
+            .into_iter()
+            .map(|template| {
+                let name = template.name.clone();
+                RawResourceTemplate::new(template.uri_template, name.clone())
+                    .with_description(template.description)
+                    .with_mime_type(template.mime_type)
+                    .with_title(name)
+                    .no_annotation()
+            })
+            .collect(),
             meta: None,
         };
         self.record_surface_call(

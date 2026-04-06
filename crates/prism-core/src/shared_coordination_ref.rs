@@ -11,9 +11,9 @@ use base64::Engine;
 use ed25519_dalek::{Signer, Verifier};
 use prism_coordination::{
     execution_overlays_from_tasks, migrate_legacy_hybrid_snapshot_to_canonical_v2,
-    snapshot_plan_graphs, Artifact, ArtifactReview, CoordinationSnapshot, CoordinationSnapshotV2,
-    CoordinationTask, Plan, RuntimeDescriptor, RuntimeDescriptorCapability, WorkClaim,
-    COORDINATION_SCHEMA_V2,
+    plan_graph_from_coordination, snapshot_plan_graphs, Artifact, ArtifactReview,
+    CoordinationSnapshot, CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor,
+    RuntimeDescriptorCapability, WorkClaim, COORDINATION_SCHEMA_V2,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkContextKind, WorkContextSnapshot};
 use prism_store::CoordinationStartupCheckpointAuthority;
@@ -233,7 +233,8 @@ struct SharedCoordinationIndexEntry {
 #[serde(rename_all = "camelCase")]
 struct SharedCoordinationPlanRecord {
     plan: Plan,
-    graph: PlanGraph,
+    #[serde(default)]
+    graph: Option<PlanGraph>,
     #[serde(default)]
     execution_overlays: Vec<PlanExecutionOverlay>,
 }
@@ -1846,10 +1847,7 @@ fn load_shared_coordination_ref_state_from_current_ref(
         .iter()
         .map(|record| record.plan.clone())
         .collect::<Vec<_>>();
-    let mut plan_graphs = plan_records
-        .iter()
-        .map(|record| record.graph.clone())
-        .collect::<Vec<_>>();
+    let mut plan_graphs = shared_coordination_plan_graphs_from_records(&plan_records, &tasks);
     let mut execution_overlays = plan_records
         .iter()
         .map(|record| {
@@ -1947,6 +1945,25 @@ fn load_shared_coordination_ref_state_from_current_ref(
             },
         );
     Ok(Some(state))
+}
+
+fn shared_coordination_plan_graphs_from_records(
+    plan_records: &[SharedCoordinationPlanRecord],
+    tasks: &[CoordinationTask],
+) -> Vec<PlanGraph> {
+    plan_records
+        .iter()
+        .map(|record| {
+            record.graph.clone().unwrap_or_else(|| {
+                let plan_tasks = tasks
+                    .iter()
+                    .filter(|task| task.plan == record.plan.id)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                plan_graph_from_coordination(record.plan.clone(), plan_tasks)
+            })
+        })
+        .collect()
 }
 
 fn load_shared_coordination_ref_state_from_current_ref_lenient(
@@ -2366,7 +2383,7 @@ fn sync_plan_objects(
         expected.insert(path.clone());
         let record = SharedCoordinationPlanRecord {
             plan: plan.clone(),
-            graph: graph.clone(),
+            graph: Some(graph.clone()),
             execution_overlays: Vec::new(),
         };
         write_json_file(
@@ -3796,8 +3813,9 @@ mod tests {
     use super::{
         implicit_principal_identity, initialize_shared_coordination_ref_live_sync,
         load_shared_coordination_ref_state, poll_shared_coordination_ref_live_sync,
-        shared_coordination_ref_diagnostics, shared_coordination_ref_exists,
-        sync_live_runtime_descriptor, sync_shared_coordination_ref_state,
+        shared_coordination_plan_graphs_from_records, shared_coordination_ref_diagnostics,
+        shared_coordination_ref_exists, sync_live_runtime_descriptor,
+        sync_shared_coordination_ref_state, SharedCoordinationPlanRecord,
         SharedCoordinationRefLiveSync,
     };
     use crate::index_workspace_session;
@@ -4144,6 +4162,21 @@ mod tests {
             prism_coordination::execution_overlays_from_tasks(&snapshot.tasks),
         )]);
         (snapshot, graph, execution_map)
+    }
+
+    #[test]
+    fn legacy_plan_records_without_graph_rebuild_plan_graphs_from_tasks() {
+        let (snapshot, expected_graph, _) =
+            sample_snapshot_for("plan:legacy", "coord-task:legacy-task");
+        let plan_record = SharedCoordinationPlanRecord {
+            plan: snapshot.plans[0].clone(),
+            graph: None,
+            execution_overlays: Vec::new(),
+        };
+
+        let graphs = shared_coordination_plan_graphs_from_records(&[plan_record], &snapshot.tasks);
+
+        assert_eq!(graphs, vec![expected_graph]);
     }
 
     #[test]

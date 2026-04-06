@@ -130,6 +130,7 @@ impl QueryHost {
                     .as_ref()
                     .and_then(|task_id| task_heartbeat_advice(prism.as_ref(), task_id, now));
                 let next_action = compact_task_brief_next_action(
+                    host.features.cognition_layer_enabled(),
                     subject.status,
                     heartbeat_advice.as_ref(),
                     subject.blockers.as_slice(),
@@ -606,6 +607,7 @@ fn compact_outcome_summary_view(
 }
 
 fn compact_task_brief_next_action(
+    cognition_enabled: bool,
     status: prism_ir::CoordinationTaskStatus,
     heartbeat_advice: Option<&TaskHeartbeatAdvice>,
     blockers: &[AgentTaskBlockerView],
@@ -617,14 +619,20 @@ fn compact_task_brief_next_action(
     if task_brief_status_is_terminal(status) {
         return match status {
             prism_ir::CoordinationTaskStatus::Completed => {
-                if next_reads.is_empty() {
+                if !cognition_enabled {
+                    "Task is completed. Review the recent outcomes in this brief, then rerun prism_task_brief only if coordination changes.".to_string()
+                } else if next_reads.is_empty() {
                     "Task is completed. Inspect recent outcomes or prism_query if you need follow-up context.".to_string()
                 } else {
                     "Task is completed. Inspect recent outcomes or open a nextRead only if you need follow-up context.".to_string()
                 }
             }
             prism_ir::CoordinationTaskStatus::Abandoned => {
-                "Task is abandoned. Inspect recent outcomes or prism_query if you need historical context.".to_string()
+                if cognition_enabled {
+                    "Task is abandoned. Inspect recent outcomes or prism_query if you need historical context.".to_string()
+                } else {
+                    "Task is abandoned. Review the recent outcomes in this brief, then use prism_mutate if coordination state needs cleanup.".to_string()
+                }
             }
             _ => unreachable!("terminal task status must be completed or abandoned"),
         };
@@ -633,15 +641,33 @@ fn compact_task_brief_next_action(
         .iter()
         .any(|blocker| blocker.kind == prism_coordination::BlockerKind::StaleRevision)
     {
-        return "Refresh this task against the current workspace revision, then rerun prism_task_brief or prism.blockers(taskId).".to_string();
+        return if cognition_enabled {
+            "Refresh this task against the current workspace revision, then rerun prism_task_brief or prism.blockers(taskId).".to_string()
+        } else {
+            "Refresh this task against the current workspace revision, then rerun prism_task_brief."
+                .to_string()
+        };
     }
     if !blockers.is_empty() {
-        return "Inspect the current task blockers before switching nodes; use prism.blockers(taskId) or prism_query for full coordination detail.".to_string();
+        return if cognition_enabled {
+            "Inspect the current task blockers before switching nodes; use prism.blockers(taskId) or prism_query for full coordination detail.".to_string()
+        } else {
+            "Inspect the blockers in this brief, use prism_mutate for the needed coordination change, then rerun prism_task_brief.".to_string()
+        };
     }
     if !next_reads.is_empty() {
-        return "Use prism_open on a nextRead to work this plan node, or prism_query for full coordination detail.".to_string();
+        return if cognition_enabled {
+            "Use prism_open on a nextRead to work this plan node, or prism_query for full coordination detail.".to_string()
+        } else {
+            "Use the nextRead targets from this brief in your local workflow, then rerun prism_task_brief after coordination updates.".to_string()
+        };
     }
-    "Inspect recent outcomes, validations, or prism_query for full coordination detail.".to_string()
+    if cognition_enabled {
+        "Inspect recent outcomes, validations, or prism_query for full coordination detail."
+            .to_string()
+    } else {
+        "Inspect the recent outcomes and validations in this brief, then use prism_mutate for coordination changes before rerunning prism_task_brief.".to_string()
+    }
 }
 
 fn task_brief_status_is_terminal(status: prism_ir::CoordinationTaskStatus) -> bool {

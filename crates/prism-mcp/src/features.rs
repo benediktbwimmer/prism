@@ -246,6 +246,23 @@ impl PrismMcpFeatures {
         }
     }
 
+    pub(crate) fn prism_mutate_action_enabled(&self, action: &str) -> bool {
+        if self.runtime_mode != PrismRuntimeMode::CoordinationOnly {
+            return true;
+        }
+        match action {
+            "declare_work" => true,
+            "coordination" => self.coordination.workflow,
+            "heartbeat_lease" | "claim" => self.coordination.claims,
+            "artifact" => self.coordination.artifacts,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn hides_prism_mutate_self_describing_resources(&self) -> bool {
+        self.runtime_mode == PrismRuntimeMode::CoordinationOnly
+    }
+
     pub(crate) fn disabled_query_group(&self, operation: &str) -> Option<&'static str> {
         if self.runtime_mode == PrismRuntimeMode::CoordinationOnly {
             return Some("cognition");
@@ -336,6 +353,37 @@ impl PrismMcpFeatures {
 
     pub(crate) fn query_view_enabled(&self, flag: QueryViewFeatureFlag) -> bool {
         self.cognition_layer_enabled() && self.query_views.enabled(flag)
+    }
+
+    pub(crate) fn resource_kind_visible(&self, resource_kind: &str) -> bool {
+        match resource_kind {
+            "capabilities"
+            | "session"
+            | "protected-state"
+            | "vocab"
+            | "plans"
+            | "plan"
+            | "tool-schemas"
+            | "tool-example"
+            | "tool-shape"
+            | "resource-example"
+            | "resource-shape"
+            | "capabilities-section"
+            | "vocab-entry" => true,
+            "contracts"
+            | "schemas"
+            | "self-description-audit"
+            | "entrypoints"
+            | "search"
+            | "file"
+            | "symbol"
+            | "lineage"
+            | "task"
+            | "event"
+            | "memory"
+            | "edge" => self.cognition_layer_enabled(),
+            _ => true,
+        }
     }
 }
 
