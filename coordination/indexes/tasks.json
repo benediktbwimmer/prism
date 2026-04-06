@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn7cy67chqrcz18kvnpk7gmm",
+    "title": "Slim the prism_task_brief critical path and degrade gracefully under stale runtime state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7cy67chqrcz18kvnpk7gmm-64b3a4a4cf1c4a28.json"
+  },
+  {
+    "id": "coord-task:01kna8srw6ccvntg5qb23zprqr",
+    "title": "Design the shared coordination ref storage, manifest chaining, and CAS update protocol",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kna8srw6ccvntg5qb23zprqr-c5b9fdb377a993d0.json"
+  },
+  {
+    "id": "coord-task:01kng42700ea25mhyxa665hh7n",
+    "title": "Expose diagnostics and operator signals for schema compatibility, summary freshness, per-ref-family CAS retry rates, shard contention, runtime lag, compaction health, and archive state so operators can see when the 1000-agent topology is behaving badly.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kng42700ea25mhyxa665hh7n-2c4b6a7df90b51d2.json"
+  }
+]
