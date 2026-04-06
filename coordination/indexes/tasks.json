@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn46t3a8m0agn27rwb66gk9h",
+    "title": "Migrate existing repos by moving worktree-local semantic tables out of the shared runtime db",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn46t3a8m0agn27rwb66gk9h-0ec6889146329311.json"
+  },
+  {
+    "id": "coord-task:3",
+    "title": "Move outcomes, projections, and plan read models onto incremental maintenance",
+    "status": "Completed",
+    "path": "tasks/coord-task-3-0a021695632428f6.json"
+  }
+]
