@@ -59,7 +59,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": "refs/heads/task/shared-coordination-archive-plane",
+    "branch_ref": "refs/heads/task/shared-coordination-semantic-merge",
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng427002152wgffzt627rta",
@@ -105,33 +105,33 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775443572,
+    "lease_expires_at": 1775488735,
     "lease_holder": {
-      "agent_id": null,
+      "agent_id": "codex-d",
       "principal": {
-        "authority_id": "local-daemon",
-        "kind": "human",
-        "name": "benedikt wimmer",
-        "principal_id": "principal:benedikt-wimmer:01knfv1e1gry3k011wp7q1a6nt"
+        "authority_id": "worktree_executor",
+        "kind": "agent",
+        "name": "codex-d",
+        "principal_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
       },
-      "session_id": "session:01kng409n16se566xnq79c6e6x",
+      "session_id": "session:01knhds3q00qz6j2avymnfaj6d",
       "worktree_id": "worktree:5820c89d186523db"
     },
-    "lease_refreshed_at": 1775436372,
-    "lease_stale_at": 1775438172,
+    "lease_refreshed_at": 1775481535,
+    "lease_stale_at": 1775483335,
     "lease_started_at": 1775436372,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01knhd2jkj5de12zq8g4rd84e0",
+    "session": "session:01knhds3q00qz6j2avymnfaj6d",
     "status": "InProgress",
     "summary": "Continuing the plan on a fresh branch to implement schema-aware semantic merge for shared coordination refs.",
     "tags": [],
     "title": "Implement schema-aware semantic merge for refs/prism/** so shared-coordination conflicts are resolved by payload semantics and conflict classification instead of generic Git text merges or blind CAS retry loops.",
     "validation_refs": [],
-    "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
+    "worktree_id": "worktree:5820c89d186523db"
   },
   "schema_version": 1
 }
