@@ -1,24 +1,24 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775483402,
+  "publishedAt": 1775484470,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "work:rewrite-coordination-query-runtime-and-mcp-surface:01knhcgsz4m072p4hncf3x07ww",
+    "workId": "work:complete-the-migration-compatibility-window-task:01knhhxymhz10kj3qtjkz78j5w",
     "kind": "coordination",
-    "title": "Rewrite coordination query runtime and MCP surface",
-    "summary": "Implement task 8 of the coordination graph rewrite: move query and MCP surfaces onto plan/task reads, typed dependencies, actionable task views, and transaction-first v2 mutations.",
-    "coordinationTaskId": "coord-task:01kng20jnn31h2n6ana91ja67d",
+    "title": "Complete the migration compatibility window task",
+    "summary": "Repair the stale PRISM plan state by marking the migration compatibility task complete after its implementation and validation already landed.",
+    "coordinationTaskId": "coord-task:01kng209dwy330am5tc7qr7z74",
     "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
     "planTitle": "Implement the canonical PRISM coordination graph rewrite"
   },
   "publishSummary": {
-    "title": "Rewrite coordination query runtime and MCP surface",
-    "summary": "Implement task 8 of the coordination graph rewrite: move query and MCP surfaces onto plan/task reads, typed dependencies, actionable task views, and transaction-first v2 mutations."
+    "title": "Complete the migration compatibility window task",
+    "summary": "Repair the stale PRISM plan state by marking the migration compatibility task complete after its implementation and validation already landed."
   },
   "files": {
     "coordination/tasks/coord-task-01kn2nj1wbag9jvvajz4ma081y-0e810e179f125947.json": {
@@ -35,7 +35,7 @@
     },
     "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json": {
       "path": "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json",
-      "sha256": "sha256:2764cc0aefdffe104c427427e85a412de29e05ed76159d0340df88139c846250"
+      "sha256": "sha256:07b8bf3a988125f89caee5c3413b7c81627c7338d56e2fd2a07e77c7c19cde6f"
     },
     "coordination/tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json": {
       "path": "coordination/tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json",
@@ -47,10 +47,10 @@
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:21caf8b8d7f2388f412be7500f25feb245afb03a0bea9d17aa747a8d132dd905"
+      "sha256": "sha256:a5a05d1ea1543cc878aeee450b1ab1dc0f97f9e040a2599876d248a5815bbf7f"
     }
   },
-  "previousManifestDigest": "sha256:eb08001d4267a21eec257cf420b0eb2b1089ab6d91279e5597c174eb45b9f230",
+  "previousManifestDigest": "sha256:97f4070458f322ef1be973b5c361d900c3811bbf55f6810fe4ed0277a5194b6b",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -60,6 +60,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:SPCOejKDEFF6cdIU5UnluaL5DLsqO6mMc/BGpWXMdMBfs6MTbKvsvnNzoxUqavJAm+94stWE9hORqPUApsK4BA=="
+    "value": "base64:1clsls9QQtBpYPotx4ZMP0xGtdSM4/BVZEFjdYlAdy5EYb4DXiQWEiVPk23vj3X/KJHSSA1Yu47+Y4H+gbzJCQ=="
   }
 }

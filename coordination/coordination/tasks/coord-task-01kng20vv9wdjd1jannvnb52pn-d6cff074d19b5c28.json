@@ -23,7 +23,7 @@
     "assignee": "codex-a",
     "base_revision": {
       "git_commit": null,
-      "graph_version": 153
+      "graph_version": 167
     },
     "bindings": {
       "anchors": [
@@ -63,28 +63,18 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775490602,
-    "lease_holder": {
-      "agent_id": "codex-a",
-      "principal": {
-        "authority_id": "worktree_executor",
-        "kind": "agent",
-        "name": "codex-a",
-        "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
-      },
-      "session_id": "session:01knhg7epvtxx4wt9t688ewdjr",
-      "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
-    },
-    "lease_refreshed_at": 1775483402,
-    "lease_stale_at": 1775485202,
-    "lease_started_at": 1775434231,
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
     "priority": null,
     "published_task_status": null,
     "session": "session:01knhg7epvtxx4wt9t688ewdjr",
-    "status": "InProgress",
+    "status": "Completed",
     "summary": null,
     "tags": [],
     "title": "Rewrite the SSR and UI rendering model around root plans, direct child plans and tasks, external dependency stubs, and executor-aware task presentation",
