@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn2edqappsmarg40z5ta9x02",
+    "title": "Codify runtime generations, consistency envelopes, and hard budgets",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqappsmarg40z5ta9x02-841c2e1b11a1ab7b.json"
+  },
+  {
+    "id": "coord-task:01kndb8xs4tpy9xy94njabvfhe",
+    "title": "Add action-specific and kind-specific schema resources for every large tagged-union MCP tool surface",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb8xs4tpy9xy94njabvfhe-e3c2f195229ead4a.json"
+  },
+  {
+    "id": "coord-task:01kndg3q26gq8kf6msyxe0eze4",
+    "title": "Build the shared task detail drawer with read-only context sections",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndg3q26gq8kf6msyxe0eze4-0ae52c504cc2727e.json"
+  }
+]

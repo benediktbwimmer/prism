@@ -1,0 +1,74 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Architecture contract names the runtime generations, domain-scoped freshness tiers, committed delta journal, three-plane persistence boundaries, correctness envelope, memory budgets, and no-compromise latency targets."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1338
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn2edqappsmarg40z5ta9x02",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Decide",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn2edq9k2cr10t7p9pwscpjz",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Define the canonical runtime state machine up front for a bound worktree context inside a machine-scoped MCP host: working generation, published generation, settle frontier, checkpoint generation, dirty domains, domain-scoped freshness tiers, query consistency contracts, memory budgets, and latency SLOs. Make the monotonic committed delta journal a first-class part of the architecture alongside checkpoint-plus-replay recovery, preserve the three-plane persistence split explicitly, and lock in the rule that the fast path may be conservative but must never be silently misleading. The architecture contract should explicitly encode the parallel-prepare / serialized-commit / parallel-settle model as a core semantic boundary, not an implementation detail.",
+    "tags": [
+      "architecture",
+      "budgets",
+      "delta-journal",
+      "freshness",
+      "generations",
+      "three-plane"
+    ],
+    "title": "Codify runtime generations, consistency envelopes, and hard budgets",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
