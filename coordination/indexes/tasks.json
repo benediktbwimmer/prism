@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn8na1d7v4knswb3jmp21p7m",
+    "title": "Implement a ranked portfolio inbox and next-work query",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8na1d7v4knswb3jmp21p7m-9746c4439bb3101e.json"
+  },
+  {
+    "id": "coord-task:01kna4g9fyxzpyykde9s9z1m1d",
+    "title": "Lock the final no-legacy-append-log authority contract",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kna4g9fyxzpyykde9s9z1m1d-2eff3f8a17c60960.json"
+  }
+]
