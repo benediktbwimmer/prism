@@ -1,24 +1,23 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775448521,
+  "publishedAt": 1775481442,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
+    "principalId": "worktree:01knhcah0q0qny1c4fwcjecvkq",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01knhcah0q0qny1c4fwcjecvkq"
   },
   "workContext": {
-    "workId": "coord-task:01kng427002152wgffzt627rta",
-    "kind": "coordination",
-    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
-    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics.",
-    "coordinationTaskId": "coord-task:01kng427002152wgffzt627rta",
-    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
-    "planTitle": "Implement shared coordination v1 architecture hardening"
+    "workId": "work:publish-runtime-layer-composability-plan:01knhcxvjaas0a0jcfmasab53x",
+    "kind": "ad_hoc",
+    "title": "Publish runtime layer composability plan",
+    "summary": "Publish a coordination plan bootstrap for composable and independently shippable PRISM runtime layers.",
+    "planId": "plan:01knhernewtv9r1ac98d8jyrjp",
+    "planTitle": "Codex verification: downstream validator bootstrap v2"
   },
   "publishSummary": {
-    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
-    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics."
+    "title": "Publish runtime layer composability plan",
+    "summary": "Publish a coordination plan bootstrap for composable and independently shippable PRISM runtime layers."
   },
   "files": {
     "coordination/tasks/coord-task-01kn0c0vv128bn1qyntk6nbenq-6b7a247aa853ad97.json": {
@@ -33,15 +32,20 @@
       "path": "coordination/tasks/coord-task-01knb0hxhtfxwqc1nm64dzjckx-facb544e6c9a90b7.json",
       "sha256": "sha256:f4b24fec80f5d113d31c299e5228b185d8edfadc89115928fa4afdb81f76175a"
     },
+    "coordination/tasks/coord-task-01knhf1m9trbzcv9vt2hxmqmh5-8c3e215e460a5ab9.json": {
+      "path": "coordination/tasks/coord-task-01knhf1m9trbzcv9vt2hxmqmh5-8c3e215e460a5ab9.json",
+      "sha256": "sha256:2171a3e80021132d817ae0c15a4f390ef5ea08b2f9da8dd57445ce05494bbe5e"
+    },
     "coordination/tasks/coord-task-15-4400379b138733c6.json": {
       "path": "coordination/tasks/coord-task-15-4400379b138733c6.json",
       "sha256": "sha256:18f1a2ecf970c95047fe6e1e29779c890162643fe1bc3795dbe1c7292d60860e"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:0824353c3e6f259705dd1a1d9a1a1112e63334228a038affbcdd235cf1763105"
+      "sha256": "sha256:1b420b54c6c52100c87cfac0fc4eeb3703fa62cbd280c42bce7fcea0a4815a22"
     }
   },
+  "previousManifestDigest": "sha256:5021215b0828a0f867d24ea69d68f233d1ae312c5c089e795f4cecdd159168ca",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -51,6 +55,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:jQZGxdCB7fVLg7Y84w9MEyAfDvBKcZTT9zbKRDfVIBkP06VnX/ghhMPtrL1l46Cmz+hJtrZQX3rBW4zD4W1LDg=="
+    "value": "base64:5wFtzQr4hZCYHrRO/ve6k2qo81uqm6UrNS0dWYaT+W86TTDdxghBMbPfHnm5QEVns2IpWaNUtJ2aWfvqE9PIBA=="
   }
 }

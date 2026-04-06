@@ -18,6 +18,12 @@
     "path": "tasks/coord-task-01knb0hxhtfxwqc1nm64dzjckx-facb544e6c9a90b7.json"
   },
   {
+    "id": "coord-task:01knhf1m9trbzcv9vt2hxmqmh5",
+    "title": "Implement coordination-only session, bootstrap, and runtime paths",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhf1m9trbzcv9vt2hxmqmh5-8c3e215e460a5ab9.json"
+  },
+  {
     "id": "coord-task:15",
     "title": "Demote DB and snapshot hydration to optional startup or durability concerns",
     "status": "Completed",
