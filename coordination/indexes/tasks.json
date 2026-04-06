@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn02nzhkyych6dhta2d3he9x",
+    "title": "Validate the migration against daemon health, performance, and correctness",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn02nzhkyych6dhta2d3he9x-f0d3afeebdbe7d46.json"
+  },
+  {
+    "id": "coord-task:01kn2n9jhrtr361x3t0pej23d9",
+    "title": "Improve spec links, target resolution, and drift explanations until spec drift is broadly useful",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn2n9jhrtr361x3t0pej23d9-94148bc2750b5866.json"
+  }
+]
