@@ -2,7 +2,7 @@
   {
     "id": "coord-task:01kng209dwy330am5tc7qr7z74",
     "title": "Ship the deterministic v1-to-v2 migration path, dual-reader single-writer compatibility window, and compatibility aliases for legacy plan_node_create and plan_edge_create callers",
-    "status": "Completed",
+    "status": "InProgress",
     "path": "tasks/coord-task-01kng209dwy330am5tc7qr7z74-922e3dffcc0aa73a.json"
   }
 ]

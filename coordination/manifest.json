@@ -1,36 +1,36 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775484543,
+  "publishedAt": 1775494638,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "work:rewrite-coordination-query-runtime-and-mcp-surface:01knhcgsz4m072p4hncf3x07ww",
+    "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
     "kind": "coordination",
-    "title": "Rewrite coordination query runtime and MCP surface",
-    "summary": "Implement task 8 of the coordination graph rewrite: move query and MCP surfaces onto plan/task reads, typed dependencies, actionable task views, and transaction-first v2 mutations.",
-    "coordinationTaskId": "coord-task:01kng20jnn31h2n6ana91ja67d",
-    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
-    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
+    "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+    "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes.",
+    "coordinationTaskId": "coord-task:01knhbwesp16r75m614k3wkksj",
+    "planId": "plan:01knhbwesj53rq8f301x6r51qj",
+    "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
   },
   "publishSummary": {
-    "title": "Rewrite coordination query runtime and MCP surface",
-    "summary": "Implement task 8 of the coordination graph rewrite: move query and MCP surfaces onto plan/task reads, typed dependencies, actionable task views, and transaction-first v2 mutations."
+    "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+    "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes."
   },
   "files": {
     "coordination/tasks/coord-task-01kng209dwy330am5tc7qr7z74-922e3dffcc0aa73a.json": {
       "path": "coordination/tasks/coord-task-01kng209dwy330am5tc7qr7z74-922e3dffcc0aa73a.json",
-      "sha256": "sha256:7b123baed86858b660b4fc7720ac2ace7c98ca718eb3d49561c4684cb4d489d8"
+      "sha256": "sha256:7bafc30e5858c112d6278608fe94db2019ce88ac88de0cad06ec52cd5bbd41b2"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:3f7b2653ae3fee9c382112ec655ccd93a263ee92a1afe6dd0c9431f53790b9bd"
+      "sha256": "sha256:20bf4de4a9a5643512d6564a09855de1222bac11be3f0fe918f5aab039dc56f6"
     }
   },
-  "previousManifestDigest": "sha256:ceff84c4ab9991c5beef10bf0af2ab8bac93f202a339e4979a3d7b514366b6f7",
+  "previousManifestDigest": "sha256:5a86c0c7f0775d029d249d21d8050020a6d9515dec228f91278172e6ce445aa8",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -40,6 +40,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:L1yFojFnM7LrTs5nbI5QeJIXcRTKD+CqrhCWreCoqfgXr2K2W3B3ZOkZVhxBTHA59Mhft5i287NidkpUFTFkCQ=="
+    "value": "base64:Swz/+8somJh7SNs75yIdVXq2iOO3aGR38ntUfJzRR2zO3xEKD7vvkhUB5xjy8DFWFFm+fmW7aVKY6WtgZEc7CA=="
   }
 }
