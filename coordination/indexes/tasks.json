@@ -1,0 +1,8 @@
+[
+  {
+    "id": "coord-task:01knc6e8tbctzsqh0ngt4963ak",
+    "title": "Treat coordination read models and queue models as lagging caches instead of blocking writes",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6e8tbctzsqh0ngt4963ak-182ed4fab2e00199.json"
+  }
+]
