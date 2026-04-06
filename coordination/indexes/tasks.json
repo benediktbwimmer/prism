@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn2nj9rnhx2smh3c0w2van6s",
+    "title": "Validate end-to-end spec alignment and update the published plans docs to match the shipped behavior",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj9rnhx2smh3c0w2van6s-3cbb5e52c766f14c.json"
+  },
+  {
+    "id": "coord-task:01kn80sr1ye602pq4smc2t7s6t",
+    "title": "Revalidate or invalidate stale bridge auth bindings after daemon or authority changes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80sr1ye602pq4smc2t7s6t-ecd82c37f9875a47.json"
+  }
+]

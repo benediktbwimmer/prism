@@ -1,0 +1,77 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Bridge auth state is revalidated against the live authority after restart or on first authoritative mutation."
+      },
+      {
+        "anchors": [],
+        "label": "Stale credential bindings are cleared or refreshed automatically, or fail with accurate user-facing state instead of misleading readiness."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 27
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn80ry7wvfr9w7gp0dw8s5s6"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn80sr1ye602pq4smc2t7s6t",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn80rqn6t0pgv1dt0zqay9j5",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Bridge auth now invalidates stale injected credentials after upstream rejection, exposes stale bridge state with recovery guidance, and is covered by targeted transport tests; full cargo test remains blocked by unrelated prism-store pragma-count assertions.",
+    "tags": [
+      "auth",
+      "bridge",
+      "recovery"
+    ],
+    "title": "Revalidate or invalidate stale bridge auth bindings after daemon or authority changes",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
