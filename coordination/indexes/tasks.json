@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn3p3gsrp451he4fbaj7a74c",
+    "title": "Implement task and claim lease lifecycle with stale, expired, resume, and reclaim semantics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p3gsrp451he4fbaj7a74c-66fc304ba1ed7d0b.json"
+  },
+  {
+    "id": "coord-task:01kndb7x9nhbrgq2385f3w2ngm",
+    "title": "Design and stage a batched git-execution completion workflow that persists coordination state once per outer workflow",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb7x9nhbrgq2385f3w2ngm-50cdaa9e4c922e17.json"
+  }
+]
