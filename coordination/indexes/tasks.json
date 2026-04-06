@@ -16,5 +16,11 @@
     "title": "Validate bundled UI delivery polling reads and human mutation audit equivalence end to end",
     "status": "Completed",
     "path": "tasks/coord-task-01knd39trsk58srmkt33fgxwd9-4a28c674416753cf.json"
+  },
+  {
+    "id": "coord-task:01knhbxwcp11bpsx4fsmamr2zp",
+    "title": "Stop using shared runtime SQLite as a sink for rich runtime materialization and keep those journals local-only",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbxwcp11bpsx4fsmamr2zp-6ec701521b09c75f.json"
   }
 ]
