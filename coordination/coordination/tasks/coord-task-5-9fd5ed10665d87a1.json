@@ -1,0 +1,77 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Deterministic per-plan snapshots or compaction artifacts are derived from canonical event history rather than acting as a separate source of truth."
+      },
+      {
+        "anchors": [],
+        "label": "Snapshots serve compatibility caching, bootstrap acceleration, and export use cases without regaining authority over native runtime plan state."
+      },
+      {
+        "anchors": [],
+        "label": "Snapshot and compaction flows preserve the native plan information needed for reload and inspection while remaining explicitly secondary to replay."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 2190
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:4"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:5",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:1",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Keep replay authoritative while allowing deterministic per-plan snapshots and compaction artifacts derived from canonical event history so snapshots remain secondary acceleration and export mechanisms rather than runtime truth.",
+    "tags": [],
+    "title": "Demote snapshots to compatibility caches, bootstrap accelerators, export artifacts, and plan compaction outputs",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

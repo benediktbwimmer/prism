@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn0yba2qp9xsp8wrvxx0qwad",
+    "title": "Make projection maintenance proportional to changed scope",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0yba2qp9xsp8wrvxx0qwad-1de5c47c94546ac3.json"
+  },
+  {
+    "id": "coord-task:01knc6d53pww48ryg7se29dp3y",
+    "title": "Extract a minimal authoritative mutation commit path from the generic persistence pipeline",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6d53pww48ryg7se29dp3y-7e8177152febdc4e.json"
+  },
+  {
+    "id": "coord-task:5",
+    "title": "Demote snapshots to compatibility caches, bootstrap accelerators, export artifacts, and plan compaction outputs",
+    "status": "Completed",
+    "path": "tasks/coord-task-5-9fd5ed10665d87a1.json"
+  }
+]

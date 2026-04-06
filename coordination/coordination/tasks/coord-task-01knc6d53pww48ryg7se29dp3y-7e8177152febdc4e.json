@@ -1,0 +1,81 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "A dedicated authoritative mutation path exists and is used for hot-path coordination updates"
+      },
+      {
+        "anchors": [],
+        "label": "The old generic persistence wrapper no longer forces tracked snapshot publication, startup checkpoint writes, read-model saves, and compaction on every authoritative mutation"
+      },
+      {
+        "anchors": [],
+        "label": "Trace output distinguishes the minimal authoritative commit phase from any deferred follow-on work"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 189
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knc6cswpwztpebeb7mmtmqtc"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knc6d53pww48ryg7se29dp3y",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knc64s1zzzxq7x324fms1cyc",
+    "priority": 98,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Split the current generic coordination mutation persistence path so a request-path mutation can commit the authoritative delta and shared coordination CAS update without synchronously paying for tracked snapshot publication, startup checkpoint writes, read-model saves, or compaction.",
+    "tags": [
+      "coordination",
+      "hot-path",
+      "performance"
+    ],
+    "title": "Extract a minimal authoritative mutation commit path from the generic persistence pipeline",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
