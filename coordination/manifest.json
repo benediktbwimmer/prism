@@ -1,24 +1,24 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775448521,
+  "publishedAt": 1775478206,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
+    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "coord-task:01kng427002152wgffzt627rta",
+    "workId": "work:ship-deterministic-v1-to-v2-migration-path:01knh793qggqjva8647mzz7q7f",
     "kind": "coordination",
-    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
-    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics.",
-    "coordinationTaskId": "coord-task:01kng427002152wgffzt627rta",
-    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
-    "planTitle": "Implement shared coordination v1 architecture hardening"
+    "title": "Ship deterministic v1-to-v2 migration path",
+    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite.",
+    "coordinationTaskId": "coord-task:01kng209dwy330am5tc7qr7z74",
+    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
+    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
   },
   "publishSummary": {
-    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
-    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics."
+    "title": "Ship deterministic v1-to-v2 migration path",
+    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite."
   },
   "files": {
     "coordination/tasks/coord-task-01kmwmwtsvsb4fnsekv4hd29fd-b8a10a00e7d88f17.json": {
@@ -29,15 +29,20 @@
       "path": "coordination/tasks/coord-task-01knfcza3wwwae6camv3wnt679-1ceb0f10195f82cf.json",
       "sha256": "sha256:9dcf1b49bd1a4e629d72dc8c4bc269c232547c895f14d9137a09a5495097fd02"
     },
+    "coordination/tasks/coord-task-01knhbxwd7n92qnp96yfxk7mm5-09af40a4bd503dc3.json": {
+      "path": "coordination/tasks/coord-task-01knhbxwd7n92qnp96yfxk7mm5-09af40a4bd503dc3.json",
+      "sha256": "sha256:420266af022f385e1d13f5fae3319cc35687b60d37cab9184ec1b12fddaa80ae"
+    },
     "coordination/tasks/coord-task-12-212d7f4ad59c33be.json": {
       "path": "coordination/tasks/coord-task-12-212d7f4ad59c33be.json",
       "sha256": "sha256:524037a0cf43e4bb3fbc0dd3103f07471448c41afbac06e668fb18edad136d27"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:7fd65b1a5a22145edc42cbf0d4aa44a4ec2d4bdb3abf3a7576b7f286497db38e"
+      "sha256": "sha256:708c1021b9a8e02428e6561e6a3e3979d871d403b6b7337317f547ba3fc4621a"
     }
   },
+  "previousManifestDigest": "sha256:e09581b7340184e5b2fa828f4e9ca6998233487df28daf92425c93e955d8517a",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -47,6 +52,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:TiW4OJmImrtLTMia7+iIECU9ndAt5ADVPgOlKOUPzvXtGUXvCgO79FqxNd4go3JbjmQ37oyYu1Xw98ojMIb+Bw=="
+    "value": "base64:M3iAX5Fu/dU84JPvlXEBIN7Bb0cnOY+20nWSuaxKD/h/92oCCu4H2csDU2YMJ90R7WB+/0jMmN2zyEfwg0ZsBg=="
   }
 }

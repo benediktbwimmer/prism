@@ -12,6 +12,12 @@
     "path": "tasks/coord-task-01knfcza3wwwae6camv3wnt679-1ceb0f10195f82cf.json"
   },
   {
+    "id": "coord-task:01knhbxwd7n92qnp96yfxk7mm5",
+    "title": "Remove shared-runtime-coupled shared-coordination-ref watch and bootstrap behavior",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbxwd7n92qnp96yfxk7mm5-09af40a4bd503dc3.json"
+  },
+  {
     "id": "coord-task:12",
     "title": "Instrument freshness and materialization state and validate latency behavior",
     "status": "Ready",
