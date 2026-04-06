@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn0shjk66y4khmr563jwk5nn",
+    "title": "Fix pathological deferred refresh behavior",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0shjk66y4khmr563jwk5nn-2bdae4fcd062cc59.json"
+  },
+  {
+    "id": "coord-task:01kn7cywwqynsppzxgn5rqawmc",
+    "title": "Bound oversized co-change work during incremental indexing",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7cywwqynsppzxgn5rqawmc-77821862b3aeb55a.json"
+  },
+  {
+    "id": "coord-task:01knb0k8skvp53g3hswbh5tyf2",
+    "title": "Remove repeated coordination reloads across bootstrap layers",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knb0k8skvp53g3hswbh5tyf2-a43e6ac152d9cfed.json"
+  },
+  {
+    "id": "coord-task:01knd322s9fg9bkged6xswqk6b",
+    "title": "Validate bundled UI delivery polling reads and human mutation audit equivalence end to end",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knd322s9fg9bkged6xswqk6b-ad2eab1ab74c527e.json"
+  }
+]

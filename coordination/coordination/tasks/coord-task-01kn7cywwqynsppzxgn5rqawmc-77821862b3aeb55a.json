@@ -1,0 +1,80 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Incremental refreshes with large test or broad refactor files no longer emit repeated co-change oversize warnings under ordinary developer workflows."
+      },
+      {
+        "anchors": [],
+        "label": "Indexer timing for small edit batches no longer spends disproportionate time or fanout volume on co-change delta generation relative to parse and persist work."
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 553
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn7cxtgg1r28ntzg41pgzt2r"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn7cywwqynsppzxgn5rqawmc",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn7cxa9tvnaa1svrgppcth4a",
+    "priority": 4,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Reduce the recurring oversized co-change sampling warnings and the underlying indexing cost by capping or approximating symbol-level co-change work when change sets or hot files explode fanout.",
+    "tags": [],
+    "title": "Bound oversized co-change work during incremental indexing",
+    "validation_refs": [
+      {
+        "id": "bench:indexer-cochange-hot-path"
+      },
+      {
+        "id": "log:cochange-oversize-warnings"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
