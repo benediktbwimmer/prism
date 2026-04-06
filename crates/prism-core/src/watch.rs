@@ -517,6 +517,35 @@ fn refresh_prism_snapshot_with_guard(
     };
     let plan_refresh_ms = u64::try_from(plan_started.elapsed().as_millis()).unwrap_or(u64::MAX);
     if plan.delta.is_empty() {
+        let current_prism = published_generation
+            .read()
+            .expect("workspace published generation lock poisoned")
+            .prism_arc();
+        if !current_prism
+            .runtime_capabilities()
+            .knowledge_storage_enabled()
+        {
+            let next = {
+                let mut state = runtime_state
+                    .lock()
+                    .expect("workspace runtime state lock poisoned");
+                state.runtime_capabilities = current_prism.runtime_capabilities();
+                state.sanitize_for_runtime_capabilities();
+                state.publish_generation(
+                    current_prism.workspace_revision(),
+                    current_prism.coordination_context(),
+                )
+            };
+            WorkspaceSession::strip_query_state_for_runtime_capabilities(next.prism_arc().as_ref());
+            WorkspaceSession::attach_cold_query_backends(
+                next.prism_arc().as_ref(),
+                cold_query_store,
+                shared_runtime_store,
+            );
+            *published_generation
+                .write()
+                .expect("workspace published generation lock poisoned") = next;
+        }
         *fs_snapshot
             .lock()
             .expect("workspace tree snapshot lock poisoned") = plan.next_snapshot;
@@ -548,6 +577,7 @@ fn refresh_prism_snapshot_with_guard(
         std::mem::replace(&mut *state, placeholder)
     };
     let mut runtime_state_value = runtime_state_value;
+    runtime_state_value.runtime_capabilities = runtime_capabilities;
     runtime_state_value.overlay_live_projection_knowledge(current_prism.as_ref());
     let cached_layout = runtime_state_value.layout();
     let layout_refresh_required = plan.mode != WorkspaceRefreshMode::Incremental
@@ -819,6 +849,7 @@ fn refresh_coordination_only_snapshot(
 ) -> Result<WorkspaceRefreshResult> {
     let result = (|| -> Result<WorkspaceRefreshResult> {
         runtime_state_value.layout = Arc::new(next_layout);
+        runtime_state_value.sanitize_for_runtime_capabilities();
         let build_indexer_ms =
             u64::try_from(build_indexer_started.elapsed().as_millis()).unwrap_or(u64::MAX);
         let local_workspace_revision = store
@@ -843,6 +874,7 @@ fn refresh_coordination_only_snapshot(
         let publish_generation_started = Instant::now();
         let next = runtime_state_value
             .publish_generation(published_workspace_revision, coordination_context);
+        WorkspaceSession::strip_query_state_for_runtime_capabilities(next.prism_arc().as_ref());
         let publish_generation_ms =
             u64::try_from(publish_generation_started.elapsed().as_millis()).unwrap_or(u64::MAX);
         let assisted_lease_ms = 0;

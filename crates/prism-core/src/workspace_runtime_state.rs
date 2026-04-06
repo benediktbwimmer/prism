@@ -141,6 +141,14 @@ impl WorkspaceRuntimeState {
         WorkspacePublishedGeneration::new(prism, workspace_revision, coordination_context)
     }
 
+    pub(crate) fn sanitize_for_runtime_capabilities(&mut self) {
+        if !self.runtime_capabilities.knowledge_storage_enabled() {
+            self.history = Arc::new(HistoryStore::default());
+            self.outcomes = Arc::new(OutcomeMemory::default());
+            self.projections = ProjectionIndex::default();
+        }
+    }
+
     pub(crate) fn replace_coordination_runtime(
         &mut self,
         snapshot: CoordinationSnapshot,
@@ -155,6 +163,9 @@ impl WorkspaceRuntimeState {
     }
 
     pub(crate) fn overlay_live_projection_knowledge(&mut self, prism: &Prism) {
+        if !self.runtime_capabilities.knowledge_storage_enabled() {
+            return;
+        }
         self.projections
             .replace_curated_concepts(prism.curated_concepts_snapshot());
         self.projections
@@ -164,6 +175,9 @@ impl WorkspaceRuntimeState {
     }
 
     pub(crate) fn apply_outcome_event(&mut self, event: &prism_memory::OutcomeEvent) {
+        if !self.runtime_capabilities.knowledge_storage_enabled() {
+            return;
+        }
         self.projections
             .apply_outcome_event(event, |node| self.history.lineage_of(node));
         let _ = Arc::make_mut(&mut self.outcomes).store_event(event.clone());

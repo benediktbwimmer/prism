@@ -931,6 +931,11 @@ impl WorkspaceSession {
         store: &Arc<Mutex<SqliteStore>>,
         shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
     ) {
+        if !prism.runtime_capabilities().knowledge_storage_enabled() {
+            prism.set_history_backend(None);
+            prism.set_outcome_backend(None);
+            return;
+        }
         prism.set_history_backend(Some(Arc::new(StoreHistoryReadBackend::new(Arc::clone(
             store,
         )))));
@@ -940,14 +945,24 @@ impl WorkspaceSession {
         ))));
     }
 
+    pub(crate) fn strip_query_state_for_runtime_capabilities(prism: &Prism) {
+        if prism.runtime_capabilities().knowledge_storage_enabled() {
+            return;
+        }
+        prism.replace_curated_concepts(Vec::new());
+        prism.replace_concept_relations(Vec::new());
+        prism.replace_curated_contracts(Vec::new());
+    }
+
     fn publish_runtime_state(
         &self,
-        runtime_state: WorkspaceRuntimeState,
+        mut runtime_state: WorkspaceRuntimeState,
         local_workspace_revision: u64,
         workspace_revision: u64,
         coordination_context: Option<prism_store::CoordinationPersistContext>,
         intent_override: Option<prism_projections::IntentIndex>,
     ) {
+        runtime_state.sanitize_for_runtime_capabilities();
         let next = runtime_state.publish_generation_with_intent(
             prism_ir::WorkspaceRevision {
                 graph_version: local_workspace_revision,
@@ -956,6 +971,7 @@ impl WorkspaceSession {
             coordination_context,
             intent_override,
         );
+        Self::strip_query_state_for_runtime_capabilities(next.prism_arc().as_ref());
         Self::attach_cold_query_backends(
             next.prism_arc().as_ref(),
             &self.cold_query_store,
@@ -3387,10 +3403,20 @@ impl WorkspaceSession {
 
     fn append_outcome_guarded(&self, event: OutcomeEvent) -> Result<EventId> {
         let prism = self.prism_arc();
-        let deltas = validation_deltas_for_event(&event, |node| prism.lineage_of(node));
-        prism.apply_outcome_event_to_projections(&event);
+        let knowledge_storage_enabled = prism.runtime_capabilities().knowledge_storage_enabled();
+        let deltas = if knowledge_storage_enabled {
+            validation_deltas_for_event(&event, |node| prism.lineage_of(node))
+        } else {
+            Vec::new()
+        };
+        if knowledge_storage_enabled {
+            prism.apply_outcome_event_to_projections(&event);
+        }
         let persisted_event = event.clone();
         let id = prism.outcome_memory().store_event(event)?;
+        if !knowledge_storage_enabled {
+            return Ok(id);
+        }
         self.runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned")

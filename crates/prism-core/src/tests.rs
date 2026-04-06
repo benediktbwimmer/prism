@@ -11673,6 +11673,152 @@ fn coordination_only_refresh_fs_updates_snapshot_without_graph_indexing() {
 }
 
 #[test]
+fn coordination_only_refresh_fs_drops_live_projection_knowledge() {
+    let _guard = background_worker_test_guard();
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+    session.prism().upsert_curated_concept(ConceptPacket {
+        handle: "concept://coordination-only-live-refresh".to_string(),
+        canonical_name: "coordination_only_live_refresh".to_string(),
+        summary: "Live projection state should not survive coordination-only refresh.".to_string(),
+        aliases: vec!["coordination-only refresh".to_string()],
+        confidence: 0.9,
+        core_members: Vec::new(),
+        core_member_lineages: Vec::new(),
+        supporting_members: Vec::new(),
+        supporting_member_lineages: Vec::new(),
+        likely_tests: Vec::new(),
+        likely_test_lineages: Vec::new(),
+        evidence: vec!["Injected directly into the live prism state.".to_string()],
+        risk_hint: None,
+        decode_lenses: vec![ConceptDecodeLens::Open],
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "coordination_only_refresh".to_string(),
+            task_id: None,
+        },
+        publication: None,
+    });
+    assert!(session
+        .prism()
+        .concept_by_handle("concept://coordination-only-live-refresh")
+        .is_some());
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() {}\npub fn beta() {}\n",
+    )
+    .unwrap();
+    session
+        .refresh_state
+        .mark_fs_dirty_paths([root.join("src/lib.rs")]);
+
+    let observed = session.refresh_fs().unwrap();
+    assert!(observed.is_empty());
+    assert!(session
+        .prism()
+        .concept_by_handle("concept://coordination-only-live-refresh")
+        .is_none());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_only_refresh_fs_drops_live_outcomes_without_knowledge_storage() {
+    let _guard = background_worker_test_guard();
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+    session
+        .append_outcome(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:coordination-only-live-refresh"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:coordination-only-live-refresh")),
+                causation: None,
+                execution_context: None,
+            },
+            anchors: Vec::new(),
+            kind: OutcomeKind::FixValidated,
+            result: OutcomeResult::Success,
+            summary: "live outcome should not survive coordination-only refresh".to_string(),
+            evidence: Vec::new(),
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+    assert_eq!(
+        session
+            .prism()
+            .query_outcomes(&OutcomeRecallQuery {
+                kinds: Some(vec![OutcomeKind::FixValidated]),
+                result: Some(OutcomeResult::Success),
+                limit: 5,
+                ..OutcomeRecallQuery::default()
+            })
+            .len(),
+        1
+    );
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() {}\npub fn beta() {}\n",
+    )
+    .unwrap();
+    session
+        .refresh_state
+        .mark_fs_dirty_paths([root.join("src/lib.rs")]);
+
+    let observed = session.refresh_fs().unwrap();
+    assert!(observed.is_empty());
+    assert!(session
+        .prism()
+        .query_outcomes(&OutcomeRecallQuery {
+            kinds: Some(vec![OutcomeKind::FixValidated]),
+            result: Some(OutcomeResult::Success),
+            limit: 5,
+            ..OutcomeRecallQuery::default()
+        })
+        .is_empty());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn indexed_coordination_only_session_still_skips_graph_indexing() {
     let _guard = background_worker_test_guard();
     let root = temp_workspace();
