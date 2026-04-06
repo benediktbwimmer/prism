@@ -10,5 +10,11 @@
     "title": "Map local repo-instance migration and compatibility rules around the new logical identity",
     "status": "Ready",
     "path": "tasks/coord-task-01kn8rzyqxvzpnw7m4c0zzk9ex-876630cbf18b8428.json"
+  },
+  {
+    "id": "coord-task:01knhbxwctp1te2sdr86amqf3j",
+    "title": "Rewrite workspace runtime sync, freshness, and diagnostics to stop consulting shared runtime DB revisions",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbxwctp1te2sdr86amqf3j-05da239513ada55d.json"
   }
 ]
