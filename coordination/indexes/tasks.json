@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn6rp7gt1mjkkz13ev37dc76",
+    "title": "Unify coordination binding, plan attribution, and delegated-work semantics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rp7gt1mjkkz13ev37dc76-e1eab0246cbda7d5.json"
+  },
+  {
+    "id": "coord-task:01kn8n9z7yxmpw7fnhzz8fchjj",
+    "title": "Define the cross-plan dependency model and dispatch inputs",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8n9z7yxmpw7fnhzz8fchjj-dc0d2bb892aea3f4.json"
+  }
+]
