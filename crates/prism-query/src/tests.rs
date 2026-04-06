@@ -4430,6 +4430,81 @@ fn native_plan_node_bindings_reject_missing_published_refs() {
 }
 
 #[test]
+fn coordination_only_native_plan_bindings_allow_stable_concept_and_outcome_refs_without_storage() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:coordination-only-bindings"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Allow stable bindings without storage".into(),
+                goal: "Allow stable bindings without storage".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination.snapshot(),
+        ProjectionIndex::default(),
+    );
+    prism.set_runtime_capabilities(PrismRuntimeMode::CoordinationOnly.capabilities());
+
+    let node_id = prism
+        .create_native_plan_node(
+            &plan_id,
+            PlanNodeKind::Edit,
+            "Coordination-only durable bindings".into(),
+            None,
+            None,
+            None,
+            false,
+            prism_ir::PlanBinding {
+                anchors: Vec::new(),
+                concept_handles: vec!["concept://missing-but-stable".into()],
+                artifact_refs: Vec::new(),
+                memory_refs: vec!["memory:note".into()],
+                outcome_refs: vec!["outcome:missing-but-stable".into()],
+            },
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            WorkspaceRevision::default(),
+            None,
+            Vec::new(),
+        )
+        .expect("coordination-only mode should keep durable bindings without storage");
+
+    let graph = prism.plan_graph(&plan_id).expect("plan graph");
+    let node = graph
+        .nodes
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .expect("created native node");
+    assert_eq!(
+        node.bindings.concept_handles,
+        vec!["concept://missing-but-stable"]
+    );
+    assert_eq!(node.bindings.memory_refs, vec!["memory:note"]);
+    assert_eq!(
+        node.bindings.outcome_refs,
+        vec!["outcome:missing-but-stable"]
+    );
+}
+
+#[test]
 fn hydrated_plan_graph_recovers_concept_bound_runtime_anchors() {
     let mut graph = Graph::new();
     let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);

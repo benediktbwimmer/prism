@@ -12194,6 +12194,95 @@ fn coordination_only_shared_runtime_sqlite_reloads_coordination_without_graph_st
 }
 
 #[test]
+fn coordination_only_reload_preserves_durable_plan_bindings_without_knowledge_storage() {
+    let _guard = background_worker_test_guard();
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let options = WorkspaceSessionOptions {
+        runtime_mode: PrismRuntimeMode::CoordinationOnly,
+        shared_runtime: SharedRuntimeBackend::Disabled,
+        hydrate_persisted_projections: false,
+        hydrate_persisted_co_change: true,
+    };
+
+    let session = hydrate_workspace_session_with_options(&root, options.clone()).unwrap();
+    let (plan_id, node_id) = session
+        .mutate_coordination(|prism| {
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:coordination-only-binding-reload"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:coordination-only-binding-reload")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Keep durable bindings in coordination-only mode".into(),
+                "Stable concept and outcome refs should persist without knowledge storage.".into(),
+                None,
+                None,
+            )?;
+            let node_id = prism.create_native_plan_node(
+                &plan_id,
+                prism_ir::PlanNodeKind::Edit,
+                "Carry durable refs".into(),
+                None,
+                Some(prism_ir::PlanNodeStatus::Ready),
+                None,
+                false,
+                prism_ir::PlanBinding {
+                    anchors: Vec::new(),
+                    concept_handles: vec!["concept://durable-binding".into()],
+                    artifact_refs: Vec::new(),
+                    memory_refs: vec!["memory:durable-binding-note".into()],
+                    outcome_refs: vec!["outcome:durable-binding-result".into()],
+                },
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                prism_ir::WorkspaceRevision::default(),
+                None,
+                Vec::new(),
+            )?;
+            Ok((plan_id, node_id))
+        })
+        .unwrap();
+    flush_coordination_materializations(&session);
+    drop(session);
+
+    let reloaded = hydrate_workspace_session_with_options(&root, options).unwrap();
+    assert!(reloaded.prism().symbol("alpha").is_empty());
+    let graph = reloaded.prism().plan_graph(&plan_id).expect("plan graph");
+    let node = graph
+        .nodes
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .expect("native node should reload");
+    assert_eq!(node.bindings.anchors, Vec::<AnchorRef>::new());
+    assert_eq!(
+        node.bindings.concept_handles,
+        vec!["concept://durable-binding"]
+    );
+    assert_eq!(
+        node.bindings.memory_refs,
+        vec!["memory:durable-binding-note"]
+    );
+    assert_eq!(
+        node.bindings.outcome_refs,
+        vec!["outcome:durable-binding-result"]
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn coordination_only_shared_runtime_sqlite_hides_knowledge_when_reopened_from_full_mode() {
     let _guard = background_worker_test_guard();
     let shared_runtime_root = temp_workspace();

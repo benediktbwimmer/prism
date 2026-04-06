@@ -184,14 +184,21 @@ pub trait HistoryReadBackend: Send + Sync {
 
 impl Prism {
     fn validate_native_plan_binding(&self, binding: &prism_ir::PlanBinding) -> Result<()> {
+        let runtime_capabilities = self.runtime_capabilities();
         validate_authored_plan_binding(
             binding,
-            |handle| self.concept_by_handle(handle).is_some(),
+            |handle| {
+                !runtime_capabilities.knowledge_storage_enabled()
+                    || self.concept_by_handle(handle).is_some()
+            },
             |artifact_ref| {
                 self.coordination_artifact(&ArtifactId::new(artifact_ref))
                     .is_some()
             },
-            |outcome_ref| self.outcome_event(&EventId::new(outcome_ref)).is_some(),
+            |outcome_ref| {
+                !runtime_capabilities.knowledge_storage_enabled()
+                    || self.outcome_event(&EventId::new(outcome_ref)).is_some()
+            },
         )
     }
 
