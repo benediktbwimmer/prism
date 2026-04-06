@@ -1,0 +1,82 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "The route plan explicitly covers `/`, `/dashboard`, `/plans`, and `/graph` with shared navigation and preserved direct access to the existing dashboard surface"
+      },
+      {
+        "anchors": [],
+        "label": "Ownership boundaries are explicit across prism-mcp routes and read models, the React app shell, and any new plan or graph page data contracts"
+      },
+      {
+        "anchors": [],
+        "label": "The rollout rule is explicit: keep the current dashboard usable throughout and keep freeform graph editing out of the first release"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 484
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [
+        "concept://coordination_and_plan_runtime",
+        "concept://dashboard_surface"
+      ],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmzvjdhbybkjn70sasjwahwd",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Investigate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmzvjdhb874nxd0v44d2hdmt",
+    "priority": 0,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Milestone 0 decisions locked: keep `/dashboard` as a preserved destination and make `/` the new Prism overview shell; add sibling routes `/plans` and `/graph`; keep existing `/dashboard/api/*` and `/dashboard/events` as the dashboard-owned transport; add a new top-level UI boundary in prism-mcp for shell and non-dashboard page routing rather than growing dashboard_router; split the frontend into an app shell plus page modules (Overview, Dashboard, Plans, Graph) and shared data modules for dashboard, plans, and graph reads. Freeform graph editing stays out of the first release.",
+    "tags": [
+      "ia",
+      "routing",
+      "ui-shell"
+    ],
+    "title": "Milestone 0: Lock the Prism UI information architecture, route map, and reuse boundaries",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

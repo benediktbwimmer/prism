@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kmzvjdhbybkjn70sasjwahwd",
+    "title": "Milestone 0: Lock the Prism UI information architecture, route map, and reuse boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmzvjdhbybkjn70sasjwahwd-9c30d132ba8af594.json"
+  },
+  {
+    "id": "coord-task:01kn2n9fbf4gcvq9hbx1dzzz07",
+    "title": "Exercise spec drift on every spec doc and capture failures, gaps, and noisy outputs",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn2n9fbf4gcvq9hbx1dzzz07-4d41105bfafa222a.json"
+  }
+]
