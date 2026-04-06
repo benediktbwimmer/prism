@@ -22,5 +22,11 @@
     "title": "Complete direct_integrate mode with trusted direct landing execution and immediate verification",
     "status": "Completed",
     "path": "tasks/coord-task-01knavf33fkvpsc79jd5k9tkdj-e1d9955073e5b3c1.json"
+  },
+  {
+    "id": "coord-task:01knhf1makjyd6fvb17b73c893",
+    "title": "Add a validation matrix and fixtures for supported mode combinations",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhf1makjyd6fvb17b73c893-2f6d266dc71474d9.json"
   }
 ]
