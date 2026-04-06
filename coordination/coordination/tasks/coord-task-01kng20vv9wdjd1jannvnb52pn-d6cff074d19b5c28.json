@@ -36,7 +36,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": "refs/heads/codex/coordination-graph-rewrite",
+    "branch_ref": null,
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng20jnn31h2n6ana91ja67d"
@@ -83,13 +83,13 @@
     "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01kng1sakrhbd4v3h17aypr7ph",
+    "session": null,
     "status": "Ready",
     "summary": null,
     "tags": [],
     "title": "Rewrite the SSR and UI rendering model around root plans, direct child plans and tasks, external dependency stubs, and executor-aware task presentation",
     "validation_refs": [],
-    "worktree_id": "worktree:38d65972b1359401"
+    "worktree_id": null
   },
   "schema_version": 1
 }
