@@ -1,0 +1,73 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Startup can reach a healthy daemon state by loading one local materialized coordination snapshot and building in-memory state once."
+      },
+      {
+        "anchors": [],
+        "label": "Bootstrap code no longer treats the shared coordination ref as a startup database."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 197
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knb0hdvk3pmkwcjkq0zzjgmq"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Change session bootstrap and indexer startup so one local materialized coordination snapshot/checkpoint seeds the runtime, without direct shared-ref hydration on the critical path.",
+    "tags": [],
+    "title": "Make daemon startup consume only the local materialized snapshot",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

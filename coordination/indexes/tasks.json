@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+    "title": "Make daemon startup consume only the local materialized snapshot",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knb0nbyyzqs1bs768mxfmmvq-0d65048c5d2edf52.json"
+  },
+  {
+    "id": "coord-task:01knd3101gyc685tfd37gf9agb",
+    "title": "Lock the operator console backend contract and API authority boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knd3101gyc685tfd37gf9agb-8e374398a7fc35ff.json"
+  },
+  {
+    "id": "coord-task:01knfddqewn60134697bt3sa1y",
+    "title": "Re-key lease, claim, current work, and mutation provenance continuity to worktree identity and actor class",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knfddqewn60134697bt3sa1y-1d0342190b185054.json"
+  }
+]
