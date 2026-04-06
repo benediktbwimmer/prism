@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn5ydewgd87bncbkdehbrd41",
+    "title": "Define the protected-state foundation and canonical envelope model",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydewgd87bncbkdehbrd41-b58a991bb61a50df.json"
+  },
+  {
+    "id": "coord-task:01kn9ve8ants7rmt18m4rpf25b",
+    "title": "Validate no absolute paths survive in published or shared PRISM state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9ve8ants7rmt18m4rpf25b-1b4143028d395cb8.json"
+  }
+]
