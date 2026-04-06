@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn46t3bs7y9qppsnf8wkp2tx",
+    "title": "Validate cross-worktree shared semantics, migration safety, and post-split db health",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn46t3bs7y9qppsnf8wkp2tx-63a55574ce7c3bb3.json"
+  },
+  {
+    "id": "coord-task:01kn88nwp3cqgppdhgn8zv10vw",
+    "title": "Validate the latency work with targeted timing checks and a fresh repo-wide slow-call log pass.",
+    "status": "Blocked",
+    "path": "tasks/coord-task-01kn88nwp3cqgppdhgn8zv10vw-aecca1cde42f40a4.json"
+  }
+]
