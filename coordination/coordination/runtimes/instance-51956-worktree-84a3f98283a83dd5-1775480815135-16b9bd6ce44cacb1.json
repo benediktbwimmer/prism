@@ -1,0 +1,24 @@
+{
+  "kind": "runtime_descriptor",
+  "payload": {
+    "blobSnapshotHead": null,
+    "branchRef": "refs/heads/main",
+    "capabilities": [
+      "coordination_ref_publisher",
+      "bounded_peer_reads"
+    ],
+    "checkedOutCommit": "91cf09f3a0b0bd85122894648965d0dce510657d",
+    "discoveryMode": "lan_direct",
+    "exportPolicy": null,
+    "instanceStartedAt": 1775480824,
+    "lastSeenAt": 1775480824,
+    "peerEndpoint": "http://127.0.0.1:51357/peer/query",
+    "peerTransportIdentity": null,
+    "principalId": "legacy_agent_fallback",
+    "publicEndpoint": null,
+    "repoId": "repo:763c8d2ae95d5376",
+    "runtimeId": "instance:51956:worktree:84a3f98283a83dd5:1775480815135",
+    "worktreeId": "worktree:01knhcah0q0qny1c4fwcjecvkq"
+  },
+  "schema_version": 1
+}
