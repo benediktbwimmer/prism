@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn6t48enhz3xvyer1j7r8tck",
+    "title": "Publish auto-flushed change checkpoints and add an explicit checkpoint escape hatch",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6t48enhz3xvyer1j7r8tck-b6dc16b41e5df67e.json"
+  },
+  {
+    "id": "coord-task:01knfcza3w2x083jxnvss4cr99",
+    "title": "Land the SSR console skeleton, route family, and shared HTML rendering foundation",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01knfcza3w2x083jxnvss4cr99-a5f48661f4bb3298.json"
+  }
+]
