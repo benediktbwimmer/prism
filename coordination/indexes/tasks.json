@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn2edqkt2rd8zxerns99v957",
+    "title": "Replace lock-based fail-fast admission with engine-queued mutation admission",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqkt2rd8zxerns99v957-47b8d0379612e7ea.json"
+  },
+  {
+    "id": "coord-task:01kn8dqyvrpbxe16xxwwfd29dy",
+    "title": "Improve reliability by removing brittle timing waits and separating truly heavy end-to-end cases from the default suite.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8dqyvrpbxe16xxwwfd29dy-39f86e967bae975a.json"
+  }
+]
