@@ -1,10 +1,9 @@
 use std::collections::BTreeMap;
 
 use prism_coordination::{
-    Artifact, ArtifactProposeInput, CoordinationPolicy, CoordinationRuntimeState,
-    CoordinationSnapshot, CoordinationStore, CoordinationTask, HandoffInput, LeaseHolder, Plan,
-    PlanCreateInput, PlanScheduling, TaskCompletionContext, TaskCreateInput, TaskGitExecution,
-    TaskUpdateInput, WorkClaim,
+    Artifact, ArtifactProposeInput, CoordinationPolicy, CoordinationSnapshot, CoordinationStore,
+    CoordinationTask, HandoffInput, LeaseHolder, Plan, PlanCreateInput, PlanScheduling,
+    TaskCompletionContext, TaskCreateInput, TaskGitExecution, TaskUpdateInput, WorkClaim,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
@@ -132,7 +131,6 @@ fn coordination_snapshot_preserves_task_lease_fields() {
                 lease_holder: Some(LeaseHolder {
                     principal: None,
                     session_id: Some(SessionId::new("session:lease")),
-                    worktree_id: Some("worktree:lease".into()),
                     agent_id: Some(AgentId::new("agent:lease")),
                     worktree_id: Some("worktree:lease".into()),
                 }),
@@ -186,7 +184,6 @@ fn coordination_snapshot_preserves_task_lease_fields() {
         Some(LeaseHolder {
             principal: None,
             session_id: Some(SessionId::new("session:lease")),
-            worktree_id: Some("worktree:lease".into()),
             agent_id: Some(AgentId::new("agent:lease")),
             worktree_id: Some("worktree:lease".into()),
         })
@@ -2490,11 +2487,7 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         validated_checks: Vec::new(),
         risk_score: None,
     });
-    *prism
-        .continuity_runtime
-        .write()
-        .expect("continuity runtime lock poisoned") =
-        CoordinationRuntimeState::from_snapshot(runtime_snapshot);
+    prism.replace_coordination_snapshot(runtime_snapshot);
 
     assert_eq!(prism.coordination_snapshot().claims.len(), 1);
     assert_eq!(prism.coordination_snapshot().artifacts.len(), 1);
@@ -2870,11 +2863,7 @@ fn claim_reads_and_simulation_respect_worktree_scope() {
         status: prism_ir::ClaimStatus::Active,
         base_revision: WorkspaceRevision::default(),
     });
-    *prism
-        .continuity_runtime
-        .write()
-        .expect("continuity runtime lock poisoned") =
-        CoordinationRuntimeState::from_snapshot(runtime_snapshot);
+    prism.replace_coordination_snapshot(runtime_snapshot);
 
     let claims = prism.claims(&[AnchorRef::Node(alpha.clone())], 10);
     assert_eq!(claims.len(), 1);
@@ -2996,11 +2985,7 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
         validated_checks: Vec::new(),
         risk_score: None,
     });
-    *prism
-        .continuity_runtime
-        .write()
-        .expect("continuity runtime lock poisoned") =
-        CoordinationRuntimeState::from_snapshot(runtime_snapshot);
+    prism.replace_coordination_snapshot(runtime_snapshot);
 
     let artifacts = prism.artifacts(&task_id);
     assert_eq!(artifacts.len(), 1);
@@ -5462,6 +5447,145 @@ fn replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy() {
         .plan_next(&plan_id, 5)
         .into_iter()
         .all(|recommendation| !recommendation.actionable));
+}
+
+#[test]
+fn persisted_coordination_snapshot_updates_task_backed_plan_nodes() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:persist-task-status"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Persist task-backed status".into(),
+                goal: "Keep task and plan runtime in sync".into(),
+                status: None,
+                policy: Some(CoordinationPolicy::default()),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:persist-task-status"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Finish shared coordination sync".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: None,
+                session: Some(SessionId::new("session:persist-task-status")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination.snapshot(),
+        ProjectionIndex::default(),
+    );
+    let node_id = PlanNodeId::new(task_id.0.clone());
+    assert_eq!(
+        prism
+            .plan_graph(&plan_id)
+            .expect("plan graph")
+            .nodes
+            .into_iter()
+            .find(|node| node.id == node_id)
+            .expect("task-backed node")
+            .status,
+        PlanNodeStatus::InProgress
+    );
+
+    coordination
+        .update_task(
+            EventMeta {
+                id: EventId::new("coord:task:persist-task-status:update"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                kind: None,
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                published_task_status: None,
+                git_execution: None,
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: Some(WorkspaceRevision::default()),
+                priority: None,
+                tags: None,
+                completion_context: Some(TaskCompletionContext::default()),
+            },
+            WorkspaceRevision::default(),
+            3,
+        )
+        .unwrap();
+
+    prism
+        .persist_coordination_snapshot(coordination.snapshot())
+        .expect("persisted coordination snapshot should refresh plan runtime");
+
+    assert_eq!(
+        prism
+            .coordination_task(&task_id)
+            .expect("coordination task")
+            .status,
+        prism_ir::CoordinationTaskStatus::Completed
+    );
+    assert_eq!(
+        prism
+            .plan_graph(&plan_id)
+            .expect("plan graph")
+            .nodes
+            .into_iter()
+            .find(|node| node.id == node_id)
+            .expect("task-backed node")
+            .status,
+        PlanNodeStatus::Completed
+    );
+    let summary = prism.plan_summary(&plan_id).expect("plan summary");
+    assert_eq!(summary.completed_nodes, 1);
+    assert_eq!(summary.in_progress_nodes, 0);
 }
 
 #[test]

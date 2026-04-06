@@ -27,104 +27,70 @@ impl Prism {
     }
 
     pub fn coordination_plan(&self, plan_id: &PlanId) -> Option<Plan> {
-        self.continuity_runtime
-            .read()
-            .expect("continuity runtime lock poisoned")
-            .plan(plan_id)
+        self.with_coordination_runtime(|runtime| runtime.plan(plan_id))
     }
 
     pub fn coordination_task(&self, task_id: &CoordinationTaskId) -> Option<CoordinationTask> {
-        self.continuity_runtime
-            .read()
-            .expect("continuity runtime lock poisoned")
-            .task(task_id)
+        self.with_coordination_runtime(|runtime| runtime.task(task_id))
     }
 
     pub fn coordination_artifact(&self, artifact_id: &ArtifactId) -> Option<Artifact> {
         let worktree_id = self.coordination_worktree_scope();
-        self.continuity_runtime
-            .read()
-            .expect("continuity runtime lock poisoned")
-            .artifact_in_scope(artifact_id, worktree_id.as_deref())
+        self.with_coordination_runtime(|runtime| {
+            runtime.artifact_in_scope(artifact_id, worktree_id.as_deref())
+        })
     }
 
     pub fn coordination_events(&self) -> Vec<CoordinationEvent> {
-        self.continuity_runtime
-            .read()
-            .expect("continuity runtime lock poisoned")
-            .events()
+        self.with_coordination_runtime(|runtime| runtime.events())
     }
 
     pub fn plan_graph(&self, plan_id: &PlanId) -> Option<PlanGraph> {
-        let runtime = self
-            .plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .clone();
+        let runtime = self.plan_runtime_state();
         self.hydrated_plan_graph_for_runtime(&runtime, plan_id)
     }
 
     pub fn plan_execution(&self, plan_id: &PlanId) -> Vec<PlanExecutionOverlay> {
-        self.plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .plan_execution(plan_id)
+        self.plan_runtime_state().plan_execution(plan_id)
     }
 
     pub fn plan_graphs(&self) -> Vec<PlanGraph> {
-        let runtime = self
-            .plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .clone();
+        let runtime = self.plan_runtime_state();
         self.hydrated_plan_graphs_for_runtime(&runtime)
     }
 
     pub fn authored_plan_graphs(&self) -> Vec<PlanGraph> {
-        let runtime = self
-            .plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .clone();
+        let runtime = self.plan_runtime_state();
         self.stabilized_plan_graphs_for_persist(&runtime)
     }
 
     pub fn plan_execution_overlays_by_plan(&self) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {
-        self.plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .execution_overlays_by_plan()
+        self.plan_runtime_state().execution_overlays_by_plan()
     }
 
     pub fn plan_ready_nodes(&self, plan_id: &PlanId) -> Vec<PlanNode> {
-        let runtime = self
-            .plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .clone();
+        let runtime = self.plan_runtime_state();
         self.actionable_plan_nodes_for_runtime(&runtime, plan_id, current_timestamp())
     }
 
     pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTask> {
         let worktree_id = self.coordination_worktree_scope();
-        self.continuity_runtime
-            .read()
-            .expect("continuity runtime lock poisoned")
-            .ready_tasks_in_scope(
+        self.with_coordination_runtime(|runtime| {
+            runtime.ready_tasks_in_scope(
                 plan_id,
                 self.workspace_revision(),
                 now,
                 worktree_id.as_deref(),
             )
+        })
     }
 
     pub fn claims(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<WorkClaim> {
         let anchors = self.coordination_scope_anchors(anchors);
         let worktree_id = self.coordination_worktree_scope();
-        self.continuity_runtime
-            .write()
-            .expect("continuity runtime lock poisoned")
-            .claims_for_anchor_in_scope(&anchors, now, worktree_id.as_deref())
+        self.with_coordination_runtime_mut(|runtime| {
+            runtime.claims_for_anchor_in_scope(&anchors, now, worktree_id.as_deref())
+        })
     }
 
     pub fn task_claim_history(
@@ -133,27 +99,23 @@ impl Prism {
         now: Timestamp,
     ) -> Vec<WorkClaim> {
         let worktree_id = self.coordination_worktree_scope();
-        self.continuity_runtime
-            .write()
-            .expect("continuity runtime lock poisoned")
-            .claims_for_task_in_scope(task_id, now, worktree_id.as_deref())
+        self.with_coordination_runtime_mut(|runtime| {
+            runtime.claims_for_task_in_scope(task_id, now, worktree_id.as_deref())
+        })
     }
 
     pub fn conflicts(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<CoordinationConflict> {
         let anchors = self.coordination_scope_anchors(anchors);
         let worktree_id = self.coordination_worktree_scope();
-        self.continuity_runtime
-            .write()
-            .expect("continuity runtime lock poisoned")
-            .conflicts_for_anchor_in_scope(&anchors, now, worktree_id.as_deref())
+        self.with_coordination_runtime_mut(|runtime| {
+            runtime.conflicts_for_anchor_in_scope(&anchors, now, worktree_id.as_deref())
+        })
     }
 
     pub fn blockers(&self, task_id: &CoordinationTaskId, now: Timestamp) -> Vec<TaskBlocker> {
-        let mut blockers = self
-            .continuity_runtime
-            .read()
-            .expect("continuity runtime lock poisoned")
-            .blockers(task_id, self.workspace_revision(), now);
+        let mut blockers = self.with_coordination_runtime(|runtime| {
+            runtime.blockers(task_id, self.workspace_revision(), now)
+        });
         if let Some(risk) = self.task_risk(task_id, now) {
             if !risk.stale_artifact_ids.is_empty() {
                 blockers.push(TaskBlocker {
@@ -238,26 +200,23 @@ impl Prism {
     }
 
     pub fn base_blockers(&self, task_id: &CoordinationTaskId, now: Timestamp) -> Vec<TaskBlocker> {
-        self.continuity_runtime
-            .read()
-            .expect("continuity runtime lock poisoned")
-            .blockers(task_id, self.workspace_revision(), now)
+        self.with_coordination_runtime(|runtime| {
+            runtime.blockers(task_id, self.workspace_revision(), now)
+        })
     }
 
     pub fn pending_reviews(&self, plan_id: Option<&PlanId>) -> Vec<Artifact> {
         let worktree_id = self.coordination_worktree_scope();
-        self.continuity_runtime
-            .read()
-            .expect("continuity runtime lock poisoned")
-            .pending_reviews_in_scope(plan_id, worktree_id.as_deref())
+        self.with_coordination_runtime(|runtime| {
+            runtime.pending_reviews_in_scope(plan_id, worktree_id.as_deref())
+        })
     }
 
     pub fn artifacts(&self, task_id: &CoordinationTaskId) -> Vec<Artifact> {
         let worktree_id = self.coordination_worktree_scope();
-        self.continuity_runtime
-            .read()
-            .expect("continuity runtime lock poisoned")
-            .artifacts_in_scope(task_id, worktree_id.as_deref())
+        self.with_coordination_runtime(|runtime| {
+            runtime.artifacts_in_scope(task_id, worktree_id.as_deref())
+        })
     }
 
     pub fn policy_violations(
@@ -266,10 +225,7 @@ impl Prism {
         task_id: Option<&CoordinationTaskId>,
         limit: usize,
     ) -> Vec<prism_coordination::PolicyViolationRecord> {
-        self.continuity_runtime
-            .read()
-            .expect("continuity runtime lock poisoned")
-            .policy_violations(plan_id, task_id, limit)
+        self.with_coordination_runtime(|runtime| runtime.policy_violations(plan_id, task_id, limit))
     }
 
     pub fn simulate_claim(
@@ -283,10 +239,8 @@ impl Prism {
     ) -> Vec<CoordinationConflict> {
         let anchors = self.coordination_scope_anchors(anchors);
         let worktree_id = self.coordination_worktree_scope();
-        self.continuity_runtime
-            .write()
-            .expect("continuity runtime lock poisoned")
-            .simulate_claim_in_scope(
+        self.with_coordination_runtime_mut(|runtime| {
+            runtime.simulate_claim_in_scope(
                 session_id,
                 &anchors,
                 capability,
@@ -296,6 +250,7 @@ impl Prism {
                 now,
                 worktree_id.as_deref(),
             )
+        })
     }
 
     pub fn coordination_scope_anchors(&self, anchors: &[AnchorRef]) -> Vec<AnchorRef> {

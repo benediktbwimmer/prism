@@ -230,9 +230,47 @@ impl NativePlanRuntimeState {
             .iter()
             .filter(|plan| plan.kind == PlanKind::TaskExecution)
         {
-            if let Some(graph) = self.graphs.get_mut(plan.id.0.as_str()) {
-                graph.status = plan.status;
-                graph.scope = plan.scope;
+            let task_node_ids = snapshot
+                .tasks
+                .iter()
+                .filter(|task| task.plan == plan.id)
+                .map(|task| plan_node_id_from_task_id(task.id.clone()))
+                .collect::<BTreeSet<_>>();
+            if self.graphs.contains_key(plan.id.0.as_str()) {
+                if let Some(graph) = self.graphs.get_mut(plan.id.0.as_str()) {
+                    graph.status = plan.status;
+                    graph.scope = plan.scope;
+                    let retained_node_ids = graph
+                        .nodes
+                        .iter()
+                        .filter(|node| {
+                            !is_task_backed_plan_node_id(node.id.0.as_str())
+                                || task_node_ids.contains(&node.id)
+                        })
+                        .map(|node| node.id.clone())
+                        .collect::<BTreeSet<_>>();
+                    graph
+                        .nodes
+                        .retain(|node| retained_node_ids.contains(&node.id));
+                    graph.edges.retain(|edge| {
+                        retained_node_ids.contains(&edge.from)
+                            && retained_node_ids.contains(&edge.to)
+                    });
+                    graph
+                        .root_nodes
+                        .retain(|node_id| retained_node_ids.contains(node_id));
+                    recompute_root_nodes(graph);
+                }
+                if let Some(overlays) = self.execution_overlays.get_mut(plan.id.0.as_str()) {
+                    overlays.retain(|overlay| {
+                        !is_task_backed_plan_node_id(overlay.node_id.0.as_str())
+                            || task_node_ids.contains(&overlay.node_id)
+                    });
+                    *overlays = sort_execution_overlays(std::mem::take(overlays));
+                }
+                for task in snapshot.tasks.iter().filter(|task| task.plan == plan.id) {
+                    self.update_task_from_coordination(task)?;
+                }
             } else {
                 self.create_plan_from_coordination(plan)?;
                 for task in snapshot.tasks.iter().filter(|task| task.plan == plan.id) {

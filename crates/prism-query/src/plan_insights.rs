@@ -39,29 +39,17 @@ impl Prism {
     }
 
     pub fn plan_summary(&self, plan_id: &PlanId) -> Option<PlanSummary> {
-        let runtime = self
-            .plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .clone();
+        let runtime = self.plan_runtime_state();
         self.plan_summary_for_runtime(&runtime, plan_id)
     }
 
     pub fn plan_next(&self, plan_id: &PlanId, limit: usize) -> Vec<PlanNodeRecommendation> {
-        let runtime = self
-            .plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .clone();
+        let runtime = self.plan_runtime_state();
         self.plan_next_for_runtime(&runtime, plan_id, limit)
     }
 
     pub fn portfolio_next(&self, limit: usize) -> Vec<PlanNodeRecommendation> {
-        let runtime = self
-            .plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .clone();
+        let runtime = self.plan_runtime_state();
         self.portfolio_next_for_runtime(&runtime, limit)
     }
 

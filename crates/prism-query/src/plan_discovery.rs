@@ -32,11 +32,7 @@ impl Prism {
         scope: Option<PlanScope>,
         contains: Option<&str>,
     ) -> Vec<PlanListEntry> {
-        let runtime = self
-            .plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .clone();
+        let runtime = self.plan_runtime_state();
         self.plans_for_runtime(&runtime, status, scope, contains)
     }
 

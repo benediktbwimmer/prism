@@ -4,6 +4,7 @@ mod contracts;
 mod coordination;
 mod impact;
 mod intent;
+mod materialized_runtime;
 mod outcomes;
 mod plan_activity;
 mod plan_bindings;
@@ -45,6 +46,7 @@ use prism_store::{CoordinationPersistContext, Graph};
 use tracing::info;
 
 use crate::common::{anchor_sort_key, dedupe_node_ids, sort_node_ids};
+use crate::materialized_runtime::MaterializedCoordinationRuntime;
 use crate::plan_bindings::validate_authored_plan_binding;
 use crate::plan_discovery::PlanDiscoveryCache;
 use crate::plan_runtime::NativePlanRuntimeState;
@@ -78,9 +80,8 @@ pub struct Prism {
     history_backend: RwLock<Option<Arc<dyn HistoryReadBackend>>>,
     outcome_backend: RwLock<Option<Arc<dyn OutcomeReadBackend>>>,
     workspace_revision: RwLock<WorkspaceRevision>,
-    plan_runtime: RwLock<NativePlanRuntimeState>,
+    materialized_runtime: RwLock<MaterializedCoordinationRuntime>,
     plan_discovery_cache: RwLock<Option<PlanDiscoveryCache>>,
-    continuity_runtime: RwLock<CoordinationRuntimeState>,
     local_assisted_leases: RwLock<LocalAssistedLeaseRuntime>,
     coordination_context: RwLock<Option<CoordinationPersistContext>>,
     projections: RwLock<ProjectionIndex>,
@@ -237,15 +238,12 @@ impl Prism {
         coordination: CoordinationSnapshot,
         projections: ProjectionIndex,
     ) -> Self {
-        let native_plans = NativePlanRuntimeState::from_coordination_snapshot(&coordination);
-        let continuity_runtime = CoordinationRuntimeState::from_snapshot(coordination);
         Self::with_shared_history_outcomes_coordination_projections_and_native_plans(
             Arc::new(graph),
             Arc::new(history),
             Arc::new(outcomes),
             projections,
-            native_plans,
-            continuity_runtime,
+            MaterializedCoordinationRuntime::from_snapshot(coordination),
         )
     }
 
@@ -278,20 +276,16 @@ impl Prism {
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) -> Self {
-        let native_plans = NativePlanRuntimeState::from_snapshot_with_graphs_and_overlays(
-            &coordination,
-            plan_graphs,
-            execution_overlays,
-        );
-        let coordination = native_plans
-            .apply_task_execution_authored_fields_to_coordination_snapshot(coordination);
         Self::with_shared_history_outcomes_coordination_projections_and_native_plans(
             graph,
             history,
             outcomes,
             projections,
-            native_plans,
-            CoordinationRuntimeState::from_snapshot(coordination),
+            MaterializedCoordinationRuntime::from_snapshot_with_graphs_and_overlays(
+                coordination,
+                plan_graphs,
+                execution_overlays,
+            ),
         )
     }
 
@@ -300,8 +294,7 @@ impl Prism {
         history: Arc<HistoryStore>,
         outcomes: Arc<OutcomeMemory>,
         mut projections: ProjectionIndex,
-        native_plans: NativePlanRuntimeState,
-        continuity_runtime: CoordinationRuntimeState,
+        materialized_runtime: MaterializedCoordinationRuntime,
     ) -> Self {
         projections.reseed_from_history(&history.snapshot());
         let started = Instant::now();
@@ -333,9 +326,8 @@ impl Prism {
             history_backend: RwLock::new(None),
             outcome_backend: RwLock::new(None),
             workspace_revision: RwLock::new(default_workspace_revision),
-            plan_runtime: RwLock::new(native_plans),
+            materialized_runtime: RwLock::new(materialized_runtime),
             plan_discovery_cache: RwLock::new(None),
-            continuity_runtime: RwLock::new(continuity_runtime),
             local_assisted_leases: RwLock::new(LocalAssistedLeaseRuntime::default()),
             coordination_context: RwLock::new(None),
             projections: RwLock::new(projections),
@@ -461,10 +453,40 @@ impl Prism {
         self.outcomes.snapshot()
     }
 
-    fn continuity_snapshot(&self) -> CoordinationSnapshot {
-        self.continuity_runtime
+    pub(crate) fn plan_runtime_state(&self) -> NativePlanRuntimeState {
+        self.materialized_runtime
             .read()
-            .expect("continuity runtime lock poisoned")
+            .expect("materialized runtime lock poisoned")
+            .plan_runtime()
+            .clone()
+    }
+
+    pub(crate) fn with_coordination_runtime<T>(
+        &self,
+        read: impl FnOnce(&CoordinationRuntimeState) -> T,
+    ) -> T {
+        let runtime = self
+            .materialized_runtime
+            .read()
+            .expect("materialized runtime lock poisoned");
+        read(runtime.continuity_runtime())
+    }
+
+    pub(crate) fn with_coordination_runtime_mut<T>(
+        &self,
+        mutate: impl FnOnce(&mut CoordinationRuntimeState) -> T,
+    ) -> T {
+        let mut runtime = self
+            .materialized_runtime
+            .write()
+            .expect("materialized runtime lock poisoned");
+        mutate(runtime.continuity_runtime_mut())
+    }
+
+    fn continuity_snapshot(&self) -> CoordinationSnapshot {
+        self.materialized_runtime
+            .read()
+            .expect("materialized runtime lock poisoned")
             .snapshot()
     }
 
@@ -473,16 +495,10 @@ impl Prism {
     }
 
     pub fn replace_coordination_snapshot(&self, snapshot: CoordinationSnapshot) {
-        let native_plans = NativePlanRuntimeState::from_coordination_snapshot(&snapshot);
-        let continuity_runtime = CoordinationRuntimeState::from_snapshot(snapshot.clone());
-        *self
-            .plan_runtime
+        self.materialized_runtime
             .write()
-            .expect("plan runtime lock poisoned") = native_plans;
-        *self
-            .continuity_runtime
-            .write()
-            .expect("continuity runtime lock poisoned") = continuity_runtime;
+            .expect("materialized runtime lock poisoned")
+            .replace_from_snapshot(snapshot.clone());
         self.prune_local_assisted_leases(&snapshot);
         self.invalidate_plan_discovery_cache();
     }
@@ -494,22 +510,14 @@ impl Prism {
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) {
         let prune_snapshot = snapshot.clone();
-        let native_plans = NativePlanRuntimeState::from_snapshot_with_graphs_and_overlays(
-            &snapshot,
-            plan_graphs,
-            execution_overlays,
-        );
-        let continuity_runtime = CoordinationRuntimeState::from_snapshot(
-            native_plans.apply_task_execution_authored_fields_to_coordination_snapshot(snapshot),
-        );
-        *self
-            .plan_runtime
+        self.materialized_runtime
             .write()
-            .expect("plan runtime lock poisoned") = native_plans;
-        *self
-            .continuity_runtime
-            .write()
-            .expect("continuity runtime lock poisoned") = continuity_runtime;
+            .expect("materialized runtime lock poisoned")
+            .replace_from_snapshot_with_graphs_and_overlays(
+                snapshot,
+                plan_graphs,
+                execution_overlays,
+            );
         self.prune_local_assisted_leases(&prune_snapshot);
         self.invalidate_plan_discovery_cache();
     }
@@ -595,17 +603,10 @@ impl Prism {
     }
 
     pub fn refresh_plan_runtime_from_coordination(&self) {
-        let snapshot = self.continuity_snapshot();
-        *self
-            .plan_runtime
+        self.materialized_runtime
             .write()
-            .expect("plan runtime lock poisoned") =
-            NativePlanRuntimeState::from_coordination_snapshot(&snapshot);
-        *self
-            .continuity_runtime
-            .write()
-            .expect("continuity runtime lock poisoned") =
-            CoordinationRuntimeState::from_snapshot(snapshot);
+            .expect("materialized runtime lock poisoned")
+            .refresh_plan_runtime_from_coordination();
         self.invalidate_plan_discovery_cache();
     }
 
@@ -658,14 +659,16 @@ impl Prism {
     where
         F: FnOnce(&mut NativePlanRuntimeState) -> Result<T>,
     {
-        let snapshot = self.continuity_snapshot();
-        let mut runtime = self
-            .plan_runtime
-            .write()
-            .expect("plan runtime lock poisoned");
-        let result = mutate(&mut runtime)?;
-        let snapshot = runtime.apply_to_coordination_snapshot(snapshot);
-        self.replace_continuity_snapshot(snapshot);
+        let result = {
+            let mut runtime = self
+                .materialized_runtime
+                .write()
+                .expect("materialized runtime lock poisoned");
+            let result = mutate(runtime.plan_runtime_mut())?;
+            runtime.apply_plan_runtime_to_current_snapshot();
+            result
+        };
+        self.invalidate_plan_discovery_cache();
         Ok(result)
     }
 
@@ -677,34 +680,40 @@ impl Prism {
     where
         F: FnOnce(&mut NativePlanRuntimeState) -> Result<T>,
     {
-        let mut runtime = self
-            .plan_runtime
-            .write()
-            .expect("plan runtime lock poisoned");
-        let result = mutate(&mut runtime)?;
-        let snapshot = runtime.apply_to_coordination_snapshot(snapshot);
-        self.replace_continuity_snapshot(snapshot);
+        let result = {
+            let mut runtime = self
+                .materialized_runtime
+                .write()
+                .expect("materialized runtime lock poisoned");
+            let result = mutate(runtime.plan_runtime_mut())?;
+            let snapshot = runtime
+                .plan_runtime()
+                .apply_to_coordination_snapshot(snapshot);
+            runtime.replace_continuity_snapshot(snapshot);
+            result
+        };
+        self.invalidate_plan_discovery_cache();
         Ok(result)
     }
 
     fn replace_continuity_snapshot(&self, snapshot: CoordinationSnapshot) {
-        self.continuity_runtime
+        self.materialized_runtime
             .write()
-            .expect("continuity runtime lock poisoned")
-            .replace_from_snapshot(snapshot);
+            .expect("materialized runtime lock poisoned")
+            .replace_continuity_snapshot(snapshot);
         self.invalidate_plan_discovery_cache();
     }
 
     fn persist_coordination_snapshot(&self, snapshot: CoordinationSnapshot) -> Result<()> {
-        let snapshot = {
+        {
             let mut runtime = self
-                .plan_runtime
+                .materialized_runtime
                 .write()
-                .expect("plan runtime lock poisoned");
-            runtime.sync_task_execution_plan_statuses_from_coordination_snapshot(&snapshot)?;
-            runtime.apply_to_coordination_snapshot(snapshot)
-        };
-        self.replace_continuity_snapshot(snapshot);
+                .expect("materialized runtime lock poisoned");
+            runtime.persist_coordination_snapshot(snapshot.clone())?;
+        }
+        self.prune_local_assisted_leases(&snapshot);
+        self.invalidate_plan_discovery_cache();
         Ok(())
     }
 
@@ -714,10 +723,10 @@ impl Prism {
     {
         let (result, snapshot) = {
             let mut runtime = self
-                .continuity_runtime
+                .materialized_runtime
                 .write()
-                .expect("continuity runtime lock poisoned");
-            let result = mutate(&mut runtime);
+                .expect("materialized runtime lock poisoned");
+            let result = mutate(runtime.continuity_runtime_mut());
             let snapshot = runtime.snapshot();
             (result, snapshot)
         };
@@ -733,11 +742,11 @@ impl Prism {
         F: FnOnce(&mut CoordinationRuntimeState) -> Result<T>,
     {
         let mut runtime = self
-            .continuity_runtime
+            .materialized_runtime
             .write()
-            .expect("continuity runtime lock poisoned");
+            .expect("materialized runtime lock poisoned");
         let before_snapshot = runtime.snapshot();
-        let result = mutate(&mut runtime);
+        let result = mutate(runtime.continuity_runtime_mut());
         let after_snapshot = runtime.snapshot();
         (before_snapshot, after_snapshot, result)
     }
@@ -1357,11 +1366,7 @@ impl Prism {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let mut plan_runtime = self
-            .plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .clone();
+        let mut plan_runtime = self.plan_runtime_state();
         plan_runtime.create_plan_from_coordination(&plan)?;
         for (_, task) in &tasks_in_order {
             plan_runtime.create_task_from_coordination(task)?;
@@ -1447,13 +1452,17 @@ impl Prism {
             });
         }
 
-        let final_snapshot =
-            plan_runtime.apply_to_coordination_snapshot(after_coordination_snapshot);
-        *self
-            .plan_runtime
-            .write()
-            .expect("plan runtime lock poisoned") = plan_runtime;
-        self.replace_continuity_snapshot(final_snapshot);
+        {
+            let mut runtime = self
+                .materialized_runtime
+                .write()
+                .expect("materialized runtime lock poisoned");
+            let final_snapshot =
+                plan_runtime.apply_to_coordination_snapshot(after_coordination_snapshot);
+            *runtime.plan_runtime_mut() = plan_runtime;
+            runtime.replace_continuity_snapshot(final_snapshot);
+        }
+        self.invalidate_plan_discovery_cache();
 
         Ok(NativePlanBootstrapResult {
             plan_id,
@@ -1555,11 +1564,7 @@ impl Prism {
             self.validate_native_plan_binding(bindings)?;
         }
         if matches!(status, Some(PlanNodeStatus::Completed)) {
-            let mut preview = self
-                .plan_runtime
-                .read()
-                .expect("plan runtime lock poisoned")
-                .clone();
+            let mut preview = self.plan_runtime_state();
             let plan_id = preview.update_node(
                 node_id,
                 kind,

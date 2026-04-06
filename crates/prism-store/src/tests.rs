@@ -26,13 +26,13 @@ use prism_projections::{
 };
 use rusqlite::Connection;
 
+use crate::sqlite::SCHEMA_VERSION;
 use crate::{
     migrate_worktree_cache_from_shared_runtime, AuxiliaryPersistBatch, CoordinationPersistBatch,
     CoordinationPersistContext, Graph, IndexPersistBatch, MemoryStore, PatchEventSummaryQuery,
     PatchFileSummaryQuery, ProjectionMaterializationMetadata, SqliteStore, Store,
     WorkspaceTreeDirectoryFingerprint, WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
 };
-use crate::sqlite::SCHEMA_VERSION;
 
 fn node(name: &str) -> Node {
     Node {

@@ -22,11 +22,7 @@ impl Prism {
         plan_id: &PlanId,
         node_id: &PlanNodeId,
     ) -> Vec<PlanNodeBlocker> {
-        let runtime = self
-            .plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .clone();
+        let runtime = self.plan_runtime_state();
         self.plan_node_blockers_for_runtime(&runtime, plan_id, node_id, current_timestamp())
     }
 
