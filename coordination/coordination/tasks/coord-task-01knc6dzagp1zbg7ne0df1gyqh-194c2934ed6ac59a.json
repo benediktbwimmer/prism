@@ -1,0 +1,81 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Request-path mutations no longer block on saving the startup checkpoint"
+      },
+      {
+        "anchors": [],
+        "label": "Checkpoint validity is determined by explicit authoritative revision or manifest/head binding rather than incidental timing"
+      },
+      {
+        "anchors": [],
+        "label": "Startup still prefers a valid checkpoint when present and falls back safely when it is stale or absent"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 189
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knc6d53pww48ryg7se29dp3y"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knc6dzagp1zbg7ne0df1gyqh",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knc64s1zzzxq7x324fms1cyc",
+    "priority": 95,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Treat the shared-coordination startup checkpoint as a startup optimization cache rather than a blocking mutation obligation by keying it to authoritative revision and recomputing it asynchronously or lazily when stale.",
+    "tags": [
+      "background",
+      "cache",
+      "startup-checkpoint"
+    ],
+    "title": "Move startup checkpoint persistence off the request path and make it a revision-keyed cache",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

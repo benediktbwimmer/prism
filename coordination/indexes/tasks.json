@@ -1,0 +1,8 @@
+[
+  {
+    "id": "coord-task:01knc6dzagp1zbg7ne0df1gyqh",
+    "title": "Move startup checkpoint persistence off the request path and make it a revision-keyed cache",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6dzagp1zbg7ne0df1gyqh-194c2934ed6ac59a.json"
+  }
+]
