@@ -37750,7 +37750,7 @@
         "allowedPrincipals": []
       },
       "assignee": "codex-a",
-      "session": "session:01knhw7n4cz69jwpy0n573tkjb",
+      "session": "session:01knhwcey9jvnexwwdyqzcgazr",
       "leaseHolder": {
         "principal": {
           "authority_id": "worktree_executor",
@@ -37758,14 +37758,14 @@
           "kind": "agent",
           "name": "codex-a"
         },
-        "session_id": "session:01knhw7n4cz69jwpy0n573tkjb",
+        "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
         "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
         "agent_id": "codex-a"
       },
       "leaseStartedAt": 1775478127,
-      "leaseRefreshedAt": 1775495399,
-      "leaseStaleAt": 1775497199,
-      "leaseExpiresAt": 1775502599,
+      "leaseRefreshedAt": 1775495430,
+      "leaseStaleAt": 1775497230,
+      "leaseExpiresAt": 1775502630,
       "worktreeId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
       "branchRef": "refs/heads/task/remove-shared-runtime-sqlite",
       "anchors": [
@@ -50920,8 +50920,8 @@
   "events": [
     {
       "meta": {
-        "id": "coordination:01knhwbhn1z62f402bgb1w5yvc:SessionId--session-01knhw7n4cz69jwpy0n573tkjb--:9",
-        "ts": 1775495399,
+        "id": "coordination:01knhwcgap50w7kfcrj4j2pbh1:SessionId--session-01knhwcey9jvnexwwdyqzcgazr--:11",
+        "ts": 1775495430,
         "actor": {
           "Principal": {
             "authority_id": "worktree_executor",
@@ -50931,14 +50931,14 @@
           }
         },
         "correlation": "coord-task:01knhbwet7hsjvz5yxsf0381dv",
-        "causation": "coordination:01knhwbhmye95xh84p84tgxt34:SessionId--session-01knhw7n4cz69jwpy0n573tkjb--:8",
+        "causation": "coordination:01knhwcg303g6sncf6d1xyma1g:SessionId--session-01knhwcey9jvnexwwdyqzcgazr--:10",
         "execution_context": {
           "repo_id": "repo:763c8d2ae95d5376",
           "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
           "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
-          "session_id": "session:01knhw7n4cz69jwpy0n573tkjb",
+          "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
           "instance_id": "instance:86352:worktree:38d65972b1359401:1775495177448",
-          "request_id": "11",
+          "request_id": "2",
           "work_context": {
             "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
             "kind": "coordination",
@@ -50972,7 +50972,7 @@
         "patchValues": {
           "assignee": "codex-a",
           "branchRef": "refs/heads/task/remove-shared-runtime-sqlite",
-          "leaseExpiresAt": 1775502599,
+          "leaseExpiresAt": 1775502630,
           "leaseHolder": {
             "agent_id": "codex-a",
             "principal": {
@@ -50981,20 +50981,20 @@
               "name": "codex-a",
               "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
             },
-            "session_id": "session:01knhw7n4cz69jwpy0n573tkjb",
+            "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
             "worktree_id": "worktree:38d65972b1359401"
           },
-          "leaseRefreshedAt": 1775495399,
-          "leaseStaleAt": 1775497199,
+          "leaseRefreshedAt": 1775495430,
+          "leaseStaleAt": 1775497230,
           "leaseStartedAt": 1775478127,
-          "session": "session:01knhw7n4cz69jwpy0n573tkjb"
+          "session": "session:01knhwcey9jvnexwwdyqzcgazr"
         }
       }
     },
     {
       "meta": {
-        "id": "coordination:01knhwbhmye95xh84p84tgxt34:SessionId--session-01knhw7n4cz69jwpy0n573tkjb--:8",
-        "ts": 1775495399,
+        "id": "coordination:01knhwcg303g6sncf6d1xyma1g:SessionId--session-01knhwcey9jvnexwwdyqzcgazr--:10",
+        "ts": 1775495430,
         "actor": {
           "Principal": {
             "authority_id": "worktree_executor",
@@ -51009,9 +51009,9 @@
           "repo_id": "repo:763c8d2ae95d5376",
           "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
           "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
-          "session_id": "session:01knhw7n4cz69jwpy0n573tkjb",
+          "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
           "instance_id": "instance:86352:worktree:38d65972b1359401:1775495177448",
-          "request_id": "11",
+          "request_id": "2",
           "work_context": {
             "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
             "kind": "coordination",
@@ -51053,7 +51053,7 @@
               "name": "codex-a",
               "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
             },
-            "session_id": "session:01knhw7n4cz69jwpy0n573tkjb",
+            "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
             "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
           },
           "status": "InProgress",

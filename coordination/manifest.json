@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775495399,
+  "publishedAt": 1775495430,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
@@ -2103,7 +2103,7 @@
     },
     "coordination/tasks/coord-task-01knhbwet7hsjvz5yxsf0381dv-a88cb1157edf4c69.json": {
       "path": "coordination/tasks/coord-task-01knhbwet7hsjvz5yxsf0381dv-a88cb1157edf4c69.json",
-      "sha256": "sha256:f6b2fe7180a83bc14c631fd920181937f6327af90852d831cf14592a8ad17130"
+      "sha256": "sha256:cc6476516b3a773c557e141cb2f4746094110d4cd45a2e00725f5364eab2d155"
     },
     "coordination/tasks/coord-task-01knhbwetabrr9gjkxjnkaswvr-82de29363be758ec.json": {
       "path": "coordination/tasks/coord-task-01knhbwetabrr9gjkxjnkaswvr-82de29363be758ec.json",
@@ -2739,10 +2739,10 @@
     },
     "v2/snapshot.json": {
       "path": "v2/snapshot.json",
-      "sha256": "sha256:7edbdbbe051c693681414e638996a71906b559d4eec38eed82005cd88fd62682"
+      "sha256": "sha256:dc8c5374cd8a11f99e60a7699a84cb360b3688e0e253b7a9f1d4e252a0f964fa"
     }
   },
-  "previousManifestDigest": "sha256:86344f656526883503bee3999f45876c772d7d193e7a1600332ece3809533411",
+  "previousManifestDigest": "sha256:63798b41728735245f8f79008598f44ad2f63388a8f5bd8f51f9d4f7d8e7be39",
   "summarySources": {
     "taskShardHeads": {
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/02": "770995ff2b8722ac617b974407d7389ec962d759",
@@ -2914,7 +2914,7 @@
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/c3": "bbb8b099317d13ee37b0d2b0c87386055e899e4b",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/c4": "227ed4ecfb56544ef386213b104eb2943c075b49",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/c5": "e65131d5a2bb562275a823bdf2e9d988f5f08bbd",
-      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/c6": "7864c93a98749bf16202c67c4255e2dd5cc5e96c",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/c6": "41ab9ef588af2eb5ea8bb24666b2d5025f570ab4",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/c7": "487f7ce9a772144151a7d4feea400b27de373fb1",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/c8": "eb7dc0aafc5d6e05b238c9a23d8d75e2cbbd069c",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/c9": "3f3453b38e3a98f6e706399be92be719501ae205",
@@ -3045,17 +3045,11 @@
     "retryCount": 0,
     "retryBudget": 3
   },
-  "compaction": {
-    "mode": "continuity_preserved",
-    "compactedAt": 1775495428,
-    "previousHeadCommit": "8f1344dbffc87a7f522d7ee449d9dc94912bb1d9",
-    "previousHistoryDepth": 33
-  },
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:EzxfkHojdF1tcs3Ijiy3ZNsB6a0cGuT5858WuTmT7QtgQ9aov8kzPOeZRSXvhfmWoVWT4CaS2LYllCi5Y7a5AQ=="
+    "value": "base64:cb9caRZREGJEy1eBBkenAZtbFklXmdU5++jEsl+e5ZY+5TtnC41JPReNO9PBM6qWawHbGrg768E+L0A6XpUBDA=="
   }
 }
