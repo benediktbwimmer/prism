@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kmwxv9nm654h46g4p3gbxcy4",
+    "title": "Milestone 5: Add adoption review, prune dead views, and promote survivors",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmwxv9nm654h46g4p3gbxcy4-6fbfaf3135458ede.json"
+  },
+  {
+    "id": "coord-task:01kncfwe1x8a5qccafnj6wzamn",
+    "title": "Update tool schemas, capabilities, and runtime docs for federated prism_query",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kncfwe1x8a5qccafnj6wzamn-015d3a8a49536f73.json"
+  }
+]
