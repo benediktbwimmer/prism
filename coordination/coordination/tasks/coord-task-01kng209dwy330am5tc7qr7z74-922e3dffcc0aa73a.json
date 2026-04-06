@@ -36,7 +36,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": "refs/heads/task/coordination-query-mcp-rewrite",
+    "branch_ref": null,
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng1z0tggx52pxg4qvnjkfdw",
@@ -75,13 +75,13 @@
     "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01knhbapwgzc1nbjxrec0n36g4",
+    "session": null,
     "status": "Completed",
     "summary": null,
     "tags": [],
     "title": "Ship the deterministic v1-to-v2 migration path, dual-reader single-writer compatibility window, and compatibility aliases for legacy plan_node_create and plan_edge_create callers",
     "validation_refs": [],
-    "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+    "worktree_id": null
   },
   "schema_version": 1
 }
