@@ -12065,6 +12065,160 @@ fn coordination_only_mode_reopens_full_workspace_without_exposing_knowledge_laye
 }
 
 #[test]
+fn coordination_only_reopen_from_full_preserves_native_plan_bindings() {
+    let _guard = background_worker_test_guard();
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let full = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::Full,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+    full.prism().upsert_curated_concept(ConceptPacket {
+        handle: "concept://full-mode-durable-binding".to_string(),
+        canonical_name: "full_mode_durable_binding".to_string(),
+        summary: "A full-mode concept used to validate coordination-only transition persistence."
+            .to_string(),
+        aliases: vec!["durable binding".to_string()],
+        confidence: 0.9,
+        core_members: Vec::new(),
+        core_member_lineages: Vec::new(),
+        supporting_members: Vec::new(),
+        supporting_member_lineages: Vec::new(),
+        likely_tests: Vec::new(),
+        likely_test_lineages: Vec::new(),
+        evidence: vec!["Seeded in full mode before reopening as coordination-only.".to_string()],
+        risk_hint: None,
+        decode_lenses: vec![ConceptDecodeLens::Open],
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "mode_transition".to_string(),
+            task_id: Some("task:full-to-coordination-only-native-bindings".to_string()),
+        },
+        publication: None,
+    });
+    full.append_outcome(OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:full-mode-durable-result"),
+            ts: 1,
+            actor: EventActor::Agent,
+            correlation: Some(TaskId::new(
+                "task:full-to-coordination-only-native-bindings",
+            )),
+            causation: None,
+            execution_context: None,
+        },
+        anchors: Vec::new(),
+        kind: OutcomeKind::FixValidated,
+        result: OutcomeResult::Success,
+        summary: "Persisted outcome used by native binding transition test.".to_string(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    })
+    .unwrap();
+    let (plan_id, node_id) = full
+        .mutate_coordination(|prism| {
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:full-to-coordination-only-native-bindings"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new(
+                        "task:full-to-coordination-only-native-bindings",
+                    )),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Preserve native bindings across mode transitions".into(),
+                "Coordination-only mode should retain durable plan bindings authored in full mode."
+                    .into(),
+                None,
+                None,
+            )?;
+            let node_id = prism.create_native_plan_node(
+                &plan_id,
+                prism_ir::PlanNodeKind::Edit,
+                "Carry durable refs from full mode".into(),
+                None,
+                Some(prism_ir::PlanNodeStatus::Ready),
+                None,
+                false,
+                prism_ir::PlanBinding {
+                    anchors: Vec::new(),
+                    concept_handles: vec!["concept://full-mode-durable-binding".into()],
+                    artifact_refs: Vec::new(),
+                    memory_refs: vec!["memory:full-mode-durable-note".into()],
+                    outcome_refs: vec!["outcome:full-mode-durable-result".into()],
+                },
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                prism_ir::WorkspaceRevision::default(),
+                None,
+                Vec::new(),
+            )?;
+            Ok((plan_id, node_id))
+        })
+        .unwrap();
+    flush_coordination_materializations(&full);
+    drop(full);
+
+    let coordination_only = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    assert!(coordination_only.prism().symbol("alpha").is_empty());
+    assert!(coordination_only
+        .prism()
+        .curated_concepts_snapshot()
+        .is_empty());
+    let graph = coordination_only
+        .prism()
+        .plan_graph(&plan_id)
+        .expect("plan graph should reload");
+    let node = graph
+        .nodes
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .expect("native node should reload");
+    assert_eq!(node.bindings.anchors, Vec::<AnchorRef>::new());
+    assert_eq!(
+        node.bindings.concept_handles,
+        vec!["concept://full-mode-durable-binding"]
+    );
+    assert_eq!(
+        node.bindings.memory_refs,
+        vec!["memory:full-mode-durable-note"]
+    );
+    assert_eq!(
+        node.bindings.outcome_refs,
+        vec!["outcome:full-mode-durable-result"]
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn full_mode_reopens_coordination_only_workspace_and_rehydrates_graph_state() {
     let _guard = background_worker_test_guard();
     let root = temp_workspace();
@@ -12442,6 +12596,176 @@ fn coordination_only_shared_runtime_sqlite_hides_knowledge_when_reopened_from_fu
         .plans
         .iter()
         .any(|plan| plan.id == plan_id));
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn coordination_only_shared_runtime_sqlite_preserves_native_plan_bindings_from_full_mode() {
+    let _guard = background_worker_test_guard();
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let full = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::Full,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+    full.prism().upsert_curated_concept(ConceptPacket {
+        handle: "concept://shared-runtime-durable-binding".to_string(),
+        canonical_name: "shared_runtime_durable_binding".to_string(),
+        summary:
+            "A full-mode shared-runtime concept used to validate coordination-only transition persistence."
+                .to_string(),
+        aliases: vec!["shared durable binding".to_string()],
+        confidence: 0.9,
+        core_members: Vec::new(),
+        core_member_lineages: Vec::new(),
+        supporting_members: Vec::new(),
+        supporting_member_lineages: Vec::new(),
+        likely_tests: Vec::new(),
+        likely_test_lineages: Vec::new(),
+        evidence: vec![
+            "Seeded in shared-runtime full mode before reopening as coordination-only."
+                .to_string(),
+        ],
+        risk_hint: None,
+        decode_lenses: vec![ConceptDecodeLens::Open],
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "mode_transition".to_string(),
+            task_id: Some(
+                "task:shared-runtime-full-to-coordination-only-native-bindings".to_string(),
+            ),
+        },
+        publication: None,
+    });
+    full.append_outcome(OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:shared-runtime-durable-result"),
+            ts: 1,
+            actor: EventActor::Agent,
+            correlation: Some(TaskId::new(
+                "task:shared-runtime-full-to-coordination-only-native-bindings",
+            )),
+            causation: None,
+            execution_context: None,
+        },
+        anchors: Vec::new(),
+        kind: OutcomeKind::FixValidated,
+        result: OutcomeResult::Success,
+        summary: "Persisted shared-runtime outcome used by native binding transition test."
+            .to_string(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    })
+    .unwrap();
+    let (plan_id, node_id) = full
+        .mutate_coordination(|prism| {
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new(
+                        "coordination:shared-runtime-full-to-coordination-only-native-bindings",
+                    ),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new(
+                        "task:shared-runtime-full-to-coordination-only-native-bindings",
+                    )),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Preserve shared-runtime native bindings across mode transitions".into(),
+                "Coordination-only shared-runtime mode should retain durable plan bindings authored in full mode."
+                    .into(),
+                None,
+                None,
+            )?;
+            let node_id = prism.create_native_plan_node(
+                &plan_id,
+                prism_ir::PlanNodeKind::Edit,
+                "Carry shared-runtime durable refs from full mode".into(),
+                None,
+                Some(prism_ir::PlanNodeStatus::Ready),
+                None,
+                false,
+                prism_ir::PlanBinding {
+                    anchors: Vec::new(),
+                    concept_handles: vec!["concept://shared-runtime-durable-binding".into()],
+                    artifact_refs: Vec::new(),
+                    memory_refs: vec!["memory:shared-runtime-durable-note".into()],
+                    outcome_refs: vec!["outcome:shared-runtime-durable-result".into()],
+                },
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                prism_ir::WorkspaceRevision::default(),
+                None,
+                Vec::new(),
+            )?;
+            Ok((plan_id, node_id))
+        })
+        .unwrap();
+    flush_coordination_materializations(&full);
+    drop(full);
+
+    let coordination_only = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite,
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    assert!(coordination_only.prism().symbol("alpha").is_empty());
+    assert!(coordination_only
+        .prism()
+        .curated_concepts_snapshot()
+        .is_empty());
+    let graph = coordination_only
+        .prism()
+        .plan_graph(&plan_id)
+        .expect("plan graph should reload");
+    let node = graph
+        .nodes
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .expect("native node should reload");
+    assert_eq!(node.bindings.anchors, Vec::<AnchorRef>::new());
+    assert_eq!(
+        node.bindings.concept_handles,
+        vec!["concept://shared-runtime-durable-binding"]
+    );
+    assert_eq!(
+        node.bindings.memory_refs,
+        vec!["memory:shared-runtime-durable-note"]
+    );
+    assert_eq!(
+        node.bindings.outcome_refs,
+        vec!["outcome:shared-runtime-durable-result"]
+    );
 
     let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(shared_runtime_root);

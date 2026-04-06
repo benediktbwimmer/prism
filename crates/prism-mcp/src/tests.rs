@@ -15,8 +15,8 @@ use crate::tests_support::*;
 use crate::ui_read_models::QueryHostUiReadModelsExt;
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_coordination::{
-    CoordinationPolicy, CoordinationStore, GitExecutionCompletionMode, GitExecutionPolicy,
-    GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
+    CoordinationPolicy, CoordinationSnapshot, CoordinationStore, GitExecutionCompletionMode,
+    GitExecutionPolicy, GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
 };
 use prism_core::{
     default_workspace_shared_runtime, hydrate_workspace_session,
@@ -34,14 +34,16 @@ use prism_history::HistoryStore;
 use prism_ir::{
     AnchorRef, ChangeTrigger, CredentialId, Edge, EdgeKind, EventActor, EventExecutionContext,
     EventId, EventMeta, FileId, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
-    PlanEdgeKind, PlanId, PrincipalActor, PrincipalAuthorityId, PrincipalId, Span,
-    SymbolFingerprint, TaskId, WorkContextKind, WorkContextSnapshot,
+    PlanEdgeKind, PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeId, PlanNodeKind, PlanNodeStatus,
+    PlanScope, PlanStatus, PrincipalActor, PrincipalAuthorityId, PrincipalId, Span,
+    SymbolFingerprint, TaskId, WorkContextKind, WorkContextSnapshot, WorkspaceRevision,
 };
 use prism_js::{AnchorRefView, ContractKindView, ContractStabilityView, ContractStatusView};
 use prism_memory::{
     MemoryEntry, MemoryEventQuery, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent,
     OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
 };
+use prism_projections::ProjectionIndex;
 use prism_query::{
     ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptScope, ContractKind,
     ContractStability, ContractStatus,
@@ -345,6 +347,113 @@ return {
             ),
         "{}",
         result.result["invalid"]
+    );
+}
+
+#[test]
+fn coordination_only_prism_query_plan_graph_keeps_durable_bindings() {
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        Graph::default(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        CoordinationSnapshot::default(),
+        ProjectionIndex::default(),
+        vec![PlanGraph {
+            id: PlanId::new("plan:coordination-only-bindings"),
+            scope: PlanScope::Repo,
+            kind: PlanKind::Migration,
+            title: "Coordination-only plan graph".into(),
+            goal: "Expose durable bindings through reduced prism_query.".into(),
+            status: PlanStatus::Active,
+            revision: 1,
+            root_nodes: vec![PlanNodeId::new("plan-node:coordination-only-bindings")],
+            tags: Vec::new(),
+            created_from: None,
+            metadata: serde_json::Value::Null,
+            nodes: vec![PlanNode {
+                id: PlanNodeId::new("plan-node:coordination-only-bindings"),
+                plan_id: PlanId::new("plan:coordination-only-bindings"),
+                kind: PlanNodeKind::Edit,
+                title: "Carry durable bindings".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding {
+                    anchors: Vec::new(),
+                    concept_handles: vec!["concept://coordination-only-binding".into()],
+                    artifact_refs: Vec::new(),
+                    memory_refs: vec!["memory:coordination-only-note".into()],
+                    outcome_refs: vec!["outcome:coordination-only-result".into()],
+                },
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            }],
+            edges: Vec::new(),
+        }],
+        std::collections::BTreeMap::new(),
+    );
+    prism.set_runtime_capabilities(PrismRuntimeMode::CoordinationOnly.capabilities());
+    let host = QueryHost::new_with_limits_and_features(
+        prism,
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
+    );
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+const graph = prism.planGraph("plan:coordination-only-bindings");
+const node = graph?.nodes?.[0];
+return {
+  conceptHandles: node?.bindings?.conceptHandles ?? [],
+  memoryRefs: node?.bindings?.memoryRefs ?? [],
+  outcomeRefs: node?.bindings?.outcomeRefs ?? [],
+  anchors: node?.bindings?.anchors ?? [],
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("coordination-only prism_query should expose durable plan bindings");
+
+    assert_eq!(
+        result.result["conceptHandles"]
+            .as_array()
+            .expect("concept handles should be an array")
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<Vec<_>>(),
+        vec!["concept://coordination-only-binding"]
+    );
+    assert_eq!(
+        result.result["memoryRefs"]
+            .as_array()
+            .expect("memory refs should be an array")
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<Vec<_>>(),
+        vec!["memory:coordination-only-note"]
+    );
+    assert_eq!(
+        result.result["outcomeRefs"]
+            .as_array()
+            .expect("outcome refs should be an array")
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<Vec<_>>(),
+        vec!["outcome:coordination-only-result"]
+    );
+    assert_eq!(
+        result.result["anchors"]
+            .as_array()
+            .expect("anchors should be an array")
+            .len(),
+        0
     );
 }
 
