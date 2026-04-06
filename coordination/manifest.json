@@ -1,21 +1,24 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775478127,
+  "publishedAt": 1775518573,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "work:plan-shared-runtime-db-removal:01knhbv1kcybb7j0y21e1xnmq0",
-    "kind": "ad_hoc",
-    "title": "Plan shared runtime DB removal",
-    "summary": "Create a detailed PRISM execution plan to eliminate the shared runtime SQLite backend and replace its responsibilities with shared refs, local SQLite, and federated runtime reads."
+    "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
+    "kind": "coordination",
+    "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+    "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes.",
+    "coordinationTaskId": "coord-task:01knhbwesp16r75m614k3wkksj",
+    "planId": "plan:01knhbwesj53rq8f301x6r51qj",
+    "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
   },
   "publishSummary": {
-    "title": "Plan shared runtime DB removal",
-    "summary": "Create a detailed PRISM execution plan to eliminate the shared runtime SQLite backend and replace its responsibilities with shared refs, local SQLite, and federated runtime reads."
+    "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+    "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes."
   },
   "files": {
     "coordination/tasks/coord-task-01kn8rzmv5sa7xj8xt557rtzrg-80167037ba5e77d3.json": {
@@ -24,14 +27,14 @@
     },
     "coordination/tasks/coord-task-01knhbwetjb7ygfbpfee51d2ve-ebc50aa89db7f6cc.json": {
       "path": "coordination/tasks/coord-task-01knhbwetjb7ygfbpfee51d2ve-ebc50aa89db7f6cc.json",
-      "sha256": "sha256:246571ec8b9b4f2e963a113f735574dbefbca8dbde47e196ffa44e9160375dc3"
+      "sha256": "sha256:d2bceb8736931e6666c68fb14cf16eaf1e7e434ea0372d3cfa38663013d936d1"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:04fb445f389be2aeacb45c1ba87b6f32a29c1a2c54a18e4d7db5f9e4f669c428"
+      "sha256": "sha256:5243c3cf2717f9868c5df062bbbe8718f3d148e5ead8179f152b3ade6ea50d50"
     }
   },
-  "previousManifestDigest": "sha256:5b94b42a4710e47ffe74019d4ffaa8258d07232a49bd446af575109f2482a927",
+  "previousManifestDigest": "sha256:142ba1f176ce7989700231496f8c6637486774fc35acdc9f2358fe518119f238",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -41,6 +44,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:5tArUOa68iXP4e9F+PwriKI4sFl3lopK/N2cNBZvgaBMyWRLvvlF+SwJBCpYPvgnuSzcs1NUEERc7AXO08NdBg=="
+    "value": "base64:SS9u9RTx37iyZ+LsPXWrtXuXZdJiQFnDOMo1d4RhR8GG5FzFldSd6dolHxH/FZLAusFcX6CdQzNZ2C6z4shJBw=="
   }
 }
