@@ -34,7 +34,7 @@
     "assignee": "codex-d",
     "base_revision": {
       "git_commit": null,
-      "graph_version": 413
+      "graph_version": 417
     },
     "bindings": {
       "anchors": [
@@ -71,42 +71,40 @@
       "integrationMode": "external",
       "integrationStatus": "not_started",
       "lastPreflight": {
-        "behindTargetCommits": 0,
-        "checkedAt": 1775465012,
+        "behindTargetCommits": 1,
+        "checkedAt": 1775466049,
         "currentBranch": "task/shared-coordination-plan-followup",
-        "dirtyPaths": [
-          "crates/prism-core/src/shared_coordination_ref.rs"
-        ],
-        "failure": "worktree must be clean before starting task execution; dirty user paths: crates/prism-core/src/shared_coordination_ref.rs",
+        "dirtyPaths": [],
+        "failure": "branch is 1 commit(s) behind `origin/main` which exceeds the configured limit of 0",
         "fetchAgeSeconds": null,
-        "headCommit": "1a032638c1a626e15e61aff909c7f7970da89189",
+        "headCommit": "9072a10e7934b56aef67d015deb666033d6ede05",
         "maxCommitsBehindTarget": 0,
         "mergeBaseCommit": "1a032638c1a626e15e61aff909c7f7970da89189",
         "protectedDirtyPaths": [],
         "publishRef": "task/shared-coordination-plan-followup",
         "sourceRef": "task/shared-coordination-plan-followup",
         "targetBranch": "main",
-        "targetCommit": "1a032638c1a626e15e61aff909c7f7970da89189",
+        "targetCommit": "523b0da99c9bd3c4ebbc9ce1bb541c0c847d9968",
         "targetRef": "origin/main",
-        "worktreeDirty": true
+        "worktreeDirty": false
       },
       "lastPublish": null,
       "pendingTaskStatus": null,
       "publishCommit": null,
       "publishRef": "task/shared-coordination-plan-followup",
       "reviewArtifactRef": null,
-      "sourceCommit": "1a032638c1a626e15e61aff909c7f7970da89189",
+      "sourceCommit": "9072a10e7934b56aef67d015deb666033d6ede05",
       "sourceRef": "task/shared-coordination-plan-followup",
       "status": "preflight_failed",
       "targetBranch": "main",
-      "targetCommitAtPublish": "1a032638c1a626e15e61aff909c7f7970da89189",
+      "targetCommitAtPublish": "523b0da99c9bd3c4ebbc9ce1bb541c0c847d9968",
       "targetRef": "origin/main"
     },
     "id": "coord-task:01kng427008wyav2vmr5am9jg9",
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775472213,
+    "lease_expires_at": 1775473250,
     "lease_holder": {
       "agent_id": "codex-d",
       "principal": {
@@ -118,8 +116,8 @@
       "session_id": "session:01kngk8webzwbz1keexmzkh8r7",
       "worktree_id": "worktree:5820c89d186523db"
     },
-    "lease_refreshed_at": 1775465013,
-    "lease_stale_at": 1775466813,
+    "lease_refreshed_at": 1775466050,
+    "lease_stale_at": 1775467850,
     "lease_started_at": 1775436372,
     "metadata": null,
     "pending_handoff_to": null,
