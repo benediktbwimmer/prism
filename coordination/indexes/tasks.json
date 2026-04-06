@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01knd31g9ssme5k8j2yx3hhvrr",
+    "title": "Implement the fleet timeline and runtime utilization read model across runtimes claims and leases",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knd31g9ssme5k8j2yx3hhvrr-be67c0407daf37d4.json"
+  },
+  {
+    "id": "coord-task:01kndb8xs4ay9weqa4w88bbtnt",
+    "title": "Add server-authored recipes for complex workflows such as plan bootstrap, coordination updates, claims, artifact review, and validation feedback",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb8xs4ay9weqa4w88bbtnt-b2c3409e8d815409.json"
+  }
+]
