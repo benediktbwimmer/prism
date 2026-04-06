@@ -1,0 +1,81 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Bridge and mutation failures point operators at the right auth or worktree action to unblock themselves"
+      },
+      {
+        "anchors": [],
+        "label": "CLI supports bootstrap, recover, login, whoami, worktree list, register, relabel, and takeover flows"
+      },
+      {
+        "anchors": [],
+        "label": "Commands support both one-shot and interactive guided usage where the model requires it"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 380
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knfddqew46qgymx44rcjfeqe",
+      "coord-task:01knfddqewd4x0gd18ae39xgrs",
+      "coord-task:01knfddqewpc0gnnwd4zwfvw72",
+      "coord-task:01knfddqewpk8b7vxba6y2cpaz",
+      "coord-task:01knfddqewr7g67y65tk2g70mm"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knfddqewjswr7hg65ef1aczm",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knfddqevrg6cs9zw0fw8c6d5",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": null,
+    "tags": [],
+    "title": "Build operator UX and CLI flows for auth bootstrap, recovery, login, whoami, and worktree registration and takeover",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

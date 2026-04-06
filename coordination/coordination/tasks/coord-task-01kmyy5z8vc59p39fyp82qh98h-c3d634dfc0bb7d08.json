@@ -1,0 +1,84 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "The contracts-01 rollout has an explicit V1 scope that includes schema or storage, read surfaces, mutations, and limited query integration but excludes derived policy enforcement"
+      },
+      {
+        "anchors": [],
+        "label": "The minimum contract object and event model are narrow enough to ship without a large second taxonomy pass"
+      },
+      {
+        "anchors": [],
+        "label": "Open questions that would block implementation are reduced to a small explicit list or folded into concrete V1 choices"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 228
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmyy5z8vc59p39fyp82qh98h",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Investigate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmyy4ykg8sh1apt74er1t0fm",
+    "priority": 0,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Milestone 0 is now codified in the implementation: contracts landed as a concept-like sibling surface with a narrow V1 model centered on contract packets, append-only contract events, repo event publication, basic query-side resolution, and explicit deferral of MCP mutation/resource exposure and richer contract-aware impact integration to later milestones.",
+    "tags": [
+      "contracts",
+      "ontology",
+      "scope",
+      "spec"
+    ],
+    "title": "Milestone 0: Lock the contracts V1 ontology and rollout boundaries",
+    "validation_refs": [
+      {
+        "id": "contracts:m0-v1-shape"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

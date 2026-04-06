@@ -1,0 +1,32 @@
+[
+  {
+    "id": "coord-task:01kmyy5z8vc59p39fyp82qh98h",
+    "title": "Milestone 0: Lock the contracts V1 ontology and rollout boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmyy5z8vc59p39fyp82qh98h-c3d634dfc0bb7d08.json"
+  },
+  {
+    "id": "coord-task:01kn2edqj2yfbe50m4hgy6cspx",
+    "title": "Add parallel settle workers, prioritization, and stale-work cancellation",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqj2yfbe50m4hgy6cspx-45753fd33c16e7e5.json"
+  },
+  {
+    "id": "coord-task:01kn7cxtgg1r28ntzg41pgzt2r",
+    "title": "Turn the current log audit into a reproducible hotspot baseline",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7cxtgg1r28ntzg41pgzt2r-59467c62863f17ef.json"
+  },
+  {
+    "id": "coord-task:01knfddqewjswr7hg65ef1aczm",
+    "title": "Build operator UX and CLI flows for auth bootstrap, recovery, login, whoami, and worktree registration and takeover",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knfddqewjswr7hg65ef1aczm-0f0f499d8247e3cb.json"
+  },
+  {
+    "id": "coord-task:1",
+    "title": "Classify authoritative state vs derived artifacts across persistence, plans, and projections",
+    "status": "Completed",
+    "path": "tasks/coord-task-1-12761fa8e93c5cba.json"
+  }
+]
