@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn8s096yzxzw3cwvyc4t3gg3",
+    "title": "Add mismatch detection and repair surfaces for logical identity conflicts",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8s096yzxzw3cwvyc4t3gg3-bacaa05869461fe8.json"
+  },
+  {
+    "id": "coord-task:01knaqn5gdm1syjgwvjw2a0s72",
+    "title": "Extend merge-driver coverage for snapshot-era derived PRISM artifacts",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knaqn5gdm1syjgwvjw2a0s72-9fd7ec72e63e7927.json"
+  }
+]
