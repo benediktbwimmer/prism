@@ -1,0 +1,32 @@
+[
+  {
+    "id": "coord-task:01kn2nj1wbag9jvvajz4ma081y",
+    "title": "Validate runtimeStatus end to end under daemon restart, stale runtime-state records, and live dogfooding before closing the cleanup plan",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj1wbag9jvvajz4ma081y-0e810e179f125947.json"
+  },
+  {
+    "id": "coord-task:01kn6rn36wwvrz8ezq8p0e02d6",
+    "title": "Add authenticated declare-work bootstrap and current-work runtime state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rn36wwvrz8ezq8p0e02d6-e337d7de090daecc.json"
+  },
+  {
+    "id": "coord-task:01kncfwdcddbj4xw025azyq6hc",
+    "title": "Preserve authority classes, limits, and failure semantics for federated queries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kncfwdcddbj4xw025azyq6hc-c457b624e3002f1e.json"
+  },
+  {
+    "id": "coord-task:01kng20vv9wdjd1jannvnb52pn",
+    "title": "Rewrite the SSR and UI rendering model around root plans, direct child plans and tasks, external dependency stubs, and executor-aware task presentation",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json"
+  },
+  {
+    "id": "coord-task:10",
+    "title": "Make mutations patch live runtime first and isolate admin-only rebuild flows",
+    "status": "Completed",
+    "path": "tasks/coord-task-10-67c149fb5a3697c7.json"
+  }
+]
