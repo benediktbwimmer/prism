@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn80axazq1a4yan9avjtsv9e",
+    "title": "Codify the protected-state runtime contract in docs and invariants",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80axazq1a4yan9avjtsv9e-c54cf97650f204ea.json"
+  },
+  {
+    "id": "coord-task:01kncfwa2f2xbactnjb5bwmqf6",
+    "title": "Add operator-configured public URL publication for runtime descriptors",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kncfwa2f2xbactnjb5bwmqf6-5465460d5a9415cf.json"
+  },
+  {
+    "id": "coord-task:01kndb8xs4t72xeadkhhymtmz5",
+    "title": "Inventory every MCP tool, action, nested mutation kind, resource, and schema surface with current size and truncation risk",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb8xs4t72xeadkhhymtmz5-02e4629d06b58279.json"
+  }
+]
