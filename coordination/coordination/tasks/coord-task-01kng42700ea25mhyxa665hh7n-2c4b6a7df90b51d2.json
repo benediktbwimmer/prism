@@ -59,7 +59,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": "detached:3cc25362d1a5520be58a33b2c162cbc30963e61f",
+    "branch_ref": null,
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng427001ndsrj10d0z5mcez",
@@ -109,13 +109,13 @@
     "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01kng409n16se566xnq79c6e6x",
+    "session": null,
     "status": "Ready",
     "summary": null,
     "tags": [],
     "title": "Expose diagnostics and operator signals for schema compatibility, summary freshness, per-ref-family CAS retry rates, shard contention, runtime lag, compaction health, and archive state so operators can see when the 1000-agent topology is behaving badly.",
     "validation_refs": [],
-    "worktree_id": "worktree:5820c89d186523db"
+    "worktree_id": null
   },
   "schema_version": 1
 }
