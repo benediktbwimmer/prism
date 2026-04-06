@@ -1,0 +1,86 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Contract types, enums, and event records exist as first-class IR rather than ad hoc JSON blobs"
+      },
+      {
+        "anchors": [],
+        "label": "Repo-scoped contracts round-trip through a dedicated append-only contract event log and reload into live state"
+      },
+      {
+        "anchors": [],
+        "label": "The implementation follows the existing modular knowledge pipeline shape instead of embedding core contract logic in facade files or coordination-only code"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 313
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmyy5z8vc59p39fyp82qh98h"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmyy5z9e5b2qv0j9gkq9db84",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmyy4ykg8sh1apt74er1t0fm",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Milestone 1 is complete: contract IR, event storage, projection loading, repo event publication, and query/runtime lookup are all implemented and validated.",
+    "tags": [
+      "contracts",
+      "ir",
+      "projection",
+      "storage"
+    ],
+    "title": "Milestone 1: Add contract IR, event storage, and projection loading",
+    "validation_refs": [
+      {
+        "id": "contracts:m1-storage-roundtrip"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

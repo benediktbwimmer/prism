@@ -1,0 +1,32 @@
+[
+  {
+    "id": "coord-task:01kmyy5z9e5b2qv0j9gkq9db84",
+    "title": "Milestone 1: Add contract IR, event storage, and projection loading",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmyy5z9e5b2qv0j9gkq9db84-70e01c30a118304b.json"
+  },
+  {
+    "id": "coord-task:01kn0yba4t8v1r8tvgxe2aphna",
+    "title": "Validate persistence hot-path improvements with runtime evidence",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0yba4t8v1r8tvgxe2aphna-82d1b62cd74b8aff.json"
+  },
+  {
+    "id": "coord-task:01kn82pcbg8whg9ecy6wnkhxex",
+    "title": "Run repo validation for scoped log queries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn82pcbg8whg9ecy6wnkhxex-e435c025367dbe37.json"
+  },
+  {
+    "id": "coord-task:01knfcza3xavgp1ffcx7n17k49",
+    "title": "Polish shared console styling, navigation, and deep-link behavior across the SSR surface",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knfcza3xavgp1ffcx7n17k49-2860e44a4f9357ed.json"
+  },
+  {
+    "id": "coord-task:9",
+    "title": "Cut synchronous request-path refresh from read surfaces",
+    "status": "Completed",
+    "path": "tasks/coord-task-9-91d485fc38df27f2.json"
+  }
+]
