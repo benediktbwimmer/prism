@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kmwq220anv077nkqm8pqpe89",
+    "title": "Milestone 2: Make repo memory ingestion and episodic materialization strictly suffix-based",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmwq220anv077nkqm8pqpe89-6b04c9f8b9c727a6.json"
+  },
+  {
+    "id": "coord-task:01kn2nj34195h92ky0qzxz009y",
+    "title": "Make completion and blocker surfaces explain spec-level gating in structured form",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj34195h92ky0qzxz009y-6091c8641526c440.json"
+  }
+]
