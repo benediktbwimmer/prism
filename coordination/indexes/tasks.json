@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn55f7ffvqmnm2gkdptvdttd",
+    "title": "Tighten coalescing, stale-work cancellation, and invalidation precision for repeated edits",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55f7ffvqmnm2gkdptvdttd-d9a9cf3e811d02f7.json"
+  },
+  {
+    "id": "coord-task:01kn887c7vzqbqeq28g6dpejs7",
+    "title": "Improve compact ranking and docs-to-code follow-through for repo-awareness queries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn887c7vzqbqeq28g6dpejs7-c762813559ce438c.json"
+  },
+  {
+    "id": "coord-task:01knd39qnsdnng98ek8gvtf61c",
+    "title": "Remove the legacy dashboard and SSE-oriented backend surfaces in favor of the new polling API",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knd39qnsdnng98ek8gvtf61c-6977e58d3c823f46.json"
+  }
+]
