@@ -10,5 +10,11 @@
     "title": "Surface confidence and freshness more explicitly in compact results",
     "status": "Completed",
     "path": "tasks/coord-task-01kn3g2b1hje6ht1tbmfcz93mp-0f32ae7125465408.json"
+  },
+  {
+    "id": "coord-task:01knhd3xke8wzrarr5hk45pkn9",
+    "title": "Make persistence, startup checkpoints, and shared runtime flows layer-aware",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhd3xke8wzrarr5hk45pkn9-ce131076975909dc.json"
   }
 ]
