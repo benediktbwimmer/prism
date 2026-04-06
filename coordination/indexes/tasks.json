@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn888c0tajwyg12b26d389nf",
+    "title": "Eliminate the remaining known workspace validation flakes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn888c0tajwyg12b26d389nf-8ed7c5783e31cb73.json"
+  },
+  {
+    "id": "coord-task:01kn8n9x2vm8c683vpx5642f3j",
+    "title": "Dogfood start and complete flows against real task claims and branch state",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8n9x2vm8c683vpx5642f3j-46109fe60e3c80ec.json"
+  },
+  {
+    "id": "coord-task:2",
+    "title": "Make native plan and coordination writes authoritative via incremental DB-native persistence",
+    "status": "Completed",
+    "path": "tasks/coord-task-2-3a965438b24c3f20.json"
+  }
+]
