@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kmwq222tvk94q3crqke24zw1",
+    "title": "Milestone 5: Burn down residual bottlenecks and prove the audit is closed",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmwq222tvk94q3crqke24zw1-7939fce4e7adc372.json"
+  },
+  {
+    "id": "coord-task:01kn0sht5tag5vmmjqn127rcvd",
+    "title": "Validate refresh performance and regression coverage",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0sht5tag5vmmjqn127rcvd-f653bd1cd36d10b1.json"
+  },
+  {
+    "id": "coord-task:01kn3ccwek828erfngwv7tjk4d",
+    "title": "Tighten stale-context repair loops",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3ccwek828erfngwv7tjk4d-315b486592441aa0.json"
+  }
+]
