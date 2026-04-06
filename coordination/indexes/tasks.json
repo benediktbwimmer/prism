@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kndb7x9p7fsxqgdghg2f02a8",
+    "title": "Validate coordination mutation performance improvements against representative workflows",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb7x9p7fsxqgdghg2f02a8-c021001f6a5270c1.json"
+  },
+  {
+    "id": "coord-task:7",
+    "title": "Introduce backend-neutral persistence and session abstractions for native plans and coordination state",
+    "status": "Completed",
+    "path": "tasks/coord-task-7-48a6a5a8113d3e2b.json"
+  }
+]
