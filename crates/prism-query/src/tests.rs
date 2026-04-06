@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 use prism_coordination::{
     Artifact, ArtifactProposeInput, CoordinationPolicy, CoordinationSnapshot,
     CoordinationSnapshotV2, CoordinationStore, CoordinationTask, HandoffInput, LeaseHolder,
-    Plan, PlanCreateInput, PlanScheduling, TaskCompletionContext, TaskCreateInput,
-    TaskExecutorCaller, TaskGitExecution, TaskUpdateInput, WorkClaim, LeaseState,
-    RuntimeDescriptor, RuntimeDiscoveryMode,
+    LeaseState, Plan, PlanCreateInput, PlanScheduling, RuntimeDescriptor, RuntimeDiscoveryMode,
+    TaskCompletionContext, TaskCreateInput, TaskExecutorCaller, TaskGitExecution, TaskUpdateInput,
+    WorkClaim,
 };
 use prism_history::HistoryStore;
 use prism_ir::{

@@ -1,4 +1,5 @@
 use clap::ValueEnum;
+use prism_core::{PrismRuntimeCapabilities, PrismRuntimeMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 #[value(rename_all = "snake_case")]
@@ -139,6 +140,7 @@ impl QueryViewFeatureSet {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrismMcpFeatures {
+    pub(crate) runtime_mode: PrismRuntimeMode,
     pub(crate) coordination: CoordinationFeatureSet,
     pub(crate) query_views: QueryViewFeatureSet,
     pub(crate) ui: bool,
@@ -155,6 +157,7 @@ impl Default for PrismMcpFeatures {
 impl PrismMcpFeatures {
     pub fn full() -> Self {
         Self {
+            runtime_mode: PrismRuntimeMode::Full,
             coordination: CoordinationFeatureSet::full(),
             query_views: QueryViewFeatureSet::full(),
             ui: false,
@@ -165,6 +168,7 @@ impl PrismMcpFeatures {
 
     pub fn simple() -> Self {
         Self {
+            runtime_mode: PrismRuntimeMode::Full,
             coordination: CoordinationFeatureSet::simple(),
             query_views: QueryViewFeatureSet::default(),
             ui: false,
@@ -188,6 +192,11 @@ impl PrismMcpFeatures {
         self
     }
 
+    pub fn with_runtime_mode(mut self, runtime_mode: PrismRuntimeMode) -> Self {
+        self.runtime_mode = runtime_mode;
+        self
+    }
+
     pub fn with_query_view(mut self, flag: QueryViewFeatureFlag, enabled: bool) -> Self {
         self.query_views.apply(flag, enabled);
         self
@@ -207,6 +216,18 @@ impl PrismMcpFeatures {
             } => "simple",
             _ => "custom",
         }
+    }
+
+    pub(crate) fn runtime_mode(&self) -> PrismRuntimeMode {
+        self.runtime_mode
+    }
+
+    pub(crate) fn runtime_mode_label(&self) -> &'static str {
+        self.runtime_mode.label()
+    }
+
+    pub(crate) fn runtime_capabilities(&self) -> PrismRuntimeCapabilities {
+        self.runtime_mode.capabilities()
     }
 
     pub(crate) fn is_tool_enabled(&self, name: &str) -> bool {
@@ -260,6 +281,7 @@ impl PrismMcpFeatures {
 
     pub(crate) fn coordination_summary_lines(&self) -> Vec<String> {
         vec![
+            format!("- runtime mode: `{}`", self.runtime_mode_label()),
             format!(
                 "- coordination workflow: {}",
                 enabled_label(self.coordination.workflow)
@@ -280,7 +302,15 @@ impl PrismMcpFeatures {
     }
 
     pub(crate) fn coordination_layer_enabled(&self) -> bool {
-        self.coordination.workflow || self.coordination.claims || self.coordination.artifacts
+        self.runtime_capabilities().coordination_enabled()
+    }
+
+    pub(crate) fn knowledge_storage_layer_enabled(&self) -> bool {
+        self.runtime_capabilities().knowledge_storage_enabled()
+    }
+
+    pub(crate) fn cognition_layer_enabled(&self) -> bool {
+        self.runtime_capabilities().cognition_enabled()
     }
 
     pub(crate) fn api_reference_includes_internal_developer(&self) -> bool {

@@ -33,8 +33,7 @@ use crate::tracked_snapshot::{
 use crate::workspace_identity::coordination_persist_context_for_root;
 
 const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
-const TEST_SHARED_COORDINATION_REF_PUBLISH_OPT_IN: &str =
-    "enable_shared_coordination_ref_publish";
+const TEST_SHARED_COORDINATION_REF_PUBLISH_OPT_IN: &str = "enable_shared_coordination_ref_publish";
 
 fn shared_coordination_ref_publish_enabled(root: &Path) -> bool {
     let disabled = env::var_os("PRISM_TEST_DISABLE_SHARED_COORDINATION_REF_PUBLISH")

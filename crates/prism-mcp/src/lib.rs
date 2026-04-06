@@ -3,7 +3,8 @@ use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
 use prism_core::{
     default_workspace_shared_runtime, hydrate_workspace_session_with_options,
-    ActiveWorkContextBinding, SharedRuntimeBackend, WorkspaceSession, WorkspaceSessionOptions,
+    ActiveWorkContextBinding, PrismRuntimeMode, SharedRuntimeBackend, WorkspaceSession,
+    WorkspaceSessionOptions,
 };
 use prism_ir::{EventId, TaskId};
 use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
@@ -252,6 +253,8 @@ pub struct PrismMcpCli {
     pub mode: PrismMcpMode,
     #[arg(long = "no-coordination", alias = "simple", default_value_t = false)]
     pub no_coordination: bool,
+    #[arg(long = "runtime-mode", value_enum, default_value_t = PrismRuntimeModeArg::Full)]
+    pub runtime_mode: PrismRuntimeModeArg,
     #[arg(long = "internal-developer", default_value_t = false)]
     pub internal_developer: bool,
     #[arg(long = "ui", default_value_t = false)]
@@ -292,6 +295,24 @@ pub struct PrismMcpCli {
     pub daemonize: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "snake_case")]
+pub enum PrismRuntimeModeArg {
+    Full,
+    CoordinationOnly,
+    KnowledgeStorage,
+}
+
+impl From<PrismRuntimeModeArg> for PrismRuntimeMode {
+    fn from(value: PrismRuntimeModeArg) -> Self {
+        match value {
+            PrismRuntimeModeArg::Full => PrismRuntimeMode::Full,
+            PrismRuntimeModeArg::CoordinationOnly => PrismRuntimeMode::CoordinationOnly,
+            PrismRuntimeModeArg::KnowledgeStorage => PrismRuntimeMode::KnowledgeStorage,
+        }
+    }
+}
+
 impl PrismMcpCli {
     pub fn shared_runtime_backend(&self, root: &Path) -> Result<SharedRuntimeBackend> {
         match (&self.shared_runtime_sqlite, &self.shared_runtime_uri) {
@@ -309,7 +330,8 @@ impl PrismMcpCli {
             PrismMcpFeatures::simple()
         } else {
             PrismMcpFeatures::full()
-        };
+        }
+        .with_runtime_mode(self.runtime_mode.into());
         features.ui = self.ui;
         features.internal_developer = self.internal_developer;
         for flag in &self.enable_coordination {
@@ -490,14 +512,15 @@ impl PrismMcpServer {
         let started = std::time::Instant::now();
         info!(
             root = %root.display(),
-            coordination = %features.mode_label(),
+            runtime_mode = %features.runtime_mode_label(),
+            coordination_surface = %features.mode_label(),
             "building prism-mcp workspace server"
         );
         let hydrate_session_started = std::time::Instant::now();
         let session = hydrate_workspace_session_with_options(
             root,
             WorkspaceSessionOptions {
-                coordination: features.coordination_layer_enabled(),
+                runtime_mode: features.runtime_mode(),
                 shared_runtime,
                 hydrate_persisted_projections: false,
                 hydrate_persisted_co_change: false,

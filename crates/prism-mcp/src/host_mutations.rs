@@ -3150,16 +3150,16 @@ impl QueryHost {
 
         let before_events = prism.coordination_events().len();
         let now = current_timestamp();
-        let admissibility_meta =
-            coordination_mutation_provenance(self, session, authenticated).event_meta(
-            EventId::new(format!(
-                "coordination:git-execution-admissibility:{}",
-                request.task_id.0
-            )),
-            Some(TaskId::new(request.task_id.0.clone())),
-            None,
-            now,
-        );
+        let admissibility_meta = coordination_mutation_provenance(self, session, authenticated)
+            .event_meta(
+                EventId::new(format!(
+                    "coordination:git-execution-admissibility:{}",
+                    request.task_id.0
+                )),
+                Some(TaskId::new(request.task_id.0.clone())),
+                None,
+                now,
+            );
         let admissibility_started = std::time::Instant::now();
         let admissibility_result = ensure_git_execution_task_admissible(&task, &admissibility_meta);
         record_optional_trace_result(
@@ -3966,13 +3966,13 @@ impl QueryHost {
             None,
             current_timestamp(),
         );
-        let record_meta =
-            coordination_mutation_provenance(self, session, authenticated).event_meta(
-            session.next_event_id("coordination"),
-            Some(TaskId::new(task_id.0.clone())),
-            None,
-            current_timestamp(),
-        );
+        let record_meta = coordination_mutation_provenance(self, session, authenticated)
+            .event_meta(
+                session.next_event_id("coordination"),
+                Some(TaskId::new(task_id.0.clone())),
+                None,
+                current_timestamp(),
+            );
         let task_id = task_id.clone();
         let operation_started = std::time::Instant::now();
         let result = workspace.mutate_coordination_with_session_wait_observed(

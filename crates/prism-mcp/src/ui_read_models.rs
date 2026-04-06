@@ -2000,6 +2000,12 @@ fn ui_session_view(host: &QueryHost, session: Option<&SessionState>) -> crate::S
         },
         features: crate::FeatureFlagsView {
             mode: host.features.mode_label().to_string(),
+            runtime: crate::RuntimeCapabilitiesView {
+                mode: host.features.runtime_mode_label().to_string(),
+                coordination: host.features.coordination_layer_enabled(),
+                knowledge_storage: host.features.knowledge_storage_layer_enabled(),
+                cognition: host.features.cognition_layer_enabled(),
+            },
             coordination: crate::CoordinationFeaturesView {
                 workflow: host.features.coordination.workflow,
                 claims: host.features.coordination.claims,

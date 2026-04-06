@@ -64,8 +64,18 @@ pub(crate) struct CoordinationFeaturesView {
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct RuntimeCapabilitiesView {
+    pub(crate) mode: String,
+    pub(crate) coordination: bool,
+    pub(crate) knowledge_storage: bool,
+    pub(crate) cognition: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct FeatureFlagsView {
     pub(crate) mode: String,
+    pub(crate) runtime: RuntimeCapabilitiesView,
     pub(crate) coordination: CoordinationFeaturesView,
     pub(crate) ui: bool,
     pub(crate) internal_developer: bool,

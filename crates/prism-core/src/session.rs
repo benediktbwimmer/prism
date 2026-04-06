@@ -1242,7 +1242,11 @@ impl WorkspaceSession {
             Some(cached_snapshot.clone()),
             self.checkpoint_materializer.clone(),
             crate::WorkspaceSessionOptions {
-                coordination: self.coordination_enabled,
+                runtime_mode: if self.coordination_enabled {
+                    crate::PrismRuntimeMode::Full
+                } else {
+                    crate::PrismRuntimeMode::CoreLegacy
+                },
                 shared_runtime: self.shared_runtime.sqlite_path().map_or(
                     SharedRuntimeBackend::Disabled,
                     |path| SharedRuntimeBackend::Sqlite {
@@ -2346,7 +2350,9 @@ impl WorkspaceSession {
             let mut store = shared_runtime_store
                 .lock()
                 .expect("shared runtime store lock poisoned");
-            if let Some(snapshot) = store.load_hydrated_coordination_snapshot_for_root(&self.root)? {
+            if let Some(snapshot) =
+                store.load_hydrated_coordination_snapshot_for_root(&self.root)?
+            {
                 Ok(Some(snapshot))
             } else {
                 self.store

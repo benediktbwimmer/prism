@@ -160,7 +160,7 @@ pub(crate) fn workspace_session_with_owner_credential(
     let _ = ensure_process_test_prism_home();
     let mut options = default_workspace_session_options(root)
         .expect("default workspace session options should resolve");
-    options.coordination = true;
+    options.runtime_mode = prism_core::PrismRuntimeMode::Full;
     options.hydrate_persisted_projections = false;
     options.hydrate_persisted_co_change = false;
     let session = index_workspace_session_with_options(root, options)

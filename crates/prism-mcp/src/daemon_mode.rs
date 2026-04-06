@@ -570,6 +570,7 @@ mod tests {
             root,
             mode: PrismMcpMode::Daemon,
             no_coordination: false,
+            runtime_mode: crate::PrismRuntimeModeArg::Full,
             internal_developer: false,
             ui: false,
             shared_runtime_sqlite: None,

@@ -11,9 +11,9 @@ use base64::Engine;
 use ed25519_dalek::{Signer, Verifier};
 use prism_coordination::{
     execution_overlays_from_tasks, migrate_legacy_hybrid_snapshot_to_canonical_v2,
-    snapshot_plan_graphs, Artifact, ArtifactReview, CoordinationSnapshot,
-    CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor,
-    RuntimeDescriptorCapability, WorkClaim, COORDINATION_SCHEMA_V2,
+    snapshot_plan_graphs, Artifact, ArtifactReview, CoordinationSnapshot, CoordinationSnapshotV2,
+    CoordinationTask, Plan, RuntimeDescriptor, RuntimeDescriptorCapability, WorkClaim,
+    COORDINATION_SCHEMA_V2,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkContextKind, WorkContextSnapshot};
 use prism_store::CoordinationStartupCheckpointAuthority;
@@ -3777,8 +3777,8 @@ mod tests {
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
     use std::path::{Path, PathBuf};
-    use std::sync::OnceLock;
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::OnceLock;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use base64::Engine;
@@ -3839,7 +3839,12 @@ mod tests {
             ],
         )
         .unwrap();
-        let _ = fs::remove_dir_all(root.join(".git").join("refs").join("remotes").join("origin"));
+        let _ = fs::remove_dir_all(
+            root.join(".git")
+                .join("refs")
+                .join("remotes")
+                .join("origin"),
+        );
         root
     }
 
@@ -4394,14 +4399,8 @@ mod tests {
         let graphs = super::authored_summary_plan_graphs(&snapshot);
         assert_eq!(graphs.len(), 1);
         let graph = &graphs[0];
-        assert!(graph
-            .nodes
-            .iter()
-            .any(|node| node.id.0 == task_id.0));
-        assert!(graph
-            .nodes
-            .iter()
-            .any(|node| node.id == native_node_id));
+        assert!(graph.nodes.iter().any(|node| node.id.0 == task_id.0));
+        assert!(graph.nodes.iter().any(|node| node.id == native_node_id));
         assert!(graph.edges.iter().any(|edge| {
             edge.kind == prism_ir::PlanEdgeKind::DependsOn
                 && edge.from == native_node_id

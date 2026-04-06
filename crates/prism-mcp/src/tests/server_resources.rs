@@ -30,12 +30,13 @@ fn text_resource_contents(contents: rmcp::model::ResourceContents) -> String {
 fn compact_self_description_resource_text(server: &PrismMcpServer, uri: &str) -> String {
     if let Some(instruction_set_id) = crate::instructions::parse_instruction_resource_uri(uri) {
         return match instruction_set_id {
-            None => crate::instructions::render_instructions_index(server.host.features.mode_label()),
-            Some(id) => crate::instructions::render_instruction_set(
-                &id,
-                server.host.features.mode_label(),
-            )
-            .unwrap_or_else(|| panic!("instruction set should exist for {uri}")),
+            None => {
+                crate::instructions::render_instructions_index(server.host.features.mode_label())
+            }
+            Some(id) => {
+                crate::instructions::render_instruction_set(&id, server.host.features.mode_label())
+                    .unwrap_or_else(|| panic!("instruction set should exist for {uri}"))
+            }
         };
     }
     if uri == CAPABILITIES_URI {

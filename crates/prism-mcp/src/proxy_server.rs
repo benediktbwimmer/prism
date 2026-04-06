@@ -717,9 +717,7 @@ impl ProxyMcpServer {
                         "prism-mcp bridge failed to resolve reconnect upstream; retrying"
                     );
                     tokio::time::sleep(delay).await;
-                    delay = delay
-                        .saturating_mul(2)
-                        .min(bridge_reconnect_max_delay());
+                    delay = delay.saturating_mul(2).min(bridge_reconnect_max_delay());
                     continue;
                 }
             };
@@ -772,9 +770,7 @@ impl ProxyMcpServer {
                         "prism-mcp bridge failed to reconnect to upstream; retrying"
                     );
                     tokio::time::sleep(delay).await;
-                    delay = delay
-                        .saturating_mul(2)
-                        .min(bridge_reconnect_max_delay());
+                    delay = delay.saturating_mul(2).min(bridge_reconnect_max_delay());
                 }
             }
         }
@@ -844,13 +840,9 @@ impl ProxyMcpServer {
                         error = %error,
                         "prism-mcp bridge request failed because the upstream transport was unavailable; rebuilding upstream client"
                     );
-                    self.reconnect_with_backoff(
-                        op_name,
-                        true,
-                        bridge_request_reconnect_timeout(),
-                    )
-                    .await
-                    .map_err(map_connect_error)?;
+                    self.reconnect_with_backoff(op_name, true, bridge_request_reconnect_timeout())
+                        .await
+                        .map_err(map_connect_error)?;
                 }
                 Ok(Err(error)) => return Err(map_proxy_error(error)),
                 Err(_) if attempt < DEFAULT_UPSTREAM_REQUEST_RETRY_ATTEMPTS => {
@@ -860,13 +852,9 @@ impl ProxyMcpServer {
                         timeout_ms = DEFAULT_UPSTREAM_REQUEST_TIMEOUT.as_millis(),
                         "prism-mcp bridge request timed out while waiting for upstream; rebuilding upstream client"
                     );
-                    self.reconnect_with_backoff(
-                        op_name,
-                        true,
-                        bridge_request_reconnect_timeout(),
-                    )
-                    .await
-                    .map_err(map_connect_error)?;
+                    self.reconnect_with_backoff(op_name, true, bridge_request_reconnect_timeout())
+                        .await
+                        .map_err(map_connect_error)?;
                 }
                 Err(_) => {
                     return Err(McpError::internal_error(

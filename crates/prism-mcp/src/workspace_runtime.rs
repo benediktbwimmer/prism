@@ -2875,7 +2875,7 @@ mod tests {
         std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
         let options = prism_core::WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: prism_core::PrismRuntimeMode::Full,
             shared_runtime: prism_core::SharedRuntimeBackend::Sqlite {
                 path: shared_runtime_sqlite,
             },

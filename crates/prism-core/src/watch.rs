@@ -578,7 +578,11 @@ fn refresh_prism_snapshot_with_guard(
         Some(cached_snapshot),
         checkpoint_materializer,
         crate::WorkspaceSessionOptions {
-            coordination: coordination_enabled,
+            runtime_mode: if coordination_enabled {
+                crate::PrismRuntimeMode::Full
+            } else {
+                crate::PrismRuntimeMode::CoreLegacy
+            },
             shared_runtime: shared_runtime_sqlite
                 .map(|path| SharedRuntimeBackend::Sqlite {
                     path: path.to_path_buf(),

@@ -22,7 +22,7 @@ use prism_core::{
     default_workspace_shared_runtime, hydrate_workspace_session,
     hydrate_workspace_session_with_options, index_workspace_session,
     index_workspace_session_with_curator, index_workspace_session_with_options, PrismPaths,
-    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    PrismRuntimeMode, SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceSessionOptions,
 };
 use prism_curator::{
@@ -170,9 +170,31 @@ fn cli_no_coordination_flag_disables_coordination_features() {
     let cli = PrismMcpCli::parse_from(["prism-mcp", "--no-coordination"]);
     let features = cli.features();
     assert_eq!(features.mode_label(), "simple");
+    assert_eq!(features.runtime_mode(), PrismRuntimeMode::Full);
+    assert!(features.coordination_layer_enabled());
     assert!(!features.coordination.workflow);
     assert!(!features.coordination.claims);
     assert!(!features.coordination.artifacts);
+}
+
+#[test]
+fn cli_runtime_mode_flag_selects_coordination_only_runtime() {
+    let cli = PrismMcpCli::parse_from(["prism-mcp", "--runtime-mode", "coordination_only"]);
+    let features = cli.features();
+    assert_eq!(features.runtime_mode(), PrismRuntimeMode::CoordinationOnly);
+    assert!(features.coordination_layer_enabled());
+    assert!(!features.knowledge_storage_layer_enabled());
+    assert!(!features.cognition_layer_enabled());
+}
+
+#[test]
+fn cli_runtime_mode_flag_selects_knowledge_storage_runtime() {
+    let cli = PrismMcpCli::parse_from(["prism-mcp", "--runtime-mode", "knowledge_storage"]);
+    let features = cli.features();
+    assert_eq!(features.runtime_mode(), PrismRuntimeMode::KnowledgeStorage);
+    assert!(features.coordination_layer_enabled());
+    assert!(features.knowledge_storage_layer_enabled());
+    assert!(!features.cognition_layer_enabled());
 }
 
 #[test]
@@ -449,7 +471,7 @@ fn git_execution_policy_start_rejects_main_branch_and_records_failure() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -529,7 +551,7 @@ fn git_execution_policy_start_combines_requested_mutation_and_git_execution_reco
         index_workspace_session_with_options(
             &root,
             WorkspaceSessionOptions {
-                coordination: true,
+                runtime_mode: PrismRuntimeMode::Full,
                 shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
                 hydrate_persisted_projections: false,
                 hydrate_persisted_co_change: false,
@@ -938,7 +960,7 @@ fn git_execution_policy_defaults_to_off_modes() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -986,7 +1008,7 @@ fn git_execution_policy_task_create_rejects_direct_in_progress_creation() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -1043,7 +1065,7 @@ fn git_execution_policy_plan_node_create_rejects_direct_in_progress_creation() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -1175,7 +1197,7 @@ fn git_execution_policy_completion_require_rejects_dirty_user_changes() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -1287,7 +1309,7 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -1459,7 +1481,7 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
         index_workspace_session_with_options(
             &root,
             WorkspaceSessionOptions {
-                coordination: true,
+                runtime_mode: PrismRuntimeMode::Full,
                 shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
                 hydrate_persisted_projections: false,
                 hydrate_persisted_co_change: false,
@@ -1623,7 +1645,7 @@ fn git_execution_policy_completion_rehydrates_stale_plan_policy_before_publish()
         index_workspace_session_with_options(
             &root,
             WorkspaceSessionOptions {
-                coordination: true,
+                runtime_mode: PrismRuntimeMode::Full,
                 shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
                 hydrate_persisted_projections: false,
                 hydrate_persisted_co_change: false,
@@ -1678,7 +1700,7 @@ fn git_execution_policy_completion_rehydrates_stale_plan_policy_before_publish()
         index_workspace_session_with_options(
             &root,
             WorkspaceSessionOptions {
-                coordination: true,
+                runtime_mode: PrismRuntimeMode::Full,
                 shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
                 hydrate_persisted_projections: false,
                 hydrate_persisted_co_change: false,
@@ -1771,7 +1793,7 @@ fn auto_pr_completion_creates_and_links_review_artifact() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -1893,7 +1915,7 @@ fn auto_pr_approved_review_advances_integration_and_allows_verified_landing() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -2080,7 +2102,7 @@ fn auto_pr_rejected_review_marks_integration_failed() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -2202,7 +2224,7 @@ fn direct_integrate_completion_lands_target_and_records_trusted_evidence() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -2323,7 +2345,7 @@ fn git_execution_policy_completion_require_push_failure_keeps_task_in_progress()
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -5191,11 +5213,11 @@ fn mcp_plan_archive_terminalizes_active_task_execution_plan_before_archiving() {
                     tags: Vec::new(),
                     metadata: serde_json::Value::Null,
                 }],
-            edges: Vec::new(),
-        }],
-        std::collections::BTreeMap::new(),
-        Vec::new(),
-    );
+                edges: Vec::new(),
+            }],
+            std::collections::BTreeMap::new(),
+            Vec::new(),
+        );
 
     let archived = host
         .store_coordination(
@@ -10511,7 +10533,7 @@ fn coordination_update_records_trusted_landing_evidence_after_coordination_publi
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -10665,7 +10687,7 @@ fn manual_pr_requires_approved_review_artifact_before_recording_target_landing()
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -10900,7 +10922,7 @@ fn manual_pr_approved_review_auto_observes_merge_landing_on_task_touch() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -11069,7 +11091,7 @@ fn manual_pr_review_approval_observes_already_landed_merge() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -11225,7 +11247,7 @@ fn manual_pr_rebase_landing_accepts_verified_trusted_record() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -21461,7 +21483,7 @@ fn authenticated_outcome_mutation_records_principal_actor_and_execution_context(
     let reloaded = hydrate_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -21571,7 +21593,7 @@ fn authenticated_outcome_mutation_records_coordination_work_context_snapshot() {
     let reloaded = hydrate_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -22874,7 +22896,7 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
         index_workspace_session_with_options(
             &root,
             WorkspaceSessionOptions {
-                coordination: true,
+                runtime_mode: PrismRuntimeMode::Full,
                 shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
                 hydrate_persisted_projections: false,
                 hydrate_persisted_co_change: true,
@@ -22929,8 +22951,9 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
         shared.last_verified_manifest_digest
     );
     assert!(shared.summary_published_at.is_some());
-    let lagging_total =
-        shared.lagging_task_shard_refs + shared.lagging_claim_shard_refs + shared.lagging_runtime_refs;
+    let lagging_total = shared.lagging_task_shard_refs
+        + shared.lagging_claim_shard_refs
+        + shared.lagging_runtime_refs;
     assert_eq!(
         shared.authoritative_fallback_required,
         lagging_total > 0 || shared.summary_freshness_status == "ambiguous"

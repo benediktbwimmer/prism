@@ -152,7 +152,7 @@ impl WorkspaceIndexer<SqliteStore> {
             let repo_knowledge = load_repo_protected_knowledge(&root)?;
             sync_repo_protected_state(&root, shared_store)?;
             sync_repo_protected_state_ms = sync_protected_started.elapsed().as_millis();
-            if options.coordination && !shared_runtime_aliases_workspace_store {
+            if options.coordination_enabled() && !shared_runtime_aliases_workspace_store {
                 let load_shared_plan_state_started = Instant::now();
                 let plan_state = load_repo_protected_plan_state(&root, shared_store)?;
                 indexer.coordination_snapshot = plan_state
@@ -238,7 +238,7 @@ impl WorkspaceIndexer<SqliteStore> {
         indexer.shared_runtime_store = shared_runtime_store;
         info!(
             root = %root.display(),
-            coordination_enabled = options.coordination,
+            coordination_enabled = options.coordination_enabled(),
             node_count = indexer.graph.node_count(),
             edge_count = indexer.graph.edge_count(),
             file_count = indexer.graph.file_count(),
@@ -381,11 +381,12 @@ impl<S: Store> WorkspaceIndexer<S> {
         let started = Instant::now();
         let root = root.as_ref().canonicalize()?;
         let WorkspaceSessionOptions {
-            coordination,
+            runtime_mode,
             shared_runtime,
             hydrate_persisted_projections: _,
             hydrate_persisted_co_change: _,
         } = options;
+        let coordination = runtime_mode.capabilities().coordination_enabled();
         let layout_started = Instant::now();
         let layout = discover_layout(&root)?;
         let discover_layout_ms = layout_started.elapsed().as_millis();
@@ -470,11 +471,12 @@ impl<S: Store> WorkspaceIndexer<S> {
         let started = Instant::now();
         let root = root.as_ref().canonicalize()?;
         let WorkspaceSessionOptions {
-            coordination,
+            runtime_mode,
             shared_runtime,
             hydrate_persisted_projections: _,
             hydrate_persisted_co_change: _,
         } = options;
+        let coordination = runtime_mode.capabilities().coordination_enabled();
         let restore_runtime_started = Instant::now();
         let WorkspaceRuntimeState {
             layout: _cached_layout,
@@ -610,7 +612,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         merge_repo_patch_events_into_memory(&root, &outcomes)?;
         let load_outcomes_ms = load_outcomes_started.elapsed().as_millis();
         let load_coordination_started = Instant::now();
-        let plan_state = if options.coordination {
+        let plan_state = if options.coordination_enabled() {
             load_repo_protected_plan_state(&root, &mut store)?
         } else {
             None
@@ -667,7 +669,7 @@ impl<S: Store> WorkspaceIndexer<S> {
 
         info!(
             root = %root.display(),
-            coordination_enabled = options.coordination,
+            coordination_enabled = options.coordination_enabled(),
             package_count = layout.packages.len(),
             node_count = graph.node_count(),
             edge_count = graph.edge_count(),
@@ -684,6 +686,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             total_ms = started.elapsed().as_millis(),
             "prepared prism workspace indexer"
         );
+        let coordination_enabled = options.coordination_enabled();
 
         Ok(Self {
             root,
@@ -711,7 +714,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             shared_runtime_store: None,
             hydrate_persisted_projections: options.hydrate_persisted_projections,
             hydrate_persisted_co_change: options.hydrate_persisted_co_change,
-            coordination_enabled: options.coordination,
+            coordination_enabled,
             startup_refresh,
         })
     }

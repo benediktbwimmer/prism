@@ -55,7 +55,7 @@ use super::{
     repair_repo_published_plan_artifacts, AttestedHumanPrincipalInput, BootstrapOwnerInput,
     CredentialProfile, CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata,
     CredentialsFile, HumanSessionFile, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
-    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    PrismRuntimeMode, SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode,
     WorktreeMutatorSlotError, WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
 };
@@ -4263,7 +4263,7 @@ fn shared_runtime_sqlite_shares_session_memory_and_concepts_across_workspaces() 
     }
 
     let options = WorkspaceSessionOptions {
-        coordination: true,
+        runtime_mode: PrismRuntimeMode::Full,
         shared_runtime: SharedRuntimeBackend::Sqlite {
             path: shared_runtime_sqlite.clone(),
         },
@@ -4379,7 +4379,7 @@ fn shared_runtime_sqlite_shares_memory_events_without_checkpoint_flush() {
     }
 
     let options = WorkspaceSessionOptions {
-        coordination: true,
+        runtime_mode: PrismRuntimeMode::Full,
         shared_runtime: SharedRuntimeBackend::Sqlite {
             path: shared_runtime_sqlite.clone(),
         },
@@ -4466,7 +4466,7 @@ fn shared_runtime_sqlite_shares_principal_registry_across_workspaces() {
     }
 
     let options = WorkspaceSessionOptions {
-        coordination: true,
+        runtime_mode: PrismRuntimeMode::Full,
         shared_runtime: SharedRuntimeBackend::Sqlite {
             path: shared_runtime_sqlite.clone(),
         },
@@ -4534,7 +4534,7 @@ fn bootstrap_owner_and_mint_child_service_round_trip_through_shared_runtime_regi
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: false,
+            runtime_mode: PrismRuntimeMode::CoreLegacy,
             shared_runtime: SharedRuntimeBackend::Sqlite {
                 path: shared_runtime_sqlite.clone(),
             },
@@ -4625,7 +4625,7 @@ fn bootstrap_owner_with_attestation_records_shared_human_profile_metadata() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: false,
+            runtime_mode: PrismRuntimeMode::CoreLegacy,
             shared_runtime: SharedRuntimeBackend::Sqlite {
                 path: shared_runtime_sqlite.clone(),
             },
@@ -4723,7 +4723,7 @@ fn recover_owner_with_attestation_records_recovery_operation() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: false,
+            runtime_mode: PrismRuntimeMode::CoreLegacy,
             shared_runtime: SharedRuntimeBackend::Sqlite {
                 path: shared_runtime_sqlite.clone(),
             },
@@ -4954,7 +4954,7 @@ fn mint_child_principal_rejects_legacy_agent_principals() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: false,
+            runtime_mode: PrismRuntimeMode::CoreLegacy,
             shared_runtime: SharedRuntimeBackend::Sqlite {
                 path: shared_runtime_sqlite.clone(),
             },
@@ -9890,7 +9890,7 @@ fn recovery_rebuild_from_shared_runtime_journals_without_checkpoint_flush() {
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
     let options = WorkspaceSessionOptions {
-        coordination: true,
+        runtime_mode: PrismRuntimeMode::Full,
         shared_runtime: SharedRuntimeBackend::Sqlite {
             path: shared_runtime_sqlite,
         },
@@ -11546,7 +11546,7 @@ fn workspace_session_can_disable_coordination_entirely() {
     let disabled = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: false,
+            runtime_mode: PrismRuntimeMode::CoreLegacy,
             shared_runtime: SharedRuntimeBackend::Disabled,
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: true,

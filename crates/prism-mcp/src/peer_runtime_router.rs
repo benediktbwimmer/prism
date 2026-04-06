@@ -526,7 +526,7 @@ mod tests {
         hydrate_workspace_session_with_options(
             root,
             WorkspaceSessionOptions {
-                coordination: true,
+                runtime_mode: prism_core::PrismRuntimeMode::Full,
                 shared_runtime: default_workspace_shared_runtime(root).unwrap(),
                 hydrate_persisted_projections: false,
                 hydrate_persisted_co_change: false,

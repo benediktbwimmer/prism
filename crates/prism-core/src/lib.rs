@@ -36,6 +36,7 @@ mod reanchor;
 mod repo_patch_events;
 mod resolution;
 pub mod runtime_engine;
+mod runtime_mode;
 mod session;
 mod session_bootstrap;
 mod shared_coordination_ref;
@@ -115,6 +116,9 @@ pub use published_plans::{
     repair_repo_published_plan_artifacts, PublishedPlanArtifactRepairEntry,
     PublishedPlanArtifactRepairReport,
 };
+pub use runtime_mode::{
+    PrismLayerSet, PrismRuntimeCapabilities, PrismRuntimeLayer, PrismRuntimeMode,
+};
 pub use session::{
     CoordinationPlanState, FsRefreshStatus, PersistedObservedChangeCheckpointResult,
     WorkspaceFsRefreshOutcome, WorkspaceRefreshBreakdown, WorkspaceRefreshWork, WorkspaceSession,
@@ -147,7 +151,7 @@ pub use worktree_registration::{WorktreeMode, WorktreeRegistrationRecord};
 
 #[derive(Debug, Clone)]
 pub struct WorkspaceSessionOptions {
-    pub coordination: bool,
+    pub runtime_mode: PrismRuntimeMode,
     pub shared_runtime: SharedRuntimeBackend,
     pub hydrate_persisted_projections: bool,
     pub hydrate_persisted_co_change: bool,
@@ -156,11 +160,29 @@ pub struct WorkspaceSessionOptions {
 impl Default for WorkspaceSessionOptions {
     fn default() -> Self {
         Self {
-            coordination: true,
+            runtime_mode: PrismRuntimeMode::Full,
             shared_runtime: SharedRuntimeBackend::Disabled,
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: true,
         }
+    }
+}
+
+impl WorkspaceSessionOptions {
+    pub fn runtime_capabilities(&self) -> PrismRuntimeCapabilities {
+        self.runtime_mode.capabilities()
+    }
+
+    pub fn coordination_enabled(&self) -> bool {
+        self.runtime_capabilities().coordination_enabled()
+    }
+
+    pub fn knowledge_storage_enabled(&self) -> bool {
+        self.runtime_capabilities().knowledge_storage_enabled()
+    }
+
+    pub fn cognition_enabled(&self) -> bool {
+        self.runtime_capabilities().cognition_enabled()
     }
 }
 

@@ -22,11 +22,12 @@ impl Prism {
         let result = {
             let (coordination_runtime, plan_runtime) = runtime.runtimes_mut();
             match mutate(coordination_runtime, plan_runtime) {
-                Ok(value) => match finalize_coordination_transaction(coordination_runtime, plan_runtime)
-                {
-                    Ok(()) => Ok(value),
-                    Err(error) => Err(error),
-                },
+                Ok(value) => {
+                    match finalize_coordination_transaction(coordination_runtime, plan_runtime) {
+                        Ok(()) => Ok(value),
+                        Err(error) => Err(error),
+                    }
+                }
                 Err(error) => Err(error),
             }
         };

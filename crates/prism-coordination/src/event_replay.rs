@@ -494,7 +494,9 @@ fn recompute_root_tasks(
                     .unwrap_or(false)
                     && !dependency_sources
                         .get(plan_id)
-                        .map(|sources| sources.contains(&CoordinationTaskId::new(node.id.0.clone())))
+                        .map(|sources| {
+                            sources.contains(&CoordinationTaskId::new(node.id.0.clone()))
+                        })
                         .unwrap_or(false)
             })
             .map(|node| (plan_id.clone(), CoordinationTaskId::new(node.id.0.clone())));

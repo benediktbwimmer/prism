@@ -35,11 +35,11 @@ use crate::{
     EventResourcePayload, FeatureFlagsView, FileResourcePayload, InferredEdgeRecordView,
     LineageResourcePayload, MemoryResourcePayload, PlanResourcePayload, PlansResourcePayload,
     ProtectedStateResourcePayload, ProtectedStateStreamView, QueryExecution, QueryHost,
-    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
-    SessionRepairActionView, SessionResourcePayload, SessionState, SessionTaskView, SessionView,
-    SessionWorkView, SymbolResourcePayload, TaskHeartbeatAdvice, TaskResourcePayload,
-    VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
+    ResourceSchemaCatalogPayload, RuntimeCapabilitiesView, SearchArgs, SearchResourcePayload,
+    SessionLimitsView, SessionRepairActionView, SessionResourcePayload, SessionState,
+    SessionTaskView, SessionView, SessionWorkView, SymbolResourcePayload, TaskHeartbeatAdvice,
+    TaskResourcePayload, VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -141,6 +141,12 @@ impl QueryHost {
             },
             features: FeatureFlagsView {
                 mode: self.features.mode_label().to_string(),
+                runtime: RuntimeCapabilitiesView {
+                    mode: self.features.runtime_mode_label().to_string(),
+                    coordination: self.features.coordination_layer_enabled(),
+                    knowledge_storage: self.features.knowledge_storage_layer_enabled(),
+                    cognition: self.features.cognition_layer_enabled(),
+                },
                 coordination: CoordinationFeaturesView {
                     workflow: self.features.coordination.workflow,
                     claims: self.features.coordination.claims,

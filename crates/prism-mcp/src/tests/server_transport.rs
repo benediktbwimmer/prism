@@ -447,6 +447,7 @@ async fn bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state() {
         root: root.clone(),
         mode: PrismMcpMode::Bridge,
         no_coordination: false,
+        runtime_mode: crate::PrismRuntimeModeArg::Full,
         internal_developer: false,
         ui: false,
         enable_coordination: Vec::new(),
@@ -810,7 +811,7 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
     let workspace = prism_core::index_workspace_session_with_options(
         &root,
         prism_core::WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: prism_core::PrismRuntimeMode::Full,
             shared_runtime: SharedRuntimeBackend::Sqlite {
                 path: shared_runtime_sqlite.clone(),
             },
@@ -891,7 +892,7 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
     let _reloaded = prism_core::hydrate_workspace_session_with_options(
         &root,
         prism_core::WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: prism_core::PrismRuntimeMode::Full,
             shared_runtime: SharedRuntimeBackend::Sqlite {
                 path: shared_runtime_sqlite.clone(),
             },

@@ -1879,7 +1879,7 @@ async fn mcp_server_rejects_authenticated_mutation_on_unregistered_worktree() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            coordination: true,
+            runtime_mode: prism_core::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root)
                 .expect("default shared runtime should resolve"),
             hydrate_persisted_projections: false,
