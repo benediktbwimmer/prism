@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kmwq21zg4hy0etha7x0nj40a",
+    "title": "Milestone 1: Replace full refresh reconstruction with a persistent runtime and narrower lock boundaries",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kmwq21zg4hy0etha7x0nj40a-4295423e5a5dd415.json"
+  },
+  {
+    "id": "coord-task:01kn80ry7wvfr9w7gp0dw8s5s6",
+    "title": "Trace daemon lifecycle, supervisor, and authority persistence paths in code",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80ry7wvfr9w7gp0dw8s5s6-81e76f5e785f84dd.json"
+  }
+]
