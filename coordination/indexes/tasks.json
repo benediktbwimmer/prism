@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01knc6gcwq6fbqvh9k3vrc3es7",
+    "title": "Dogfood the rewrite against real mutation traces until warm operations are boring again",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6gcwq6fbqvh9k3vrc3es7-3fd42dbe34bb9324.json"
+  },
+  {
+    "id": "coord-task:01kndg3q26zbjrnxn0fqm214r9",
+    "title": "Validate the bundled operator console end to end on the live daemon",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndg3q26zbjrnxn0fqm214r9-dc681bac4f62b1dd.json"
+  }
+]
