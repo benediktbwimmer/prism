@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01knc6cswpwztpebeb7mmtmqtc",
+    "title": "Define the minimal authoritative coordination persist contract and revision model",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01knc6cswpwztpebeb7mmtmqtc-e1595e35f5761c42.json"
+  },
+  {
+    "id": "coord-task:01knd32ebkrxpmd7j56xm7ev2v",
+    "title": "Remove the legacy dashboard and SSE-oriented backend surfaces in favor of the new polling API",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knd32ebkrxpmd7j56xm7ev2v-8631c93ed5d952b5.json"
+  },
+  {
+    "id": "coord-task:01kndb8xs4gp32peb6jdv4r8k2",
+    "title": "Add telemetry and diagnostics for oversized responses, missing compact companions, and self-description coverage gaps",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb8xs4gp32peb6jdv4r8k2-072ae796cc6a229f.json"
+  },
+  {
+    "id": "coord-task:11",
+    "title": "Demote snapshots and cache to optional startup or recovery aids",
+    "status": "Ready",
+    "path": "tasks/coord-task-11-7fb2189d18d910e8.json"
+  }
+]

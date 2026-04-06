@@ -1,0 +1,74 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1415
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knd322s9fg9bkged6xswqk6b"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knd32ebkrxpmd7j56xm7ev2v",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775341867,
+    "lease_holder": {
+      "agent_id": "codex-runtime-storage-boundary-redesign-2026-04-01",
+      "principal": {
+        "authority_id": "local-daemon",
+        "kind": "human",
+        "name": "Codex",
+        "principal_id": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds"
+      },
+      "session_id": "session:01knd2z9emct1p16njxypvk8cb",
+      "worktree_id": null
+    },
+    "lease_refreshed_at": 1775334667,
+    "lease_stale_at": 1775336467,
+    "lease_started_at": 1775334667,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knd2zj2hgp4qs7qzfc7rxdgg",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": null,
+    "tags": [],
+    "title": "Remove the legacy dashboard and SSE-oriented backend surfaces in favor of the new polling API",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
