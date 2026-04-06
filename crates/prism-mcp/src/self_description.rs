@@ -938,14 +938,8 @@ fn build_self_description_audit_payload(
     for tool in crate::tool_schema_catalog_entries() {
         let full_bytes = schema_uri_to_bytes(&tool.schema_uri);
         let example_validation = tool_example_validation(&tool.tool_name, None, None);
-        let example_bytes = tool
-            .example_uri
-            .as_deref()
-            .and_then(compact_surface_bytes);
-        let shape_bytes = tool
-            .shape_uri
-            .as_deref()
-            .and_then(compact_surface_bytes);
+        let example_bytes = tool.example_uri.as_deref().and_then(compact_surface_bytes);
+        let shape_bytes = tool.shape_uri.as_deref().and_then(compact_surface_bytes);
         entries.push(SelfDescriptionAuditEntry {
             surface_kind: "tool".to_string(),
             name: tool.tool_name.clone(),
@@ -1014,9 +1008,7 @@ fn build_self_description_audit_payload(
                 let example_bytes = action_example_uri
                     .as_deref()
                     .and_then(compact_surface_bytes);
-                let shape_bytes = action_shape_uri
-                    .as_deref()
-                    .and_then(compact_surface_bytes);
+                let shape_bytes = action_shape_uri.as_deref().and_then(compact_surface_bytes);
                 entries.push(SelfDescriptionAuditEntry {
                     surface_kind: "tool_action".to_string(),
                     name: format!("{}.{}", tool.tool_name, action.action),
@@ -1090,12 +1082,8 @@ fn build_self_description_audit_payload(
                         Some(&action.action),
                         Some(&variant.tag),
                     );
-                    let example_bytes = example_uri
-                        .as_deref()
-                        .and_then(compact_surface_bytes);
-                    let shape_bytes = shape_uri
-                        .as_deref()
-                        .and_then(compact_surface_bytes);
+                    let example_bytes = example_uri.as_deref().and_then(compact_surface_bytes);
+                    let shape_bytes = shape_uri.as_deref().and_then(compact_surface_bytes);
                     entries.push(SelfDescriptionAuditEntry {
                         surface_kind: "tool_variant".to_string(),
                         name: format!("{}.{}.{}", tool.tool_name, action.action, variant.tag),
@@ -1976,7 +1964,9 @@ fn tool_example_validation(
         .lock()
         .expect("self-description cache lock poisoned")
         .tool_example_validations
-        .get(&tool_example_validation_cache_key(tool_name, action, variant))
+        .get(&tool_example_validation_cache_key(
+            tool_name, action, variant,
+        ))
         .cloned()
     {
         return Some(validation);
@@ -1999,7 +1989,9 @@ fn build_tool_example_validation(
     variant: Option<&str>,
 ) -> Option<prism_js::ToolInputValidationView> {
     let example = tool_example_input(tool_name, action, variant)?;
-    Some(crate::tool_args::validate_tool_input_value(tool_name, example))
+    Some(crate::tool_args::validate_tool_input_value(
+        tool_name, example,
+    ))
 }
 
 fn tool_example_input(
@@ -2148,7 +2140,11 @@ fn tool_recipe_markdown(tool_name: &str, action: &str, variant: Option<&str>) ->
     Some(markdown)
 }
 
-fn build_tool_recipe_markdown(tool_name: &str, action: &str, variant: Option<&str>) -> Option<String> {
+fn build_tool_recipe_markdown(
+    tool_name: &str,
+    action: &str,
+    variant: Option<&str>,
+) -> Option<String> {
     let common = format!(
         "# PRISM Recipe: {tool_name}.{action}\n\nUse the compact path first:\n1. Read the shape resource.\n2. Read the example resource.\n3. Draft the payload.\n4. Call `validateToolInput` or the target tool.\n"
     );

@@ -1,8 +1,9 @@
 use prism_js::{
     AgentOutcomeSummaryView, ArtifactView, BlockerView, ClaimView, ConceptPacketView,
-    CoordinationTaskView, PlanExecutionOverlayView, PlanGraphView, PlanListEntryView,
-    PlanNodeRecommendationView, PlanSummaryView, PolicyViolationRecordView, RuntimeLogEventView,
-    RuntimeStatusView, TaskJournalView, ValidationRefView,
+    CoordinationPlanV2View, CoordinationTaskV2View, CoordinationTaskView, NodeRefView,
+    PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeRecommendationView,
+    PlanSummaryView, PolicyViolationRecordView, RuntimeLogEventView, RuntimeStatusView,
+    TaskJournalView, ValidationRefView,
 };
 use serde::Serialize;
 
@@ -153,6 +154,43 @@ pub(crate) struct PrismPlanDetailView {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PrismSsrPlanDetailView {
+    pub(crate) plan: CoordinationPlanV2View,
+    pub(crate) child_plans: Vec<PrismSsrChildPlanView>,
+    pub(crate) child_tasks: Vec<PrismSsrChildTaskView>,
+    pub(crate) external_stubs: Vec<PrismSsrExternalStubView>,
+    pub(crate) recent_outcomes: Vec<AgentOutcomeSummaryView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismSsrChildPlanView {
+    pub(crate) plan: CoordinationPlanV2View,
+    pub(crate) direct_child_plan_count: usize,
+    pub(crate) direct_child_task_count: usize,
+    pub(crate) dependency_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismSsrChildTaskView {
+    pub(crate) task: CoordinationTaskV2View,
+    pub(crate) dependency_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismSsrExternalStubView {
+    pub(crate) node: NodeRefView,
+    pub(crate) title: String,
+    pub(crate) href: String,
+    pub(crate) status: String,
+    pub(crate) summary: String,
+    pub(crate) relation_labels: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PrismGraphView {
     pub(crate) selected_concept_handle: String,
     pub(crate) focus: ConceptPacketView,
@@ -167,6 +205,18 @@ pub(crate) struct PrismUiTaskDetailView {
     pub(crate) editable: PrismUiTaskEditableMetadataView,
     pub(crate) claim_history: Vec<PrismUiTaskClaimHistoryEntryView>,
     pub(crate) blockers: Vec<PrismUiTaskBlockerEntryView>,
+    pub(crate) outcomes: Vec<AgentOutcomeSummaryView>,
+    pub(crate) recent_commits: Vec<PrismUiTaskCommitView>,
+    pub(crate) artifacts: Vec<ArtifactView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismSsrTaskDetailView {
+    pub(crate) task: CoordinationTaskV2View,
+    pub(crate) editable: PrismUiTaskEditableMetadataView,
+    pub(crate) claim_history: Vec<PrismUiTaskClaimHistoryEntryView>,
+    pub(crate) blockers: Vec<PrismSsrTaskBlockerEntryView>,
     pub(crate) outcomes: Vec<AgentOutcomeSummaryView>,
     pub(crate) recent_commits: Vec<PrismUiTaskCommitView>,
     pub(crate) artifacts: Vec<ArtifactView>,
@@ -209,6 +259,13 @@ pub(crate) struct PrismUiTaskClaimHistoryEntryView {
 pub(crate) struct PrismUiTaskBlockerEntryView {
     pub(crate) blocker: BlockerView,
     pub(crate) related_task: Option<CoordinationTaskView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismSsrTaskBlockerEntryView {
+    pub(crate) blocker: BlockerView,
+    pub(crate) related_task: Option<CoordinationTaskV2View>,
 }
 
 #[derive(Debug, Clone, Serialize)]

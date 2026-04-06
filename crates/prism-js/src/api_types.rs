@@ -1,10 +1,11 @@
 use prism_coordination::BlockerKind;
 use prism_ir::{
     AnchorRef, ArtifactStatus, BlockerCauseSource, Capability, ClaimMode, ClaimStatus,
-    ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin,
-    GitExecutionStatus, GitIntegrationEvidence, GitIntegrationMode, GitIntegrationStatus, Language,
-    NodeKind, PlanEdgeKind, PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope,
-    PlanStatus, Span,
+    ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, DerivedPlanStatus, EdgeKind,
+    EdgeOrigin, EffectiveTaskStatus, ExecutorClass, GitExecutionStatus, GitIntegrationEvidence,
+    GitIntegrationMode, GitIntegrationStatus, Language, NodeKind, NodeRefKind, PlanEdgeKind,
+    PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanOperatorState, PlanScope,
+    PlanStatus, Span, TaskLifecycleStatus,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;
@@ -239,6 +240,19 @@ pub struct CoordinationTaskLifecycleView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct TaskLeaseHolderView {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub principal: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worktree_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentTaskBriefResultView {
     pub task_id: String,
     pub title: String,
@@ -248,6 +262,10 @@ pub struct AgentTaskBriefResultView {
     pub assignee: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pending_handoff_to: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lease_state: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lease_holder: Option<TaskLeaseHolderView>,
     pub blockers: Vec<AgentTaskBlockerView>,
     pub claim_holders: Vec<String>,
     pub conflict_summaries: Vec<String>,
@@ -1621,6 +1639,79 @@ pub struct PlanView {
     pub activity: Option<PlanActivityView>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeRefView {
+    pub kind: NodeRefKind,
+    pub id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationPlanV2View {
+    pub id: String,
+    pub parent_plan_id: Option<String>,
+    pub title: String,
+    pub goal: String,
+    pub scope: PlanScope,
+    pub kind: PlanKind,
+    pub operator_state: PlanOperatorState,
+    pub status: DerivedPlanStatus,
+    pub scheduling: PlanSchedulingView,
+    pub tags: Vec<String>,
+    pub created_from: Option<String>,
+    pub metadata: Value,
+    pub children: Vec<NodeRefView>,
+    pub dependencies: Vec<NodeRefView>,
+    pub dependents: Vec<NodeRefView>,
+    pub estimated_minutes_total: u32,
+    pub remaining_estimated_minutes: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskExecutorPolicyView {
+    pub executor_class: ExecutorClass,
+    pub target_label: Option<String>,
+    pub allowed_principals: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTaskV2View {
+    pub id: String,
+    pub parent_plan_id: String,
+    pub title: String,
+    pub summary: Option<String>,
+    pub lifecycle_status: TaskLifecycleStatus,
+    pub status: EffectiveTaskStatus,
+    pub graph_actionable: bool,
+    pub estimated_minutes: u32,
+    pub executor: TaskExecutorPolicyView,
+    pub assignee: Option<String>,
+    pub session: Option<String>,
+    pub worktree_id: Option<String>,
+    pub branch_ref: Option<String>,
+    pub anchors: Vec<AnchorRef>,
+    pub bindings: PlanBindingView,
+    pub validation_refs: Vec<ValidationRefView>,
+    pub base_revision: WorkspaceRevisionView,
+    pub priority: Option<u8>,
+    pub tags: Vec<String>,
+    pub metadata: Value,
+    pub git_execution: TaskGitExecutionView,
+    pub blocker_causes: Vec<BlockerCauseView>,
+    pub dependencies: Vec<NodeRefView>,
+    pub dependents: Vec<NodeRefView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanChildrenV2View {
+    pub plan_id: String,
+    pub children: Vec<NodeRefView>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanListEntryView {
@@ -2009,10 +2100,14 @@ pub struct ConflictView {
 #[serde(rename_all = "camelCase")]
 pub struct CoordinationInboxView {
     pub plan: Option<PlanView>,
+    pub plan_v2: Option<CoordinationPlanV2View>,
     pub plan_graph: Option<PlanGraphView>,
     pub plan_execution: Vec<PlanExecutionOverlayView>,
     pub plan_summary: Option<PlanSummaryView>,
     pub plan_next: Vec<PlanNodeRecommendationView>,
+    pub children: Option<PlanChildrenV2View>,
+    pub graph_actionable_tasks: Vec<CoordinationTaskV2View>,
+    pub actionable_tasks: Vec<CoordinationTaskV2View>,
     pub ready_tasks: Vec<CoordinationTaskView>,
     pub pending_reviews: Vec<ArtifactView>,
 }
@@ -2021,11 +2116,14 @@ pub struct CoordinationInboxView {
 #[serde(rename_all = "camelCase")]
 pub struct TaskContextView {
     pub task: Option<CoordinationTaskView>,
+    pub task_v2: Option<CoordinationTaskV2View>,
     pub task_node: Option<PlanNodeView>,
     pub task_execution: Option<PlanExecutionOverlayView>,
     pub plan_graph: Option<PlanGraphView>,
     pub plan_summary: Option<PlanSummaryView>,
     pub plan_next: Vec<PlanNodeRecommendationView>,
+    pub dependencies: Vec<NodeRefView>,
+    pub dependents: Vec<NodeRefView>,
     pub blockers: Vec<BlockerView>,
     pub artifacts: Vec<ArtifactView>,
     pub claims: Vec<ClaimView>,

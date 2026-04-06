@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -25,12 +26,12 @@ use super::html::{
     duration_label, escape_html, json_script_escape, markdown_to_html, page_shell, percent,
     status_badge, status_slug, truncate,
 };
-use super::mermaid::{concept_graph_mermaid, plan_graph_mermaid};
+use super::mermaid::{concept_graph_mermaid, plan_detail_mermaid};
 use crate::ui_assets::prism_ui_favicon_asset;
 use crate::ui_mutations::{map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest};
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_router::PrismUiState;
-use crate::ui_types::{PrismPlanDetailView, PrismPlansView, PrismUiFleetView};
+use crate::ui_types::{PrismPlansView, PrismSsrPlanDetailView, PrismUiFleetView};
 use crate::{PrismMcpServer, QueryHost};
 
 #[derive(Clone)]
@@ -241,7 +242,7 @@ async fn console_plan_fragment(
 ) -> std::result::Result<Html<String>, (StatusCode, String)> {
     let view = state
         .host
-        .ui_plan_graph_view(&plan_id)
+        .ui_ssr_plan_detail_view(&plan_id)
         .map_err(internal_error)?
         .ok_or_else(|| (StatusCode::NOT_FOUND, format!("plan not found: {plan_id}")))?;
     Ok(Html(render_plan_detail(&view)))
@@ -577,9 +578,27 @@ fn render_plans_workspace(host: &QueryHost, query: PlansQuery) -> Result<String>
         sort: query.sort.clone(),
         agent: query.agent.clone(),
     })?;
-    let sidebar = render_plan_sidebar(&view);
-    let detail = view
-        .selected_plan
+    let root_plan_ids = host
+        .current_prism()
+        .root_plans_v2()
+        .into_iter()
+        .map(|plan| plan.plan.id.0.to_string())
+        .collect::<BTreeSet<_>>();
+    let sidebar = render_plan_sidebar(&view, &root_plan_ids);
+    let selected_plan_id = query
+        .plan_id
+        .or_else(|| {
+            view.plans
+                .iter()
+                .find(|plan| root_plan_ids.contains(plan.plan_id.as_str()))
+                .map(|plan| plan.plan_id.clone())
+        })
+        .or_else(|| view.selected_plan_id.clone());
+    let detail = selected_plan_id
+        .as_deref()
+        .map(|plan_id| host.ui_ssr_plan_detail_view(plan_id))
+        .transpose()?
+        .flatten()
         .as_ref()
         .map(render_plan_detail)
         .unwrap_or_else(|| {
@@ -594,9 +613,13 @@ fn render_plans_workspace(host: &QueryHost, query: PlansQuery) -> Result<String>
     ))
 }
 
-fn render_plan_sidebar(view: &PrismPlansView) -> String {
-    let items = view
+fn render_plan_sidebar(view: &PrismPlansView, root_plan_ids: &BTreeSet<String>) -> String {
+    let visible_plans = view
         .plans
+        .iter()
+        .filter(|plan| root_plan_ids.contains(plan.plan_id.as_str()))
+        .collect::<Vec<_>>();
+    let items = visible_plans
         .iter()
         .map(|plan| {
             let progress = percent(
@@ -631,7 +654,7 @@ fn render_plan_sidebar(view: &PrismPlansView) -> String {
          </form>\
          <div class=\"console-list\">{}</div>\
          </section>",
-        view.stats.visible_plans,
+        visible_plans.len(),
         render_select_options(
             &[
                 ("active", "Active"),
@@ -666,22 +689,60 @@ fn render_plan_sidebar(view: &PrismPlansView) -> String {
     )
 }
 
-fn render_plan_detail(view: &PrismPlanDetailView) -> String {
-    let graph_src = plan_graph_mermaid(&view.graph);
-    let markdown_url = format!(
-        "/console/plans/{}/markdown",
-        escape_html(&view.plan.plan_id)
-    );
-    let ready_rows = view
-        .ready_tasks
+fn render_plan_detail(view: &PrismSsrPlanDetailView) -> String {
+    let graph_src = plan_detail_mermaid(view);
+    let markdown_url = format!("/console/plans/{}/markdown", escape_html(&view.plan.id));
+    let child_plan_rows = view
+        .child_plans
+        .iter()
+        .map(|plan| {
+            format!(
+                "<tr><td><a href=\"/console/plans/{}\">{}</a></td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                escape_html(&plan.plan.id),
+                escape_html(&plan.plan.title),
+                status_badge(&format!("{:?}", plan.plan.status)),
+                plan.direct_child_plan_count + plan.direct_child_task_count,
+                plan.dependency_count
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    let child_task_rows = view
+        .child_tasks
         .iter()
         .map(|task| {
+            let target = task
+                .task
+                .executor
+                .target_label
+                .as_deref()
+                .map(|label| format!(" · {label}"))
+                .unwrap_or_default();
             format!(
-                "<tr><td><a href=\"/console/tasks/{}\">{}</a></td><td>{}</td><td>{}</td></tr>",
-                escape_html(&task.id),
-                escape_html(&task.title),
-                status_badge(&format!("{:?}", task.status)),
-                escape_html(task.assignee.as_deref().unwrap_or("unassigned"))
+                "<tr><td><a href=\"/console/tasks/{}\">{}</a></td><td>{}</td><td>{:?}{}</td><td>{}m</td><td>{}</td><td>{}</td></tr>",
+                escape_html(&task.task.id),
+                escape_html(&task.task.title),
+                status_badge(&format!("{:?}", task.task.status)),
+                task.task.executor.executor_class,
+                escape_html(&target),
+                task.task.estimated_minutes,
+                task.task.blocker_causes.len(),
+                task.dependency_count
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    let stub_rows = view
+        .external_stubs
+        .iter()
+        .map(|stub| {
+            format!(
+                "<tr><td><a href=\"{}\">{}</a></td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                escape_html(&stub.href),
+                escape_html(&stub.title),
+                escape_html(&stub.summary),
+                status_badge(&stub.status),
+                escape_html(&stub.relation_labels.join(" / "))
             )
         })
         .collect::<Vec<_>>()
@@ -707,26 +768,45 @@ fn render_plan_detail(view: &PrismPlanDetailView) -> String {
          <div class=\"console-copy-action\"><button class=\"console-button console-button--ghost\" type=\"button\" data-copy-markdown-url=\"{}\"><span class=\"console-action-label\">Copy markdown</span><span class=\"console-action-spinner\" aria-hidden=\"true\"></span></button><span class=\"console-action-feedback console-small\" data-copy-markdown-feedback aria-live=\"polite\"></span></div>\
          <form class=\"console-action-form\" hx-post=\"/console/plans/{}/archive\" hx-swap=\"none\" hx-indicator=\"closest .console-action-form\"><button class=\"console-button console-button--warn\" type=\"submit\"><span class=\"console-action-label\">Archive plan</span><span class=\"console-action-spinner\" aria-hidden=\"true\"></span></button></form></div>\
          </div>\
-         <div class=\"console-inline-list\">{}<span class=\"console-pill\">{} total nodes</span><span class=\"console-pill\">{} actionable</span></div>\
-         <section class=\"console-card console-graph-card\"><div class=\"console-card-header\"><div><h3>Dependency graph</h3><p class=\"console-subtitle\">Click task nodes to open task detail. Drag to pan, wheel to zoom.</p></div><span class=\"console-sync\">Live via polling</span></div><div class=\"console-graph-shell\" data-console-graph><div class=\"console-graph-controls\"><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-zoom-out>-</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-reset>Reset</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-zoom-in>+</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-fullscreen>Full page</button></div><div class=\"console-graph-viewport\" data-graph-viewport><pre class=\"console-mermaid prism-mermaid mermaid\">{}</pre></div></div></section>\
-         <section class=\"console-card\"><div class=\"console-card-header\"><h3>Ready tasks</h3><span class=\"console-muted console-small\">{}</span></div>\
-         <table class=\"console-data-table\"><thead><tr><th>Task</th><th>Status</th><th>Assignee</th></tr></thead><tbody>{}</tbody></table></section>\
+         <div class=\"console-inline-list\">{}<span class=\"console-pill\">{}m total</span><span class=\"console-pill\">{}m remaining</span><span class=\"console-pill\">{} child plans</span><span class=\"console-pill\">{} child tasks</span><span class=\"console-pill\">{} external stubs</span></div>\
+         <section class=\"console-card console-graph-card\"><div class=\"console-card-header\"><div><h3>Direct-child dependency graph</h3><p class=\"console-subtitle\">Direct child tasks and child plans render here; cross-plan targets render as external stubs.</p></div><span class=\"console-sync\">Live via polling</span></div><div class=\"console-graph-shell\" data-console-graph><div class=\"console-graph-controls\"><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-zoom-out>-</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-reset>Reset</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-zoom-in>+</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-fullscreen>Full page</button></div><div class=\"console-graph-viewport\" data-graph-viewport><pre class=\"console-mermaid prism-mermaid mermaid\">{}</pre></div></div></section>\
+         <section class=\"console-card\"><div class=\"console-card-header\"><h3>Direct child plans</h3><span class=\"console-muted console-small\">{}</span></div>\
+         <table class=\"console-data-table\"><thead><tr><th>Plan</th><th>Status</th><th>Children</th><th>Dependencies</th></tr></thead><tbody>{}</tbody></table></section>\
+         <section class=\"console-card\"><div class=\"console-card-header\"><h3>Direct child tasks</h3><span class=\"console-muted console-small\">{}</span></div>\
+         <table class=\"console-data-table\"><thead><tr><th>Task</th><th>Status</th><th>Executor</th><th>Estimate</th><th>Blockers</th><th>Dependencies</th></tr></thead><tbody>{}</tbody></table></section>\
+         <section class=\"console-card\"><div class=\"console-card-header\"><h3>External dependency stubs</h3><span class=\"console-muted console-small\">{}</span></div>\
+         <table class=\"console-data-table\"><thead><tr><th>Target</th><th>Summary</th><th>Status</th><th>Relations</th></tr></thead><tbody>{}</tbody></table></section>\
          <section class=\"console-card\"><div class=\"console-card-header\"><h3>Recent outcomes</h3></div><ul class=\"console-list\">{}</ul></section>\
          </article>",
         escape_html(&view.plan.title),
         escape_html(&view.plan.goal),
         markdown_url,
         markdown_url,
-        escape_html(&view.plan.plan_id),
+        escape_html(&view.plan.id),
         status_badge(&format!("{:?}", view.plan.status)),
-        view.summary.total_nodes,
-        view.summary.actionable_nodes,
+        view.plan.estimated_minutes_total,
+        view.plan.remaining_estimated_minutes,
+        view.child_plans.len(),
+        view.child_tasks.len(),
+        view.external_stubs.len(),
         escape_html(&graph_src),
-        view.ready_tasks.len(),
-        if ready_rows.is_empty() {
-            "<tr><td colspan=\"3\"><div class=\"console-empty\">No ready tasks right now.</div></td></tr>".to_string()
+        view.child_plans.len(),
+        if child_plan_rows.is_empty() {
+            "<tr><td colspan=\"4\"><div class=\"console-empty\">No direct child plans.</div></td></tr>".to_string()
         } else {
-            ready_rows
+            child_plan_rows
+        },
+        view.child_tasks.len(),
+        if child_task_rows.is_empty() {
+            "<tr><td colspan=\"6\"><div class=\"console-empty\">No direct child tasks.</div></td></tr>".to_string()
+        } else {
+            child_task_rows
+        },
+        view.external_stubs.len(),
+        if stub_rows.is_empty() {
+            "<tr><td colspan=\"4\"><div class=\"console-empty\">No cross-plan dependency stubs.</div></td></tr>".to_string()
+        } else {
+            stub_rows
         },
         if outcomes.is_empty() {
             "<li class=\"console-empty\">No recent outcomes recorded for this plan yet.</li>"
@@ -739,7 +819,7 @@ fn render_plan_detail(view: &PrismPlanDetailView) -> String {
 
 fn render_task_detail_fragment(host: &QueryHost, task_id: &str) -> Result<String> {
     let view = host
-        .ui_task_detail_view(task_id)?
+        .ui_ssr_task_detail_view(task_id)?
         .ok_or_else(|| anyhow!("task not found: {task_id}"))?;
     let active_claim = view
         .claim_history
@@ -806,6 +886,13 @@ fn render_task_detail_fragment(host: &QueryHost, task_id: &str) -> Result<String
         })
         .collect::<Vec<_>>()
         .join("");
+    let executor_target = view
+        .task
+        .executor
+        .target_label
+        .as_deref()
+        .map(|label| format!(" · {label}"))
+        .unwrap_or_default();
     Ok(format!(
         "<section id=\"console-task-detail\" class=\"console-task-card\">\
          <div class=\"console-card-header\"><div><p class=\"console-eyebrow\">Task detail</p><h2>{}</h2></div>{}</div>\
@@ -824,9 +911,9 @@ fn render_task_detail_fragment(host: &QueryHost, task_id: &str) -> Result<String
          </form>\
          </article>\
          <article class=\"console-card\">\
-         <div class=\"console-card-header\"><h3>Operator actions</h3></div>\
+         <div class=\"console-card-header\"><h3>Execution summary</h3></div>\
          <div class=\"console-stack\">\
-         <div class=\"console-inline-list\">{}<span class=\"console-pill\">validation refs: {}</span></div>\
+         <div class=\"console-inline-list\">{}<span class=\"console-pill\">{:?}{}</span><span class=\"console-pill\">{}m estimate</span><span class=\"console-pill\">{} blockers</span><span class=\"console-pill\">{} dependencies</span><span class=\"console-pill\">validation refs: {}</span></div>\
          {}\
          </div></article></div>\
          <section class=\"console-grid-two\">\
@@ -854,6 +941,11 @@ fn render_task_detail_fragment(host: &QueryHost, task_id: &str) -> Result<String
             &status_slug(&view.editable.status)
         ),
         status_badge(&format!("{:?}", view.task.status)),
+        view.task.executor.executor_class,
+        escape_html(&executor_target),
+        view.task.estimated_minutes,
+        view.task.blocker_causes.len(),
+        view.task.dependencies.len(),
         view.editable.validation_refs.len(),
         active_claim
             .map(|claim| {
@@ -1179,7 +1271,10 @@ mod tests {
     use super::*;
     use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
-    use prism_ir::{EventActor, EventId, EventMeta, TaskId};
+    use prism_coordination::TaskCreateInput;
+    use prism_ir::{
+        CoordinationTaskStatus, EventActor, EventId, EventMeta, TaskId, WorkspaceRevision,
+    };
     use tower::util::ServiceExt;
 
     use crate::tests_support::temp_workspace;
@@ -1219,6 +1314,43 @@ mod tests {
             )
             .unwrap();
         (state, plan_id.0.to_string())
+    }
+
+    fn console_state_with_task() -> (PrismConsoleState, String, String) {
+        let (state, plan_id) = console_state_with_plan();
+        let task_id = state
+            .host
+            .current_prism()
+            .create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:console-task-detail"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:console-task-detail")),
+                    causation: None,
+                    execution_context: None,
+                },
+                TaskCreateInput {
+                    plan_id: PlanId::new(plan_id.clone()),
+                    title: "SSR console task".into(),
+                    status: Some(CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision::default(),
+                },
+            )
+            .unwrap()
+            .id
+            .0
+            .to_string();
+        (state, plan_id, task_id)
     }
 
     #[tokio::test]
@@ -1318,5 +1450,50 @@ mod tests {
         assert!(text.contains("Copy markdown"));
         assert!(text.contains(&format!("/console/plans/{plan_id}/markdown")));
         assert!(text.contains("data-copy-markdown-url"));
+    }
+
+    #[tokio::test]
+    async fn console_plan_detail_renders_canonical_ssr_sections() {
+        let (state, plan_id) = console_state_with_plan();
+        let router = routes(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/console/plans/{plan_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let text = std::str::from_utf8(&body).unwrap();
+        assert!(text.contains("Direct-child dependency graph"));
+        assert!(text.contains("Direct child plans"));
+        assert!(text.contains("Direct child tasks"));
+        assert!(text.contains("External dependency stubs"));
+    }
+
+    #[tokio::test]
+    async fn console_task_detail_renders_execution_summary() {
+        let (state, _, task_id) = console_state_with_task();
+        let router = routes(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/console/tasks/{task_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let text = std::str::from_utf8(&body).unwrap();
+        assert!(text.contains("Execution summary"));
+        assert!(text.contains("dependencies"));
+        assert!(text.contains("validation refs"));
     }
 }

@@ -3370,7 +3370,7 @@ fn plan_edge_mutations_update_projected_dependency_graph() {
 }
 
 #[test]
-fn plan_edge_mutations_support_non_dependency_edge_kinds() {
+fn plan_edge_compatibility_aliases_materialize_v2_containment_and_dependencies() {
     let host = host_with_node(demo_node());
 
     let plan = host
@@ -3378,94 +3378,114 @@ fn plan_edge_mutations_support_non_dependency_edge_kinds() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "title": "Shape native graph edges", "goal": "Shape native graph edges" }),
+                payload: json!({
+                    "title": "Materialize compatibility aliases",
+                    "goal": "Materialize compatibility aliases"
+                }),
                 task_id: None,
             },
         )
         .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
-    let source = host
+    let parent = host
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanNodeCreate,
                 payload: json!({
                     "planId": plan_id.clone(),
-                    "title": "Implement change"
+                    "kind": "note",
+                    "title": "Nested work",
+                    "isAbstract": true
                 }),
                 task_id: None,
             },
         )
         .unwrap();
-    let source_id = source.state["id"].as_str().unwrap().to_string();
+    let parent_id = parent.state["id"].as_str().unwrap().to_string();
 
-    let target = host
+    let dependency = host
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanNodeCreate,
                 payload: json!({
                     "planId": plan_id.clone(),
-                    "kind": "validate",
-                    "title": "Validate change",
-                    "validationRefs": [{ "id": "validation:change" }]
+                    "title": "Prepare shared context"
                 }),
                 task_id: None,
             },
         )
         .unwrap();
-    let target_id = target.state["id"].as_str().unwrap().to_string();
+    let dependency_id = dependency.state["id"].as_str().unwrap().to_string();
 
-    let created = host
+    let child = host
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanEdgeCreate,
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
                 payload: json!({
                     "planId": plan_id.clone(),
-                    "fromNodeId": source_id.clone(),
-                    "toNodeId": target_id.clone(),
-                    "kind": "validates"
+                    "title": "Implement nested work"
                 }),
                 task_id: None,
             },
         )
         .unwrap();
-    assert_eq!(created.state["kind"], "Validates");
+    let child_id = child.state["id"].as_str().unwrap().to_string();
 
-    let graph = host
-        .current_prism()
-        .plan_graph(&PlanId::new(plan_id.clone()))
-        .expect("plan graph");
-    assert!(graph.edges.iter().any(|edge| edge.from.0 == source_id
-        && edge.to.0 == target_id
-        && edge.kind == PlanEdgeKind::Validates));
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanEdgeCreate,
+            payload: json!({
+                "planId": plan_id.clone(),
+                "fromNodeId": child_id.clone(),
+                "toNodeId": parent_id.clone(),
+                "kind": "child_of"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
 
-    let deleted = host
-        .store_coordination(
-            test_session(&host).as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanEdgeDelete,
-                payload: json!({
-                    "planId": plan_id.clone(),
-                    "fromNodeId": source_id.clone(),
-                    "toNodeId": target_id.clone(),
-                    "kind": "validates"
-                }),
-                task_id: None,
-            },
-        )
-        .unwrap();
-    assert_eq!(deleted.state["kind"], "Validates");
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanEdgeCreate,
+            payload: json!({
+                "planId": plan_id.clone(),
+                "fromNodeId": child_id.clone(),
+                "toNodeId": dependency_id.clone(),
+                "kind": "depends_on"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
 
-    let graph = host
-        .current_prism()
-        .plan_graph(&PlanId::new(plan_id))
-        .expect("plan graph");
-    assert!(!graph.edges.iter().any(|edge| edge.from.0 == source_id
-        && edge.to.0 == target_id
-        && edge.kind == PlanEdgeKind::Validates));
+    let child_plan_id = format!("plan:migrated:{parent_id}");
+    let child_task_id = child_id.clone();
+    let dependency_task_id = dependency_id.clone();
+    let snapshot_v2 = host.current_prism().coordination_snapshot_v2();
+    assert!(snapshot_v2
+        .plans
+        .iter()
+        .any(|plan| plan.id.0 == child_plan_id
+            && plan.parent_plan_id.as_ref().map(|id| id.0.as_str()) == Some(plan_id.as_str())));
+    assert!(snapshot_v2
+        .tasks
+        .iter()
+        .any(|task| task.id.0 == child_task_id && task.parent_plan_id.0 == child_plan_id));
+    assert!(snapshot_v2
+        .tasks
+        .iter()
+        .any(|task| task.id.0 == dependency_task_id && task.parent_plan_id.0 == plan_id));
+    assert!(snapshot_v2
+        .dependencies
+        .iter()
+        .any(|edge| { edge.source.id == child_task_id && edge.target.id == dependency_task_id }));
 }
 
 #[test]
@@ -3565,10 +3585,10 @@ fn plan_edge_mutations_enforce_native_edge_semantics() {
                 task_id: None,
             },
         )
-        .expect_err("validates should require validate target");
+        .expect_err("unsupported compatibility edge kinds should reject");
     assert!(validates_error
         .to_string()
-        .contains("must target a Validate node"));
+        .contains("legacy `plan_edge_create` compatibility alias only supports"));
 
     let handoff_error = host
         .store_coordination(
@@ -3584,10 +3604,10 @@ fn plan_edge_mutations_enforce_native_edge_semantics() {
                 task_id: None,
             },
         )
-        .expect_err("handoff should reject abstract target");
+        .expect_err("unsupported compatibility edge kinds should reject");
     assert!(handoff_error
         .to_string()
-        .contains("must connect executable nodes"));
+        .contains("use task metadata or explicit review/handoff state instead"));
 }
 
 #[test]
@@ -4400,9 +4420,9 @@ fn plan_edge_mutations_reject_invalid_scheduling_graphs() {
                 kind: CoordinationMutationKindInput::PlanNodeCreate,
                 payload: json!({
                     "planId": plan_id.clone(),
-                    "title": "Validate change",
-                    "kind": "Validate",
-                    "validationRefs": [{ "id": "validation:change" }]
+                    "title": "Parent group",
+                    "kind": "Note",
+                    "isAbstract": true
                 }),
                 task_id: None,
             },
@@ -4418,7 +4438,7 @@ fn plan_edge_mutations_reject_invalid_scheduling_graphs() {
                 "planId": plan_id.clone(),
                 "fromNodeId": source_id.clone(),
                 "toNodeId": target_id.clone(),
-                "kind": "validates"
+                "kind": "child_of"
             }),
             task_id: None,
         },
@@ -4434,7 +4454,7 @@ fn plan_edge_mutations_reject_invalid_scheduling_graphs() {
                     "planId": plan_id.clone(),
                     "fromNodeId": target_id.clone(),
                     "toNodeId": source_id.clone(),
-                    "kind": "handoff_to"
+                    "kind": "blocks"
                 }),
                 task_id: None,
             },
@@ -5191,11 +5211,11 @@ fn mcp_plan_archive_terminalizes_active_task_execution_plan_before_archiving() {
                     tags: Vec::new(),
                     metadata: serde_json::Value::Null,
                 }],
-            edges: Vec::new(),
-        }],
-        std::collections::BTreeMap::new(),
-        Vec::new(),
-    );
+                edges: Vec::new(),
+            }],
+            std::collections::BTreeMap::new(),
+            Vec::new(),
+        );
 
     let archived = host
         .store_coordination(
@@ -7483,6 +7503,10 @@ fn coordination_inbox_and_task_brief_share_authoritative_task_backed_status() {
     assert_eq!(
         envelope.result["inbox"]["planGraph"]["nodes"][0]["status"],
         Value::String("Completed".to_string())
+    );
+    assert_eq!(
+        envelope.result["inbox"]["planV2"]["id"],
+        Value::String(plan_id.0.to_string())
     );
     assert_eq!(
         envelope.result["inbox"]["planSummary"]["completedNodes"],
@@ -15137,6 +15161,12 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
         .next_action
         .as_deref()
         .is_some_and(|value| value.contains("non-authoritative")));
+    assert_eq!(brief.lease_state.as_deref(), Some("active"));
+    let lease_holder = brief
+        .lease_holder
+        .expect("brief should surface lease holder");
+    assert_eq!(lease_holder.principal.as_deref(), Some("agent:a"));
+    assert_eq!(lease_holder.session_id.as_deref(), Some("session:a"));
 }
 
 #[test]
@@ -15236,6 +15266,105 @@ fn compact_task_brief_suppresses_heartbeat_instruction_when_local_assistance_is_
         .next_action
         .as_deref()
         .is_some_and(|value| value.contains("heartbeat_lease")));
+    assert_eq!(brief.lease_state.as_deref(), Some("active"));
+}
+
+#[test]
+fn compact_task_brief_exposes_authoritative_task_lease_without_claim_holders() {
+    let now = crate::current_timestamp();
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let meta = EventMeta {
+        id: EventId::new("coord:plan:task-brief-active-lease"),
+        ts: now.saturating_sub(30),
+        actor: EventActor::Principal(prism_ir::PrincipalActor {
+            authority_id: prism_ir::PrincipalAuthorityId::new("local"),
+            principal_id: prism_ir::PrincipalId::new("agent:a"),
+            kind: Some(prism_ir::PrincipalKind::Agent),
+            name: Some("agent:a".to_string()),
+        }),
+        correlation: None,
+        causation: None,
+        execution_context: Some(prism_ir::EventExecutionContext {
+            repo_id: None,
+            worktree_id: Some("worktree:demo".to_string()),
+            branch_ref: None,
+            session_id: Some("session:a".to_string()),
+            instance_id: None,
+            request_id: None,
+            credential_id: None,
+            work_context: None,
+        }),
+    };
+    let (plan_id, _) = coordination
+        .create_plan(
+            meta.clone(),
+            PlanCreateInput {
+                title: "Show task lease holder".into(),
+                goal: "Show task lease holder".into(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: Some(CoordinationPolicy::default()),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:task-brief-active-lease"),
+                ts: now.saturating_sub(20),
+                ..meta
+            },
+            TaskCreateInput {
+                plan_id,
+                title: "Edit alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: Some("worktree:demo".to_string()),
+                branch_ref: None,
+                anchors: vec![AnchorRef::Node(alpha)],
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
+    prism.replace_coordination_snapshot(coordination.snapshot());
+    let host = host_with_prism(prism);
+
+    let brief = host
+        .compact_task_brief(
+            test_session(&host),
+            PrismTaskBriefArgs {
+                task_id: task_id.0.to_string(),
+            },
+        )
+        .expect("task brief should succeed");
+
+    assert!(brief.claim_holders.is_empty());
+    assert_eq!(brief.lease_state.as_deref(), Some("active"));
+    let lease_holder = brief
+        .lease_holder
+        .expect("brief should surface lease holder");
+    assert_eq!(lease_holder.principal.as_deref(), Some("agent:a"));
+    assert_eq!(lease_holder.session_id.as_deref(), Some("session:a"));
+    assert_eq!(lease_holder.worktree_id.as_deref(), Some("worktree:demo"));
+    assert_eq!(lease_holder.agent_id.as_deref(), Some("agent:a"));
 }
 
 #[test]
@@ -22913,8 +23042,9 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
         shared.last_verified_manifest_digest
     );
     assert!(shared.summary_published_at.is_some());
-    let lagging_total =
-        shared.lagging_task_shard_refs + shared.lagging_claim_shard_refs + shared.lagging_runtime_refs;
+    let lagging_total = shared.lagging_task_shard_refs
+        + shared.lagging_claim_shard_refs
+        + shared.lagging_runtime_refs;
     assert_eq!(
         shared.authoritative_fallback_required,
         lagging_total > 0 || shared.summary_freshness_status == "ambiguous"

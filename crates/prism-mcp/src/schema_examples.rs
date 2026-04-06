@@ -517,14 +517,10 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
                 "kind": "plan_node_create",
                 "payload": {
                     "planId": "plan:demo-main",
-                    "kind": "investigate",
-                    "title": "Break down refresh latency",
-                    "status": "ready",
-                    "validationRefs": [{ "id": "bench:refresh-hot-path" }],
-                    "acceptance": [{
-                        "label": "Captures no-op and one-file timings",
-                        "evidencePolicy": "any"
-                    }]
+                    "kind": "note",
+                    "title": "Nested follow-up group",
+                    "isAbstract": true,
+                    "summary": "Legacy compatibility alias that maps to a child plan in v2."
                 },
                 "taskId": "task:demo-main"
             }
@@ -548,8 +544,8 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
                 "payload": {
                     "planId": "plan:demo-main",
                     "fromNodeId": "coord-task:1",
-                    "toNodeId": "coord-task:2",
-                    "kind": "depends_on"
+                    "toNodeId": "plan-node:legacy-parent",
+                    "kind": "child_of"
                 },
                 "taskId": "task:demo-main"
             }

@@ -21,10 +21,11 @@ use crate::{
     lineage_event_view, lineage_resource_view_link, lineage_status, memory_entry_view,
     memory_event_view, memory_resource_uri, memory_resource_view_link, owner_views_for_query,
     paginate_items, parse_resource_page, parse_resource_query_param, plan_resource_uri,
-    plan_resource_view_link, plan_summary_view, plan_view, plans_resource_view_link,
-    plans_resource_view_link_with_options, protected_state_resource_view_link, resource_link_view,
-    resource_schema_catalog_entries, schema_resource_uri, schema_resource_view_link,
-    schemas_resource_uri, schemas_resource_view_link, search_ambiguity_from_diagnostics,
+    plan_resource_view_link, plan_summary_view, plan_view, plan_view_from_v2,
+    plans_resource_view_link, plans_resource_view_link_with_options,
+    protected_state_resource_view_link, resource_link_view, resource_schema_catalog_entries,
+    schema_resource_uri, schema_resource_view_link, schemas_resource_uri,
+    schemas_resource_view_link, search_ambiguity_from_diagnostics,
     search_resource_view_link_with_options, session_resource_uri, session_resource_view_link,
     symbol_for, symbol_resource_uri, symbol_resource_view_link, symbol_resource_view_link_for_id,
     symbol_view, symbol_views_for_ids, task_heartbeat_advice, task_heartbeat_next_action,
@@ -467,18 +468,29 @@ impl QueryHost {
             let schema_uri = schema_resource_uri("plan");
             let prism = self.current_prism();
             let plan = prism
-                .coordination_plan(plan_id)
+                .coordination_plan_v2(plan_id)
+                .map(|plan| {
+                    plan_view_from_v2(
+                        plan,
+                        prism.coordination_plan(plan_id),
+                        prism.plan_activity(plan_id),
+                    )
+                })
+                .or_else(|| {
+                    prism.coordination_plan(plan_id).map(|plan| {
+                        let root_node_ids = prism
+                            .plan_graph(plan_id)
+                            .map(|graph| graph.root_nodes)
+                            .unwrap_or_else(|| {
+                                plan.root_tasks
+                                    .iter()
+                                    .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
+                                    .collect()
+                            });
+                        plan_view(plan, root_node_ids, prism.plan_activity(plan_id))
+                    })
+                })
                 .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-            let root_node_ids = prism
-                .plan_graph(plan_id)
-                .map(|graph| graph.root_nodes)
-                .unwrap_or_else(|| {
-                    plan.root_tasks
-                        .iter()
-                        .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
-                        .collect()
-                });
-            let plan = plan_view(plan, root_node_ids, prism.plan_activity(plan_id));
             let summary = prism.plan_summary(plan_id).map(plan_summary_view);
             let related_resources = vec![
                 session_resource_view_link(),

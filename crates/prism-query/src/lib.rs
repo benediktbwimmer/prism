@@ -70,9 +70,10 @@ pub use crate::types::{
     ContractGuaranteeStrength, ContractHealth, ContractHealthSignals, ContractHealthStatus,
     ContractKind, ContractPacket, ContractProvenance, ContractPublication,
     ContractPublicationStatus, ContractResolution, ContractScope, ContractStability,
-    ContractStatus, ContractTarget, ContractValidation, DriftCandidate, PlanActivity,
-    PlanListEntry, PlanNodeRecommendation, PlanNodeStatusCounts, PlanSummary, QueryLimits,
-    TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ContractStatus, ContractTarget, ContractValidation, CoordinationPlanV2, CoordinationTaskV2,
+    DriftCandidate, PlanActivity, PlanListEntry, PlanNodeRecommendation, PlanNodeStatusCounts,
+    PlanSummary, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck,
+    ValidationRecipe,
 };
 
 pub struct Prism {

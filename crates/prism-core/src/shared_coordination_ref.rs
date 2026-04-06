@@ -11,8 +11,8 @@ use base64::Engine;
 use ed25519_dalek::{Signer, Verifier};
 use prism_coordination::{
     execution_overlays_from_tasks, migrate_legacy_hybrid_snapshot_to_canonical_v2,
-    snapshot_plan_graphs, Artifact, ArtifactReview, CoordinationSnapshot,
-    CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor,
+    plan_graph_from_coordination, snapshot_plan_graphs, Artifact, ArtifactReview,
+    CoordinationSnapshot, CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor,
     RuntimeDescriptorCapability, WorkClaim, COORDINATION_SCHEMA_V2,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkContextKind, WorkContextSnapshot};
@@ -20,6 +20,7 @@ use prism_store::CoordinationStartupCheckpointAuthority;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
+use crate::coordination_snapshot_sanitization::sanitize_plan;
 use crate::peer_runtime::{
     configured_public_runtime_endpoint, local_peer_runtime_discovery_mode,
     local_peer_runtime_endpoint,
@@ -233,8 +234,9 @@ struct SharedCoordinationIndexEntry {
 #[serde(rename_all = "camelCase")]
 struct SharedCoordinationPlanRecord {
     plan: Plan,
-    graph: PlanGraph,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    graph: Option<PlanGraph>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     execution_overlays: Vec<PlanExecutionOverlay>,
 }
 
@@ -1117,17 +1119,18 @@ fn sync_shared_coordination_ref_state_inner(
                     published_head.as_deref(),
                 )?;
                 if let Some(final_head) = final_head.clone() {
+                    let cached_snapshot = summary_snapshot(&current_snapshot);
                     cache_shared_coordination_state(
                         root,
                         final_head,
                         &SharedCoordinationRefState {
-                            snapshot: current_snapshot.clone(),
+                            snapshot: cached_snapshot.clone(),
                             canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
                                 &current_snapshot,
                                 &current_plan_graphs,
                                 &current_execution_overlays,
                             )?,
-                            plan_graphs: current_plan_graphs.clone(),
+                            plan_graphs: authored_summary_plan_graphs(&cached_snapshot),
                             execution_overlays: current_execution_overlays.clone(),
                             runtime_descriptors: current_runtime_descriptors.clone(),
                         },
@@ -1856,36 +1859,7 @@ fn load_shared_coordination_ref_state_from_current_ref(
         .iter()
         .map(|record| record.plan.clone())
         .collect::<Vec<_>>();
-    let mut plan_graphs = plan_records
-        .iter()
-        .map(|record| record.graph.clone())
-        .collect::<Vec<_>>();
-    let mut execution_overlays = plan_records
-        .iter()
-        .map(|record| {
-            (
-                record.plan.id.0.to_string(),
-                record.execution_overlays.clone(),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    if !tasks.is_empty() {
-        execution_overlays = execution_overlays_by_plan(&CoordinationSnapshot {
-            plans: plans.clone(),
-            tasks: tasks.clone(),
-            claims: claims.clone(),
-            artifacts: artifacts.clone(),
-            reviews: reviews.clone(),
-            events: Vec::new(),
-            next_plan: 0,
-            next_task: 0,
-            next_claim: 0,
-            next_artifact: 0,
-            next_review: 0,
-        });
-    }
     plans.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    plan_graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
 
     let mut snapshot = CoordinationSnapshot {
         plans,
@@ -1917,6 +1891,8 @@ fn load_shared_coordination_ref_state_from_current_ref(
             .cmp(&right.worktree_id)
             .then_with(|| left.runtime_id.cmp(&right.runtime_id))
     });
+    let plan_graphs = authored_summary_plan_graphs(&snapshot);
+    let mut execution_overlays = execution_overlays_by_plan(&snapshot);
     for task in &snapshot.tasks {
         execution_overlays
             .entry(task.plan.0.to_string())
@@ -2018,10 +1994,27 @@ fn reconcile_shared_coordination_ref_state(
         .cloned()
         .unwrap_or_else(empty_shared_coordination_ref_state);
 
+    let baseline_plans = baseline
+        .snapshot
+        .plans
+        .iter()
+        .map(summary_plan_record)
+        .collect::<Vec<_>>();
+    let desired_plans = desired_snapshot
+        .plans
+        .iter()
+        .map(summary_plan_record)
+        .collect::<Vec<_>>();
+    let latest_plans = latest
+        .snapshot
+        .plans
+        .iter()
+        .map(summary_plan_record)
+        .collect::<Vec<_>>();
     let plans = reconcile_collection(
-        &baseline.snapshot.plans,
-        &desired_snapshot.plans,
-        &latest.snapshot.plans,
+        &baseline_plans,
+        &desired_plans,
+        &latest_plans,
         |plan| plan.id.0.as_str(),
         "plan",
     )?;
@@ -2099,6 +2092,16 @@ fn execution_overlays_by_plan(
         by_plan.entry(plan.id.0.to_string()).or_default();
     }
     by_plan
+}
+
+fn summary_plan_record(plan: &Plan) -> Plan {
+    sanitize_plan(plan.clone())
+}
+
+fn summary_snapshot(snapshot: &CoordinationSnapshot) -> CoordinationSnapshot {
+    let mut snapshot = snapshot.clone();
+    snapshot.plans = snapshot.plans.iter().map(summary_plan_record).collect();
+    snapshot
 }
 
 fn authored_summary_plan_graphs(snapshot: &CoordinationSnapshot) -> Vec<PlanGraph> {
@@ -2396,19 +2399,16 @@ pub fn shared_coordination_ref_status_summary(
 fn sync_plan_objects(
     stage_dir: &Path,
     snapshot: &CoordinationSnapshot,
-    plan_graphs: &[PlanGraph],
+    _plan_graphs: &[PlanGraph],
     _execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
 ) -> Result<()> {
     let mut expected = BTreeSet::new();
     for plan in &snapshot.plans {
-        let Some(graph) = plan_graphs.iter().find(|graph| graph.id == plan.id) else {
-            continue;
-        };
         let path = plan_snapshot_path(stage_dir, &plan.id.0);
         expected.insert(path.clone());
         let record = SharedCoordinationPlanRecord {
-            plan: plan.clone(),
-            graph: graph.clone(),
+            plan: summary_plan_record(plan),
+            graph: None,
             execution_overlays: Vec::new(),
         };
         write_json_file(
@@ -3819,8 +3819,8 @@ mod tests {
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
     use std::path::{Path, PathBuf};
-    use std::sync::OnceLock;
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::OnceLock;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use base64::Engine;
@@ -3842,6 +3842,7 @@ mod tests {
         sync_live_runtime_descriptor, sync_shared_coordination_ref_state,
         SharedCoordinationRefLiveSync,
     };
+    use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
     use crate::index_workspace_session;
     use crate::published_plans::load_hydrated_coordination_plan_state;
     use crate::tracked_snapshot::TrackedSnapshotPublishContext;
@@ -3881,7 +3882,12 @@ mod tests {
             ],
         )
         .unwrap();
-        let _ = fs::remove_dir_all(root.join(".git").join("refs").join("remotes").join("origin"));
+        let _ = fs::remove_dir_all(
+            root.join(".git")
+                .join("refs")
+                .join("remotes")
+                .join("origin"),
+        );
         root
     }
 
@@ -4300,19 +4306,50 @@ mod tests {
         )
         .unwrap();
         assert!(shared_coordination_ref_exists(&root).unwrap());
+        let ref_name = super::shared_coordination_ref_name(&root);
+        let contents = super::load_shared_coordination_ref_contents(&root, &ref_name)
+            .unwrap()
+            .expect("shared ref contents should load");
+        let plan_record_path = format!("plans/{}", super::snapshot_file_name(&plan_id.0));
+        let plan_record: serde_json::Value = serde_json::from_slice(
+            contents
+                .files
+                .get(plan_record_path.as_str())
+                .expect("shared plan record"),
+        )
+        .unwrap();
+        let payload = plan_record
+            .get("payload")
+            .and_then(serde_json::Value::as_object)
+            .expect("wrapped plan payload");
+        assert!(!payload.contains_key("graph"));
+        assert!(!payload.contains_key("executionOverlays"));
+        assert!(
+            payload.get("root_tasks").is_none()
+                || payload.get("root_tasks") == Some(&serde_json::json!([]))
+        );
         let loaded = load_shared_coordination_ref_state(&root)
             .unwrap()
             .expect("shared ref state should load");
         assert_eq!(loaded.snapshot.tasks, vec![task]);
         assert_eq!(loaded.snapshot.claims, vec![claim]);
-        assert_eq!(loaded.snapshot.plans, vec![plan]);
+        assert_eq!(
+            loaded.snapshot.plans,
+            vec![super::summary_plan_record(&plan)]
+        );
         assert_eq!(
             loaded.canonical_snapshot_v2,
             snapshot.to_canonical_snapshot_v2()
         );
+        let mut expected_summary_snapshot = snapshot.clone();
+        expected_summary_snapshot.plans = expected_summary_snapshot
+            .plans
+            .iter()
+            .map(super::summary_plan_record)
+            .collect();
         assert_eq!(
             loaded.plan_graphs,
-            super::authored_summary_plan_graphs(&snapshot)
+            super::authored_summary_plan_graphs(&expected_summary_snapshot)
         );
         assert_eq!(
             loaded
@@ -4629,6 +4666,44 @@ mod tests {
     }
 
     #[test]
+    fn startup_checkpoint_omits_durable_legacy_plan_graph_state() {
+        let root = temp_git_repo();
+        let (snapshot, graph, execution_overlays) =
+            sample_snapshot_for("plan:checkpoint-save", "coord-task:checkpoint-save");
+        let mut store = MemoryStore::default();
+
+        save_shared_coordination_startup_checkpoint(
+            &root,
+            &mut store,
+            &snapshot,
+            &[graph],
+            &execution_overlays,
+            &[],
+        )
+        .unwrap();
+
+        let checkpoint = store
+            .load_coordination_startup_checkpoint()
+            .unwrap()
+            .expect("coordination startup checkpoint");
+        assert!(checkpoint.plan_graphs.is_empty());
+        assert!(checkpoint.execution_overlays.is_empty());
+        let checkpoint_plans = checkpoint.snapshot.plans.clone();
+        assert_eq!(
+            checkpoint_plans
+                .clone()
+                .into_iter()
+                .map(|plan| super::summary_plan_record(&plan))
+                .collect::<Vec<_>>(),
+            checkpoint_plans
+        );
+        assert_eq!(
+            checkpoint.canonical_snapshot_v2,
+            Some(snapshot.to_canonical_snapshot_v2())
+        );
+    }
+
+    #[test]
     fn shared_coordination_ref_pushes_to_origin_and_reloads_from_remote() {
         let (root, remote) = temp_git_repo_with_origin();
         let plan_id = PlanId::new("plan:shared".to_string());
@@ -4741,7 +4816,10 @@ mod tests {
             panic!("shared ref live sync should reload state from remote");
         };
         assert_eq!(loaded.snapshot.tasks, vec![task]);
-        assert_eq!(loaded.snapshot.plans, vec![plan]);
+        assert_eq!(
+            loaded.snapshot.plans,
+            vec![super::summary_plan_record(&plan)]
+        );
     }
 
     #[test]
@@ -4784,8 +4862,13 @@ mod tests {
         let repaired = load_shared_coordination_ref_state(&root)
             .unwrap()
             .expect("shared ref state should be repaired by the next publish");
-        assert_eq!(repaired_summary.snapshot.plans, snapshot.plans);
-        assert_eq!(repaired.snapshot.plans, snapshot.plans);
+        let expected_plans = snapshot
+            .plans
+            .iter()
+            .map(super::summary_plan_record)
+            .collect::<Vec<_>>();
+        assert_eq!(repaired_summary.snapshot.plans, expected_plans);
+        assert_eq!(repaired.snapshot.plans, expected_plans);
         assert_eq!(repaired.snapshot.tasks, snapshot.tasks);
     }
 

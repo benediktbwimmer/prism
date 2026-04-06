@@ -2631,8 +2631,8 @@ Expected shape: `memories` with short summaries, memory kind/source/trust, and a
 }
 ```
 
-Expected shape: task title/status/assignee, compact blockers and conflicts, recent outcomes,
-likely validations, and 1 to 2 `nextReads`.
+Expected shape: task title/status/assignee, active lease metadata when present, compact blockers
+and conflicts, recent outcomes, likely validations, and 1 to 2 `nextReads`.
 
 ## Current implementation surface
 

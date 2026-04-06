@@ -305,12 +305,9 @@ impl NativePlanRuntimeState {
                     && (!is_task_backed_plan_node_id(edge.to.0.as_str())
                         || live_node_ids.contains(&edge.to))
             });
-            graph
-                .root_nodes
-                .retain(|node_id| {
-                    !is_task_backed_plan_node_id(node_id.0.as_str())
-                        || live_node_ids.contains(node_id)
-                });
+            graph.root_nodes.retain(|node_id| {
+                !is_task_backed_plan_node_id(node_id.0.as_str()) || live_node_ids.contains(node_id)
+            });
             recompute_root_nodes(graph);
             if let Some(overlays) = self.execution_overlays.get_mut(plan.id.0.as_str()) {
                 overlays.retain(|overlay| {

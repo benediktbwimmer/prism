@@ -8,7 +8,7 @@ use prism_coordination::{
 };
 use prism_ir::{
     sortable_token_timestamp, ClaimStatus, CoordinationEventKind, CoordinationTaskId,
-    CoordinationTaskStatus,
+    CoordinationTaskStatus, NodeRef, NodeRefKind,
 };
 use prism_ir::{PlanId, PlanNodeStatus, PlanScope, PlanStatus, TaskId};
 use prism_memory::OutcomeRecallQuery;
@@ -21,14 +21,17 @@ use crate::ui_types::{
     OverviewPlanSignalsView, OverviewPlanSpotlightView, PrismGraphView,
     PrismOverviewCoordinationQueuesView, PrismOverviewCoordinationView, PrismOverviewSummaryView,
     PrismOverviewTaskView, PrismOverviewView, PrismPlanDetailView, PrismPlansView,
-    PrismUiApiPlaceholderView, PrismUiFleetBarView, PrismUiFleetLaneView, PrismUiFleetView,
-    PrismUiPlansFiltersView, PrismUiPlansStatsView, PrismUiSessionBootstrapView,
-    PrismUiTaskBlockerEntryView, PrismUiTaskClaimHistoryEntryView, PrismUiTaskCommitView,
-    PrismUiTaskDetailView, PrismUiTaskEditableMetadataView,
+    PrismSsrChildPlanView, PrismSsrChildTaskView, PrismSsrExternalStubView, PrismSsrPlanDetailView,
+    PrismSsrTaskBlockerEntryView, PrismSsrTaskDetailView, PrismUiApiPlaceholderView,
+    PrismUiFleetBarView, PrismUiFleetLaneView, PrismUiFleetView, PrismUiPlansFiltersView,
+    PrismUiPlansStatsView, PrismUiSessionBootstrapView, PrismUiTaskBlockerEntryView,
+    PrismUiTaskClaimHistoryEntryView, PrismUiTaskCommitView, PrismUiTaskDetailView,
+    PrismUiTaskEditableMetadataView,
 };
 use crate::views::{
-    artifact_view, blocker_view, concept_packet_view, git_execution_policy_view,
-    plan_activity_view, plan_execution_overlay_view, plan_graph_view, plan_list_entry_view,
+    artifact_view, blocker_view, concept_packet_view, coordination_plan_v2_view,
+    coordination_task_v2_view, git_execution_policy_view, plan_activity_view,
+    plan_execution_overlay_view, plan_graph_view, plan_list_entry_view,
     plan_node_recommendation_view, plan_node_status_counts_view, plan_scheduling_view,
     plan_summary_view, policy_violation_record_view, ConceptVerbosity,
 };
@@ -259,7 +262,9 @@ pub(crate) trait QueryHostUiReadModelsExt {
     fn ui_concept_entrypoints_view(&self) -> Result<Vec<OverviewConceptSpotlightView>>;
     fn ui_graph_view(&self, selected_concept_handle: Option<&str>) -> Result<PrismGraphView>;
     fn ui_plan_graph_view(&self, plan_id: &str) -> Result<Option<PrismPlanDetailView>>;
+    fn ui_ssr_plan_detail_view(&self, plan_id: &str) -> Result<Option<PrismSsrPlanDetailView>>;
     fn ui_task_detail_view(&self, task_id: &str) -> Result<Option<PrismUiTaskDetailView>>;
+    fn ui_ssr_task_detail_view(&self, task_id: &str) -> Result<Option<PrismSsrTaskDetailView>>;
     fn ui_fleet_view(&self) -> Result<PrismUiFleetView>;
     fn ui_placeholder_view(&self, endpoint: &str, message: &str) -> PrismUiApiPlaceholderView;
 }
@@ -545,6 +550,11 @@ impl QueryHostUiReadModelsExt for QueryHost {
         build_plan_detail_view(self, &prism, &plans, plan_id)
     }
 
+    fn ui_ssr_plan_detail_view(&self, plan_id: &str) -> Result<Option<PrismSsrPlanDetailView>> {
+        let prism = self.current_prism();
+        build_ssr_plan_detail_view(&prism, plan_id)
+    }
+
     fn ui_task_detail_view(&self, task_id: &str) -> Result<Option<PrismUiTaskDetailView>> {
         let prism = self.current_prism();
         let task_id = prism_ir::CoordinationTaskId::new(task_id.to_string());
@@ -624,6 +634,11 @@ impl QueryHostUiReadModelsExt for QueryHost {
             recent_commits,
             artifacts,
         }))
+    }
+
+    fn ui_ssr_task_detail_view(&self, task_id: &str) -> Result<Option<PrismSsrTaskDetailView>> {
+        let prism = self.current_prism();
+        build_ssr_task_detail_view(&prism, task_id)
     }
 
     fn ui_fleet_view(&self) -> Result<PrismUiFleetView> {
@@ -1798,6 +1813,294 @@ fn build_plan_detail_view(
     }))
 }
 
+fn build_ssr_plan_detail_view(
+    prism: &prism_query::Prism,
+    selected_plan_id: &str,
+) -> Result<Option<PrismSsrPlanDetailView>> {
+    let plan_id = PlanId::new(selected_plan_id.to_string());
+    let Some(plan) = prism.coordination_plan_v2(&plan_id) else {
+        return Ok(None);
+    };
+
+    let child_refs = prism.plan_children_v2(&plan_id);
+    let mut child_plans = Vec::new();
+    let mut child_tasks = Vec::new();
+    let mut direct_task_ids = Vec::new();
+    for child_ref in &child_refs {
+        match child_ref.kind {
+            NodeRefKind::Plan => {
+                let Some(child_plan) =
+                    prism.coordination_plan_v2(&PlanId::new(child_ref.id.clone()))
+                else {
+                    continue;
+                };
+                let direct_child_plan_count = child_plan
+                    .children
+                    .iter()
+                    .filter(|node| node.kind == NodeRefKind::Plan)
+                    .count();
+                let direct_child_task_count = child_plan
+                    .children
+                    .iter()
+                    .filter(|node| node.kind == NodeRefKind::Task)
+                    .count();
+                let dependency_count = child_plan.dependencies.len();
+                child_plans.push(PrismSsrChildPlanView {
+                    plan: coordination_plan_v2_view(child_plan),
+                    direct_child_plan_count,
+                    direct_child_task_count,
+                    dependency_count,
+                });
+            }
+            NodeRefKind::Task => {
+                let Some(child_task) =
+                    prism.coordination_task_v2(&TaskId::new(child_ref.id.clone()))
+                else {
+                    continue;
+                };
+                direct_task_ids.push(child_ref.id.clone());
+                let dependency_count = child_task.dependencies.len();
+                child_tasks.push(PrismSsrChildTaskView {
+                    task: coordination_task_v2_view(child_task),
+                    dependency_count,
+                });
+            }
+        }
+    }
+
+    child_plans.sort_by(|left, right| left.plan.title.cmp(&right.plan.title));
+    child_tasks.sort_by(|left, right| left.task.title.cmp(&right.task.title));
+
+    let external_stubs = build_ssr_external_dependency_stubs(prism, &plan_id, &child_refs);
+    let recent_outcomes = plan_recent_outcomes_for_task_ids(prism, &direct_task_ids);
+
+    Ok(Some(PrismSsrPlanDetailView {
+        plan: coordination_plan_v2_view(plan),
+        child_plans,
+        child_tasks,
+        external_stubs,
+        recent_outcomes,
+    }))
+}
+
+fn build_ssr_task_detail_view(
+    prism: &prism_query::Prism,
+    task_id: &str,
+) -> Result<Option<PrismSsrTaskDetailView>> {
+    let task_id = TaskId::new(task_id.to_string());
+    let Some(task) = prism.coordination_task_v2(&task_id) else {
+        return Ok(None);
+    };
+    let task_view = coordination_task_v2_view(task.clone());
+    let coordination_task_id = CoordinationTaskId::new(task_view.id.clone());
+    let now = crate::current_timestamp();
+    let blockers = prism
+        .blockers(&coordination_task_id, now)
+        .into_iter()
+        .map(|blocker| {
+            let related_task = blocker
+                .related_task_id
+                .as_ref()
+                .and_then(|id| prism.coordination_task_v2(&TaskId::new(id.0.to_string())))
+                .map(coordination_task_v2_view);
+            PrismSsrTaskBlockerEntryView {
+                blocker: blocker_view(blocker),
+                related_task,
+            }
+        })
+        .collect::<Vec<_>>();
+    let claim_history = prism
+        .task_claim_history(&coordination_task_id, now)
+        .into_iter()
+        .map(task_claim_history_entry_view)
+        .collect::<Vec<_>>();
+    let outcomes = prism
+        .query_outcomes(&OutcomeRecallQuery {
+            task: Some(TaskId::new(task_view.id.clone())),
+            limit: PLAN_DETAIL_OUTCOME_LIMIT,
+            ..OutcomeRecallQuery::default()
+        })
+        .into_iter()
+        .map(|event| prism_js::AgentOutcomeSummaryView {
+            ts: event.meta.ts,
+            kind: format!("{:?}", event.kind),
+            result: format!("{:?}", event.result),
+            summary: clamp_overview_text(&event.summary),
+        })
+        .collect::<Vec<_>>();
+    let recent_commits = task_recent_commits_from_git_execution(&task_view.git_execution);
+    let artifacts = prism
+        .artifacts(&coordination_task_id)
+        .into_iter()
+        .map(artifact_view)
+        .collect::<Vec<_>>();
+    let validation_guidance = prism
+        .task_validation_recipe(&coordination_task_id)
+        .map(|recipe| recipe.checks)
+        .unwrap_or_default();
+
+    Ok(Some(PrismSsrTaskDetailView {
+        editable: PrismUiTaskEditableMetadataView {
+            title: task_view.title.clone(),
+            description: task_view.summary.clone(),
+            priority: task_view.priority,
+            assignee: task_view.assignee.clone(),
+            status: format!("{:?}", task_view.status),
+            validation_refs: task_view.validation_refs.clone(),
+            validation_guidance,
+            status_options: vec![
+                "proposed".to_string(),
+                "ready".to_string(),
+                "in_progress".to_string(),
+                "blocked".to_string(),
+                "in_review".to_string(),
+                "completed".to_string(),
+                "abandoned".to_string(),
+            ],
+        },
+        task: task_view,
+        claim_history,
+        blockers,
+        outcomes,
+        recent_commits,
+        artifacts,
+    }))
+}
+
+fn build_ssr_external_dependency_stubs(
+    prism: &prism_query::Prism,
+    plan_id: &PlanId,
+    child_refs: &[NodeRef],
+) -> Vec<PrismSsrExternalStubView> {
+    let mut internal_refs = child_refs.iter().map(node_ref_key).collect::<BTreeSet<_>>();
+    internal_refs.insert(node_ref_key(&NodeRef::plan(plan_id.clone())));
+
+    let owner_refs = std::iter::once(NodeRef::plan(plan_id.clone()))
+        .chain(child_refs.iter().cloned())
+        .collect::<Vec<_>>();
+    let mut relation_labels = BTreeMap::<String, BTreeSet<String>>::new();
+    let mut stubs = BTreeMap::<String, PrismSsrExternalStubView>::new();
+
+    for owner in owner_refs {
+        for dependency in prism.node_dependencies_v2(&owner) {
+            if internal_refs.contains(&node_ref_key(&dependency)) {
+                continue;
+            }
+            relation_labels
+                .entry(node_ref_key(&dependency))
+                .or_default()
+                .insert("depends on".to_string());
+            stubs
+                .entry(node_ref_key(&dependency))
+                .or_insert_with(|| ssr_external_stub_view(prism, dependency));
+        }
+        for dependent in prism.node_dependents_v2(&owner) {
+            if internal_refs.contains(&node_ref_key(&dependent)) {
+                continue;
+            }
+            relation_labels
+                .entry(node_ref_key(&dependent))
+                .or_default()
+                .insert("dependent".to_string());
+            stubs
+                .entry(node_ref_key(&dependent))
+                .or_insert_with(|| ssr_external_stub_view(prism, dependent));
+        }
+    }
+
+    let mut stubs = stubs
+        .into_iter()
+        .map(|(key, mut stub)| {
+            stub.relation_labels = relation_labels
+                .remove(&key)
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
+            stub
+        })
+        .collect::<Vec<_>>();
+    stubs.sort_by(|left, right| left.title.cmp(&right.title));
+    stubs
+}
+
+fn ssr_external_stub_view(
+    prism: &prism_query::Prism,
+    node_ref: NodeRef,
+) -> PrismSsrExternalStubView {
+    match node_ref.kind {
+        NodeRefKind::Plan => {
+            if let Some(plan) = prism.coordination_plan_v2(&PlanId::new(node_ref.id.clone())) {
+                let title = plan.plan.title.clone();
+                let summary = format!(
+                    "plan · {} direct children · {}m remaining",
+                    plan.children.len(),
+                    plan.remaining_estimated_minutes
+                );
+                PrismSsrExternalStubView {
+                    node: crate::views::node_ref_view(node_ref),
+                    title,
+                    href: format!("/console/plans/{}", plan.plan.id.0),
+                    status: format!("{:?}", plan.status),
+                    summary,
+                    relation_labels: Vec::new(),
+                }
+            } else {
+                missing_ssr_external_stub_view(node_ref)
+            }
+        }
+        NodeRefKind::Task => {
+            if let Some(task) = prism.coordination_task_v2(&TaskId::new(node_ref.id.clone())) {
+                let title = task.task.title.clone();
+                let executor = format!("{:?}", task.task.executor.executor_class);
+                let target = task
+                    .task
+                    .executor
+                    .target_label
+                    .as_deref()
+                    .map(|label| format!(" · {label}"))
+                    .unwrap_or_default();
+                let summary = format!(
+                    "{}{} · {}m · {} blockers · {} deps",
+                    executor,
+                    target,
+                    task.task.estimated_minutes,
+                    task.blocker_causes.len(),
+                    task.dependencies.len()
+                );
+                PrismSsrExternalStubView {
+                    node: crate::views::node_ref_view(node_ref),
+                    title,
+                    href: format!("/console/tasks/{}", task.task.id.0),
+                    status: format!("{:?}", task.status),
+                    summary,
+                    relation_labels: Vec::new(),
+                }
+            } else {
+                missing_ssr_external_stub_view(node_ref)
+            }
+        }
+    }
+}
+
+fn missing_ssr_external_stub_view(node_ref: NodeRef) -> PrismSsrExternalStubView {
+    let href = match node_ref.kind {
+        NodeRefKind::Plan => format!("/console/plans/{}", node_ref.id),
+        NodeRefKind::Task => format!("/console/tasks/{}", node_ref.id),
+    };
+    PrismSsrExternalStubView {
+        node: crate::views::node_ref_view(node_ref.clone()),
+        title: node_ref.id.clone(),
+        href,
+        status: "unknown".to_string(),
+        summary: "unresolved dependency target".to_string(),
+        relation_labels: Vec::new(),
+    }
+}
+
+fn node_ref_key(node_ref: &NodeRef) -> String {
+    format!("{:?}:{}", node_ref.kind, node_ref.id)
+}
+
 impl QueryHost {
     pub(crate) fn ui_coordination_queues(&self) -> Result<PrismOverviewCoordinationQueuesView> {
         ui_overview_coordination_queues(self)
@@ -2078,6 +2381,46 @@ fn plan_recent_outcomes(
         .collect()
 }
 
+fn plan_recent_outcomes_for_task_ids(
+    prism: &prism_query::Prism,
+    task_ids: &[String],
+) -> Vec<prism_js::AgentOutcomeSummaryView> {
+    let mut seen_event_ids = HashSet::<String>::new();
+    let mut outcomes = task_ids
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .flat_map(|task_id| {
+            prism.query_outcomes(&OutcomeRecallQuery {
+                task: Some(TaskId::new(task_id)),
+                limit: PLAN_DETAIL_OUTCOMES_PER_TASK,
+                ..OutcomeRecallQuery::default()
+            })
+        })
+        .filter(|event| seen_event_ids.insert(event.meta.id.0.to_string()))
+        .collect::<Vec<_>>();
+
+    outcomes.sort_by(|left, right| {
+        right
+            .meta
+            .ts
+            .cmp(&left.meta.ts)
+            .then_with(|| left.meta.id.0.cmp(&right.meta.id.0))
+    });
+    outcomes.truncate(PLAN_DETAIL_OUTCOME_LIMIT);
+
+    outcomes
+        .into_iter()
+        .map(|event| prism_js::AgentOutcomeSummaryView {
+            ts: event.meta.ts,
+            kind: format!("{:?}", event.kind),
+            result: format!("{:?}", event.result),
+            summary: clamp_overview_text(&event.summary),
+        })
+        .collect()
+}
+
 fn task_claim_history_entry_view(claim: WorkClaim) -> PrismUiTaskClaimHistoryEntryView {
     let holder = claim
         .agent
@@ -2107,29 +2450,35 @@ fn task_claim_history_entry_view(claim: WorkClaim) -> PrismUiTaskClaimHistoryEnt
 }
 
 fn task_recent_commits(task: &prism_js::CoordinationTaskView) -> Vec<PrismUiTaskCommitView> {
+    task_recent_commits_from_git_execution(&task.git_execution)
+}
+
+fn task_recent_commits_from_git_execution(
+    git_execution: &prism_js::TaskGitExecutionView,
+) -> Vec<PrismUiTaskCommitView> {
     let mut commits = Vec::new();
     push_task_commit(
         &mut commits,
         "source",
-        task.git_execution.source_commit.as_deref(),
-        task.git_execution.source_ref.as_deref(),
+        git_execution.source_commit.as_deref(),
+        git_execution.source_ref.as_deref(),
         "Source commit",
     );
     push_task_commit(
         &mut commits,
         "publish",
-        task.git_execution.publish_commit.as_deref(),
-        task.git_execution.publish_ref.as_deref(),
+        git_execution.publish_commit.as_deref(),
+        git_execution.publish_ref.as_deref(),
         "Publish commit",
     );
     push_task_commit(
         &mut commits,
         "integration",
-        task.git_execution.integration_commit.as_deref(),
-        task.git_execution.target_ref.as_deref(),
+        git_execution.integration_commit.as_deref(),
+        git_execution.target_ref.as_deref(),
         "Integration commit",
     );
-    if let Some(report) = task.git_execution.last_publish.as_ref() {
+    if let Some(report) = git_execution.last_publish.as_ref() {
         push_task_commit(
             &mut commits,
             "coordination_publish",

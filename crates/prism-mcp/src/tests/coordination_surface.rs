@@ -9,6 +9,19 @@ use crate::tests_support::{
     shared_workspace_session, temp_workspace, test_session,
     workspace_session_with_owner_credential,
 };
+use prism_coordination::{
+    CoordinationPolicy, CoordinationSnapshot, CoordinationTask, Plan, PlanScheduling,
+    TaskGitExecution,
+};
+use prism_history::HistoryStore;
+use prism_ir::{
+    CoordinationTaskId, PlanId, PlanKind, PlanNodeKind, PlanScope, PlanStatus, WorkspaceRevision,
+};
+use prism_memory::OutcomeMemory;
+use prism_projections::ProjectionIndex;
+use prism_query::Prism;
+use prism_store::Graph;
+
 #[tokio::test]
 async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
     let root = temp_workspace();
@@ -369,7 +382,19 @@ return {{
         assert_eq!(task["id"], Value::String(task_id.clone()));
     }
     assert_eq!(result.result["inbox"]["plan"]["id"], plan_id);
+    assert_eq!(result.result["inbox"]["planV2"]["id"], plan_id);
     assert_eq!(result.result["inbox"]["planGraph"]["id"], plan_id);
+    assert_eq!(result.result["inbox"]["children"]["planId"], plan_id);
+    assert!(result.result["inbox"]["graphActionableTasks"]
+        .as_array()
+        .is_some_and(|tasks| tasks
+            .iter()
+            .any(|task| task["id"] == Value::String(task_id.clone()))));
+    assert!(result.result["inbox"]["actionableTasks"]
+        .as_array()
+        .is_some_and(|tasks| tasks
+            .iter()
+            .any(|task| task["id"] == Value::String(task_id.clone()))));
     assert_eq!(
         result.result["inbox"]["planExecution"]
             .as_array()
@@ -398,6 +423,13 @@ return {{
         result.result["context"]["planNext"][0]["node"]["id"],
         Value::String(task_id.clone())
     );
+    assert_eq!(result.result["context"]["taskV2"]["id"], task_id);
+    assert!(result.result["context"]["dependencies"]
+        .as_array()
+        .is_some_and(|deps| deps.is_empty()));
+    assert!(result.result["context"]["dependents"]
+        .as_array()
+        .is_some_and(|deps| deps.is_empty()));
     assert_eq!(
         result.result["context"]["claims"].as_array().unwrap().len(),
         1
@@ -834,4 +866,323 @@ return {{
             .len(),
         0
     );
+}
+
+#[tokio::test]
+async fn mcp_server_exposes_canonical_v2_coordination_query_views() {
+    let plan_id = PlanId::new("plan:canonical");
+    let worktree_task_id = CoordinationTaskId::new("coord-task:worktree");
+    let human_task_id = CoordinationTaskId::new("coord-task:human");
+    let blocked_task_id = CoordinationTaskId::new("coord-task:blocked");
+    let dependency_task_id = CoordinationTaskId::new("coord-task:dependency");
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        CoordinationSnapshot {
+            plans: vec![Plan {
+                id: plan_id.clone(),
+                goal: "Ship canonical coordination".into(),
+                title: "Ship canonical coordination".into(),
+                status: PlanStatus::Active,
+                policy: CoordinationPolicy::default(),
+                scope: PlanScope::Repo,
+                kind: PlanKind::TaskExecution,
+                revision: 1,
+                scheduling: PlanScheduling::default(),
+                tags: Vec::new(),
+                created_from: None,
+                metadata: serde_json::Value::Null,
+                authored_edges: Vec::new(),
+                root_tasks: vec![
+                    worktree_task_id.clone(),
+                    human_task_id.clone(),
+                    blocked_task_id.clone(),
+                    dependency_task_id.clone(),
+                ],
+            }],
+            tasks: vec![
+                CoordinationTask {
+                    id: worktree_task_id.clone(),
+                    plan: plan_id.clone(),
+                    kind: PlanNodeKind::Edit,
+                    title: "Worktree task".into(),
+                    summary: None,
+                    status: prism_ir::CoordinationTaskStatus::Ready,
+                    published_task_status: None,
+                    assignee: None,
+                    pending_handoff_to: None,
+                    session: None,
+                    lease_holder: None,
+                    lease_started_at: None,
+                    lease_refreshed_at: None,
+                    lease_stale_at: None,
+                    lease_expires_at: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    bindings: prism_ir::PlanBinding::default(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    base_revision: WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::Value::Null,
+                    git_execution: TaskGitExecution::default(),
+                },
+                CoordinationTask {
+                    id: human_task_id.clone(),
+                    plan: plan_id.clone(),
+                    kind: PlanNodeKind::Edit,
+                    title: "Human task".into(),
+                    summary: None,
+                    status: prism_ir::CoordinationTaskStatus::Ready,
+                    published_task_status: None,
+                    assignee: None,
+                    pending_handoff_to: None,
+                    session: None,
+                    lease_holder: None,
+                    lease_started_at: None,
+                    lease_refreshed_at: None,
+                    lease_stale_at: None,
+                    lease_expires_at: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    bindings: prism_ir::PlanBinding::default(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    base_revision: WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::json!({
+                        "executor": {
+                            "executorClass": "human"
+                        }
+                    }),
+                    git_execution: TaskGitExecution::default(),
+                },
+                CoordinationTask {
+                    id: blocked_task_id.clone(),
+                    plan: plan_id.clone(),
+                    kind: PlanNodeKind::Edit,
+                    title: "Blocked task".into(),
+                    summary: None,
+                    status: prism_ir::CoordinationTaskStatus::Ready,
+                    published_task_status: None,
+                    assignee: None,
+                    pending_handoff_to: None,
+                    session: None,
+                    lease_holder: None,
+                    lease_started_at: None,
+                    lease_refreshed_at: None,
+                    lease_stale_at: None,
+                    lease_expires_at: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    bindings: prism_ir::PlanBinding::default(),
+                    depends_on: vec![dependency_task_id.clone()],
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    base_revision: WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::Value::Null,
+                    git_execution: TaskGitExecution::default(),
+                },
+                CoordinationTask {
+                    id: dependency_task_id.clone(),
+                    plan: plan_id.clone(),
+                    kind: PlanNodeKind::Edit,
+                    title: "Dependency".into(),
+                    summary: None,
+                    status: prism_ir::CoordinationTaskStatus::Completed,
+                    published_task_status: None,
+                    assignee: None,
+                    pending_handoff_to: None,
+                    session: None,
+                    lease_holder: None,
+                    lease_started_at: None,
+                    lease_refreshed_at: None,
+                    lease_stale_at: None,
+                    lease_expires_at: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    bindings: prism_ir::PlanBinding::default(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    base_revision: WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::Value::Null,
+                    git_execution: TaskGitExecution::default(),
+                },
+            ],
+            claims: Vec::new(),
+            artifacts: Vec::new(),
+            reviews: Vec::new(),
+            events: Vec::new(),
+            next_plan: 1,
+            next_task: 4,
+            next_claim: 0,
+            next_artifact: 0,
+            next_review: 0,
+        },
+        ProjectionIndex::default(),
+    );
+    let server = PrismMcpServer::new(prism);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_query",
+            json!({
+                "code": format!(
+                    r#"
+const blocked = prism.taskV2("{blocked_task_id}");
+return {{
+  compatPlan: prism.plan("{plan_id}"),
+  plan: prism.planV2("{plan_id}"),
+  compatTask: prism.task("{blocked_task_id}"),
+  blocked,
+  children: prism.children("{plan_id}"),
+  dependencies: blocked ? prism.dependencies({{ kind: blocked.dependencies[0]?.kind, id: blocked.id }}) : [],
+  dependents: blocked?.dependencies[0] ? prism.dependents(blocked.dependencies[0]) : [],
+  graphActionableTasks: prism.graphActionableTasks(),
+  actionableTasks: prism.actionableTasks("principal:owner"),
+  portfolio: prism.portfolio(),
+}};
+"#,
+                    blocked_task_id = blocked_task_id.0,
+                    plan_id = plan_id.0,
+                ),
+                "language": "ts",
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let envelope = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(envelope["result"]["compatPlan"]["id"], plan_id.0.as_str());
+    assert_eq!(envelope["result"]["compatPlan"]["status"], "Active");
+    assert_eq!(
+        envelope["result"]["compatPlan"]["rootNodeIds"]
+            .as_array()
+            .expect("compat plan roots should be an array")
+            .len(),
+        4
+    );
+    assert_eq!(envelope["result"]["plan"]["id"], plan_id.0.as_str());
+    assert_eq!(
+        envelope["result"]["plan"]["children"]
+            .as_array()
+            .expect("plan children should be an array")
+            .len(),
+        4
+    );
+    assert_eq!(
+        envelope["result"]["blocked"]["id"],
+        blocked_task_id.0.as_str()
+    );
+    assert_eq!(envelope["result"]["blocked"]["status"], "pending");
+    assert_eq!(
+        envelope["result"]["compatTask"]["id"],
+        blocked_task_id.0.as_str()
+    );
+    assert_eq!(
+        envelope["result"]["compatTask"]["planId"],
+        plan_id.0.as_str()
+    );
+    assert_eq!(envelope["result"]["compatTask"]["status"], "Ready");
+    assert_eq!(
+        envelope["result"]["compatTask"]["dependsOn"][0],
+        dependency_task_id.0.as_str()
+    );
+    assert_eq!(
+        envelope["result"]["blocked"]["dependencies"][0]["id"],
+        dependency_task_id.0.as_str()
+    );
+    assert_eq!(envelope["result"]["children"]["planId"], plan_id.0.as_str());
+    assert_eq!(
+        envelope["result"]["children"]["children"]
+            .as_array()
+            .expect("children view should contain child refs")
+            .len(),
+        4
+    );
+    assert_eq!(
+        envelope["result"]["dependencies"][0]["id"],
+        dependency_task_id.0.as_str()
+    );
+    assert_eq!(
+        envelope["result"]["dependents"][0]["id"],
+        blocked_task_id.0.as_str()
+    );
+
+    let graph_actionable_ids = envelope["result"]["graphActionableTasks"]
+        .as_array()
+        .expect("graph actionable tasks should be an array")
+        .iter()
+        .map(|task| {
+            task["id"]
+                .as_str()
+                .expect("actionable task should expose id")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(graph_actionable_ids.len(), 3);
+    assert!(graph_actionable_ids.contains(&worktree_task_id.0.as_str()));
+    assert!(graph_actionable_ids.contains(&human_task_id.0.as_str()));
+    assert!(graph_actionable_ids.contains(&blocked_task_id.0.as_str()));
+
+    let actionable_ids = envelope["result"]["actionableTasks"]
+        .as_array()
+        .expect("principal actionable tasks should be an array")
+        .iter()
+        .map(|task| {
+            task["id"]
+                .as_str()
+                .expect("actionable task should expose id")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(actionable_ids.len(), 2);
+    assert!(actionable_ids.contains(&worktree_task_id.0.as_str()));
+    assert!(actionable_ids.contains(&blocked_task_id.0.as_str()));
+    assert!(!actionable_ids.contains(&human_task_id.0.as_str()));
+
+    let portfolio = envelope["result"]["portfolio"]
+        .as_array()
+        .expect("portfolio should be an array");
+    assert_eq!(portfolio.len(), 1);
+    assert_eq!(portfolio[0]["id"], plan_id.0.as_str());
+
+    running.cancel().await.unwrap();
 }

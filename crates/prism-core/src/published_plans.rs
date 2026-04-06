@@ -6,9 +6,9 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use prism_coordination::{
-    coordination_snapshot_from_plan_graphs, execution_overlays_from_tasks,
-    migrate_legacy_hybrid_snapshot_to_canonical_v2, snapshot_plan_graphs, CoordinationSnapshot,
-    CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor,
+    execution_overlays_from_tasks, migrate_legacy_hybrid_snapshot_to_canonical_v2,
+    snapshot_plan_graphs, CoordinationSnapshot, CoordinationSnapshotV2, CoordinationTask, Plan,
+    RuntimeDescriptor,
 };
 use prism_ir::{
     CoordinationTaskId, PlanEdge, PlanEdgeId, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode,
@@ -26,8 +26,8 @@ use crate::shared_coordination_ref::{
     sync_shared_coordination_ref_state,
 };
 use crate::tracked_snapshot::{
-    load_tracked_coordination_snapshot_state, remove_obsolete_legacy_tracked_authority_artifacts,
-    tracked_snapshot_authority_active, TrackedSnapshotPublishContext,
+    remove_obsolete_legacy_tracked_authority_artifacts, tracked_snapshot_authority_active,
+    TrackedSnapshotPublishContext,
 };
 use crate::util::{
     repo_active_plans_dir, repo_archived_plans_dir, repo_plan_index_path, repo_plans_dir,
@@ -216,16 +216,6 @@ pub struct PublishedPlanArtifactRepairReport {
     pub entries: Vec<PublishedPlanArtifactRepairEntry>,
 }
 
-#[derive(Debug, Default)]
-struct PublishedPlanProjection {
-    records: Vec<PublishedPlanRecord>,
-    execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
-    next_plan: u64,
-    next_task: u64,
-    next_log_sequence: BTreeMap<String, u64>,
-    legacy_only: bool,
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct HydratedCoordinationPlanState {
     pub(crate) snapshot: CoordinationSnapshot,
@@ -409,28 +399,7 @@ pub(crate) fn load_hydrated_coordination_snapshot(
             None => Some(shared.snapshot),
         });
     }
-    if let Some(tracked) = load_tracked_coordination_snapshot_state(root)? {
-        return Ok(match snapshot {
-            Some(snapshot) => Some(merge_published_plans_into_snapshot(
-                snapshot,
-                tracked.snapshot,
-            )),
-            None => Some(tracked.snapshot),
-        });
-    }
-
-    match (snapshot, load_repo_published_plan_projection(root)?) {
-        (Some(snapshot), Some(published)) => Ok(Some(merge_published_plans_into_snapshot(
-            snapshot,
-            hydrated_plan_state_from_projection(published)?.snapshot,
-        ))),
-        (Some(snapshot), None) => Ok(Some(snapshot)),
-        (None, Some(published)) if published.legacy_only => Ok(Some(
-            hydrated_plan_state_from_projection(published)?.snapshot,
-        )),
-        (None, Some(_published)) => Ok(None),
-        (None, None) => Ok(None),
-    }
+    Ok(snapshot)
 }
 
 pub(crate) fn load_hydrated_coordination_snapshot_v2(
@@ -480,66 +449,8 @@ pub(crate) fn load_hydrated_coordination_plan_state(
             }),
         });
     }
-    if let Some(mut tracked) = load_tracked_coordination_snapshot_state(root)? {
-        return Ok(match snapshot {
-            Some(snapshot) => {
-                merge_snapshot_bootstrap_into_plan_state(
-                    &snapshot,
-                    &mut tracked.plan_graphs,
-                    &mut tracked.execution_overlays,
-                );
-                let snapshot = merge_published_plans_into_snapshot(snapshot, tracked.snapshot);
-                Some(HydratedCoordinationPlanState {
-                    canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
-                        &snapshot,
-                        &tracked.plan_graphs,
-                        &tracked.execution_overlays,
-                    )?,
-                    snapshot,
-                    plan_graphs: tracked.plan_graphs,
-                    execution_overlays: tracked.execution_overlays,
-                    runtime_descriptors: Vec::new(),
-                })
-            }
-            None => {
-                let snapshot = tracked.snapshot;
-                Some(HydratedCoordinationPlanState {
-                    canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
-                        &snapshot,
-                        &tracked.plan_graphs,
-                        &tracked.execution_overlays,
-                    )?,
-                    snapshot,
-                    plan_graphs: tracked.plan_graphs,
-                    execution_overlays: tracked.execution_overlays,
-                    runtime_descriptors: Vec::new(),
-                })
-            }
-        });
-    }
-
-    match (snapshot, load_repo_published_plan_projection(root)?) {
-        (Some(snapshot), Some(published)) => {
-            let mut state = hydrated_plan_state_from_projection(published)?;
-            merge_snapshot_bootstrap_into_plan_state(
-                &snapshot,
-                &mut state.plan_graphs,
-                &mut state.execution_overlays,
-            );
-            let snapshot = merge_published_plans_into_snapshot(snapshot, state.snapshot);
-            Ok(Some(HydratedCoordinationPlanState {
-                canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
-                    &snapshot,
-                    &state.plan_graphs,
-                    &state.execution_overlays,
-                )?,
-                snapshot,
-                plan_graphs: state.plan_graphs,
-                execution_overlays: state.execution_overlays,
-                runtime_descriptors: state.runtime_descriptors,
-            }))
-        }
-        (Some(snapshot), None) => {
+    match snapshot {
+        Some(snapshot) => {
             let plan_graphs = snapshot_plan_graphs(&snapshot);
             let execution_overlays = execution_overlays_by_plan(&snapshot.tasks);
             Ok(Some(HydratedCoordinationPlanState {
@@ -554,48 +465,8 @@ pub(crate) fn load_hydrated_coordination_plan_state(
                 runtime_descriptors: Vec::new(),
             }))
         }
-        (None, Some(published)) if published.legacy_only => {
-            Ok(Some(hydrated_plan_state_from_projection(published)?))
-        }
-        (None, Some(_published)) => Ok(None),
-        (None, None) => Ok(None),
+        None => Ok(None),
     }
-}
-
-fn hydrated_plan_state_from_projection(
-    published: PublishedPlanProjection,
-) -> Result<HydratedCoordinationPlanState> {
-    let mut graphs = published
-        .records
-        .iter()
-        .map(|record| record.graph.clone())
-        .collect::<Vec<_>>();
-    let execution_overlays = published.execution_overlays.clone();
-    let mut snapshot = coordination_snapshot_from_plan_graphs(&graphs, &execution_overlays);
-    let policies = published
-        .records
-        .into_iter()
-        .map(|record| (record.header.id.0.to_string(), record.header.policy))
-        .collect::<BTreeMap<_, _>>();
-    for plan in &mut snapshot.plans {
-        if let Some(policy) = policies.get(plan.id.0.as_str()) {
-            plan.policy = policy.clone();
-        }
-    }
-    snapshot.next_plan = snapshot.next_plan.max(published.next_plan);
-    snapshot.next_task = snapshot.next_task.max(published.next_task);
-    graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    Ok(HydratedCoordinationPlanState {
-        canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
-            &snapshot,
-            &graphs,
-            &execution_overlays,
-        )?,
-        snapshot,
-        plan_graphs: graphs,
-        execution_overlays,
-        runtime_descriptors: Vec::new(),
-    })
 }
 
 fn canonical_snapshot_v2_from_plan_state(
@@ -632,94 +503,6 @@ pub(crate) fn merge_snapshot_bootstrap_into_plan_state(
         graphs.push(graph);
     }
     graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-}
-
-fn merge_published_plans_into_snapshot(
-    mut snapshot: CoordinationSnapshot,
-    published_snapshot: CoordinationSnapshot,
-) -> CoordinationSnapshot {
-    let published_plan_ids = published_snapshot
-        .plans
-        .iter()
-        .map(|plan| plan.id.0.to_string())
-        .collect::<BTreeSet<_>>();
-    let task_backed_plan_ids = published_snapshot
-        .plans
-        .iter()
-        .filter(|plan| plan.kind == prism_ir::PlanKind::TaskExecution)
-        .map(|plan| plan.id.0.to_string())
-        .collect::<BTreeSet<_>>();
-    let runtime_scope_by_task = snapshot
-        .tasks
-        .iter()
-        .map(|task| {
-            (
-                task.id.clone(),
-                (
-                    task.pending_handoff_to.clone(),
-                    task.session.clone(),
-                    task.lease_holder.clone(),
-                    task.lease_started_at,
-                    task.lease_refreshed_at,
-                    task.lease_stale_at,
-                    task.lease_expires_at,
-                    task.worktree_id.clone(),
-                    task.branch_ref.clone(),
-                ),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    snapshot
-        .plans
-        .retain(|plan| !published_plan_ids.contains(plan.id.0.as_str()));
-    snapshot
-        .tasks
-        .retain(|task| !task_backed_plan_ids.contains(task.plan.0.as_str()));
-    snapshot.plans.extend(published_snapshot.plans);
-    snapshot.tasks.extend(
-        published_snapshot
-            .tasks
-            .into_iter()
-            .filter(|task| task_backed_plan_ids.contains(task.plan.0.as_str()))
-            .filter(|task| task.id.0.starts_with("coord-task:"))
-            .map(|mut task| {
-                if let Some((
-                    pending_handoff_to,
-                    session,
-                    lease_holder,
-                    lease_started_at,
-                    lease_refreshed_at,
-                    lease_stale_at,
-                    lease_expires_at,
-                    worktree_id,
-                    branch_ref,
-                )) = runtime_scope_by_task.get(&task.id)
-                {
-                    task.pending_handoff_to = pending_handoff_to.clone();
-                    task.session = session.clone();
-                    task.lease_holder = lease_holder.clone();
-                    task.lease_started_at = *lease_started_at;
-                    task.lease_refreshed_at = *lease_refreshed_at;
-                    task.lease_stale_at = *lease_stale_at;
-                    task.lease_expires_at = *lease_expires_at;
-                    task.worktree_id = worktree_id.clone();
-                    task.branch_ref = branch_ref.clone();
-                }
-                task
-            }),
-    );
-    snapshot
-        .plans
-        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    snapshot
-        .tasks
-        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    snapshot.next_plan = snapshot.next_plan.max(published_snapshot.next_plan);
-    snapshot.next_task = snapshot.next_task.max(published_snapshot.next_task);
-    snapshot.next_claim = snapshot.next_claim.max(published_snapshot.next_claim);
-    snapshot.next_artifact = snapshot.next_artifact.max(published_snapshot.next_artifact);
-    snapshot.next_review = snapshot.next_review.max(published_snapshot.next_review);
-    snapshot
 }
 
 pub(crate) fn merge_shared_coordination_into_snapshot(
@@ -792,51 +575,6 @@ pub(crate) fn merge_shared_coordination_into_snapshot(
     snapshot.next_artifact = snapshot.next_artifact.max(shared_snapshot.next_artifact);
     snapshot.next_review = snapshot.next_review.max(shared_snapshot.next_review);
     snapshot
-}
-
-fn load_repo_published_plan_projection(root: &Path) -> Result<Option<PublishedPlanProjection>> {
-    let index_path = repo_plan_index_path(root);
-    if !index_path.exists() {
-        return Ok(None);
-    }
-
-    let entries = load_jsonl_file::<PublishedPlanIndexEntry>(&index_path)?;
-    if entries.is_empty() {
-        return Ok(None);
-    }
-
-    let mut projection = PublishedPlanProjection::default();
-    projection.legacy_only = true;
-    for entry in entries {
-        let log_path = resolve_log_path(root, &entry.log_path);
-        let events = load_stored_plan_events(root, &log_path)?;
-        projection.legacy_only &= events
-            .iter()
-            .all(|event| matches!(event, StoredPublishedPlanEvent::Legacy(_)));
-        let (record, overlays) = project_plan_log(&log_path, &events)?;
-        projection.next_plan = projection
-            .next_plan
-            .max(next_numeric_suffix(&record.header.id.0, "plan:"));
-        projection.next_task = record
-            .graph
-            .nodes
-            .iter()
-            .fold(projection.next_task, |current, node| {
-                current.max(next_numeric_suffix(&node.id.0, "coord-task:"))
-            });
-        projection.next_log_sequence.insert(
-            record.header.id.0.to_string(),
-            next_log_sequence_from_events(&events),
-        );
-        projection
-            .execution_overlays
-            .insert(record.header.id.0.to_string(), overlays);
-        projection.records.push(record);
-    }
-    projection
-        .records
-        .sort_by(|left, right| left.header.id.0.cmp(&right.header.id.0));
-    Ok(Some(projection))
 }
 
 fn project_plan_log(
@@ -1113,15 +851,6 @@ fn derived_plan_log_path(status: PlanStatus, plan_id: &PlanId) -> PathBuf {
         PathBuf::from(".prism").join("plans").join("active")
     };
     base.join(format!("{}.jsonl", plan_id.0))
-}
-
-fn resolve_log_path(root: &Path, raw: &str) -> PathBuf {
-    let path = PathBuf::from(raw);
-    if path.is_absolute() {
-        path
-    } else {
-        root.join(path)
-    }
 }
 
 fn cleanup_stale_derived_plan_logs(
@@ -1463,25 +1192,6 @@ where
     file.sync_all()?;
     fs::rename(temp_path, path)?;
     Ok(())
-}
-
-fn next_log_sequence_from_events(events: &[StoredPublishedPlanEvent]) -> u64 {
-    events
-        .iter()
-        .filter_map(|event| match event {
-            StoredPublishedPlanEvent::Native(event) => event.event_id.rsplit(':').next(),
-            StoredPublishedPlanEvent::Legacy(event) => event.event_id.rsplit(':').next(),
-        })
-        .filter_map(|value| value.parse::<u64>().ok())
-        .max()
-        .unwrap_or(0)
-}
-
-fn next_numeric_suffix(value: &str, prefix: &str) -> u64 {
-    value
-        .strip_prefix(prefix)
-        .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(0)
 }
 
 fn normalize_path(path: &Path) -> String {

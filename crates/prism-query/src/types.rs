@@ -1,5 +1,6 @@
 use prism_ir::{
-    AgentId, ArtifactId, CoordinationEventKind, CoordinationTaskId, LineageId, NodeId, PlanEdgeId,
+    AgentId, ArtifactId, BlockerCause, CoordinationEventKind, CoordinationTaskId,
+    DerivedPlanStatus, EffectiveTaskStatus, LineageId, NodeId, NodeRef, PlanEdgeId,
     PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeBlocker, PlanNodeId,
     PlanNodeStatus, PlanScope, PlanStatus, Timestamp,
 };
@@ -226,6 +227,29 @@ pub struct AdHocPlanProjectionDiff {
     pub removed_edges: Vec<PlanEdgeId>,
     pub changed_edges: Vec<PlanEdgeId>,
     pub changed_execution_nodes: Vec<PlanNodeId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationPlanV2 {
+    pub plan: prism_coordination::CanonicalPlanRecord,
+    pub status: DerivedPlanStatus,
+    pub children: Vec<NodeRef>,
+    pub dependencies: Vec<NodeRef>,
+    pub dependents: Vec<NodeRef>,
+    pub estimated_minutes_total: u32,
+    pub remaining_estimated_minutes: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTaskV2 {
+    pub task: prism_coordination::CanonicalTaskRecord,
+    pub status: EffectiveTaskStatus,
+    pub graph_actionable: bool,
+    pub blocker_causes: Vec<BlockerCause>,
+    pub dependencies: Vec<NodeRef>,
+    pub dependents: Vec<NodeRef>,
 }
 
 pub(crate) fn ad_hoc_plan_projection_summary(graph: &PlanGraph) -> AdHocPlanProjectionSummary {

@@ -173,7 +173,10 @@ mod tests {
 
         let caller = TaskExecutorCaller::from_event_meta(&meta);
         assert_eq!(caller.executor_class, ExecutorClass::WorktreeExecutor);
-        assert_eq!(caller.principal_id, Some(PrincipalId::new("principal:test-human")));
+        assert_eq!(
+            caller.principal_id,
+            Some(PrincipalId::new("principal:test-human"))
+        );
         assert_eq!(caller.target_label.as_deref(), Some("Test Human"));
     }
 }

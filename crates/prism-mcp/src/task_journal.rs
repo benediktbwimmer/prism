@@ -193,8 +193,13 @@ fn coordination_task_fallback(prism: &Prism, task_id: &TaskId) -> Option<(String
         return None;
     }
     prism
-        .coordination_task(&CoordinationTaskId::new(task_id.clone()))
-        .map(|task| (task_id, task.title))
+        .coordination_task_v2(&TaskId::new(task_id.clone()))
+        .map(|task| (task_id.clone(), task.task.title))
+        .or_else(|| {
+            prism
+                .coordination_task(&CoordinationTaskId::new(task_id.clone()))
+                .map(|task| (task_id, task.title))
+        })
 }
 
 fn task_focus(prism: &Prism, events: &[OutcomeEvent]) -> Vec<AnchorRef> {

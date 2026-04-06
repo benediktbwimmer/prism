@@ -6,9 +6,7 @@ use anyhow::{Context, Result};
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use ed25519_dalek::Signer;
-use prism_coordination::{
-    coordination_snapshot_from_plan_graphs, CoordinationEvent, CoordinationSnapshot, Plan,
-};
+use prism_coordination::{CoordinationEvent, CoordinationSnapshot};
 use prism_ir::{
     EventActor, EventExecutionContext, PlanExecutionOverlay, PlanGraph, WorkContextKind,
     WorkContextSnapshot,
@@ -149,21 +147,6 @@ struct SnapshotMemoryRecord {
     execution_context: Option<EventExecutionContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     task_id: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SnapshotPlanRecord {
-    plan: Plan,
-    graph: PlanGraph,
-    execution_overlays: Vec<PlanExecutionOverlay>,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct TrackedCoordinationSnapshotState {
-    pub(crate) snapshot: CoordinationSnapshot,
-    pub(crate) plan_graphs: Vec<PlanGraph>,
-    pub(crate) execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
 }
 
 fn snapshot_root(root: &Path) -> PathBuf {
@@ -506,57 +489,6 @@ pub(crate) fn load_memory_snapshot_events(root: &Path) -> Result<Vec<MemoryEvent
             .then_with(|| left.id.cmp(&right.id))
     });
     Ok(events)
-}
-
-pub(crate) fn load_tracked_coordination_snapshot_state(
-    root: &Path,
-) -> Result<Option<TrackedCoordinationSnapshotState>> {
-    let plan_records = load_json_records::<SnapshotPlanRecord>(&snapshot_plans_dir(root))?
-        .into_iter()
-        .map(|(_, record)| record)
-        .collect::<Vec<_>>();
-
-    if plan_records.is_empty() {
-        return Ok(None);
-    }
-
-    let mut plan_graphs = plan_records
-        .iter()
-        .map(|record| record.graph.clone())
-        .collect::<Vec<_>>();
-    let execution_overlays = plan_records
-        .iter()
-        .map(|record| {
-            (
-                record.plan.id.0.to_string(),
-                record.execution_overlays.clone(),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    plan_graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-
-    let stored_plans = plan_records
-        .iter()
-        .map(|record| (record.plan.id.0.to_string(), record.plan.clone()))
-        .collect::<BTreeMap<_, _>>();
-    let mut snapshot = coordination_snapshot_from_plan_graphs(&plan_graphs, &execution_overlays);
-    for plan in &mut snapshot.plans {
-        if let Some(stored) = stored_plans.get(plan.id.0.as_str()) {
-            *plan = stored.clone();
-        }
-    }
-    snapshot
-        .plans
-        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    snapshot
-        .tasks
-        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
-
-    Ok(Some(TrackedCoordinationSnapshotState {
-        snapshot,
-        plan_graphs,
-        execution_overlays,
-    }))
 }
 
 fn cleanup_tracked_plan_snapshot_exports(root: &Path) -> Result<()> {

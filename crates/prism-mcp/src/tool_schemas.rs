@@ -734,13 +734,13 @@ fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
                 (
                     "plan_node_create",
                     described_schema::<PlanNodeCreatePayload>(
-                        "Payload when `input.kind` is `plan_node_create`.",
+                        "Payload when `input.kind` is the legacy compatibility alias `plan_node_create`.",
                     ),
                 ),
                 (
                     "plan_edge_create",
                     described_schema::<PlanEdgeCreatePayload>(
-                        "Payload when `input.kind` is `plan_edge_create`.",
+                        "Payload when `input.kind` is the legacy compatibility alias `plan_edge_create`.",
                     ),
                 ),
                 (

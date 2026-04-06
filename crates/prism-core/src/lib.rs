@@ -4,6 +4,7 @@ mod concept_events;
 mod concept_relation_events;
 mod contract_events;
 mod coordination_persistence;
+mod coordination_snapshot_sanitization;
 mod coordination_startup_checkpoint;
 mod curator;
 mod curator_support;

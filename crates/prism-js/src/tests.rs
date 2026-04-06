@@ -109,11 +109,19 @@ fn api_reference_mentions_primary_tool() {
         .contains("taskChanges(taskId: string, options?: ChangedFilesOptions): PatchEventView[];"));
     assert!(docs.contains("connectionInfo(): ConnectionInfoView;"));
     assert!(docs.contains("runtimeStatus(): RuntimeStatusView;"));
+    assert!(docs.contains("planV2(planId: string): CoordinationPlanV2View | null;"));
     assert!(docs
         .contains("planProjectionAt(planId: string, at: number): AdHocPlanProjectionView | null;"));
     assert!(docs.contains(
         "planProjectionDiff(planId: string, from: number, to: number): AdHocPlanProjectionDiffView;"
     ));
+    assert!(docs.contains("children(planId: string): PlanChildrenV2View | null;"));
+    assert!(docs.contains("dependencies(nodeRef: NodeRefView): NodeRefView[];"));
+    assert!(docs.contains("dependents(nodeRef: NodeRefView): NodeRefView[];"));
+    assert!(docs.contains("portfolio(): CoordinationPlanV2View[];"));
+    assert!(docs.contains("taskV2(taskId: string): CoordinationTaskV2View | null;"));
+    assert!(docs.contains("graphActionableTasks(): CoordinationTaskV2View[];"));
+    assert!(docs.contains("actionableTasks(principal?: string): CoordinationTaskV2View[];"));
     assert!(docs.contains("runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];"));
     assert!(
         docs.contains("runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];")
@@ -325,4 +333,61 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("explainDrift(target)"));
     assert!(prelude.contains("curator: Object.freeze"));
     assert!(prelude.contains("__prismCleanupGlobals"));
+}
+
+#[test]
+fn canonical_coordination_v2_methods_are_registered_in_query_surface() {
+    assert_eq!(
+        prism_method_spec("prism.planV2")
+            .and_then(|spec| spec.declaration)
+            .expect("planV2 spec should exist"),
+        "planV2(planId: string): CoordinationPlanV2View | null;"
+    );
+    assert_eq!(
+        prism_method_spec("prism.taskV2")
+            .and_then(|spec| spec.declaration)
+            .expect("taskV2 spec should exist"),
+        "taskV2(taskId: string): CoordinationTaskV2View | null;"
+    );
+    assert_eq!(
+        prism_method_spec("prism.children")
+            .and_then(|spec| spec.declaration)
+            .expect("children spec should exist"),
+        "children(planId: string): PlanChildrenV2View | null;"
+    );
+    assert_eq!(
+        prism_method_spec("prism.dependencies")
+            .and_then(|spec| spec.declaration)
+            .expect("dependencies spec should exist"),
+        "dependencies(nodeRef: NodeRefView): NodeRefView[];"
+    );
+    assert_eq!(
+        prism_method_spec("prism.dependents")
+            .and_then(|spec| spec.declaration)
+            .expect("dependents spec should exist"),
+        "dependents(nodeRef: NodeRefView): NodeRefView[];"
+    );
+    assert_eq!(
+        prism_method_spec("prism.portfolio")
+            .and_then(|spec| spec.declaration)
+            .expect("portfolio spec should exist"),
+        "portfolio(): CoordinationPlanV2View[];"
+    );
+    assert_eq!(
+        prism_method_spec("prism.graphActionableTasks")
+            .and_then(|spec| spec.declaration)
+            .expect("graphActionableTasks spec should exist"),
+        "graphActionableTasks(): CoordinationTaskV2View[];"
+    );
+    assert_eq!(
+        prism_method_spec("prism.actionableTasks")
+            .and_then(|spec| spec.declaration)
+            .expect("actionableTasks spec should exist"),
+        "actionableTasks(principal?: string): CoordinationTaskV2View[];"
+    );
+
+    let node_ref_bundle = prism_record_arg_bundle("nodeRef").expect("nodeRef arg bundle");
+    assert_eq!(node_ref_bundle.arg_name, "nodeRef");
+    assert!(node_ref_bundle.allowed_keys.contains(&"kind"));
+    assert!(node_ref_bundle.allowed_keys.contains(&"id"));
 }

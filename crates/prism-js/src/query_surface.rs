@@ -162,6 +162,7 @@ const MEMORY_OUTCOMES_KEYS: &[&str] = &[
 ];
 const MEMORY_RECALL_KEYS: &[&str] = &["focus", "text", "limit", "kinds", "since"];
 const NEXT_READS_KEYS: &[&str] = &["limit"];
+const NODE_REF_KEYS: &[&str] = &["kind", "id"];
 const OWNERS_KEYS: &[&str] = &["kind", "limit"];
 const PLANS_KEYS: &[&str] = &["status", "scope", "contains", "limit"];
 const POLICY_VIOLATIONS_KEYS: &[&str] = &["planId", "plan_id", "taskId", "task_id", "limit"];
@@ -331,6 +332,7 @@ pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
         helper!("prism.file(path).around", PrismSurfaceTypeRef::NullableNamed("SourceSliceView"), PrismRecordArgBundle { bundle_name: "fileAround", arg_name: "options", arg_index: 0, allowed_keys: FILE_AROUND_KEYS }),
         method!("prism.plans", "plans(options?: PlanListOptions): PlanListEntryView[];", PrismSurfaceTypeRef::ArrayOfNamed("PlanListEntryView"), PrismRecordArgBundle { bundle_name: "plans", arg_name: "options", arg_index: 0, allowed_keys: PLANS_KEYS }),
         method!("prism.plan", "plan(planId: string): PlanView | null;", PrismSurfaceTypeRef::NullableNamed("PlanView")),
+        method!("prism.planV2", "planV2(planId: string): CoordinationPlanV2View | null;", PrismSurfaceTypeRef::NullableNamed("CoordinationPlanV2View")),
         method!("prism.planGraph", "planGraph(planId: string): PlanGraphView | null;", PrismSurfaceTypeRef::Unknown),
         method!("prism.planProjectionAt", "planProjectionAt(planId: string, at: number): AdHocPlanProjectionView | null;", PrismSurfaceTypeRef::NullableNamed("AdHocPlanProjectionView")),
         method!("prism.planProjectionDiff", "planProjectionDiff(planId: string, from: number, to: number): AdHocPlanProjectionDiffView;", PrismSurfaceTypeRef::Named("AdHocPlanProjectionDiffView")),
@@ -339,8 +341,15 @@ pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
         method!("prism.planNodeBlockers", "planNodeBlockers(planId: string, nodeId: string): PlanNodeBlockerView[];", PrismSurfaceTypeRef::ArrayOfNamed("PlanNodeBlockerView")),
         method!("prism.planSummary", "planSummary(planId: string): PlanSummaryView | null;", PrismSurfaceTypeRef::NullableNamed("PlanSummaryView")),
         method!("prism.planNext", "planNext(planId: string, limit?: number): PlanNodeRecommendationView[];", PrismSurfaceTypeRef::ArrayOfNamed("PlanNodeRecommendationView")),
+        method!("prism.children", "children(planId: string): PlanChildrenV2View | null;", PrismSurfaceTypeRef::NullableNamed("PlanChildrenV2View")),
+        method!("prism.dependencies", "dependencies(nodeRef: NodeRefView): NodeRefView[];", PrismSurfaceTypeRef::ArrayOfNamed("NodeRefView"), PrismRecordArgBundle { bundle_name: "nodeRef", arg_name: "nodeRef", arg_index: 0, allowed_keys: NODE_REF_KEYS }),
+        method!("prism.dependents", "dependents(nodeRef: NodeRefView): NodeRefView[];", PrismSurfaceTypeRef::ArrayOfNamed("NodeRefView"), PrismRecordArgBundle { bundle_name: "nodeRef", arg_name: "nodeRef", arg_index: 0, allowed_keys: NODE_REF_KEYS }),
+        method!("prism.portfolio", "portfolio(): CoordinationPlanV2View[];", PrismSurfaceTypeRef::ArrayOfNamed("CoordinationPlanV2View")),
         method!("prism.portfolioNext", "portfolioNext(limit?: number): PlanNodeRecommendationView[];", PrismSurfaceTypeRef::ArrayOfNamed("PlanNodeRecommendationView")),
         method!("prism.task", "task(taskId: string): CoordinationTaskView | null;", PrismSurfaceTypeRef::NullableNamed("CoordinationTaskView")),
+        method!("prism.taskV2", "taskV2(taskId: string): CoordinationTaskV2View | null;", PrismSurfaceTypeRef::NullableNamed("CoordinationTaskV2View")),
+        method!("prism.graphActionableTasks", "graphActionableTasks(): CoordinationTaskV2View[];", PrismSurfaceTypeRef::ArrayOfNamed("CoordinationTaskV2View")),
+        method!("prism.actionableTasks", "actionableTasks(principal?: string): CoordinationTaskV2View[];", PrismSurfaceTypeRef::ArrayOfNamed("CoordinationTaskV2View")),
         method!("prism.readyTasks", "readyTasks(planId: string): CoordinationTaskView[];", PrismSurfaceTypeRef::ArrayOfNamed("CoordinationTaskView")),
         method!("prism.claims", "claims(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ClaimView[];", PrismSurfaceTypeRef::ArrayOfNamed("ClaimView")),
         method!("prism.conflicts", "conflicts(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ConflictView[];", PrismSurfaceTypeRef::ArrayOfNamed("ConflictView")),
@@ -602,6 +611,9 @@ schema_types! {
     "ToolInputValidationView" => crate::ToolInputValidationView,
     "PlanListEntryView" => crate::PlanListEntryView,
     "PlanView" => crate::PlanView,
+    "CoordinationPlanV2View" => crate::CoordinationPlanV2View,
+    "PlanChildrenV2View" => crate::PlanChildrenV2View,
+    "NodeRefView" => crate::NodeRefView,
     "PlanSchedulingView" => crate::PlanSchedulingView,
     "AdHocPlanProjectionSummaryView" => crate::AdHocPlanProjectionSummaryView,
     "AdHocPlanProjectionView" => crate::AdHocPlanProjectionView,
@@ -615,6 +627,7 @@ schema_types! {
     "PlanSummaryView" => crate::PlanSummaryView,
     "PlanNodeRecommendationView" => crate::PlanNodeRecommendationView,
     "CoordinationTaskView" => crate::CoordinationTaskView,
+    "CoordinationTaskV2View" => crate::CoordinationTaskV2View,
     "TaskGitExecutionView" => crate::TaskGitExecutionView,
     "ClaimView" => crate::ClaimView,
     "ConflictView" => crate::ConflictView,

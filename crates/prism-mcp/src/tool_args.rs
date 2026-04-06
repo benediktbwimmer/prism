@@ -2379,6 +2379,13 @@ pub(crate) struct PlanTargetArgs {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct NodeRefArgs {
+    pub(crate) kind: prism_ir::NodeRefKind,
+    pub(crate) id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PlanProjectionAtArgs {
     #[serde(alias = "plan_id")]
     pub(crate) plan_id: String,
@@ -2432,6 +2439,12 @@ pub(crate) struct PolicyViolationQueryArgs {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct LimitArgs {
     pub(crate) limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ActionableTasksArgs {
+    pub(crate) principal: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

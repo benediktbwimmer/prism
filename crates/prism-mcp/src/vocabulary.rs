@@ -156,12 +156,13 @@ const COORDINATION_MUTATION_KINDS: &[VocabularyValueSpec] = &[
     VocabularyValueSpec {
         value: "plan_node_create",
         aliases: &[],
-        description: "Create a first-class plan node.",
+        description: "Legacy compatibility alias that creates a v2 task or child plan.",
     },
     VocabularyValueSpec {
         value: "plan_edge_create",
         aliases: &[],
-        description: "Create a first-class plan edge.",
+        description:
+            "Legacy compatibility alias for `depends_on`, `blocks`, and `child_of` mutations.",
     },
     VocabularyValueSpec {
         value: "plan_edge_delete",

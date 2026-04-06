@@ -4,18 +4,18 @@ use std::collections::BTreeMap;
 use prism_coordination::{
     Artifact, ArtifactProposeInput, CoordinationPolicy, CoordinationSnapshot,
     CoordinationSnapshotV2, CoordinationStore, CoordinationTask, HandoffInput, LeaseHolder,
-    Plan, PlanCreateInput, PlanScheduling, TaskCompletionContext, TaskCreateInput,
-    TaskExecutorCaller, TaskGitExecution, TaskUpdateInput, WorkClaim, LeaseState,
-    RuntimeDescriptor, RuntimeDiscoveryMode,
+    LeaseState, Plan, PlanCreateInput, PlanScheduling, RuntimeDescriptor, RuntimeDiscoveryMode,
+    TaskCompletionContext, TaskCreateInput, TaskExecutorCaller, TaskGitExecution, TaskUpdateInput,
+    WorkClaim,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
     new_prefixed_id, sortable_token_timestamp, AgentId, AnchorRef, ChangeTrigger,
-    CoordinationTaskId, Edge, EdgeKind, EventActor, EventId, EventMeta, ExecutorClass, FileId,
-    Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdge, PlanEdgeId,
-    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeBlockerKind,
-    PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, PrincipalId, SessionId, Span,
-    TaskId, WorkspaceRevision,
+    CoordinationTaskId, Edge, EdgeKind, EffectiveTaskStatus, EventActor, EventId, EventMeta,
+    ExecutorClass, FileId, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
+    PlanEdge, PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanKind,
+    PlanNode, PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus,
+    PrincipalId, SessionId, Span, TaskId, WorkspaceRevision,
 };
 use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,
@@ -343,6 +343,7 @@ fn replace_coordination_snapshot_and_plan_graphs_reconciles_task_backed_node_sta
 #[test]
 fn coordination_snapshot_v2_projects_legacy_snapshot_into_canonical_records() {
     let task_id = CoordinationTaskId::new("coord-task:lease");
+    let dependency_id = CoordinationTaskId::new("coord-task:dep");
     let plan_id = PlanId::new("plan:lease");
     let prism = Prism::with_history_outcomes_coordination_and_projections(
         Graph::new(),
@@ -366,38 +367,72 @@ fn coordination_snapshot_v2_projects_legacy_snapshot_into_canonical_records() {
                 authored_edges: Vec::new(),
                 root_tasks: vec![task_id.clone()],
             }],
-            tasks: vec![CoordinationTask {
-                id: task_id.clone(),
-                plan: plan_id.clone(),
-                kind: PlanNodeKind::Edit,
-                title: "Keep lease state".into(),
-                summary: None,
-                status: prism_ir::CoordinationTaskStatus::Ready,
-                published_task_status: None,
-                assignee: None,
-                pending_handoff_to: None,
-                session: None,
-                lease_holder: None,
-                lease_started_at: None,
-                lease_refreshed_at: None,
-                lease_stale_at: None,
-                lease_expires_at: None,
-                worktree_id: None,
-                branch_ref: None,
-                anchors: Vec::new(),
-                bindings: prism_ir::PlanBinding::default(),
-                depends_on: vec![CoordinationTaskId::new("coord-task:dep")],
-                coordination_depends_on: Vec::new(),
-                integrated_depends_on: Vec::new(),
-                acceptance: Vec::new(),
-                validation_refs: Vec::new(),
-                is_abstract: false,
-                base_revision: WorkspaceRevision::default(),
-                priority: None,
-                tags: Vec::new(),
-                metadata: serde_json::json!({"estimatedMinutes": 12}),
-                git_execution: TaskGitExecution::default(),
-            }],
+            tasks: vec![
+                CoordinationTask {
+                    id: task_id.clone(),
+                    plan: plan_id.clone(),
+                    kind: PlanNodeKind::Edit,
+                    title: "Keep lease state".into(),
+                    summary: None,
+                    status: prism_ir::CoordinationTaskStatus::Ready,
+                    published_task_status: None,
+                    assignee: None,
+                    pending_handoff_to: None,
+                    session: None,
+                    lease_holder: None,
+                    lease_started_at: None,
+                    lease_refreshed_at: None,
+                    lease_stale_at: None,
+                    lease_expires_at: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    bindings: prism_ir::PlanBinding::default(),
+                    depends_on: vec![dependency_id.clone()],
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    base_revision: WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::json!({"estimatedMinutes": 12}),
+                    git_execution: TaskGitExecution::default(),
+                },
+                CoordinationTask {
+                    id: dependency_id,
+                    plan: plan_id.clone(),
+                    kind: PlanNodeKind::Edit,
+                    title: "Dependency".into(),
+                    summary: None,
+                    status: prism_ir::CoordinationTaskStatus::Completed,
+                    published_task_status: None,
+                    assignee: None,
+                    pending_handoff_to: None,
+                    session: None,
+                    lease_holder: None,
+                    lease_started_at: None,
+                    lease_refreshed_at: None,
+                    lease_stale_at: None,
+                    lease_expires_at: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    bindings: prism_ir::PlanBinding::default(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    base_revision: WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::Value::Null,
+                    git_execution: TaskGitExecution::default(),
+                },
+            ],
             claims: Vec::new(),
             artifacts: Vec::new(),
             reviews: Vec::new(),
@@ -414,14 +449,255 @@ fn coordination_snapshot_v2_projects_legacy_snapshot_into_canonical_records() {
     let snapshot_v2: CoordinationSnapshotV2 = prism.coordination_snapshot_v2();
     assert_eq!(snapshot_v2.schema_version, 2);
     assert_eq!(snapshot_v2.plans.len(), 1);
-    assert_eq!(snapshot_v2.tasks.len(), 1);
-    assert_eq!(snapshot_v2.tasks[0].parent_plan_id, plan_id);
-    assert_eq!(snapshot_v2.tasks[0].estimated_minutes, 12);
+    assert_eq!(snapshot_v2.tasks.len(), 2);
+    let lease_task = snapshot_v2
+        .tasks
+        .iter()
+        .find(|task| task.id.0 == TaskId::new(task_id.0.clone()).0)
+        .expect("lease task should project into v2");
+    assert_eq!(lease_task.parent_plan_id, plan_id);
+    assert_eq!(lease_task.estimated_minutes, 12);
     assert_eq!(snapshot_v2.dependencies.len(), 1);
     assert_eq!(
         snapshot_v2.dependencies[0].source.id,
         TaskId::new(task_id.0.clone()).0
     );
+}
+
+#[test]
+fn coordination_task_v2_exposes_canonical_status_and_dependency_refs() {
+    let task_id = CoordinationTaskId::new("coord-task:lease");
+    let dependency_id = CoordinationTaskId::new("coord-task:dep");
+    let plan_id = PlanId::new("plan:lease");
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        CoordinationSnapshot {
+            plans: vec![Plan {
+                id: plan_id.clone(),
+                goal: "ship".into(),
+                title: "ship".into(),
+                status: PlanStatus::Active,
+                policy: CoordinationPolicy::default(),
+                scope: PlanScope::Repo,
+                kind: PlanKind::TaskExecution,
+                revision: 1,
+                scheduling: PlanScheduling::default(),
+                tags: Vec::new(),
+                created_from: None,
+                metadata: serde_json::Value::Null,
+                authored_edges: Vec::new(),
+                root_tasks: vec![task_id.clone()],
+            }],
+            tasks: vec![
+                CoordinationTask {
+                    id: task_id.clone(),
+                    plan: plan_id.clone(),
+                    kind: PlanNodeKind::Edit,
+                    title: "Lease task".into(),
+                    summary: None,
+                    status: prism_ir::CoordinationTaskStatus::Ready,
+                    published_task_status: None,
+                    assignee: None,
+                    pending_handoff_to: None,
+                    session: None,
+                    lease_holder: None,
+                    lease_started_at: None,
+                    lease_refreshed_at: None,
+                    lease_stale_at: None,
+                    lease_expires_at: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    bindings: prism_ir::PlanBinding::default(),
+                    depends_on: vec![dependency_id.clone()],
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    base_revision: WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::json!({"estimatedMinutes": 12}),
+                    git_execution: TaskGitExecution::default(),
+                },
+                CoordinationTask {
+                    id: dependency_id.clone(),
+                    plan: plan_id,
+                    kind: PlanNodeKind::Edit,
+                    title: "Dependency".into(),
+                    summary: None,
+                    status: prism_ir::CoordinationTaskStatus::Completed,
+                    published_task_status: None,
+                    assignee: None,
+                    pending_handoff_to: None,
+                    session: None,
+                    lease_holder: None,
+                    lease_started_at: None,
+                    lease_refreshed_at: None,
+                    lease_stale_at: None,
+                    lease_expires_at: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    bindings: prism_ir::PlanBinding::default(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    base_revision: WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::Value::Null,
+                    git_execution: TaskGitExecution::default(),
+                },
+            ],
+            claims: Vec::new(),
+            artifacts: Vec::new(),
+            reviews: Vec::new(),
+            events: Vec::new(),
+            next_plan: 1,
+            next_task: 2,
+            next_claim: 0,
+            next_artifact: 0,
+            next_review: 0,
+        },
+        ProjectionIndex::default(),
+    );
+
+    let task = prism
+        .coordination_task_v2(&TaskId::new(task_id.0.clone()))
+        .expect("canonical task view");
+    assert_eq!(task.status, EffectiveTaskStatus::Pending);
+    assert_eq!(task.task.estimated_minutes, 12);
+    assert_eq!(task.dependencies.len(), 1);
+    assert_eq!(
+        task.dependencies[0].id,
+        TaskId::new(dependency_id.0.clone()).0
+    );
+    assert!(task.dependents.is_empty());
+}
+
+#[test]
+fn actionable_tasks_for_executor_v2_respects_canonical_executor_policy() {
+    let worktree_task_id = CoordinationTaskId::new("coord-task:worktree");
+    let human_task_id = CoordinationTaskId::new("coord-task:human");
+    let plan_id = PlanId::new("plan:lease");
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        CoordinationSnapshot {
+            plans: vec![Plan {
+                id: plan_id.clone(),
+                goal: "ship".into(),
+                title: "ship".into(),
+                status: PlanStatus::Active,
+                policy: CoordinationPolicy::default(),
+                scope: PlanScope::Repo,
+                kind: PlanKind::TaskExecution,
+                revision: 1,
+                scheduling: PlanScheduling::default(),
+                tags: Vec::new(),
+                created_from: None,
+                metadata: serde_json::Value::Null,
+                authored_edges: Vec::new(),
+                root_tasks: vec![worktree_task_id.clone(), human_task_id.clone()],
+            }],
+            tasks: vec![
+                CoordinationTask {
+                    id: worktree_task_id.clone(),
+                    plan: plan_id.clone(),
+                    kind: PlanNodeKind::Edit,
+                    title: "Worktree task".into(),
+                    summary: None,
+                    status: prism_ir::CoordinationTaskStatus::Ready,
+                    published_task_status: None,
+                    assignee: None,
+                    pending_handoff_to: None,
+                    session: None,
+                    lease_holder: None,
+                    lease_started_at: None,
+                    lease_refreshed_at: None,
+                    lease_stale_at: None,
+                    lease_expires_at: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    bindings: prism_ir::PlanBinding::default(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    base_revision: WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::Value::Null,
+                    git_execution: TaskGitExecution::default(),
+                },
+                CoordinationTask {
+                    id: human_task_id.clone(),
+                    plan: plan_id,
+                    kind: PlanNodeKind::Edit,
+                    title: "Human task".into(),
+                    summary: None,
+                    status: prism_ir::CoordinationTaskStatus::Ready,
+                    published_task_status: None,
+                    assignee: None,
+                    pending_handoff_to: None,
+                    session: None,
+                    lease_holder: None,
+                    lease_started_at: None,
+                    lease_refreshed_at: None,
+                    lease_stale_at: None,
+                    lease_expires_at: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    bindings: prism_ir::PlanBinding::default(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    base_revision: WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::json!({
+                        "executor": {
+                            "executorClass": "human"
+                        }
+                    }),
+                    git_execution: TaskGitExecution::default(),
+                },
+            ],
+            claims: Vec::new(),
+            artifacts: Vec::new(),
+            reviews: Vec::new(),
+            events: Vec::new(),
+            next_plan: 1,
+            next_task: 2,
+            next_claim: 0,
+            next_artifact: 0,
+            next_review: 0,
+        },
+        ProjectionIndex::default(),
+    );
+
+    let tasks = prism.actionable_tasks_for_executor_v2(&TaskExecutorCaller::new(
+        ExecutorClass::WorktreeExecutor,
+        None,
+        None,
+    ));
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0].task.id.0, TaskId::new(worktree_task_id.0).0);
 }
 
 #[test]
@@ -2664,7 +2940,7 @@ fn coordination_queries_expand_into_neighboring_symbols() {
 }
 
 #[test]
-fn task_execution_plan_graph_prefers_published_authored_fields_for_task_backed_nodes() {
+fn task_execution_plan_graph_keeps_published_authored_shape_but_uses_authoritative_status() {
     let graph = Graph::new();
     let history = HistoryStore::new();
     let outcomes = OutcomeMemory::new();
@@ -2845,14 +3121,9 @@ fn task_execution_plan_graph_prefers_published_authored_fields_for_task_backed_n
         .expect("task-backed node b should be projected");
     assert_eq!(runtime_node_b.title, "Native Task B");
     assert_eq!(runtime_node_b.kind, PlanNodeKind::Validate);
-    assert_eq!(runtime_node_b.status, PlanNodeStatus::Waiting);
+    assert_eq!(runtime_node_b.status, PlanNodeStatus::Ready);
     let runtime_execution = prism.plan_execution(&plan_id);
-    assert_eq!(runtime_execution.len(), 1);
-    assert_eq!(
-        runtime_execution[0].session,
-        Some(SessionId::new("session:native"))
-    );
-    assert_eq!(runtime_execution[0].effective_assignee, None);
+    assert!(runtime_execution.is_empty());
 }
 
 #[test]

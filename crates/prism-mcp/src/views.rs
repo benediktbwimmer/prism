@@ -14,16 +14,18 @@ use prism_js::{
     ContractGuaranteeStrengthView, ContractGuaranteeView, ContractHealthSignalsView,
     ContractHealthStatusView, ContractHealthView, ContractKindView, ContractPacketView,
     ContractResolutionView, ContractStabilityView, ContractStatusView, ContractTargetView,
-    ContractValidationView, CoordinationTaskLifecycleView, CoordinationTaskView, CuratorJobView,
-    CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView,
-    GitExecutionOverlayView, GitExecutionPolicyView, GitPreflightReportView, GitPublishReportView,
-    MemoryEntryView, MemoryEventView, NodeIdView, PlanAcceptanceCriterionView, PlanActivityView,
-    PlanBindingView, PlanEdgeView, PlanExecutionOverlayView, PlanGraphView, PlanListEntryView,
-    PlanNodeBlockerView, PlanNodeRecommendationView, PlanNodeStatusCountsView, PlanNodeView,
-    PlanSchedulingView, PlanSummaryView, PlanView, PolicyViolationRecordView, PolicyViolationView,
-    ProjectionAuthorityPlaneView, ProjectionClassView, QueryDiagnostic, ScoredMemoryView,
-    TaskGitExecutionView, TaskIntentView, TaskRiskView, TaskValidationRecipeView,
-    ValidationCheckView, ValidationRecipeView, ValidationRefView, WorkspaceRevisionView,
+    ContractValidationView, CoordinationPlanV2View, CoordinationTaskLifecycleView,
+    CoordinationTaskV2View, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
+    CuratorProposalView, DriftCandidateView, EdgeView, GitExecutionOverlayView,
+    GitExecutionPolicyView, GitPreflightReportView, GitPublishReportView, MemoryEntryView,
+    MemoryEventView, NodeIdView, NodeRefView, PlanAcceptanceCriterionView, PlanActivityView,
+    PlanBindingView, PlanChildrenV2View, PlanEdgeView, PlanExecutionOverlayView, PlanGraphView,
+    PlanListEntryView, PlanNodeBlockerView, PlanNodeRecommendationView, PlanNodeStatusCountsView,
+    PlanNodeView, PlanSchedulingView, PlanSummaryView, PlanView, PolicyViolationRecordView,
+    PolicyViolationView, ProjectionAuthorityPlaneView, ProjectionClassView, QueryDiagnostic,
+    ScoredMemoryView, TaskExecutorPolicyView, TaskGitExecutionView, TaskIntentView, TaskRiskView,
+    TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, ValidationRefView,
+    WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_projections::{ProjectionAuthorityPlane, ProjectionClass};
@@ -34,9 +36,9 @@ use prism_query::{
     ConceptResolution, ConceptScope, ContractCompatibility, ContractGuarantee,
     ContractGuaranteeStrength, ContractHealth, ContractHealthSignals, ContractHealthStatus,
     ContractKind, ContractPacket, ContractResolution, ContractStability, ContractStatus,
-    ContractTarget, ContractValidation, DriftCandidate, PlanActivity, PlanListEntry,
-    PlanNodeRecommendation, PlanNodeStatusCounts, PlanSummary, Prism, TaskIntent, TaskRisk,
-    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ContractTarget, ContractValidation, CoordinationPlanV2, CoordinationTaskV2, DriftCandidate,
+    PlanActivity, PlanListEntry, PlanNodeRecommendation, PlanNodeStatusCounts, PlanSummary, Prism,
+    TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
 use std::path::Path;
@@ -1308,6 +1310,250 @@ pub(crate) fn plan_view(
     }
 }
 
+pub(crate) fn plan_view_from_v2(
+    value: CoordinationPlanV2,
+    legacy: Option<prism_coordination::Plan>,
+    activity: Option<PlanActivity>,
+) -> PlanView {
+    PlanView {
+        id: value.plan.id.0.to_string(),
+        title: value.plan.title,
+        goal: value.plan.goal,
+        status: compatibility_plan_status(value.status),
+        scope: value.plan.scope,
+        kind: value.plan.kind,
+        revision: legacy.map_or(0, |plan| plan.revision),
+        scheduling: plan_scheduling_view(value.plan.scheduling),
+        git_execution_policy: git_execution_policy_view(value.plan.policy.git_execution),
+        tags: value.plan.tags,
+        created_from: value.plan.created_from,
+        root_node_ids: value.children.into_iter().map(|child| child.id).collect(),
+        activity: activity.map(plan_activity_view),
+    }
+}
+
+pub(crate) fn node_ref_view(value: prism_ir::NodeRef) -> NodeRefView {
+    NodeRefView {
+        kind: value.kind,
+        id: value.id,
+    }
+}
+
+pub(crate) fn plan_children_v2_view(
+    plan_id: &prism_ir::PlanId,
+    children: Vec<prism_ir::NodeRef>,
+) -> PlanChildrenV2View {
+    PlanChildrenV2View {
+        plan_id: plan_id.0.to_string(),
+        children: children.into_iter().map(node_ref_view).collect(),
+    }
+}
+
+pub(crate) fn coordination_plan_v2_view(value: CoordinationPlanV2) -> CoordinationPlanV2View {
+    CoordinationPlanV2View {
+        id: value.plan.id.0.to_string(),
+        parent_plan_id: value
+            .plan
+            .parent_plan_id
+            .map(|plan_id| plan_id.0.to_string()),
+        title: value.plan.title,
+        goal: value.plan.goal,
+        scope: value.plan.scope,
+        kind: value.plan.kind,
+        operator_state: value.plan.operator_state,
+        status: value.status,
+        scheduling: plan_scheduling_view(value.plan.scheduling),
+        tags: value.plan.tags,
+        created_from: value.plan.created_from,
+        metadata: value.plan.metadata,
+        children: value.children.into_iter().map(node_ref_view).collect(),
+        dependencies: value.dependencies.into_iter().map(node_ref_view).collect(),
+        dependents: value.dependents.into_iter().map(node_ref_view).collect(),
+        estimated_minutes_total: value.estimated_minutes_total,
+        remaining_estimated_minutes: value.remaining_estimated_minutes,
+    }
+}
+
+pub(crate) fn task_executor_policy_view(
+    value: prism_ir::TaskExecutorPolicy,
+) -> TaskExecutorPolicyView {
+    TaskExecutorPolicyView {
+        executor_class: value.executor_class,
+        target_label: value.target_label,
+        allowed_principals: value
+            .allowed_principals
+            .into_iter()
+            .map(|principal| principal.0.to_string())
+            .collect(),
+    }
+}
+
+pub(crate) fn coordination_task_v2_view(value: CoordinationTaskV2) -> CoordinationTaskV2View {
+    CoordinationTaskV2View {
+        id: value.task.id.0.to_string(),
+        parent_plan_id: value.task.parent_plan_id.0.to_string(),
+        title: value.task.title,
+        summary: value.task.summary,
+        lifecycle_status: value.task.lifecycle_status,
+        status: value.status,
+        graph_actionable: value.graph_actionable,
+        estimated_minutes: value.task.estimated_minutes,
+        executor: task_executor_policy_view(value.task.executor),
+        assignee: value.task.assignee.map(|agent| agent.0.to_string()),
+        session: value.task.session.map(|session| session.0.to_string()),
+        worktree_id: value.task.worktree_id,
+        branch_ref: value.task.branch_ref,
+        anchors: value.task.anchors,
+        bindings: plan_binding_view(value.task.bindings),
+        validation_refs: value
+            .task
+            .validation_refs
+            .into_iter()
+            .map(|check| ValidationRefView { id: check.id })
+            .collect(),
+        base_revision: workspace_revision_view(value.task.base_revision),
+        priority: value.task.priority,
+        tags: value.task.tags,
+        metadata: value.task.metadata,
+        git_execution: TaskGitExecutionView {
+            status: value.task.git_execution.status,
+            pending_task_status: value.task.git_execution.pending_task_status,
+            source_ref: value.task.git_execution.source_ref,
+            target_ref: value.task.git_execution.target_ref,
+            publish_ref: value.task.git_execution.publish_ref,
+            target_branch: value.task.git_execution.target_branch,
+            source_commit: value.task.git_execution.source_commit,
+            publish_commit: value.task.git_execution.publish_commit,
+            target_commit_at_publish: value.task.git_execution.target_commit_at_publish,
+            review_artifact_ref: value.task.git_execution.review_artifact_ref,
+            integration_commit: value.task.git_execution.integration_commit,
+            integration_evidence: value.task.git_execution.integration_evidence,
+            integration_mode: value.task.git_execution.integration_mode,
+            integration_status: value.task.git_execution.integration_status,
+            last_preflight: value
+                .task
+                .git_execution
+                .last_preflight
+                .map(git_preflight_report_view),
+            last_publish: value
+                .task
+                .git_execution
+                .last_publish
+                .map(git_publish_report_view),
+        },
+        blocker_causes: value
+            .blocker_causes
+            .into_iter()
+            .map(blocker_cause_view)
+            .collect(),
+        dependencies: value.dependencies.into_iter().map(node_ref_view).collect(),
+        dependents: value.dependents.into_iter().map(node_ref_view).collect(),
+    }
+}
+
+pub(crate) fn coordination_task_view_from_v2(
+    value: CoordinationTaskV2,
+    legacy: Option<prism_coordination::CoordinationTask>,
+) -> CoordinationTaskView {
+    let published_task_status = legacy
+        .as_ref()
+        .and_then(|task| task.published_task_status)
+        .or_else(|| {
+            metadata_compat_task_status(&value.task.metadata, "legacy_published_task_status")
+        });
+    let pending_handoff_to = legacy
+        .as_ref()
+        .and_then(|task| {
+            task.pending_handoff_to
+                .as_ref()
+                .map(|agent| agent.0.to_string())
+        })
+        .or_else(|| metadata_string(&value.task.metadata, "legacy_pending_handoff_to"));
+    let status = compatibility_coordination_task_status(
+        &value,
+        published_task_status,
+        pending_handoff_to.as_deref(),
+    );
+    let lifecycle = coordination_task_lifecycle_view(status, &value.task.git_execution);
+    let depends_on = task_dependency_ids(&value.dependencies);
+    CoordinationTaskView {
+        id: value.task.id.0.to_string(),
+        plan_id: value.task.parent_plan_id.0.to_string(),
+        kind: legacy
+            .as_ref()
+            .map(|task| task.kind)
+            .or_else(|| metadata_compat_task_kind(&value.task.metadata))
+            .unwrap_or(prism_ir::PlanNodeKind::Edit),
+        title: value.task.title,
+        summary: value.task.summary,
+        status,
+        published_task_status,
+        assignee: value.task.assignee.map(|agent| agent.0.to_string()),
+        pending_handoff_to,
+        anchors: value.task.anchors,
+        bindings: plan_binding_view(value.task.bindings),
+        depends_on,
+        coordination_depends_on: legacy
+            .as_ref()
+            .map(|task| {
+                task.coordination_depends_on
+                    .iter()
+                    .map(|task_id| task_id.0.to_string())
+                    .collect()
+            })
+            .unwrap_or_default(),
+        integrated_depends_on: legacy
+            .as_ref()
+            .map(|task| {
+                task.integrated_depends_on
+                    .iter()
+                    .map(|task_id| task_id.0.to_string())
+                    .collect()
+            })
+            .unwrap_or_default(),
+        lifecycle,
+        validation_refs: value
+            .task
+            .validation_refs
+            .into_iter()
+            .map(|check| ValidationRefView { id: check.id })
+            .collect(),
+        is_abstract: legacy
+            .as_ref()
+            .map(|task| task.is_abstract)
+            .unwrap_or_else(|| metadata_bool(&value.task.metadata, "legacy_is_abstract")),
+        base_revision: workspace_revision_view(value.task.base_revision),
+        priority: value.task.priority,
+        tags: value.task.tags,
+        git_execution: TaskGitExecutionView {
+            status: value.task.git_execution.status,
+            pending_task_status: value.task.git_execution.pending_task_status,
+            source_ref: value.task.git_execution.source_ref,
+            target_ref: value.task.git_execution.target_ref,
+            publish_ref: value.task.git_execution.publish_ref,
+            target_branch: value.task.git_execution.target_branch,
+            source_commit: value.task.git_execution.source_commit,
+            publish_commit: value.task.git_execution.publish_commit,
+            target_commit_at_publish: value.task.git_execution.target_commit_at_publish,
+            review_artifact_ref: value.task.git_execution.review_artifact_ref,
+            integration_commit: value.task.git_execution.integration_commit,
+            integration_evidence: value.task.git_execution.integration_evidence,
+            integration_mode: value.task.git_execution.integration_mode,
+            integration_status: value.task.git_execution.integration_status,
+            last_preflight: value
+                .task
+                .git_execution
+                .last_preflight
+                .map(git_preflight_report_view),
+            last_publish: value
+                .task
+                .git_execution
+                .last_publish
+                .map(git_publish_report_view),
+        },
+    }
+}
+
 pub(crate) fn plan_list_entry_view(value: PlanListEntry) -> PlanListEntryView {
     let activity = plan_activity_view(value.activity);
     PlanListEntryView {
@@ -1813,6 +2059,115 @@ fn effective_coordination_task_status(
     } else {
         task.published_task_status.unwrap_or(task.status)
     }
+}
+
+fn compatibility_plan_status(status: prism_ir::DerivedPlanStatus) -> prism_ir::PlanStatus {
+    match status {
+        prism_ir::DerivedPlanStatus::Pending | prism_ir::DerivedPlanStatus::Active => {
+            prism_ir::PlanStatus::Active
+        }
+        prism_ir::DerivedPlanStatus::Blocked
+        | prism_ir::DerivedPlanStatus::BrokenDependency
+        | prism_ir::DerivedPlanStatus::Failed => prism_ir::PlanStatus::Blocked,
+        prism_ir::DerivedPlanStatus::Completed => prism_ir::PlanStatus::Completed,
+        prism_ir::DerivedPlanStatus::Abandoned => prism_ir::PlanStatus::Abandoned,
+        prism_ir::DerivedPlanStatus::Archived => prism_ir::PlanStatus::Archived,
+    }
+}
+
+fn compatibility_coordination_task_status(
+    task: &CoordinationTaskV2,
+    published_task_status: Option<prism_ir::CoordinationTaskStatus>,
+    pending_handoff_to: Option<&str>,
+) -> prism_ir::CoordinationTaskStatus {
+    if pending_handoff_to.is_some() {
+        prism_ir::CoordinationTaskStatus::Blocked
+    } else if let Some(status) = published_task_status {
+        status
+    } else if let Some(status) = metadata_compat_phase_status(&task.task.metadata) {
+        status
+    } else {
+        compatibility_effective_task_status(task.status)
+    }
+}
+
+fn compatibility_effective_task_status(
+    status: prism_ir::EffectiveTaskStatus,
+) -> prism_ir::CoordinationTaskStatus {
+    match status {
+        prism_ir::EffectiveTaskStatus::Pending => prism_ir::CoordinationTaskStatus::Ready,
+        prism_ir::EffectiveTaskStatus::Active => prism_ir::CoordinationTaskStatus::InProgress,
+        prism_ir::EffectiveTaskStatus::Blocked
+        | prism_ir::EffectiveTaskStatus::BrokenDependency
+        | prism_ir::EffectiveTaskStatus::Failed => prism_ir::CoordinationTaskStatus::Blocked,
+        prism_ir::EffectiveTaskStatus::Completed => prism_ir::CoordinationTaskStatus::Completed,
+        prism_ir::EffectiveTaskStatus::Abandoned => prism_ir::CoordinationTaskStatus::Abandoned,
+    }
+}
+
+fn task_dependency_ids(dependencies: &[prism_ir::NodeRef]) -> Vec<String> {
+    dependencies
+        .iter()
+        .filter(|dependency| dependency.kind == prism_ir::NodeRefKind::Task)
+        .map(|dependency| dependency.id.clone())
+        .collect()
+}
+
+fn metadata_string(metadata: &serde_json::Value, key: &str) -> Option<String> {
+    metadata
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+}
+
+fn metadata_bool(metadata: &serde_json::Value, key: &str) -> bool {
+    metadata
+        .get(key)
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn metadata_compat_task_status(
+    metadata: &serde_json::Value,
+    key: &str,
+) -> Option<prism_ir::CoordinationTaskStatus> {
+    metadata_string(metadata, key).and_then(|value| match value.as_str() {
+        "proposed" => Some(prism_ir::CoordinationTaskStatus::Proposed),
+        "ready" => Some(prism_ir::CoordinationTaskStatus::Ready),
+        "blocked" => Some(prism_ir::CoordinationTaskStatus::Blocked),
+        "in_progress" => Some(prism_ir::CoordinationTaskStatus::InProgress),
+        "in_review" => Some(prism_ir::CoordinationTaskStatus::InReview),
+        "validating" => Some(prism_ir::CoordinationTaskStatus::Validating),
+        "completed" => Some(prism_ir::CoordinationTaskStatus::Completed),
+        "abandoned" => Some(prism_ir::CoordinationTaskStatus::Abandoned),
+        _ => None,
+    })
+}
+
+fn metadata_compat_phase_status(
+    metadata: &serde_json::Value,
+) -> Option<prism_ir::CoordinationTaskStatus> {
+    metadata_string(metadata, "legacy_phase").and_then(|value| match value.as_str() {
+        "blocked" => Some(prism_ir::CoordinationTaskStatus::Blocked),
+        "in_review" => Some(prism_ir::CoordinationTaskStatus::InReview),
+        "validating" => Some(prism_ir::CoordinationTaskStatus::Validating),
+        _ => None,
+    })
+}
+
+fn metadata_compat_task_kind(metadata: &serde_json::Value) -> Option<prism_ir::PlanNodeKind> {
+    metadata_string(metadata, "legacy_kind").and_then(|value| match value.as_str() {
+        "investigate" => Some(prism_ir::PlanNodeKind::Investigate),
+        "decide" => Some(prism_ir::PlanNodeKind::Decide),
+        "edit" => Some(prism_ir::PlanNodeKind::Edit),
+        "validate" => Some(prism_ir::PlanNodeKind::Validate),
+        "review" => Some(prism_ir::PlanNodeKind::Review),
+        "handoff" => Some(prism_ir::PlanNodeKind::Handoff),
+        "merge" => Some(prism_ir::PlanNodeKind::Merge),
+        "release" => Some(prism_ir::PlanNodeKind::Release),
+        "note" => Some(prism_ir::PlanNodeKind::Note),
+        _ => None,
+    })
 }
 
 #[cfg(test)]

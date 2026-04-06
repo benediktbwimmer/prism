@@ -2353,7 +2353,9 @@ impl WorkspaceSession {
             let mut store = shared_runtime_store
                 .lock()
                 .expect("shared runtime store lock poisoned");
-            if let Some(snapshot) = store.load_hydrated_coordination_snapshot_for_root(&self.root)? {
+            if let Some(snapshot) =
+                store.load_hydrated_coordination_snapshot_for_root(&self.root)?
+            {
                 Ok(Some(snapshot))
             } else {
                 self.store

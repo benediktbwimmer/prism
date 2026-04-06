@@ -17,6 +17,7 @@ use prism_store::{
 };
 use serde_json::{json, Value};
 
+use crate::coordination_snapshot_sanitization::sanitize_persisted_coordination_snapshot;
 use crate::coordination_startup_checkpoint::{
     load_materialized_coordination_plan_state, load_materialized_coordination_snapshot,
     load_materialized_coordination_snapshot_v2, save_shared_coordination_startup_checkpoint,
@@ -33,8 +34,7 @@ use crate::tracked_snapshot::{
 use crate::workspace_identity::coordination_persist_context_for_root;
 
 const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
-const TEST_SHARED_COORDINATION_REF_PUBLISH_OPT_IN: &str =
-    "enable_shared_coordination_ref_publish";
+const TEST_SHARED_COORDINATION_REF_PUBLISH_OPT_IN: &str = "enable_shared_coordination_ref_publish";
 
 fn shared_coordination_ref_publish_enabled(root: &Path) -> bool {
     let disabled = env::var_os("PRISM_TEST_DISABLE_SHARED_COORDINATION_REF_PUBLISH")
@@ -658,7 +658,7 @@ pub(crate) fn repo_semantic_coordination_snapshot(
         task.branch_ref = None;
         task.git_execution = TaskGitExecution::default();
     }
-    snapshot
+    sanitize_persisted_coordination_snapshot(snapshot)
 }
 
 impl<T: CoordinationJournal + CoordinationCheckpointStore + ?Sized> CoordinationPersistenceBackend
