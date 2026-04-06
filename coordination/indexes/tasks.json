@@ -4,5 +4,11 @@
     "title": "Add explicit snapshot repair and regeneration commands for merge and rebase conflicts",
     "status": "Completed",
     "path": "tasks/coord-task-01knaqn6kmcv0347syd3zxjvk2-c82d9628ae3e25bf.json"
+  },
+  {
+    "id": "coord-task:01knhd3xjt2fhje7kf9rygys8r",
+    "title": "Implement coordination-only session, bootstrap, and runtime paths",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhd3xjt2fhje7kf9rygys8r-d1c9ae55966aebbe.json"
   }
 ]
