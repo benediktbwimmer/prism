@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn13pz030s4q1c3qrbbg203f",
+    "title": "Specify authoritative-vs-derived persistence boundaries and crash semantics for every persisted domain",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13pz030s4q1c3qrbbg203f-53eb7b07b080b85b.json"
+  },
+  {
+    "id": "coord-task:01kn8rn49cxj6cs4rdhxxg0j8c",
+    "title": "Define the protected repo-published logical identity artifact in .prism",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8rn49cxj6cs4rdhxxg0j8c-c7a0ac4c631b468b.json"
+  },
+  {
+    "id": "coord-task:01kncfwbeab4tk0mq2wk147k9x",
+    "title": "Implement authenticated remote prism_query execution keyed by runtime_id",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kncfwbeab4tk0mq2wk147k9x-541d173615cd1044.json"
+  }
+]
