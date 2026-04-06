@@ -59,7 +59,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": "refs/heads/task/shared-coordination-archive-plane",
+    "branch_ref": null,
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng42700hg2hrewgm8542y9j",
@@ -70,35 +70,18 @@
       "integrationEvidence": null,
       "integrationMode": "external",
       "integrationStatus": "not_started",
-      "lastPreflight": {
-        "behindTargetCommits": 0,
-        "checkedAt": 1775477100,
-        "currentBranch": "task/shared-coordination-archive-plane",
-        "dirtyPaths": [],
-        "failure": null,
-        "fetchAgeSeconds": null,
-        "headCommit": "ce0029898e2cbd5ceae4e56d4b8a24240cb23858",
-        "maxCommitsBehindTarget": 0,
-        "mergeBaseCommit": "ce0029898e2cbd5ceae4e56d4b8a24240cb23858",
-        "protectedDirtyPaths": [],
-        "publishRef": "task/shared-coordination-archive-plane",
-        "sourceRef": "task/shared-coordination-archive-plane",
-        "targetBranch": "main",
-        "targetCommit": "ce0029898e2cbd5ceae4e56d4b8a24240cb23858",
-        "targetRef": "origin/main",
-        "worktreeDirty": false
-      },
+      "lastPreflight": null,
       "lastPublish": null,
       "pendingTaskStatus": null,
       "publishCommit": null,
-      "publishRef": "task/shared-coordination-archive-plane",
+      "publishRef": null,
       "reviewArtifactRef": null,
-      "sourceCommit": "ce0029898e2cbd5ceae4e56d4b8a24240cb23858",
-      "sourceRef": "task/shared-coordination-archive-plane",
-      "status": "in_progress",
-      "targetBranch": "main",
-      "targetCommitAtPublish": "ce0029898e2cbd5ceae4e56d4b8a24240cb23858",
-      "targetRef": "origin/main"
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
     },
     "id": "coord-task:01kng42700nvzfm7p6tkh3v06p",
     "integrated_depends_on": [],
@@ -124,13 +107,13 @@
     "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01knhb34cd8t0h9zjkd0a2gr3q",
+    "session": null,
     "status": "InProgress",
     "summary": null,
     "tags": [],
     "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
     "validation_refs": [],
-    "worktree_id": "worktree:5820c89d186523db"
+    "worktree_id": null
   },
   "schema_version": 1
 }
