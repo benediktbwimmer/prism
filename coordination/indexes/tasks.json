@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn13r7qf0yf4kqqng4a3nt4w",
+    "title": "Preserve bounded hot memory and codify explicit hot-only, hot-plus-cold, and cold-backed query paths",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13r7qf0yf4kqqng4a3nt4w-4570a08e1fd6a866.json"
+  },
+  {
+    "id": "coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
+    "title": "Design the local materialized coordination snapshot/checkpoint",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knb0hdvk3pmkwcjkq0zzjgmq-0f7cc4735a85ef70.json"
+  }
+]
