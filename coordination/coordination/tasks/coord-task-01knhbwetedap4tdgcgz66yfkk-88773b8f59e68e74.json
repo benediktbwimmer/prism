@@ -18,10 +18,10 @@
         "File": 91
       }
     ],
-    "assignee": null,
+    "assignee": "codex-a",
     "base_revision": {
       "git_commit": null,
-      "graph_version": 114
+      "graph_version": 367
     },
     "bindings": {
       "anchors": [
@@ -40,7 +40,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": "refs/heads/task/coordination-query-mcp-rewrite",
+    "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01knhbwestce3vvf17y44330hw",
@@ -70,33 +70,23 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775485327,
-    "lease_holder": {
-      "agent_id": null,
-      "principal": {
-        "authority_id": "worktree_executor",
-        "kind": "agent",
-        "name": "codex-a",
-        "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
-      },
-      "session_id": "session:01knhbapwgzc1nbjxrec0n36g4",
-      "worktree_id": "worktree:38d65972b1359401"
-    },
-    "lease_refreshed_at": 1775478127,
-    "lease_stale_at": 1775479927,
-    "lease_started_at": 1775478127,
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01knhbwesj53rq8f301x6r51qj",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01knhbapwgzc1nbjxrec0n36g4",
-    "status": "Ready",
+    "session": "session:01knjjc4f19sdjdteqn6d0d17z",
+    "status": "Completed",
     "summary": null,
     "tags": [],
     "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
     "validation_refs": [],
-    "worktree_id": "worktree:38d65972b1359401"
+    "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "schema_version": 1
 }
