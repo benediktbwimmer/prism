@@ -34,7 +34,7 @@
     "assignee": "codex-d",
     "base_revision": {
       "git_commit": null,
-      "graph_version": 383
+      "graph_version": 547
     },
     "bindings": {
       "anchors": [
@@ -72,9 +72,15 @@
       "integrationStatus": "not_started",
       "lastPreflight": {
         "behindTargetCommits": 0,
-        "checkedAt": 1775477100,
+        "checkedAt": 1775479161,
         "currentBranch": "task/shared-coordination-archive-plane",
-        "dirtyPaths": [],
+        "dirtyPaths": [
+          "crates/prism-core/src/lib.rs",
+          "crates/prism-core/src/shared_coordination_ref.rs",
+          "crates/prism-js/src/api_types.rs",
+          "crates/prism-mcp/src/runtime_views.rs",
+          "crates/prism-core/src/shared_coordination_archive.rs"
+        ],
         "failure": null,
         "fetchAgeSeconds": null,
         "headCommit": "ce0029898e2cbd5ceae4e56d4b8a24240cb23858",
@@ -86,16 +92,31 @@
         "targetBranch": "main",
         "targetCommit": "ce0029898e2cbd5ceae4e56d4b8a24240cb23858",
         "targetRef": "origin/main",
-        "worktreeDirty": false
+        "worktreeDirty": true
       },
-      "lastPublish": null,
-      "pendingTaskStatus": null,
+      "lastPublish": {
+        "attemptedAt": 1775479161,
+        "codeCommit": null,
+        "coordinationCommit": null,
+        "failure": "completion mode `require` needs user changes committed before completion; dirty user paths: crates/prism-core/src/lib.rs, crates/prism-core/src/shared_coordination_ref.rs, crates/prism-js/src/api_types.rs, crates/prism-mcp/src/runtime_views.rs, crates/prism-core/src/shared_coordination_archive.rs",
+        "protectedPaths": [],
+        "publishRef": "task/shared-coordination-archive-plane",
+        "pushedRef": null,
+        "stagedPaths": [
+          "crates/prism-core/src/lib.rs",
+          "crates/prism-core/src/shared_coordination_ref.rs",
+          "crates/prism-js/src/api_types.rs",
+          "crates/prism-mcp/src/runtime_views.rs",
+          "crates/prism-core/src/shared_coordination_archive.rs"
+        ]
+      },
+      "pendingTaskStatus": "Completed",
       "publishCommit": null,
       "publishRef": "task/shared-coordination-archive-plane",
       "reviewArtifactRef": null,
       "sourceCommit": "ce0029898e2cbd5ceae4e56d4b8a24240cb23858",
       "sourceRef": "task/shared-coordination-archive-plane",
-      "status": "in_progress",
+      "status": "publish_failed",
       "targetBranch": "main",
       "targetCommitAtPublish": "ce0029898e2cbd5ceae4e56d4b8a24240cb23858",
       "targetRef": "origin/main"
@@ -104,7 +125,7 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775486317,
+    "lease_expires_at": 1775486362,
     "lease_holder": {
       "agent_id": "codex-d",
       "principal": {
@@ -116,8 +137,8 @@
       "session_id": "session:01knhcsjbjx57e6kbme89890c1",
       "worktree_id": "worktree:5820c89d186523db"
     },
-    "lease_refreshed_at": 1775479117,
-    "lease_stale_at": 1775480917,
+    "lease_refreshed_at": 1775479162,
+    "lease_stale_at": 1775480962,
     "lease_started_at": 1775436372,
     "metadata": null,
     "pending_handoff_to": null,
