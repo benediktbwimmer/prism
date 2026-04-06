@@ -1,0 +1,77 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "The bridge can detect dead upstream daemon state and trigger a safe restart or respawn flow instead of only retrying a stale URI."
+      },
+      {
+        "anchors": [],
+        "label": "Recovery behavior is bounded and avoids silent infinite churn or duplicate-daemon storms."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 21
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn80ry7wvfr9w7gp0dw8s5s6"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn80sf4w82cwjjy9xtsdatq8",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn80rqn6t0pgv1dt0zqay9j5",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Bootstrapped bridges now resolve reconnect targets through daemon resolution instead of retrying stale URI-file values indefinitely, targeted reconnect tests passed, and the updated release daemon restarted healthy. A full workspace cargo test rerun hit the known flaky runtime-sync timing test again, but the isolated rerun passed and validation was treated as successful under repo policy.",
+    "tags": [
+      "bridge",
+      "daemon",
+      "self-healing"
+    ],
+    "title": "Make the bridge self-heal dead upstream daemons instead of retrying a stale URI indefinitely",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

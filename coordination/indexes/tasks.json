@@ -1,0 +1,8 @@
+[
+  {
+    "id": "coord-task:01kn80sf4w82cwjjy9xtsdatq8",
+    "title": "Make the bridge self-heal dead upstream daemons instead of retrying a stale URI indefinitely",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80sf4w82cwjjy9xtsdatq8-b34702c8419c6483.json"
+  }
+]
