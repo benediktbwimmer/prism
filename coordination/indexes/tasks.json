@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kmzvjdhb531p74z3efn6smg3",
+    "title": "Milestone 10: Dogfood, validate, and ship the Prism UI control plane safely",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kmzvjdhb531p74z3efn6smg3-1fc8964fade31ae7.json"
+  },
+  {
+    "id": "coord-task:01kn0c12nn24r0d6sdphez2gtj",
+    "title": "Lock and queue observability",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0c12nn24r0d6sdphez2gtj-514f0ce98ea8ff19.json"
+  }
+]
