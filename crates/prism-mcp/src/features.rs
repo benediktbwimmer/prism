@@ -418,6 +418,33 @@ impl PrismMcpFeatures {
             _ => true,
         }
     }
+
+    pub(crate) fn vocabulary_category_visible(&self, key: &str) -> bool {
+        match key {
+            "coordinationMutationKind"
+            | "coordinationTaskStatus"
+            | "planStatus"
+            | "planScope"
+            | "planNodeStatus"
+            | "planNodeKind"
+            | "planEdgeKind"
+            | "acceptanceEvidencePolicy" => self.coordination.workflow,
+            "claimAction" | "capability" | "claimMode" => self.coordination.claims,
+            "artifactAction" | "reviewVerdict" => self.coordination.artifacts,
+            "prismLocateTaskIntent" => self.is_tool_enabled("prism_locate"),
+            "prismOpenMode" => self.is_tool_enabled("prism_open"),
+            "prismExpandKind" => self.is_tool_enabled("prism_expand"),
+            "prismConceptLens" => self.is_tool_enabled("prism_concept"),
+            _ => true,
+        }
+    }
+
+    pub(crate) fn vocabulary_value_visible(&self, key: &str, value: &str) -> bool {
+        match key {
+            "prismMutateAction" => self.prism_mutate_action_enabled(value),
+            _ => self.vocabulary_category_visible(key),
+        }
+    }
 }
 
 impl QueryViewFeatureFlag {

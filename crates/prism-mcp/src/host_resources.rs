@@ -310,7 +310,7 @@ impl QueryHost {
     }
 
     pub(crate) fn vocab_resource_value(&self) -> VocabularyResourcePayload {
-        vocab_resource_value()
+        vocab_resource_value(&self.features)
     }
 
     pub(crate) fn task_metadata(

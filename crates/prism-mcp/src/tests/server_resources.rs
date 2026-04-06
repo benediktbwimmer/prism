@@ -692,6 +692,44 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .unwrap();
     let vocab = response_json(client.receive().await.unwrap());
     assert!(vocab.get("error").is_none(), "{vocab}");
+    let vocab_payload = serde_json::from_str::<Value>(
+        vocab["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("vocab resource should be text"),
+    )
+    .unwrap();
+    let vocab_keys = vocab_payload["vocabularies"]
+        .as_array()
+        .expect("vocabularies should be an array")
+        .iter()
+        .filter_map(|entry| entry["key"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert!(vocab_keys.contains("prismMutateAction"));
+    assert!(vocab_keys.contains("coordinationMutationKind"));
+    assert!(vocab_keys.contains("planStatus"));
+    assert!(vocab_keys.contains("claimAction"));
+    assert!(vocab_keys.contains("artifactAction"));
+    assert!(!vocab_keys.contains("prismLocateTaskIntent"));
+    let mutate_actions = vocab_payload["vocabularies"]
+        .as_array()
+        .expect("vocabularies should be an array")
+        .iter()
+        .find(|entry| entry["key"] == "prismMutateAction")
+        .and_then(|entry| entry["values"].as_array())
+        .expect("prismMutateAction values should exist")
+        .iter()
+        .filter_map(|value| value["value"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        mutate_actions,
+        std::collections::BTreeSet::from([
+            "artifact",
+            "claim",
+            "coordination",
+            "declare_work",
+            "heartbeat_lease",
+        ])
+    );
 
     client
         .send(read_resource_request(16, TOOL_SCHEMAS_URI))
@@ -760,6 +798,42 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .unwrap();
     let coordination_action_schema = response_json(client.receive().await.unwrap());
     assert!(coordination_action_schema.get("error").is_none());
+
+    client
+        .send(read_resource_request(20, "prism://vocab/claimAction"))
+        .await
+        .unwrap();
+    let visible_claim_vocab_entry = response_json(client.receive().await.unwrap());
+    assert!(
+        visible_claim_vocab_entry.get("error").is_none(),
+        "{visible_claim_vocab_entry}"
+    );
+
+    client
+        .send(read_resource_request(
+            21,
+            "prism://vocab/coordinationMutationKind",
+        ))
+        .await
+        .unwrap();
+    let visible_vocab_entry = response_json(client.receive().await.unwrap());
+    assert!(
+        visible_vocab_entry.get("error").is_none(),
+        "{visible_vocab_entry}"
+    );
+
+    client
+        .send(read_resource_request(
+            22,
+            "prism://vocab/prismLocateTaskIntent",
+        ))
+        .await
+        .unwrap();
+    let hidden_cognition_vocab_entry = response_json(client.receive().await.unwrap());
+    assert!(
+        hidden_cognition_vocab_entry.get("error").is_some(),
+        "{hidden_cognition_vocab_entry}"
+    );
 
     let _ = running.cancel().await;
 }
