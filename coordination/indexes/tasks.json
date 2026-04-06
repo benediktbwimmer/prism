@@ -4,5 +4,11 @@
     "title": "Validate and dogfood snapshot merge recovery in a real rebase scenario",
     "status": "Completed",
     "path": "tasks/coord-task-01knaqnk440qpjcssdta8anmv7-1e153d4af2c9392c.json"
+  },
+  {
+    "id": "coord-task:01knhbywmedse2twkahtfcz8vk",
+    "title": "Stop using shared runtime SQLite as a sink for rich runtime materialization and keep those journals local-only",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbywmedse2twkahtfcz8vk-8dc52d3b51443fec.json"
   }
 ]
