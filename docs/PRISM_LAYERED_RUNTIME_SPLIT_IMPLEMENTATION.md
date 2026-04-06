@@ -589,6 +589,55 @@ The minimum validation matrix for this rewrite is:
 - `test:knowledge-storage-mode`
 - `test:full-mode-regression`
 
+### 9.1 Coordination-only matrix currently covered on this branch
+
+Core runtime coverage:
+
+- startup and reload without graph indexing:
+  `hydrate_coordination_only_session_skips_graph_indexing_and_reloads_coordination_state`
+- indexed session bootstrap still skips cognition work:
+  `indexed_coordination_only_session_still_skips_graph_indexing`
+- refresh updates the workspace snapshot without graph indexing:
+  `coordination_only_refresh_fs_updates_snapshot_without_graph_indexing`
+- refresh strips live projection knowledge:
+  `coordination_only_refresh_fs_drops_live_projection_knowledge`
+- refresh strips live outcomes when knowledge storage is disabled:
+  `coordination_only_refresh_fs_drops_live_outcomes_without_knowledge_storage`
+- protected-state reload ignores knowledge streams:
+  `coordination_only_protected_state_watch_ignores_knowledge_streams`
+- reopen from full mode hides knowledge layers:
+  `coordination_only_mode_reopens_full_workspace_without_exposing_knowledge_layers`
+- reopen from coordination-only back to full rehydrates graph state:
+  `full_mode_reopens_coordination_only_workspace_and_rehydrates_graph_state`
+- shared-runtime SQLite reload preserves coordination-only behavior:
+  `coordination_only_shared_runtime_sqlite_reloads_coordination_without_graph_state`
+  `coordination_only_shared_runtime_sqlite_hides_knowledge_when_reopened_from_full_mode`
+  `full_mode_shared_runtime_sqlite_reopens_coordination_only_workspace_and_rehydrates_graph_state`
+
+Coordination/query contract coverage:
+
+- durable plan bindings survive without knowledge storage:
+  `coordination_only_reload_preserves_durable_plan_bindings_without_knowledge_storage`
+  `coordination_only_reopen_from_full_preserves_native_plan_bindings`
+  `coordination_only_shared_runtime_sqlite_preserves_native_plan_bindings_from_full_mode`
+
+MCP surface coverage:
+
+- coordination-only query surface keeps coordination reads and rejects cognition reads:
+  `coordination_only_prism_query_keeps_coordination_reads_and_rejects_cognition_reads`
+- `prism_mutate` advertises only coordination-safe actions:
+  `coordination_only_prism_query_filters_mutate_schema_and_validation`
+- reduced plan and artifact reads degrade deliberately:
+  `coordination_only_prism_query_plan_graph_keeps_durable_bindings`
+  `coordination_only_prism_query_artifact_risk_uses_degraded_artifact_view`
+- daemon and bridge surfaces stay reduced:
+  `coordination_only_server_strips_cognition_tools_and_resources`
+  `coordination_only_bootstrap_tool_cache_matches_reduced_surface`
+- instructions stay mode-correct:
+  `coordination_only_instructions_strip_cognition_guidance`
+  `coordination_only_instruction_render_reflects_feature_toggles`
+  `coordination_only_task_brief_avoids_stripped_tool_guidance`
+
 Validation tiers:
 
 - always run targeted tests for every touched crate
