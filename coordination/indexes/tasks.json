@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+    "title": "Lock the canonical path identity contract and no-absolute-path boundary",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9vd1qxxaht9ap1ygbmd23g-d9269388d653f53f.json"
+  },
+  {
+    "id": "coord-task:01kn9xt9h76645shp4jcmt0bsv",
+    "title": "Lock the tracked changes removal contract and commit-history trust boundary",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9xt9h76645shp4jcmt0bsv-b278826451d81676.json"
+  }
+]
