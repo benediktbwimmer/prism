@@ -1,0 +1,88 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "The Plans page can list plans, inspect one plan graph, and show node status, blockers, next actions, and recent execution evidence"
+      },
+      {
+        "anchors": [],
+        "label": "Human intervention stays structured in the first release: notes, blockers, acceptance, and status affordances come before any freeform graph editing"
+      },
+      {
+        "anchors": [],
+        "label": "The page is backed by explicit UI read models or query adapters for plan summary, plan graph, execution overlay, and next-node recommendations"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 506
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [
+        "concept://coordination_and_plan_runtime",
+        "concept://query_coordination_and_plan_views"
+      ],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmzvjdhbpqxs2nzjxwbvznp9"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmzvjdhbsgjm53m3ws4r2ax8",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmzvjdhb874nxd0v44d2hdmt",
+    "priority": 4,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Replacing the plans placeholder with a native plan-runtime page backed by explicit UI read models for plan lists, selected plan graph summaries, blockers, handoffs, and next-node recommendations.",
+    "tags": [
+      "coordination",
+      "human-control",
+      "plans"
+    ],
+    "title": "Milestone 4: Build a plans view on native coordination and plan-runtime data",
+    "validation_refs": [
+      {
+        "id": "ui:plans-runtime-surface"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
