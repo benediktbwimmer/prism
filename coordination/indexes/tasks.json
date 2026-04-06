@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn2qbppm2bz9w5e37rfe8cm8",
+    "title": "Route runtimeStatus, dashboard summary, and recent operation views to materialized read models",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2qbppm2bz9w5e37rfe8cm8-c1caecdfaec704be.json"
+  },
+  {
+    "id": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+    "title": "Normalize tracked snapshot, protected publication, and shared/runtime serialization to repo-relative paths",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9vdfjsrbzwz5w5mff8yqck-28360e8f7ddfa227.json"
+  },
+  {
+    "id": "coord-task:4",
+    "title": "Refactor WorkspaceSession hydration around incremental loads, binding hydration, and repo-motion recovery",
+    "status": "Completed",
+    "path": "tasks/coord-task-4-758de4882d0a1ca4.json"
+  }
+]
