@@ -68,7 +68,7 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775502599,
+    "lease_expires_at": 1775502630,
     "lease_holder": {
       "agent_id": "codex-a",
       "principal": {
@@ -77,18 +77,18 @@
         "name": "codex-a",
         "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
       },
-      "session_id": "session:01knhw7n4cz69jwpy0n573tkjb",
+      "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
       "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
     },
-    "lease_refreshed_at": 1775495399,
-    "lease_stale_at": 1775497199,
+    "lease_refreshed_at": 1775495430,
+    "lease_stale_at": 1775497230,
     "lease_started_at": 1775478127,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01knhbwesj53rq8f301x6r51qj",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01knhw7n4cz69jwpy0n573tkjb",
+    "session": "session:01knhwcey9jvnexwwdyqzcgazr",
     "status": "InProgress",
     "summary": null,
     "tags": [],
