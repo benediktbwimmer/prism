@@ -1,0 +1,32 @@
+[
+  {
+    "id": "coord-task:01kn13qsapc9fjk72wvth681yf",
+    "title": "Implement synchronous authoritative journals for lineage/history deltas and authored memory and outcome events",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13qsapc9fjk72wvth681yf-abefffce039dcc38.json"
+  },
+  {
+    "id": "coord-task:01kn5ydf5tdhdry9ftd4wjwq7c",
+    "title": "Expose operator tooling and diagnostics for verification, migration, repair, and trust workflows",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydf5tdhdry9ftd4wjwq7c-2e4c8a5bd3803026.json"
+  },
+  {
+    "id": "coord-task:01kn88nvmc3xnak8b7y6z7a297",
+    "title": "Implement the prism_concept latency fixes so common warm concept reads stop spending most time in the compact handler.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn88nvmc3xnak8b7y6z7a297-5ea875ea2438df58.json"
+  },
+  {
+    "id": "coord-task:01kn8rr5zr0md0jzevcfssaqvc",
+    "title": "Live require completion dogfood",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn8rr5zr0md0jzevcfssaqvc-08f150f5bb13c7db.json"
+  },
+  {
+    "id": "coord-task:01kndb7x9nw2fedwt20g0hm6cd",
+    "title": "Move materialization and PRISM doc sync to workflow-boundary flush points instead of intermediate coordination updates",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb7x9nw2fedwt20g0hm6cd-22465fac27f08a07.json"
+  }
+]
