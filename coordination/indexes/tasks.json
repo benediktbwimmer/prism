@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn2edqh1zkhb8br4za6tx8ha",
+    "title": "Implement the fast-path commit and layered freshness semantics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqh1zkhb8br4za6tx8ha-d448396d08c39e46.json"
+  },
+  {
+    "id": "coord-task:01kn6rmjszn0az4kypvh97yq1d",
+    "title": "Introduce first-class work context types and durable event snapshots",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rmjszn0az4kypvh97yq1d-8d886a55ec067b11.json"
+  }
+]
