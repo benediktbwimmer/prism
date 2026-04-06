@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kna9hj9pk5nvg4max2248frc",
+    "title": "Audit and simplify or disable the old shared-runtime versus local-runtime split in daemon startup and runtime wiring",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hj9pk5nvg4max2248frc-db3aa242f3e5fa7b.json"
+  },
+  {
+    "id": "coord-task:01kndg3q26bdzdc92mqnb5jtx9",
+    "title": "Build the strategic plans workspace with portfolio list and dependency graph",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndg3q26bdzdc92mqnb5jtx9-7eae4f41046da6dd.json"
+  }
+]
