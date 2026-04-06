@@ -1,0 +1,8 @@
+[
+  {
+    "id": "coord-task:01kng21djsaqeyx517swg2skdq",
+    "title": "Run the rewrite validation matrix end to end, rebuild and restart the release MCP daemon on the new model, and capture dogfooding feedback on the transaction and query surfaces",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kng21djsaqeyx517swg2skdq-73b2de239f1ee4c8.json"
+  }
+]
