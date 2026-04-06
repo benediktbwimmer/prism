@@ -294,6 +294,7 @@ pub(crate) trait CoordinationPersistenceBackend:
                     snapshot,
                     plan_graphs,
                     execution_overlays,
+                    &[],
                 )?;
             }
             _ => {
@@ -306,6 +307,7 @@ pub(crate) trait CoordinationPersistenceBackend:
                     snapshot,
                     &plan_graphs,
                     &execution_overlays,
+                    &[],
                 )?;
             }
         }

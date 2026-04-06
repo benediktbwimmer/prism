@@ -498,6 +498,7 @@ pub(crate) fn load_hydrated_coordination_plan_state(
                     snapshot,
                     plan_graphs: tracked.plan_graphs,
                     execution_overlays: tracked.execution_overlays,
+                    runtime_descriptors: Vec::new(),
                 })
             }
             None => {

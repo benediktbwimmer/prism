@@ -22831,6 +22831,21 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
         shared.current_manifest_digest,
         shared.last_verified_manifest_digest
     );
+    assert!(shared.summary_published_at.is_some());
+    let lagging_total =
+        shared.lagging_task_shard_refs + shared.lagging_claim_shard_refs + shared.lagging_runtime_refs;
+    assert_eq!(
+        shared.authoritative_fallback_required,
+        lagging_total > 0 || shared.summary_freshness_status == "ambiguous"
+    );
+    assert!(
+        matches!(
+            shared.summary_freshness_status.as_str(),
+            "current" | "stale" | "ambiguous"
+        ),
+        "unexpected shared coordination freshness status: {}",
+        shared.summary_freshness_status
+    );
     assert!(shared.last_successful_publish_at.is_some());
     assert_eq!(shared.last_successful_publish_retry_count, 0);
     assert_eq!(shared.publish_retry_budget, 3);

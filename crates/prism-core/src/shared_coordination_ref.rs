@@ -244,6 +244,14 @@ pub struct SharedCoordinationRefDiagnostics {
     pub compaction_previous_head_commit: Option<String>,
     pub compaction_previous_history_depth: Option<u64>,
     pub archive_boundary_manifest_digest: Option<String>,
+    pub summary_published_at: Option<u64>,
+    pub summary_freshness_status: String,
+    pub authoritative_fallback_required: bool,
+    pub freshness_reason: Option<String>,
+    pub lagging_task_shard_refs: usize,
+    pub lagging_claim_shard_refs: usize,
+    pub lagging_runtime_refs: usize,
+    pub newest_authoritative_ref_at: Option<u64>,
     pub runtime_descriptor_count: usize,
     pub runtime_descriptors: Vec<RuntimeDescriptor>,
 }
@@ -251,6 +259,35 @@ pub struct SharedCoordinationRefDiagnostics {
 pub(crate) enum SharedCoordinationRefLiveSync {
     Unchanged,
     Changed(SharedCoordinationRefState),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SharedCoordinationSummaryFreshnessStatus {
+    Current,
+    Stale,
+    Ambiguous,
+}
+
+impl SharedCoordinationSummaryFreshnessStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Current => "current",
+            Self::Stale => "stale",
+            Self::Ambiguous => "ambiguous",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SharedCoordinationSummaryFreshness {
+    summary_published_at: Option<u64>,
+    status: SharedCoordinationSummaryFreshnessStatus,
+    authoritative_fallback_required: bool,
+    reason: Option<String>,
+    lagging_task_shard_refs: usize,
+    lagging_claim_shard_refs: usize,
+    lagging_runtime_refs: usize,
+    newest_authoritative_ref_at: Option<u64>,
 }
 
 fn shared_coordination_manifest_kind() -> String {
@@ -462,6 +499,106 @@ fn authoritative_shared_coordination_state_key(root: &Path) -> Result<Option<Str
     Ok(Some(
         blake3::hash(canonical.as_bytes()).to_hex().to_string(),
     ))
+}
+
+fn differing_record_count<T, F>(summary: &[T], authoritative: &[T], key_for: F) -> usize
+where
+    T: Clone + PartialEq,
+    F: Fn(&T) -> &str,
+{
+    let summary_map = summary
+        .iter()
+        .cloned()
+        .map(|value| (key_for(&value).to_string(), value))
+        .collect::<BTreeMap<_, _>>();
+    let authoritative_map = authoritative
+        .iter()
+        .cloned()
+        .map(|value| (key_for(&value).to_string(), value))
+        .collect::<BTreeMap<_, _>>();
+    summary_map
+        .keys()
+        .chain(authoritative_map.keys())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .filter(|id| summary_map.get(*id) != authoritative_map.get(*id))
+        .count()
+}
+
+fn inspect_shared_coordination_summary_freshness(
+    summary_manifest: Option<&SharedCoordinationManifest>,
+    summary_state: Option<&SharedCoordinationRefState>,
+    authoritative_state: Option<&SharedCoordinationRefState>,
+) -> SharedCoordinationSummaryFreshness {
+    let summary_published_at = summary_manifest.map(|manifest| manifest.published_at);
+    match (summary_state, authoritative_state) {
+        (None, Some(_)) => SharedCoordinationSummaryFreshness {
+            summary_published_at,
+            status: SharedCoordinationSummaryFreshnessStatus::Ambiguous,
+            authoritative_fallback_required: true,
+            reason: Some(
+                "summary ref is missing or unreadable while authoritative shard/runtime state exists"
+                    .to_string(),
+            ),
+            lagging_task_shard_refs: 0,
+            lagging_claim_shard_refs: 0,
+            lagging_runtime_refs: 0,
+            newest_authoritative_ref_at: None,
+        },
+        (Some(_), None) | (None, None) => SharedCoordinationSummaryFreshness {
+            summary_published_at,
+            status: SharedCoordinationSummaryFreshnessStatus::Current,
+            authoritative_fallback_required: false,
+            reason: None,
+            lagging_task_shard_refs: 0,
+            lagging_claim_shard_refs: 0,
+            lagging_runtime_refs: 0,
+            newest_authoritative_ref_at: None,
+        },
+        (Some(summary_state), Some(authoritative_state)) => {
+            let lagging_task_shard_refs = differing_record_count(
+                &summary_state.snapshot.tasks,
+                &authoritative_state.snapshot.tasks,
+                |task| task.id.0.as_str(),
+            );
+            let lagging_claim_shard_refs = differing_record_count(
+                &summary_state.snapshot.claims,
+                &authoritative_state.snapshot.claims,
+                |claim| claim.id.0.as_str(),
+            );
+            let lagging_runtime_refs = differing_record_count(
+                &summary_state.runtime_descriptors,
+                &authoritative_state.runtime_descriptors,
+                |descriptor| descriptor.runtime_id.as_str(),
+            );
+            let lagging_total =
+                lagging_task_shard_refs + lagging_claim_shard_refs + lagging_runtime_refs;
+            SharedCoordinationSummaryFreshness {
+                summary_published_at,
+                status: if lagging_total > 0 {
+                    SharedCoordinationSummaryFreshnessStatus::Stale
+                } else {
+                    SharedCoordinationSummaryFreshnessStatus::Current
+                },
+                authoritative_fallback_required: lagging_total > 0,
+                reason: if lagging_total > 0 {
+                    Some(format!(
+                        "summary state lags {lagging_task_shard_refs} task shard record(s), {lagging_claim_shard_refs} claim shard record(s), and {lagging_runtime_refs} runtime descriptor record(s)"
+                    ))
+                } else {
+                    None
+                },
+                lagging_task_shard_refs,
+                lagging_claim_shard_refs,
+                lagging_runtime_refs,
+                newest_authoritative_ref_at: authoritative_state
+                    .runtime_descriptors
+                    .iter()
+                    .map(|descriptor| descriptor.last_seen_at)
+                    .max(),
+            }
+        }
+    }
 }
 
 fn cache_shared_coordination_state(root: &Path, head: String, state: &SharedCoordinationRefState) {
@@ -1229,7 +1366,21 @@ pub(crate) fn load_shared_coordination_ref_state(
     {
         return Ok(Some(cached.state));
     }
-    let Some(state) = load_authoritative_shared_coordination_ref_state(root, false)? else {
+    let ref_name = shared_coordination_ref_name(root);
+    let summary_manifest = load_shared_coordination_manifest_from_ref_lenient(root, &ref_name)?;
+    let summary_state = load_shared_coordination_ref_state_from_current_ref_lenient(root, &ref_name)?;
+    let authoritative_state = load_authoritative_shared_coordination_ref_state(root, false)?;
+    let freshness = inspect_shared_coordination_summary_freshness(
+        summary_manifest.as_ref(),
+        summary_state.as_ref(),
+        authoritative_state.as_ref(),
+    );
+    let state = if freshness.authoritative_fallback_required {
+        authoritative_state
+    } else {
+        summary_state
+    };
+    let Some(state) = state else {
         return Ok(None);
     };
     cache_shared_coordination_state(root, current_head, &state);
@@ -1865,6 +2016,15 @@ pub fn shared_coordination_ref_diagnostics(
     } else {
         None
     };
+    let summary_read_state =
+        load_shared_coordination_ref_state_from_current_ref_lenient(root, &ref_name)?;
+    let authoritative_state_for_freshness =
+        load_authoritative_shared_coordination_ref_state(root, false)?;
+    let freshness = inspect_shared_coordination_summary_freshness(
+        manifest.as_ref(),
+        summary_read_state.as_ref(),
+        authoritative_state_for_freshness.as_ref(),
+    );
     let current_manifest_digest = manifest
         .as_ref()
         .map(canonical_manifest_digest)
@@ -1956,6 +2116,14 @@ pub fn shared_coordination_ref_diagnostics(
         compaction_previous_head_commit,
         compaction_previous_history_depth,
         archive_boundary_manifest_digest,
+        summary_published_at: freshness.summary_published_at,
+        summary_freshness_status: freshness.status.as_str().to_string(),
+        authoritative_fallback_required: freshness.authoritative_fallback_required,
+        freshness_reason: freshness.reason,
+        lagging_task_shard_refs: freshness.lagging_task_shard_refs,
+        lagging_claim_shard_refs: freshness.lagging_claim_shard_refs,
+        lagging_runtime_refs: freshness.lagging_runtime_refs,
+        newest_authoritative_ref_at: freshness.newest_authoritative_ref_at,
         runtime_descriptor_count: runtime_descriptors.len(),
         runtime_descriptors,
     }))
@@ -4611,6 +4779,15 @@ mod tests {
             loaded.canonical_snapshot_v2,
             changed_snapshot.to_canonical_snapshot_v2()
         );
+        let diagnostics = shared_coordination_ref_diagnostics(&root)
+            .unwrap()
+            .expect("shared coordination diagnostics should exist");
+        assert_eq!(diagnostics.summary_freshness_status, "stale");
+        assert!(diagnostics.authoritative_fallback_required);
+        assert!(diagnostics.lagging_task_shard_refs >= 1);
+        assert_eq!(diagnostics.lagging_claim_shard_refs, 0);
+        assert_eq!(diagnostics.lagging_runtime_refs, 0);
+        assert!(diagnostics.freshness_reason.is_some());
     }
 
     #[test]
@@ -5149,6 +5326,12 @@ mod tests {
             diagnostics.current_manifest_digest,
             diagnostics.last_verified_manifest_digest
         );
+        assert_eq!(diagnostics.summary_freshness_status, "stale");
+        assert!(diagnostics.authoritative_fallback_required);
+        assert_eq!(diagnostics.lagging_task_shard_refs, 1);
+        assert_eq!(diagnostics.lagging_claim_shard_refs, 0);
+        assert_eq!(diagnostics.lagging_runtime_refs, 1);
+        assert_eq!(diagnostics.summary_published_at, Some(publish.published_at));
         assert_eq!(
             diagnostics.last_successful_publish_at,
             Some(publish.published_at)
