@@ -68,7 +68,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": null,
+    "branch_ref": "detached:3cc25362d1a5520be58a33b2c162cbc30963e61f",
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng427001ndsrj10d0z5mcez",
@@ -123,13 +123,13 @@
     "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
     "priority": null,
     "published_task_status": null,
-    "session": null,
+    "session": "session:01kng409n16se566xnq79c6e6x",
     "status": "Ready",
     "summary": null,
     "tags": [],
     "title": "Cut over the remaining docs and validation suites, and add end-to-end coverage for mixed-version readers, shard routing, archive continuity, semantic merge conflicts, and high-contention shared-coordination behavior.",
     "validation_refs": [],
-    "worktree_id": null
+    "worktree_id": "worktree:5820c89d186523db"
   },
   "schema_version": 1
 }
