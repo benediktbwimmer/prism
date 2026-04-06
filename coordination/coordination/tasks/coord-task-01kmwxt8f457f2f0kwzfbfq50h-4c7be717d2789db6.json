@@ -1,0 +1,86 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Current prism_query and compact surfaces produce consistent disabled-feature and bad-argument errors"
+      },
+      {
+        "anchors": [],
+        "label": "Daemon restart preserves or explicitly restores the active task/session context needed for follow-on work"
+      },
+      {
+        "anchors": [],
+        "label": "prism_workset and API reference output are strong enough to serve as the comparison baseline for new views"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 157
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmwxt05gtntnfmn60ppbwpaf"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmwxt8f457f2f0kwzfbfq50h",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmwxra5d93wb6nmy6a79v8eh",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Milestone 1 completed. prism_query now maps feature-disabled and bad-argument user errors to consistent invalid-params MCP responses, session task/agent/limits restore after daemon restart through a persisted session seed, and prism_workset/API baseline hardening is in place with release-build and live-daemon verification.",
+    "tags": [
+      "continuity",
+      "docs",
+      "hardening",
+      "workset"
+    ],
+    "title": "Milestone 1: Harden existing query surfaces and docs",
+    "validation_refs": [
+      {
+        "id": "pq01:m1-surface-hardening"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

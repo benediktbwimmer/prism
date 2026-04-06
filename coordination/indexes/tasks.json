@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kmwxt8f457f2f0kwzfbfq50h",
+    "title": "Milestone 1: Harden existing query surfaces and docs",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmwxt8f457f2f0kwzfbfq50h-4c7be717d2789db6.json"
+  },
+  {
+    "id": "coord-task:01kn7kd70a3ba70rv75vj27nbk",
+    "title": "Expose projection-oriented MCP and CLI surfaces",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd70a3ba70rv75vj27nbk-a9d34d1b55453d9b.json"
+  }
+]
