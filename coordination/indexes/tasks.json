@@ -4,5 +4,11 @@
     "title": "Validate shared cross-branch coordination and dogfood the new git-execution path on top of it",
     "status": "Ready",
     "path": "tasks/coord-task-01kna9hj84dbm3c7w0z1ykenss-5a78e4e92ed710f1.json"
+  },
+  {
+    "id": "coord-task:01knhbxwchpd9hc7sncz3apyh4",
+    "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbxwchpd9hc7sncz3apyh4-78c8d0d86d8a546e.json"
   }
 ]
