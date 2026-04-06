@@ -105,7 +105,8 @@ derived read model rather than the hot write target for everything.
 Current contract notes:
 
 - manifest is signed
-- manifest field is currently `version`, not `schema_version`
+- manifest now publishes `schema_version` and `kind`
+- manifest loaders still accept legacy `version` during migration
 - manifest covers the whole snapshot tree rather than a ref family
 
 ### 3.2 Plans
@@ -121,7 +122,8 @@ Current contract notes:
 Current contract notes:
 
 - plan graph and execution overlays are packed into the same plan record
-- plans are not yet sharded or version-enveloped with `kind` and `schema_version`
+- plan records now publish `schema_version` and `kind`
+- plans are not yet sharded into independent ref families
 
 ### 3.3 Tasks
 
@@ -136,7 +138,7 @@ Current contract notes:
 Current contract notes:
 
 - all task writes still contend on the single live ref head
-- task payloads are individually file-scoped, but not ref-sharded
+- task payloads are individually file-scoped and version-enveloped, but not ref-sharded
 
 ### 3.4 Claims
 
@@ -150,7 +152,7 @@ Current contract notes:
 
 Current contract notes:
 
-- claims are individually file-scoped, but still serialize through the single live ref head
+- claim payloads are individually file-scoped and version-enveloped, but still serialize through the single live ref head
 - claim liveness and lease truth are not split from runtime liveness yet
 
 ### 3.5 Runtime descriptors and liveness
@@ -170,6 +172,7 @@ Current contract notes:
 Current contract notes:
 
 - runtime liveness still republishes the single repo-wide live ref
+- runtime descriptor payloads now publish `schema_version` and `kind`
 - runtime descriptors are not yet on per-runtime refs
 - peer runtime routing still resolves runtimes from the live shared summary surface
 
@@ -189,6 +192,7 @@ Current contract notes:
 
 - artifacts and reviews already have separate object files, but not separate authoritative ref
   families
+- authoritative artifact and review payloads now publish `schema_version` and `kind`
 - v1 architecture reserves separate shard families only if scale demands it later
 
 ### 3.7 Indexes
@@ -284,12 +288,14 @@ coordination ref plane and should not be treated as such in the v1 rollout.
 
 Current state:
 
-- shared manifest uses `version`
-- task, claim, runtime descriptor, artifact, and review payloads are stored as raw typed JSON
+- shared manifest now publishes `schema_version` and `kind`
+- plan, task, claim, runtime descriptor, artifact, and review payloads now publish `schema_version`
+  and `kind`
+- readers still accept legacy raw payloads and legacy manifest `version` during migration
 
-Target mismatch:
+Remaining mismatch:
 
-- v1 requires public `schema_version` and `kind` envelopes for authoritative payloads
+- no schema-envelope mismatch remains for the current authoritative payload set
 
 ### 5.2 Hot write topology gap
 

@@ -4040,6 +4040,35 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
+        let raw_task: serde_json::Value = serde_json::from_str(
+            &super::run_git(
+                &root,
+                &[
+                    "show",
+                    &format!(
+                        "{ref_name}:coordination/{}",
+                        super::task_snapshot_relative_path("coord-task:shared-diagnostics")
+                    ),
+                ],
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let runtime_relative_path = format!(
+            "coordination/runtimes/{}",
+            super::snapshot_file_name(&workspace_identity_for_root(&root).worktree_id)
+        );
+        let raw_runtime_descriptor: serde_json::Value = serde_json::from_str(
+            &super::run_git(
+                &root,
+                &[
+                    "show",
+                    &format!("{ref_name}:coordination/{runtime_relative_path}"),
+                ],
+            )
+            .unwrap(),
+        )
+        .unwrap();
         assert!(diagnostics.ref_name.starts_with("refs/prism/coordination/"));
         assert!(diagnostics.head_commit.is_some());
         assert!(diagnostics.history_depth >= 1);
@@ -4066,6 +4095,29 @@ mod tests {
             serde_json::json!(super::SHARED_COORDINATION_KIND_MANIFEST)
         );
         assert!(raw_manifest.get("version").is_none());
+        assert_eq!(raw_task["schema_version"], serde_json::json!(1));
+        assert_eq!(
+            raw_task["kind"],
+            serde_json::json!(super::SHARED_COORDINATION_KIND_TASK)
+        );
+        assert_eq!(
+            raw_task["payload"]["id"],
+            serde_json::json!("coord-task:shared-diagnostics")
+        );
+        assert!(raw_task.get("version").is_none());
+        assert_eq!(
+            raw_runtime_descriptor["schema_version"],
+            serde_json::json!(1)
+        );
+        assert_eq!(
+            raw_runtime_descriptor["kind"],
+            serde_json::json!(super::SHARED_COORDINATION_KIND_RUNTIME_DESCRIPTOR)
+        );
+        assert_eq!(
+            raw_runtime_descriptor["payload"]["worktreeId"],
+            serde_json::json!(workspace_identity_for_root(&root).worktree_id)
+        );
+        assert!(raw_runtime_descriptor.get("version").is_none());
         assert!(diagnostics.runtime_descriptors[0]
             .capabilities
             .contains(&RuntimeDescriptorCapability::CoordinationRefPublisher));
