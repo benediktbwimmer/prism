@@ -320,16 +320,21 @@ fn instruction_set_definition(id: &str) -> Option<&'static InstructionSetDefinit
 }
 
 fn append_coordination_mode_note(mut markdown: String, features: &PrismMcpFeatures) -> String {
+    let feature_summary = features.coordination_summary_lines().join("\n");
     if features.runtime_mode() == PrismRuntimeMode::CoordinationOnly {
         markdown.push_str(
-            "\n\nThis instruction set is running without cognition. Use `prism_query` only for the reduced coordination and operator surface, use `prism_mutate` only for coordination-related actions, and avoid graph-backed repo understanding or enrichment flows.",
+            "\n\nThis instruction set is running without cognition. Use `prism_query` only for the reduced coordination and operator surface, use `prism_mutate` only for the enabled coordination-related actions, and avoid graph-backed repo understanding or enrichment flows.",
         );
+        markdown.push_str("\n\nMode contract:\n");
+        markdown.push_str(&feature_summary);
         return markdown;
     }
     if features.runtime_mode() != PrismRuntimeMode::Full {
         markdown.push_str(
             "\n\nCoordination features are gated on this server; check `prism://session` before using plan, claim, or artifact workflows.",
         );
+        markdown.push_str("\n\nMode contract:\n");
+        markdown.push_str(&feature_summary);
     }
     markdown
 }
@@ -362,7 +367,8 @@ fn coordination_only_index_markdown(features: &PrismMcpFeatures) -> String {
     .collect::<Vec<_>>()
     .join(", ");
     format!(
-        "# PRISM Coordination-Only Instructions\n\nThis server is running in `coordination_only` mode.\n\nAvailable instruction set:\n- `coordination`: coordination workflows only\n  Read: `{}`\n\nAvailable public APIs in this mode:\n- tools: {}\n- query scope: {}\n- resources: {}\n\nUnavailable in this mode:\n- graph-backed repo exploration\n- concept and contract enrichment\n- dynamic query views\n- programmable graph query surfaces outside the reduced coordination and ops set",
+        "# PRISM Coordination-Only Instructions\n\nThis server is running in `coordination_only` mode.\n\nMode contract:\n{}\n\nAvailable instruction set:\n- `coordination`: coordination workflows only\n  Read: `{}`\n\nAvailable public APIs in this mode:\n- tools: {}\n- query scope: {}\n- resources: {}\n\nUnavailable in this mode:\n- graph-backed repo exploration\n- concept and contract enrichment\n- dynamic query views\n- programmable graph query surfaces outside the reduced coordination and ops set",
+        features.coordination_summary_lines().join("\n"),
         instruction_set_resource_uri("coordination"),
         tools,
         query_scope.join(", "),

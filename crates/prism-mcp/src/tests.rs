@@ -222,6 +222,10 @@ fn coordination_only_instructions_strip_cognition_guidance() {
     let index = crate::instructions::render_instructions_index(PrismRuntimeMode::CoordinationOnly);
     assert!(index.contains("PRISM Coordination-Only Instructions"));
     assert!(index.contains("`coordination_only`"));
+    assert!(index.contains("- runtime mode: `coordination_only`"));
+    assert!(index.contains("- coordination workflow: enabled"));
+    assert!(index.contains("- coordination claims: enabled"));
+    assert!(index.contains("- coordination artifacts: enabled"));
     assert!(index.contains("`coordination`"));
     assert!(index.contains("`prism_query`"));
     assert!(index.contains("`prism_mutate`"));
@@ -247,6 +251,33 @@ fn coordination_only_instructions_strip_cognition_guidance() {
     .expect("coordination instructions should remain available");
     assert!(coordination.contains("without cognition"));
     assert!(coordination.contains("coordination"));
+    assert!(coordination.contains("Mode contract:"));
+    assert!(coordination.contains("- coordination claims: enabled"));
+}
+
+#[test]
+fn coordination_only_instruction_render_reflects_feature_toggles() {
+    let mut features = PrismMcpFeatures::full()
+        .with_runtime_mode(PrismRuntimeMode::CoordinationOnly)
+        .with_internal_developer(true);
+    features
+        .coordination
+        .apply(CoordinationFeatureFlag::Claims, false);
+    features
+        .coordination
+        .apply(CoordinationFeatureFlag::Artifacts, false);
+
+    let index = crate::instructions::render_instructions_index_with_features(&features);
+    assert!(index.contains("- coordination claims: disabled"));
+    assert!(index.contains("- coordination artifacts: disabled"));
+    assert!(index.contains("runtime and MCP diagnostics"));
+
+    let coordination =
+        crate::instructions::render_instruction_set_with_features("coordination", &features)
+            .expect("coordination instructions should remain available");
+    assert!(coordination.contains("- coordination claims: disabled"));
+    assert!(coordination.contains("- coordination artifacts: disabled"));
+    assert!(coordination.contains("- internal developer queries: enabled"));
 }
 
 #[test]
