@@ -125,7 +125,7 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775486362,
+    "lease_expires_at": 1775486385,
     "lease_holder": {
       "agent_id": "codex-d",
       "principal": {
@@ -135,10 +135,10 @@
         "principal_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
       },
       "session_id": "session:01knhcsjbjx57e6kbme89890c1",
-      "worktree_id": "worktree:5820c89d186523db"
+      "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
     },
-    "lease_refreshed_at": 1775479162,
-    "lease_stale_at": 1775480962,
+    "lease_refreshed_at": 1775479185,
+    "lease_stale_at": 1775480985,
     "lease_started_at": 1775436372,
     "metadata": null,
     "pending_handoff_to": null,
@@ -146,12 +146,12 @@
     "priority": null,
     "published_task_status": null,
     "session": "session:01knhcsjbjx57e6kbme89890c1",
-    "status": "InProgress",
-    "summary": null,
+    "status": "Validating",
+    "summary": "Archive-plane pruning now publishes explicit archive boundary refs, keeps hot shared coordination state bounded, and surfaces archive-boundary metadata in runtime diagnostics. Completion is pending commit/integration per the task git-execution policy.",
     "tags": [],
     "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
     "validation_refs": [],
-    "worktree_id": "worktree:5820c89d186523db"
+    "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
   },
   "schema_version": 1
 }
