@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kmzvjdhbtbmjrjr2txxn2y0j",
+    "title": "Milestone 11: Refresh Prism concepts, relations, contracts, and generated docs for the new UI reality",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kmzvjdhbtbmjrjr2txxn2y0j-1696ffd52b50d01d.json"
+  },
+  {
+    "id": "coord-task:01kn0yb9zz75x9sngz7eppvvt8",
+    "title": "Instrument and rank hidden repo-scale persistence work",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0yb9zz75x9sngz7eppvvt8-57469d1209fb24f3.json"
+  },
+  {
+    "id": "coord-task:01knd313gqpzvj596g83r9mhcm",
+    "title": "Bundle the built React UI assets into the daemon binaries and embedded asset serving path",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knd313gqpzvj596g83r9mhcm-fd51f2d86d85fc38.json"
+  }
+]
