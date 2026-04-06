@@ -1,0 +1,84 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Generated artifacts carry enough source metadata to debug freshness and provenance of the published projection output."
+      },
+      {
+        "anchors": [],
+        "label": "Published docs are generated as projections over published PRISM knowledge rather than treated as hand-authored authority."
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 590
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+      "coord-task:01kn7kd4qdqgr8t6s4yt4rn1sf"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn7kd59d7m289c02x11e3z0p",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn7kc7wd38p9kb8src073kpp",
+    "priority": 3,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Added deterministic projection metadata stamping to the prism_doc generator and regenerated PRISM.md plus docs/prism/* so published projections now declare version, authority plane, source head, logical source timestamp, and source snapshot counts.",
+    "tags": [],
+    "title": "Implement published projection generation and source stamping",
+    "validation_refs": [
+      {
+        "id": "PRISM.md"
+      },
+      {
+        "id": "docs/prism/concepts.md"
+      },
+      {
+        "id": "docs/prism/contracts.md"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
