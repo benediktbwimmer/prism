@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn00t3b6svvvcm759dwvt8fw",
+    "title": "Milestone 9: Add structured human intervention flows for plans",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kn00t3b6svvvcm759dwvt8fw-401849ae9debf656.json"
+  },
+  {
+    "id": "coord-task:01kn2edqmq4f43nnryqptyhfjy",
+    "title": "Finalize checkpoint-plus-replay recovery on the incremental core",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqmq4f43nnryqptyhfjy-9f3a98c934f21dd0.json"
+  },
+  {
+    "id": "coord-task:01kn7kd4qdqgr8t6s4yt4rn1sf",
+    "title": "Introduce first-class projection metadata and read-model contracts",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd4qdqgr8t6s4yt4rn1sf-39c06d68db0b8262.json"
+  },
+  {
+    "id": "coord-task:01knd31c35j4kh1ppg0z75e1jh",
+    "title": "Implement the task detail read model for claims outcomes commits blockers and editable metadata",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knd31c35j4kh1ppg0z75e1jh-3ee0f52d464ef0c5.json"
+  }
+]
