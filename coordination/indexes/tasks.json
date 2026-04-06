@@ -1,0 +1,44 @@
+[
+  {
+    "id": "coord-task:01kmwxtrc6vbrsmv2xx2phnv8k",
+    "title": "Milestone 3: Add impact(...) and afterEdit(...)",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmwxtrc6vbrsmv2xx2phnv8k-9f766974541452bf.json"
+  },
+  {
+    "id": "coord-task:01kn0ybpgxrm7ddbhaxkq78kx5",
+    "title": "Eliminate global graph rewrites from targeted index persistence",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0ybpgxrm7ddbhaxkq78kx5-6f016b29e3c6fac9.json"
+  },
+  {
+    "id": "coord-task:01kn13rgty80e4y885n1vzb170",
+    "title": "Implement checkpoint-plus-journal recovery, revision-lag observability, and replay bounds for restart behavior",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13rgty80e4y885n1vzb170-ecc5e0cc2b57d5c9.json"
+  },
+  {
+    "id": "coord-task:01kn9xtsf57cqfxa0a7hd2wsx8",
+    "title": "Stop publishing tracked .prism state changes shards and indexes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9xtsf57cqfxa0a7hd2wsx8-8f33405002315284.json"
+  },
+  {
+    "id": "coord-task:01kn9xvmrn86qb17qz7w97na8n",
+    "title": "Validate clone size, startup behavior, signed publish semantics, and runtime-only change history ownership",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9xvmrn86qb17qz7w97na8n-9d7710759c599d94.json"
+  },
+  {
+    "id": "coord-task:01kng1zsbvzhcbyhfvgy0rwcy6",
+    "title": "Enforce executor routing and task-only claim and lifecycle control using executor_class, target_label, allowed_principals, and caller identity-aware runnable filtering",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kng1zsbvzhcbyhfvgy0rwcy6-cf3c02b93cc3ba37.json"
+  },
+  {
+    "id": "coord-task:01kng427001ndsrj10d0z5mcez",
+    "title": "Implement schema-aware semantic merge for refs/prism/** so shared-coordination conflicts are resolved by payload semantics and conflict classification instead of generic Git text merges or blind CAS retry loops.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kng427001ndsrj10d0z5mcez-31bc0a99ab81d568.json"
+  }
+]
