@@ -4,5 +4,11 @@
     "title": "Instrument compact refresh-wrapper latency and queueing boundaries",
     "status": "Completed",
     "path": "tasks/coord-task-01kn7wn9a19ytcvcza32byvhcs-aff0da869b4c4fb4.json"
+  },
+  {
+    "id": "coord-task:01knhd3xkmynpy53p63kgnyx80",
+    "title": "Add a validation matrix and fixtures for supported mode combinations",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhd3xkmynpy53p63kgnyx80-7a1e257c688c93cc.json"
   }
 ]
