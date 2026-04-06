@@ -95,8 +95,8 @@ pub use principal_registry::{
     MintedPrincipalCredential,
 };
 pub use prism_doc::{
-    PrismDocBundleFormat, PrismDocExportBundle, PrismDocExportResult, PrismDocSyncResult,
-    PrismDocSyncStatus,
+    render_repo_published_plan_markdown, PrismDocBundleFormat, PrismDocExportBundle,
+    PrismDocExportResult, PrismDocSyncResult, PrismDocSyncStatus,
 };
 pub use prism_paths::PrismPaths;
 pub use protected_state::migration::{

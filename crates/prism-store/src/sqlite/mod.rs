@@ -102,6 +102,8 @@ pub struct SqliteStore {
 
 pub use migration::migrate_worktree_cache_from_shared_runtime;
 pub use path_identity_repair::PatchPathIdentityRepairReport;
+#[cfg(test)]
+pub(crate) use schema::SCHEMA_VERSION;
 
 impl SqliteStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {

@@ -134,6 +134,7 @@ fn coordination_snapshot_preserves_task_lease_fields() {
                     session_id: Some(SessionId::new("session:lease")),
                     worktree_id: Some("worktree:lease".into()),
                     agent_id: Some(AgentId::new("agent:lease")),
+                    worktree_id: Some("worktree:lease".into()),
                 }),
                 lease_started_at: Some(10),
                 lease_refreshed_at: Some(11),
@@ -187,6 +188,7 @@ fn coordination_snapshot_preserves_task_lease_fields() {
             session_id: Some(SessionId::new("session:lease")),
             worktree_id: Some("worktree:lease".into()),
             agent_id: Some(AgentId::new("agent:lease")),
+            worktree_id: Some("worktree:lease".into()),
         })
     );
 }

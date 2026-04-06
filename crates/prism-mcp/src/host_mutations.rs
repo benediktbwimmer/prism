@@ -4989,7 +4989,8 @@ impl QueryHost {
                         assignee: payload
                             .assignee
                             .map(AgentId::new)
-                            .or_else(|| execution.assignee.clone()),
+                            .or_else(|| execution.assignee.clone())
+                            .or_else(|| session.current_agent()),
                         session: Some(session.session_id()),
                         worktree_id: execution.worktree_id.clone(),
                         branch_ref: execution.branch_ref.clone(),

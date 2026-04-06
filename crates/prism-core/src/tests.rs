@@ -50,13 +50,13 @@ use super::{
     index_workspace_session_with_curator, index_workspace_session_with_options,
     inspect_legacy_path_identity_state, inspect_repo_published_plan_artifacts,
     list_registered_worktrees, regenerate_repo_published_plan_artifacts,
-    repair_legacy_path_identity_state, repair_repo_published_plan_artifacts,
-    AttestedHumanPrincipalInput, BootstrapOwnerInput, CredentialProfile,
-    CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata, CredentialsFile,
-    HumanSessionFile, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths, SharedRuntimeBackend,
-    ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
-    WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode, WorktreeMutatorSlotError,
-    WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
+    render_repo_published_plan_markdown, repair_legacy_path_identity_state,
+    repair_repo_published_plan_artifacts, AttestedHumanPrincipalInput, BootstrapOwnerInput,
+    CredentialProfile, CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata,
+    CredentialsFile, HumanSessionFile, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
+    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode,
+    WorktreeMutatorSlotError, WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
 };
 use crate::concept_events::append_repo_concept_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
@@ -125,21 +125,11 @@ fn prism_doc_export_root(root: &Path) -> PathBuf {
 fn load_hydrated_plan_state_from_runtime_store(
     session: &crate::session::WorkspaceSession,
 ) -> crate::published_plans::HydratedCoordinationPlanState {
-    if let Some(shared_runtime_store) = session.shared_runtime_store.as_ref() {
-        let mut store = shared_runtime_store
-            .lock()
-            .expect("shared runtime store lock poisoned");
-        store
-            .load_hydrated_coordination_plan_state_for_root(&session.root)
-            .unwrap()
-            .expect("authoritative runtime store should hydrate coordination plan state")
-    } else {
-        let mut store = session.store.lock().expect("workspace store lock poisoned");
-        store
-            .load_hydrated_coordination_plan_state_for_root(&session.root)
-            .unwrap()
-            .expect("workspace store should hydrate coordination plan state")
-    }
+    let mut store = session.store.lock().expect("workspace store lock poisoned");
+    store
+        .load_hydrated_coordination_plan_state_for_root(&session.root)
+        .unwrap()
+        .expect("workspace store should hydrate coordination plan state")
 }
 
 fn track_temp_dir(path: &std::path::Path) {
@@ -5727,6 +5717,58 @@ fn repo_plan_events_require_explicit_prism_doc_sync() {
 }
 
 #[test]
+fn shared_plan_markdown_renderer_reuses_repo_plan_doc_format() {
+    let root = temp_workspace();
+    let _guard = background_worker_test_guard();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let plan_id = session
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:shared-plan-markdown"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:shared-plan-markdown")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Render shared plan markdown".into(),
+                "Use the docs exporter markdown shape from the console.".into(),
+                None,
+                Some(prism_coordination::CoordinationPolicy::default()),
+            )
+        })
+        .unwrap();
+    flush_coordination_materializations(&session);
+
+    let prism = session.prism();
+    let graph = prism.plan_graph(&plan_id).expect("plan graph should exist");
+    let policy = prism
+        .coordination_snapshot()
+        .plans
+        .into_iter()
+        .find(|plan| plan.id == plan_id)
+        .map(|plan| plan.policy)
+        .unwrap_or_default();
+    let markdown =
+        render_repo_published_plan_markdown(&graph, &policy, &prism.plan_execution(&plan_id));
+
+    assert!(markdown.contains("# Render shared plan markdown"));
+    assert!(markdown.contains("## Goal"));
+    assert!(markdown.contains("Use the docs exporter markdown shape from the console."));
+    assert!(markdown.contains("## Git Execution Policy"));
+    assert!(markdown.contains("## Branch Snapshot Export"));
+}
+
+#[test]
 fn prism_doc_export_can_emit_zip_bundle() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -6382,7 +6424,7 @@ fn reloaded_native_plan_bindings_hydrate_through_lineage_without_republishing_ru
 }
 
 #[test]
-fn repo_plan_state_requires_sqlite_or_shared_ref_authority() {
+fn repo_plan_state_hydrates_from_workspace_sqlite_without_shared_runtime_db() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -6472,9 +6514,13 @@ fn repo_plan_state_requires_sqlite_or_shared_ref_authority() {
     .unwrap();
 
     let reloaded = index_workspace_session(&root).unwrap();
+    let snapshot = reloaded
+        .load_coordination_snapshot()
+        .unwrap()
+        .expect("workspace sqlite authority should still hydrate coordination state");
     assert!(
-        reloaded.load_coordination_snapshot().unwrap().is_none(),
-        "without shared refs or the local SQLite authority, plan state should not hydrate from repo projections anymore"
+        snapshot.plans.iter().any(|plan| plan.id == plan_id),
+        "removing the shared runtime db should not discard workspace-backed coordination state"
     );
 
     let _ = fs::remove_dir_all(root);
@@ -8279,14 +8325,7 @@ fn checkpoint_materialization_preserves_authoritative_task_lease_fields() {
             .is_some()
     );
 
-    let checkpoint = if let Some(shared_runtime_store) = session.shared_runtime_store.as_ref() {
-        let mut store = shared_runtime_store
-            .lock()
-            .expect("shared runtime store lock poisoned");
-        prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(&mut *store)
-            .unwrap()
-            .expect("coordination startup checkpoint")
-    } else {
+    let checkpoint = {
         let mut store = session.store.lock().expect("workspace store lock poisoned");
         prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(&mut *store)
             .unwrap()

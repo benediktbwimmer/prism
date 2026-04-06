@@ -4,10 +4,16 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 use axum::body::Body;
 use axum::extract::{Form, Path, Query, State};
-use axum::http::{header::CONTENT_TYPE, HeaderMap, HeaderValue, Response, StatusCode};
+use axum::http::{
+    header::{CONTENT_DISPOSITION, CONTENT_TYPE},
+    HeaderMap, HeaderValue, Response, StatusCode,
+};
 use axum::response::{Html, IntoResponse};
 use axum::routing::{get, post};
 use axum::Router;
+use prism_coordination::CoordinationPolicy;
+use prism_core::render_repo_published_plan_markdown;
+use prism_ir::PlanId;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -73,6 +79,10 @@ pub(crate) fn routes(state: PrismConsoleState) -> Router {
         .route("/console", get(console_overview))
         .route("/console/plans", get(console_plans_page))
         .route("/console/plans/{plan_id}", get(console_plan_page))
+        .route(
+            "/console/plans/{plan_id}/markdown",
+            get(console_plan_markdown),
+        )
         .route(
             "/console/plans/{plan_id}/archive",
             post(console_plan_archive),
@@ -235,6 +245,31 @@ async fn console_plan_fragment(
         .map_err(internal_error)?
         .ok_or_else(|| (StatusCode::NOT_FOUND, format!("plan not found: {plan_id}")))?;
     Ok(Html(render_plan_detail(&view)))
+}
+
+async fn console_plan_markdown(
+    State(state): State<PrismConsoleState>,
+    Path(plan_id): Path<String>,
+) -> std::result::Result<Response<Body>, (StatusCode, String)> {
+    let Some((title, markdown)) =
+        plan_markdown_payload(&state.host, &plan_id).map_err(internal_error)?
+    else {
+        return Err((StatusCode::NOT_FOUND, format!("plan not found: {plan_id}")));
+    };
+    let filename = format!(
+        "{}.md",
+        sanitize_download_basename(&format!("{title}-{plan_id}"))
+    );
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(CONTENT_TYPE, "text/markdown; charset=utf-8")
+        .header(
+            CONTENT_DISPOSITION,
+            HeaderValue::from_str(&format!("attachment; filename=\"{filename}\""))
+                .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?,
+        )
+        .body(Body::from(markdown))
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
 
 async fn console_task_page(
@@ -633,6 +668,10 @@ fn render_plan_sidebar(view: &PrismPlansView) -> String {
 
 fn render_plan_detail(view: &PrismPlanDetailView) -> String {
     let graph_src = plan_graph_mermaid(&view.graph);
+    let markdown_url = format!(
+        "/console/plans/{}/markdown",
+        escape_html(&view.plan.plan_id)
+    );
     let ready_rows = view
         .ready_tasks
         .iter()
@@ -663,7 +702,10 @@ fn render_plan_detail(view: &PrismPlanDetailView) -> String {
         "<article class=\"console-card\">\
          <div class=\"console-card-header\">\
          <div><p class=\"console-eyebrow\">Plan detail</p><h2>{}</h2><p class=\"console-subtitle\">{}</p></div>\
-         <div class=\"console-actions\"><form class=\"console-action-form\" hx-post=\"/console/plans/{}/archive\" hx-swap=\"none\" hx-indicator=\"closest .console-action-form\"><button class=\"console-button console-button--warn\" type=\"submit\"><span class=\"console-action-label\">Archive plan</span><span class=\"console-action-spinner\" aria-hidden=\"true\"></span></button></form></div>\
+         <div class=\"console-actions\">\
+         <a class=\"console-button console-button--ghost\" href=\"{}\" download>Download markdown</a>\
+         <div class=\"console-copy-action\"><button class=\"console-button console-button--ghost\" type=\"button\" data-copy-markdown-url=\"{}\"><span class=\"console-action-label\">Copy markdown</span><span class=\"console-action-spinner\" aria-hidden=\"true\"></span></button><span class=\"console-action-feedback console-small\" data-copy-markdown-feedback aria-live=\"polite\"></span></div>\
+         <form class=\"console-action-form\" hx-post=\"/console/plans/{}/archive\" hx-swap=\"none\" hx-indicator=\"closest .console-action-form\"><button class=\"console-button console-button--warn\" type=\"submit\"><span class=\"console-action-label\">Archive plan</span><span class=\"console-action-spinner\" aria-hidden=\"true\"></span></button></form></div>\
          </div>\
          <div class=\"console-inline-list\">{}<span class=\"console-pill\">{} total nodes</span><span class=\"console-pill\">{} actionable</span></div>\
          <section class=\"console-card console-graph-card\"><div class=\"console-card-header\"><div><h3>Dependency graph</h3><p class=\"console-subtitle\">Click task nodes to open task detail. Drag to pan, wheel to zoom.</p></div><span class=\"console-sync\">Live via polling</span></div><div class=\"console-graph-shell\" data-console-graph><div class=\"console-graph-controls\"><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-zoom-out>-</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-reset>Reset</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-zoom-in>+</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-fullscreen>Full page</button></div><div class=\"console-graph-viewport\" data-graph-viewport><pre class=\"console-mermaid prism-mermaid mermaid\">{}</pre></div></div></section>\
@@ -673,6 +715,8 @@ fn render_plan_detail(view: &PrismPlanDetailView) -> String {
          </article>",
         escape_html(&view.plan.title),
         escape_html(&view.plan.goal),
+        markdown_url,
+        markdown_url,
         escape_html(&view.plan.plan_id),
         status_badge(&format!("{:?}", view.plan.status)),
         view.summary.total_nodes,
@@ -1051,6 +1095,44 @@ fn plans_fragment_url(query: &PlansQuery, selected_plan_id: Option<&str>) -> Str
     }
 }
 
+fn plan_markdown_payload(host: &QueryHost, plan_id: &str) -> Result<Option<(String, String)>> {
+    let prism = host.current_prism();
+    let plan_id = PlanId::new(plan_id.to_string());
+    let Some(graph) = prism.plan_graph(&plan_id) else {
+        return Ok(None);
+    };
+    let policy = prism
+        .coordination_snapshot()
+        .plans
+        .into_iter()
+        .find(|plan| plan.id == plan_id)
+        .map(|plan| plan.policy)
+        .unwrap_or_else(CoordinationPolicy::default);
+    let markdown =
+        render_repo_published_plan_markdown(&graph, &policy, &prism.plan_execution(&plan_id));
+    Ok(Some((graph.title, markdown)))
+}
+
+fn sanitize_download_basename(value: &str) -> String {
+    let mut sanitized = value
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' | '0'..='9' => ch,
+            'A'..='Z' => ch.to_ascii_lowercase(),
+            _ => '-',
+        })
+        .collect::<String>();
+    while sanitized.contains("--") {
+        sanitized = sanitized.replace("--", "-");
+    }
+    let trimmed = sanitized.trim_matches('-');
+    if trimmed.is_empty() {
+        "plan".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
 fn internal_error(error: anyhow::Error) -> (StatusCode, String) {
     (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
 }
@@ -1103,6 +1185,7 @@ mod tests {
     use super::*;
     use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
+    use prism_ir::{EventActor, EventId, EventMeta, TaskId};
     use tower::util::ServiceExt;
 
     use crate::tests_support::temp_workspace;
@@ -1118,6 +1201,30 @@ mod tests {
             host,
             root: root.to_path_buf(),
         }
+    }
+
+    fn console_state_with_plan() -> (PrismConsoleState, String) {
+        let root = temp_workspace();
+        let state = console_state_from_root(&root);
+        let plan_id = state
+            .host
+            .current_prism()
+            .create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:console-plan-markdown"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:console-plan-markdown")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Console markdown export".into(),
+                "Make plan markdown available from the SSR plans page.".into(),
+                None,
+                Some(CoordinationPolicy::default()),
+            )
+            .unwrap();
+        (state, plan_id.0.to_string())
     }
 
     #[tokio::test]
@@ -1161,5 +1268,61 @@ mod tests {
                 .unwrap();
             assert_eq!(response.status(), StatusCode::OK, "{path}");
         }
+    }
+
+    #[tokio::test]
+    async fn console_plan_markdown_route_returns_attachment() {
+        let (state, plan_id) = console_state_with_plan();
+        let router = routes(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/console/plans/{plan_id}/markdown"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            "text/markdown; charset=utf-8"
+        );
+        assert!(response
+            .headers()
+            .get(CONTENT_DISPOSITION)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains(".md"));
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let text = std::str::from_utf8(&body).unwrap();
+        assert!(text.contains("# Console markdown export"));
+        assert!(text.contains("## Goal"));
+        assert!(text.contains("## Git Execution Policy"));
+    }
+
+    #[tokio::test]
+    async fn console_plan_detail_renders_markdown_actions() {
+        let (state, plan_id) = console_state_with_plan();
+        let router = routes(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/console/plans/{plan_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let text = std::str::from_utf8(&body).unwrap();
+        assert!(text.contains("Download markdown"));
+        assert!(text.contains("Copy markdown"));
+        assert!(text.contains(&format!("/console/plans/{plan_id}/markdown")));
+        assert!(text.contains("data-copy-markdown-url"));
     }
 }

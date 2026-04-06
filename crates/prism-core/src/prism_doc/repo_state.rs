@@ -212,6 +212,14 @@ pub(super) fn export_repo_state_docs(
     Ok(files)
 }
 
+pub(super) fn render_published_plan_markdown(
+    graph: &PlanGraph,
+    policy: &CoordinationPolicy,
+    overlays: &[PlanExecutionOverlay],
+) -> String {
+    render_plan_doc_parts(graph, policy, overlays)
+}
+
 fn project_memories(events: &[MemoryEvent]) -> Vec<PublishedMemoryRecord> {
     let mut sorted = events.to_vec();
     sorted.sort_by(|left, right| {
@@ -396,19 +404,27 @@ fn render_plan_index_doc(catalog: &RepoStateCatalog) -> String {
 }
 
 fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
+    render_plan_doc_parts(&plan.graph, &plan.policy, &plan.overlays)
+}
+
+fn render_plan_doc_parts(
+    graph: &PlanGraph,
+    policy: &CoordinationPolicy,
+    overlays: &[PlanExecutionOverlay],
+) -> String {
     let metadata = ProjectionMetadata::from_sources(
-        &(plan.graph.clone(), plan.overlays.clone()),
+        &(graph.clone(), overlays.to_vec()),
         None,
         format!(
             "{} nodes, {} edges, {} overlays",
-            plan.graph.nodes.len(),
-            plan.graph.edges.len(),
-            plan.overlays.len()
+            graph.nodes.len(),
+            graph.edges.len(),
+            overlays.len()
         ),
     );
     let mut markdown = String::new();
     markdown.push_str("# ");
-    markdown.push_str(&plan.graph.title);
+    markdown.push_str(&graph.title);
     markdown.push_str("\n\n");
     markdown.push_str("> Generated from repo-scoped PRISM plan state.\n");
     markdown.push_str("> Return to the plan index in `../index.md` or the repo entrypoint in `../../../PRISM.md`.\n\n");
@@ -417,35 +433,34 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
     markdown.push_str("## Overview\n\n");
     markdown.push_str(&format!(
         "- Plan id: `{}`\n- Status: `{}`\n- Kind: `{}`\n- Scope: `{}`\n- Revision: `{}`\n- Nodes: `{}`\n- Edges: `{}`\n\n",
-        plan.graph.id.0,
-        format_plan_status(plan.graph.status),
-        format_plan_kind(plan.graph.kind),
-        format_plan_scope(plan.graph.scope),
-        plan.graph.revision,
-        plan.graph.nodes.len(),
-        plan.graph.edges.len()
+        graph.id.0,
+        format_plan_status(graph.status),
+        format_plan_kind(graph.kind),
+        format_plan_scope(graph.scope),
+        graph.revision,
+        graph.nodes.len(),
+        graph.edges.len()
     ));
 
     markdown.push_str("## Goal\n\n");
-    markdown.push_str(&plan.graph.goal);
+    markdown.push_str(&graph.goal);
     markdown.push_str("\n\n");
 
     markdown.push_str("## Git Execution Policy\n\n");
     markdown.push_str(&format!(
         "- Start mode: `{}`\n- Completion mode: `{}`\n- Target branch: `{}`\n",
-        format_git_execution_start_mode(plan.policy.git_execution.start_mode),
-        format_git_execution_completion_mode(plan.policy.git_execution.completion_mode),
-        plan.policy.git_execution.target_branch,
+        format_git_execution_start_mode(policy.git_execution.start_mode),
+        format_git_execution_completion_mode(policy.git_execution.completion_mode),
+        policy.git_execution.target_branch,
     ));
-    if let Some(target_ref) = plan.policy.git_execution.target_ref.as_ref() {
+    if let Some(target_ref) = policy.git_execution.target_ref.as_ref() {
         markdown.push_str(&format!("- Target ref: `{target_ref}`\n"));
     }
     markdown.push_str(&format!(
         "- Require task branch: `{}`\n- Max commits behind target: `{}`\n",
-        plan.policy.git_execution.require_task_branch,
-        plan.policy.git_execution.max_commits_behind_target,
+        policy.git_execution.require_task_branch, policy.git_execution.max_commits_behind_target,
     ));
-    if let Some(max_fetch_age_seconds) = plan.policy.git_execution.max_fetch_age_seconds {
+    if let Some(max_fetch_age_seconds) = policy.git_execution.max_fetch_age_seconds {
         markdown.push_str(&format!(
             "- Max fetch age seconds: `{max_fetch_age_seconds}`\n"
         ));
@@ -464,9 +479,9 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
         "- Manual markdown export path: `docs/prism/plans/**` only when `prism docs export --output-dir <dir>` is invoked explicitly\n\n",
     );
 
-    if !plan.graph.root_nodes.is_empty() {
+    if !graph.root_nodes.is_empty() {
         markdown.push_str("## Root Nodes\n\n");
-        for node_id in &plan.graph.root_nodes {
+        for node_id in &graph.root_nodes {
             markdown.push_str("- `");
             markdown.push_str(&node_id.0);
             markdown.push_str("`\n");
@@ -475,19 +490,19 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
     }
 
     markdown.push_str("## Nodes\n\n");
-    if plan.graph.nodes.is_empty() {
+    if graph.nodes.is_empty() {
         markdown.push_str("No published plan nodes are currently recorded.\n\n");
     } else {
-        for node in &plan.graph.nodes {
+        for node in &graph.nodes {
             render_plan_node(&mut markdown, node);
         }
     }
 
     markdown.push_str("## Edges\n\n");
-    if plan.graph.edges.is_empty() {
+    if graph.edges.is_empty() {
         markdown.push_str("No published plan edges are currently recorded.\n\n");
     } else {
-        for edge in &plan.graph.edges {
+        for edge in &graph.edges {
             markdown.push_str(&format!(
                 "- `{}`: `{}` {} `{}`\n",
                 edge.id.0,
@@ -504,9 +519,9 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
         markdown.push('\n');
     }
 
-    if !plan.overlays.is_empty() {
+    if !overlays.is_empty() {
         markdown.push_str("## Execution Overlays\n\n");
-        for overlay in &plan.overlays {
+        for overlay in overlays {
             markdown.push_str(&format!("- Node: `{}`\n", overlay.node_id.0));
             if let Some(agent) = overlay.effective_assignee.as_ref() {
                 markdown.push_str(&format!("  effective assignee: `{}`\n", agent.0));

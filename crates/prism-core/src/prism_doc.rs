@@ -43,6 +43,14 @@ pub struct PrismDocSyncResult {
 
 pub use export::{PrismDocBundleFormat, PrismDocExportBundle, PrismDocExportResult};
 
+pub fn render_repo_published_plan_markdown(
+    plan_graph: &prism_ir::PlanGraph,
+    policy: &prism_coordination::CoordinationPolicy,
+    overlays: &[prism_ir::PlanExecutionOverlay],
+) -> String {
+    repo_state::render_published_plan_markdown(plan_graph, policy, overlays)
+}
+
 pub(crate) fn bundle_prism_doc_export(
     output_root: &Path,
     files: &[PrismDocFileSync],

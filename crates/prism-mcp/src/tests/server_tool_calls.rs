@@ -4,14 +4,15 @@ use serde_json::{json, Value};
 use super::*;
 use crate::tests_support::{
     call_tool_request, demo_node, first_tool_content_json, initialize_client,
-    initialized_notification, mutation_credential_json, read_resource_request, response_json,
-    server_with_node, temp_workspace, workspace_session_with_owner_credential,
+    initialized_notification, mutation_credential_json, read_resource_request,
+    register_test_agent_worktree, register_test_human_worktree, response_json, server_with_node,
+    temp_workspace, workspace_session_with_owner_credential,
 };
 use prism_coordination::TaskCreateInput;
 use prism_core::{
     default_workspace_shared_runtime, index_workspace_session,
-    index_workspace_session_with_options, BootstrapOwnerInput, MintPrincipalRequest, PrismPaths,
-    WorkspaceSessionOptions, WorktreeMode,
+    index_workspace_session_with_options, BootstrapOwnerInput, MintPrincipalRequest,
+    WorkspaceSessionOptions,
 };
 use prism_ir::{
     CoordinationTaskStatus, CredentialCapability, CredentialId, EventActor, EventId, EventMeta,
@@ -961,10 +962,7 @@ async fn mcp_server_auto_resumes_stale_same_principal_ready_task_on_update() {
 async fn mcp_server_auto_resumes_stale_same_worktree_executor_task_on_update() {
     let root = temp_workspace();
     let (session, _credential) = workspace_session_with_owner_credential(&root);
-    let registration = PrismPaths::for_workspace_root(&root)
-        .expect("paths should resolve")
-        .register_worktree("agent-a", WorktreeMode::Agent)
-        .expect("agent worktree registration should persist");
+    let registration = register_test_agent_worktree(&root);
     let slot = session
         .acquire_or_refresh_agent_worktree_mutator_slot(&SessionId::new("session:bridge-current"))
         .expect("agent worktree slot should be acquired");
@@ -1050,7 +1048,7 @@ async fn mcp_server_auto_resumes_stale_same_worktree_executor_task_on_update() {
                 "action": "coordination",
                 "bridgeExecution": {
                     "worktreeId": registration.worktree_id,
-                    "agentLabel": "agent-a"
+                    "agentLabel": registration.agent_label
                 },
                 "input": {
                     "kind": "update",
@@ -1658,6 +1656,7 @@ async fn mcp_server_supports_mcp_only_self_described_workflows() {
 async fn mcp_server_rejects_prism_mutate_when_capability_is_denied() {
     let root = temp_workspace();
     let (session, owner_credential) = workspace_session_with_owner_credential(&root);
+    let _ = register_test_agent_worktree(&root);
     let owner = session
         .authenticate_principal_credential(
             &CredentialId::new(owner_credential.credential_id.clone()),
@@ -1732,10 +1731,7 @@ async fn mcp_server_rejects_prism_mutate_when_capability_is_denied() {
 async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same_worktree() {
     let root = temp_workspace();
     let (session, owner_credential) = workspace_session_with_owner_credential(&root);
-    PrismPaths::for_workspace_root(&root)
-        .expect("paths should resolve")
-        .register_worktree("agent-a", WorktreeMode::Agent)
-        .expect("agent worktree registration should persist");
+    let _ = register_test_agent_worktree(&root);
     let owner = session
         .authenticate_principal_credential(
             &CredentialId::new(owner_credential.credential_id.clone()),
@@ -1947,10 +1943,7 @@ async fn mcp_server_rejects_authenticated_mutation_on_unregistered_worktree() {
 async fn mcp_server_allows_human_authenticated_mutation_on_registered_human_worktree() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);
-    PrismPaths::for_workspace_root(&root)
-        .expect("paths should resolve")
-        .register_worktree("operator-a", WorktreeMode::Human)
-        .expect("human worktree registration should persist");
+    let _ = register_test_human_worktree(&root);
     let server = PrismMcpServer::with_session(session);
     let (server_transport, client_transport) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move { server.serve(server_transport).await });
@@ -1994,10 +1987,7 @@ async fn mcp_server_allows_human_authenticated_mutation_on_registered_human_work
 async fn mcp_server_rejects_human_authenticated_mutation_on_agent_worktree() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);
-    PrismPaths::for_workspace_root(&root)
-        .expect("paths should resolve")
-        .register_worktree("agent-a", WorktreeMode::Agent)
-        .expect("agent worktree registration should persist");
+    let _ = register_test_agent_worktree(&root);
     let server = PrismMcpServer::with_session(session);
     let (server_transport, client_transport) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move { server.serve(server_transport).await });

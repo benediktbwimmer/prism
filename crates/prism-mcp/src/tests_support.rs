@@ -22,7 +22,7 @@ use super::*;
 use prism_core::{
     default_workspace_shared_runtime, index_workspace_session,
     index_workspace_session_with_options, BootstrapOwnerInput, PrismPaths, WorkspaceSessionOptions,
-    WorktreeMode,
+    WorktreeMode, WorktreeRegistrationRecord,
 };
 use prism_ir::new_sortable_token;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
@@ -141,10 +141,7 @@ pub(crate) fn workspace_session_with_owner_credential(
         },
     )
     .expect("workspace session should index");
-    PrismPaths::for_workspace_root(root)
-        .expect("paths should resolve")
-        .register_worktree("operator-a", WorktreeMode::Human)
-        .expect("default human worktree registration should persist");
+    register_test_human_worktree(root);
     let issued = session
         .bootstrap_owner_principal(BootstrapOwnerInput {
             authority_id: None,
@@ -160,6 +157,32 @@ pub(crate) fn workspace_session_with_owner_credential(
             principal_token: issued.principal_token,
         },
     )
+}
+
+pub(crate) fn register_test_human_worktree(root: &Path) -> String {
+    register_test_worktree(root, "operator", WorktreeMode::Human)
+        .agent_label
+}
+
+pub(crate) fn register_test_agent_worktree(root: &Path) -> WorktreeRegistrationRecord {
+    register_test_worktree(root, "agent", WorktreeMode::Agent)
+}
+
+fn register_test_worktree(
+    root: &Path,
+    prefix: &str,
+    mode: WorktreeMode,
+) -> WorktreeRegistrationRecord {
+    let label = format!(
+        "{prefix}-{}",
+        root.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("test-root")
+    );
+    PrismPaths::for_workspace_root(root)
+        .expect("paths should resolve")
+        .register_worktree(&label, mode)
+        .expect("test worktree registration should persist")
 }
 
 pub(crate) fn mutation_credential_json(credential: &MutationCredentialFixture) -> Value {

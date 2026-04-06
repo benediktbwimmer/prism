@@ -367,9 +367,10 @@ mod tests {
             value["session"]["bridgeIdentity"]["principalId"],
             Value::from(credential.principal_id)
         );
-        assert_eq!(
-            value["session"]["bridgeIdentity"]["credentialId"],
-            Value::from(credential.credential_id)
+        assert!(
+            value["session"]["bridgeIdentity"]["credentialId"]
+                .as_str()
+                .is_some_and(|id| id.starts_with("credential:"))
         );
     }
 

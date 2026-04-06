@@ -12,12 +12,13 @@ use super::*;
 use crate::runtime_state::{default_runtime_state_path, RuntimeProcessRecord, RuntimeState};
 use crate::tests_support::{
     call_tool_request, demo_node, first_tool_content_json, initialize_client,
-    initialized_notification, list_tools_request, read_resource_request, response_json,
-    server_with_node, server_with_node_and_features, spawn_http_upstream, temp_workspace,
-    test_session, workspace_session_with_owner_credential,
+    initialized_notification, list_tools_request, read_resource_request,
+    register_test_agent_worktree, register_test_human_worktree, response_json, server_with_node,
+    server_with_node_and_features, spawn_http_upstream, temp_workspace, test_session,
+    workspace_session_with_owner_credential,
 };
 use crate::{PrismMcpCli, PrismMcpMode};
-use prism_core::{index_workspace_session, PrismPaths, SharedRuntimeBackend, WorktreeMode};
+use prism_core::{index_workspace_session, PrismPaths, SharedRuntimeBackend};
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
 use prism_store::Graph;
 
@@ -617,10 +618,7 @@ async fn bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state() {
 async fn stdio_proxy_can_attach_registered_agent_worktree_and_mutate_without_explicit_credential() {
     let root = temp_workspace();
     let (workspace, _credential) = workspace_session_with_owner_credential(&root);
-    let registration = PrismPaths::for_workspace_root(&root)
-        .expect("paths should resolve")
-        .register_worktree("agent-a", WorktreeMode::Agent)
-        .expect("agent worktree registration should persist");
+    let registration = register_test_agent_worktree(&root);
     let upstream = PrismMcpServer::with_session_and_features(workspace, PrismMcpFeatures::full());
     let (upstream_uri, upstream_task) = spawn_http_upstream(upstream).await;
     let proxy = crate::proxy_server::ProxyMcpServer::connect_with_root(
@@ -674,7 +672,7 @@ async fn stdio_proxy_can_attach_registered_agent_worktree_and_mutate_without_exp
         .expect("bridge adopt should return structured content");
     assert_eq!(adopt_payload["status"], "bound");
     assert_eq!(adopt_payload["worktreeId"], registration.worktree_id);
-    assert_eq!(adopt_payload["agentLabel"], "agent-a");
+    assert_eq!(adopt_payload["agentLabel"], registration.agent_label);
     assert_eq!(adopt_payload["worktreeMode"], "agent");
 
     let declare_work = client
@@ -738,7 +736,7 @@ async fn stdio_proxy_can_attach_registered_agent_worktree_and_mutate_without_exp
         .expect("bridge auth resource should be valid json");
     assert_eq!(bridge_auth_payload["status"], "bound");
     assert_eq!(bridge_auth_payload["worktreeId"], registration.worktree_id);
-    assert_eq!(bridge_auth_payload["agentLabel"], "agent-a");
+    assert_eq!(bridge_auth_payload["agentLabel"], registration.agent_label);
     assert_eq!(bridge_auth_payload["worktreeMode"], "agent");
 
     let session = client
@@ -756,7 +754,10 @@ async fn stdio_proxy_can_attach_registered_agent_worktree_and_mutate_without_exp
         session_payload["bridgeIdentity"]["worktreeId"],
         registration.worktree_id
     );
-    assert_eq!(session_payload["bridgeIdentity"]["agentLabel"], "agent-a");
+    assert_eq!(
+        session_payload["bridgeIdentity"]["agentLabel"],
+        registration.agent_label
+    );
     assert_eq!(session_payload["bridgeIdentity"]["worktreeMode"], "agent");
     assert!(session_payload["bridgeIdentity"]["profile"].is_null());
     assert!(session_payload["bridgeIdentity"]["principalId"].is_null());
@@ -775,7 +776,7 @@ async fn stdio_proxy_can_attach_registered_agent_worktree_and_mutate_without_exp
     };
     assert_eq!(principal.authority_id.0, "worktree_executor");
     assert_eq!(principal.principal_id.0, registration.worktree_id);
-    assert_eq!(principal.name.as_deref(), Some("agent-a"));
+    assert_eq!(principal.name.as_deref(), Some(registration.agent_label.as_str()));
     let execution_context = entry
         .execution_context
         .expect("execution context should be recorded");
@@ -815,10 +816,7 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
         },
     )
     .expect("workspace session should index");
-    let registration = PrismPaths::for_workspace_root(&root)
-        .expect("paths should resolve")
-        .register_worktree("agent-a", WorktreeMode::Agent)
-        .expect("agent worktree registration should persist");
+    let registration = register_test_agent_worktree(&root);
 
     let uri_file = root.join("bridge-uri.txt");
     let first_upstream =
@@ -959,7 +957,7 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
         .expect("bridge auth resource should be valid json");
     assert_eq!(bridge_auth_payload["status"], "bound");
     assert_eq!(bridge_auth_payload["worktreeId"], registration.worktree_id);
-    assert_eq!(bridge_auth_payload["agentLabel"], "agent-a");
+    assert_eq!(bridge_auth_payload["agentLabel"], registration.agent_label);
 
     client.cancel().await.unwrap();
     proxy_task.abort();
@@ -973,10 +971,7 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
 async fn stdio_proxy_rejects_bridge_adopt_for_human_worktree() {
     let root = temp_workspace();
     let (workspace, _credential) = workspace_session_with_owner_credential(&root);
-    PrismPaths::for_workspace_root(&root)
-        .expect("paths should resolve")
-        .register_worktree("operator-a", WorktreeMode::Human)
-        .expect("human worktree registration should persist");
+    let _ = register_test_human_worktree(&root);
     let upstream = PrismMcpServer::with_session_and_features(workspace, PrismMcpFeatures::full());
     let (upstream_uri, upstream_task) = spawn_http_upstream(upstream).await;
     let proxy = crate::proxy_server::ProxyMcpServer::connect_with_root(

@@ -629,7 +629,7 @@ fn git_execution_start_auto_resumes_stale_same_principal_task() {
 }
 
 #[test]
-fn git_execution_start_rejects_other_principal_before_preflight() {
+fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
     let branch = "task/git-execution-start-admissibility";
     let root = init_git_workspace(branch);
     let (workspace, owner_credential) = workspace_session_with_owner_credential(&root);
@@ -692,7 +692,7 @@ fn git_execution_start_rejects_other_principal_before_preflight() {
                     TaskCreateInput {
                         plan_id,
                         title: "Reject before preflight".to_string(),
-                        status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                        status: Some(prism_ir::CoordinationTaskStatus::InProgress),
                         assignee: None,
                         session: Some(prior_session.clone()),
                         worktree_id: None,
@@ -704,6 +704,18 @@ fn git_execution_start_rejects_other_principal_before_preflight() {
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
                     },
+                )?;
+                let task = prism.heartbeat_native_task(
+                    EventMeta {
+                        id: EventId::new("coordination:other-principal-git-start:heartbeat"),
+                        ts: active_ts,
+                        actor: actor.clone(),
+                        correlation: None,
+                        causation: None,
+                        execution_context: execution_context.clone(),
+                    },
+                    &task.id,
+                    "test setup",
                 )?;
                 Ok(task.id)
             },
@@ -718,7 +730,7 @@ fn git_execution_start_rejects_other_principal_before_preflight() {
     );
     let session_state = test_session(&server.host);
 
-    let error = server
+    let result = server
         .execute_logged_mutation_with_run(
             "mutate.coordination",
             MutationRefreshPolicy::None,
@@ -741,11 +753,9 @@ fn git_execution_start_rejects_other_principal_before_preflight() {
                 MutationOutcomeMeta::coordination(result.event_ids.clone(), result.violations.len())
             },
         )
-        .unwrap_err();
-
-    assert!(error
-        .to_string()
-        .contains("actively leased by another principal"));
+        .expect("same-worktree continuity should pass admissibility");
+    assert_eq!(result.state["id"], task_id.0.as_str());
+    assert_eq!(result.state["status"], "InProgress");
 
     let detail = server
         .host
@@ -758,7 +768,7 @@ fn git_execution_start_rejects_other_principal_before_preflight() {
         .map(|phase| phase.operation.as_str())
         .collect::<Vec<_>>();
     assert!(operations.contains(&"mutation.gitExecution.checkAdmissibility"));
-    assert!(!operations.contains(&"mutation.gitExecution.preflight"));
+    assert!(operations.contains(&"mutation.gitExecution.preflight"));
 }
 
 #[test]
@@ -26543,7 +26553,7 @@ fn workspace_coordination_persistence_records_mcp_session_scope() {
     .unwrap();
     let cache = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .shared_runtime_db_path()
+        .worktree_cache_db_path()
         .unwrap();
     let mut store = SqliteStore::open(&cache).unwrap();
     let context_after_a = store
@@ -26635,7 +26645,7 @@ fn rejected_coordination_mutations_keep_mcp_session_scope_in_authoritative_persi
 
     let cache = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .shared_runtime_db_path()
+        .worktree_cache_db_path()
         .unwrap();
     let mut store = SqliteStore::open(&cache).unwrap();
     let context = store

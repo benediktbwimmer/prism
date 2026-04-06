@@ -279,10 +279,20 @@ code, pre, textarea, input, select, button { font-family: "SF Mono", "Menlo", mo
   flex-wrap: wrap;
   gap: 10px;
 }
+.console-copy-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
 .console-action-form {
   display: inline-flex;
 }
 .console-action-form.htmx-request .console-button {
+  pointer-events: none;
+  opacity: 0.86;
+}
+.console-button[disabled],
+.console-button.is-busy {
   pointer-events: none;
   opacity: 0.86;
 }
@@ -301,8 +311,24 @@ code, pre, textarea, input, select, button { font-family: "SF Mono", "Menlo", mo
 .console-action-form.htmx-request .console-action-spinner {
   display: inline-block;
 }
+.console-button.is-busy .console-action-spinner {
+  display: inline-block;
+}
 .console-action-form.htmx-request .console-action-label {
   opacity: 0.82;
+}
+.console-button.is-busy .console-action-label {
+  opacity: 0.82;
+}
+.console-action-feedback {
+  min-height: 1rem;
+  color: var(--console-muted);
+}
+.console-action-feedback[data-state="success"] {
+  color: var(--console-done);
+}
+.console-action-feedback[data-state="error"] {
+  color: var(--console-warn);
 }
 .console-button {
   border: 0;
@@ -738,9 +764,65 @@ function prismConsoleInitTimeline(root = document) {
   }
 }
 
+async function prismConsoleCopyText(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.setAttribute('readonly', 'readonly');
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.appendChild(field);
+  field.select();
+  document.execCommand('copy');
+  document.body.removeChild(field);
+}
+
+function prismConsoleInitPlanMarkdownActions(root = document) {
+  const buttons = root.querySelectorAll('[data-copy-markdown-url]:not([data-copy-bound="true"])');
+  for (const button of buttons) {
+    button.dataset.copyBound = 'true';
+    const feedback = button.parentElement?.querySelector('[data-copy-markdown-feedback]') || null;
+    let resetTimer = null;
+    const setFeedback = (state, message) => {
+      if (!feedback) return;
+      feedback.dataset.state = state || '';
+      feedback.textContent = message || '';
+    };
+    button.addEventListener('click', async () => {
+      const url = button.dataset.copyMarkdownUrl;
+      if (!url) return;
+      if (resetTimer) {
+        window.clearTimeout(resetTimer);
+        resetTimer = null;
+      }
+      button.classList.add('is-busy');
+      button.setAttribute('disabled', 'disabled');
+      setFeedback('', 'Copying…');
+      try {
+        const response = await fetch(url, { headers: { 'X-Requested-With': 'fetch' } });
+        if (!response.ok) {
+          throw new Error(`copy failed with status ${response.status}`);
+        }
+        await prismConsoleCopyText(await response.text());
+        setFeedback('success', 'Copied');
+      } catch (_error) {
+        setFeedback('error', 'Copy failed');
+      } finally {
+        button.classList.remove('is-busy');
+        button.removeAttribute('disabled');
+        resetTimer = window.setTimeout(() => setFeedback('', ''), 1600);
+      }
+    });
+  }
+}
+
 function prismConsoleBoot(root = document) {
   prismConsoleInitMermaid(root);
   prismConsoleInitTimeline(root);
+  prismConsoleInitPlanMarkdownActions(root);
 }
 
 document.addEventListener('DOMContentLoaded', () => prismConsoleBoot(document));
