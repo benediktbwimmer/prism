@@ -1,0 +1,81 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Historical read paths state replay and latency expectations explicitly rather than implying all time-travel views are cheap."
+      },
+      {
+        "anchors": [],
+        "label": "There is a clear request model for time-scoped and diff-scoped projection reads over plans or coordination state."
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 633
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+      "coord-task:01kn7kd5vsbjjt95a5m6axdcpk"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn7kc7wd38p9kb8src073kpp",
+    "priority": 5,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Added first-class ad hoc plan projection requests in prism-query for point-in-time and diff views by replaying coordination history into raw historical plan graphs and execution overlays, plus documented the structural replay semantics and latency honesty contract in PRISM_PROJECTIONS.md.",
+    "tags": [],
+    "title": "Add ad hoc projection requests for time-travel and diff views",
+    "validation_refs": [
+      {
+        "id": "crates/prism-query"
+      },
+      {
+        "id": "docs/PRISM_PROJECTIONS.md"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn385dg7g1pgcxnnntbjzhef",
+    "title": "Add governing-section and cross-doc navigation affordances",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn385dg7g1pgcxnnntbjzhef-d0c6fadedc9e4bcb.json"
+  },
+  {
+    "id": "coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5",
+    "title": "Add ad hoc projection requests for time-travel and diff views",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd6e5d4bcd4vy3jqzhtc5-3aceb43e0e2ff404.json"
+  }
+]
