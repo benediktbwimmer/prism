@@ -132,6 +132,7 @@ fn coordination_snapshot_preserves_task_lease_fields() {
                 lease_holder: Some(LeaseHolder {
                     principal: None,
                     session_id: Some(SessionId::new("session:lease")),
+                    worktree_id: Some("worktree:lease".into()),
                     agent_id: Some(AgentId::new("agent:lease")),
                 }),
                 lease_started_at: Some(10),
@@ -184,6 +185,7 @@ fn coordination_snapshot_preserves_task_lease_fields() {
         Some(LeaseHolder {
             principal: None,
             session_id: Some(SessionId::new("session:lease")),
+            worktree_id: Some("worktree:lease".into()),
             agent_id: Some(AgentId::new("agent:lease")),
         })
     );
