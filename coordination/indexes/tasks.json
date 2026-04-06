@@ -10,5 +10,11 @@
     "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
     "status": "Ready",
     "path": "tasks/coord-task-01knhbxwchpd9hc7sncz3apyh4-78c8d0d86d8a546e.json"
+  },
+  {
+    "id": "coord-task:01knhd3xk789qp6efkft4echzf",
+    "title": "Gate MCP, query, and UI surfaces by active layers and define degraded behavior contracts",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhd3xk789qp6efkft4echzf-d90b0816d1cd8f7e.json"
   }
 ]
