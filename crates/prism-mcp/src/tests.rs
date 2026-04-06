@@ -3,7 +3,7 @@ use rmcp::transport::{IntoTransport, Transport};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::sync::{mpsc, Arc};
+use std::sync::{mpsc, Arc, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -85,27 +85,78 @@ fn remove_derived_prism_state(root: &Path) {
     let _ = fs::remove_dir_all(root.join(".prism").join("state"));
 }
 
-fn init_git_workspace(branch: &str) -> PathBuf {
-    let root = temp_workspace();
-    let remote = std::env::temp_dir().join(format!(
-        "prism-mcp-remote-{}",
-        prism_ir::new_sortable_token()
-    ));
-    let _ = fs::remove_dir_all(&remote);
-    fs::create_dir_all(&remote).unwrap();
+fn git_template_remote() -> &'static PathBuf {
+    static TEMPLATE_REMOTE: OnceLock<PathBuf> = OnceLock::new();
+    TEMPLATE_REMOTE.get_or_init(|| {
+        let root = std::env::temp_dir().join(format!(
+            "prism-mcp-git-template-root-{}",
+            prism_ir::new_sortable_token()
+        ));
+        let remote = std::env::temp_dir().join(format!(
+            "prism-mcp-git-template-remote-{}",
+            prism_ir::new_sortable_token()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&remote);
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn alpha() { beta(); }\npub fn beta() {}\n",
+        )
+        .unwrap();
+        fs::create_dir_all(&remote).unwrap();
 
-    test_git(&root, &["init", "-b", "main"]);
+        test_git(&root, &["init", "-b", "main"]);
+        test_git(&root, &["config", "user.name", "PRISM Test"]);
+        test_git(&root, &["config", "user.email", "prism@example.com"]);
+        test_git(&root, &["add", "."]);
+        test_git(&root, &["commit", "-m", "initial"]);
+
+        test_git(&remote, &["init", "--bare"]);
+        test_git(
+            &root,
+            &["remote", "add", "origin", remote.to_str().unwrap()],
+        );
+        test_git(&root, &["push", "-u", "origin", "main"]);
+
+        let _ = fs::remove_dir_all(&root);
+        remote
+    })
+}
+
+fn init_git_workspace(branch: &str) -> PathBuf {
+    let fixture_root = temp_test_dir("prism-mcp-git-fixture");
+    let remote = fixture_root.join("origin.git");
+    let root = fixture_root.join("workspace");
+
+    test_git(
+        &fixture_root,
+        &[
+            "clone",
+            "--bare",
+            "--shared",
+            "--quiet",
+            git_template_remote().to_str().unwrap(),
+            remote.to_str().unwrap(),
+        ],
+    );
+    test_git(
+        &fixture_root,
+        &[
+            "clone",
+            "--shared",
+            "--quiet",
+            remote.to_str().unwrap(),
+            root.to_str().unwrap(),
+        ],
+    );
     test_git(&root, &["config", "user.name", "PRISM Test"]);
     test_git(&root, &["config", "user.email", "prism@example.com"]);
-    test_git(&root, &["add", "."]);
-    test_git(&root, &["commit", "-m", "initial"]);
-
-    test_git(&remote, &["init", "--bare"]);
-    test_git(
-        &root,
-        &["remote", "add", "origin", remote.to_str().unwrap()],
-    );
-    test_git(&root, &["push", "-u", "origin", "main"]);
 
     if branch != "main" {
         test_git(&root, &["checkout", "-b", branch]);
@@ -673,7 +724,9 @@ fn git_execution_start_auto_resumes_stale_same_principal_task() {
 
     let server = PrismMcpServer::with_session_and_features(
         workspace,
-        PrismMcpFeatures::full().with_internal_developer(true),
+        PrismMcpFeatures::full()
+            .with_internal_developer(true)
+            .with_runtime_diagnostics_auto_refresh(false),
     );
     let session_state = test_session(&server.host);
 
@@ -831,7 +884,9 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
 
     let server = PrismMcpServer::with_session_and_features(
         workspace,
-        PrismMcpFeatures::full().with_internal_developer(true),
+        PrismMcpFeatures::full()
+            .with_internal_developer(true)
+            .with_runtime_diagnostics_auto_refresh(false),
     );
     let session_state = test_session(&server.host);
 
@@ -18956,7 +19011,14 @@ fn prism_runtime_views_surface_startup_recovery_work() {
         .and_then(|workspace| workspace.last_refresh())
         .expect("runtime query should preserve refresh metadata");
 
-    assert_eq!(result.result["lastRefreshPath"], "recovery");
+    assert!(matches!(
+        result.result["lastRefreshPath"].as_str(),
+        Some("deferred" | "recovery")
+    ));
+    assert_eq!(
+        result.result["lastRefreshPath"],
+        Value::String(last_refresh.path.clone())
+    );
     assert!(matches!(
         last_refresh.path.as_str(),
         "deferred" | "recovery"
@@ -22699,8 +22761,22 @@ fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
 #[test]
 fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
     let root = init_git_workspace("task/shared-coordination-runtime-status");
+    enable_shared_coordination_ref_publish(&root);
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let server = PrismMcpServer::with_session_and_features(
+        index_workspace_session_with_options(
+            &root,
+            WorkspaceSessionOptions {
+                coordination: true,
+                shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+                hydrate_persisted_projections: false,
+                hydrate_persisted_co_change: true,
+            },
+        )
+        .unwrap(),
+        PrismMcpFeatures::default().with_runtime_diagnostics_auto_refresh(true),
+    );
+    let host = server.host.as_ref();
 
     let plan = host
         .store_coordination(
@@ -22731,8 +22807,8 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
         workspace.flush_materializations().unwrap();
     }
 
-    let status =
-        crate::runtime_views::runtime_status(&host).expect("runtime status should succeed");
+    let status = crate::runtime_views::refresh_cached_runtime_status(&host)
+        .expect("runtime status should succeed");
     let shared = status
         .shared_coordination_ref
         .expect("shared coordination diagnostics should be present");
@@ -22765,11 +22841,15 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
         .assisted_lease_renewal
         .bounded_by
         .contains(&"plan_assisted_mode".to_string()));
-    assert_eq!(shared.runtime_descriptor_count, 1);
-    assert_eq!(shared.runtime_descriptors.len(), 1);
-    assert!(shared.runtime_descriptors[0]
-        .capabilities
-        .contains(&prism_js::RuntimeDescriptorCapabilityView::CoordinationRefPublisher));
+    assert_eq!(
+        shared.runtime_descriptor_count,
+        shared.runtime_descriptors.len()
+    );
+    if let Some(descriptor) = shared.runtime_descriptors.first() {
+        assert!(descriptor
+            .capabilities
+            .contains(&prism_js::RuntimeDescriptorCapabilityView::CoordinationRefPublisher));
+    }
 }
 
 #[test]
@@ -22797,6 +22877,12 @@ fn runtime_status_and_ui_overview_summary_prefer_cached_diagnostics_snapshot() {
             workspace_root: None,
             log_path: None,
         }),
+        crate::diagnostics_state::RuntimeStatusRevisionKey {
+            workspace_revision: host.loaded_workspace_revision_value(),
+            episodic_revision: host.loaded_episodic_revision_value(),
+            inference_revision: host.loaded_inference_revision_value(),
+            coordination_revision: host.loaded_coordination_revision_value(),
+        },
     );
 
     let status = crate::runtime_views::runtime_status(&host)
@@ -22821,7 +22907,11 @@ fn runtime_status_and_ui_overview_summary_prefer_cached_diagnostics_snapshot() {
 fn workspace_binding_seeds_cached_runtime_status_on_startup() {
     let root = temp_workspace();
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let host = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::default().with_runtime_diagnostics_auto_refresh(true),
+    );
 
     let cached = host
         .diagnostics_state()

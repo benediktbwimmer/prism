@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -31,6 +32,40 @@ const DEFAULT_UPSTREAM_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const DEFAULT_UPSTREAM_REQUEST_RETRY_ATTEMPTS: usize = 3;
 const DEFAULT_STARTUP_POLL_AFTER_MS: u64 = 3_000;
 const DEFAULT_BUILD_POLL_AFTER_MS: u64 = 10_000;
+
+fn fast_proxy_reconnect_enabled() -> bool {
+    env::var_os("PRISM_TEST_FAST_PROXY_RECONNECT")
+        .and_then(|value| value.into_string().ok())
+        .map(|value| {
+            let normalized = value.trim().to_ascii_lowercase();
+            !normalized.is_empty() && normalized != "0" && normalized != "false"
+        })
+        .unwrap_or(false)
+}
+
+fn bridge_reconnect_base_delay() -> Duration {
+    if fast_proxy_reconnect_enabled() {
+        Duration::from_millis(25)
+    } else {
+        DEFAULT_BRIDGE_RECONNECT_BASE_DELAY
+    }
+}
+
+fn bridge_reconnect_max_delay() -> Duration {
+    if fast_proxy_reconnect_enabled() {
+        Duration::from_millis(250)
+    } else {
+        DEFAULT_BRIDGE_RECONNECT_MAX_DELAY
+    }
+}
+
+fn bridge_request_reconnect_timeout() -> Duration {
+    if fast_proxy_reconnect_enabled() {
+        Duration::from_secs(2)
+    } else {
+        DEFAULT_BRIDGE_REQUEST_RECONNECT_TIMEOUT
+    }
+}
 
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -614,7 +649,7 @@ impl ProxyMcpServer {
             self.reconnect_with_backoff(
                 "upstream transport closed before request",
                 false,
-                DEFAULT_BRIDGE_REQUEST_RECONNECT_TIMEOUT,
+                bridge_request_reconnect_timeout(),
             )
             .await?;
             let upstream = self.upstream.lock().await;
@@ -667,7 +702,7 @@ impl ProxyMcpServer {
 
         let started = Instant::now();
         let mut attempt = 0usize;
-        let mut delay = DEFAULT_BRIDGE_RECONNECT_BASE_DELAY;
+        let mut delay = bridge_reconnect_base_delay();
         let mut last_error = None;
         while started.elapsed() < timeout {
             attempt += 1;
@@ -684,7 +719,7 @@ impl ProxyMcpServer {
                     tokio::time::sleep(delay).await;
                     delay = delay
                         .saturating_mul(2)
-                        .min(DEFAULT_BRIDGE_RECONNECT_MAX_DELAY);
+                        .min(bridge_reconnect_max_delay());
                     continue;
                 }
             };
@@ -739,7 +774,7 @@ impl ProxyMcpServer {
                     tokio::time::sleep(delay).await;
                     delay = delay
                         .saturating_mul(2)
-                        .min(DEFAULT_BRIDGE_RECONNECT_MAX_DELAY);
+                        .min(bridge_reconnect_max_delay());
                 }
             }
         }
@@ -812,7 +847,7 @@ impl ProxyMcpServer {
                     self.reconnect_with_backoff(
                         op_name,
                         true,
-                        DEFAULT_BRIDGE_REQUEST_RECONNECT_TIMEOUT,
+                        bridge_request_reconnect_timeout(),
                     )
                     .await
                     .map_err(map_connect_error)?;
@@ -828,7 +863,7 @@ impl ProxyMcpServer {
                     self.reconnect_with_backoff(
                         op_name,
                         true,
-                        DEFAULT_BRIDGE_REQUEST_RECONNECT_TIMEOUT,
+                        bridge_request_reconnect_timeout(),
                     )
                     .await
                     .map_err(map_connect_error)?;

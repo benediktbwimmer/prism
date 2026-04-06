@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashSet};
+use std::env;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
@@ -32,6 +33,25 @@ use crate::tracked_snapshot::{
 use crate::workspace_identity::coordination_persist_context_for_root;
 
 const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
+const TEST_SHARED_COORDINATION_REF_PUBLISH_OPT_IN: &str =
+    "enable_shared_coordination_ref_publish";
+
+fn shared_coordination_ref_publish_enabled(root: &Path) -> bool {
+    let disabled = env::var_os("PRISM_TEST_DISABLE_SHARED_COORDINATION_REF_PUBLISH")
+        .and_then(|value| value.into_string().ok())
+        .map(|value| {
+            let normalized = value.trim().to_ascii_lowercase();
+            !normalized.is_empty() && normalized != "0" && normalized != "false"
+        })
+        .unwrap_or(false);
+    if !disabled {
+        return true;
+    }
+    root.join(".prism")
+        .join("tests")
+        .join(TEST_SHARED_COORDINATION_REF_PUBLISH_OPT_IN)
+        .exists()
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CoordinationDerivedPersistenceMode {
@@ -481,13 +501,26 @@ pub(crate) trait CoordinationPersistenceBackend:
                 .cloned()
                 .unwrap_or_else(|| execution_overlays_by_plan(&snapshot.tasks)),
         };
-        sync_authoritative_shared_coordination_ref_observed(
-            root,
-            snapshot,
-            &derived,
-            publish_context.as_ref(),
-            &mut observe_phase,
-        )?;
+        if shared_coordination_ref_publish_enabled(root) {
+            sync_authoritative_shared_coordination_ref_observed(
+                root,
+                snapshot,
+                &derived,
+                publish_context.as_ref(),
+                &mut observe_phase,
+            )?;
+        } else {
+            observe_phase(
+                "mutation.coordination.publishedPlans.syncSharedCoordinationRef",
+                Duration::ZERO,
+                json!({
+                    "skipped": true,
+                    "reason": "test_default_disabled",
+                }),
+                true,
+                None,
+            );
+        }
         if matches!(
             derived_persistence_mode,
             CoordinationDerivedPersistenceMode::Inline

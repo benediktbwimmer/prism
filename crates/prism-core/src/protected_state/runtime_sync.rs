@@ -226,10 +226,8 @@ mod tests {
 
     #[test]
     fn missing_prism_dir_skips_protected_state_imports() {
-        let root = std::env::temp_dir().join(format!(
-            "prism-runtime-sync-{}",
-            new_sortable_token()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("prism-runtime-sync-{}", new_sortable_token()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("temp workspace should be created");
 

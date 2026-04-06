@@ -20,6 +20,129 @@ fn resource_text(response: serde_json::Value) -> String {
         .to_string()
 }
 
+fn text_resource_contents(contents: rmcp::model::ResourceContents) -> String {
+    match contents {
+        rmcp::model::ResourceContents::TextResourceContents { text, .. } => text,
+        other => panic!("expected textual resource contents, got {other:?}"),
+    }
+}
+
+fn compact_self_description_resource_text(server: &PrismMcpServer, uri: &str) -> String {
+    if let Some(instruction_set_id) = crate::instructions::parse_instruction_resource_uri(uri) {
+        return match instruction_set_id {
+            None => crate::instructions::render_instructions_index(server.host.features.mode_label()),
+            Some(id) => crate::instructions::render_instruction_set(
+                &id,
+                server.host.features.mode_label(),
+            )
+            .unwrap_or_else(|| panic!("instruction set should exist for {uri}")),
+        };
+    }
+    if uri == CAPABILITIES_URI {
+        return serde_json::to_string_pretty(
+            &server
+                .host
+                .capabilities_resource_value()
+                .expect("capabilities resource should build"),
+        )
+        .expect("capabilities resource should serialize");
+    }
+    if uri == SESSION_URI {
+        return serde_json::to_string_pretty(
+            &server
+                .host
+                .session_resource_value(server.session.as_ref())
+                .expect("session resource should build"),
+        )
+        .expect("session resource should serialize");
+    }
+    if uri == VOCAB_URI {
+        return serde_json::to_string_pretty(&server.host.vocab_resource_value())
+            .expect("vocab resource should serialize");
+    }
+    if uri == SCHEMAS_URI {
+        return serde_json::to_string_pretty(&server.host.schemas_resource_value())
+            .expect("schemas resource should serialize");
+    }
+    if uri == TOOL_SCHEMAS_URI {
+        return serde_json::to_string_pretty(&server.host.tool_schemas_resource_value())
+            .expect("tool schemas resource should serialize");
+    }
+    if uri == crate::SELF_DESCRIPTION_AUDIT_URI {
+        return text_resource_contents(
+            crate::self_description_audit_resource_contents(
+                server
+                    .host
+                    .capabilities_resource_value()
+                    .expect("capabilities resource should build"),
+                uri,
+            )
+            .expect("self-description audit resource should build"),
+        );
+    }
+    if let Some((tool_name, action, tag)) = crate::parse_tool_variant_example_resource_uri(uri) {
+        return text_resource_contents(
+            crate::tool_variant_example_resource_contents(&tool_name, &action, &tag, uri)
+                .expect("tool variant example resource should exist"),
+        );
+    }
+    if let Some((tool_name, action, tag)) = crate::parse_tool_variant_shape_resource_uri(uri) {
+        return text_resource_contents(
+            crate::tool_variant_shape_resource_contents(&tool_name, &action, &tag, uri)
+                .expect("tool variant shape resource should exist"),
+        );
+    }
+    if let Some((tool_name, action, tag)) = crate::parse_tool_variant_recipe_resource_uri(uri) {
+        return text_resource_contents(
+            crate::tool_recipe_resource_contents(&tool_name, &action, Some(&tag), uri)
+                .expect("tool variant recipe resource should exist"),
+        );
+    }
+    if let Some((tool_name, action)) = crate::parse_tool_action_example_resource_uri(uri) {
+        return text_resource_contents(
+            crate::tool_action_example_resource_contents(&tool_name, &action, uri)
+                .expect("tool action example resource should exist"),
+        );
+    }
+    if let Some((tool_name, action)) = crate::parse_tool_action_shape_resource_uri(uri) {
+        return text_resource_contents(
+            crate::tool_action_shape_resource_contents(&tool_name, &action, uri)
+                .expect("tool action shape resource should exist"),
+        );
+    }
+    if let Some((tool_name, action)) = crate::parse_tool_action_recipe_resource_uri(uri) {
+        return text_resource_contents(
+            crate::tool_recipe_resource_contents(&tool_name, &action, None, uri)
+                .expect("tool action recipe resource should exist"),
+        );
+    }
+    if let Some(tool_name) = crate::parse_tool_example_resource_uri(uri) {
+        return text_resource_contents(
+            crate::tool_example_resource_contents(&tool_name, uri)
+                .expect("tool example resource should exist"),
+        );
+    }
+    if let Some(tool_name) = crate::parse_tool_shape_resource_uri(uri) {
+        return text_resource_contents(
+            crate::tool_shape_resource_contents(&tool_name, uri)
+                .expect("tool shape resource should exist"),
+        );
+    }
+    if let Some(resource_kind) = crate::parse_resource_example_resource_uri(uri) {
+        return text_resource_contents(
+            crate::resource_example_resource_contents(&resource_kind, uri)
+                .expect("resource example should exist"),
+        );
+    }
+    if let Some(resource_kind) = crate::parse_resource_shape_resource_uri(uri) {
+        return text_resource_contents(
+            crate::resource_shape_resource_contents(&resource_kind, uri)
+                .expect("resource shape should exist"),
+        );
+    }
+    panic!("unsupported compact self-description resource uri: {uri}");
+}
+
 #[tokio::test]
 async fn mcp_server_advertises_tools_and_api_reference_resource() {
     let server = server_with_node(demo_node());
@@ -1354,27 +1477,19 @@ async fn instruction_sets_advertise_compact_self_description_ladder() {
     running.cancel().await.unwrap();
 }
 
-#[tokio::test]
-async fn self_description_audit_keeps_compact_discovery_surfaces_under_budget() {
+#[test]
+fn self_description_audit_keeps_compact_discovery_surfaces_under_budget() {
     let server = server_with_node(demo_node());
-    let (server_transport, client_transport) = tokio::io::duplex(4096);
-    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
-    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
-
-    let _ = initialize_client(&mut client).await;
-    client.send(initialized_notification()).await.unwrap();
-    let running = server_task
-        .await
-        .expect("server join should succeed")
-        .expect("server should initialize");
-
-    client
-        .send(read_resource_request(90, "prism://self-description"))
-        .await
-        .unwrap();
-    let audit_payload = serde_json::from_str::<Value>(&resource_text(response_json(
-        client.receive().await.unwrap(),
-    )))
+    let audit_payload = serde_json::from_str::<Value>(&text_resource_contents(
+        crate::self_description_audit_resource_contents(
+            server
+                .host
+                .capabilities_resource_value()
+                .expect("capabilities resource should build"),
+            "prism://self-description",
+        )
+        .expect("self-description audit resource should build"),
+    ))
     .unwrap();
     let budget = audit_payload["budgetBytes"]
         .as_u64()
@@ -1387,18 +1502,12 @@ async fn self_description_audit_keeps_compact_discovery_surfaces_under_budget() 
         .iter()
         .any(|entry| entry["surfaceKind"] == "resource_template"));
 
-    let mut request_id = 91_u64;
     for entry in entries {
         for key in ["exampleUri", "shapeUri", "recipeUri"] {
             let Some(uri) = entry[key].as_str() else {
                 continue;
             };
-            client
-                .send(read_resource_request(request_id, uri))
-                .await
-                .unwrap();
-            request_id += 1;
-            let payload = resource_text(response_json(client.receive().await.unwrap()));
+            let payload = compact_self_description_resource_text(&server, uri);
             assert!(
                 payload.len() <= budget,
                 "resource `{uri}` exceeded compact budget of {budget} bytes with {} bytes",
@@ -1406,6 +1515,4 @@ async fn self_description_audit_keeps_compact_discovery_surfaces_under_budget() 
             );
         }
     }
-
-    running.cancel().await.unwrap();
 }

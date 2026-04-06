@@ -48,6 +48,7 @@ pub(crate) struct WorkspaceRuntimeConfig {
     pub(crate) inferred_edges: Arc<InferenceStore>,
     pub(crate) diagnostics_state: Arc<DiagnosticsState>,
     pub(crate) mcp_call_log_store: Arc<McpCallLogStore>,
+    pub(crate) runtime_diagnostics_auto_refresh: bool,
     pub(crate) sync_lock: Arc<RwLock<()>>,
     pub(crate) loaded_workspace_revision: Arc<AtomicU64>,
     pub(crate) loaded_episodic_revision: Arc<AtomicU64>,
@@ -57,6 +58,24 @@ pub(crate) struct WorkspaceRuntimeConfig {
     pub(crate) read_sync: Arc<SharedWorkspaceReadSync>,
     pub(crate) runtime_engine: Arc<Mutex<WorkspaceRuntimeEngine>>,
     pub(crate) prepared_delta: Arc<Mutex<Option<PreparedWorkspaceRuntimeDelta>>>,
+}
+
+fn maybe_refresh_cached_runtime_status_for_config(config: &WorkspaceRuntimeConfig) {
+    if !config.runtime_diagnostics_auto_refresh {
+        return;
+    }
+    let _ = refresh_cached_runtime_status_for_config(
+        &crate::workspace_diagnostics::WorkspaceDiagnosticsConfig {
+            workspace: Arc::clone(&config.workspace),
+            loaded_workspace_revision: Arc::clone(&config.loaded_workspace_revision),
+            loaded_episodic_revision: Arc::clone(&config.loaded_episodic_revision),
+            loaded_inference_revision: Arc::clone(&config.loaded_inference_revision),
+            loaded_coordination_revision: Arc::clone(&config.loaded_coordination_revision),
+            runtime_engine: Arc::clone(&config.runtime_engine),
+            diagnostics_state: Arc::clone(&config.diagnostics_state),
+            mcp_call_log_store: Arc::clone(&config.mcp_call_log_store),
+        },
+    );
 }
 
 fn sync_current_runtime_revisions(
@@ -195,18 +214,7 @@ fn dirty_workspace_deferred_report(
             metrics.lock_hold_ms,
             refresh_work(metrics),
         );
-    let _ = refresh_cached_runtime_status_for_config(
-        &crate::workspace_diagnostics::WorkspaceDiagnosticsConfig {
-            workspace: Arc::clone(&config.workspace),
-            loaded_workspace_revision: Arc::clone(&config.loaded_workspace_revision),
-            loaded_episodic_revision: Arc::clone(&config.loaded_episodic_revision),
-            loaded_inference_revision: Arc::clone(&config.loaded_inference_revision),
-            loaded_coordination_revision: Arc::clone(&config.loaded_coordination_revision),
-            runtime_engine: Arc::clone(&config.runtime_engine),
-            diagnostics_state: Arc::clone(&config.diagnostics_state),
-            mcp_call_log_store: Arc::clone(&config.mcp_call_log_store),
-        },
-    );
+    maybe_refresh_cached_runtime_status_for_config(config);
     WorkspaceRefreshReport {
         refresh_path: "deferred",
         runtime_sync_used,
@@ -415,20 +423,7 @@ impl WorkspaceRuntime {
                 continue;
             }
             if outcome.published_generation {
-                let _ = refresh_cached_runtime_status_for_config(
-                    &crate::workspace_diagnostics::WorkspaceDiagnosticsConfig {
-                        workspace: Arc::clone(&config.workspace),
-                        loaded_workspace_revision: Arc::clone(&config.loaded_workspace_revision),
-                        loaded_episodic_revision: Arc::clone(&config.loaded_episodic_revision),
-                        loaded_inference_revision: Arc::clone(&config.loaded_inference_revision),
-                        loaded_coordination_revision: Arc::clone(
-                            &config.loaded_coordination_revision,
-                        ),
-                        runtime_engine: Arc::clone(&config.runtime_engine),
-                        diagnostics_state: Arc::clone(&config.diagnostics_state),
-                        mcp_call_log_store: Arc::clone(&config.mcp_call_log_store),
-                    },
-                );
+                maybe_refresh_cached_runtime_status_for_config(&config);
             }
             config
                 .runtime_engine
@@ -516,6 +511,12 @@ fn sync_workspace_runtime_materialization(
 impl Drop for WorkspaceRuntime {
     fn drop(&mut self) {
         let _ = self.stop.send(());
+        match self.wake.try_send(()) {
+            Ok(()) | Err(TrySendError::Full(())) => {}
+            Err(TrySendError::Disconnected(())) => {
+                debug!("workspace runtime wake channel disconnected during drop");
+            }
+        }
         if let Some(handle) = self
             .handle
             .lock()
@@ -524,6 +525,7 @@ impl Drop for WorkspaceRuntime {
         {
             let _ = handle.join();
         }
+        self.lane_senders.clear();
         for worker in &self.background_workers {
             let _ = worker.stop.send(());
             if let Some(handle) = worker
@@ -590,26 +592,7 @@ fn spawn_background_runtime_lanes(
                             .enqueue_command(command.clone());
                     } else {
                         if outcome.published_generation {
-                            let _ = refresh_cached_runtime_status_for_config(
-                                &crate::workspace_diagnostics::WorkspaceDiagnosticsConfig {
-                                    workspace: Arc::clone(&lane_config.workspace),
-                                    loaded_workspace_revision: Arc::clone(
-                                        &lane_config.loaded_workspace_revision,
-                                    ),
-                                    loaded_episodic_revision: Arc::clone(
-                                        &lane_config.loaded_episodic_revision,
-                                    ),
-                                    loaded_inference_revision: Arc::clone(
-                                        &lane_config.loaded_inference_revision,
-                                    ),
-                                    loaded_coordination_revision: Arc::clone(
-                                        &lane_config.loaded_coordination_revision,
-                                    ),
-                                    runtime_engine: Arc::clone(&lane_config.runtime_engine),
-                                    diagnostics_state: Arc::clone(&lane_config.diagnostics_state),
-                                    mcp_call_log_store: Arc::clone(&lane_config.mcp_call_log_store),
-                                },
-                            );
+                            maybe_refresh_cached_runtime_status_for_config(&lane_config);
                         }
                         let mut engine = lane_config
                             .runtime_engine
@@ -2045,6 +2028,7 @@ mod tests {
             inferred_edges: Arc::new(InferenceStore::new()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            runtime_diagnostics_auto_refresh: false,
             sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
@@ -2114,6 +2098,7 @@ mod tests {
             inferred_edges: Arc::new(InferenceStore::new()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            runtime_diagnostics_auto_refresh: false,
             sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
@@ -2178,6 +2163,7 @@ mod tests {
             inferred_edges: Arc::new(InferenceStore::new()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            runtime_diagnostics_auto_refresh: false,
             sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
@@ -2255,6 +2241,7 @@ mod tests {
             inferred_edges: Arc::new(InferenceStore::new()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            runtime_diagnostics_auto_refresh: false,
             sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
@@ -2383,6 +2370,7 @@ mod tests {
             inferred_edges: Arc::new(InferenceStore::new()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            runtime_diagnostics_auto_refresh: false,
             sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
@@ -2457,6 +2445,7 @@ mod tests {
             inferred_edges: Arc::new(InferenceStore::new()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            runtime_diagnostics_auto_refresh: false,
             sync_lock: Arc::clone(&sync_lock),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
@@ -2541,6 +2530,7 @@ mod tests {
             inferred_edges: Arc::new(InferenceStore::new()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            runtime_diagnostics_auto_refresh: false,
             sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
@@ -2603,6 +2593,7 @@ mod tests {
             inferred_edges: Arc::new(InferenceStore::new()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            runtime_diagnostics_auto_refresh: false,
             sync_lock: Arc::clone(&sync_lock),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
@@ -2715,6 +2706,7 @@ mod tests {
             inferred_edges: Arc::new(InferenceStore::new()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            runtime_diagnostics_auto_refresh: false,
             sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
@@ -2833,6 +2825,7 @@ mod tests {
             inferred_edges: Arc::new(InferenceStore::new()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            runtime_diagnostics_auto_refresh: false,
             sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
@@ -2931,6 +2924,7 @@ mod tests {
             inferred_edges: Arc::new(InferenceStore::new()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            runtime_diagnostics_auto_refresh: false,
             sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(0)),
             loaded_episodic_revision: Arc::new(AtomicU64::new(0)),

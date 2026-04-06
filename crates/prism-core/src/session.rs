@@ -1997,15 +1997,21 @@ impl WorkspaceSession {
     }
 
     pub fn persist_principal_registry(&self, snapshot: &PrincipalRegistrySnapshot) -> Result<()> {
-        let Some(shared_runtime_store) = self.shared_runtime_store() else {
-            return Err(anyhow!(
-                "principal registry persistence requires a shared runtime backend"
-            ));
-        };
-        let mut store = shared_runtime_store
-            .lock()
-            .expect("shared runtime store lock poisoned");
-        prism_store::MaterializationStore::save_principal_registry_snapshot(&mut *store, snapshot)?;
+        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            let mut store = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            prism_store::MaterializationStore::save_principal_registry_snapshot(
+                &mut *store,
+                snapshot,
+            )?;
+        } else {
+            let mut store = self.store.lock().expect("workspace store lock poisoned");
+            prism_store::MaterializationStore::save_principal_registry_snapshot(
+                &mut *store,
+                snapshot,
+            )?;
+        }
         *self
             .principal_registry
             .write()
@@ -2034,6 +2040,17 @@ impl WorkspaceSession {
                     let mut store = shared_runtime_store
                         .lock()
                         .expect("shared runtime store lock poisoned");
+                    if let Some(snapshot) =
+                        crate::ensure_local_principal_registry_snapshot(&self.root, &mut *store)?
+                    {
+                        *self
+                            .principal_registry
+                            .write()
+                            .expect("principal registry lock poisoned") = snapshot;
+                        continue;
+                    }
+                } else {
+                    let mut store = self.store.lock().expect("workspace store lock poisoned");
                     if let Some(snapshot) =
                         crate::ensure_local_principal_registry_snapshot(&self.root, &mut *store)?
                     {
@@ -3596,6 +3613,15 @@ impl Drop for WorkspaceSession {
                         &mut *shared_runtime_store
                             .lock()
                             .expect("shared runtime store lock poisoned"),
+                        &principal_registry,
+                    );
+                if let Err(error) = persist_result {
+                    warn!(error = %error, "failed to persist principal registry during workspace session shutdown");
+                }
+            } else {
+                let persist_result =
+                    prism_store::MaterializationStore::save_principal_registry_snapshot(
+                        &mut *self.store.lock().expect("workspace store lock poisoned"),
                         &principal_registry,
                     );
                 if let Err(error) = persist_result {

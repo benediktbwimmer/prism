@@ -35,6 +35,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::daemon_log;
+use crate::diagnostics_state::RuntimeStatusRevisionKey;
 use crate::log_scope::{select_log_sources, LogScope, RepoLogSource};
 use crate::mcp_call_log::McpCallLogStore;
 use crate::runtime_state::{
@@ -111,7 +112,16 @@ struct DaemonLogRecord {
 }
 
 pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
-    if let Some(cached) = host.diagnostics_state().runtime_status() {
+    let revisions = RuntimeStatusRevisionKey {
+        workspace_revision: host.loaded_workspace_revision_value(),
+        episodic_revision: host.loaded_episodic_revision_value(),
+        inference_revision: host.loaded_inference_revision_value(),
+        coordination_revision: host.loaded_coordination_revision_value(),
+    };
+    if let Some(cached) = host
+        .diagnostics_state()
+        .runtime_status_for_revisions(revisions)
+    {
         return Ok(cached);
     }
     refresh_cached_runtime_status(host)
@@ -138,9 +148,24 @@ pub(crate) fn refresh_cached_runtime_status(host: &QueryHost) -> Result<RuntimeS
     };
     let runtime_state = read_runtime_state(inputs.root)?;
     let last_runtime_event = latest_runtime_state_event_view(runtime_state.as_ref());
-    let status = runtime_status_from_inputs(&inputs, runtime_state.as_ref())?;
-    host.diagnostics_state()
-        .update_runtime_status(status.clone(), last_runtime_event);
+    let cached_shared_coordination_ref = host
+        .diagnostics_state()
+        .shared_coordination_ref_for_revision(inputs.loaded_coordination_revision);
+    let status = runtime_status_from_inputs(
+        &inputs,
+        runtime_state.as_ref(),
+        cached_shared_coordination_ref,
+    )?;
+    host.diagnostics_state().update_runtime_status(
+        status.clone(),
+        last_runtime_event,
+        RuntimeStatusRevisionKey {
+            workspace_revision: inputs.loaded_workspace_revision,
+            episodic_revision: inputs.loaded_episodic_revision,
+            inference_revision: inputs.loaded_inference_revision,
+            coordination_revision: inputs.loaded_coordination_revision,
+        },
+    );
     Ok(status)
 }
 
@@ -171,10 +196,24 @@ pub(crate) fn refresh_cached_runtime_status_for_config(
     };
     let runtime_state = read_runtime_state(inputs.root)?;
     let last_runtime_event = latest_runtime_state_event_view(runtime_state.as_ref());
-    let status = runtime_status_from_inputs(&inputs, runtime_state.as_ref())?;
-    config
+    let cached_shared_coordination_ref = config
         .diagnostics_state
-        .update_runtime_status(status.clone(), last_runtime_event);
+        .shared_coordination_ref_for_revision(inputs.loaded_coordination_revision);
+    let status = runtime_status_from_inputs(
+        &inputs,
+        runtime_state.as_ref(),
+        cached_shared_coordination_ref,
+    )?;
+    config.diagnostics_state.update_runtime_status(
+        status.clone(),
+        last_runtime_event,
+        RuntimeStatusRevisionKey {
+            workspace_revision: inputs.loaded_workspace_revision,
+            episodic_revision: inputs.loaded_episodic_revision,
+            inference_revision: inputs.loaded_inference_revision,
+            coordination_revision: inputs.loaded_coordination_revision,
+        },
+    );
     Ok(status)
 }
 
@@ -311,6 +350,7 @@ fn workspace_root(host: &QueryHost) -> Result<&Path> {
 fn runtime_status_from_inputs(
     inputs: &RuntimeStatusInputs<'_>,
     runtime_state: Option<&RuntimeState>,
+    cached_shared_coordination_ref: Option<Option<RuntimeSharedCoordinationRefView>>,
 ) -> Result<RuntimeStatusView> {
     let paths = RuntimePaths::for_root(inputs.root)?;
     let state_processes = runtime_state
@@ -357,8 +397,11 @@ fn runtime_status_from_inputs(
             .collect(),
         process_error,
         assisted_lease_renewal: runtime_assisted_lease_renewal_view(),
-        shared_coordination_ref: shared_coordination_ref_diagnostics(inputs.root)?
-            .map(runtime_shared_coordination_ref_view),
+        shared_coordination_ref: match cached_shared_coordination_ref {
+            Some(value) => value,
+            None => shared_coordination_ref_diagnostics(inputs.root)?
+                .map(runtime_shared_coordination_ref_view),
+        },
         scopes: runtime_scopes_from_prism(inputs.prism.as_ref(), &freshness),
         freshness,
     })

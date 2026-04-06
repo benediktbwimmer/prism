@@ -771,7 +771,7 @@ impl QueryHost {
         Self::with_session_and_limits_and_features(
             workspace,
             QueryLimits::default(),
-            PrismMcpFeatures::default(),
+            PrismMcpFeatures::default().with_runtime_diagnostics_auto_refresh(false),
         )
     }
 
@@ -834,6 +834,7 @@ impl QueryHost {
             Arc::clone(&inferred_edges),
             Arc::clone(&diagnostics_state),
             Arc::clone(&mcp_call_log_store),
+            features.runtime_diagnostics_auto_refresh,
         );
         if features.coordination_layer_enabled() {
             if let Err(error) = prism_core::sync_live_runtime_descriptor(workspace.root()) {
@@ -1194,6 +1195,7 @@ impl QueryHost {
     }
 
     fn sync_workspace_revision_value(&self, revision: u64) {
+        self.diagnostics_state.invalidate_runtime_status();
         if let Some(binding) = self.workspace_runtime_binding() {
             binding
                 .loaded_workspace_revision()
@@ -1206,6 +1208,7 @@ impl QueryHost {
     }
 
     fn sync_episodic_revision_value(&self, revision: u64) {
+        self.diagnostics_state.invalidate_runtime_status();
         if let Some(binding) = self.workspace_runtime_binding() {
             binding
                 .loaded_episodic_revision()
@@ -1218,6 +1221,7 @@ impl QueryHost {
     }
 
     fn sync_inference_revision_value(&self, revision: u64) {
+        self.diagnostics_state.invalidate_runtime_status();
         if let Some(binding) = self.workspace_runtime_binding() {
             binding
                 .loaded_inference_revision()
@@ -1230,6 +1234,7 @@ impl QueryHost {
     }
 
     fn sync_coordination_revision_value(&self, revision: u64) {
+        self.diagnostics_state.invalidate_runtime_status();
         if let Some(binding) = self.workspace_runtime_binding() {
             binding
                 .loaded_coordination_revision()

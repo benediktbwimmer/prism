@@ -157,6 +157,7 @@ impl WorkspaceRuntimeBinding {
         inferred_edges: Arc<InferenceStore>,
         diagnostics_state: Arc<DiagnosticsState>,
         mcp_call_log_store: Arc<McpCallLogStore>,
+        runtime_diagnostics_auto_refresh: bool,
     ) -> Self {
         let context = WorkspaceRuntimeContext::from_root(workspace.root());
         let sync_lock = shared_workspace_runtime_sync_lock(context.root());
@@ -182,6 +183,7 @@ impl WorkspaceRuntimeBinding {
             inferred_edges: Arc::clone(&inferred_edges),
             diagnostics_state: Arc::clone(&diagnostics_state),
             mcp_call_log_store: Arc::clone(&mcp_call_log_store),
+            runtime_diagnostics_auto_refresh,
             sync_lock: Arc::clone(&sync_lock),
             loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
             loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
@@ -204,23 +206,28 @@ impl WorkspaceRuntimeBinding {
                 diagnostics_state: Arc::clone(&diagnostics_state),
                 mcp_call_log_store: Arc::clone(&mcp_call_log_store),
             },
+            runtime_diagnostics_auto_refresh,
         ));
         let _ = hydrate_persisted_workspace_state(&config);
-        let diagnostics_config = WorkspaceDiagnosticsConfig {
-            workspace: Arc::clone(&workspace),
-            loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
-            loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
-            loaded_inference_revision: Arc::clone(&loaded_inference_revision),
-            loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
-            runtime_engine: Arc::clone(&engine),
-            diagnostics_state: Arc::clone(&diagnostics_state),
-            mcp_call_log_store: Arc::clone(&mcp_call_log_store),
-        };
-        let _ = refresh_cached_runtime_status_for_config(&diagnostics_config);
+        if runtime_diagnostics_auto_refresh {
+            let diagnostics_config = WorkspaceDiagnosticsConfig {
+                workspace: Arc::clone(&workspace),
+                loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
+                loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
+                loaded_inference_revision: Arc::clone(&loaded_inference_revision),
+                loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
+                runtime_engine: Arc::clone(&engine),
+                diagnostics_state: Arc::clone(&diagnostics_state),
+                mcp_call_log_store: Arc::clone(&mcp_call_log_store),
+            };
+            let _ = refresh_cached_runtime_status_for_config(&diagnostics_config);
+        }
         if workspace.needs_refresh() {
             runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
         }
-        diagnostics.request_refresh();
+        if runtime_diagnostics_auto_refresh {
+            diagnostics.request_refresh();
+        }
         Self {
             context,
             workspace,
@@ -291,6 +298,7 @@ impl WorkspaceRuntimeBinding {
             inferred_edges: Arc::clone(&self.inferred_edges),
             diagnostics_state: Arc::clone(&self.diagnostics_state),
             mcp_call_log_store: Arc::clone(&self.mcp_call_log_store),
+            runtime_diagnostics_auto_refresh: false,
             sync_lock: Arc::clone(&self.sync_lock),
             loaded_workspace_revision: Arc::clone(&self.loaded_workspace_revision),
             loaded_episodic_revision: Arc::clone(&self.loaded_episodic_revision),
@@ -332,6 +340,7 @@ impl WorkspaceRuntimeHost {
         inferred_edges: Arc<InferenceStore>,
         diagnostics_state: Arc<DiagnosticsState>,
         mcp_call_log_store: Arc<McpCallLogStore>,
+        runtime_diagnostics_auto_refresh: bool,
     ) -> Arc<WorkspaceRuntimeBinding> {
         let mut bindings = self
             .bindings
@@ -350,6 +359,7 @@ impl WorkspaceRuntimeHost {
             inferred_edges,
             diagnostics_state,
             mcp_call_log_store,
+            runtime_diagnostics_auto_refresh,
         ));
         bindings.insert(binding.context().root().to_path_buf(), Arc::clone(&binding));
         binding

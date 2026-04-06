@@ -1,3 +1,8 @@
+use std::{
+    collections::HashMap,
+    sync::{Mutex, OnceLock},
+};
+
 use rmcp::{
     model::{RawResource, ResourceContents},
     ErrorData as McpError,
@@ -21,6 +26,246 @@ use crate::{
 
 pub(crate) const SELF_DESCRIPTION_BUDGET_BYTES: usize = 12 * 1024;
 const MAX_COMPACT_EXAMPLES_PER_SURFACE: usize = 3;
+
+#[derive(Default)]
+struct SelfDescriptionStaticCache {
+    tool_shapes: HashMap<String, ToolShapeResourcePayload>,
+    tool_examples: HashMap<String, ToolExampleResourcePayload>,
+    resource_shapes: HashMap<String, ResourceShapeResourcePayload>,
+    resource_examples: HashMap<String, ResourceExampleResourcePayload>,
+    tool_recipe_markdowns: HashMap<String, String>,
+    compact_surface_bytes: HashMap<String, usize>,
+    schema_bytes: HashMap<String, usize>,
+    tool_example_validations: HashMap<String, prism_js::ToolInputValidationView>,
+}
+
+static SELF_DESCRIPTION_STATIC_CACHE: OnceLock<Mutex<SelfDescriptionStaticCache>> = OnceLock::new();
+static SELF_DESCRIPTION_AUDIT_CACHE: OnceLock<Mutex<HashMap<String, SelfDescriptionAuditPayload>>> =
+    OnceLock::new();
+
+fn self_description_static_cache() -> &'static Mutex<SelfDescriptionStaticCache> {
+    SELF_DESCRIPTION_STATIC_CACHE.get_or_init(|| Mutex::new(build_self_description_static_cache()))
+}
+
+fn self_description_audit_cache() -> &'static Mutex<HashMap<String, SelfDescriptionAuditPayload>> {
+    SELF_DESCRIPTION_AUDIT_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn build_self_description_static_cache() -> SelfDescriptionStaticCache {
+    let mut cache = SelfDescriptionStaticCache::default();
+
+    for tool in crate::tool_schema_catalog_entries() {
+        let tool_name = tool.tool_name.clone();
+        if let Some(schema_bytes) = crate::tool_input_schema_value(&tool_name)
+            .as_ref()
+            .and_then(value_bytes)
+        {
+            cache.schema_bytes.insert(tool.schema_uri.clone(), schema_bytes);
+        }
+        if let Some(uri) = tool.shape_uri.as_deref() {
+            if let Some(payload) = build_tool_shape_payload(&tool_name, uri) {
+                record_serialized_bytes(&mut cache.compact_surface_bytes, uri, &payload);
+                cache.tool_shapes.insert(uri.to_string(), payload);
+            }
+        }
+        if let Some(uri) = tool.example_uri.as_deref() {
+            if let Some(payload) = build_tool_example_payload(&tool_name, None, None, uri) {
+                record_serialized_bytes(&mut cache.compact_surface_bytes, uri, &payload);
+                cache.tool_examples.insert(uri.to_string(), payload);
+            }
+        }
+        if let Some(validation) = build_tool_example_validation(&tool_name, None, None) {
+            cache
+                .tool_example_validations
+                .insert(tool_example_validation_cache_key(&tool_name, None, None), validation);
+        }
+        if let Some(tool_view) = tool_schema_view(&tool_name) {
+            for action in tool_view.actions {
+                let action_schema_uri =
+                    crate::tool_action_schema_resource_uri(&tool_name, &action.action);
+                if let Some(schema_bytes) = tool_action_schema_value(&tool_name, &action.action)
+                    .as_ref()
+                    .and_then(value_bytes)
+                {
+                    cache.schema_bytes.insert(action_schema_uri, schema_bytes);
+                }
+
+                let action_shape_uri = tool_action_shape_resource_uri(&tool_name, &action.action);
+                if let Some(payload) =
+                    build_tool_action_shape_payload(&tool_name, &action.action, &action_shape_uri)
+                {
+                    record_serialized_bytes(
+                        &mut cache.compact_surface_bytes,
+                        &action_shape_uri,
+                        &payload,
+                    );
+                    cache.tool_shapes.insert(action_shape_uri, payload);
+                }
+
+                let action_example_uri =
+                    tool_action_example_resource_uri(&tool_name, &action.action);
+                if let Some(payload) = build_tool_example_payload(
+                    &tool_name,
+                    Some(&action.action),
+                    None,
+                    &action_example_uri,
+                ) {
+                    record_serialized_bytes(
+                        &mut cache.compact_surface_bytes,
+                        &action_example_uri,
+                        &payload,
+                    );
+                    cache.tool_examples.insert(action_example_uri, payload);
+                }
+                if let Some(validation) =
+                    build_tool_example_validation(&tool_name, Some(&action.action), None)
+                {
+                    cache.tool_example_validations.insert(
+                        tool_example_validation_cache_key(&tool_name, Some(&action.action), None),
+                        validation,
+                    );
+                }
+
+                let action_recipe_uri =
+                    tool_action_recipe_resource_uri(&tool_name, &action.action);
+                if let Some(markdown) =
+                    build_tool_recipe_markdown(&tool_name, &action.action, None)
+                {
+                    cache
+                        .compact_surface_bytes
+                        .insert(action_recipe_uri.clone(), markdown.len());
+                    cache
+                        .tool_recipe_markdowns
+                        .insert(action_recipe_uri, markdown);
+                }
+
+                for variant in action.payload_variants {
+                    let variant_schema_uri =
+                        tool_variant_schema_resource_uri(&tool_name, &action.action, &variant.tag);
+                    if let Some(schema_bytes) =
+                        tool_variant_schema_value(&tool_name, &action.action, &variant.tag)
+                            .as_ref()
+                            .and_then(value_bytes)
+                    {
+                        cache.schema_bytes.insert(variant_schema_uri, schema_bytes);
+                    }
+
+                    let variant_shape_uri =
+                        tool_variant_shape_resource_uri(&tool_name, &action.action, &variant.tag);
+                    if let Some(payload) = build_tool_variant_shape_payload(
+                        &tool_name,
+                        &action.action,
+                        &variant.tag,
+                        &variant_shape_uri,
+                    ) {
+                        record_serialized_bytes(
+                            &mut cache.compact_surface_bytes,
+                            &variant_shape_uri,
+                            &payload,
+                        );
+                        cache.tool_shapes.insert(variant_shape_uri, payload);
+                    }
+
+                    let variant_example_uri =
+                        tool_variant_example_resource_uri(&tool_name, &action.action, &variant.tag);
+                    if let Some(payload) = build_tool_example_payload(
+                        &tool_name,
+                        Some(&action.action),
+                        Some(&variant.tag),
+                        &variant_example_uri,
+                    ) {
+                        record_serialized_bytes(
+                            &mut cache.compact_surface_bytes,
+                            &variant_example_uri,
+                            &payload,
+                        );
+                        cache.tool_examples.insert(variant_example_uri, payload);
+                    }
+                    if let Some(validation) = build_tool_example_validation(
+                        &tool_name,
+                        Some(&action.action),
+                        Some(&variant.tag),
+                    ) {
+                        cache.tool_example_validations.insert(
+                            tool_example_validation_cache_key(
+                                &tool_name,
+                                Some(&action.action),
+                                Some(&variant.tag),
+                            ),
+                            validation,
+                        );
+                    }
+
+                    let variant_recipe_uri =
+                        tool_variant_recipe_resource_uri(&tool_name, &action.action, &variant.tag);
+                    if let Some(markdown) =
+                        build_tool_recipe_markdown(&tool_name, &action.action, Some(&variant.tag))
+                    {
+                        cache
+                            .compact_surface_bytes
+                            .insert(variant_recipe_uri.clone(), markdown.len());
+                        cache
+                            .tool_recipe_markdowns
+                            .insert(variant_recipe_uri, markdown);
+                    }
+                }
+            }
+        }
+    }
+
+    for resource in crate::resource_schema_catalog_entries() {
+        let resource_kind = resource.resource_kind;
+        let schema_uri = schema_resource_uri(&resource_kind);
+        if let Some(schema_bytes) = resource_schema_shape_source(&resource_kind)
+            .as_ref()
+            .and_then(|(schema, _)| value_bytes(schema))
+        {
+            cache.schema_bytes.insert(schema_uri, schema_bytes);
+        }
+
+        let shape_uri = resource_shape_resource_uri(&resource_kind);
+        if let Some(payload) = build_resource_shape_payload(&resource_kind, &shape_uri) {
+            record_serialized_bytes(&mut cache.compact_surface_bytes, &shape_uri, &payload);
+            cache.resource_shapes.insert(shape_uri, payload);
+        }
+
+        let example_uri = resource_example_resource_uri(&resource_kind);
+        if let Some(payload) = build_resource_example_payload(&resource_kind, &example_uri) {
+            record_serialized_bytes(&mut cache.compact_surface_bytes, &example_uri, &payload);
+            cache.resource_examples.insert(example_uri, payload);
+        }
+    }
+
+    cache
+}
+
+fn record_serialized_bytes<T: serde::Serialize>(
+    cache: &mut HashMap<String, usize>,
+    uri: &str,
+    value: &T,
+) {
+    if let Some(bytes) = serialized_bytes(value) {
+        cache.insert(uri.to_string(), bytes);
+    }
+}
+
+fn serialized_bytes<T: serde::Serialize>(value: &T) -> Option<usize> {
+    serde_json::to_vec_pretty(value)
+        .ok()
+        .map(|bytes| bytes.len())
+}
+
+fn tool_example_validation_cache_key(
+    tool_name: &str,
+    action: Option<&str>,
+    variant: Option<&str>,
+) -> String {
+    format!(
+        "{tool_name}\u{1f}{}\u{1f}{}",
+        action.unwrap_or_default(),
+        variant.unwrap_or_default()
+    )
+}
 
 pub(crate) fn self_description_audit_resource_uri() -> String {
     crate::SELF_DESCRIPTION_AUDIT_URI.to_string()
@@ -499,6 +744,25 @@ pub(crate) fn self_description_audit_resource_contents(
 }
 
 fn tool_shape_payload(tool_name: &str, uri: &str) -> Option<ToolShapeResourcePayload> {
+    if let Some(payload) = self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .tool_shapes
+        .get(uri)
+        .cloned()
+    {
+        return Some(payload);
+    }
+    let payload = build_tool_shape_payload(tool_name, uri)?;
+    self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .tool_shapes
+        .insert(uri.to_string(), payload.clone());
+    Some(payload)
+}
+
+fn build_tool_shape_payload(tool_name: &str, uri: &str) -> Option<ToolShapeResourcePayload> {
     let tool = tool_schema_view(tool_name)?;
     let required_fields = tool
         .actions
@@ -535,6 +799,29 @@ fn tool_shape_payload(tool_name: &str, uri: &str) -> Option<ToolShapeResourcePay
 }
 
 fn tool_action_shape_payload(
+    tool_name: &str,
+    action: &str,
+    uri: &str,
+) -> Option<ToolShapeResourcePayload> {
+    if let Some(payload) = self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .tool_shapes
+        .get(uri)
+        .cloned()
+    {
+        return Some(payload.clone());
+    }
+    let payload = build_tool_action_shape_payload(tool_name, action, uri)?;
+    self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .tool_shapes
+        .insert(uri.to_string(), payload.clone());
+    Some(payload)
+}
+
+fn build_tool_action_shape_payload(
     tool_name: &str,
     action: &str,
     uri: &str,
@@ -585,6 +872,30 @@ fn tool_variant_shape_payload(
     tag: &str,
     uri: &str,
 ) -> Option<ToolShapeResourcePayload> {
+    if let Some(payload) = self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .tool_shapes
+        .get(uri)
+        .cloned()
+    {
+        return Some(payload);
+    }
+    let payload = build_tool_variant_shape_payload(tool_name, action, tag, uri)?;
+    self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .tool_shapes
+        .insert(uri.to_string(), payload.clone());
+    Some(payload)
+}
+
+fn build_tool_variant_shape_payload(
+    tool_name: &str,
+    action: &str,
+    tag: &str,
+    uri: &str,
+) -> Option<ToolShapeResourcePayload> {
     let action_view = tool_action_schema_view(tool_name, action)?;
     let variant = action_view
         .payload_variants
@@ -618,6 +929,30 @@ fn tool_variant_shape_payload(
 }
 
 fn tool_example_payload(
+    tool_name: &str,
+    action: Option<&str>,
+    variant: Option<&str>,
+    uri: &str,
+) -> Option<ToolExampleResourcePayload> {
+    if let Some(payload) = self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .tool_examples
+        .get(uri)
+        .cloned()
+    {
+        return Some(payload);
+    }
+    let payload = build_tool_example_payload(tool_name, action, variant, uri)?;
+    self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .tool_examples
+        .insert(uri.to_string(), payload.clone());
+    Some(payload)
+}
+
+fn build_tool_example_payload(
     tool_name: &str,
     action: Option<&str>,
     variant: Option<&str>,
@@ -682,6 +1017,28 @@ fn tool_example_payload(
 }
 
 fn resource_shape_payload(resource_kind: &str, uri: &str) -> Option<ResourceShapeResourcePayload> {
+    if let Some(payload) = self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .resource_shapes
+        .get(uri)
+        .cloned()
+    {
+        return Some(payload);
+    }
+    let payload = build_resource_shape_payload(resource_kind, uri)?;
+    self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .resource_shapes
+        .insert(uri.to_string(), payload.clone());
+    Some(payload)
+}
+
+fn build_resource_shape_payload(
+    resource_kind: &str,
+    uri: &str,
+) -> Option<ResourceShapeResourcePayload> {
     let (schema, description) = resource_schema_shape_source(resource_kind)?;
     let required_fields = schema_required_fields(&schema);
     let fields = compact_shape_fields(&schema);
@@ -711,6 +1068,28 @@ fn resource_example_payload(
     resource_kind: &str,
     uri: &str,
 ) -> Option<ResourceExampleResourcePayload> {
+    if let Some(payload) = self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .resource_examples
+        .get(uri)
+        .cloned()
+    {
+        return Some(payload);
+    }
+    let payload = build_resource_example_payload(resource_kind, uri)?;
+    self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .resource_examples
+        .insert(uri.to_string(), payload.clone());
+    Some(payload)
+}
+
+fn build_resource_example_payload(
+    resource_kind: &str,
+    uri: &str,
+) -> Option<ResourceExampleResourcePayload> {
     let example = crate::resource_payload_example(resource_kind)?;
     Some(ResourceExampleResourcePayload {
         uri: uri.to_string(),
@@ -731,6 +1110,31 @@ fn resource_example_payload(
 }
 
 fn self_description_audit_payload(
+    capabilities: CapabilitiesResourcePayload,
+    uri: &str,
+) -> Result<SelfDescriptionAuditPayload, McpError> {
+    let cache_key = format!(
+        "{uri}\u{1f}{}",
+        serde_json::to_string(&capabilities).map_err(internal_serialize_error)?
+    );
+    if let Some(payload) = self_description_audit_cache()
+        .lock()
+        .expect("self-description audit cache lock poisoned")
+        .get(&cache_key)
+        .cloned()
+    {
+        return Ok(payload);
+    }
+
+    let payload = build_self_description_audit_payload(capabilities, uri)?;
+    self_description_audit_cache()
+        .lock()
+        .expect("self-description audit cache lock poisoned")
+        .insert(cache_key, payload.clone());
+    Ok(payload)
+}
+
+fn build_self_description_audit_payload(
     capabilities: CapabilitiesResourcePayload,
     uri: &str,
 ) -> Result<SelfDescriptionAuditPayload, McpError> {
@@ -1714,70 +2118,91 @@ fn compact_examples(mut examples: Vec<Value>) -> Vec<Value> {
 }
 
 fn compact_surface_bytes(uri: &str) -> Option<usize> {
-    if let Some((tool_name, action, tag)) = parse_tool_variant_example_resource_uri(uri) {
-        return tool_example_payload(&tool_name, Some(&action), Some(&tag), uri)
-            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
+    if let Some(bytes) = self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .compact_surface_bytes
+        .get(uri)
+        .copied()
+    {
+        return Some(bytes);
     }
-    if let Some((tool_name, action)) = parse_tool_action_example_resource_uri(uri) {
-        return tool_example_payload(&tool_name, Some(&action), None, uri)
-            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
-    }
-    if let Some(tool_name) = parse_tool_example_resource_uri(uri) {
-        return tool_example_payload(&tool_name, None, None, uri)
-            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
-    }
-    if let Some((tool_name, action, tag)) = parse_tool_variant_shape_resource_uri(uri) {
-        return tool_variant_shape_payload(&tool_name, &action, &tag, uri)
-            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
-    }
-    if let Some((tool_name, action)) = parse_tool_action_shape_resource_uri(uri) {
-        return tool_action_shape_payload(&tool_name, &action, uri)
-            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
-    }
-    if let Some(tool_name) = parse_tool_shape_resource_uri(uri) {
-        return tool_shape_payload(&tool_name, uri)
-            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
-    }
-    if let Some(resource_kind) = parse_resource_example_resource_uri(uri) {
-        return resource_example_payload(&resource_kind, uri)
-            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
-    }
-    if let Some(resource_kind) = parse_resource_shape_resource_uri(uri) {
-        return resource_shape_payload(&resource_kind, uri)
-            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?));
-    }
-    if let Some((tool_name, action, tag)) = parse_tool_variant_recipe_resource_uri(uri) {
-        return tool_recipe_markdown(&tool_name, &action, Some(&tag))
-            .map(|markdown| markdown.len());
-    }
-    if let Some((tool_name, action)) = parse_tool_action_recipe_resource_uri(uri) {
-        return tool_recipe_markdown(&tool_name, &action, None).map(|markdown| markdown.len());
-    }
-    None
+    let bytes = if let Some((tool_name, action, tag)) = parse_tool_variant_example_resource_uri(uri)
+    {
+        tool_example_payload(&tool_name, Some(&action), Some(&tag), uri)
+            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?))
+    } else if let Some((tool_name, action)) = parse_tool_action_example_resource_uri(uri) {
+        tool_example_payload(&tool_name, Some(&action), None, uri)
+            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?))
+    } else if let Some(tool_name) = parse_tool_example_resource_uri(uri) {
+        tool_example_payload(&tool_name, None, None, uri)
+            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?))
+    } else if let Some((tool_name, action, tag)) = parse_tool_variant_shape_resource_uri(uri) {
+        tool_variant_shape_payload(&tool_name, &action, &tag, uri)
+            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?))
+    } else if let Some((tool_name, action)) = parse_tool_action_shape_resource_uri(uri) {
+        tool_action_shape_payload(&tool_name, &action, uri)
+            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?))
+    } else if let Some(tool_name) = parse_tool_shape_resource_uri(uri) {
+        tool_shape_payload(&tool_name, uri)
+            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?))
+    } else if let Some(resource_kind) = parse_resource_example_resource_uri(uri) {
+        resource_example_payload(&resource_kind, uri)
+            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?))
+    } else if let Some(resource_kind) = parse_resource_shape_resource_uri(uri) {
+        resource_shape_payload(&resource_kind, uri)
+            .and_then(|payload| value_bytes(&serde_json::to_value(payload).ok()?))
+    } else if let Some((tool_name, action, tag)) = parse_tool_variant_recipe_resource_uri(uri) {
+        tool_recipe_markdown(&tool_name, &action, Some(&tag)).map(|markdown| markdown.len())
+    } else if let Some((tool_name, action)) = parse_tool_action_recipe_resource_uri(uri) {
+        tool_recipe_markdown(&tool_name, &action, None).map(|markdown| markdown.len())
+    } else {
+        None
+    }?;
+    self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .compact_surface_bytes
+        .insert(uri.to_string(), bytes);
+    Some(bytes)
 }
 
 fn schema_uri_to_bytes(uri: &str) -> Option<usize> {
-    if let Some((tool_name, action, tag)) = parse_tool_variant_schema_resource_uri(uri) {
-        return tool_variant_schema_value(&tool_name, &action, &tag)
-            .as_ref()
-            .and_then(value_bytes);
+    if let Some(bytes) = self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .schema_bytes
+        .get(uri)
+        .copied()
+    {
+        return Some(bytes);
     }
-    if let Some((tool_name, action)) = crate::parse_tool_action_schema_resource_uri(uri) {
-        return tool_action_schema_value(&tool_name, &action)
+    let bytes = if let Some((tool_name, action, tag)) = parse_tool_variant_schema_resource_uri(uri)
+    {
+        tool_variant_schema_value(&tool_name, &action, &tag)
             .as_ref()
-            .and_then(value_bytes);
-    }
-    if let Some(tool_name) = crate::parse_tool_schema_resource_uri(uri) {
-        return crate::tool_input_schema_value(&tool_name)
+            .and_then(value_bytes)
+    } else if let Some((tool_name, action)) = crate::parse_tool_action_schema_resource_uri(uri) {
+        tool_action_schema_value(&tool_name, &action)
             .as_ref()
-            .and_then(value_bytes);
-    }
-    if let Some(resource_kind) = crate::parse_schema_resource_uri(uri) {
-        return resource_schema_shape_source(&resource_kind)
+            .and_then(value_bytes)
+    } else if let Some(tool_name) = crate::parse_tool_schema_resource_uri(uri) {
+        crate::tool_input_schema_value(&tool_name)
             .as_ref()
-            .and_then(|(schema, _)| value_bytes(schema));
-    }
-    None
+            .and_then(value_bytes)
+    } else if let Some(resource_kind) = crate::parse_schema_resource_uri(uri) {
+        resource_schema_shape_source(&resource_kind)
+            .as_ref()
+            .and_then(|(schema, _)| value_bytes(schema))
+    } else {
+        None
+    }?;
+    self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .schema_bytes
+        .insert(uri.to_string(), bytes);
+    Some(bytes)
 }
 
 fn tool_example_validation(
@@ -1785,10 +2210,34 @@ fn tool_example_validation(
     action: Option<&str>,
     variant: Option<&str>,
 ) -> Option<prism_js::ToolInputValidationView> {
+    if let Some(validation) = self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .tool_example_validations
+        .get(&tool_example_validation_cache_key(tool_name, action, variant))
+        .cloned()
+    {
+        return Some(validation);
+    }
+    let validation = build_tool_example_validation(tool_name, action, variant)?;
+    self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .tool_example_validations
+        .insert(
+            tool_example_validation_cache_key(tool_name, action, variant),
+            validation.clone(),
+        );
+    Some(validation)
+}
+
+fn build_tool_example_validation(
+    tool_name: &str,
+    action: Option<&str>,
+    variant: Option<&str>,
+) -> Option<prism_js::ToolInputValidationView> {
     let example = tool_example_input(tool_name, action, variant)?;
-    Some(crate::tool_args::validate_tool_input_value(
-        tool_name, example,
-    ))
+    Some(crate::tool_args::validate_tool_input_value(tool_name, example))
 }
 
 fn tool_example_input(
@@ -1915,6 +2364,29 @@ fn internal_serialize_error(err: serde_json::Error) -> McpError {
 }
 
 fn tool_recipe_markdown(tool_name: &str, action: &str, variant: Option<&str>) -> Option<String> {
+    let uri = match variant {
+        Some(tag) => tool_variant_recipe_resource_uri(tool_name, action, tag),
+        None => tool_action_recipe_resource_uri(tool_name, action),
+    };
+    if let Some(markdown) = self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .tool_recipe_markdowns
+        .get(&uri)
+        .cloned()
+    {
+        return Some(markdown);
+    }
+    let markdown = build_tool_recipe_markdown(tool_name, action, variant)?;
+    self_description_static_cache()
+        .lock()
+        .expect("self-description cache lock poisoned")
+        .tool_recipe_markdowns
+        .insert(uri, markdown.clone());
+    Some(markdown)
+}
+
+fn build_tool_recipe_markdown(tool_name: &str, action: &str, variant: Option<&str>) -> Option<String> {
     let common = format!(
         "# PRISM Recipe: {tool_name}.{action}\n\nUse the compact path first:\n1. Read the shape resource.\n2. Read the example resource.\n3. Draft the payload.\n4. Call `validateToolInput` or the target tool.\n"
     );

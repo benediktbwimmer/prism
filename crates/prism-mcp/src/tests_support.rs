@@ -12,17 +12,17 @@ use axum::Router;
 use rmcp::{
     model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
     transport::{
-        StreamableHttpServerConfig, StreamableHttpService, Transport,
-        streamable_http_server::session::local::LocalSessionManager,
+        streamable_http_server::session::local::LocalSessionManager, StreamableHttpServerConfig,
+        StreamableHttpService, Transport,
     },
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::*;
 use prism_core::{
-    BootstrapOwnerInput, PrismPaths, WorkspaceSessionOptions, WorktreeMode,
-    WorktreeRegistrationRecord, default_workspace_shared_runtime, index_workspace_session,
-    index_workspace_session_with_options,
+    default_workspace_session_options, index_workspace_session,
+    index_workspace_session_with_options, BootstrapOwnerInput, PrismPaths, WorktreeMode,
+    WorktreeRegistrationRecord,
 };
 use prism_ir::new_sortable_token;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
@@ -71,9 +71,31 @@ pub(crate) fn ensure_process_test_prism_home() -> &'static PathBuf {
             env::set_var("PRISM_HOME", &path);
             env::set_var("PRISM_TEST_DISABLE_LIVE_WATCHERS", "1");
             env::set_var("PRISM_TEST_DISABLE_DEFAULT_SHARED_RUNTIME", "1");
+            env::set_var("PRISM_TEST_DISABLE_SHARED_COORDINATION_REF_PUBLISH", "1");
+            env::set_var("PRISM_TEST_FAST_PROXY_RECONNECT", "1");
         }
         path
     })
+}
+
+pub(crate) fn temp_test_dir(prefix: &str) -> PathBuf {
+    let _ = ensure_process_test_prism_home();
+    let root = std::env::temp_dir().join(format!("{prefix}-{}", new_sortable_token()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    track_temp_dir(&root);
+    root
+}
+
+pub(crate) fn enable_shared_coordination_ref_publish(root: &Path) {
+    let marker = root
+        .join(".prism")
+        .join("tests")
+        .join("enable_shared_coordination_ref_publish");
+    if let Some(parent) = marker.parent() {
+        fs::create_dir_all(parent).expect("shared coordination ref publish marker dir");
+    }
+    fs::write(marker, "1\n").expect("shared coordination ref publish marker");
 }
 
 pub(crate) fn host_with_node(node: Node) -> QueryHost {
@@ -92,7 +114,9 @@ pub(crate) fn host_with_session_internal(workspace: WorkspaceSession) -> QueryHo
     QueryHost::with_session_and_limits_and_features(
         workspace,
         QueryLimits::default(),
-        PrismMcpFeatures::full().with_internal_developer(true),
+        PrismMcpFeatures::full()
+            .with_internal_developer(true)
+            .with_runtime_diagnostics_auto_refresh(false),
     )
 }
 
@@ -100,7 +124,7 @@ pub(crate) fn host_with_session(workspace: WorkspaceSession) -> QueryHost {
     QueryHost::with_session_and_limits_and_features(
         workspace,
         QueryLimits::default(),
-        PrismMcpFeatures::full(),
+        PrismMcpFeatures::full().with_runtime_diagnostics_auto_refresh(false),
     )
 }
 
@@ -113,7 +137,9 @@ pub(crate) fn host_with_shared_session_internal(workspace: Arc<WorkspaceSession>
     QueryHost::with_shared_session_and_limits_and_features(
         workspace,
         QueryLimits::default(),
-        PrismMcpFeatures::full().with_internal_developer(true),
+        PrismMcpFeatures::full()
+            .with_internal_developer(true)
+            .with_runtime_diagnostics_auto_refresh(false),
     )
 }
 
@@ -124,7 +150,7 @@ pub(crate) fn host_with_shared_session_and_features(
     QueryHost::with_shared_session_and_limits_and_features(
         workspace,
         QueryLimits::default(),
-        features,
+        features.with_runtime_diagnostics_auto_refresh(false),
     )
 }
 
@@ -132,17 +158,13 @@ pub(crate) fn workspace_session_with_owner_credential(
     root: &Path,
 ) -> (WorkspaceSession, MutationCredentialFixture) {
     let _ = ensure_process_test_prism_home();
-    let session = index_workspace_session_with_options(
-        root,
-        WorkspaceSessionOptions {
-            coordination: true,
-            shared_runtime: default_workspace_shared_runtime(root)
-                .expect("default shared runtime should resolve"),
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: false,
-        },
-    )
-    .expect("workspace session should index");
+    let mut options = default_workspace_session_options(root)
+        .expect("default workspace session options should resolve");
+    options.coordination = true;
+    options.hydrate_persisted_projections = false;
+    options.hydrate_persisted_co_change = false;
+    let session = index_workspace_session_with_options(root, options)
+        .expect("workspace session should index");
     register_test_human_worktree(root);
     let issued = session
         .bootstrap_owner_principal(BootstrapOwnerInput {
@@ -200,7 +222,9 @@ pub(crate) fn host_with_session_internal_and_limits(
     QueryHost::with_session_and_limits_and_features(
         workspace,
         limits,
-        PrismMcpFeatures::full().with_internal_developer(true),
+        PrismMcpFeatures::full()
+            .with_internal_developer(true)
+            .with_runtime_diagnostics_auto_refresh(false),
     )
 }
 
@@ -261,10 +285,7 @@ fn is_transient_sqlite_lock(error: &anyhow::Error) -> bool {
 }
 
 pub(crate) fn temp_workspace() -> PathBuf {
-    let _ = ensure_process_test_prism_home();
-    let suffix = new_sortable_token();
-    let root = std::env::temp_dir().join(format!("prism-mcp-test-{suffix}"));
-    let _ = fs::remove_dir_all(&root);
+    let root = temp_test_dir("prism-mcp-test");
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
         root.join("Cargo.toml"),
@@ -276,7 +297,6 @@ pub(crate) fn temp_workspace() -> PathBuf {
         "pub fn alpha() { beta(); }\npub fn beta() {}\n",
     )
     .unwrap();
-    track_temp_dir(&root);
     root
 }
 

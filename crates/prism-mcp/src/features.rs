@@ -143,6 +143,7 @@ pub struct PrismMcpFeatures {
     pub(crate) query_views: QueryViewFeatureSet,
     pub(crate) ui: bool,
     pub(crate) internal_developer: bool,
+    pub(crate) runtime_diagnostics_auto_refresh: bool,
 }
 
 impl Default for PrismMcpFeatures {
@@ -158,6 +159,7 @@ impl PrismMcpFeatures {
             query_views: QueryViewFeatureSet::full(),
             ui: false,
             internal_developer: false,
+            runtime_diagnostics_auto_refresh: true,
         }
     }
 
@@ -167,6 +169,7 @@ impl PrismMcpFeatures {
             query_views: QueryViewFeatureSet::default(),
             ui: false,
             internal_developer: false,
+            runtime_diagnostics_auto_refresh: true,
         }
     }
 
@@ -177,6 +180,11 @@ impl PrismMcpFeatures {
 
     pub fn with_internal_developer(mut self, enabled: bool) -> Self {
         self.internal_developer = enabled;
+        self
+    }
+
+    pub fn with_runtime_diagnostics_auto_refresh(mut self, enabled: bool) -> Self {
+        self.runtime_diagnostics_auto_refresh = enabled;
         self
     }
 

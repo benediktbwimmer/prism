@@ -27,6 +27,7 @@ const PRINCIPAL_REGISTRY_RECONCILED_MARKER: &str = ".principal-registry-merged-v
 const REPO_METADATA_FILE_NAME: &str = "repo.json";
 const SESSION_SEED_FILE_NAME: &str = "prism-mcp-session-seed.json";
 pub(crate) const WORKTREE_METADATA_FILE_NAME: &str = "worktree.json";
+const METADATA_LAST_SEEN_REFRESH_INTERVAL_MS: u64 = 60_000;
 
 #[cfg(test)]
 thread_local! {
@@ -575,6 +576,12 @@ fn storage_component(id: &str) -> String {
 fn write_repo_metadata(path: &Path, identity: &WorkspaceIdentity) -> Result<()> {
     let existing = read_json_file::<RepoMetadata>(path);
     let now = current_timestamp_millis();
+    if existing
+        .as_ref()
+        .is_some_and(|metadata| repo_metadata_is_current(metadata, identity, now))
+    {
+        return Ok(());
+    }
     write_json_file(
         path,
         &RepoMetadata {
@@ -594,10 +601,56 @@ fn write_repo_metadata(path: &Path, identity: &WorkspaceIdentity) -> Result<()> 
 fn write_worktree_metadata(path: &Path, identity: &WorkspaceIdentity) -> Result<()> {
     let existing = read_json_file::<WorktreeMetadata>(path);
     let now = current_timestamp_millis();
+    if existing
+        .as_ref()
+        .is_some_and(|metadata| worktree_metadata_is_current(metadata, identity, now))
+    {
+        return Ok(());
+    }
     write_json_file(
         path,
         &WorktreeMetadata::from_identity(identity, existing.as_ref(), now),
     )
+}
+
+fn repo_metadata_is_current(
+    metadata: &RepoMetadata,
+    identity: &WorkspaceIdentity,
+    now: u64,
+) -> bool {
+    metadata.version == REPO_METADATA_VERSION
+        && metadata.repo_id == identity.repo_id
+        && metadata.locator_kind == identity.repo_locator_kind
+        && metadata.locator_path == identity.repo_locator_path.to_string_lossy()
+        && metadata.canonical_root_hint == identity.canonical_root.to_string_lossy()
+        && now.saturating_sub(metadata.last_seen_at) < METADATA_LAST_SEEN_REFRESH_INTERVAL_MS
+}
+
+fn worktree_metadata_is_current(
+    metadata: &WorktreeMetadata,
+    identity: &WorkspaceIdentity,
+    now: u64,
+) -> bool {
+    let registration = identity.worktree_registration();
+    metadata.repo_id == identity.repo_id
+        && metadata.worktree_id == identity.storage_worktree_id
+        && metadata.canonical_root == identity.canonical_root.to_string_lossy()
+        && metadata.branch_ref == identity.branch_ref
+        && metadata.registered_worktree_id
+            == registration
+                .as_ref()
+                .map(|record| record.worktree_id.clone())
+        && metadata.agent_label
+            == registration
+                .as_ref()
+                .map(|record| record.agent_label.clone())
+        && metadata.worktree_mode == registration.as_ref().map(|record| record.mode)
+        && metadata.registered_at == registration.as_ref().map(|record| record.registered_at)
+        && metadata.last_registered_at
+            == registration
+                .as_ref()
+                .map(|record| record.last_registered_at)
+        && now.saturating_sub(metadata.last_seen_at) < METADATA_LAST_SEEN_REFRESH_INTERVAL_MS
 }
 
 fn rewrite_worktree_repo_ids(worktrees_dir: &Path, repo_id: &str) -> Result<()> {

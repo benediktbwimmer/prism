@@ -36,7 +36,6 @@ use crate::watch::{
 };
 use crate::workspace_identity::coordination_persist_context_for_root;
 use crate::workspace_runtime_state::WorkspaceRuntimeState;
-use prism_ir::PrincipalRegistrySnapshot;
 
 pub(crate) fn build_workspace_session(
     root: PathBuf,
@@ -91,7 +90,8 @@ pub(crate) fn build_workspace_session(
             .expect("shared runtime store lock poisoned");
         ensure_local_principal_registry_snapshot(&root, &mut *store)?.unwrap_or_default()
     } else {
-        PrincipalRegistrySnapshot::default()
+        let mut store = store.lock().expect("workspace store lock poisoned");
+        ensure_local_principal_registry_snapshot(&root, &mut *store)?.unwrap_or_default()
     };
     let load_principal_registry_ms = load_principal_registry_started.elapsed().as_millis();
     let shared_runtime_materializer = shared_runtime_store

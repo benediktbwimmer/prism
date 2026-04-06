@@ -38,7 +38,7 @@ use crate::shared_coordination_schema::{
     SHARED_COORDINATION_KIND_TASK, SHARED_COORDINATION_SCHEMA_VERSION,
 };
 use crate::tracked_snapshot::{SnapshotManifestPublishSummary, TrackedSnapshotPublishContext};
-use crate::util::{current_timestamp, stable_hash_bytes};
+use crate::util::{current_timestamp, current_timestamp_millis, stable_hash_bytes};
 use crate::workspace_identity::workspace_identity_for_root;
 use crate::PrismPaths;
 
@@ -47,12 +47,21 @@ const SHARED_COORDINATION_HISTORY_MAX_COMMITS: u64 = 32;
 const SHARED_COORDINATION_RUNTIME_REF_PREFIX: &str = "runtimes";
 const SHARED_COORDINATION_TASK_SHARD_PREFIX: &str = "tasks";
 const SHARED_COORDINATION_CLAIM_SHARD_PREFIX: &str = "claims";
+const GIT_REPO_AVAILABLE_CACHE_TTL_MS: u64 = 5_000;
 static SHARED_COORDINATION_LIVE_SYNC_STATE: OnceLock<
     Mutex<HashMap<PathBuf, SharedCoordinationLiveSyncState>>,
 > = OnceLock::new();
 static SHARED_COORDINATION_STATE_CACHE: OnceLock<
     Mutex<HashMap<PathBuf, SharedCoordinationStateCacheEntry>>,
 > = OnceLock::new();
+static GIT_REPO_AVAILABLE_CACHE: OnceLock<Mutex<HashMap<PathBuf, GitRepoAvailableCacheEntry>>> =
+    OnceLock::new();
+
+#[derive(Debug, Clone, Copy)]
+struct GitRepoAvailableCacheEntry {
+    available: bool,
+    checked_at_ms: u64,
+}
 
 #[derive(Debug, Clone, Default)]
 struct SharedCoordinationLiveSyncState {
@@ -3124,7 +3133,31 @@ fn run_git(root: &Path, args: &[&str]) -> Result<String> {
 }
 
 fn git_repo_available(root: &Path) -> bool {
-    run_git(root, &["rev-parse", "--git-dir"]).is_ok()
+    let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let now_ms = current_timestamp_millis();
+    let cache = GIT_REPO_AVAILABLE_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(entry) = cache
+        .lock()
+        .expect("git repo availability cache lock poisoned")
+        .get(&canonical_root)
+        .copied()
+    {
+        if now_ms.saturating_sub(entry.checked_at_ms) < GIT_REPO_AVAILABLE_CACHE_TTL_MS {
+            return entry.available;
+        }
+    }
+    let available = run_git(&canonical_root, &["rev-parse", "--git-dir"]).is_ok();
+    cache
+        .lock()
+        .expect("git repo availability cache lock poisoned")
+        .insert(
+            canonical_root,
+            GitRepoAvailableCacheEntry {
+                available,
+                checked_at_ms: now_ms,
+            },
+        );
+    available
 }
 
 fn run_git_with_env(root: &Path, envs: &[(&str, &str)], args: &[&str]) -> Result<String> {

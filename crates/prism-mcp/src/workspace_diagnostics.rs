@@ -28,43 +28,50 @@ pub(crate) struct WorkspaceDiagnosticsConfig {
 }
 
 pub(crate) struct WorkspaceDiagnosticsRuntime {
+    enabled: bool,
     wake: SyncSender<()>,
     stop: mpsc::Sender<()>,
     handle: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl WorkspaceDiagnosticsRuntime {
-    pub(crate) fn spawn(config: WorkspaceDiagnosticsConfig) -> Self {
+    pub(crate) fn spawn(config: WorkspaceDiagnosticsConfig, enabled: bool) -> Self {
         let (wake_tx, wake_rx) = mpsc::sync_channel::<()>(1);
         let (stop_tx, stop_rx) = mpsc::channel::<()>();
-        let handle = thread::spawn(move || loop {
-            if stop_rx.try_recv().is_ok() {
-                break;
-            }
-            match wake_rx.recv_timeout(DIAGNOSTICS_REFRESH_INTERVAL) {
-                Ok(()) | Err(RecvTimeoutError::Timeout) => {}
-                Err(RecvTimeoutError::Disconnected) => break,
-            }
-            if stop_rx.try_recv().is_ok() {
-                break;
-            }
-            if let Err(error) = refresh_cached_runtime_status_for_config(&config) {
-                error!(
-                    root = %config.workspace.root().display(),
-                    error = %error,
-                    error_chain = %crate::logging::format_error_chain(&error),
-                    "prism-mcp diagnostics refresh failed"
-                );
-            }
+        let handle = enabled.then(|| {
+            thread::spawn(move || loop {
+                if stop_rx.try_recv().is_ok() {
+                    break;
+                }
+                match wake_rx.recv_timeout(DIAGNOSTICS_REFRESH_INTERVAL) {
+                    Ok(()) | Err(RecvTimeoutError::Timeout) => {}
+                    Err(RecvTimeoutError::Disconnected) => break,
+                }
+                if stop_rx.try_recv().is_ok() {
+                    break;
+                }
+                if let Err(error) = refresh_cached_runtime_status_for_config(&config) {
+                    error!(
+                        root = %config.workspace.root().display(),
+                        error = %error,
+                        error_chain = %crate::logging::format_error_chain(&error),
+                        "prism-mcp diagnostics refresh failed"
+                    );
+                }
+            })
         });
         Self {
+            enabled,
             wake: wake_tx,
             stop: stop_tx,
-            handle: Mutex::new(Some(handle)),
+            handle: Mutex::new(handle),
         }
     }
 
     pub(crate) fn request_refresh(&self) {
+        if !self.enabled {
+            return;
+        }
         match self.wake.try_send(()) {
             Ok(()) | Err(TrySendError::Full(())) => {}
             Err(TrySendError::Disconnected(())) => {
@@ -77,6 +84,7 @@ impl WorkspaceDiagnosticsRuntime {
 impl Drop for WorkspaceDiagnosticsRuntime {
     fn drop(&mut self) {
         let _ = self.stop.send(());
+        let _ = self.wake.try_send(());
         if let Some(handle) = self
             .handle
             .lock()
