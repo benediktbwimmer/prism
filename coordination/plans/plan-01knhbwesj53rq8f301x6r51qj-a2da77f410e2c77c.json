@@ -38,7 +38,7 @@
         "urgency": 0
       },
       "scope": "Repo",
-      "status": "Active",
+      "status": "Completed",
       "tags": [],
       "title": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
     }

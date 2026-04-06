@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775519794,
+  "publishedAt": 1775519830,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
@@ -2403,7 +2403,7 @@
     },
     "indexes/plans.json": {
       "path": "indexes/plans.json",
-      "sha256": "sha256:7d92f3e3598c5dec5143311a6c87a9d29b05d030152da16616e556e098402f06"
+      "sha256": "sha256:6d263078a6c69d6673e9f716e0a313500558802129555be1181e9e42612e919b"
     },
     "indexes/reviews.json": {
       "path": "indexes/reviews.json",
@@ -2715,7 +2715,7 @@
     },
     "plans/plan-01knhbwesj53rq8f301x6r51qj-a2da77f410e2c77c.json": {
       "path": "plans/plan-01knhbwesj53rq8f301x6r51qj-a2da77f410e2c77c.json",
-      "sha256": "sha256:222ebdcff24fb21e7ba1590f3054623f897de7c27cca543413b3efff3b5b1d75"
+      "sha256": "sha256:7c89404ff4aa6397fbbda12f7f628055e1919f57a543170773c85c3d052971a0"
     },
     "plans/plan-01knhbxwcckyemzpk1rb1scrw9-2e335b5abff0254a.json": {
       "path": "plans/plan-01knhbxwcckyemzpk1rb1scrw9-2e335b5abff0254a.json",
@@ -2771,10 +2771,10 @@
     },
     "v2/snapshot.json": {
       "path": "v2/snapshot.json",
-      "sha256": "sha256:60801abbc04bdf960a56a6edbabfc848e52f7a5dd37233bd32f21d2fc8fb0642"
+      "sha256": "sha256:9e853575787e236f6b2ed48ec08b6ea2c71b53d2b76dc8abbccde376226a2426"
     }
   },
-  "previousManifestDigest": "sha256:ffda58b53afc5cae7b7dd93f0d4d78fd233cf9d3e4db90b3ebb99c87812c2197",
+  "previousManifestDigest": "sha256:8f7d24ea62459700a6a8857005e2fe17eed90a6029aedd1df96b38c3e033c7b8",
   "summarySources": {
     "taskShardHeads": {
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/02": "770995ff2b8722ac617b974407d7389ec962d759",
@@ -3090,6 +3090,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:lwNr8BllJxCREGPLsfvjsOAVPcvXm4v5sxzIR5eFLNVfDiOuQwNpjZ+qq7eXuJGSkSgyYRiPFjgFee2ghODqCQ=="
+    "value": "base64:Dh5dwjGpv4YI9/u7g5dOvWa44o/6fn3n0ZrGFQdN43WXLtoBlBznf+k00Ehf03NiWAmmjagxhY5Q+M+qpcjqBg=="
   }
 }
