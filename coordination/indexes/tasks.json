@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kmzvjdhb4depcxapk8a14naz",
+    "title": "Milestone 7: Add cross-view linking, overlays, and shared architectural context",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmzvjdhb4depcxapk8a14naz-cd825001414aece1.json"
+  },
+  {
+    "id": "coord-task:01kn9hn12c7s4bymzxdwea8qfn",
+    "title": "Define the runtime or shared journal model and snapshot linkage",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hn12c7s4bymzxdwea8qfn-65a7de3e09718189.json"
+  },
+  {
+    "id": "coord-task:01knb0g511dtavrvd5ban1x6jq",
+    "title": "Define the authority vs materialized-runtime contract",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knb0g511dtavrvd5ban1x6jq-200ff9ce35b1b45e.json"
+  },
+  {
+    "id": "coord-task:17",
+    "title": "Identify the dominant refresh costs across fs refresh, materialization checks, runtime sync, and persisted-state interactions",
+    "status": "Ready",
+    "path": "tasks/coord-task-17-ca6e5f249ab80d33.json"
+  }
+]
