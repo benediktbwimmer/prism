@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn0shpfzn7pdnhw9m0qrchp9",
+    "title": "Harden the refresh state machine and fallback semantics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0shpfzn7pdnhw9m0qrchp9-e883334c821c7512.json"
+  },
+  {
+    "id": "coord-task:01kn55eps6ms9b7hr6nexfnjhr",
+    "title": "Move derived projections, memory reanchor, and coordination reloads fully behind settle",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55eps6ms9b7hr6nexfnjhr-2bf256ffcdbe647e.json"
+  }
+]
