@@ -4,5 +4,11 @@
     "title": "Milestone 4: Add command memory from explicit observed evidence",
     "status": "Completed",
     "path": "tasks/coord-task-01kmwxv28vwzpra08sz1qznxfm-c094da814b79e58d.json"
+  },
+  {
+    "id": "coord-task:01knhd3xjm8hh2xh8q3n8adt4k",
+    "title": "Decouple persisted anchor and binding semantics from graph-required resolution assumptions",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhd3xjm8hh2xh8q3n8adt4k-900891442f635eae.json"
   }
 ]
