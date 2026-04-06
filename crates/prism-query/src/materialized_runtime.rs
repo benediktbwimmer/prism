@@ -60,6 +60,12 @@ impl MaterializedCoordinationRuntime {
         &mut self.continuity_runtime
     }
 
+    pub(crate) fn runtimes_mut(
+        &mut self,
+    ) -> (&mut CoordinationRuntimeState, &mut NativePlanRuntimeState) {
+        (&mut self.continuity_runtime, &mut self.plan_runtime)
+    }
+
     pub(crate) fn replace_from_snapshot(&mut self, snapshot: CoordinationSnapshot) {
         *self = Self::from_snapshot(snapshot);
     }

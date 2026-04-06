@@ -15,7 +15,9 @@ pub use anchor::AnchorRef;
 pub use change::{ChangeTrigger, GraphChange, ObservedChangeSet, ObservedNode};
 pub use coordination::{
     ArtifactStatus, Capability, ClaimMode, ClaimStatus, ConflictOverlapKind, ConflictSeverity,
-    CoordinationEventKind, CoordinationTaskStatus, LeaseRenewalMode, PlanStatus, ReviewVerdict,
+    CoordinationEventKind, CoordinationTaskStatus, DerivedPlanStatus, EffectiveTaskStatus,
+    ExecutorClass, LeaseRenewalMode, NodeRef, NodeRefKind, PlanOperatorState, PlanStatus,
+    ReviewVerdict, TaskExecutorPolicy, TaskLifecycleStatus,
 };
 pub use durable_ids::{
     new_prefixed_id, new_slugged_id, new_sortable_token, slugify_id_fragment,

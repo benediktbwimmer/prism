@@ -6,8 +6,9 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use prism_coordination::{
-    coordination_snapshot_from_plan_graphs, execution_overlays_from_tasks, snapshot_plan_graphs,
-    CoordinationSnapshot, CoordinationTask, Plan,
+    coordination_snapshot_from_plan_graphs, execution_overlays_from_tasks,
+    migrate_legacy_hybrid_snapshot_to_canonical_v2, snapshot_plan_graphs, CoordinationSnapshot,
+    CoordinationSnapshotV2, CoordinationTask, Plan,
 };
 use prism_ir::{
     CoordinationTaskId, PlanEdge, PlanEdgeId, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode,
@@ -222,11 +223,13 @@ struct PublishedPlanProjection {
     next_plan: u64,
     next_task: u64,
     next_log_sequence: BTreeMap<String, u64>,
+    legacy_only: bool,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct HydratedCoordinationPlanState {
     pub(crate) snapshot: CoordinationSnapshot,
+    pub(crate) canonical_snapshot_v2: CoordinationSnapshotV2,
     pub(crate) plan_graphs: Vec<PlanGraph>,
     pub(crate) execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
 }
@@ -418,14 +421,23 @@ pub(crate) fn load_hydrated_coordination_snapshot(
     match (snapshot, load_repo_published_plan_projection(root)?) {
         (Some(snapshot), Some(published)) => Ok(Some(merge_published_plans_into_snapshot(
             snapshot,
-            hydrated_plan_state_from_projection(published).snapshot,
+            hydrated_plan_state_from_projection(published)?.snapshot,
         ))),
         (Some(snapshot), None) => Ok(Some(snapshot)),
-        (None, Some(published)) => Ok(Some(
-            hydrated_plan_state_from_projection(published).snapshot,
+        (None, Some(published)) if published.legacy_only => Ok(Some(
+            hydrated_plan_state_from_projection(published)?.snapshot,
         )),
+        (None, Some(_published)) => Ok(None),
         (None, None) => Ok(None),
     }
+}
+
+pub(crate) fn load_hydrated_coordination_snapshot_v2(
+    root: &Path,
+    snapshot: Option<CoordinationSnapshot>,
+) -> Result<Option<CoordinationSnapshotV2>> {
+    Ok(load_hydrated_coordination_plan_state(root, snapshot)?
+        .map(|state| state.canonical_snapshot_v2))
 }
 
 pub(crate) fn load_hydrated_coordination_plan_state(
@@ -447,12 +459,18 @@ pub(crate) fn load_hydrated_coordination_plan_state(
                 );
                 let snapshot = merge_shared_coordination_into_snapshot(snapshot, shared.snapshot);
                 Some(HydratedCoordinationPlanState {
+                    canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
+                        &snapshot,
+                        &shared.plan_graphs,
+                        &shared.execution_overlays,
+                    )?,
                     snapshot,
                     plan_graphs: shared.plan_graphs,
                     execution_overlays: shared.execution_overlays,
                 })
             }
             None => Some(HydratedCoordinationPlanState {
+                canonical_snapshot_v2: shared.canonical_snapshot_v2,
                 snapshot: shared.snapshot,
                 plan_graphs: shared.plan_graphs,
                 execution_overlays: shared.execution_overlays,
@@ -469,22 +487,35 @@ pub(crate) fn load_hydrated_coordination_plan_state(
                 );
                 let snapshot = merge_published_plans_into_snapshot(snapshot, tracked.snapshot);
                 Some(HydratedCoordinationPlanState {
+                    canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
+                        &snapshot,
+                        &tracked.plan_graphs,
+                        &tracked.execution_overlays,
+                    )?,
                     snapshot,
                     plan_graphs: tracked.plan_graphs,
                     execution_overlays: tracked.execution_overlays,
                 })
             }
-            None => Some(HydratedCoordinationPlanState {
-                snapshot: tracked.snapshot,
-                plan_graphs: tracked.plan_graphs,
-                execution_overlays: tracked.execution_overlays,
-            }),
+            None => {
+                let snapshot = tracked.snapshot;
+                Some(HydratedCoordinationPlanState {
+                    canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
+                        &snapshot,
+                        &tracked.plan_graphs,
+                        &tracked.execution_overlays,
+                    )?,
+                    snapshot,
+                    plan_graphs: tracked.plan_graphs,
+                    execution_overlays: tracked.execution_overlays,
+                })
+            }
         });
     }
 
     match (snapshot, load_repo_published_plan_projection(root)?) {
         (Some(snapshot), Some(published)) => {
-            let mut state = hydrated_plan_state_from_projection(published);
+            let mut state = hydrated_plan_state_from_projection(published)?;
             merge_snapshot_bootstrap_into_plan_state(
                 &snapshot,
                 &mut state.plan_graphs,
@@ -492,24 +523,41 @@ pub(crate) fn load_hydrated_coordination_plan_state(
             );
             let snapshot = merge_published_plans_into_snapshot(snapshot, state.snapshot);
             Ok(Some(HydratedCoordinationPlanState {
+                canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
+                    &snapshot,
+                    &state.plan_graphs,
+                    &state.execution_overlays,
+                )?,
                 snapshot,
                 plan_graphs: state.plan_graphs,
                 execution_overlays: state.execution_overlays,
             }))
         }
-        (Some(snapshot), None) => Ok(Some(HydratedCoordinationPlanState {
-            plan_graphs: snapshot_plan_graphs(&snapshot),
-            execution_overlays: execution_overlays_by_plan(&snapshot.tasks),
-            snapshot,
-        })),
-        (None, Some(published)) => Ok(Some(hydrated_plan_state_from_projection(published))),
+        (Some(snapshot), None) => {
+            let plan_graphs = snapshot_plan_graphs(&snapshot);
+            let execution_overlays = execution_overlays_by_plan(&snapshot.tasks);
+            Ok(Some(HydratedCoordinationPlanState {
+                canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
+                    &snapshot,
+                    &plan_graphs,
+                    &execution_overlays,
+                )?,
+                plan_graphs,
+                execution_overlays,
+                snapshot,
+            }))
+        }
+        (None, Some(published)) if published.legacy_only => {
+            Ok(Some(hydrated_plan_state_from_projection(published)?))
+        }
+        (None, Some(_published)) => Ok(None),
         (None, None) => Ok(None),
     }
 }
 
 fn hydrated_plan_state_from_projection(
     published: PublishedPlanProjection,
-) -> HydratedCoordinationPlanState {
+) -> Result<HydratedCoordinationPlanState> {
     let mut graphs = published
         .records
         .iter()
@@ -530,11 +578,24 @@ fn hydrated_plan_state_from_projection(
     snapshot.next_plan = snapshot.next_plan.max(published.next_plan);
     snapshot.next_task = snapshot.next_task.max(published.next_task);
     graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    HydratedCoordinationPlanState {
+    Ok(HydratedCoordinationPlanState {
+        canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
+            &snapshot,
+            &graphs,
+            &execution_overlays,
+        )?,
         snapshot,
         plan_graphs: graphs,
         execution_overlays,
-    }
+    })
+}
+
+fn canonical_snapshot_v2_from_plan_state(
+    snapshot: &CoordinationSnapshot,
+    plan_graphs: &[PlanGraph],
+    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
+) -> Result<CoordinationSnapshotV2> {
+    migrate_legacy_hybrid_snapshot_to_canonical_v2(snapshot, plan_graphs, execution_overlays)
 }
 
 pub(crate) fn merge_snapshot_bootstrap_into_plan_state(
@@ -737,9 +798,13 @@ fn load_repo_published_plan_projection(root: &Path) -> Result<Option<PublishedPl
     }
 
     let mut projection = PublishedPlanProjection::default();
+    projection.legacy_only = true;
     for entry in entries {
         let log_path = resolve_log_path(root, &entry.log_path);
         let events = load_stored_plan_events(root, &log_path)?;
+        projection.legacy_only &= events
+            .iter()
+            .all(|event| matches!(event, StoredPublishedPlanEvent::Legacy(_)));
         let (record, overlays) = project_plan_log(&log_path, &events)?;
         projection.next_plan = projection
             .next_plan

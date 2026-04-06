@@ -9,6 +9,9 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::blockers::{completion_blockers, completion_policy_blockers};
+use crate::executor_routing::{
+    executor_mismatch_reasons, task_executor_policy, TaskExecutorCaller,
+};
 use crate::helpers::{
     claim_matches_worktree_scope, dedupe_anchors, dedupe_conflicts, dedupe_event_ids, dedupe_ids,
     dedupe_strings, derived_event_meta, editor_capacity_conflicts, expire_claims_locked,
@@ -49,6 +52,61 @@ fn lease_holder_details(holder: Option<&crate::types::LeaseHolder>) -> Value {
     holder
         .and_then(|holder| serde_json::to_value(holder).ok())
         .unwrap_or(Value::Null)
+}
+
+fn reject_task_executor_mismatch(
+    state: &mut CoordinationState,
+    meta: &EventMeta,
+    task: &CoordinationTask,
+    summary: &str,
+) -> Result<()> {
+    let caller = TaskExecutorCaller::from_event_meta(meta);
+    let reasons = executor_mismatch_reasons(task, &caller);
+    if reasons.is_empty() {
+        return Ok(());
+    }
+
+    let policy = task_executor_policy(task);
+    let violations = vec![policy_violation(
+        PolicyViolationCode::ExecutorMismatch,
+        format!(
+            "caller does not satisfy executor policy for coordination task `{}`",
+            task.id.0
+        ),
+        Some(task.plan.clone()),
+        Some(task.id.clone()),
+        None,
+        None,
+        json!({
+            "reasons": reasons
+                .iter()
+                .map(|reason| reason.as_code())
+                .collect::<Vec<_>>(),
+            "taskExecutor": policy,
+            "callerExecutor": caller,
+        }),
+    )];
+    Err(rejection_error(
+        state,
+        meta,
+        summary,
+        Some(task.plan.clone()),
+        Some(task.id.clone()),
+        None,
+        None,
+        violations,
+    ))
+}
+
+fn task_update_requires_executor_policy(status: CoordinationTaskStatus) -> bool {
+    matches!(
+        status,
+        CoordinationTaskStatus::InProgress
+            | CoordinationTaskStatus::InReview
+            | CoordinationTaskStatus::Validating
+            | CoordinationTaskStatus::Completed
+            | CoordinationTaskStatus::Abandoned
+    )
 }
 
 fn enforce_task_lease_for_standard_mutation(
@@ -366,6 +424,14 @@ pub(crate) fn acquire_claim_mutation(
             None,
             violations,
         ));
+    }
+    if let Some(task_id) = input.task_id.as_ref() {
+        let task = state
+            .tasks
+            .get(task_id)
+            .cloned()
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
+        reject_task_executor_mismatch(state, &meta, &task, "claim acquisition rejected")?;
     }
     let mode = input
         .mode
@@ -1783,6 +1849,17 @@ pub(crate) fn update_task_mutation_with_options(
             "coordination task update rejected",
         )?;
     }
+    if input
+        .status
+        .is_some_and(task_update_requires_executor_policy)
+    {
+        reject_task_executor_mismatch(
+            state,
+            &meta,
+            &previous,
+            "coordination task update rejected",
+        )?;
+    }
     let stale_writes_enforced = state
         .plans
         .get(&previous.plan)
@@ -2815,6 +2892,7 @@ pub(crate) fn resume_task_mutation(
             previous.id.0
         ));
     }
+    reject_task_executor_mismatch(state, &meta, &previous, "coordination task resume rejected")?;
     let current_holder = current_task_holder(&meta, &previous);
     if authoritative_task_holder(&previous)
         .as_ref()
@@ -2973,6 +3051,12 @@ pub(crate) fn reclaim_task_mutation(
             previous.id.0
         ));
     }
+    reject_task_executor_mismatch(
+        state,
+        &meta,
+        &previous,
+        "coordination task reclaim rejected",
+    )?;
     let current_holder = current_task_holder(&meta, &previous);
     if authoritative_task_holder(&previous)
         .as_ref()
@@ -3180,7 +3264,9 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
-        create_task_mutation(&mut state, meta, input)
+        run_validated_structural_mutation(&mut state, |state| {
+            create_task_mutation(state, meta, input)
+        })
     }
 
     pub fn update_task(
@@ -3194,7 +3280,9 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
-        update_task_mutation(&mut state, meta, input, current_revision, now)
+        run_validated_structural_mutation(&mut state, |state| {
+            update_task_mutation(state, meta, input, current_revision, now)
+        })
     }
 
     pub fn update_task_authoritative_only(
@@ -3208,7 +3296,9 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
-        update_task_mutation_with_options(&mut state, meta, input, current_revision, now, true)
+        run_validated_structural_mutation(&mut state, |state| {
+            update_task_mutation_with_options(state, meta, input, current_revision, now, true)
+        })
     }
 
     pub fn handoff(
@@ -3438,6 +3528,26 @@ fn validate_task_dependencies(
         }
     }
     Ok(())
+}
+
+pub(crate) fn run_validated_structural_mutation<T, F>(
+    state: &mut CoordinationState,
+    mutate: F,
+) -> Result<T>
+where
+    F: FnOnce(&mut CoordinationState) -> Result<T>,
+{
+    let previous = state.snapshot();
+    let result = mutate(state)?;
+    let snapshot = state.snapshot();
+    if let Err(error) = snapshot
+        .validate_canonical_projection()
+        .and_then(|_| snapshot.to_canonical_snapshot_v2().validate_graph())
+    {
+        *state = CoordinationState::from_raw_snapshot(previous);
+        return Err(error);
+    }
+    Ok(result)
 }
 
 fn task_is_root(task: &CoordinationTask) -> bool {

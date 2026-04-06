@@ -1,4 +1,5 @@
 use prism_ir::{EventActor, EventMeta};
+use serde_json::json;
 
 use super::*;
 
@@ -44,11 +45,105 @@ fn principal_meta(
     }
 }
 
+fn executor_principal_meta(
+    id: &str,
+    ts: u64,
+    authority: &str,
+    principal_id: &str,
+    principal_name: &str,
+    kind: prism_ir::PrincipalKind,
+    session_id: &str,
+) -> EventMeta {
+    EventMeta {
+        id: prism_ir::EventId::new(id),
+        ts,
+        actor: EventActor::Principal(prism_ir::PrincipalActor {
+            authority_id: prism_ir::PrincipalAuthorityId::new(authority),
+            principal_id: prism_ir::PrincipalId::new(principal_id),
+            kind: Some(kind),
+            name: Some(principal_name.to_string()),
+        }),
+        correlation: None,
+        causation: None,
+        execution_context: Some(prism_ir::EventExecutionContext {
+            repo_id: None,
+            worktree_id: Some(principal_id.to_string()),
+            branch_ref: None,
+            session_id: Some(session_id.to_string()),
+            instance_id: None,
+            request_id: None,
+            credential_id: None,
+            work_context: None,
+        }),
+    }
+}
+
 fn revision() -> prism_ir::WorkspaceRevision {
     prism_ir::WorkspaceRevision {
         graph_version: 1,
         git_commit: None,
     }
+}
+
+#[test]
+fn create_task_rejects_duplicate_logical_dependency_edges_across_legacy_buckets() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:plan:duplicate-legacy-deps", 1),
+            PlanCreateInput {
+                title: "Duplicate legacy deps".to_string(),
+                goal: "Reject duplicate canonical edges".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (dep_id, _) = store
+        .create_task(
+            meta("event:task:dep", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Dependency".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+
+    let error = store
+        .create_task(
+            meta("event:task:duplicate", 3),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Duplicate logical dependency".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: vec![dep_id.clone()],
+                coordination_depends_on: vec![dep_id.clone()],
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap_err();
+
+    assert!(error.to_string().contains("duplicate canonical dependency"));
+    assert_eq!(store.snapshot().tasks.len(), 1);
+    assert_eq!(store.snapshot_v2().dependencies.len(), 0);
 }
 
 #[test]
@@ -4029,5 +4124,193 @@ fn stale_task_heartbeat_requires_resume() {
             .violations
             .iter()
             .any(|violation| violation.code == PolicyViolationCode::TaskResumeRequired)
+    }));
+}
+
+#[test]
+fn claim_acquisition_rejects_executor_mismatch_for_routed_task() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:plan:executor-claim", 1),
+            PlanCreateInput {
+                title: "Executor-routed claims".to_string(),
+                goal: "Reject incompatible claims".to_string(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:task:executor-claim", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Claim me from agent-a".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+    let mut snapshot = store.snapshot();
+    let task = snapshot
+        .tasks
+        .iter_mut()
+        .find(|task| task.id == task_id)
+        .expect("task should exist");
+    task.metadata = json!({
+        "executor": {
+            "executorClass": "worktree_executor",
+            "targetLabel": "agent-a",
+            "allowedPrincipals": ["worktree:a"]
+        }
+    });
+    let mut runtime = CoordinationRuntimeState::from_snapshot(snapshot);
+
+    let error = runtime
+        .acquire_claim(
+            executor_principal_meta(
+                "event:claim:executor-claim",
+                3,
+                "worktree_executor",
+                "worktree:b",
+                "agent-b",
+                prism_ir::PrincipalKind::Agent,
+                "session:b",
+            ),
+            prism_ir::SessionId::new("session:b"),
+            ClaimAcquireInput {
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                capability: prism_ir::Capability::Edit,
+                mode: None,
+                task_id: Some(task_id.clone()),
+                ttl_seconds: None,
+                base_revision: revision(),
+                current_revision: revision(),
+                agent: Some(prism_ir::AgentId::new("agent-b")),
+                worktree_id: Some("worktree:b".into()),
+                branch_ref: None,
+            },
+        )
+        .unwrap_err();
+
+    assert!(error.to_string().contains("claim acquisition rejected"));
+    let violations = runtime.policy_violations(Some(&plan_id), Some(&task_id), 10);
+    assert!(violations.iter().any(|record| {
+        record
+            .violations
+            .iter()
+            .any(|violation| violation.code == PolicyViolationCode::ExecutorMismatch)
+    }));
+}
+
+#[test]
+fn task_start_rejects_executor_mismatch() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:plan:executor-start", 1),
+            PlanCreateInput {
+                title: "Executor-routed start".to_string(),
+                goal: "Reject incompatible starts".to_string(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:task:executor-start", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Start me from agent-a".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+    let mut snapshot = store.snapshot();
+    let task = snapshot
+        .tasks
+        .iter_mut()
+        .find(|task| task.id == task_id)
+        .expect("task should exist");
+    task.metadata = json!({
+        "executor": {
+            "executorClass": "worktree_executor",
+            "targetLabel": "agent-a",
+            "allowedPrincipals": ["worktree:a"]
+        }
+    });
+    let mut runtime = CoordinationRuntimeState::from_snapshot(snapshot);
+
+    let error = runtime
+        .update_task(
+            executor_principal_meta(
+                "event:update:executor-start",
+                3,
+                "worktree_executor",
+                "worktree:b",
+                "agent-b",
+                prism_ir::PrincipalKind::Agent,
+                "session:b",
+            ),
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                kind: None,
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                published_task_status: None,
+                git_execution: None,
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: None,
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            revision(),
+            3,
+        )
+        .unwrap_err();
+
+    assert!(error
+        .to_string()
+        .contains("coordination task update rejected"));
+    let violations = runtime.policy_violations(Some(&plan_id), Some(&task_id), 10);
+    assert!(violations.iter().any(|record| {
+        record
+            .violations
+            .iter()
+            .any(|violation| violation.code == PolicyViolationCode::ExecutorMismatch)
     }));
 }

@@ -244,6 +244,7 @@ pub enum PolicyViolationCode {
     AgentIdentityRequired,
     HandoffPending,
     HandoffTargetMismatch,
+    ExecutorMismatch,
     TaskLeaseHeldByOther,
     TaskResumeRequired,
     TaskReclaimRequired,

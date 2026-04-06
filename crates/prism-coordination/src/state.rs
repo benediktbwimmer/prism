@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
 
+use crate::canonical_graph::CoordinationSnapshotV2;
 use crate::event_replay::rehydrate_coordination_snapshot;
 use crate::helpers::sorted_values;
 use crate::types::{
@@ -109,5 +110,9 @@ impl CoordinationStore {
     pub fn snapshot(&self) -> CoordinationSnapshot {
         let state = self.state.read().expect("coordination store lock poisoned");
         state.snapshot()
+    }
+
+    pub fn snapshot_v2(&self) -> CoordinationSnapshotV2 {
+        self.snapshot().to_canonical_snapshot_v2()
     }
 }

@@ -287,6 +287,111 @@ fn coordination_mutations_flow_through_query_runtime() {
 }
 
 #[test]
+fn ready_tasks_query_filters_executor_routed_tasks_for_current_agent() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    if let Some(workspace) = host.workspace_session() {
+        workspace.refresh_fs().unwrap();
+        host.sync_workspace_revision(workspace).unwrap();
+    }
+    host.configure_session(
+        test_session(&host).as_ref(),
+        PrismConfigureSessionArgs {
+            limits: None,
+            current_task_id: None,
+            coordination_task_id: None,
+            current_task_description: None,
+            current_task_tags: None,
+            clear_current_task: None,
+            current_agent: Some("agent-a".to_string()),
+            clear_current_agent: None,
+        },
+    )
+    .unwrap();
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "title": "Executor-routed queue", "goal": "Executor-routed queue" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let matching = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Match agent-a"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let mismatched = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Hide from agent-a"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+
+    let prism = host.current_prism();
+    let mut snapshot = prism.coordination_snapshot();
+    for task in &mut snapshot.tasks {
+        if task.id.0 == matching.state["id"].as_str().unwrap() {
+            task.metadata = json!({
+                "executor": {
+                    "executorClass": "worktree_executor",
+                    "targetLabel": "agent-a",
+                    "allowedPrincipals": []
+                }
+            });
+        } else if task.id.0 == mismatched.state["id"].as_str().unwrap() {
+            task.metadata = json!({
+                "executor": {
+                    "executorClass": "worktree_executor",
+                    "targetLabel": "agent-b",
+                    "allowedPrincipals": []
+                }
+            });
+        }
+    }
+    prism.replace_coordination_snapshot(snapshot);
+
+    let execution = QueryExecution::new(
+        host.clone(),
+        test_session(&host),
+        host.current_prism(),
+        host.begin_query_run(
+            test_session(&host).as_ref(),
+            "test",
+            "test",
+            "dispatch ready tasks",
+        ),
+    );
+    let ready_value = execution
+        .dispatch(
+            "readyTasks",
+            &json!({ "planId": plan.state["id"].as_str().unwrap() }).to_string(),
+        )
+        .unwrap();
+    let ready = ready_value.as_array().unwrap();
+    assert_eq!(ready.len(), 1);
+    assert_eq!(ready[0]["title"], "Match agent-a");
+}
+
+#[test]
 fn git_execution_policy_start_rejects_main_branch_and_records_failure() {
     let root = init_git_workspace("main");
     let session = index_workspace_session_with_options(
@@ -7118,6 +7223,138 @@ pub fn runtime_status_contract_test() {}
                 .contains("cargo test -p prism-mcp runtime_status_contract")
             || workset.why.contains("anchors 1 validation target")
     );
+}
+
+#[test]
+fn coordination_inbox_and_task_brief_share_authoritative_task_backed_status() {
+    let host = host_with_prism(Prism::with_history(Graph::new(), HistoryStore::new()));
+    let prism = host.current_prism();
+    let plan_id = prism_ir::PlanId::new("plan:status-consistency");
+    let task_id = prism_ir::CoordinationTaskId::new("coord-task:status-consistency");
+    let node_id = prism_ir::PlanNodeId::new(task_id.0.clone());
+
+    prism.replace_coordination_snapshot_and_plan_graphs(
+        prism_coordination::CoordinationSnapshot {
+            plans: vec![prism_coordination::Plan {
+                id: plan_id.clone(),
+                goal: "Keep inbox status aligned".into(),
+                title: "Keep inbox status aligned".into(),
+                status: prism_ir::PlanStatus::Active,
+                policy: prism_coordination::CoordinationPolicy::default(),
+                scope: prism_ir::PlanScope::Repo,
+                kind: prism_ir::PlanKind::Migration,
+                revision: 1,
+                scheduling: prism_coordination::PlanScheduling::default(),
+                tags: Vec::new(),
+                created_from: None,
+                metadata: serde_json::Value::Null,
+                authored_edges: Vec::new(),
+                root_tasks: vec![task_id.clone()],
+            }],
+            tasks: vec![prism_coordination::CoordinationTask {
+                id: task_id.clone(),
+                plan: plan_id.clone(),
+                kind: prism_ir::PlanNodeKind::Edit,
+                title: "Reconcile task-backed node status".into(),
+                summary: None,
+                status: prism_ir::CoordinationTaskStatus::Completed,
+                published_task_status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                assignee: None,
+                pending_handoff_to: None,
+                session: None,
+                lease_holder: None,
+                lease_started_at: None,
+                lease_refreshed_at: None,
+                lease_stale_at: None,
+                lease_expires_at: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                bindings: prism_ir::PlanBinding::default(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                base_revision: prism_ir::WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+                git_execution: prism_coordination::TaskGitExecution::default(),
+            }],
+            claims: Vec::new(),
+            artifacts: Vec::new(),
+            reviews: Vec::new(),
+            events: Vec::new(),
+            next_plan: 1,
+            next_task: 1,
+            next_claim: 0,
+            next_artifact: 0,
+            next_review: 0,
+        },
+        vec![prism_ir::PlanGraph {
+            id: plan_id.clone(),
+            scope: prism_ir::PlanScope::Repo,
+            kind: prism_ir::PlanKind::Migration,
+            title: "Keep inbox status aligned".into(),
+            goal: "Keep inbox status aligned".into(),
+            status: prism_ir::PlanStatus::Active,
+            revision: 1,
+            root_nodes: vec![node_id.clone()],
+            tags: Vec::new(),
+            created_from: None,
+            metadata: serde_json::Value::Null,
+            nodes: vec![prism_ir::PlanNode {
+                id: node_id,
+                plan_id: plan_id.clone(),
+                kind: prism_ir::PlanNodeKind::Edit,
+                title: "Reconcile task-backed node status".into(),
+                summary: None,
+                status: prism_ir::PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: prism_ir::WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            }],
+            edges: Vec::new(),
+        }],
+        std::collections::BTreeMap::new(),
+    );
+
+    let envelope = host
+        .execute(
+            test_session(&host),
+            &format!(
+                r#"return {{ inbox: prism.coordinationInbox("{}") }};"#,
+                plan_id.0
+            ),
+            QueryLanguage::Ts,
+        )
+        .expect("coordination inbox should succeed");
+    assert_eq!(
+        envelope.result["inbox"]["planGraph"]["nodes"][0]["status"],
+        Value::String("Completed".to_string())
+    );
+    assert_eq!(
+        envelope.result["inbox"]["planSummary"]["completedNodes"],
+        Value::from(1)
+    );
+
+    let brief = host
+        .compact_task_brief(
+            test_session(&host),
+            PrismTaskBriefArgs {
+                task_id: task_id.0.to_string(),
+            },
+        )
+        .expect("task brief should succeed");
+    assert_eq!(brief.status, prism_ir::CoordinationTaskStatus::Completed);
 }
 
 #[test]

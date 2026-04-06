@@ -1169,10 +1169,53 @@ fn mutation_provenance(
     }
     if let Some(workspace) = workspace {
         if let Some(slot) = workspace.current_worktree_mutator_slot() {
-            return MutationProvenance::worktree_executor(workspace, session, prism, &slot);
+            return MutationProvenance::worktree_executor(workspace, session, prism, &slot, None);
         }
     }
     MutationProvenance::fallback(workspace, session, prism)
+}
+
+fn coordination_mutation_provenance(
+    host: &QueryHost,
+    session: &SessionState,
+    authenticated: Option<&AuthenticatedPrincipal>,
+) -> MutationProvenance {
+    let workspace = host.workspace_session_ref();
+    let prism = host.current_prism();
+    if let Some(workspace) = workspace {
+        if let Some(slot) = workspace.current_worktree_mutator_slot() {
+            let credential_id =
+                authenticated.map(|authenticated| &authenticated.credential.credential_id);
+            return MutationProvenance::worktree_executor(
+                workspace,
+                session,
+                prism,
+                &slot,
+                credential_id,
+            );
+        }
+    }
+    if let Some(authenticated) = authenticated {
+        return MutationProvenance::authenticated(workspace, session, prism, authenticated);
+    }
+    MutationProvenance::fallback(workspace, session, prism)
+}
+
+fn ensure_authenticated_coordination_execution(
+    host: &QueryHost,
+    session: &SessionState,
+    authenticated: Option<&AuthenticatedPrincipal>,
+) -> Result<()> {
+    let Some(authenticated) = authenticated else {
+        return Ok(());
+    };
+    let Some(workspace) = host.workspace_session_ref() else {
+        return Ok(());
+    };
+    workspace
+        .acquire_or_refresh_worktree_mutator_slot(authenticated, &session.session_id())
+        .map(|_| ())
+        .map_err(Into::into)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1245,19 +1288,26 @@ fn same_task_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
 }
 
 fn authoritative_task_holder(task: &CoordinationTask) -> Option<LeaseHolder> {
-    task.lease_holder.clone().or_else(|| {
-        let holder = LeaseHolder {
-            principal: None,
-            session_id: task.session.clone(),
-            worktree_id: task.worktree_id.clone(),
-            agent_id: task.assignee.clone(),
-        };
-        (holder.principal.is_some()
-            || holder.session_id.is_some()
-            || holder.worktree_id.is_some()
-            || holder.agent_id.is_some())
-        .then_some(holder)
-    })
+    let mut holder = task.lease_holder.clone().unwrap_or(LeaseHolder {
+        principal: None,
+        session_id: None,
+        worktree_id: None,
+        agent_id: None,
+    });
+    if holder.session_id.is_none() {
+        holder.session_id = task.session.clone();
+    }
+    if holder.worktree_id.is_none() {
+        holder.worktree_id = task.worktree_id.clone();
+    }
+    if holder.agent_id.is_none() {
+        holder.agent_id = task.assignee.clone();
+    }
+    (holder.principal.is_some()
+        || holder.session_id.is_some()
+        || holder.worktree_id.is_some()
+        || holder.agent_id.is_some())
+    .then_some(holder)
 }
 
 fn current_task_holder(meta: &EventMeta, task: &CoordinationTask) -> LeaseHolder {
@@ -1718,6 +1768,8 @@ impl QueryHost {
         if let Some(workspace) = self.workspace_session() {
             workspace.append_outcome(event)?;
             self.sync_workspace_revision(workspace)?;
+            workspace.persist_outcomes()?;
+            workspace.flush_materializations()?;
         } else {
             prism.apply_outcome_event_to_projections(&event);
             let _ = prism.outcome_memory().store_event(event)?;
@@ -1797,6 +1849,8 @@ impl QueryHost {
             let event_id = if let Some(workspace) = self.workspace_session() {
                 let id = workspace.append_outcome(event)?;
                 self.sync_workspace_revision(workspace)?;
+                workspace.persist_outcomes()?;
+                workspace.flush_materializations()?;
                 id
             } else {
                 let prism = self.current_prism();
@@ -1907,6 +1961,8 @@ impl QueryHost {
         if let Some(workspace) = self.workspace_session() {
             if workspace.try_append_outcome(event)?.is_some() {
                 self.sync_workspace_revision(workspace)?;
+                workspace.persist_outcomes()?;
+                workspace.flush_materializations()?;
             }
         } else {
             let prism = self.current_prism();
@@ -2137,6 +2193,8 @@ impl QueryHost {
         let event_id = if let Some(workspace) = self.workspace_session() {
             let event_id = workspace.append_outcome(event)?;
             self.sync_workspace_revision(workspace)?;
+            workspace.persist_outcomes()?;
+            workspace.flush_materializations()?;
             event_id
         } else {
             prism.apply_outcome_event_to_projections(&event);
@@ -2294,6 +2352,8 @@ impl QueryHost {
             if let Some(workspace) = self.workspace_session() {
                 let _ = workspace.append_outcome(note_event)?;
                 self.sync_workspace_revision(workspace)?;
+                workspace.persist_outcomes()?;
+                workspace.flush_materializations()?;
             } else {
                 prism.apply_outcome_event_to_projections(&note_event);
                 let _ = prism.outcome_memory().store_event(note_event)?;
@@ -2728,6 +2788,7 @@ impl QueryHost {
         authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
+        ensure_authenticated_coordination_execution(self, session, authenticated)?;
         if let Some(result) =
             self.maybe_handle_git_execution_coordination(session, &args, trace, authenticated)?
         {
@@ -2738,7 +2799,7 @@ impl QueryHost {
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
         let args_kind = args.kind.clone();
         let event_id = session.next_event_id("coordination");
-        let meta = mutation_provenance(self, session, authenticated).event_meta(
+        let meta = coordination_mutation_provenance(self, session, authenticated).event_meta(
             event_id.clone(),
             Some(task),
             None,
@@ -3089,7 +3150,8 @@ impl QueryHost {
 
         let before_events = prism.coordination_events().len();
         let now = current_timestamp();
-        let admissibility_meta = mutation_provenance(self, session, authenticated).event_meta(
+        let admissibility_meta =
+            coordination_mutation_provenance(self, session, authenticated).event_meta(
             EventId::new(format!(
                 "coordination:git-execution-admissibility:{}",
                 request.task_id.0
@@ -3898,13 +3960,14 @@ impl QueryHost {
         let workspace = self
             .workspace_session()
             .ok_or_else(|| anyhow!("git execution workflow requires a workspace-backed session"))?;
-        let apply_meta = mutation_provenance(self, session, authenticated).event_meta(
+        let apply_meta = coordination_mutation_provenance(self, session, authenticated).event_meta(
             session.next_event_id("coordination"),
             Some(TaskId::new(task_id.0.clone())),
             None,
             current_timestamp(),
         );
-        let record_meta = mutation_provenance(self, session, authenticated).event_meta(
+        let record_meta =
+            coordination_mutation_provenance(self, session, authenticated).event_meta(
             session.next_event_id("coordination"),
             Some(TaskId::new(task_id.0.clone())),
             None,
@@ -4389,6 +4452,7 @@ impl QueryHost {
         authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<ClaimMutationResult> {
         self.ensure_tool_enabled("prism_claim", "coordination claim mutations")?;
+        ensure_authenticated_coordination_execution(self, session, authenticated)?;
         if let Some(workspace) = self.workspace_session() {
             self.refresh_workspace_for_mutation()?;
             let _ = self.ensure_coordination_runtime_current(workspace)?;
@@ -4396,7 +4460,7 @@ impl QueryHost {
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
-        let meta = mutation_provenance(self, session, authenticated).event_meta(
+        let meta = coordination_mutation_provenance(self, session, authenticated).event_meta(
             session.next_event_id("coordination"),
             Some(task),
             None,
@@ -4485,7 +4549,8 @@ impl QueryHost {
             .clone()
             .map(TaskId::new)
             .or_else(|| Some(session.task_for_mutation(None)));
-        let meta = mutation_provenance(self, session, authenticated).event_meta(
+        ensure_authenticated_coordination_execution(self, session, authenticated)?;
+        let meta = coordination_mutation_provenance(self, session, authenticated).event_meta(
             session.next_event_id("coordination"),
             task,
             None,
@@ -4567,6 +4632,7 @@ impl QueryHost {
         authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<ArtifactMutationResult> {
         self.ensure_tool_enabled("prism_artifact", "coordination artifact mutations")?;
+        ensure_authenticated_coordination_execution(self, session, authenticated)?;
         if let Some(workspace) = self.workspace_session() {
             self.refresh_workspace_for_mutation()?;
             let _ = self.ensure_coordination_runtime_current(workspace)?;
@@ -4574,7 +4640,7 @@ impl QueryHost {
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
-        let meta = mutation_provenance(self, session, authenticated).event_meta(
+        let meta = coordination_mutation_provenance(self, session, authenticated).event_meta(
             session.next_event_id("coordination"),
             Some(task),
             None,
@@ -4803,7 +4869,9 @@ impl QueryHost {
                     .node_ids_by_client_id
                     .iter()
                     .filter(|(client_id, _)| {
-                        !bootstrap.task_ids_by_client_id.contains_key(*client_id)
+                        !bootstrap
+                            .task_ids_by_client_id
+                            .contains_key(client_id.as_str())
                     })
                     .map(|(client_id, node_id)| {
                         current_plan_node_state(prism, &bootstrap.plan_id, &node_id.0)
@@ -5309,7 +5377,8 @@ impl QueryHost {
                     payload
                         .assignee
                         .map(AgentId::new)
-                        .or_else(|| execution.assignee.clone()),
+                        .or_else(|| execution.assignee.clone())
+                        .or_else(|| session.current_agent()),
                     payload.is_abstract.unwrap_or(false),
                     convert_plan_binding(
                         prism,
@@ -5493,7 +5562,8 @@ impl QueryHost {
                         agent: payload
                             .agent
                             .map(AgentId::new)
-                            .or_else(|| execution.assignee.clone()),
+                            .or_else(|| execution.assignee.clone())
+                            .or_else(|| session.current_agent()),
                         worktree_id: execution.worktree_id.clone(),
                         branch_ref: execution.branch_ref.clone(),
                     },
@@ -6265,6 +6335,8 @@ impl QueryHost {
         if let Some(workspace) = self.workspace_session() {
             let _ = workspace.append_outcome(note_event)?;
             self.sync_workspace_revision(workspace)?;
+            workspace.persist_outcomes()?;
+            workspace.flush_materializations()?;
         } else {
             prism.apply_outcome_event_to_projections(&note_event);
             let _ = prism.outcome_memory().store_event(note_event)?;

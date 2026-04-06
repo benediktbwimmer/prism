@@ -2,6 +2,7 @@ mod ad_hoc_projections;
 mod common;
 mod contracts;
 mod coordination;
+mod coordination_transaction;
 mod impact;
 mod intent;
 mod materialized_runtime;
@@ -26,10 +27,11 @@ use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
-    CoordinationConflict, CoordinationRuntimeState, CoordinationSnapshot, CoordinationTask,
-    HandoffAcceptInput, HandoffInput, PlanScheduling, TaskCreateInput, TaskReclaimInput,
-    TaskResumeInput, TaskUpdateInput, WorkClaim,
+    migrate_legacy_hybrid_snapshot_to_canonical_v2, Artifact, ArtifactProposeInput, ArtifactReview,
+    ArtifactReviewInput, ArtifactSupersedeInput, CoordinationConflict, CoordinationRuntimeState,
+    CoordinationSnapshot, CoordinationSnapshotV2, CoordinationTask, HandoffAcceptInput,
+    HandoffInput, PlanScheduling, TaskCreateInput, TaskReclaimInput, TaskResumeInput,
+    TaskUpdateInput, WorkClaim,
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
@@ -560,6 +562,21 @@ impl Prism {
 
     pub fn coordination_snapshot(&self) -> CoordinationSnapshot {
         self.continuity_snapshot()
+    }
+
+    pub fn coordination_snapshot_v2(&self) -> CoordinationSnapshotV2 {
+        let runtime = self
+            .materialized_runtime
+            .read()
+            .expect("materialized runtime lock poisoned");
+        let snapshot = runtime.snapshot();
+        let plan_runtime = runtime.plan_runtime().clone();
+        migrate_legacy_hybrid_snapshot_to_canonical_v2(
+            &snapshot,
+            &plan_runtime.plan_graphs(),
+            &plan_runtime.execution_overlays_by_plan(),
+        )
+        .expect("live coordination state should project into canonical v2")
     }
 
     pub fn replace_coordination_snapshot(&self, snapshot: CoordinationSnapshot) {
@@ -1218,41 +1235,29 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
         scheduling: Option<prism_coordination::PlanScheduling>,
     ) -> Result<PlanId> {
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| {
-                let (plan_id, _plan) = runtime.create_plan(
-                    meta.clone(),
-                    prism_coordination::PlanCreateInput {
-                        title,
-                        goal,
-                        status,
-                        policy,
-                    },
+        self.coordination_transaction(|coordination_runtime, plan_runtime| {
+            let (plan_id, _plan) = coordination_runtime.create_plan(
+                meta.clone(),
+                prism_coordination::PlanCreateInput {
+                    title,
+                    goal,
+                    status,
+                    policy,
+                },
+            )?;
+            if let Some(scheduling) = scheduling {
+                coordination_runtime.set_plan_scheduling(
+                    derived_coordination_meta(&meta, "plan-scheduling"),
+                    plan_id.clone(),
+                    scheduling,
                 )?;
-                if let Some(scheduling) = scheduling {
-                    runtime.set_plan_scheduling(
-                        derived_coordination_meta(&meta, "plan-scheduling"),
-                        plan_id.clone(),
-                        scheduling,
-                    )?;
-                }
-                let plan = runtime
-                    .plan(&plan_id)
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-                Ok((plan_id, plan))
-            });
-        match result {
-            Ok((plan_id, plan)) => self
-                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.create_plan_from_coordination(&plan)?;
-                    Ok(plan_id)
-                })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
-            Err(error) => {
-                self.persist_coordination_snapshot(snapshot)?;
-                Err(error)
             }
-        }
+            let plan = coordination_runtime
+                .plan(&plan_id)
+                .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
+            plan_runtime.create_plan_from_coordination(&plan)?;
+            Ok(plan_id)
+        })
     }
 
     pub fn bootstrap_native_plan(
@@ -1299,244 +1304,228 @@ impl Prism {
             self.validate_native_plan_binding(&node.bindings)?;
         }
 
-        let before_snapshot = self.continuity_snapshot();
-        let mut coordination_runtime = CoordinationRuntimeState::from_snapshot(before_snapshot);
         let coordination_context = self.coordination_context();
         let now = meta.ts;
-
-        let (plan_id, _) = coordination_runtime.create_plan(
-            meta.clone(),
-            prism_coordination::PlanCreateInput {
-                title,
-                goal,
-                status,
-                policy,
-            },
-        )?;
-        if let Some(scheduling) = scheduling {
-            coordination_runtime.set_plan_scheduling(
-                derived_coordination_meta(&meta, "plan-scheduling"),
-                plan_id.clone(),
-                scheduling,
-            )?;
-        }
-
-        let mut created_tasks = Vec::with_capacity(tasks.len());
-        let mut task_ids_by_client_id = BTreeMap::new();
-        for task in tasks {
-            let worktree_id = coordination_context
-                .as_ref()
-                .and_then(|context| task.session.as_ref().map(|_| context.worktree_id.clone()));
-            let branch_ref = coordination_context
-                .as_ref()
-                .and_then(|context| task.session.as_ref().and(context.branch_ref.clone()));
-            let (task_id, _) = coordination_runtime.create_task(
-                derived_coordination_meta(
-                    &meta,
-                    &format!("bootstrap-task-create:{}", task.client_id),
-                ),
-                TaskCreateInput {
-                    plan_id: plan_id.clone(),
-                    title: task.title,
-                    status: task.status,
-                    assignee: task.assignee,
-                    session: task.session,
-                    worktree_id,
-                    branch_ref,
-                    anchors: task.anchors,
-                    depends_on: Vec::new(),
-                    coordination_depends_on: Vec::new(),
-                    integrated_depends_on: Vec::new(),
-                    acceptance: task.acceptance,
-                    base_revision: task.base_revision.clone(),
+        self.coordination_transaction(|coordination_runtime, plan_runtime| {
+            let (plan_id, _) = coordination_runtime.create_plan(
+                meta.clone(),
+                prism_coordination::PlanCreateInput {
+                    title,
+                    goal,
+                    status,
+                    policy,
                 },
             )?;
-            task_ids_by_client_id.insert(task.client_id.clone(), task_id.clone());
-            created_tasks.push(CreatedTaskSpec {
-                client_id: task.client_id,
-                task_id,
-                base_revision: task.base_revision,
-                depends_on: task.depends_on,
-                coordination_depends_on: task.coordination_depends_on,
-                integrated_depends_on: task.integrated_depends_on,
-            });
-        }
-
-        for task in &created_tasks {
-            if task.depends_on.is_empty()
-                && task.coordination_depends_on.is_empty()
-                && task.integrated_depends_on.is_empty()
-            {
-                continue;
+            if let Some(scheduling) = scheduling {
+                coordination_runtime.set_plan_scheduling(
+                    derived_coordination_meta(&meta, "plan-scheduling"),
+                    plan_id.clone(),
+                    scheduling,
+                )?;
             }
-            coordination_runtime.update_task(
-                derived_coordination_meta(
-                    &meta,
-                    &format!("bootstrap-task-deps:{}", task.client_id),
-                ),
-                TaskUpdateInput {
-                    task_id: task.task_id.clone(),
-                    kind: None,
-                    status: None,
-                    published_task_status: None,
-                    git_execution: None,
-                    assignee: None,
-                    session: None,
-                    worktree_id: None,
-                    branch_ref: None,
-                    title: None,
-                    summary: None,
-                    anchors: None,
-                    bindings: None,
-                    depends_on: Some(resolve_bootstrap_task_dependencies(
-                        &task_ids_by_client_id,
-                        &task.client_id,
+
+            let mut created_tasks = Vec::with_capacity(tasks.len());
+            let mut task_ids_by_client_id = BTreeMap::new();
+            for task in tasks {
+                let worktree_id = coordination_context
+                    .as_ref()
+                    .and_then(|context| task.session.as_ref().map(|_| context.worktree_id.clone()));
+                let branch_ref = coordination_context
+                    .as_ref()
+                    .and_then(|context| task.session.as_ref().and(context.branch_ref.clone()));
+                let (task_id, _) = coordination_runtime.create_task(
+                    derived_coordination_meta(
+                        &meta,
+                        &format!("bootstrap-task-create:{}", task.client_id),
+                    ),
+                    TaskCreateInput {
+                        plan_id: plan_id.clone(),
+                        title: task.title,
+                        status: task.status,
+                        assignee: task.assignee,
+                        session: task.session,
+                        worktree_id,
+                        branch_ref,
+                        anchors: task.anchors,
+                        depends_on: Vec::new(),
+                        coordination_depends_on: Vec::new(),
+                        integrated_depends_on: Vec::new(),
+                        acceptance: task.acceptance,
+                        base_revision: task.base_revision.clone(),
+                    },
+                )?;
+                task_ids_by_client_id.insert(task.client_id.clone(), task_id.clone());
+                created_tasks.push(CreatedTaskSpec {
+                    client_id: task.client_id,
+                    task_id,
+                    base_revision: task.base_revision,
+                    depends_on: task.depends_on,
+                    coordination_depends_on: task.coordination_depends_on,
+                    integrated_depends_on: task.integrated_depends_on,
+                });
+            }
+
+            for task in &created_tasks {
+                if task.depends_on.is_empty()
+                    && task.coordination_depends_on.is_empty()
+                    && task.integrated_depends_on.is_empty()
+                {
+                    continue;
+                }
+                coordination_runtime.update_task(
+                    derived_coordination_meta(
+                        &meta,
+                        &format!("bootstrap-task-deps:{}", task.client_id),
+                    ),
+                    TaskUpdateInput {
+                        task_id: task.task_id.clone(),
+                        kind: None,
+                        status: None,
+                        published_task_status: None,
+                        git_execution: None,
+                        assignee: None,
+                        session: None,
+                        worktree_id: None,
+                        branch_ref: None,
+                        title: None,
+                        summary: None,
+                        anchors: None,
+                        bindings: None,
+                        depends_on: Some(resolve_bootstrap_task_dependencies(
+                            &task_ids_by_client_id,
+                            &task.client_id,
+                            "dependsOn",
+                            &task.depends_on,
+                        )?),
+                        coordination_depends_on: Some(resolve_bootstrap_task_dependencies(
+                            &task_ids_by_client_id,
+                            &task.client_id,
+                            "coordinationDependsOn",
+                            &task.coordination_depends_on,
+                        )?),
+                        integrated_depends_on: Some(resolve_bootstrap_task_dependencies(
+                            &task_ids_by_client_id,
+                            &task.client_id,
+                            "integratedDependsOn",
+                            &task.integrated_depends_on,
+                        )?),
+                        acceptance: None,
+                        validation_refs: None,
+                        is_abstract: None,
+                        base_revision: Some(task.base_revision.clone()),
+                        priority: None,
+                        tags: None,
+                        completion_context: None,
+                    },
+                    task.base_revision.clone(),
+                    now,
+                )?;
+            }
+
+            let plan = coordination_runtime
+                .plan(&plan_id)
+                .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
+            let tasks_in_order = created_tasks
+                .iter()
+                .map(|task| {
+                    coordination_runtime
+                        .task(&task.task_id)
+                        .ok_or_else(|| anyhow!("unknown task `{}`", task.task_id.0))
+                        .map(|state| (task.client_id.clone(), state))
+                })
+                .collect::<Result<Vec<_>>>()?;
+
+            plan_runtime.create_plan_from_coordination(&plan)?;
+            for (_, task) in &tasks_in_order {
+                plan_runtime.create_task_from_coordination(task)?;
+            }
+
+            let mut node_ids_by_client_id = task_ids_by_client_id
+                .iter()
+                .map(|(client_id, task_id)| (client_id.clone(), PlanNodeId::new(task_id.0.clone())))
+                .collect::<BTreeMap<_, _>>();
+
+            let mut created_nodes = Vec::with_capacity(nodes.len());
+            for node in nodes {
+                let node_id = plan_runtime.create_node(
+                    &plan_id,
+                    node.kind,
+                    node.title,
+                    node.summary,
+                    node.status,
+                    node.assignee,
+                    node.is_abstract,
+                    node.bindings,
+                    Vec::new(),
+                    node.acceptance,
+                    node.validation_refs,
+                    node.base_revision,
+                    node.priority,
+                    node.tags,
+                )?;
+                node_ids_by_client_id.insert(node.client_id.clone(), node_id.clone());
+                created_nodes.push(CreatedNodeSpec {
+                    client_id: node.client_id,
+                    node_id,
+                    depends_on: node.depends_on,
+                });
+            }
+
+            for node in &created_nodes {
+                if node.depends_on.is_empty() {
+                    continue;
+                }
+                plan_runtime.update_node(
+                    &node.node_id,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                    Some(resolve_bootstrap_node_dependencies(
+                        &node_ids_by_client_id,
+                        &node.client_id,
                         "dependsOn",
-                        &task.depends_on,
+                        &node.depends_on,
                     )?),
-                    coordination_depends_on: Some(resolve_bootstrap_task_dependencies(
-                        &task_ids_by_client_id,
-                        &task.client_id,
-                        "coordinationDependsOn",
-                        &task.coordination_depends_on,
-                    )?),
-                    integrated_depends_on: Some(resolve_bootstrap_task_dependencies(
-                        &task_ids_by_client_id,
-                        &task.client_id,
-                        "integratedDependsOn",
-                        &task.integrated_depends_on,
-                    )?),
-                    acceptance: None,
-                    validation_refs: None,
-                    is_abstract: None,
-                    base_revision: Some(task.base_revision.clone()),
-                    priority: None,
-                    tags: None,
-                    completion_context: None,
-                },
-                task.base_revision.clone(),
-                now,
-            )?;
-        }
-
-        let after_coordination_snapshot = coordination_runtime.snapshot();
-        let plan = coordination_runtime
-            .plan(&plan_id)
-            .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-
-        let tasks_in_order = created_tasks
-            .iter()
-            .map(|task| {
-                coordination_runtime
-                    .task(&task.task_id)
-                    .ok_or_else(|| anyhow!("unknown task `{}`", task.task_id.0))
-                    .map(|state| (task.client_id.clone(), state))
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        let mut plan_runtime = self.plan_runtime_state();
-        plan_runtime.create_plan_from_coordination(&plan)?;
-        for (_, task) in &tasks_in_order {
-            plan_runtime.create_task_from_coordination(task)?;
-        }
-
-        let mut node_ids_by_client_id = task_ids_by_client_id
-            .iter()
-            .map(|(client_id, task_id)| (client_id.clone(), PlanNodeId::new(task_id.0.clone())))
-            .collect::<BTreeMap<_, _>>();
-
-        let mut created_nodes = Vec::with_capacity(nodes.len());
-        for node in nodes {
-            let node_id = plan_runtime.create_node(
-                &plan_id,
-                node.kind,
-                node.title,
-                node.summary,
-                node.status,
-                node.assignee,
-                node.is_abstract,
-                node.bindings,
-                Vec::new(),
-                node.acceptance,
-                node.validation_refs,
-                node.base_revision,
-                node.priority,
-                node.tags,
-            )?;
-            node_ids_by_client_id.insert(node.client_id.clone(), node_id.clone());
-            created_nodes.push(CreatedNodeSpec {
-                client_id: node.client_id,
-                node_id,
-                depends_on: node.depends_on,
-            });
-        }
-
-        for node in &created_nodes {
-            if node.depends_on.is_empty() {
-                continue;
+                    None,
+                    None,
+                    None,
+                    None,
+                    false,
+                    None,
+                )?;
             }
-            plan_runtime.update_node(
-                &node.node_id,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                false,
-                None,
-                Some(resolve_bootstrap_node_dependencies(
+
+            let mut created_edges = Vec::with_capacity(edges.len());
+            for edge in edges {
+                let from_node_id = resolve_bootstrap_node_reference(
                     &node_ids_by_client_id,
-                    &node.client_id,
-                    "dependsOn",
-                    &node.depends_on,
-                )?),
-                None,
-                None,
-                None,
-                None,
-                false,
-                None,
-            )?;
-        }
+                    &edge.from_client_id,
+                    "fromClientId",
+                )?;
+                let to_node_id = resolve_bootstrap_node_reference(
+                    &node_ids_by_client_id,
+                    &edge.to_client_id,
+                    "toClientId",
+                )?;
+                plan_runtime.create_edge(&plan_id, &from_node_id, &to_node_id, edge.kind)?;
+                created_edges.push(NativePlanBootstrapEdgeResult {
+                    from_node_id,
+                    to_node_id,
+                    kind: edge.kind,
+                });
+            }
 
-        let mut created_edges = Vec::with_capacity(edges.len());
-        for edge in edges {
-            let from_node_id = resolve_bootstrap_node_reference(
-                &node_ids_by_client_id,
-                &edge.from_client_id,
-                "fromClientId",
-            )?;
-            let to_node_id = resolve_bootstrap_node_reference(
-                &node_ids_by_client_id,
-                &edge.to_client_id,
-                "toClientId",
-            )?;
-            plan_runtime.create_edge(&plan_id, &from_node_id, &to_node_id, edge.kind)?;
-            created_edges.push(NativePlanBootstrapEdgeResult {
-                from_node_id,
-                to_node_id,
-                kind: edge.kind,
-            });
-        }
-
-        {
-            let mut runtime = self
-                .materialized_runtime
-                .write()
-                .expect("materialized runtime lock poisoned");
-            let final_snapshot =
-                plan_runtime.apply_to_coordination_snapshot(after_coordination_snapshot);
-            *runtime.plan_runtime_mut() = plan_runtime;
-            runtime.replace_continuity_snapshot(final_snapshot);
-        }
-        self.invalidate_plan_discovery_cache();
-
-        Ok(NativePlanBootstrapResult {
-            plan_id,
-            task_ids_by_client_id,
-            node_ids_by_client_id,
-            edges: created_edges,
+            Ok(NativePlanBootstrapResult {
+                plan_id,
+                task_ids_by_client_id,
+                node_ids_by_client_id,
+                edges: created_edges,
+            })
         })
     }
 
@@ -1562,42 +1551,32 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
         scheduling: Option<prism_coordination::PlanScheduling>,
     ) -> Result<()> {
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| {
-                if title.is_some() || status.is_some() || goal.is_some() || policy.is_some() {
-                    runtime.update_plan(
-                        meta.clone(),
-                        prism_coordination::PlanUpdateInput {
-                            plan_id: plan_id.clone(),
-                            title,
-                            goal,
-                            status,
-                            policy,
-                        },
-                    )?;
-                }
-                if let Some(scheduling) = scheduling {
-                    runtime.set_plan_scheduling(
-                        derived_coordination_meta(&meta, "plan-scheduling"),
-                        plan_id.clone(),
-                        scheduling,
-                    )?;
-                }
-                runtime
-                    .plan(plan_id)
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))
-            });
-        match result {
-            Ok(plan) => self
-                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_plan_from_coordination(&plan)
-                })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
-            Err(error) => {
-                self.persist_coordination_snapshot(snapshot)?;
-                Err(error)
+        let plan_id = plan_id.clone();
+        self.coordination_transaction(|coordination_runtime, plan_runtime| {
+            if title.is_some() || status.is_some() || goal.is_some() || policy.is_some() {
+                coordination_runtime.update_plan(
+                    meta.clone(),
+                    prism_coordination::PlanUpdateInput {
+                        plan_id: plan_id.clone(),
+                        title,
+                        goal,
+                        status,
+                        policy,
+                    },
+                )?;
             }
-        }
+            if let Some(scheduling) = scheduling {
+                coordination_runtime.set_plan_scheduling(
+                    derived_coordination_meta(&meta, "plan-scheduling"),
+                    plan_id.clone(),
+                    scheduling,
+                )?;
+            }
+            let plan = coordination_runtime
+                .plan(&plan_id)
+                .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
+            plan_runtime.update_plan_from_coordination(&plan)
+        })
     }
 
     pub fn update_native_plan_node(

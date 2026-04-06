@@ -6,7 +6,8 @@ use anyhow::Result;
 use prism_coordination::{
     coordination_queue_read_model_from_seed, coordination_read_model_from_seed,
     coordination_snapshot_from_events, snapshot_plan_graphs, CoordinationEvent,
-    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, TaskGitExecution,
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    CoordinationSnapshotV2, TaskGitExecution,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, SessionId};
 use prism_store::{
@@ -17,12 +18,12 @@ use serde_json::{json, Value};
 
 use crate::coordination_startup_checkpoint::{
     load_materialized_coordination_plan_state, load_materialized_coordination_snapshot,
-    save_shared_coordination_startup_checkpoint,
+    load_materialized_coordination_snapshot_v2, save_shared_coordination_startup_checkpoint,
 };
 use crate::published_plans::{
     execution_overlays_by_plan, load_hydrated_coordination_plan_state,
-    load_hydrated_coordination_snapshot, sync_repo_published_plan_state, sync_repo_published_plans,
-    HydratedCoordinationPlanState,
+    load_hydrated_coordination_snapshot, load_hydrated_coordination_snapshot_v2,
+    sync_repo_published_plan_state, sync_repo_published_plans, HydratedCoordinationPlanState,
 };
 use crate::shared_coordination_ref::sync_shared_coordination_ref_state;
 use crate::tracked_snapshot::{
@@ -256,16 +257,36 @@ pub(crate) trait CoordinationPersistenceBackend:
             appended_events,
         })?;
         match (plan_graphs, execution_overlays) {
-            (Some(plan_graphs), Some(execution_overlays)) => sync_repo_published_plan_state(
-                root,
-                snapshot,
-                None,
-                None,
-                plan_graphs.to_vec(),
-                execution_overlays.clone(),
-                None,
-            )?,
-            _ => sync_repo_published_plans(root, snapshot, None)?,
+            (Some(plan_graphs), Some(execution_overlays)) => {
+                sync_repo_published_plan_state(
+                    root,
+                    snapshot,
+                    None,
+                    None,
+                    plan_graphs.to_vec(),
+                    execution_overlays.clone(),
+                    None,
+                )?;
+                save_shared_coordination_startup_checkpoint(
+                    root,
+                    self,
+                    snapshot,
+                    plan_graphs,
+                    execution_overlays,
+                )?;
+            }
+            _ => {
+                sync_repo_published_plans(root, snapshot, None)?;
+                let plan_graphs = snapshot_plan_graphs(snapshot);
+                let execution_overlays = execution_overlays_by_plan(&snapshot.tasks);
+                save_shared_coordination_startup_checkpoint(
+                    root,
+                    self,
+                    snapshot,
+                    &plan_graphs,
+                    &execution_overlays,
+                )?;
+            }
         }
         Ok(result)
     }
@@ -284,6 +305,22 @@ pub(crate) trait CoordinationPersistenceBackend:
             return Ok(Some(snapshot));
         }
         load_hydrated_coordination_snapshot(root, snapshot)
+    }
+
+    fn load_hydrated_coordination_snapshot_v2_for_root(
+        &mut self,
+        root: &Path,
+    ) -> Result<Option<CoordinationSnapshotV2>> {
+        let stream = self.load_coordination_event_stream()?;
+        let snapshot =
+            coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot)
+                .map(repo_semantic_coordination_snapshot);
+        if let Some(snapshot_v2) =
+            load_materialized_coordination_snapshot_v2(root, self, snapshot.clone())?
+        {
+            return Ok(Some(snapshot_v2));
+        }
+        load_hydrated_coordination_snapshot_v2(root, snapshot)
     }
 
     fn load_hydrated_coordination_plan_state_for_root(

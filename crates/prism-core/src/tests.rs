@@ -7183,6 +7183,10 @@ fn derived_published_plan_mirrors_do_not_override_replayed_task_backed_authored_
         .load_coordination_plan_state()
         .unwrap()
         .expect("replayed coordination plan state");
+    let snapshot_v2 = reloaded
+        .load_coordination_snapshot_v2()
+        .unwrap()
+        .expect("replayed coordination plan state v2");
     assert!(state
         .snapshot
         .plans
@@ -7191,6 +7195,8 @@ fn derived_published_plan_mirrors_do_not_override_replayed_task_backed_authored_
     assert!(state.snapshot.tasks.iter().any(|task| {
         task.id == task_id && task.plan == plan_id && task.title == "Ignore stale export artifacts"
     }));
+    assert_eq!(state.canonical_snapshot_v2, snapshot_v2);
+    assert_eq!(snapshot_v2, state.snapshot.to_canonical_snapshot_v2());
 
     let _ = fs::remove_dir_all(root);
 }
@@ -8222,6 +8228,11 @@ fn load_hydrated_coordination_snapshot_preserves_authoritative_task_lease_fields
         .load_hydrated_coordination_snapshot_for_root(&root)
         .unwrap()
         .expect("hydrated coordination snapshot");
+    let loaded_v2 = store
+        .load_hydrated_coordination_snapshot_v2_for_root(&root)
+        .unwrap()
+        .expect("hydrated coordination snapshot v2");
+    assert_eq!(loaded_v2, loaded.to_canonical_snapshot_v2());
     let loaded_task = loaded
         .tasks
         .into_iter()
@@ -8243,6 +8254,181 @@ fn load_hydrated_coordination_snapshot_preserves_authoritative_task_lease_fields
     );
     assert!(loaded_task.worktree_id.is_none());
     assert!(loaded_task.branch_ref.is_none());
+}
+
+#[test]
+fn load_hydrated_coordination_snapshot_v2_migrates_standalone_legacy_plan_nodes() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    run_git(&root, &["init"]);
+    run_git(&root, &["config", "user.email", "test@example.com"]);
+    run_git(&root, &["config", "user.name", "Test User"]);
+    run_git(&root, &["add", "."]);
+    run_git(&root, &["commit", "-m", "init"]);
+
+    let plan_id = prism_ir::PlanId::new("plan:hybrid");
+    let snapshot = CoordinationSnapshot {
+        plans: vec![prism_coordination::Plan {
+            id: plan_id.clone(),
+            goal: "Hydrate hybrid state".into(),
+            title: "Hydrate hybrid state".into(),
+            status: prism_ir::PlanStatus::Active,
+            policy: Default::default(),
+            scope: prism_ir::PlanScope::Repo,
+            kind: prism_ir::PlanKind::TaskExecution,
+            revision: 0,
+            scheduling: Default::default(),
+            tags: Vec::new(),
+            created_from: None,
+            metadata: serde_json::Value::Null,
+            authored_edges: Vec::new(),
+            root_tasks: vec![prism_ir::CoordinationTaskId::new("coord-task:existing")],
+        }],
+        tasks: vec![prism_coordination::CoordinationTask {
+            id: prism_ir::CoordinationTaskId::new("coord-task:existing"),
+            plan: plan_id.clone(),
+            kind: prism_ir::PlanNodeKind::Edit,
+            title: "Existing task".into(),
+            summary: None,
+            status: prism_ir::CoordinationTaskStatus::Ready,
+            published_task_status: None,
+            assignee: None,
+            pending_handoff_to: None,
+            session: None,
+            lease_holder: None,
+            lease_started_at: None,
+            lease_refreshed_at: None,
+            lease_stale_at: None,
+            lease_expires_at: None,
+            worktree_id: None,
+            branch_ref: None,
+            anchors: Vec::new(),
+            bindings: prism_ir::PlanBinding::default(),
+            depends_on: Vec::new(),
+            coordination_depends_on: Vec::new(),
+            integrated_depends_on: Vec::new(),
+            acceptance: Vec::new(),
+            validation_refs: Vec::new(),
+            is_abstract: false,
+            base_revision: prism_ir::WorkspaceRevision::default(),
+            priority: None,
+            tags: Vec::new(),
+            metadata: serde_json::Value::Null,
+            git_execution: prism_coordination::TaskGitExecution::default(),
+        }],
+        ..CoordinationSnapshot::default()
+    };
+    let plan_graphs = vec![prism_ir::PlanGraph {
+        id: plan_id.clone(),
+        scope: prism_ir::PlanScope::Repo,
+        kind: prism_ir::PlanKind::TaskExecution,
+        title: "Hybrid".into(),
+        goal: "Hybrid".into(),
+        status: prism_ir::PlanStatus::Active,
+        revision: 0,
+        root_nodes: vec![
+            prism_ir::PlanNodeId::new("plan-node:parent"),
+            prism_ir::PlanNodeId::new("coord-task:existing"),
+        ],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![
+            prism_ir::PlanNode {
+                id: prism_ir::PlanNodeId::new("plan-node:parent"),
+                plan_id: plan_id.clone(),
+                kind: prism_ir::PlanNodeKind::Note,
+                title: "Parent".into(),
+                summary: Some("Parent goal".into()),
+                status: prism_ir::PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: true,
+                assignee: None,
+                base_revision: prism_ir::WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            prism_ir::PlanNode {
+                id: prism_ir::PlanNodeId::new("plan-node:leaf"),
+                plan_id: plan_id.clone(),
+                kind: prism_ir::PlanNodeKind::Edit,
+                title: "Leaf".into(),
+                summary: None,
+                status: prism_ir::PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: prism_ir::WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            prism_ir::PlanNode {
+                id: prism_ir::PlanNodeId::new("coord-task:existing"),
+                plan_id: plan_id.clone(),
+                kind: prism_ir::PlanNodeKind::Edit,
+                title: "Existing task".into(),
+                summary: None,
+                status: prism_ir::PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: prism_ir::WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+        ],
+        edges: vec![prism_ir::PlanEdge {
+            id: prism_ir::PlanEdgeId::new("edge:leaf-child-of-parent"),
+            plan_id: plan_id.clone(),
+            from: prism_ir::PlanNodeId::new("plan-node:leaf"),
+            to: prism_ir::PlanNodeId::new("plan-node:parent"),
+            kind: prism_ir::PlanEdgeKind::ChildOf,
+            summary: None,
+            metadata: serde_json::Value::Null,
+        }],
+    }];
+    let execution_overlays =
+        std::collections::BTreeMap::from([(plan_id.0.to_string(), Vec::new())]);
+
+    let mut store = MemoryStore::default();
+    store
+        .persist_coordination_authoritative_state_for_root(
+            &root,
+            &snapshot,
+            Some(&plan_graphs),
+            Some(&execution_overlays),
+        )
+        .unwrap();
+
+    let loaded_v2 = store
+        .load_hydrated_coordination_snapshot_v2_for_root(&root)
+        .unwrap()
+        .expect("hydrated canonical snapshot");
+    assert!(loaded_v2
+        .plans
+        .iter()
+        .any(|plan| plan.id.0 == "plan:migrated:plan-node:parent"
+            && plan.parent_plan_id == Some(plan_id.clone())));
+    assert!(loaded_v2.tasks.iter().any(|task| {
+        task.id.0 == "task:migrated:plan-node:leaf"
+            && task.parent_plan_id.0 == "plan:migrated:plan-node:parent"
+    }));
+    assert_ne!(loaded_v2, snapshot.to_canonical_snapshot_v2());
 }
 
 #[test]

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use prism_coordination::CoordinationSnapshot;
+use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
 use prism_ir::{PlanExecutionOverlay, PlanGraph};
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +21,8 @@ pub struct CoordinationStartupCheckpoint {
     pub coordination_revision: u64,
     pub authority: CoordinationStartupCheckpointAuthority,
     pub snapshot: CoordinationSnapshot,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canonical_snapshot_v2: Option<CoordinationSnapshotV2>,
     pub plan_graphs: Vec<PlanGraph>,
     pub execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
 }

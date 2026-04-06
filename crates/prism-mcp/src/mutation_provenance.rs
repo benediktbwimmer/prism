@@ -65,6 +65,7 @@ impl MutationProvenance {
         session: &SessionState,
         prism: Arc<Prism>,
         slot: &WorktreeMutatorSlotRecord,
+        credential_id: Option<&CredentialId>,
     ) -> Self {
         Self {
             actor: EventActor::Principal(PrincipalActor {
@@ -73,7 +74,7 @@ impl MutationProvenance {
                 kind: Some(slot.principal_kind),
                 name: Some(slot.principal_name.clone()),
             }),
-            execution_context: execution_context(Some(workspace), session, None),
+            execution_context: execution_context(Some(workspace), session, credential_id),
             prism,
             current_task: session.effective_current_task_state(),
             current_work: session.current_work_state(),

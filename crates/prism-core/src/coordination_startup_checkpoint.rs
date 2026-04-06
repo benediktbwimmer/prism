@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use anyhow::Result;
-use prism_coordination::CoordinationSnapshot;
+use prism_coordination::{
+    migrate_legacy_hybrid_snapshot_to_canonical_v2, CoordinationSnapshot, CoordinationSnapshotV2,
+};
 use prism_ir::{PlanExecutionOverlay, PlanGraph};
 use prism_store::{
     CoordinationCheckpointStore, CoordinationJournal, CoordinationStartupCheckpoint,
@@ -36,17 +38,33 @@ where
                 &mut plan_graphs,
                 &mut execution_overlays,
             );
+            let snapshot = merge_shared_coordination_into_snapshot(checkpoint.snapshot, snapshot);
             Some(HydratedCoordinationPlanState {
-                snapshot: merge_shared_coordination_into_snapshot(checkpoint.snapshot, snapshot),
+                canonical_snapshot_v2: migrate_legacy_hybrid_snapshot_to_canonical_v2(
+                    &snapshot,
+                    &plan_graphs,
+                    &execution_overlays,
+                )?,
+                snapshot,
                 plan_graphs,
                 execution_overlays,
             })
         }
-        None => Some(HydratedCoordinationPlanState {
-            snapshot: checkpoint.snapshot,
-            plan_graphs: checkpoint.plan_graphs,
-            execution_overlays: checkpoint.execution_overlays,
-        }),
+        None => {
+            let snapshot = checkpoint.snapshot;
+            Some(HydratedCoordinationPlanState {
+                canonical_snapshot_v2: checkpoint.canonical_snapshot_v2.unwrap_or(
+                    migrate_legacy_hybrid_snapshot_to_canonical_v2(
+                        &snapshot,
+                        &checkpoint.plan_graphs,
+                        &checkpoint.execution_overlays,
+                    )?,
+                ),
+                snapshot,
+                plan_graphs: checkpoint.plan_graphs,
+                execution_overlays: checkpoint.execution_overlays,
+            })
+        }
     })
 }
 
@@ -70,6 +88,36 @@ where
     })
 }
 
+pub(crate) fn load_materialized_coordination_snapshot_v2<S>(
+    root: &Path,
+    store: &mut S,
+    snapshot: Option<CoordinationSnapshot>,
+) -> Result<Option<CoordinationSnapshotV2>>
+where
+    S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
+{
+    let Some(checkpoint) = load_matching_coordination_startup_checkpoint(root, store)? else {
+        return Ok(None);
+    };
+    Ok(match snapshot {
+        Some(snapshot) => {
+            let snapshot = merge_shared_coordination_into_snapshot(checkpoint.snapshot, snapshot);
+            Some(migrate_legacy_hybrid_snapshot_to_canonical_v2(
+                &snapshot,
+                &checkpoint.plan_graphs,
+                &checkpoint.execution_overlays,
+            )?)
+        }
+        None => Some(checkpoint.canonical_snapshot_v2.unwrap_or(
+            migrate_legacy_hybrid_snapshot_to_canonical_v2(
+                &checkpoint.snapshot,
+                &checkpoint.plan_graphs,
+                &checkpoint.execution_overlays,
+            )?,
+        )),
+    })
+}
+
 pub(crate) fn save_shared_coordination_startup_checkpoint<S>(
     root: &Path,
     store: &mut S,
@@ -81,12 +129,19 @@ where
     S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
 {
     let authority = coordination_startup_authority(root)?;
+    let mut checkpoint_snapshot = snapshot.clone();
+    checkpoint_snapshot.events.clear();
     store.save_coordination_startup_checkpoint(&CoordinationStartupCheckpoint {
         version: CoordinationStartupCheckpoint::VERSION,
         materialized_at: current_timestamp(),
         coordination_revision: store.coordination_revision()?,
         authority,
-        snapshot: snapshot.clone(),
+        snapshot: checkpoint_snapshot.clone(),
+        canonical_snapshot_v2: Some(migrate_legacy_hybrid_snapshot_to_canonical_v2(
+            &checkpoint_snapshot,
+            plan_graphs,
+            execution_overlays,
+        )?),
         plan_graphs: plan_graphs.to_vec(),
         execution_overlays: execution_overlays.clone(),
     })

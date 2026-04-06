@@ -6,6 +6,8 @@ use prism_ir::{
 use serde_json::Value;
 
 use crate::blockers::{completion_blockers, readiness_blockers};
+use crate::canonical_graph::CoordinationSnapshotV2;
+use crate::executor_routing::{caller_matches_task_executor_policy, TaskExecutorCaller};
 use crate::helpers::{
     anchors_overlap, artifact_matches_worktree_scope, claim_is_active,
     claim_matches_worktree_scope, conflict_between, dedupe_conflicts, editor_capacity_conflicts,
@@ -16,8 +18,8 @@ use crate::mutations::{
     accept_handoff_mutation, acquire_claim_mutation, create_plan_mutation, create_task_mutation,
     handoff_mutation, heartbeat_task_mutation, propose_artifact_mutation, reclaim_task_mutation,
     release_claim_mutation, renew_claim_mutation, resume_task_mutation, review_artifact_mutation,
-    set_plan_scheduling_mutation, supersede_artifact_mutation, update_plan_mutation,
-    update_task_mutation, update_task_mutation_with_options,
+    run_validated_structural_mutation, set_plan_scheduling_mutation, supersede_artifact_mutation,
+    update_plan_mutation, update_task_mutation, update_task_mutation_with_options,
 };
 use crate::state::CoordinationState;
 use crate::types::{
@@ -45,6 +47,10 @@ impl CoordinationRuntimeState {
 
     pub fn snapshot(&self) -> CoordinationSnapshot {
         self.state.snapshot()
+    }
+
+    pub fn snapshot_v2(&self) -> CoordinationSnapshotV2 {
+        self.snapshot().to_canonical_snapshot_v2()
     }
 
     pub fn plan(&self, id: &PlanId) -> Option<Plan> {
@@ -81,7 +87,9 @@ impl CoordinationRuntimeState {
         meta: EventMeta,
         input: TaskCreateInput,
     ) -> Result<(prism_ir::CoordinationTaskId, CoordinationTask)> {
-        create_task_mutation(&mut self.state, meta, input)
+        run_validated_structural_mutation(&mut self.state, |state| {
+            create_task_mutation(state, meta, input)
+        })
     }
 
     pub fn update_task(
@@ -91,7 +99,9 @@ impl CoordinationRuntimeState {
         current_revision: WorkspaceRevision,
         now: Timestamp,
     ) -> Result<CoordinationTask> {
-        update_task_mutation(&mut self.state, meta, input, current_revision, now)
+        run_validated_structural_mutation(&mut self.state, |state| {
+            update_task_mutation(state, meta, input, current_revision, now)
+        })
     }
 
     pub fn update_task_authoritative_only(
@@ -101,7 +111,9 @@ impl CoordinationRuntimeState {
         current_revision: WorkspaceRevision,
         now: Timestamp,
     ) -> Result<CoordinationTask> {
-        update_task_mutation_with_options(&mut self.state, meta, input, current_revision, now, true)
+        run_validated_structural_mutation(&mut self.state, |state| {
+            update_task_mutation_with_options(state, meta, input, current_revision, now, true)
+        })
     }
 
     pub fn handoff(
@@ -431,6 +443,30 @@ impl CoordinationRuntimeState {
             .collect::<Vec<_>>();
         tasks.sort_by(|left, right| left.id.0.cmp(&right.id.0));
         tasks
+    }
+
+    pub fn ready_tasks_for_executor(
+        &self,
+        plan_id: &PlanId,
+        current_revision: WorkspaceRevision,
+        now: Timestamp,
+        caller: &TaskExecutorCaller,
+    ) -> Vec<CoordinationTask> {
+        self.ready_tasks_for_executor_in_scope(plan_id, current_revision, now, None, caller)
+    }
+
+    pub fn ready_tasks_for_executor_in_scope(
+        &self,
+        plan_id: &PlanId,
+        current_revision: WorkspaceRevision,
+        now: Timestamp,
+        worktree_id: Option<&str>,
+        caller: &TaskExecutorCaller,
+    ) -> Vec<CoordinationTask> {
+        self.ready_tasks_in_scope(plan_id, current_revision, now, worktree_id)
+            .into_iter()
+            .filter(|task| caller_matches_task_executor_policy(task, caller))
+            .collect()
     }
 
     pub fn artifacts(&self, task_id: &prism_ir::CoordinationTaskId) -> Vec<Artifact> {

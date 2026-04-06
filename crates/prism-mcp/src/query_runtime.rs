@@ -23,6 +23,7 @@ use prism_query::{
 };
 use serde_json::{json, Value};
 
+use crate::coordination_executor::current_executor_caller;
 use crate::file_queries::{
     file_around, file_read, DEFAULT_FILE_AROUND_CONTEXT_LINES, DEFAULT_FILE_AROUND_MAX_CHARS,
     DEFAULT_FILE_READ_MAX_CHARS,
@@ -1340,9 +1341,17 @@ impl QueryExecution {
                 }
                 "readyTasks" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
+                    let plan_id = PlanId::new(args.plan_id);
+                    let tasks = if let Some(caller) =
+                        current_executor_caller(self.workspace_root(), Some(self.session()))
+                    {
                         self.prism
-                            .ready_tasks(&PlanId::new(args.plan_id), current_timestamp())
+                            .ready_tasks_for_executor(&plan_id, current_timestamp(), &caller)
+                    } else {
+                        self.prism.ready_tasks(&plan_id, current_timestamp())
+                    };
+                    Ok(serde_json::to_value(
+                        tasks
                             .into_iter()
                             .map(coordination_task_view)
                             .collect::<Vec<_>>(),

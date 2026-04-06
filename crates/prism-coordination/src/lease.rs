@@ -276,15 +276,22 @@ pub(crate) fn same_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
 }
 
 pub(crate) fn authoritative_task_holder(task: &CoordinationTask) -> Option<LeaseHolder> {
-    task.lease_holder.clone().or_else(|| {
-        let holder = LeaseHolder {
-            principal: None,
-            session_id: task.session.clone(),
-            worktree_id: task.worktree_id.clone(),
-            agent_id: task.assignee.clone(),
-        };
-        holder_has_identity(&holder).then_some(holder)
-    })
+    let mut holder = task.lease_holder.clone().unwrap_or(LeaseHolder {
+        principal: None,
+        session_id: None,
+        worktree_id: None,
+        agent_id: None,
+    });
+    if holder.session_id.is_none() {
+        holder.session_id = task.session.clone();
+    }
+    if holder.worktree_id.is_none() {
+        holder.worktree_id = task.worktree_id.clone();
+    }
+    if holder.agent_id.is_none() {
+        holder.agent_id = task.assignee.clone();
+    }
+    holder_has_identity(&holder).then_some(holder)
 }
 
 pub(crate) fn current_task_holder(meta: &EventMeta, task: &CoordinationTask) -> LeaseHolder {

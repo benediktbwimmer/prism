@@ -34,6 +34,7 @@ mod compact_followups;
 mod compact_tools;
 mod concept_followthrough;
 mod concept_resolution;
+mod coordination_executor;
 mod daemon_log;
 mod daemon_mode;
 mod diagnostics;
@@ -834,6 +835,15 @@ impl QueryHost {
             Arc::clone(&diagnostics_state),
             Arc::clone(&mcp_call_log_store),
         );
+        if features.coordination_layer_enabled() {
+            if let Err(error) = prism_core::sync_live_runtime_descriptor(workspace.root()) {
+                debug!(
+                    error = %error,
+                    root = %workspace.root().display(),
+                    "failed to publish shared coordination runtime descriptor for query host"
+                );
+            }
+        }
         let restored_session_seed = match load_session_seed(workspace.root()) {
             Ok(seed) => seed,
             Err(error) => {

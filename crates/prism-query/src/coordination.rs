@@ -1,6 +1,6 @@
 use prism_coordination::{
     Artifact, CoordinationConflict, CoordinationEvent, CoordinationTask, Plan, TaskBlocker,
-    WorkClaim,
+    TaskExecutorCaller, WorkClaim,
 };
 use prism_ir::{
     AnchorRef, ArtifactId, BlockerCause, BlockerCauseSource, Capability, ClaimMode,
@@ -81,6 +81,24 @@ impl Prism {
                 self.workspace_revision(),
                 now,
                 worktree_id.as_deref(),
+            )
+        })
+    }
+
+    pub fn ready_tasks_for_executor(
+        &self,
+        plan_id: &PlanId,
+        now: Timestamp,
+        caller: &TaskExecutorCaller,
+    ) -> Vec<CoordinationTask> {
+        let worktree_id = self.coordination_worktree_scope();
+        self.with_coordination_runtime(|runtime| {
+            runtime.ready_tasks_for_executor_in_scope(
+                plan_id,
+                self.workspace_revision(),
+                now,
+                worktree_id.as_deref(),
+                caller,
             )
         })
     }

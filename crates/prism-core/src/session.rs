@@ -10,6 +10,7 @@ use prism_agent::{InferenceSnapshot, InferredEdgeRecord};
 use prism_coordination::{
     coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
     snapshot_plan_graphs, CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    CoordinationSnapshotV2,
 };
 use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
@@ -193,6 +194,7 @@ pub(crate) struct WorkspaceRefreshSeed {
 #[derive(Debug, Clone)]
 pub struct CoordinationPlanState {
     pub snapshot: CoordinationSnapshot,
+    pub canonical_snapshot_v2: CoordinationSnapshotV2,
     pub plan_graphs: Vec<PlanGraph>,
     pub execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
 }
@@ -982,6 +984,7 @@ impl WorkspaceSession {
         let plan_state = self
             .coordination_enabled
             .then(|| HydratedCoordinationPlanState {
+                canonical_snapshot_v2: prism.coordination_snapshot_v2(),
                 snapshot: prism.coordination_snapshot(),
                 plan_graphs: prism.authored_plan_graphs(),
                 execution_overlays: prism.plan_execution_overlays_by_plan(),
@@ -1339,8 +1342,36 @@ impl WorkspaceSession {
         let prism = self.prism_arc();
         let persist_started = Instant::now();
         let snapshot = prism.outcome_snapshot();
+        let final_target = if self.shared_runtime_store().is_some() {
+            "workspace+sharedRuntime"
+        } else {
+            "workspace"
+        };
         let result = if let Some(shared_runtime_store) = self.shared_runtime_store() {
-            self.shared_runtime_materializer
+            let local_started = Instant::now();
+            let local_result = self
+                .checkpoint_materializer
+                .as_ref()
+                .map(|materializer| materializer.enqueue_outcome_snapshot(snapshot.clone()))
+                .unwrap_or_else(|| {
+                    let mut store = Self::lock_store_for_mutation(
+                        &self.store,
+                        "mutation.waitWorkspaceStoreLock",
+                        "persistOutcomesLocal",
+                    );
+                    store.save_outcome_snapshot(&snapshot)
+                });
+            mutation_trace::record_phase(
+                "mutation.persistOutcomesSchedule",
+                json!({ "target": "workspace" }),
+                local_started.elapsed(),
+                local_result.is_ok(),
+                local_result.as_ref().err().map(ToString::to_string),
+            );
+            local_result?;
+            let shared_started = Instant::now();
+            let shared_result = self
+                .shared_runtime_materializer
                 .as_ref()
                 .map(|materializer| materializer.enqueue_outcome_snapshot(snapshot.clone()))
                 .unwrap_or_else(|| {
@@ -1348,7 +1379,15 @@ impl WorkspaceSession {
                         .lock()
                         .expect("shared runtime store lock poisoned");
                     prism_store::MaterializationStore::save_outcome_snapshot(&mut *store, &snapshot)
-                })
+                });
+            mutation_trace::record_phase(
+                "mutation.persistOutcomesSchedule",
+                json!({ "target": "sharedRuntime" }),
+                shared_started.elapsed(),
+                shared_result.is_ok(),
+                shared_result.as_ref().err().map(ToString::to_string),
+            );
+            shared_result
         } else {
             self.checkpoint_materializer
                 .as_ref()
@@ -1364,7 +1403,7 @@ impl WorkspaceSession {
         };
         mutation_trace::record_phase(
             "mutation.persistOutcomesSchedule",
-            json!({}),
+            json!({ "target": final_target }),
             persist_started.elapsed(),
             result.is_ok(),
             result.as_ref().err().map(ToString::to_string),
@@ -1551,7 +1590,10 @@ impl WorkspaceSession {
                 let mut shared_store = shared_runtime_store
                     .lock()
                     .expect("shared runtime store lock poisoned");
-                load_repo_protected_plan_state(&self.root, &mut *shared_store)?
+                match load_repo_protected_plan_state(&self.root, &mut *shared_store)? {
+                    Some(state) => Some(state),
+                    None => load_repo_protected_plan_state(&self.root, &mut *store)?,
+                }
             } else {
                 load_repo_protected_plan_state(&self.root, &mut *store)?
             }
@@ -2221,10 +2263,15 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(0);
         }
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .coordination_revision()
+        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            let mut store = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            prism_store::CoordinationJournal::coordination_revision(&mut *store)
+        } else {
+            let store = self.store.lock().expect("workspace store lock poisoned");
+            Store::coordination_revision(&store)
+        }
     }
 
     pub fn coordination_runtime_revision(&self) -> Result<u64> {
@@ -2264,10 +2311,57 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .load_hydrated_coordination_snapshot_for_root(&self.root)
+        let hot_snapshot = self.prism_arc().coordination_snapshot();
+        if !hot_snapshot.events.is_empty()
+            || !hot_snapshot.plans.is_empty()
+            || !hot_snapshot.tasks.is_empty()
+        {
+            return Ok(Some(hot_snapshot));
+        }
+        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            let mut store = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            if let Some(snapshot) = store.load_hydrated_coordination_snapshot_for_root(&self.root)? {
+                Ok(Some(snapshot))
+            } else {
+                self.store
+                    .lock()
+                    .expect("workspace store lock poisoned")
+                    .load_hydrated_coordination_snapshot_for_root(&self.root)
+            }
+        } else {
+            self.store
+                .lock()
+                .expect("workspace store lock poisoned")
+                .load_hydrated_coordination_snapshot_for_root(&self.root)
+        }
+    }
+
+    pub fn load_coordination_snapshot_v2(&self) -> Result<Option<CoordinationSnapshotV2>> {
+        if !self.coordination_enabled {
+            return Ok(None);
+        }
+        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            let mut store = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            if let Some(snapshot_v2) =
+                store.load_hydrated_coordination_snapshot_v2_for_root(&self.root)?
+            {
+                Ok(Some(snapshot_v2))
+            } else {
+                self.store
+                    .lock()
+                    .expect("workspace store lock poisoned")
+                    .load_hydrated_coordination_snapshot_v2_for_root(&self.root)
+            }
+        } else {
+            self.store
+                .lock()
+                .expect("workspace store lock poisoned")
+                .load_hydrated_coordination_snapshot_v2_for_root(&self.root)
+        }
     }
 
     pub fn load_coordination_read_model(&self) -> Result<Option<CoordinationReadModel>> {
@@ -2335,10 +2429,24 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        let mut store = self.store.lock().expect("workspace store lock poisoned");
-        let state = load_repo_protected_plan_state(&self.root, &mut *store)?;
+        let state = if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            let mut store = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            match load_repo_protected_plan_state(&self.root, &mut *store)? {
+                Some(state) => Some(state),
+                None => {
+                    let mut store = self.store.lock().expect("workspace store lock poisoned");
+                    load_repo_protected_plan_state(&self.root, &mut *store)?
+                }
+            }
+        } else {
+            let mut store = self.store.lock().expect("workspace store lock poisoned");
+            load_repo_protected_plan_state(&self.root, &mut *store)?
+        };
         Ok(state.map(|state| CoordinationPlanState {
             snapshot: state.snapshot,
+            canonical_snapshot_v2: state.canonical_snapshot_v2,
             plan_graphs: state.plan_graphs,
             execution_overlays: state.execution_overlays,
         }))
@@ -2392,10 +2500,17 @@ impl WorkspaceSession {
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .persist_coordination_snapshot_for_root(&self.root, snapshot)
+        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            let mut store = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            store.persist_coordination_snapshot_for_root(&self.root, snapshot)
+        } else {
+            self.store
+                .lock()
+                .expect("workspace store lock poisoned")
+                .persist_coordination_snapshot_for_root(&self.root, snapshot)
+        }
     }
 
     pub fn persist_current_coordination(&self) -> Result<()> {
@@ -2418,45 +2533,46 @@ impl WorkspaceSession {
                 plan_graphs.clone(),
                 execution_overlays.clone(),
             );
-        let authoritative_revision = self
-            .store
-            .lock()
-            .expect("coordination store lock poisoned")
-            .persist_coordination_authoritative_state_for_root(
-                &self.root,
-                &snapshot,
-                Some(&plan_graphs),
-                Some(&execution_overlays),
-            )?
-            .revision;
-        let materialize_started = Instant::now();
-        let enqueue_result = self
-            .checkpoint_materializer
-            .as_ref()
-            .map(|materializer| {
-                materializer.enqueue_coordination_materialization(CoordinationMaterialization {
-                    authoritative_revision,
-                    snapshot: snapshot.clone(),
-                    plan_graphs: Some(plan_graphs.clone()),
-                    execution_overlays: Some(execution_overlays.clone()),
-                    publish_context: None,
-                })
-            })
-            .unwrap_or_else(|| {
-                let mut store = self.store.lock().expect("coordination store lock poisoned");
-                persist_coordination_materialization(
+        let authoritative_revision = if let Some(shared_runtime_store) = self.shared_runtime_store()
+        {
+            let mut store = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            store
+                .persist_coordination_authoritative_state_for_root(
                     &self.root,
-                    &mut *store,
-                    &CoordinationMaterialization {
-                        authoritative_revision,
-                        snapshot: snapshot.clone(),
-                        plan_graphs: Some(plan_graphs.clone()),
-                        execution_overlays: Some(execution_overlays.clone()),
-                        publish_context: None,
-                    },
-                )?;
-                Ok(())
-            });
+                    &snapshot,
+                    Some(&plan_graphs),
+                    Some(&execution_overlays),
+                )?
+                .revision
+        } else {
+            self.store
+                .lock()
+                .expect("coordination store lock poisoned")
+                .persist_coordination_authoritative_state_for_root(
+                    &self.root,
+                    &snapshot,
+                    Some(&plan_graphs),
+                    Some(&execution_overlays),
+                )?
+                .revision
+        };
+        let materialization = CoordinationMaterialization {
+            authoritative_revision,
+            snapshot: snapshot.clone(),
+            plan_graphs: Some(plan_graphs.clone()),
+            execution_overlays: Some(execution_overlays.clone()),
+            publish_context: None,
+        };
+        let materialize_started = Instant::now();
+        let enqueue_result = if let Some(materializer) = self.checkpoint_materializer.as_ref() {
+            materializer.enqueue_coordination_materialization(materialization.clone())
+        } else {
+            let mut store = self.store.lock().expect("coordination store lock poisoned");
+            persist_coordination_materialization(&self.root, &mut *store, &materialization)?;
+            Ok(())
+        };
         mutation_trace::record_phase(
             "mutation.coordination.scheduleMaterialization",
             json!({}),
@@ -2464,7 +2580,22 @@ impl WorkspaceSession {
             enqueue_result.is_ok(),
             enqueue_result.as_ref().err().map(ToString::to_string),
         );
-        enqueue_result
+        enqueue_result?;
+        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            if let Some(materializer) = self.shared_runtime_materializer.as_ref() {
+                materializer.enqueue_coordination_materialization(materialization)
+            } else {
+                let mut store = Self::lock_store_for_mutation(
+                    shared_runtime_store,
+                    "mutation.waitSharedRuntimeStoreLock",
+                    "persistCoordinationMaterializationShared",
+                );
+                persist_coordination_materialization(&self.root, &mut *store, &materialization)?;
+                Ok(())
+            }
+        } else {
+            Ok(())
+        }
     }
 
     pub fn mutate_coordination<T, F>(&self, mutate: F) -> Result<T>
@@ -2580,12 +2711,14 @@ impl WorkspaceSession {
                 plan_graphs.clone(),
                 execution_overlays.clone(),
             );
-        let mut store = self.store.lock().expect("coordination store lock poisoned");
         let should_persist = !appended_events.is_empty() || snapshot != before;
         if should_persist {
             let persist_started = Instant::now();
-            let persist_result = store
-                .persist_coordination_authoritative_mutation_state_for_root_with_session_observed(
+            let persist_result = if let Some(shared_runtime_store) = self.shared_runtime_store() {
+                let mut store = shared_runtime_store
+                    .lock()
+                    .expect("shared runtime store lock poisoned");
+                store.persist_coordination_authoritative_mutation_state_for_root_with_session_observed(
                     &self.root,
                     expected_revision,
                     &snapshot,
@@ -2597,7 +2730,23 @@ impl WorkspaceSession {
                     Some(&execution_overlays),
                     CoordinationDerivedPersistenceMode::Deferred,
                     &mut observe_phase,
-                );
+                )
+            } else {
+                let mut store = self.store.lock().expect("coordination store lock poisoned");
+                store.persist_coordination_authoritative_mutation_state_for_root_with_session_observed(
+                    &self.root,
+                    expected_revision,
+                    &snapshot,
+                    &appended_events,
+                    session_id,
+                    Some(&before),
+                    Some(&before_plan_graphs),
+                    Some(&plan_graphs),
+                    Some(&execution_overlays),
+                    CoordinationDerivedPersistenceMode::Deferred,
+                    &mut observe_phase,
+                )
+            };
             observe_phase(
                 "mutation.coordination.persistState",
                 persist_started.elapsed(),
@@ -2610,28 +2759,24 @@ impl WorkspaceSession {
             );
             let authoritative_revision = persist_result?.revision;
             if schedule_materialization {
+                let materialization = CoordinationMaterialization {
+                    authoritative_revision,
+                    snapshot: snapshot.clone(),
+                    plan_graphs: Some(plan_graphs.clone()),
+                    execution_overlays: Some(execution_overlays.clone()),
+                    publish_context: publish_context.clone(),
+                };
                 let materialize_started = Instant::now();
                 let enqueue_result = if let Some(materializer) =
                     self.checkpoint_materializer.as_ref()
                 {
-                    materializer.enqueue_coordination_materialization(CoordinationMaterialization {
-                        authoritative_revision,
-                        snapshot: snapshot.clone(),
-                        plan_graphs: Some(plan_graphs.clone()),
-                        execution_overlays: Some(execution_overlays.clone()),
-                        publish_context: publish_context.clone(),
-                    })
+                    materializer.enqueue_coordination_materialization(materialization.clone())
                 } else {
+                    let mut store = self.store.lock().expect("coordination store lock poisoned");
                     persist_coordination_materialization(
                         &self.root,
                         &mut *store,
-                        &CoordinationMaterialization {
-                            authoritative_revision,
-                            snapshot: snapshot.clone(),
-                            plan_graphs: Some(plan_graphs.clone()),
-                            execution_overlays: Some(execution_overlays.clone()),
-                            publish_context: publish_context.clone(),
-                        },
+                        &materialization,
                     )?;
                     Ok(())
                 };
@@ -2643,6 +2788,32 @@ impl WorkspaceSession {
                     enqueue_result.as_ref().err().map(|error| error.to_string()),
                 );
                 enqueue_result?;
+                if let Some(shared_runtime_store) = self.shared_runtime_store() {
+                    let shared_result =
+                        if let Some(materializer) = self.shared_runtime_materializer.as_ref() {
+                            materializer.enqueue_coordination_materialization(materialization)
+                        } else {
+                            let mut store = Self::lock_store_for_mutation(
+                                shared_runtime_store,
+                                "mutation.waitSharedRuntimeStoreLock",
+                                "persistCoordinationMaterializationShared",
+                            );
+                            persist_coordination_materialization(
+                                &self.root,
+                                &mut *store,
+                                &materialization,
+                            )?;
+                            Ok(())
+                        };
+                    observe_phase(
+                        "mutation.coordination.scheduleSharedRuntimeMaterialization",
+                        Duration::ZERO,
+                        json!({ "eventCount": snapshot.events.len() }),
+                        shared_result.is_ok(),
+                        shared_result.as_ref().err().map(|error| error.to_string()),
+                    );
+                    shared_result?;
+                }
             } else {
                 observe_phase(
                     "mutation.coordination.scheduleMaterialization",
