@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kmwmxdydjdfqt637qws4020s",
+    "title": "Phase 4: Isolate transport and bridge tests into a slower integration layer",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kmwmxdydjdfqt637qws4020s-2686d4a3afddc9c4.json"
+  },
+  {
+    "id": "coord-task:01kn8dq98qhhd6m31kdcavrhvr",
+    "title": "Profile the full cargo test suite and identify the slowest crates and test cases.",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn8dq98qhhd6m31kdcavrhvr-f54eaf26b2add56c.json"
+  },
+  {
+    "id": "coord-task:01knfcza3wc0fcd8g98ympqxe6",
+    "title": "Render the plans index and plan detail pages with server-side projections and Mermaid plan graphs",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knfcza3wc0fcd8g98ympqxe6-520804cbd9c908a4.json"
+  },
+  {
+    "id": "coord-task:01knfddqewfg443tavkaq4gbnq",
+    "title": "Complete end-to-end validation, update the remaining runtime and operator docs, and cut over to the new model",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knfddqewfg443tavkaq4gbnq-f7907db1e4256324.json"
+  }
+]

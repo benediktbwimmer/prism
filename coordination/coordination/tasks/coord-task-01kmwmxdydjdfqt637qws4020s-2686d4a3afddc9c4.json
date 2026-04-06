@@ -1,0 +1,77 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Transport and bridge scenarios are separated from the routine fast suite"
+      },
+      {
+        "anchors": [],
+        "label": "Most MCP surface behavior is verified without sockets or bridge startup"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 2308
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmwmx66n1p6yd7ynxefdxmwm"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmwmxdydjdfqt637qws4020s",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Decide",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmwmwamj4y87781dsn8x7wt2",
+    "priority": 4,
+    "published_task_status": null,
+    "session": null,
+    "status": "Proposed",
+    "summary": "Keep only a small explicit set of real HTTP and bridge end-to-end tests in a dedicated slow layer, while moving most surface tests to in-process execution.",
+    "tags": [
+      "integration",
+      "phase-4",
+      "tests"
+    ],
+    "title": "Phase 4: Isolate transport and bridge tests into a slower integration layer",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
