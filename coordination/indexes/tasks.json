@@ -1,0 +1,8 @@
+[
+  {
+    "id": "coord-task:01kndb7x9n3zc09arq6pxj0mch",
+    "title": "Scope shared coordination ref publication so small task-state updates do not republish the full coordination snapshot",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb7x9n3zc09arq6pxj0mch-98420af9947c59f9.json"
+  }
+]
