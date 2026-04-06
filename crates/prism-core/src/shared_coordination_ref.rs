@@ -155,6 +155,23 @@ struct SharedCoordinationManifestSigningView<'a> {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+struct LegacySharedCoordinationManifestSigningView<'a> {
+    version: u32,
+    published_at: u64,
+    publisher: &'a SharedCoordinationManifestPublisher,
+    work_context: &'a WorkContextSnapshot,
+    publish_summary: &'a Option<SnapshotManifestPublishSummary>,
+    files: &'a BTreeMap<String, SharedCoordinationManifestFile>,
+    previous_manifest_digest: &'a Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    publish_diagnostics: &'a Option<SharedCoordinationManifestPublishDiagnostics>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    compaction: &'a Option<SharedCoordinationManifestCompaction>,
+    signature: SharedCoordinationManifestSignatureMetadata<'a>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SharedCoordinationManifestSignatureMetadata<'a> {
     algorithm: ProtectedSignatureAlgorithm,
     runtime_authority_id: &'a str,
@@ -1553,26 +1570,12 @@ fn write_manifest(
             value: String::new(),
         },
     };
-    let signature = active_key.signing_key.sign(&canonical_json_bytes(
-        &SharedCoordinationManifestSigningView {
-            schema_version: manifest.schema_version,
-            kind: manifest.kind.as_str(),
-            published_at: manifest.published_at,
-            publisher: &manifest.publisher,
-            work_context: &manifest.work_context,
-            publish_summary: &manifest.publish_summary,
-            files: &manifest.files,
-            previous_manifest_digest: &manifest.previous_manifest_digest,
-            publish_diagnostics: &manifest.publish_diagnostics,
-            compaction: &manifest.compaction,
-            signature: SharedCoordinationManifestSignatureMetadata {
-                algorithm: manifest.signature.algorithm,
-                runtime_authority_id: &manifest.signature.runtime_authority_id,
-                runtime_key_id: &manifest.signature.runtime_key_id,
-                trust_bundle_id: &manifest.signature.trust_bundle_id,
-            },
-        },
-    )?);
+    let signature =
+        active_key
+            .signing_key
+            .sign(&canonical_shared_coordination_manifest_signing_bytes(
+                &manifest,
+            )?);
     manifest.signature.value = format!("base64:{}", BASE64_STANDARD.encode(signature.to_bytes()));
     write_json_file(&stage_manifest_path(stage_dir), &manifest)
 }
@@ -1655,32 +1658,30 @@ fn verify_shared_coordination_manifest(
         &manifest.signature.runtime_key_id,
     )?;
     let signature = decode_signature(&manifest.signature.value)?;
-    trusted
-        .verifying_key
-        .verify(
-            &canonical_json_bytes(&SharedCoordinationManifestSigningView {
-                schema_version: manifest.schema_version,
-                kind: manifest.kind.as_str(),
-                published_at: manifest.published_at,
-                publisher: &manifest.publisher,
-                work_context: &manifest.work_context,
-                publish_summary: &manifest.publish_summary,
-                files: &manifest.files,
-                previous_manifest_digest: &manifest.previous_manifest_digest,
-                publish_diagnostics: &manifest.publish_diagnostics,
-                compaction: &manifest.compaction,
-                signature: SharedCoordinationManifestSignatureMetadata {
-                    algorithm: manifest.signature.algorithm,
-                    runtime_authority_id: &manifest.signature.runtime_authority_id,
-                    runtime_key_id: &manifest.signature.runtime_key_id,
-                    trust_bundle_id: &manifest.signature.trust_bundle_id,
-                },
-            })?,
-            &signature,
-        )
-        .map_err(|error| {
-            anyhow!("shared coordination manifest signature verification failed: {error}")
-        })?;
+    match trusted.verifying_key.verify(
+        &canonical_shared_coordination_manifest_signing_bytes(manifest)?,
+        &signature,
+    ) {
+        Ok(()) => {}
+        Err(current_error) if manifest_uses_legacy_signature_shape(contents) => {
+            trusted
+                .verifying_key
+                .verify(
+                    &canonical_legacy_shared_coordination_manifest_signing_bytes(manifest)?,
+                    &signature,
+                )
+                .map_err(|legacy_error| {
+                    anyhow!(
+                        "shared coordination manifest signature verification failed for both current and legacy compatibility payloads: current: {current_error}; legacy: {legacy_error}"
+                    )
+                })?;
+        }
+        Err(error) => {
+            return Err(anyhow!(
+                "shared coordination manifest signature verification failed: {error}"
+            ));
+        }
+    }
     for file in manifest.files.values() {
         let bytes = contents
             .coordination_bytes(&file.path)
@@ -1694,6 +1695,67 @@ fn verify_shared_coordination_manifest(
         }
     }
     Ok(())
+}
+
+fn canonical_shared_coordination_manifest_signing_bytes(
+    manifest: &SharedCoordinationManifest,
+) -> Result<Vec<u8>> {
+    canonical_json_bytes(&SharedCoordinationManifestSigningView {
+        schema_version: manifest.schema_version,
+        kind: manifest.kind.as_str(),
+        published_at: manifest.published_at,
+        publisher: &manifest.publisher,
+        work_context: &manifest.work_context,
+        publish_summary: &manifest.publish_summary,
+        files: &manifest.files,
+        previous_manifest_digest: &manifest.previous_manifest_digest,
+        publish_diagnostics: &manifest.publish_diagnostics,
+        compaction: &manifest.compaction,
+        signature: SharedCoordinationManifestSignatureMetadata {
+            algorithm: manifest.signature.algorithm,
+            runtime_authority_id: &manifest.signature.runtime_authority_id,
+            runtime_key_id: &manifest.signature.runtime_key_id,
+            trust_bundle_id: &manifest.signature.trust_bundle_id,
+        },
+    })
+}
+
+fn canonical_legacy_shared_coordination_manifest_signing_bytes(
+    manifest: &SharedCoordinationManifest,
+) -> Result<Vec<u8>> {
+    canonical_json_bytes(&LegacySharedCoordinationManifestSigningView {
+        version: manifest.schema_version,
+        published_at: manifest.published_at,
+        publisher: &manifest.publisher,
+        work_context: &manifest.work_context,
+        publish_summary: &manifest.publish_summary,
+        files: &manifest.files,
+        previous_manifest_digest: &manifest.previous_manifest_digest,
+        publish_diagnostics: &manifest.publish_diagnostics,
+        compaction: &manifest.compaction,
+        signature: SharedCoordinationManifestSignatureMetadata {
+            algorithm: manifest.signature.algorithm,
+            runtime_authority_id: &manifest.signature.runtime_authority_id,
+            runtime_key_id: &manifest.signature.runtime_key_id,
+            trust_bundle_id: &manifest.signature.trust_bundle_id,
+        },
+    })
+}
+
+fn manifest_uses_legacy_signature_shape(contents: &SharedCoordinationRefContents) -> bool {
+    let Some(bytes) = contents.coordination_bytes("manifest.json") else {
+        return false;
+    };
+    let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+        return false;
+    };
+    let Some(object) = value.as_object() else {
+        return false;
+    };
+    object.contains_key("version")
+        && !object.contains_key("kind")
+        && !object.contains_key("schema_version")
+        && !object.contains_key("schemaVersion")
 }
 
 #[cfg(test)]
@@ -2473,6 +2535,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use base64::Engine;
     use prism_coordination::{
         CoordinationPolicy, CoordinationSnapshot, CoordinationTask, Plan, PlanScheduling,
         RuntimeDescriptorCapability, TaskGitExecution, WorkClaim,
@@ -2666,6 +2729,48 @@ mod tests {
         .unwrap();
         super::publish_stage_to_ref(root, &stage_dir, &ref_name).unwrap();
         let _ = fs::remove_dir_all(&stage_dir);
+    }
+
+    fn rewrite_shared_coordination_manifest_as_legacy_signed_payload(root: &Path) {
+        let ref_name = super::shared_coordination_ref_name(root);
+        let contents = super::load_shared_coordination_ref_contents(root, &ref_name)
+            .unwrap()
+            .expect("shared coordination contents should exist");
+        let stage_dir = temp_stage_dir("legacy-manifest");
+        for (relative_path, bytes) in &contents.files {
+            let path = stage_dir.join("coordination").join(relative_path);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, bytes).unwrap();
+        }
+        let manifest: super::SharedCoordinationManifest =
+            serde_json::from_slice(contents.files.get("manifest.json").unwrap()).unwrap();
+        let paths = crate::PrismPaths::for_workspace_root(root).unwrap();
+        let active_key = super::load_active_runtime_signing_key(&paths).unwrap();
+        let signature = ed25519_dalek::Signer::sign(
+            &active_key.signing_key,
+            &super::canonical_legacy_shared_coordination_manifest_signing_bytes(&manifest).unwrap(),
+        );
+        let mut manifest_value = serde_json::to_value(&manifest).unwrap();
+        let object = manifest_value
+            .as_object_mut()
+            .expect("shared coordination manifest object");
+        object.remove("schema_version");
+        object.remove("kind");
+        object.insert(
+            "version".to_string(),
+            serde_json::json!(manifest.schema_version),
+        );
+        object.get_mut("signature").expect("manifest signature")["value"] =
+            serde_json::Value::String(format!(
+                "base64:{}",
+                super::BASE64_STANDARD.encode(signature.to_bytes())
+            ));
+        super::write_json_file(
+            &stage_dir.join("coordination").join("manifest.json"),
+            &manifest_value,
+        )
+        .unwrap();
+        super::publish_stage_to_ref(root, &stage_dir, &ref_name).unwrap();
     }
 
     fn sample_snapshot_for(
@@ -4128,6 +4233,51 @@ mod tests {
             diagnostics.compaction_status.as_str(),
             "healthy" | "compacted"
         ));
+    }
+
+    #[test]
+    fn shared_coordination_ref_diagnostics_accept_legacy_signed_manifest_shape() {
+        let (root, _remote) = temp_git_repo_with_origin();
+        let task_id = "coord-task:shared-legacy-manifest";
+        let (snapshot, graph, execution_map) =
+            sample_snapshot_for("plan:shared-legacy-manifest", task_id);
+        let publish = sample_publish_context();
+        sync_shared_coordination_ref_state(
+            &root,
+            &snapshot,
+            &[graph],
+            &execution_map,
+            Some(&publish),
+        )
+        .unwrap();
+        rewrite_shared_coordination_manifest_as_legacy_signed_payload(&root);
+
+        let diagnostics = shared_coordination_ref_diagnostics(&root)
+            .unwrap()
+            .expect("shared coordination diagnostics should exist");
+        let ref_name = super::shared_coordination_ref_name(&root);
+        let raw_manifest: serde_json::Value = serde_json::from_str(
+            &super::run_git(
+                &root,
+                &["show", &format!("{ref_name}:coordination/manifest.json")],
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(raw_manifest["version"], serde_json::json!(1));
+        assert!(raw_manifest.get("schema_version").is_none());
+        assert!(raw_manifest.get("kind").is_none());
+        assert_eq!(diagnostics.verification_status, "verified");
+        assert!(!diagnostics.degraded);
+        assert!(diagnostics.authoritative_hydration_allowed);
+        let hydrated = load_hydrated_coordination_plan_state(&root, None)
+            .unwrap()
+            .expect("hydrated state");
+        assert!(hydrated
+            .snapshot
+            .tasks
+            .iter()
+            .any(|task| task.id.0 == task_id));
     }
 
     #[test]
