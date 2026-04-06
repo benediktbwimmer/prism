@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn13q61f8j93je9vws9kdqjy",
+    "title": "Design backend-neutral persistence interfaces that separate synchronous journal appends from asynchronous checkpoints and materialized views",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13q61f8j93je9vws9kdqjy-b9b414b4d92309c5.json"
+  },
+  {
+    "id": "coord-task:01kn8rnk0ek3mjnmpbx4d3atz2",
+    "title": "Specify logical identity bootstrap and clone propagation workflow",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8rnk0ek3mjnmpbx4d3atz2-d0ec2dbf5b88d29a.json"
+  }
+]
