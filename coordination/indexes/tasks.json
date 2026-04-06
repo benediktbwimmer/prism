@@ -10,5 +10,11 @@
     "title": "Define the cross-plan dependency model and dispatch inputs",
     "status": "Ready",
     "path": "tasks/coord-task-01kn8n9z7yxmpw7fnhzz8fchjj-dc0d2bb892aea3f4.json"
+  },
+  {
+    "id": "coord-task:01knhbwettxwq967xdd56xfrcf",
+    "title": "Validate multi-worktree federated behavior end to end and prove the shared-runtime lock-contention class is gone",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbwettxwq967xdd56xfrcf-8a446d46e909ed6a.json"
   }
 ]
