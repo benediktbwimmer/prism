@@ -1,0 +1,72 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 94
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/main",
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knhefnevw76ac3sxk4bg07ys",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775488053,
+    "lease_holder": {
+      "agent_id": null,
+      "principal": {
+        "authority_id": "worktree_executor",
+        "kind": "agent",
+        "name": "codex-b",
+        "principal_id": "worktree:01knhcah0q0qny1c4fwcjecvkq"
+      },
+      "session_id": "session:01knhefndv6m76szpq95cm0wec",
+      "worktree_id": "worktree:84a3f98283a83dd5"
+    },
+    "lease_refreshed_at": 1775480853,
+    "lease_stale_at": 1775482653,
+    "lease_started_at": 1775480853,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knhefnetr9jgxm6275srey44",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01knhefndv6m76szpq95cm0wec",
+    "status": "Ready",
+    "summary": null,
+    "tags": [],
+    "title": "Implement the work",
+    "validation_refs": [],
+    "worktree_id": "worktree:84a3f98283a83dd5"
+  },
+  "schema_version": 1
+}
