@@ -4,5 +4,11 @@
     "title": "Baseline the live refresh paths and quantify full vs deferred triggers",
     "status": "Completed",
     "path": "tasks/coord-task-01kn0shaxw8prtd5jrvtbxtn6n-854b53e00a616856.json"
+  },
+  {
+    "id": "coord-task:01knhbwetedap4tdgcgz66yfkk",
+    "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbwetedap4tdgcgz66yfkk-88773b8f59e68e74.json"
   }
 ]
