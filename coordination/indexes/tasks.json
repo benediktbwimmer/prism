@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn2na4qh0vhn6h9fbdce9s9v",
+    "title": "Update prism://instructions and supporting guidance so agents naturally reach for spec-drift analysis",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn2na4qh0vhn6h9fbdce9s9v-bbf8f61e6d0aced3.json"
+  },
+  {
+    "id": "coord-task:01kn6rnm8sffvrtsv6km1btd98",
+    "title": "Reject undeclared mutations and remove implicit session-task fallback",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rnm8sffvrtsv6km1btd98-12bc4b08430c0950.json"
+  }
+]
