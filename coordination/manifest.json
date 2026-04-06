@@ -1,22 +1,24 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775493270,
+  "publishedAt": 1775493969,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "coord-task:01knhbwestce3vvf17y44330hw",
+    "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
     "kind": "coordination",
-    "title": "Stop using shared runtime SQLite as a sink for rich runtime materialization and keep those journals local-only",
-    "coordinationTaskId": "coord-task:01knhbwestce3vvf17y44330hw",
+    "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+    "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes.",
+    "coordinationTaskId": "coord-task:01knhbwesp16r75m614k3wkksj",
     "planId": "plan:01knhbwesj53rq8f301x6r51qj",
     "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
   },
   "publishSummary": {
-    "title": "Stop using shared runtime SQLite as a sink for rich runtime materialization and keep those journals local-only"
+    "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+    "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes."
   },
   "files": {
     "coordination/tasks/coord-task-01kn13ryrrk04aacsvg1ac96c2-bc7d69a13bfdc56c.json": {
@@ -29,14 +31,14 @@
     },
     "coordination/tasks/coord-task-01knhbwestce3vvf17y44330hw-8a13c5c8a8f0967f.json": {
       "path": "coordination/tasks/coord-task-01knhbwestce3vvf17y44330hw-8a13c5c8a8f0967f.json",
-      "sha256": "sha256:018e0dddfafeb455a19ac461c913bada0f113e1035833cde431d26240ce5853d"
+      "sha256": "sha256:cd8c435eb3b10ef0a63090217b1d2bd0c77d77db13916daf8d16d9a7b528482f"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:9d3e2f19b85b8098b8a5a082421e9701ac05cf035dfeed37bc7feb411d3a1753"
+      "sha256": "sha256:598bf8e7f14e512e4b5fb9dbfb46fad87e6866d424e9e451922da52f1c86d342"
     }
   },
-  "previousManifestDigest": "sha256:7c45e4a69578479cc8f630e8f0b7d444553bd3fc2dae0af2429fea08febe0ee2",
+  "previousManifestDigest": "sha256:dcd3ae750040dcf80deb5f59f7b4cd1f46dcd2d944698a5f6c77568e2d9e2790",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -46,6 +48,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:rGZNJWbHOZAc2Npl0fWbKj2VHWR5x0BoUpWrmNdOhFsCYsznxKGeZyQlqW99Wdya+IqukboSEx/m20/Baz6LBg=="
+    "value": "base64:Bemk49R1p/55XwJLkfDxxz10Wsdgy4dNplUdZfQ+t9JAQ5jFhthTm/eoY1czCVCvASF/j8fUr52ElQxtxVV6Aw=="
   }
 }

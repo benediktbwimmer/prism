@@ -14,7 +14,7 @@
   {
     "id": "coord-task:01knhbwestce3vvf17y44330hw",
     "title": "Stop using shared runtime SQLite as a sink for rich runtime materialization and keep those journals local-only",
-    "status": "InProgress",
+    "status": "Completed",
     "path": "tasks/coord-task-01knhbwestce3vvf17y44330hw-8a13c5c8a8f0967f.json"
   }
 ]
