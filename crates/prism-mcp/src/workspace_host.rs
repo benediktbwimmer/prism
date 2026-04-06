@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Condvar, Mutex, OnceLock, RwLock, Weak};
+use std::thread;
 use std::time::Duration;
 
 use prism_agent::InferenceStore;
@@ -10,13 +11,14 @@ use prism_core::runtime_engine::{
 };
 use prism_core::WorkspaceSession;
 use prism_memory::SessionMemory;
+use tracing::{debug, info};
 
 use crate::diagnostics_state::DiagnosticsState;
 use crate::mcp_call_log::McpCallLogStore;
-use crate::runtime_views::refresh_cached_runtime_status_for_config;
 use crate::workspace_diagnostics::{WorkspaceDiagnosticsConfig, WorkspaceDiagnosticsRuntime};
 use crate::workspace_runtime::{
-    hydrate_persisted_workspace_state, WorkspaceRuntime, WorkspaceRuntimeConfig,
+    hydrate_persisted_workspace_state, seed_persisted_workspace_state, WorkspaceRuntime,
+    WorkspaceRuntimeConfig,
 };
 
 static WORKSPACE_RUNTIME_SYNC_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<RwLock<()>>>>> =
@@ -159,6 +161,7 @@ impl WorkspaceRuntimeBinding {
         mcp_call_log_store: Arc<McpCallLogStore>,
         runtime_diagnostics_auto_refresh: bool,
     ) -> Self {
+        let started = std::time::Instant::now();
         let context = WorkspaceRuntimeContext::from_root(workspace.root());
         let sync_lock = shared_workspace_runtime_sync_lock(context.root());
         let engine = Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(context.clone())));
@@ -194,40 +197,90 @@ impl WorkspaceRuntimeBinding {
             runtime_engine: Arc::clone(&engine),
             prepared_delta: Arc::clone(&prepared_delta),
         };
+        let spawn_runtime_started = std::time::Instant::now();
         let runtime = Arc::new(WorkspaceRuntime::spawn(config.clone()));
+        let spawn_runtime_ms = spawn_runtime_started.elapsed().as_millis();
+        let diagnostics_config = WorkspaceDiagnosticsConfig {
+            workspace: Arc::clone(&workspace),
+            loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
+            loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
+            loaded_inference_revision: Arc::clone(&loaded_inference_revision),
+            loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
+            runtime_engine: Arc::clone(&engine),
+            diagnostics_state: Arc::clone(&diagnostics_state),
+            mcp_call_log_store: Arc::clone(&mcp_call_log_store),
+        };
+        let spawn_diagnostics_started = std::time::Instant::now();
         let diagnostics = Arc::new(WorkspaceDiagnosticsRuntime::spawn(
-            WorkspaceDiagnosticsConfig {
-                workspace: Arc::clone(&workspace),
-                loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
-                loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
-                loaded_inference_revision: Arc::clone(&loaded_inference_revision),
-                loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
-                runtime_engine: Arc::clone(&engine),
-                diagnostics_state: Arc::clone(&diagnostics_state),
-                mcp_call_log_store: Arc::clone(&mcp_call_log_store),
-            },
+            diagnostics_config.clone(),
             runtime_diagnostics_auto_refresh,
         ));
-        let _ = hydrate_persisted_workspace_state(&config);
-        if runtime_diagnostics_auto_refresh {
-            let diagnostics_config = WorkspaceDiagnosticsConfig {
-                workspace: Arc::clone(&workspace),
-                loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
-                loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
-                loaded_inference_revision: Arc::clone(&loaded_inference_revision),
-                loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
-                runtime_engine: Arc::clone(&engine),
-                diagnostics_state: Arc::clone(&diagnostics_state),
-                mcp_call_log_store: Arc::clone(&mcp_call_log_store),
-            };
-            let _ = refresh_cached_runtime_status_for_config(&diagnostics_config);
+        let spawn_diagnostics_ms = spawn_diagnostics_started.elapsed().as_millis();
+        let seed_persisted_started = std::time::Instant::now();
+        let _ = seed_persisted_workspace_state(&config);
+        let seed_persisted_workspace_state_ms = seed_persisted_started.elapsed().as_millis();
+        let hydrate_persisted_started = std::time::Instant::now();
+        if cfg!(test) {
+            let _ = hydrate_persisted_workspace_state(&config);
+        } else {
+            let hydrate_config = config.clone();
+            thread::spawn(move || {
+                let _ = hydrate_persisted_workspace_state(&hydrate_config);
+            });
         }
+        let hydrate_persisted_workspace_state_ms = hydrate_persisted_started.elapsed().as_millis();
+        let initial_refresh_started = std::time::Instant::now();
         if workspace.needs_refresh() {
             runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
         }
+        let request_initial_refresh_ms = initial_refresh_started.elapsed().as_millis();
+        let schedule_runtime_descriptor_sync_ms = if cfg!(test) {
+            0
+        } else {
+            let runtime_descriptor_root = workspace.root().to_path_buf();
+            let schedule_runtime_descriptor_sync_started = std::time::Instant::now();
+            thread::spawn(move || {
+                if let Err(error) =
+                    prism_core::sync_live_runtime_descriptor(&runtime_descriptor_root)
+                {
+                    debug!(
+                        root = %runtime_descriptor_root.display(),
+                        error = %error,
+                        "failed to publish shared coordination runtime descriptor from workspace runtime binding"
+                    );
+                }
+            });
+            schedule_runtime_descriptor_sync_started
+                .elapsed()
+                .as_millis()
+        };
+        let startup_checkpoint_workspace = Arc::clone(&workspace);
+        thread::spawn(move || {
+            if let Err(error) = startup_checkpoint_workspace.persist_runtime_startup_checkpoint() {
+                debug!(
+                    root = %startup_checkpoint_workspace.root().display(),
+                    error = %error,
+                    "failed to persist startup checkpoint from workspace runtime binding"
+                );
+            }
+        });
+        let diagnostics_request_started = std::time::Instant::now();
         if runtime_diagnostics_auto_refresh {
             diagnostics.request_refresh();
         }
+        let diagnostics_request_ms = diagnostics_request_started.elapsed().as_millis();
+        info!(
+            root = %workspace.root().display(),
+            spawn_runtime_ms,
+            spawn_diagnostics_ms,
+            seed_persisted_workspace_state_ms,
+            hydrate_persisted_workspace_state_ms,
+            schedule_runtime_descriptor_sync_ms,
+            request_initial_refresh_ms,
+            diagnostics_request_ms,
+            total_ms = started.elapsed().as_millis(),
+            "initialized workspace runtime binding"
+        );
         Self {
             context,
             workspace,

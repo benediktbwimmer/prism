@@ -4,8 +4,9 @@ use prism_ir::{Edge, EdgeKind, Node, NodeId};
 
 use crate::common::{is_intent_source_kind, push_unique};
 use crate::types::{IntentDriftRecord, IntentSpecProjection};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntentIndex {
     by_spec: HashMap<NodeId, IntentSpecProjection>,
     specs_by_target: HashMap<NodeId, Vec<NodeId>>,

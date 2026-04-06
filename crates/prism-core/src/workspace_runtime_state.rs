@@ -116,8 +116,23 @@ impl WorkspaceRuntimeState {
         coordination_context: Option<CoordinationPersistContext>,
         intent_override: Option<IntentIndex>,
     ) -> WorkspacePublishedGeneration {
+        self.publish_generation_with_query_state(
+            workspace_revision,
+            coordination_context,
+            intent_override,
+            false,
+        )
+    }
+
+    pub(crate) fn publish_generation_with_query_state(
+        &self,
+        workspace_revision: WorkspaceRevision,
+        coordination_context: Option<CoordinationPersistContext>,
+        intent_override: Option<IntentIndex>,
+        trust_cached_query_state_override: bool,
+    ) -> WorkspacePublishedGeneration {
         let prism =
-            Prism::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_intent(
+            Prism::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_query_state(
                 Arc::clone(&self.graph),
                 Arc::clone(&self.history),
                 Arc::clone(&self.outcomes),
@@ -127,6 +142,7 @@ impl WorkspaceRuntimeState {
                 self.plan_execution_overlays.clone(),
                 self.runtime_descriptors.clone(),
                 intent_override,
+                trust_cached_query_state_override,
             );
         prism.set_workspace_revision(workspace_revision.clone());
         prism.set_coordination_context(coordination_context.clone());

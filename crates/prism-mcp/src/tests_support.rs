@@ -20,9 +20,10 @@ use serde_json::{json, Value};
 
 use super::*;
 use prism_core::{
-    default_workspace_session_options, index_workspace_session,
-    index_workspace_session_with_options, BootstrapOwnerInput, PrismPaths, WorktreeMode,
-    WorktreeRegistrationRecord,
+    default_workspace_shared_runtime, hydrate_workspace_session_with_options,
+    index_workspace_session, index_workspace_session_with_options, BootstrapOwnerInput, PrismPaths,
+    WorkspaceSessionOptions, WorktreeMode, WorktreeRegistrationRecord,
+    default_workspace_session_options,
 };
 use prism_ir::new_sortable_token;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
@@ -181,6 +182,36 @@ pub(crate) fn workspace_session_with_owner_credential(
             principal_token: issued.principal_token,
         },
     )
+}
+
+pub(crate) fn hydrate_workspace_session_with_shared_runtime(root: &Path) -> WorkspaceSession {
+    let _ = ensure_process_test_prism_home();
+    hydrate_workspace_session_with_options(
+        root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(root)
+                .expect("default shared runtime should resolve"),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .expect("workspace session should hydrate")
+}
+
+pub(crate) fn index_workspace_session_with_shared_runtime(root: &Path) -> WorkspaceSession {
+    let _ = ensure_process_test_prism_home();
+    index_workspace_session_with_options(
+        root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(root)
+                .expect("default shared runtime should resolve"),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .expect("workspace session should index")
 }
 
 pub(crate) fn register_test_human_worktree(root: &Path) -> String {

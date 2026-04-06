@@ -10,7 +10,7 @@ use crate::mcp_call_log::{
     duration_to_ms, new_log_entry, payload_summary, preview_value, summarize_value,
     touches_for_value, unique_operations, unique_touches, McpCallLogStore, PersistedMcpCallRecord,
 };
-use crate::{current_timestamp, QueryHost, SessionState};
+use crate::{current_timestamp, DiagnosticsState, QueryHost, SessionState};
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +38,7 @@ pub(crate) struct MutationTraceView {
 #[derive(Clone)]
 pub(crate) struct MutationRun {
     mcp_call_log_store: Arc<McpCallLogStore>,
+    diagnostics: Arc<DiagnosticsState>,
     workspace: Option<Arc<prism_core::WorkspaceSession>>,
     id: String,
     tool_name: String,
@@ -58,6 +59,7 @@ impl QueryHost {
             .to_string();
         MutationRun {
             mcp_call_log_store: Arc::clone(&self.mcp_call_log_store),
+            diagnostics: Arc::clone(&self.diagnostics_state),
             workspace: self.workspace_session_arc(),
             id: format!("mutation:{id}"),
             tool_name: "prism_mutate".to_string(),
@@ -201,6 +203,7 @@ impl MutationRun {
             mutation_compat: Some(trace),
         };
         let _ = self.mcp_call_log_store.push(record);
+        self.diagnostics.invalidate_runtime_status();
     }
 
     pub(crate) fn finish_error(&self, error: impl Into<String>) {
@@ -282,6 +285,7 @@ impl MutationRun {
             mutation_compat: Some(trace),
         };
         let _ = self.mcp_call_log_store.push(record);
+        self.diagnostics.invalidate_runtime_status();
     }
 }
 
@@ -373,5 +377,6 @@ impl Drop for MutationRun {
             mutation_compat: Some(trace),
         };
         let _ = self.mcp_call_log_store.push(record);
+        self.diagnostics.invalidate_runtime_status();
     }
 }

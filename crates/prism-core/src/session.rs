@@ -865,10 +865,17 @@ impl WorkspaceSession {
     }
 
     pub fn prism_arc(&self) -> Arc<Prism> {
-        self.published_generation
+        let prism = self
+            .published_generation
             .read()
             .expect("workspace published generation lock poisoned")
-            .prism_arc()
+            .prism_arc();
+        Self::attach_cold_query_backends(
+            prism.as_ref(),
+            &self.cold_query_store,
+            self.shared_runtime_store.as_ref(),
+        );
+        prism
     }
 
     pub fn publish_pending_repo_patch_provenance_for_active_work(&self) -> Result<Vec<EventId>> {
@@ -3332,6 +3339,17 @@ impl WorkspaceSession {
         Ok(())
     }
 
+    pub fn persist_runtime_startup_checkpoint(&self) -> Result<()> {
+        crate::workspace_startup_checkpoint::persist_workspace_runtime_startup_checkpoint(self)
+    }
+
+    pub(crate) fn workspace_tree_snapshot(&self) -> prism_store::WorkspaceTreeSnapshot {
+        self.fs_snapshot
+            .lock()
+            .expect("workspace tree snapshot lock poisoned")
+            .clone()
+    }
+
     fn append_outcome_guarded(&self, event: OutcomeEvent) -> Result<EventId> {
         let prism = self.prism_arc();
         let deltas = validation_deltas_for_event(&event, |node| prism.lineage_of(node));
@@ -3616,6 +3634,11 @@ impl Drop for WorkspaceSession {
         if let Err(error) = self.persist_flushed_observed_change_checkpoints(None, None, None, None)
         {
             warn!(error = %error, "failed to persist observed change checkpoints during workspace session shutdown");
+        }
+        if let Err(error) = self.flush_materializations() {
+            warn!(error = %error, "failed to flush workspace materializations during workspace session shutdown");
+        } else if let Err(error) = self.persist_runtime_startup_checkpoint() {
+            warn!(error = %error, "failed to persist workspace startup checkpoint during workspace session shutdown");
         }
         if let Some(mut curator) = self.curator.take() {
             curator.stop();

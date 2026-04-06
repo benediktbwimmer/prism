@@ -55,6 +55,12 @@ impl SharedRuntimeStore {
         }
     }
 
+    pub(crate) fn outcome_revision(&self) -> Result<u64> {
+        match self {
+            Self::Sqlite(store) => store.outcome_revision(),
+        }
+    }
+
     pub(crate) fn snapshot_revisions(&self) -> Result<SnapshotRevisions> {
         match self {
             Self::Sqlite(store) => store.snapshot_revisions(),

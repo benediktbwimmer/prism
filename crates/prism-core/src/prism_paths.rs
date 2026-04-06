@@ -340,6 +340,15 @@ impl PrismPaths {
         Ok(path)
     }
 
+    pub fn workspace_runtime_startup_checkpoint_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
+        fs::create_dir_all(&self.worktree_cache_dir)
+            .with_context(|| format!("failed to create {}", self.worktree_cache_dir.display()))?;
+        Ok(self
+            .worktree_cache_dir
+            .join("prism-workspace-runtime-checkpoint.bin"))
+    }
+
     pub fn mcp_public_url_path(&self) -> Result<PathBuf> {
         self.ensure_home_metadata()?;
         fs::create_dir_all(&self.worktree_mcp_state_dir).with_context(|| {

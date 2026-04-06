@@ -52,6 +52,7 @@ mod watch;
 mod workspace_identity;
 mod workspace_runtime_state;
 mod workspace_session_defaults;
+mod workspace_startup_checkpoint;
 mod workspace_tree;
 mod worktree_inventory;
 mod worktree_mutator_slot;
@@ -121,8 +122,9 @@ pub use session::{
     WorkspaceSnapshotRevisions,
 };
 pub use shared_coordination_ref::{
-    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor,
-    SharedCoordinationRefDiagnostics,
+    shared_coordination_ref_diagnostics, shared_coordination_ref_status_summary,
+    sync_live_runtime_descriptor, SharedCoordinationRefDiagnostics,
+    SharedCoordinationRefStatusSummary,
 };
 pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use snapshot_artifact_repair::regenerate_repo_snapshot_derived_artifacts;

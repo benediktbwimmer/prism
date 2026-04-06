@@ -959,6 +959,17 @@ pub(crate) fn hydrate_persisted_workspace_state(config: &WorkspaceRuntimeConfig)
     Ok(())
 }
 
+pub(crate) fn seed_persisted_workspace_state(config: &WorkspaceRuntimeConfig) -> Result<()> {
+    config.loaded_workspace_revision.store(
+        config.workspace.loaded_workspace_revision(),
+        Ordering::Relaxed,
+    );
+    let revisions = config.workspace.snapshot_revisions()?;
+    sync_current_runtime_revisions(config, &revisions);
+    publish_runtime_generation(config, &revisions, "hydrate", Vec::new(), Some(false));
+    Ok(())
+}
+
 fn try_sync_workspace_runtime_for_read(
     config: &WorkspaceRuntimeConfig,
 ) -> Result<Option<WorkspaceRefreshReport>> {
@@ -1825,6 +1836,7 @@ fn sync_workspace_runtime_checkpoint_with_guard(
 
     let started = Instant::now();
     config.workspace.flush_materializations()?;
+    config.workspace.persist_runtime_startup_checkpoint()?;
     let revisions_started = Instant::now();
     let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     let snapshot_revisions_ms = elapsed_ms(revisions_started);

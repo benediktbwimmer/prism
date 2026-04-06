@@ -47,6 +47,7 @@ use prism_projections::{ConceptPacket, ConceptRelation, ConceptRelationKind};
 use rusqlite::{
     params, Connection, OpenFlags, OptionalExtension, Transaction, TransactionBehavior,
 };
+use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::graph::Graph;
@@ -66,7 +67,7 @@ const COORDINATION_REVISION_KEY: &str = "revision:coordination";
 const SQLITE_LOCK_RETRY_ATTEMPTS: usize = 50;
 const SQLITE_LOCK_RETRY_DELAY: Duration = Duration::from_millis(100);
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotRevisions {
     pub workspace: u64,
     pub episodic: u64,
@@ -404,6 +405,10 @@ impl SqliteStore {
 
     pub fn episodic_revision(&self) -> Result<u64> {
         metadata_value(&self.conn, EPISODIC_REVISION_KEY)
+    }
+
+    pub fn outcome_revision(&self) -> Result<u64> {
+        metadata_value(&self.conn, OUTCOME_REVISION_KEY)
     }
 
     pub fn inference_revision(&self) -> Result<u64> {

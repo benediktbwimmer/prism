@@ -247,6 +247,7 @@ impl Prism {
             projections,
             MaterializedCoordinationRuntime::from_snapshot(coordination),
             None,
+            false,
         )
     }
 
@@ -279,7 +280,7 @@ impl Prism {
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) -> Self {
-        Self::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_intent(
+        Self::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_query_state(
             graph,
             history,
             outcomes,
@@ -289,6 +290,7 @@ impl Prism {
             execution_overlays,
             Vec::new(),
             None,
+            false,
         )
     }
 
@@ -303,6 +305,32 @@ impl Prism {
         runtime_descriptors: Vec<RuntimeDescriptor>,
         intent_override: Option<IntentIndex>,
     ) -> Self {
+        Self::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_query_state(
+            graph,
+            history,
+            outcomes,
+            coordination,
+            projections,
+            plan_graphs,
+            execution_overlays,
+            runtime_descriptors,
+            intent_override,
+            false,
+        )
+    }
+
+    pub fn with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_query_state(
+        graph: Arc<Graph>,
+        history: Arc<HistoryStore>,
+        outcomes: Arc<OutcomeMemory>,
+        coordination: CoordinationSnapshot,
+        projections: ProjectionIndex,
+        plan_graphs: Vec<PlanGraph>,
+        execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
+        intent_override: Option<IntentIndex>,
+        trust_cached_projections: bool,
+    ) -> Self {
         Self::with_shared_history_outcomes_coordination_projections_and_native_plans(
             graph,
             history,
@@ -315,6 +343,7 @@ impl Prism {
                 runtime_descriptors,
             ),
             intent_override,
+            trust_cached_projections,
         )
     }
 
@@ -325,8 +354,15 @@ impl Prism {
         mut projections: ProjectionIndex,
         materialized_runtime: MaterializedCoordinationRuntime,
         intent_override: Option<IntentIndex>,
+        trust_cached_projections: bool,
     ) -> Self {
-        projections.reseed_from_history(&history.snapshot());
+        let graph_version = if trust_cached_projections {
+            history.event_count() as u64
+        } else {
+            let history_snapshot = history.snapshot();
+            projections.reseed_from_history(&history_snapshot);
+            history_snapshot.events.len() as u64
+        };
         let started = Instant::now();
         let node_count = graph.node_count();
         let edge_count = graph.edge_count();
@@ -346,7 +382,7 @@ impl Prism {
         );
         let derive_intent_ms = intent_started.elapsed().as_millis();
         let default_workspace_revision = WorkspaceRevision {
-            graph_version: history.snapshot().events.len() as u64,
+            graph_version,
             git_commit: None,
         };
         info!(
@@ -355,6 +391,7 @@ impl Prism {
             file_count,
             derive_intent_ms,
             reused_intent,
+            trust_cached_projections,
             total_ms = started.elapsed().as_millis(),
             "built prism query state"
         );

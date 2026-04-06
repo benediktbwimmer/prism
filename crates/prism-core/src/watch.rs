@@ -330,13 +330,7 @@ pub(crate) fn spawn_shared_coordination_ref_watch(
     coordination_enabled: bool,
 ) -> Result<WatchHandle> {
     let (msg_tx, msg_rx) = mpsc::channel::<WatchMessage>();
-    let handle = thread::spawn(move || loop {
-        match msg_rx.recv_timeout(SHARED_COORDINATION_REF_POLL_INTERVAL) {
-            Ok(WatchMessage::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
-            Ok(WatchMessage::Fs(_)) => continue,
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-        }
-
+    let handle = thread::spawn(move || {
         if let Err(error) = sync_shared_coordination_ref_watch_update(
             &root,
             &published_generation,
@@ -355,6 +349,33 @@ pub(crate) fn spawn_shared_coordination_ref_watch(
                 error_chain = %format_error_chain(&error),
                 "prism shared coordination ref live sync failed"
             );
+        }
+        loop {
+            match msg_rx.recv_timeout(SHARED_COORDINATION_REF_POLL_INTERVAL) {
+                Ok(WatchMessage::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
+                Ok(WatchMessage::Fs(_)) => continue,
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+            }
+
+            if let Err(error) = sync_shared_coordination_ref_watch_update(
+                &root,
+                &published_generation,
+                &runtime_state,
+                &store,
+                &cold_query_store,
+                shared_runtime_store.as_ref(),
+                &refresh_lock,
+                &loaded_workspace_revision,
+                &coordination_runtime_revision,
+                coordination_enabled,
+            ) {
+                error!(
+                    root = %root.display(),
+                    error = %error,
+                    error_chain = %format_error_chain(&error),
+                    "prism shared coordination ref live sync failed"
+                );
+            }
         }
     });
 

@@ -13,7 +13,9 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context, Result};
-use prism_core::{shared_coordination_ref_diagnostics, sync_live_runtime_descriptor, PrismPaths};
+use prism_core::{
+    shared_coordination_ref_status_summary, sync_live_runtime_descriptor, PrismPaths,
+};
 
 use crate::cli::McpCommand;
 use crate::daemon_log;
@@ -315,7 +317,7 @@ fn status(root: &Path) -> Result<()> {
     } else {
         println!("cache_path: {} (missing)", paths.cache_path.display());
     }
-    if let Some(shared_coordination_ref) = shared_coordination_ref_diagnostics(root)? {
+    if let Some(shared_coordination_ref) = shared_coordination_ref_status_summary(root)? {
         println!(
             "shared_coordination_ref: {}",
             shared_coordination_ref.ref_name

@@ -4,7 +4,8 @@ use std::time::Instant;
 use anyhow::Result;
 use tracing::info;
 
-use crate::{WorkspaceIndexer, WorkspaceSession, WorkspaceSessionOptions};
+use crate::workspace_startup_checkpoint::build_workspace_indexer_with_startup_checkpoint;
+use crate::{WorkspaceSession, WorkspaceSessionOptions};
 
 pub(crate) fn hydrate_workspace_session_with_options(
     root: impl AsRef<Path>,
@@ -13,7 +14,7 @@ pub(crate) fn hydrate_workspace_session_with_options(
     let root = root.as_ref().canonicalize()?;
     let started = Instant::now();
     let build_indexer_started = Instant::now();
-    let mut indexer = WorkspaceIndexer::new_with_options(&root, options)?;
+    let mut indexer = build_workspace_indexer_with_startup_checkpoint(&root, options)?;
     let build_indexer_ms = build_indexer_started.elapsed().as_millis();
     if !indexer.had_prior_snapshot {
         let full_index_started = Instant::now();

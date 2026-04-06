@@ -507,15 +507,6 @@ impl PrismMcpServer {
         let prism_started = std::time::Instant::now();
         let prism = session.prism_arc();
         let get_prism_ms = prism_started.elapsed().as_millis();
-        if features.coordination_layer_enabled() {
-            if let Err(error) = prism_core::sync_live_runtime_descriptor(root) {
-                debug!(
-                    error = %error,
-                    root = %root.display(),
-                    "failed to publish shared coordination runtime descriptor on server startup"
-                );
-            }
-        }
         info!(
             root = %root.display(),
             node_count = prism.graph().node_count(),
@@ -540,7 +531,15 @@ impl PrismMcpServer {
                 "failed to update prism runtime state after building the workspace server"
             );
         }
-        Ok(Self::with_session_and_features(session, features))
+        let host_started = std::time::Instant::now();
+        let server = Self::with_session_and_features(session, features);
+        info!(
+            root = %root.display(),
+            host_init_ms = host_started.elapsed().as_millis(),
+            total_ms = started.elapsed().as_millis(),
+            "initialized prism-mcp host state"
+        );
+        Ok(server)
     }
 
     pub fn new(prism: Prism) -> Self {

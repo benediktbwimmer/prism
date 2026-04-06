@@ -21032,7 +21032,7 @@ fn repo_published_memory_retains_declared_work_context_without_runtime_db() {
     let _ = fs::remove_file(runtime_db.with_extension("db-wal"));
     let _ = fs::remove_file(runtime_db.with_extension("db-shm"));
 
-    let reloaded = hydrate_workspace_session(&root).unwrap();
+    let reloaded = index_workspace_session_with_shared_runtime(&root);
     let events = reloaded
         .memory_events(&MemoryEventQuery {
             memory_id: Some(MemoryId(result.memory_id.clone())),
@@ -21420,7 +21420,7 @@ fn validation_feedback_mutation_persists_to_workspace_log() {
     assert!(result.entry_id.starts_with("feedback:"));
     assert_eq!(result.task_id, "task:feedback");
 
-    let reloaded = hydrate_workspace_session(&root).unwrap();
+    let reloaded = index_workspace_session_with_shared_runtime(&root);
     let entries = reloaded.validation_feedback(Some(5)).unwrap();
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].context, "blast-radius check for alpha");
@@ -21458,16 +21458,7 @@ fn authenticated_outcome_mutation_records_principal_actor_and_execution_context(
         )
         .expect("authenticated outcome should persist");
 
-    let reloaded = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            coordination: true,
-            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: false,
-        },
-    )
-    .unwrap();
+    let reloaded = hydrate_workspace_session_with_shared_runtime(&root);
     let replay = reloaded
         .prism()
         .resume_task(&TaskId::new("task:authenticated-outcome"));
@@ -21568,16 +21559,7 @@ fn authenticated_outcome_mutation_records_coordination_work_context_snapshot() {
         )
         .expect("authenticated coordination outcome should persist");
 
-    let reloaded = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            coordination: true,
-            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: false,
-        },
-    )
-    .unwrap();
+    let reloaded = hydrate_workspace_session_with_shared_runtime(&root);
     let replay = reloaded.prism().resume_task(&TaskId::new(task_id.clone()));
     let event = replay
         .events
@@ -22913,6 +22895,8 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
     if let Some(workspace) = host.workspace_session() {
         workspace.flush_materializations().unwrap();
     }
+    prism_core::sync_live_runtime_descriptor(&root)
+        .expect("runtime descriptor should publish before diagnostics are inspected");
 
     let status = crate::runtime_views::refresh_cached_runtime_status(&host)
         .expect("runtime status should succeed");
@@ -23035,10 +23019,17 @@ fn workspace_binding_seeds_cached_runtime_status_on_startup() {
         PrismMcpFeatures::default().with_runtime_diagnostics_auto_refresh(true),
     );
 
-    let cached = host
-        .diagnostics_state()
-        .runtime_status()
-        .expect("workspace binding should seed cached runtime status");
+    let started = Instant::now();
+    let cached = loop {
+        if let Some(cached) = host.diagnostics_state().runtime_status() {
+            break cached;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "workspace binding should seed cached runtime status"
+        );
+        thread::sleep(Duration::from_millis(10));
+    };
     assert!(cached
         .root
         .ends_with(root.file_name().unwrap().to_string_lossy().as_ref()));

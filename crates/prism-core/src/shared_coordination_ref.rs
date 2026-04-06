@@ -285,6 +285,16 @@ pub struct SharedCoordinationRefDiagnostics {
     pub runtime_descriptors: Vec<RuntimeDescriptor>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedCoordinationRefStatusSummary {
+    pub ref_name: String,
+    pub head_commit: Option<String>,
+    pub history_depth: u64,
+    pub snapshot_file_count: usize,
+    pub needs_compaction: bool,
+    pub compaction_status: String,
+}
+
 pub(crate) enum SharedCoordinationRefLiveSync {
     Unchanged,
     Changed(SharedCoordinationRefState),
@@ -2348,6 +2358,38 @@ pub fn shared_coordination_ref_diagnostics(
         newest_authoritative_ref_at: freshness.newest_authoritative_ref_at,
         runtime_descriptor_count: runtime_descriptors.len(),
         runtime_descriptors,
+    }))
+}
+
+pub fn shared_coordination_ref_status_summary(
+    root: &Path,
+) -> Result<Option<SharedCoordinationRefStatusSummary>> {
+    if !git_repo_available(root) {
+        return Ok(None);
+    }
+    let ref_name = shared_coordination_ref_name(root);
+    let head_commit = resolve_ref_commit(root, &ref_name)?;
+    if head_commit.is_none() {
+        return Ok(None);
+    }
+    let history_depth = ref_history_depth(root, &ref_name)?;
+    let compacted_head = ref_head_has_no_parent(root, &ref_name)?;
+    let snapshot_file_count = list_ref_json_paths(root, &ref_name)?.len();
+    let needs_compaction = history_depth > SHARED_COORDINATION_HISTORY_MAX_COMMITS;
+    let compaction_status = if compacted_head {
+        "compacted"
+    } else if needs_compaction {
+        "compaction_recommended"
+    } else {
+        "healthy"
+    };
+    Ok(Some(SharedCoordinationRefStatusSummary {
+        ref_name,
+        head_commit,
+        history_depth,
+        snapshot_file_count,
+        needs_compaction,
+        compaction_status: compaction_status.to_string(),
     }))
 }
 
@@ -5829,6 +5871,36 @@ mod tests {
             diagnostics.compaction_status.as_str(),
             "healthy" | "compacted"
         ));
+    }
+
+    #[test]
+    fn shared_coordination_ref_status_summary_matches_displayed_diagnostics_fields() {
+        let (root, _remote) = temp_git_repo_with_origin();
+        let (snapshot, graph, execution_map) =
+            sample_snapshot_for("plan:shared-status", "coord-task:shared-status");
+        let publish = sample_publish_context();
+        sync_shared_coordination_ref_state(
+            &root,
+            &snapshot,
+            &[graph],
+            &execution_map,
+            Some(&publish),
+        )
+        .unwrap();
+
+        let diagnostics = shared_coordination_ref_diagnostics(&root)
+            .unwrap()
+            .expect("shared coordination diagnostics should exist");
+        let summary = super::shared_coordination_ref_status_summary(&root)
+            .unwrap()
+            .expect("shared coordination status summary should exist");
+
+        assert_eq!(summary.ref_name, diagnostics.ref_name);
+        assert_eq!(summary.head_commit, diagnostics.head_commit);
+        assert_eq!(summary.history_depth, diagnostics.history_depth);
+        assert_eq!(summary.snapshot_file_count, diagnostics.snapshot_file_count);
+        assert_eq!(summary.needs_compaction, diagnostics.needs_compaction);
+        assert_eq!(summary.compaction_status, diagnostics.compaction_status);
     }
 
     #[test]

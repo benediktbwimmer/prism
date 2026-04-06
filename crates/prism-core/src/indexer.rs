@@ -50,7 +50,7 @@ use prism_ir::{
 use prism_memory::OutcomeMemory;
 use prism_parser::{LanguageAdapter, ParseDepth, ParseResult};
 use prism_projections::{
-    co_change_delta_batch_for_events, CoChangeDelta, ProjectionIndex, ValidationDelta,
+    co_change_delta_batch_for_events, CoChangeDelta, IntentIndex, ProjectionIndex, ValidationDelta,
     MAX_CO_CHANGE_DELTAS_PER_CHANGESET, MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
     MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET,
 };
@@ -108,6 +108,8 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) hydrate_persisted_co_change: bool,
     pub(crate) coordination_enabled: bool,
     pub(crate) startup_refresh: Option<WorkspaceRefreshSeed>,
+    pub(crate) startup_intent: Option<IntentIndex>,
+    pub(crate) trust_cached_query_state: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -359,6 +361,8 @@ impl WorkspaceIndexer<SqliteStore> {
             self.projections,
             self.startup_refresh,
             self.coordination_enabled,
+            self.startup_intent,
+            self.trust_cached_query_state,
             backend,
         )
     }
@@ -454,6 +458,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             hydrate_persisted_co_change: true,
             coordination_enabled: coordination,
             startup_refresh: None,
+            startup_intent: None,
+            trust_cached_query_state: false,
         })
     }
 
@@ -548,6 +554,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             hydrate_persisted_co_change: true,
             coordination_enabled: coordination,
             startup_refresh: None,
+            startup_intent: None,
+            trust_cached_query_state: false,
         })
     }
 
@@ -713,6 +721,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             hydrate_persisted_co_change: options.hydrate_persisted_co_change,
             coordination_enabled: options.coordination,
             startup_refresh,
+            startup_intent: None,
+            trust_cached_query_state: false,
         })
     }
 

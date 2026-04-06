@@ -14,7 +14,7 @@ use prism_history::HistoryStore;
 use prism_ir::{EdgeKind, PlanExecutionOverlay, PlanGraph};
 use prism_memory::OutcomeMemory;
 use prism_parser::LanguageAdapter;
-use prism_projections::ProjectionIndex;
+use prism_projections::{IntentIndex, ProjectionIndex};
 use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::info;
 
@@ -56,6 +56,8 @@ pub(crate) fn build_workspace_session(
     projections: ProjectionIndex,
     initial_refresh: Option<WorkspaceRefreshSeed>,
     coordination_enabled: bool,
+    startup_intent: Option<IntentIndex>,
+    trust_cached_query_state: bool,
     backend: Option<Arc<dyn CuratorBackend>>,
 ) -> Result<WorkspaceSession> {
     let started = Instant::now();
@@ -116,7 +118,7 @@ pub(crate) fn build_workspace_session(
         runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned")
-            .publish_generation(
+            .publish_generation_with_query_state(
                 prism_ir::WorkspaceRevision {
                     graph_version: store
                         .lock()
@@ -125,6 +127,8 @@ pub(crate) fn build_workspace_session(
                     git_commit: None,
                 },
                 Some(coordination_persist_context_for_root(&root, None)),
+                startup_intent,
+                trust_cached_query_state,
             ),
     ));
     let publish_generation_ms = publish_generation_started.elapsed().as_millis();

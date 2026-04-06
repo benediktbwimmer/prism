@@ -83,6 +83,10 @@ impl HistoryStore {
         }
     }
 
+    pub fn event_count(&self) -> usize {
+        self.events.len()
+    }
+
     pub fn persistence_delta(
         &self,
         events: &[LineageEvent],
