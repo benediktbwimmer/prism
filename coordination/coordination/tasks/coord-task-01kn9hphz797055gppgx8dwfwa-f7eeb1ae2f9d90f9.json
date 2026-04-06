@@ -1,0 +1,78 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Cold clone can verify and load current published state from tracked snapshots and manifests without historical repo replay"
+      },
+      {
+        "anchors": [],
+        "label": "Git checkout across commits and branches yields correct historical snapshot state"
+      },
+      {
+        "anchors": [],
+        "label": "Hot restart and cold startup meet explicit post-rewrite performance targets while preserving signed publisher attribution"
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1015
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn9hnzqwjgfenrc5tf2jdxsw",
+      "coord-task:01kn9hp5yrtkn0dh3fv6anbwb8"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn9hphz797055gppgx8dwfwa",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": null,
+    "tags": [],
+    "title": "Validate cold-clone restore, Git time travel, startup performance, and published trust semantics",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

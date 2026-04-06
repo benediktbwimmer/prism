@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn3g2b41q01esvn3spmhxe3w",
+    "title": "Strengthen doc-governance and adjacent-spec navigation",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2b41q01esvn3spmhxe3w-ce968db426b81de7.json"
+  },
+  {
+    "id": "coord-task:01kn7wp5gccdrhaq1y969tpbtv",
+    "title": "Reduce bridge pressure and expose contention diagnostics for slow compact reads",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7wp5gccdrhaq1y969tpbtv-67df24271998ceb1.json"
+  },
+  {
+    "id": "coord-task:01kn9hphz797055gppgx8dwfwa",
+    "title": "Validate cold-clone restore, Git time travel, startup performance, and published trust semantics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hphz797055gppgx8dwfwa-f7eeb1ae2f9d90f9.json"
+  }
+]
