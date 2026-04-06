@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kmyy5zb6c4dexq044bz52jvj",
+    "title": "Milestone 4: Validate, dogfood, and restart the live MCP runtime",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmyy5zb6c4dexq044bz52jvj-a6d6247299befb63.json"
+  },
+  {
+    "id": "coord-task:01kn6fa2xeg8f0rayk8n0zwtkm",
+    "title": "Curate concept packs for principal identity and authenticated coordination",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6fa2xeg8f0rayk8n0zwtkm-e892ece08d1dde17.json"
+  },
+  {
+    "id": "coord-task:01kn8rz9qnzcwan5vd2cs7c99j",
+    "title": "Thread logical identity through runtime context, provenance, logs, and diagnostics",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8rz9qnzcwan5vd2cs7c99j-7ecef8f47c0a9c7a.json"
+  },
+  {
+    "id": "coord-task:01knfcza3x7sa1vjmz8x8f2x9s",
+    "title": "Validate the SSR console end to end in the bundled daemon and complete the rollout",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knfcza3x7sa1vjmz8x8f2x9s-36841bc97ad06c90.json"
+  }
+]

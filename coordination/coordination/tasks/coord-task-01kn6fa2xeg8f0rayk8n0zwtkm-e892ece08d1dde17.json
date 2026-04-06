@@ -1,0 +1,101 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Any missing reusable concepts for principal identity and authenticated coordination are promoted with durable repo scope"
+      },
+      {
+        "anchors": [],
+        "label": "Concept relations reflect the current identity, lease, and coordination boundaries"
+      },
+      {
+        "anchors": [],
+        "label": "Relevant existing concepts are updated or retired to match the implemented identity/coordination model"
+      }
+    ],
+    "anchors": [
+      {
+        "File": 194
+      },
+      {
+        "File": 334
+      },
+      {
+        "File": 346
+      },
+      {
+        "File": 67
+      }
+    ],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 311
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 194
+        },
+        {
+          "File": 334
+        },
+        {
+          "File": 346
+        },
+        {
+          "File": 67
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn6fa2xeg8f0rayk8n0zwtkm",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn6f9bhgq49zweypzysn03rj",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Curated the principal-identity/authenticated-coordination concept layer, added a reusable principal/provenance concept, refreshed stale mutation/lease packets, and regenerated the published PRISM docs.",
+    "tags": [],
+    "title": "Curate concept packs for principal identity and authenticated coordination",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

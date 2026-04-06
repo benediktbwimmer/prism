@@ -1,0 +1,86 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Core storage, query lookup, and MCP mutation or resource surfaces have targeted test coverage for the first contracts path"
+      },
+      {
+        "anchors": [],
+        "label": "Dogfooding yields at least one recorded validation outcome or feedback item about the contracts rollout"
+      },
+      {
+        "anchors": [],
+        "label": "After meaningful MCP or query-surface changes, the release binaries are rebuilt and the live MCP daemon is restarted and health-checked"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 484
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmyy5zaha779zg71a25vgpb9"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmyy5zb6c4dexq044bz52jvj",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Validate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmyy4ykg8sh1apt74er1t0fm",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Milestone 4 is complete: targeted core, query, and MCP contract tests ran, contract rollout dogfooding feedback was recorded, and the release prism-cli/prism-mcp binaries were rebuilt with a healthy live daemon restart.",
+    "tags": [
+      "contracts",
+      "dogfood",
+      "runtime",
+      "validation"
+    ],
+    "title": "Milestone 4: Validate, dogfood, and restart the live MCP runtime",
+    "validation_refs": [
+      {
+        "id": "contracts:m4-validation-and-runtime"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
