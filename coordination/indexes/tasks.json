@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn2n9bp2xgmxbq9xvj4we2b8",
+    "title": "Inventory PRISM spec docs and define the spec-drift validation matrix",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn2n9bp2xgmxbq9xvj4we2b8-5ed9dd198cb93a2f.json"
+  },
+  {
+    "id": "coord-task:01kn88705a26qcc46r29w6zy5k",
+    "title": "Fix prism_task_brief next-action drift for completed and self-contained tasks",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn88705a26qcc46r29w6zy5k-605faf0ef0f395e9.json"
+  }
+]
