@@ -29,7 +29,6 @@ use crate::protected_state::repo_streams::{
     implicit_principal_identity, ProtectedPrincipalIdentity,
 };
 use crate::protected_state::trust::{load_active_runtime_signing_key, resolve_trusted_runtime_key};
-use crate::published_plans::load_hydrated_coordination_plan_state;
 use crate::shared_coordination_schema::{
     parse_authoritative_payload, parse_top_level_authoritative_payload, wrap_authoritative_payload,
     SHARED_COORDINATION_KIND_ARTIFACT, SHARED_COORDINATION_KIND_CLAIM,
@@ -44,6 +43,7 @@ use crate::PrismPaths;
 
 const SHARED_COORDINATION_PUSH_MAX_RETRIES: usize = 3;
 const SHARED_COORDINATION_HISTORY_MAX_COMMITS: u64 = 32;
+const SHARED_COORDINATION_RUNTIME_REF_PREFIX: &str = "runtimes";
 const SHARED_COORDINATION_TASK_SHARD_PREFIX: &str = "tasks";
 const SHARED_COORDINATION_CLAIM_SHARD_PREFIX: &str = "claims";
 static SHARED_COORDINATION_LIVE_SYNC_STATE: OnceLock<
@@ -266,6 +266,14 @@ fn shared_coordination_ref_name(root: &Path) -> String {
     format!("{}/live", shared_coordination_ref_base(root))
 }
 
+fn shared_coordination_runtime_ref_prefix(root: &Path) -> String {
+    format!(
+        "{}/{}",
+        shared_coordination_ref_base(root),
+        SHARED_COORDINATION_RUNTIME_REF_PREFIX
+    )
+}
+
 fn shared_coordination_task_ref_prefix(root: &Path) -> String {
     format!(
         "{}/{}",
@@ -279,6 +287,20 @@ fn shared_coordination_claim_ref_prefix(root: &Path) -> String {
         "{}/{}",
         shared_coordination_ref_base(root),
         SHARED_COORDINATION_CLAIM_SHARD_PREFIX
+    )
+}
+
+fn shared_coordination_ref_component(identity: &str) -> String {
+    snapshot_file_name(identity)
+        .trim_end_matches(".json")
+        .to_string()
+}
+
+fn shared_coordination_runtime_ref_name(root: &Path, runtime_id: &str) -> String {
+    format!(
+        "{}/{}",
+        shared_coordination_runtime_ref_prefix(root),
+        shared_coordination_ref_component(runtime_id)
     )
 }
 
@@ -399,6 +421,10 @@ fn authoritative_shared_coordination_ref_heads(root: &Path) -> Result<BTreeMap<S
     if let Some(head) = resolve_ref_commit(root, &summary_ref)? {
         refs.insert(summary_ref, head);
     }
+    refs.extend(list_local_coordination_ref_heads(
+        root,
+        &shared_coordination_runtime_ref_prefix(root),
+    )?);
     refs.extend(list_local_coordination_ref_heads(
         root,
         &shared_coordination_task_ref_prefix(root),
@@ -594,8 +620,8 @@ fn review_snapshot_path(stage_root: &Path, review_id: &str) -> PathBuf {
     stage_reviews_dir(stage_root).join(snapshot_file_name(review_id))
 }
 
-fn runtime_descriptor_snapshot_path(stage_root: &Path, worktree_id: &str) -> PathBuf {
-    stage_runtimes_dir(stage_root).join(snapshot_file_name(worktree_id))
+fn runtime_descriptor_snapshot_path(stage_root: &Path, runtime_id: &str) -> PathBuf {
+    stage_runtimes_dir(stage_root).join(snapshot_file_name(runtime_id))
 }
 
 pub(crate) fn sync_shared_coordination_ref_state(
@@ -614,7 +640,6 @@ pub(crate) fn sync_shared_coordination_ref_state(
         plan_graphs,
         execution_overlays,
         publish,
-        false,
     )?;
     sync_task_shard_refs(root, &snapshot.tasks, publish)?;
     sync_claim_shard_refs(root, &snapshot.claims, publish)?;
@@ -631,7 +656,6 @@ fn sync_shared_coordination_summary_ref_state(
     _plan_graphs: &[PlanGraph],
     execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
     publish: Option<&TrackedSnapshotPublishContext>,
-    refresh_local_runtime: bool,
 ) -> Result<()> {
     if !git_repo_available(root) {
         return Ok(());
@@ -658,7 +682,6 @@ fn sync_shared_coordination_summary_ref_state(
         &summary_plan_graphs,
         execution_overlays,
         publish,
-        refresh_local_runtime,
         &ref_name,
         expected_remote_head.as_deref(),
         baseline_state.as_ref(),
@@ -671,41 +694,11 @@ pub fn sync_live_runtime_descriptor(root: &Path) -> Result<()> {
     if !git_repo_available(root) {
         return Ok(());
     }
-    let ref_name = shared_coordination_ref_name(root);
-    let ref_exists = resolve_ref_commit(root, &ref_name)?.is_some();
-    let current_shared_state = load_shared_coordination_ref_state(root)?;
-    let runtime_descriptors = current_shared_state
-        .as_ref()
-        .map(|state| state.runtime_descriptors.clone())
+    let existing = load_shared_coordination_ref_state(root)?
+        .map(|state| state.runtime_descriptors)
         .unwrap_or_default();
-    let hydrated = load_hydrated_coordination_plan_state(root, None)?;
-    if hydrated.is_none() && ref_exists && current_shared_state.is_none() {
-        warn!(
-            root = %root.display(),
-            ref_name,
-            "skipping shared coordination runtime descriptor publish because the current ref is invalid and no local coordination baseline is available"
-        );
-        return Ok(());
-    }
-    let state = hydrated
-        .map(|state| SharedCoordinationRefState {
-            snapshot: state.snapshot,
-            plan_graphs: state.plan_graphs,
-            execution_overlays: state.execution_overlays,
-            runtime_descriptors: runtime_descriptors.clone(),
-        })
-        .unwrap_or_else(|| SharedCoordinationRefState {
-            runtime_descriptors,
-            ..empty_shared_coordination_ref_state()
-        });
-    sync_shared_coordination_summary_ref_state(
-        root,
-        &state.snapshot,
-        &state.plan_graphs,
-        &state.execution_overlays,
-        None,
-        true,
-    )?;
+    let local = local_runtime_descriptor(root, None, Some(&existing))?;
+    sync_runtime_descriptor_ref(root, &local, None)?;
     record_observed_shared_coordination_head(
         root,
         authoritative_shared_coordination_state_key(root)?,
@@ -721,7 +714,6 @@ fn sync_shared_coordination_ref_state_inner(
     plan_graphs: &[PlanGraph],
     execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
     publish: Option<&TrackedSnapshotPublishContext>,
-    refresh_local_runtime: bool,
     ref_name: &str,
     expected_remote_head: Option<&str>,
     baseline_state: Option<&SharedCoordinationRefState>,
@@ -733,12 +725,9 @@ fn sync_shared_coordination_ref_state_inner(
     let mut current_snapshot = desired_snapshot.clone();
     let mut current_plan_graphs = desired_plan_graphs.clone();
     let mut current_execution_overlays = desired_execution_overlays.clone();
-    let mut current_runtime_descriptors = desired_runtime_descriptors(
-        root,
-        publish,
-        baseline_state.map(|state| state.runtime_descriptors.as_slice()),
-        refresh_local_runtime,
-    )?;
+    let mut current_runtime_descriptors = baseline_state
+        .map(|state| state.runtime_descriptors.clone())
+        .unwrap_or_default();
     let mut current_expected_head = expected_remote_head.map(str::to_string);
     let mut current_previous_manifest =
         load_shared_coordination_manifest_from_ref_lenient(root, ref_name)?;
@@ -752,11 +741,10 @@ fn sync_shared_coordination_ref_state_inner(
         )?;
         sync_artifact_objects(stage_dir, &current_snapshot.artifacts)?;
         sync_review_objects(stage_dir, &current_snapshot.reviews)?;
-        sync_runtime_descriptor_objects(stage_dir, &current_runtime_descriptors)?;
         rebuild_plan_index(stage_dir, &current_snapshot.plans)?;
         rebuild_artifact_index(stage_dir, &current_snapshot.artifacts)?;
         rebuild_review_index(stage_dir, &current_snapshot.reviews)?;
-        rebuild_runtime_descriptor_index(stage_dir, &current_runtime_descriptors)?;
+        rebuild_summary_runtime_descriptor_index(root, stage_dir, &current_runtime_descriptors)?;
         write_manifest(
             stage_dir,
             paths,
@@ -830,14 +818,9 @@ fn sync_shared_coordination_ref_state_inner(
                 current_snapshot = reconciled.snapshot;
                 current_plan_graphs = reconciled.plan_graphs;
                 current_execution_overlays = reconciled.execution_overlays;
-                current_runtime_descriptors = desired_runtime_descriptors(
-                    root,
-                    publish,
-                    latest_state
-                        .as_ref()
-                        .map(|state| state.runtime_descriptors.as_slice()),
-                    refresh_local_runtime,
-                )?;
+                current_runtime_descriptors = latest_state
+                    .map(|state| state.runtime_descriptors)
+                    .unwrap_or_default();
             }
             Err(error) => return Err(error),
         }
@@ -916,6 +899,53 @@ fn sync_claim_shard_refs(
             )
         },
     )
+}
+
+fn sync_runtime_descriptor_ref(
+    root: &Path,
+    descriptor: &RuntimeDescriptor,
+    publish: Option<&TrackedSnapshotPublishContext>,
+) -> Result<()> {
+    if !git_repo_available(root) {
+        return Ok(());
+    }
+    let ref_name = shared_coordination_runtime_ref_name(root, &descriptor.runtime_id);
+    let expected_remote_head = resolve_ref_commit(root, &ref_name).ok().flatten();
+    let baseline_records = load_runtime_descriptor_records_from_ref_lenient(root, &ref_name)?;
+    let paths = PrismPaths::for_workspace_root(root)?;
+    let stage_parent = stage_root(&paths);
+    fs::create_dir_all(&stage_parent)?;
+    let stage_dir = stage_parent.join(format!(
+        "runtime-{}-{}-{}",
+        shared_coordination_ref_component(&descriptor.runtime_id),
+        std::process::id(),
+        current_timestamp()
+    ));
+    fs::create_dir_all(&stage_dir)?;
+    let result = sync_sharded_coordination_records_inner(
+        root,
+        &stage_dir,
+        vec![descriptor.clone()],
+        publish,
+        &ref_name,
+        expected_remote_head.as_deref(),
+        &baseline_records,
+        |descriptor| descriptor.runtime_id.as_str(),
+        sync_runtime_descriptor_objects,
+        rebuild_runtime_descriptor_index,
+        load_runtime_descriptor_records_from_ref_lenient,
+        |baseline, desired, latest| {
+            reconcile_collection(
+                baseline,
+                desired,
+                latest,
+                |descriptor| descriptor.runtime_id.as_str(),
+                "runtime descriptor",
+            )
+        },
+    );
+    let _ = fs::remove_dir_all(&stage_dir);
+    result
 }
 
 fn sync_sharded_coordination_records<
@@ -1102,6 +1132,18 @@ fn load_claim_records_from_ref_lenient(root: &Path, ref_name: &str) -> Result<Ve
     })
 }
 
+fn load_runtime_descriptor_records_from_ref_lenient(
+    root: &Path,
+    ref_name: &str,
+) -> Result<Vec<RuntimeDescriptor>> {
+    load_records_from_ref_lenient(root, ref_name, |contents| {
+        contents.parse_authoritative_records::<RuntimeDescriptor, _>(
+            |path| path.starts_with("coordination/runtimes/"),
+            SHARED_COORDINATION_KIND_RUNTIME_DESCRIPTOR,
+        )
+    })
+}
+
 fn load_records_from_ref_lenient<T, F>(root: &Path, ref_name: &str, parse: F) -> Result<Vec<T>>
 where
     T: Clone,
@@ -1198,14 +1240,23 @@ fn load_authoritative_shared_coordination_ref_state(
     } else {
         load_shared_coordination_ref_state_from_current_ref_lenient(root, &ref_name)?
     };
+    let runtime_refs = load_shared_coordination_runtime_refs(root)?;
     let task_shards = load_shared_coordination_task_shards(root)?;
     let claim_shards = load_shared_coordination_claim_shards(root)?;
-    if summary_state.is_none() && task_shards.is_empty() && claim_shards.is_empty() {
+    if summary_state.is_none()
+        && runtime_refs.is_empty()
+        && task_shards.is_empty()
+        && claim_shards.is_empty()
+    {
         return Ok(None);
     }
     let mut state = summary_state.unwrap_or_else(empty_shared_coordination_ref_state);
+    let runtime_refs_present = !runtime_refs.is_empty();
     let task_shards_present = !task_shards.is_empty();
     let claim_shards_present = !claim_shards.is_empty();
+    if runtime_refs_present {
+        state.runtime_descriptors = runtime_refs;
+    }
     if task_shards_present {
         state.snapshot.tasks = task_shards;
     }
@@ -1223,6 +1274,25 @@ fn load_authoritative_shared_coordination_ref_state(
     state.plan_graphs = snapshot_plan_graphs(&state.snapshot);
     state.execution_overlays = execution_overlays_by_plan(&state.snapshot);
     Ok(Some(state))
+}
+
+fn load_shared_coordination_runtime_refs(root: &Path) -> Result<Vec<RuntimeDescriptor>> {
+    let mut runtime_descriptors = load_shared_coordination_sharded_records(
+        root,
+        &shared_coordination_runtime_ref_prefix(root),
+        |contents| {
+            contents.parse_authoritative_records::<RuntimeDescriptor, _>(
+                |path| path.starts_with("coordination/runtimes/"),
+                SHARED_COORDINATION_KIND_RUNTIME_DESCRIPTOR,
+            )
+        },
+    )?;
+    runtime_descriptors.sort_by(|left, right| {
+        left.worktree_id
+            .cmp(&right.worktree_id)
+            .then_with(|| left.runtime_id.cmp(&right.runtime_id))
+    });
+    Ok(runtime_descriptors)
 }
 
 fn load_shared_coordination_task_shards(root: &Path) -> Result<Vec<CoordinationTask>> {
@@ -1695,18 +1765,8 @@ pub fn shared_coordination_ref_diagnostics(
         return Ok(None);
     }
     let ref_name = shared_coordination_ref_name(root);
-    let Some(head_commit) = resolve_ref_commit(root, &ref_name)? else {
-        return Ok(None);
-    };
-    let history_depth = ref_history_depth(root, &ref_name)?;
-    let compacted_head = ref_head_has_no_parent(root, &ref_name)?;
-    let manifest = load_shared_coordination_manifest_from_ref(root, &ref_name)?;
-    let current_manifest_digest = manifest
-        .as_ref()
-        .map(canonical_manifest_digest)
-        .transpose()?;
     let (verified_state, verification_status, authoritative_hydration_allowed, degraded, verification_error, repair_hint) =
-        match load_shared_coordination_ref_state_from_current_ref(root, &ref_name) {
+        match load_shared_coordination_ref_state_authoritative(root) {
             Ok(state) => (
                 state,
                 "verified".to_string(),
@@ -1727,6 +1787,29 @@ pub fn shared_coordination_ref_diagnostics(
                 ),
             ),
         };
+    let head_commit = resolve_ref_commit(root, &ref_name)?;
+    if head_commit.is_none() && verified_state.is_none() {
+        return Ok(None);
+    }
+    let history_depth = if head_commit.is_some() {
+        ref_history_depth(root, &ref_name)?
+    } else {
+        0
+    };
+    let compacted_head = if head_commit.is_some() {
+        ref_head_has_no_parent(root, &ref_name)?
+    } else {
+        false
+    };
+    let manifest = if head_commit.is_some() {
+        load_shared_coordination_manifest_from_ref(root, &ref_name)?
+    } else {
+        None
+    };
+    let current_manifest_digest = manifest
+        .as_ref()
+        .map(canonical_manifest_digest)
+        .transpose()?;
     let last_verified_manifest_digest = if authoritative_hydration_allowed {
         current_manifest_digest.clone()
     } else {
@@ -1773,7 +1856,11 @@ pub fn shared_coordination_ref_diagnostics(
         .as_ref()
         .and_then(|manifest| manifest.compaction.as_ref())
         .and_then(|compaction| compaction.archive_boundary_manifest_digest.clone());
-    let snapshot_file_count = list_ref_json_paths(root, &ref_name)?.len();
+    let snapshot_file_count = if head_commit.is_some() {
+        list_ref_json_paths(root, &ref_name)?.len()
+    } else {
+        0
+    };
     let runtime_descriptors = verified_state
         .map(|state| state.runtime_descriptors)
         .unwrap_or_default();
@@ -1787,7 +1874,7 @@ pub fn shared_coordination_ref_diagnostics(
     };
     Ok(Some(SharedCoordinationRefDiagnostics {
         ref_name,
-        head_commit: Some(head_commit),
+        head_commit,
         history_depth,
         max_history_commits: SHARED_COORDINATION_HISTORY_MAX_COMMITS,
         snapshot_file_count,
@@ -1899,7 +1986,7 @@ fn sync_runtime_descriptor_objects(
 ) -> Result<()> {
     let mut expected = BTreeSet::new();
     for descriptor in descriptors {
-        let path = runtime_descriptor_snapshot_path(stage_dir, &descriptor.worktree_id);
+        let path = runtime_descriptor_snapshot_path(stage_dir, &descriptor.runtime_id);
         expected.insert(path.clone());
         write_json_file(
             &path,
@@ -2019,7 +2106,7 @@ fn rebuild_runtime_descriptor_index(
     let mut entries = descriptors
         .iter()
         .map(|descriptor| {
-            let path = runtime_descriptor_snapshot_path(stage_dir, &descriptor.worktree_id);
+            let path = runtime_descriptor_snapshot_path(stage_dir, &descriptor.runtime_id);
             SharedCoordinationIndexEntry {
                 id: descriptor.runtime_id.clone(),
                 title: descriptor.worktree_id.clone(),
@@ -2035,25 +2122,32 @@ fn rebuild_runtime_descriptor_index(
     )
 }
 
-fn desired_runtime_descriptors(
+fn rebuild_summary_runtime_descriptor_index(
     root: &Path,
-    publish: Option<&TrackedSnapshotPublishContext>,
-    existing: Option<&[RuntimeDescriptor]>,
-    refresh_local_runtime: bool,
-) -> Result<Vec<RuntimeDescriptor>> {
-    if !refresh_local_runtime {
-        return Ok(existing.unwrap_or(&[]).to_vec());
-    }
-    let local = local_runtime_descriptor(root, publish, existing)?;
-    let mut descriptors = existing.unwrap_or(&[]).to_vec();
-    descriptors.retain(|descriptor| descriptor.worktree_id != local.worktree_id);
-    descriptors.push(local);
-    descriptors.sort_by(|left, right| {
-        left.worktree_id
-            .cmp(&right.worktree_id)
-            .then_with(|| left.runtime_id.cmp(&right.runtime_id))
-    });
-    Ok(descriptors)
+    stage_dir: &Path,
+    descriptors: &[RuntimeDescriptor],
+) -> Result<()> {
+    let mut entries = descriptors
+        .iter()
+        .map(|descriptor| {
+            let ref_name = shared_coordination_runtime_ref_name(root, &descriptor.runtime_id);
+            let relative_path = format!(
+                "coordination/runtimes/{}",
+                snapshot_file_name(&descriptor.runtime_id)
+            );
+            SharedCoordinationIndexEntry {
+                id: descriptor.runtime_id.clone(),
+                title: descriptor.worktree_id.clone(),
+                status: format!("{:?}", descriptor.discovery_mode),
+                path: format!("{ref_name}:{relative_path}"),
+            }
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.path.cmp(&right.path));
+    write_json_file(
+        &stage_indexes_dir(stage_dir).join("runtimes.json"),
+        &entries,
+    )
 }
 
 fn local_runtime_descriptor(
@@ -2074,7 +2168,14 @@ fn local_runtime_descriptor(
     let previous = existing
         .unwrap_or(&[])
         .iter()
-        .find(|descriptor| descriptor.worktree_id == identity.worktree_id);
+        .find(|descriptor| descriptor.runtime_id == identity.instance_id)
+        .or_else(|| {
+            existing
+                .unwrap_or(&[])
+                .iter()
+                .filter(|descriptor| descriptor.worktree_id == identity.worktree_id)
+                .max_by_key(|descriptor| descriptor.last_seen_at)
+        });
     let continuing_instance =
         previous.filter(|descriptor| descriptor.runtime_id == identity.instance_id);
     let peer_endpoint = local_peer_runtime_endpoint(root)?
@@ -2654,6 +2755,7 @@ struct SharedCoordinationPublishPatch {
 
 #[cfg(test)]
 fn build_shared_coordination_publish_patch(
+    root: &Path,
     stage_dir: &Path,
     previous_manifest: Option<&SharedCoordinationManifest>,
     _baseline_state: Option<&SharedCoordinationRefState>,
@@ -2669,11 +2771,10 @@ fn build_shared_coordination_publish_patch(
     )?;
     sync_artifact_objects(stage_dir, &desired_state.snapshot.artifacts)?;
     sync_review_objects(stage_dir, &desired_state.snapshot.reviews)?;
-    sync_runtime_descriptor_objects(stage_dir, &desired_state.runtime_descriptors)?;
     rebuild_plan_index(stage_dir, &desired_state.snapshot.plans)?;
     rebuild_artifact_index(stage_dir, &desired_state.snapshot.artifacts)?;
     rebuild_review_index(stage_dir, &desired_state.snapshot.reviews)?;
-    rebuild_runtime_descriptor_index(stage_dir, &desired_state.runtime_descriptors)?;
+    rebuild_summary_runtime_descriptor_index(root, stage_dir, &desired_state.runtime_descriptors)?;
     build_shared_coordination_publish_patch_from_stage(stage_dir, previous_manifest)
 }
 
@@ -2960,6 +3061,17 @@ fn run_git_with_env(root: &Path, envs: &[(&str, &str)], args: &[&str]) -> Result
         .env("GIT_AUTHOR_EMAIL", "prism@local")
         .env("GIT_COMMITTER_NAME", "PRISM")
         .env("GIT_COMMITTER_EMAIL", "prism@local");
+    for key in [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_COMMON_DIR",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_CEILING_DIRECTORIES",
+    ] {
+        command.env_remove(key);
+    }
     for (key, value) in envs {
         command.env(key, value);
     }
@@ -4111,7 +4223,6 @@ mod tests {
             &[graph_b],
             &execution_map_b,
             Some(&sample_publish_context()),
-            false,
             &ref_name,
             expected_head.as_deref(),
             baseline_state.as_ref(),
@@ -4277,6 +4388,7 @@ mod tests {
         let _ = fs::remove_dir_all(&stage_dir);
         fs::create_dir_all(&stage_dir).unwrap();
         let patch = super::build_shared_coordination_publish_patch(
+            &root,
             &stage_dir,
             previous_manifest.as_ref(),
             Some(&baseline_state),
@@ -4863,21 +4975,25 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
+        let runtime_ref = super::shared_coordination_runtime_ref_name(
+            &root,
+            &workspace_identity_for_root(&root).instance_id,
+        );
         let runtime_relative_path =
-            super::run_git(&root, &["ls-tree", "-r", "--name-only", &ref_name])
+            super::run_git(&root, &["ls-tree", "-r", "--name-only", &runtime_ref])
                 .unwrap()
                 .lines()
                 .find(|path| {
                     path.ends_with(&super::snapshot_file_name(
-                        &workspace_identity_for_root(&root).worktree_id,
+                        &workspace_identity_for_root(&root).instance_id,
                     ))
                 })
                 .map(str::to_string)
-                .expect("summary ref should contain the runtime descriptor");
+                .expect("runtime ref should contain the runtime descriptor");
         let raw_runtime_descriptor: serde_json::Value = serde_json::from_str(
             &super::run_git(
                 &root,
-                &["show", &format!("{ref_name}:{runtime_relative_path}")],
+                &["show", &format!("{runtime_ref}:{runtime_relative_path}")],
             )
             .unwrap(),
         )
@@ -5052,11 +5168,38 @@ mod tests {
     #[test]
     fn sync_live_runtime_descriptor_publishes_descriptor_without_coordination_objects() {
         let (root, _remote) = temp_git_repo_with_origin();
+        let (snapshot, graph, execution_map) =
+            sample_snapshot_for("plan:runtime-publish", "coord-task:runtime-publish");
+        sync_shared_coordination_ref_state(
+            &root,
+            &snapshot,
+            &[graph],
+            &execution_map,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
+        let summary_ref = super::shared_coordination_ref_name(&root);
+        let summary_head_before = super::run_git(&root, &["rev-parse", &summary_ref]).unwrap();
         sync_live_runtime_descriptor(&root).unwrap();
+        let summary_head_after = super::run_git(&root, &["rev-parse", &summary_ref]).unwrap();
+        let runtime_ref = super::shared_coordination_runtime_ref_name(
+            &root,
+            &workspace_identity_for_root(&root).instance_id,
+        );
 
         let diagnostics = shared_coordination_ref_diagnostics(&root)
             .unwrap()
             .expect("shared coordination diagnostics should exist");
+        assert_eq!(summary_head_after, summary_head_before);
+        assert!(
+            super::run_git(&root, &["ls-tree", "-r", "--name-only", &summary_ref])
+                .unwrap()
+                .lines()
+                .all(|path| !path.starts_with("coordination/runtimes/"))
+        );
+        assert!(super::resolve_ref_commit(&root, &runtime_ref)
+            .unwrap()
+            .is_some());
         assert_eq!(diagnostics.runtime_descriptor_count, 1);
         assert_eq!(diagnostics.runtime_descriptors.len(), 1);
         assert!(diagnostics.runtime_descriptors[0]
@@ -5065,8 +5208,36 @@ mod tests {
     }
 
     #[test]
+    fn shared_coordination_ref_diagnostics_load_runtime_only_authority_without_summary_ref() {
+        let (root, _remote) = temp_git_repo_with_origin();
+        seed_workspace_project(&root);
+
+        sync_live_runtime_descriptor(&root).unwrap();
+
+        let diagnostics = shared_coordination_ref_diagnostics(&root)
+            .unwrap()
+            .expect("runtime refs alone should surface shared coordination diagnostics");
+        assert!(diagnostics.head_commit.is_none());
+        assert_eq!(diagnostics.history_depth, 0);
+        assert_eq!(diagnostics.snapshot_file_count, 0);
+        assert!(diagnostics.authoritative_hydration_allowed);
+        assert_eq!(diagnostics.runtime_descriptor_count, 1);
+        assert_eq!(diagnostics.runtime_descriptors.len(), 1);
+    }
+
+    #[test]
     fn sync_live_runtime_descriptor_publishes_configured_public_url() {
         let (root, _remote) = temp_git_repo_with_origin();
+        let (snapshot, graph, execution_map) =
+            sample_snapshot_for("plan:runtime-public-url", "coord-task:runtime-public-url");
+        sync_shared_coordination_ref_state(
+            &root,
+            &snapshot,
+            &[graph],
+            &execution_map,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
         let public_url_path = crate::PrismPaths::for_workspace_root(&root)
             .unwrap()
             .mcp_public_url_path()
@@ -5094,6 +5265,24 @@ mod tests {
     #[test]
     fn sync_live_runtime_descriptor_clears_public_url_when_configuration_is_removed() {
         let (root, _remote) = temp_git_repo_with_origin();
+        let (snapshot, graph, execution_map) = sample_snapshot_for(
+            "plan:runtime-clear-public-url",
+            "coord-task:runtime-clear-public-url",
+        );
+        sync_shared_coordination_ref_state(
+            &root,
+            &snapshot,
+            &[graph],
+            &execution_map,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
+        let summary_ref = super::shared_coordination_ref_name(&root);
+        let summary_head_before = super::run_git(&root, &["rev-parse", &summary_ref]).unwrap();
+        let runtime_ref = super::shared_coordination_runtime_ref_name(
+            &root,
+            &workspace_identity_for_root(&root).instance_id,
+        );
         let public_url_path = crate::PrismPaths::for_workspace_root(&root)
             .unwrap()
             .mcp_public_url_path()
@@ -5102,12 +5291,17 @@ mod tests {
         fs::write(&public_url_path, "https://runtime.example/peer/query\n").unwrap();
 
         sync_live_runtime_descriptor(&root).unwrap();
+        let runtime_head_before = super::run_git(&root, &["rev-parse", &runtime_ref]).unwrap();
         fs::remove_file(&public_url_path).unwrap();
         sync_live_runtime_descriptor(&root).unwrap();
+        let summary_head_after = super::run_git(&root, &["rev-parse", &summary_ref]).unwrap();
+        let runtime_head_after = super::run_git(&root, &["rev-parse", &runtime_ref]).unwrap();
 
         let diagnostics = shared_coordination_ref_diagnostics(&root)
             .unwrap()
             .expect("shared coordination diagnostics should exist");
+        assert_eq!(summary_head_after, summary_head_before);
+        assert_ne!(runtime_head_after, runtime_head_before);
         assert_eq!(diagnostics.runtime_descriptor_count, 1);
         assert_eq!(diagnostics.runtime_descriptors[0].public_endpoint, None);
         assert_eq!(
