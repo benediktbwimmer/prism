@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kmyy5zaha779zg71a25vgpb9",
+    "title": "Milestone 3: Integrate contracts into normal query and review flows",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmyy5zaha779zg71a25vgpb9-ef35b967e9372605.json"
+  },
+  {
+    "id": "coord-task:01kn08e61maayjpm61gyp35s70",
+    "title": "Milestone 3: Durable knowledge publication",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn08e61maayjpm61gyp35s70-72df28db59ca496b.json"
+  },
+  {
+    "id": "coord-task:01kn8dqgf7v523n7bbrp0p3bxm",
+    "title": "Audit repeated fixture, indexing, SQLite, and process-startup patterns in the slowest tests.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8dqgf7v523n7bbrp0p3bxm-1df83109db12e7a6.json"
+  }
+]
