@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775518502,
+  "publishedAt": 1775518573,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
@@ -2139,11 +2139,11 @@
     },
     "coordination/tasks/coord-task-01knhbwetedap4tdgcgz66yfkk-88773b8f59e68e74.json": {
       "path": "coordination/tasks/coord-task-01knhbwetedap4tdgcgz66yfkk-88773b8f59e68e74.json",
-      "sha256": "sha256:2452e7b374fb307caf12309f7863fddc529c8a6f83d03329d9455046a26d2b8c"
+      "sha256": "sha256:60774d898942ed1fc3e23f71b8add2b456047beaaf47bf921cdde54888a5ac7e"
     },
     "coordination/tasks/coord-task-01knhbwetjb7ygfbpfee51d2ve-ebc50aa89db7f6cc.json": {
       "path": "coordination/tasks/coord-task-01knhbwetjb7ygfbpfee51d2ve-ebc50aa89db7f6cc.json",
-      "sha256": "sha256:246571ec8b9b4f2e963a113f735574dbefbca8dbde47e196ffa44e9160375dc3"
+      "sha256": "sha256:d2bceb8736931e6666c68fb14cf16eaf1e7e434ea0372d3cfa38663013d936d1"
     },
     "coordination/tasks/coord-task-01knhbwetpa19yaw9w8f1y31t4-d8bb62cbd6320ab6.json": {
       "path": "coordination/tasks/coord-task-01knhbwetpa19yaw9w8f1y31t4-d8bb62cbd6320ab6.json",
@@ -2411,7 +2411,7 @@
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:60d3b689bdc24aa105e8939d160bab4a62821f421dc100a6227e686693238ff1"
+      "sha256": "sha256:a2c1227afa272c9f415a92cb548bec72356708f14c9b78d04dac722f4aa0e39b"
     },
     "plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json": {
       "path": "plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json",
@@ -2767,10 +2767,10 @@
     },
     "v2/snapshot.json": {
       "path": "v2/snapshot.json",
-      "sha256": "sha256:67c237e5e319d027e9daca36bd7f8bb05ffb312cefa2354f53c937e2d324b854"
+      "sha256": "sha256:ee91c570efac7ed0f04389c1ae3b84a7036492547fd35fcaf6cf887546c3cd8b"
     }
   },
-  "previousManifestDigest": "sha256:080b13b9584c4743044f1ffdf257bcf853a449713d74561b906b5ac82b86eb09",
+  "previousManifestDigest": "sha256:1815c3af21f5d8696660f3aa02765e36ce1ca37fafe53c6e2e02c52d0e688a6e",
   "summarySources": {
     "taskShardHeads": {
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/02": "770995ff2b8722ac617b974407d7389ec962d759",
@@ -2807,7 +2807,7 @@
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/27": "e4959e6471416ea15067fe5b1fb79c50b4d06502",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/28": "8e2b79e6448cee285a09c339a24e38821e5fdf89",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/29": "4b520c7e501d23c5ba1a3573cbee6a1faed92af5",
-      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/2a": "d9edc5e9d90f4fd71d69e80643c923329ae73298",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/2a": "763717b05f8eb8863ca98e240817a083c9d73b40",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/2b": "8d8d74ae8b95c72012dc1573ade27c6894047893",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/2c": "c87d22c09f004cc13602a51538e70b65c9f7b333",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/2d": "be66afe56b17dac3453eaebb9bef3a8f78a8607d",
@@ -2908,7 +2908,7 @@
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/9f": "dc86aabe3cb658da2b41546b070f0fbf0ae9eada",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a0": "b2483cf329b95a93b79c99659f700fbbe8f6d13a",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a1": "74b95ecc72a4733fa213f0043223a0d16e90c518",
-      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a2": "b07df6feb23765e7411aab20117cacf2cbe9779f",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a2": "7164769fcfa915f82a90705e800f2ccc97b79ce7",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a3": "7b68f4997ebf89eeafe4a4042b02c056ee4669c4",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a5": "85caff7d0ec4c25d9aed0624b16f24654b006b0e",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a6": "42a204154cc27de21cca3a58516595d577e297e9",
@@ -3085,6 +3085,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:iCgx4NrpxfBCT1x5bu1Ksy/mn67J1jKOG1ls0orCNIZ4NToWma4LWAC9Ywas+Dl5kq1zY81jwp0oyIg0aQbnBg=="
+    "value": "base64:hfl9fFppXWE81t4I5hRhpAwLVO6os9X92C3VzdXj2y4fv/niRNt83pWz3705S6NUuvYemEzaXeus5WTkSwHnBQ=="
   }
 }

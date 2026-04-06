@@ -37908,32 +37908,22 @@
       "parentPlanId": "plan:01knhbwesj53rq8f301x6r51qj",
       "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
       "summary": null,
-      "lifecycleStatus": "pending",
+      "lifecycleStatus": "completed",
       "estimatedMinutes": 0,
       "executor": {
         "executorClass": "worktree_executor",
         "targetLabel": null,
         "allowedPrincipals": []
       },
-      "assignee": null,
-      "session": "session:01knhbapwgzc1nbjxrec0n36g4",
-      "leaseHolder": {
-        "principal": {
-          "authority_id": "worktree_executor",
-          "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
-          "kind": "agent",
-          "name": "codex-a"
-        },
-        "session_id": "session:01knhbapwgzc1nbjxrec0n36g4",
-        "worktree_id": "worktree:38d65972b1359401",
-        "agent_id": null
-      },
-      "leaseStartedAt": 1775478127,
-      "leaseRefreshedAt": 1775478127,
-      "leaseStaleAt": 1775479927,
-      "leaseExpiresAt": 1775485327,
-      "worktreeId": "worktree:38d65972b1359401",
-      "branchRef": "refs/heads/task/coordination-query-mcp-rewrite",
+      "assignee": "codex-a",
+      "session": "session:01knjjc4f19sdjdteqn6d0d17z",
+      "leaseHolder": null,
+      "leaseStartedAt": null,
+      "leaseRefreshedAt": null,
+      "leaseStaleAt": null,
+      "leaseExpiresAt": null,
+      "worktreeId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+      "branchRef": "refs/heads/task/remove-shared-runtime-sqlite",
       "anchors": [
         {
           "File": 137
@@ -38006,15 +37996,15 @@
       "parentPlanId": "plan:01knhbwesj53rq8f301x6r51qj",
       "title": "Add migration, cleanup, and restart recovery for repositories that still have shared runtime DB artifacts",
       "summary": null,
-      "lifecycleStatus": "pending",
+      "lifecycleStatus": "active",
       "estimatedMinutes": 0,
       "executor": {
         "executorClass": "worktree_executor",
         "targetLabel": null,
         "allowedPrincipals": []
       },
-      "assignee": null,
-      "session": "session:01knhbapwgzc1nbjxrec0n36g4",
+      "assignee": "codex-a",
+      "session": "session:01knjjc4f19sdjdteqn6d0d17z",
       "leaseHolder": {
         "principal": {
           "authority_id": "worktree_executor",
@@ -38022,16 +38012,16 @@
           "kind": "agent",
           "name": "codex-a"
         },
-        "session_id": "session:01knhbapwgzc1nbjxrec0n36g4",
-        "worktree_id": "worktree:38d65972b1359401",
-        "agent_id": null
+        "session_id": "session:01knjjc4f19sdjdteqn6d0d17z",
+        "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+        "agent_id": "codex-a"
       },
       "leaseStartedAt": 1775478127,
-      "leaseRefreshedAt": 1775478127,
-      "leaseStaleAt": 1775479927,
-      "leaseExpiresAt": 1775485327,
-      "worktreeId": "worktree:38d65972b1359401",
-      "branchRef": "refs/heads/task/coordination-query-mcp-rewrite",
+      "leaseRefreshedAt": 1775518573,
+      "leaseStaleAt": 1775520373,
+      "leaseExpiresAt": 1775525773,
+      "worktreeId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+      "branchRef": "refs/heads/task/remove-shared-runtime-sqlite",
       "anchors": [
         {
           "File": 134
@@ -38068,7 +38058,7 @@
       ],
       "validationRefs": [],
       "baseRevision": {
-        "graph_version": 114,
+        "graph_version": 367,
         "git_commit": null
       },
       "priority": null,
@@ -50890,8 +50880,8 @@
   "events": [
     {
       "meta": {
-        "id": "coordination:01knjjck7d302c09y285tv7ftf:SessionId--session-01knjjc4f19sdjdteqn6d0d17z--:2",
-        "ts": 1775518502,
+        "id": "coordination:01knjjes4ffp6kcc0sepa73p39:SessionId--session-01knjjc4f19sdjdteqn6d0d17z--:6",
+        "ts": 1775518573,
         "actor": {
           "Principal": {
             "authority_id": "worktree_executor",
@@ -50900,15 +50890,15 @@
             "name": "codex-a"
           }
         },
-        "correlation": "coord-task:01knhbwetedap4tdgcgz66yfkk",
-        "causation": "coordination:01knjjck7a28znw5sz1x3n4qew:SessionId--session-01knjjc4f19sdjdteqn6d0d17z--:1",
+        "correlation": "coord-task:01knhbwetjb7ygfbpfee51d2ve",
+        "causation": "coordination:01knjjes4crqy29n51j4bjankg:SessionId--session-01knjjc4f19sdjdteqn6d0d17z--:5",
         "execution_context": {
           "repo_id": "repo:763c8d2ae95d5376",
           "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
           "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
           "session_id": "session:01knjjc4f19sdjdteqn6d0d17z",
           "instance_id": "instance:51393:worktree:38d65972b1359401:1775518464150",
-          "request_id": "27",
+          "request_id": "33",
           "work_context": {
             "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
             "kind": "coordination",
@@ -50921,9 +50911,9 @@
         }
       },
       "kind": "TaskResumed",
-      "summary": "task `coord-task:01knhbwetedap4tdgcgz66yfkk` resumed",
+      "summary": "task `coord-task:01knhbwetjb7ygfbpfee51d2ve` resumed",
       "plan": "plan:01knhbwesj53rq8f301x6r51qj",
-      "task": "coord-task:01knhbwetedap4tdgcgz66yfkk",
+      "task": "coord-task:01knhbwetjb7ygfbpfee51d2ve",
       "claim": null,
       "artifact": null,
       "review": null,
@@ -50942,7 +50932,7 @@
         "patchValues": {
           "assignee": "codex-a",
           "branchRef": "refs/heads/task/remove-shared-runtime-sqlite",
-          "leaseExpiresAt": 1775525702,
+          "leaseExpiresAt": 1775525773,
           "leaseHolder": {
             "agent_id": "codex-a",
             "principal": {
@@ -50954,8 +50944,8 @@
             "session_id": "session:01knjjc4f19sdjdteqn6d0d17z",
             "worktree_id": "worktree:38d65972b1359401"
           },
-          "leaseRefreshedAt": 1775518502,
-          "leaseStaleAt": 1775520302,
+          "leaseRefreshedAt": 1775518573,
+          "leaseStaleAt": 1775520373,
           "leaseStartedAt": 1775478127,
           "session": "session:01knjjc4f19sdjdteqn6d0d17z"
         }
@@ -50963,8 +50953,8 @@
     },
     {
       "meta": {
-        "id": "coordination:01knjjck7a28znw5sz1x3n4qew:SessionId--session-01knjjc4f19sdjdteqn6d0d17z--:1",
-        "ts": 1775518502,
+        "id": "coordination:01knjjes4crqy29n51j4bjankg:SessionId--session-01knjjc4f19sdjdteqn6d0d17z--:5",
+        "ts": 1775518573,
         "actor": {
           "Principal": {
             "authority_id": "worktree_executor",
@@ -50981,7 +50971,7 @@
           "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
           "session_id": "session:01knjjc4f19sdjdteqn6d0d17z",
           "instance_id": "instance:51393:worktree:38d65972b1359401:1775518464150",
-          "request_id": "27",
+          "request_id": "33",
           "work_context": {
             "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
             "kind": "coordination",
@@ -50994,9 +50984,9 @@
         }
       },
       "kind": "TaskStatusChanged",
-      "summary": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
+      "summary": "Add migration, cleanup, and restart recovery for repositories that still have shared runtime DB artifacts",
       "plan": "plan:01knhbwesj53rq8f301x6r51qj",
-      "task": "coord-task:01knhbwetedap4tdgcgz66yfkk",
+      "task": "coord-task:01knhbwetjb7ygfbpfee51d2ve",
       "claim": null,
       "artifact": null,
       "review": null,
