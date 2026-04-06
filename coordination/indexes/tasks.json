@@ -1,0 +1,8 @@
+[
+  {
+    "id": "coord-task:6",
+    "title": "Validate reload latency, concurrency behavior, migration safety, and native plan persistence correctness",
+    "status": "Ready",
+    "path": "tasks/coord-task-6-640871102e895ef2.json"
+  }
+]
