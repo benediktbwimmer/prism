@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn6rq1n2ggm0m47a37ewascn",
+    "title": "Migrate and repair legacy session-task and detached-context behavior",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rq1n2ggm0m47a37ewascn-1d3dbead7eb0aa35.json"
+  },
+  {
+    "id": "coord-task:01kn6rqgdfassyvep8q89sd0mk",
+    "title": "Validate cold-clone self-containment and end-to-end declared-work enforcement",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rqgdfassyvep8q89sd0mk-9459226da6c0e286.json"
+  }
+]
