@@ -1,0 +1,81 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "`require` never selects user-code commit scope and blocks completion when uncommitted non-PRISM changes make publication ambiguous."
+      },
+      {
+        "anchors": [],
+        "label": "Freshness enforcement is expressed as explicit policy fields such as target ref, max commits behind target, and optional fetch-age thresholds rather than hidden heuristics."
+      },
+      {
+        "anchors": [],
+        "label": "Any automatic follow-up commit or push in `require` is restricted to allowlisted PRISM-managed paths such as `.prism/**`, `docs/prism/**`, and `PRISM.md`."
+      },
+      {
+        "anchors": [],
+        "label": "The path from pending publication to completed is idempotent and cannot report a false completed state when publication fails."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 119
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn8n9w0r3ydrfs64cdy58t12"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn8yzs3354nger6td7q3x24r",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn8n8v0ns6jcj0xgge5f0adv",
+    "priority": 94,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Define `require` as the recommended safe mode: verify explicit git/workflow invariants, require intentionally committed user-code changes, let PRISM finalize only allowlisted PRISM-managed projection files, and eliminate any remaining broad auto-publication behavior.",
+    "tags": [],
+    "title": "Finalize strict require mode with explicit freshness policy and PRISM-only projection commits",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
