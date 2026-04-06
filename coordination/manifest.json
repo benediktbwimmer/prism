@@ -1,21 +1,22 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775478127,
+  "publishedAt": 1775479061,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
+    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
   },
   "workContext": {
-    "workId": "work:plan-shared-runtime-db-removal:01knhbv1kcybb7j0y21e1xnmq0",
-    "kind": "ad_hoc",
-    "title": "Plan shared runtime DB removal",
-    "summary": "Create a detailed PRISM execution plan to eliminate the shared runtime SQLite backend and replace its responsibilities with shared refs, local SQLite, and federated runtime reads."
+    "workId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
+    "kind": "coordination",
+    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
+    "coordinationTaskId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
+    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
+    "planTitle": "Implement shared coordination v1 architecture hardening"
   },
   "publishSummary": {
-    "title": "Plan shared runtime DB removal",
-    "summary": "Create a detailed PRISM execution plan to eliminate the shared runtime SQLite backend and replace its responsibilities with shared refs, local SQLite, and federated runtime reads."
+    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age."
   },
   "files": {
     "coordination/tasks/coord-task-01kmwxtrc6vbrsmv2xx2phnv8k-9f766974541452bf.json": {
@@ -40,18 +41,18 @@
     },
     "coordination/tasks/coord-task-01kng1zsbvzhcbyhfvgy0rwcy6-cf3c02b93cc3ba37.json": {
       "path": "coordination/tasks/coord-task-01kng1zsbvzhcbyhfvgy0rwcy6-cf3c02b93cc3ba37.json",
-      "sha256": "sha256:54e3e1343200e45112dffc4707454ba001a34789bd31638cd00f00fbe93b1b46"
+      "sha256": "sha256:9112c9f4a2c433c7f103691930295a9e8dec854bab727933aaf5a3caf7062c5f"
     },
     "coordination/tasks/coord-task-01kng427001ndsrj10d0z5mcez-31bc0a99ab81d568.json": {
       "path": "coordination/tasks/coord-task-01kng427001ndsrj10d0z5mcez-31bc0a99ab81d568.json",
-      "sha256": "sha256:334a42cf987a10c49ab630936ed1f758702fbfd75affd86fecc770d9214a3805"
+      "sha256": "sha256:1ae8779b140e3a82559d5a8ad4bf48a4380b45b5b956968f62317283b65a24c8"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
       "sha256": "sha256:2c4b1f38da5cdda3925eb11752b84e8b5a18b6e828dba9002c698fb09d420bd4"
     }
   },
-  "previousManifestDigest": "sha256:9a4f337e51362015bee6ea8f12894bcddd0ac2abdc2fd377c9e3cbec5ece6500",
+  "previousManifestDigest": "sha256:4c0c2710a7ec722830e5382e514d67808640c7beab02b427d0baca665755c041",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -61,6 +62,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:/uS8T0LSVRoExTNNBGFAYHpkPvtGAD9OgpRKsuZ23+Uy5DO0BMUtVitokPP0Ga03R6Ukpw22ON7uT9aeEiYIDg=="
+    "value": "base64:sXTPxkridMd24WpOuRTrcA6Lub+wTnGi9E81RcI4bWr0/o+PoqP1isfkOepCGK0NKTmzo1q3FVcYc2llHKdoAw=="
   }
 }
