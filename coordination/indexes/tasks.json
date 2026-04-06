@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kmwmxn7rrwce389gmwgw91r9",
+    "title": "Phase 5: Push pure logic tests down into the owning crates",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kmwmxn7rrwce389gmwgw91r9-3df07f87eb6136c1.json"
+  },
+  {
+    "id": "coord-task:01kn2nj66tmkgxqtv0f02fy1qc",
+    "title": "Align MCP schemas, vocab, and query surfaces with the full first-class plans contract",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj66tmkgxqtv0f02fy1qc-016c90c9a4bf04e4.json"
+  },
+  {
+    "id": "coord-task:01kn3p2xd54tw03hvpwb7bgd9c",
+    "title": "Add principal, authority, credential, and capability primitives to shared runtime state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p2xd54tw03hvpwb7bgd9c-bec80dd9bc320e81.json"
+  }
+]
