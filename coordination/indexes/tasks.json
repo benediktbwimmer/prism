@@ -4,5 +4,11 @@
     "title": "Treat coordination read models and queue models as lagging caches instead of blocking writes",
     "status": "Ready",
     "path": "tasks/coord-task-01knc6e8tbctzsqh0ngt4963ak-182ed4fab2e00199.json"
+  },
+  {
+    "id": "coord-task:01knhbwet7hsjvz5yxsf0381dv",
+    "title": "Rebase federated peer reads and runtime-targeted query routing on runtime descriptors and runtime_id",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbwet7hsjvz5yxsf0381dv-a88cb1157edf4c69.json"
   }
 ]

@@ -1,35 +1,37 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775448521,
+  "publishedAt": 1775478127,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
+    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "coord-task:01kng427002152wgffzt627rta",
-    "kind": "coordination",
-    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
-    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics.",
-    "coordinationTaskId": "coord-task:01kng427002152wgffzt627rta",
-    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
-    "planTitle": "Implement shared coordination v1 architecture hardening"
+    "workId": "work:plan-shared-runtime-db-removal:01knhbv1kcybb7j0y21e1xnmq0",
+    "kind": "ad_hoc",
+    "title": "Plan shared runtime DB removal",
+    "summary": "Create a detailed PRISM execution plan to eliminate the shared runtime SQLite backend and replace its responsibilities with shared refs, local SQLite, and federated runtime reads."
   },
   "publishSummary": {
-    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
-    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics."
+    "title": "Plan shared runtime DB removal",
+    "summary": "Create a detailed PRISM execution plan to eliminate the shared runtime SQLite backend and replace its responsibilities with shared refs, local SQLite, and federated runtime reads."
   },
   "files": {
     "coordination/tasks/coord-task-01knc6e8tbctzsqh0ngt4963ak-182ed4fab2e00199.json": {
       "path": "coordination/tasks/coord-task-01knc6e8tbctzsqh0ngt4963ak-182ed4fab2e00199.json",
       "sha256": "sha256:64330c16190a794e8c32d6b51e4b8be8f9d13326d51feee71819f8239f6e6b5e"
     },
+    "coordination/tasks/coord-task-01knhbwet7hsjvz5yxsf0381dv-a88cb1157edf4c69.json": {
+      "path": "coordination/tasks/coord-task-01knhbwet7hsjvz5yxsf0381dv-a88cb1157edf4c69.json",
+      "sha256": "sha256:556e8b35583154365c8a993aecaa9caf5b1bb32655c48f8cd3fc5a9a9e29b774"
+    },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:1513985d05e941a4fffcf00d002ae63d80931c106e777e05164f8575f8fee294"
+      "sha256": "sha256:8b3332058c4aff97b0f5ee1fd6c5080f99bafcd8a3e378b5ac0c56ceb5887ee6"
     }
   },
+  "previousManifestDigest": "sha256:31fa2e821beab21fef57da5a40873b7095be77394d6b6d42ce9864e42fdaa221",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -39,6 +41,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:FKmTzU0O4cSvmClJ3DBr53oOLs1VgeHfUT5FvWCPt4SvTNwy/JYUzhkMTOAB96I0sFCyE65HuHZ3Hp+sbiGjAg=="
+    "value": "base64:eHQRRF0dgtP5cD8JsqXXFympQJoguP4DHWPr6c5/bcpqzM967GRUEBiwS1Z2BrlG1Ep4ZFAvkfQ2/eVo565SAg=="
   }
 }
