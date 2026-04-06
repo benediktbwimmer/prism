@@ -21,7 +21,7 @@
     "assignee": "codex-a",
     "base_revision": {
       "git_commit": null,
-      "graph_version": 114
+      "graph_version": 227
     },
     "bindings": {
       "anchors": [
@@ -65,33 +65,23 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775497202,
-    "lease_holder": {
-      "agent_id": "codex-a",
-      "principal": {
-        "authority_id": "worktree_executor",
-        "kind": "agent",
-        "name": "codex-a",
-        "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
-      },
-      "session_id": "session:01knhppkydn5ffgd4mm2m84fmx",
-      "worktree_id": "worktree:38d65972b1359401"
-    },
-    "lease_refreshed_at": 1775490002,
-    "lease_stale_at": 1775491802,
-    "lease_started_at": 1775478127,
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01knhbwesj53rq8f301x6r51qj",
     "priority": null,
     "published_task_status": null,
     "session": "session:01knhppkydn5ffgd4mm2m84fmx",
-    "status": "Ready",
+    "status": "Completed",
     "summary": null,
     "tags": [],
     "title": "Lock the cutover contract and responsibility map for removing shared runtime SQLite",
     "validation_refs": [],
-    "worktree_id": "worktree:38d65972b1359401"
+    "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "schema_version": 1
 }
