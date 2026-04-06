@@ -81,6 +81,13 @@ impl ProtectedStateImportSelection {
 }
 
 pub(crate) fn load_repo_protected_knowledge(root: &Path) -> Result<RepoProtectedKnowledge> {
+    if !has_repo_protected_state(root) {
+        return Ok(RepoProtectedKnowledge {
+            curated_concepts: Vec::new(),
+            curated_contracts: Vec::new(),
+            concept_relations: Vec::new(),
+        });
+    }
     let snapshot_concepts = load_concept_snapshots(root)?;
     let snapshot_contracts = load_contract_snapshots(root)?;
     let snapshot_relations = load_relation_snapshots(root)?;
@@ -105,6 +112,9 @@ pub(crate) fn sync_repo_protected_state<S: prism_store::EventJournalStore>(
     root: &Path,
     store: &mut S,
 ) -> Result<ProtectedStateSyncReport> {
+    if !has_repo_protected_state(root) {
+        return Ok(ProtectedStateSyncReport::default());
+    }
     let imported_memory_events = sync_repo_memory_stream(root, store)?;
     let imported_patch_events = sync_repo_patch_stream(root, store)?;
     Ok(ProtectedStateSyncReport {
@@ -118,6 +128,9 @@ pub(crate) fn sync_selected_repo_protected_state<S: prism_store::EventJournalSto
     store: &mut S,
     selection: ProtectedStateImportSelection,
 ) -> Result<ProtectedStateSyncReport> {
+    if selection.is_empty() || !has_repo_protected_state(root) {
+        return Ok(ProtectedStateSyncReport::default());
+    }
     let imported_memory_events = if selection.memory {
         sync_repo_memory_stream(root, store)?
     } else {
@@ -196,4 +209,41 @@ fn load_repo_contract_stream(root: &Path) -> Result<Vec<ContractPacket>> {
 
 fn load_repo_concept_relation_stream(root: &Path) -> Result<Vec<ConceptRelation>> {
     load_repo_concept_relations(root)
+}
+
+fn has_repo_protected_state(root: &Path) -> bool {
+    root.join(".prism").is_dir()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use prism_ir::new_sortable_token;
+    use prism_store::MemoryStore;
+
+    use super::*;
+
+    #[test]
+    fn missing_prism_dir_skips_protected_state_imports() {
+        let root = std::env::temp_dir().join(format!(
+            "prism-runtime-sync-{}",
+            new_sortable_token()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("temp workspace should be created");
+
+        let knowledge =
+            load_repo_protected_knowledge(&root).expect("protected knowledge load should succeed");
+        assert!(knowledge.curated_concepts.is_empty());
+        assert!(knowledge.curated_contracts.is_empty());
+        assert!(knowledge.concept_relations.is_empty());
+
+        let mut store = MemoryStore::default();
+        let report = sync_repo_protected_state(&root, &mut store)
+            .expect("protected state sync should succeed");
+        assert_eq!(report, ProtectedStateSyncReport::default());
+
+        let _ = fs::remove_dir_all(root);
+    }
 }

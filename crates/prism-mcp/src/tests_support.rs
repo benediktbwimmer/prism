@@ -12,17 +12,17 @@ use axum::Router;
 use rmcp::{
     model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
     transport::{
-        streamable_http_server::session::local::LocalSessionManager, StreamableHttpServerConfig,
-        StreamableHttpService, Transport,
+        StreamableHttpServerConfig, StreamableHttpService, Transport,
+        streamable_http_server::session::local::LocalSessionManager,
     },
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::*;
 use prism_core::{
-    default_workspace_shared_runtime, index_workspace_session,
-    index_workspace_session_with_options, BootstrapOwnerInput, PrismPaths, WorkspaceSessionOptions,
-    WorktreeMode, WorktreeRegistrationRecord,
+    BootstrapOwnerInput, PrismPaths, WorkspaceSessionOptions, WorktreeMode,
+    WorktreeRegistrationRecord, default_workspace_shared_runtime, index_workspace_session,
+    index_workspace_session_with_options,
 };
 use prism_ir::new_sortable_token;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
@@ -70,6 +70,7 @@ pub(crate) fn ensure_process_test_prism_home() -> &'static PathBuf {
         unsafe {
             env::set_var("PRISM_HOME", &path);
             env::set_var("PRISM_TEST_DISABLE_LIVE_WATCHERS", "1");
+            env::set_var("PRISM_TEST_DISABLE_DEFAULT_SHARED_RUNTIME", "1");
         }
         path
     })
