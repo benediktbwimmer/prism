@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn9hnzqwjgfenrc5tf2jdxsw",
+    "title": "Rework hot and cold startup around snapshot restore and cheap journal reconciliation",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hnzqwjgfenrc5tf2jdxsw-69720e776292d260.json"
+  },
+  {
+    "id": "coord-task:01kndb7x9n5300xxs03x6vwypc",
+    "title": "Add fast admissibility and stale-lease rejection checks ahead of expensive git preflight work",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb7x9n5300xxs03x6vwypc-179e653f54f4f158.json"
+  }
+]
