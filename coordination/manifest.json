@@ -1,24 +1,22 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775478173,
+  "publishedAt": 1775478839,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "work:ship-deterministic-v1-to-v2-migration-path:01knh793qggqjva8647mzz7q7f",
+    "workId": "coord-task:01kng20jnn31h2n6ana91ja67d",
     "kind": "coordination",
-    "title": "Ship deterministic v1-to-v2 migration path",
-    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite.",
-    "coordinationTaskId": "coord-task:01kng209dwy330am5tc7qr7z74",
+    "title": "Rewrite the coordination query runtime and MCP surface around plan and task reads, direct children, typed dependencies, actionable_tasks(principal), and v2 transaction-first mutations",
+    "coordinationTaskId": "coord-task:01kng20jnn31h2n6ana91ja67d",
     "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
     "planTitle": "Implement the canonical PRISM coordination graph rewrite"
   },
   "publishSummary": {
-    "title": "Ship deterministic v1-to-v2 migration path",
-    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite."
+    "title": "Rewrite the coordination query runtime and MCP surface around plan and task reads, direct children, typed dependencies, actionable_tasks(principal), and v2 transaction-first mutations"
   },
   "files": {
     "coordination/tasks/coord-task-01kn80bmhav84s54wm0j8rt3am-e0ab175763e1538b.json": {
@@ -31,14 +29,14 @@
     },
     "coordination/tasks/coord-task-01kng20jnn31h2n6ana91ja67d-935c83de7639b4cf.json": {
       "path": "coordination/tasks/coord-task-01kng20jnn31h2n6ana91ja67d-935c83de7639b4cf.json",
-      "sha256": "sha256:65a808cf5816bd859af8ceab2125dee32f21cf523c50df650e2a0dd0e0984ae4"
+      "sha256": "sha256:95fcb2c88118a1a10ee5d11b0c5e428fbcaeb250faa3649e3c53acd79bff6e5b"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
       "sha256": "sha256:75fb1eb1e3049c8da37a560f01a9d214ee8e65b0493c14c665b6ba10cad8fda8"
     }
   },
-  "previousManifestDigest": "sha256:eaeea4102a2866c073b697d14b9e8e950fadc88ed7e99c875de94c7dd1d68ea4",
+  "previousManifestDigest": "sha256:c5361f200de70e600588d7f376326c6393929ca191903a336c4faadfa80f3f82",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -48,6 +46,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:hNv3euuq0Ctg9OB3ymHmrZOKIdchyxU8ID34ZTm0sXfEYetOLRPwnInHMB+LuZgQs1lLA3Kw7jz7mmz4E7M6CQ=="
+    "value": "base64:Lf3QUH115ZvxSGFqfqCrP698+b9+6iWTaizTG1iPjp2wfHJOePUW+bp0C6cggnuuIBDVpctBk/W3wDkh56qsBg=="
   }
 }

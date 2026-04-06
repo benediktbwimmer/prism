@@ -36,7 +36,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": null,
+    "branch_ref": "refs/heads/task/coordination-query-mcp-rewrite",
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng1zj0hgqv438pm4hg6jy66",
@@ -66,7 +66,7 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775441422,
+    "lease_expires_at": 1775486039,
     "lease_holder": {
       "agent_id": "codex-a",
       "principal": {
@@ -75,24 +75,24 @@
         "name": "codex-a",
         "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
       },
-      "session_id": "session:01kng1sakrhbd4v3h17aypr7ph",
+      "session_id": "session:01knhcg9w3rq7f7rvfzsvdz7kr",
       "worktree_id": "worktree:38d65972b1359401"
     },
-    "lease_refreshed_at": 1775434222,
-    "lease_stale_at": 1775436022,
+    "lease_refreshed_at": 1775478839,
+    "lease_stale_at": 1775480639,
     "lease_started_at": 1775434222,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
     "priority": null,
     "published_task_status": null,
-    "session": null,
+    "session": "session:01knhcg9w3rq7f7rvfzsvdz7kr",
     "status": "Ready",
     "summary": null,
     "tags": [],
     "title": "Rewrite the coordination query runtime and MCP surface around plan and task reads, direct children, typed dependencies, actionable_tasks(principal), and v2 transaction-first mutations",
     "validation_refs": [],
-    "worktree_id": null
+    "worktree_id": "worktree:38d65972b1359401"
   },
   "schema_version": 1
 }
