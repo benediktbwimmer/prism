@@ -16,5 +16,11 @@
     "title": "Warm follow-up coordination mutation",
     "status": "Ready",
     "path": "tasks/coord-task-01kn8vptjxtbw2tnffjg5gsf9e-7ed64671a4b920da.json"
+  },
+  {
+    "id": "coord-task:01knhd3xj8rcz00jp3gz53kfxa",
+    "title": "Inventory cross-layer coupling and freeze the target layer contract",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhd3xj8rcz00jp3gz53kfxa-3be362071ae6423a.json"
   }
 ]
