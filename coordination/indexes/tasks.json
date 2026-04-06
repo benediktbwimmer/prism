@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn0c0vv128bn1qyntk6nbenq",
+    "title": "Universal request envelope",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0c0vv128bn1qyntk6nbenq-6b7a247aa853ad97.json"
+  },
+  {
+    "id": "coord-task:01kn2edqnp3sj59dpc6qzv6ba0",
+    "title": "Validate the performance-beast end state and remove backsliding surfaces",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqnp3sj59dpc6qzv6ba0-8f7cfd06ba2923f6.json"
+  },
+  {
+    "id": "coord-task:01knb0hxhtfxwqc1nm64dzjckx",
+    "title": "Move shared-ref fetch, verification, and import into an explicit sync path",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knb0hxhtfxwqc1nm64dzjckx-facb544e6c9a90b7.json"
+  },
+  {
+    "id": "coord-task:15",
+    "title": "Demote DB and snapshot hydration to optional startup or durability concerns",
+    "status": "Completed",
+    "path": "tasks/coord-task-15-4400379b138733c6.json"
+  }
+]
