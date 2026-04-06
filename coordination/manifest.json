@@ -1,29 +1,27 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775476522,
+  "publishedAt": 1775476604,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
   },
   "workContext": {
-    "workId": "coord-task:01kng42700xw977d4tq1ebr30s",
+    "workId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
     "kind": "coordination",
-    "title": "Refactor the read path and materializer so the repo-wide summary ref is a compact derived read model with explicit freshness visibility and authoritative fallback reads from shard and runtime refs when needed.",
-    "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy.",
-    "coordinationTaskId": "coord-task:01kng42700xw977d4tq1ebr30s",
+    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
+    "coordinationTaskId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
     "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
     "planTitle": "Implement shared coordination v1 architecture hardening"
   },
   "publishSummary": {
-    "title": "Refactor the read path and materializer so the repo-wide summary ref is a compact derived read model with explicit freshness visibility and authoritative fallback reads from shard and runtime refs when needed.",
-    "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy."
+    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age."
   },
   "files": {
     "coordination/tasks/coord-task-01kng42700xw977d4tq1ebr30s-cd7ef9c51d3bf3b9.json": {
       "path": "coordination/tasks/coord-task-01kng42700xw977d4tq1ebr30s-cd7ef9c51d3bf3b9.json",
-      "sha256": "sha256:b66c0fbd393099910bf6d8c860cfe9dfbd1dbab401d7fe73de6fa1216520b24e"
+      "sha256": "sha256:62581c32df5484171834390955987ee3b09de054670d5e5112214a963a697de4"
     },
     "coordination/tasks/coord-task-18-c1ed32e474cc703d.json": {
       "path": "coordination/tasks/coord-task-18-c1ed32e474cc703d.json",
@@ -34,7 +32,7 @@
       "sha256": "sha256:f7b358697c56f01640e7045a3bfa904c5336897ca0efa86133a4d0f980abdfe7"
     }
   },
-  "previousManifestDigest": "sha256:ea7055fb69e92963a6ef89e2c5a1e9690d3157242efeeb571f233b72fb65d434",
+  "previousManifestDigest": "sha256:f459abad33b7cac2f5e3571e9a6e86c9aef1f41cd902f40fc2d5f076a71dca79",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -44,6 +42,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:XZ3MKNQ2hWYSE1iy+xwurFtix6Ce5OnKRXADU69NJCg+QNZfsXYZtp+7zOxdCYMqVV5LkWDxkm5JzQLa++QfDw=="
+    "value": "base64:juS0YXPxfCmuurWL1cA14m1lg1h0YiqlRmFCL0meuXPwPMDZQ6euFjxnhAGT36pWyz2Fp3WhUq0m1wsedMg8BA=="
   }
 }
