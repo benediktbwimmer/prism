@@ -1471,7 +1471,6 @@ pub(crate) fn coordination_task_view_from_v2(
         .or_else(|| metadata_string(&value.task.metadata, "legacy_pending_handoff_to"));
     let status = compatibility_coordination_task_status(
         &value,
-        published_task_status,
         pending_handoff_to.as_deref(),
     );
     let lifecycle = coordination_task_lifecycle_view(status, &value.task.git_execution);
@@ -2057,7 +2056,7 @@ fn effective_coordination_task_status(
     if task.pending_handoff_to.is_some() {
         prism_ir::CoordinationTaskStatus::Blocked
     } else {
-        task.published_task_status.unwrap_or(task.status)
+        task.status
     }
 }
 
@@ -2077,15 +2076,10 @@ fn compatibility_plan_status(status: prism_ir::DerivedPlanStatus) -> prism_ir::P
 
 fn compatibility_coordination_task_status(
     task: &CoordinationTaskV2,
-    published_task_status: Option<prism_ir::CoordinationTaskStatus>,
     pending_handoff_to: Option<&str>,
 ) -> prism_ir::CoordinationTaskStatus {
     if pending_handoff_to.is_some() {
         prism_ir::CoordinationTaskStatus::Blocked
-    } else if let Some(status) = published_task_status {
-        status
-    } else if let Some(status) = metadata_compat_phase_status(&task.task.metadata) {
-        status
     } else {
         compatibility_effective_task_status(task.status)
     }
@@ -2140,17 +2134,6 @@ fn metadata_compat_task_status(
         "validating" => Some(prism_ir::CoordinationTaskStatus::Validating),
         "completed" => Some(prism_ir::CoordinationTaskStatus::Completed),
         "abandoned" => Some(prism_ir::CoordinationTaskStatus::Abandoned),
-        _ => None,
-    })
-}
-
-fn metadata_compat_phase_status(
-    metadata: &serde_json::Value,
-) -> Option<prism_ir::CoordinationTaskStatus> {
-    metadata_string(metadata, "legacy_phase").and_then(|value| match value.as_str() {
-        "blocked" => Some(prism_ir::CoordinationTaskStatus::Blocked),
-        "in_review" => Some(prism_ir::CoordinationTaskStatus::InReview),
-        "validating" => Some(prism_ir::CoordinationTaskStatus::Validating),
         _ => None,
     })
 }

@@ -7420,7 +7420,7 @@ fn coordination_inbox_and_task_brief_share_authoritative_task_backed_status() {
                 title: "Reconcile task-backed node status".into(),
                 summary: None,
                 status: prism_ir::CoordinationTaskStatus::Completed,
-                published_task_status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                published_task_status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 pending_handoff_to: None,
                 session: None,
@@ -7494,8 +7494,12 @@ fn coordination_inbox_and_task_brief_share_authoritative_task_backed_status() {
         .execute(
             test_session(&host),
             &format!(
-                r#"return {{ inbox: prism.coordinationInbox("{}") }};"#,
-                plan_id.0
+                r#"return {{
+                    inbox: prism.coordinationInbox("{}"),
+                    task: prism.task("{}"),
+                }};"#,
+                plan_id.0,
+                task_id.0
             ),
             QueryLanguage::Ts,
         )
@@ -7511,6 +7515,14 @@ fn coordination_inbox_and_task_brief_share_authoritative_task_backed_status() {
     assert_eq!(
         envelope.result["inbox"]["planSummary"]["completedNodes"],
         Value::from(1)
+    );
+    assert_eq!(
+        envelope.result["task"]["status"],
+        Value::String("Completed".to_string())
+    );
+    assert_eq!(
+        envelope.result["task"]["publishedTaskStatus"],
+        Value::String("Ready".to_string())
     );
 
     let brief = host

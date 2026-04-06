@@ -893,6 +893,7 @@ async fn mcp_server_exposes_canonical_v2_coordination_query_views() {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
+                authored_nodes: Vec::new(),
                 authored_edges: Vec::new(),
                 root_tasks: vec![
                     worktree_task_id.clone(),

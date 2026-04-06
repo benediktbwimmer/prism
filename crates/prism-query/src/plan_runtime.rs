@@ -1499,7 +1499,7 @@ fn effective_coordination_task_status(task: &CoordinationTask) -> prism_ir::Coor
     if task.pending_handoff_to.is_some() {
         prism_ir::CoordinationTaskStatus::Blocked
     } else {
-        task.published_task_status.unwrap_or(task.status)
+        task.status
     }
 }
 
