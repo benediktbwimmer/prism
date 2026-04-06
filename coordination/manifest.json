@@ -1,21 +1,22 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775497426,
+  "publishedAt": 1775498338,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01knhnfx3b5vg4msz1kxt9z1db",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01knhnfx3b5vg4msz1kxt9z1db"
+    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "work:plan-bridge-driven-lease-renewal-and-prism-run-flight-recorder:01knhnjhf2n140ew2dyv8frdaa",
-    "kind": "ad_hoc",
-    "title": "Plan bridge-driven lease renewal and prism run flight recorder",
-    "summary": "Create the execution plan for automatic write-bridge lease renewal backed by worktree-local lease activity persistence, prism run command telemetry, compact authoritative lease summaries, and richer federated runtime inspection."
+    "workId": "coord-task:01knhbwetedap4tdgcgz66yfkk",
+    "kind": "coordination",
+    "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
+    "coordinationTaskId": "coord-task:01knhbwetedap4tdgcgz66yfkk",
+    "planId": "plan:01knhbwesj53rq8f301x6r51qj",
+    "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
   },
   "publishSummary": {
-    "title": "Plan bridge-driven lease renewal and prism run flight recorder",
-    "summary": "Create the execution plan for automatic write-bridge lease renewal backed by worktree-local lease activity persistence, prism run command telemetry, compact authoritative lease summaries, and richer federated runtime inspection."
+    "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths"
   },
   "files": {
     "coordination/artifacts/artifact-01kndqq186jevjwftx2dmwp2ez-402f2ed5b78fa885.json": {
@@ -53,6 +54,10 @@
     "coordination/runtimes/instance-15297-worktree-84a3f98283a83dd5-1775489543452-a50a843534a7f30f.json": {
       "path": "coordination/runtimes/instance-15297-worktree-84a3f98283a83dd5-1775489543452-a50a843534a7f30f.json",
       "sha256": "sha256:59112016212769c9aa7d9fd4f23b51642127416fcff9b4950e99e8ad9c02e946"
+    },
+    "coordination/runtimes/instance-15508-worktree-38d65972b1359401-1775498213358-456fb03c05a7ef2d.json": {
+      "path": "coordination/runtimes/instance-15508-worktree-38d65972b1359401-1775498213358-456fb03c05a7ef2d.json",
+      "sha256": "sha256:38029204a4132ea8f956531f970223fcb1fb167a19f6bbb1426da214d79b72ba"
     },
     "coordination/runtimes/instance-18730-worktree-8719dd7db144e96f-1775468135115-af4bfb4d4a2a3a29.json": {
       "path": "coordination/runtimes/instance-18730-worktree-8719dd7db144e96f-1775468135115-af4bfb4d4a2a3a29.json",
@@ -158,6 +163,10 @@
       "path": "coordination/runtimes/instance-53393-worktree-84a3f98283a83dd5-1775476662304-cba62336422ae8ef.json",
       "sha256": "sha256:debb69ed75beb005f4148c9135fa8f908e13d2b50ae1587f482cea2ad7cf28ae"
     },
+    "coordination/runtimes/instance-54037-worktree-8719dd7db144e96f-1775497973758-fd0e4ee1705024f5.json": {
+      "path": "coordination/runtimes/instance-54037-worktree-8719dd7db144e96f-1775497973758-fd0e4ee1705024f5.json",
+      "sha256": "sha256:f12117887e01e3381173e3d23a879c3c391e6a705decdc916fe8ff55dbd3c935"
+    },
     "coordination/runtimes/instance-5441-worktree-8719dd7db144e96f-1775470624519-3cd282ff8326c05c.json": {
       "path": "coordination/runtimes/instance-5441-worktree-8719dd7db144e96f-1775470624519-3cd282ff8326c05c.json",
       "sha256": "sha256:82d9c72d7cb3c7731bb55196c04e2aef1267a7ceae115f5ad996c562a3145de5"
@@ -261,6 +270,10 @@
     "coordination/runtimes/instance-87800-worktree-38d65972b1359401-1775492257353-aedd97c25d497a27.json": {
       "path": "coordination/runtimes/instance-87800-worktree-38d65972b1359401-1775492257353-aedd97c25d497a27.json",
       "sha256": "sha256:48ac9021d5d1333b0b908d554c79392d5f37271dececc9978577476b93c5ec65"
+    },
+    "coordination/runtimes/instance-88595-worktree-84a3f98283a83dd5-1775498200452-cc12da347edc049a.json": {
+      "path": "coordination/runtimes/instance-88595-worktree-84a3f98283a83dd5-1775498200452-cc12da347edc049a.json",
+      "sha256": "sha256:9ba06ad8581703450b06f7dea94952882920f7e07891eda318d75a6e3f545c45"
     },
     "coordination/runtimes/instance-88666-worktree-38d65972b1359401-1775482639849-d40f87cf8daf0e6c.json": {
       "path": "coordination/runtimes/instance-88666-worktree-38d65972b1359401-1775482639849-d40f87cf8daf0e6c.json",
@@ -2024,7 +2037,7 @@
     },
     "coordination/tasks/coord-task-01kng209dwy330am5tc7qr7z74-922e3dffcc0aa73a.json": {
       "path": "coordination/tasks/coord-task-01kng209dwy330am5tc7qr7z74-922e3dffcc0aa73a.json",
-      "sha256": "sha256:7bafc30e5858c112d6278608fe94db2019ce88ac88de0cad06ec52cd5bbd41b2"
+      "sha256": "sha256:ab4f5a373e0e04153e2098c04e726b2d9e284c20a1eba101c3e1690455306a89"
     },
     "coordination/tasks/coord-task-01kng20jnn31h2n6ana91ja67d-935c83de7639b4cf.json": {
       "path": "coordination/tasks/coord-task-01kng20jnn31h2n6ana91ja67d-935c83de7639b4cf.json",
@@ -2036,7 +2049,7 @@
     },
     "coordination/tasks/coord-task-01kng213sqtqtx0b9z20eqbnyn-ffddc3d9ebf566ef.json": {
       "path": "coordination/tasks/coord-task-01kng213sqtqtx0b9z20eqbnyn-ffddc3d9ebf566ef.json",
-      "sha256": "sha256:5d9acc02edb39d1da85cc936b1af100044f097112c6c07e6dc03eabb41f51c11"
+      "sha256": "sha256:1c9e90f59406821f95582a37c6712a9c20ec6310bab0478b595a6c5bd5f0e147"
     },
     "coordination/tasks/coord-task-01kng21djsaqeyx517swg2skdq-73b2de239f1ee4c8.json": {
       "path": "coordination/tasks/coord-task-01kng21djsaqeyx517swg2skdq-73b2de239f1ee4c8.json",
@@ -2384,11 +2397,11 @@
     },
     "indexes/runtimes.json": {
       "path": "indexes/runtimes.json",
-      "sha256": "sha256:3505011cef32cba291e7e257bd86f360f4df975a6208ed4723ebdc7340adeb63"
+      "sha256": "sha256:bbb93f1fa9041aeda67247565d9186c61f062ad72bf97004a3cb258d3bc00221"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:1d5d16769dce3da8dd228f87563190afc639a11bfd5e543de1fd3d7f232f7d7a"
+      "sha256": "sha256:60d3b689bdc24aa105e8939d160bab4a62821f421dc100a6227e686693238ff1"
     },
     "plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json": {
       "path": "plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json",
@@ -2744,14 +2757,14 @@
     },
     "v2/snapshot.json": {
       "path": "v2/snapshot.json",
-      "sha256": "sha256:bd25da2d07da89acfcb5e57f5360d123561d8c6dfc0f94590a887445df03e171"
+      "sha256": "sha256:194f795ea359cb361e9566cef83cead32a5e589f62c3f8764a68cdb163d1d13b"
     }
   },
-  "previousManifestDigest": "sha256:fc319542ca38e75f81617ff019995399b8c1de87efd1993d66313f9fabdff04b",
+  "previousManifestDigest": "sha256:89b6bc9448a4f98005843b18362b580053d04ee176999adcf39ed913cbb0d617",
   "summarySources": {
     "taskShardHeads": {
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/02": "770995ff2b8722ac617b974407d7389ec962d759",
-      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/04": "fc9bd6f3425017cbe5fc2b018b2490de4a16a1af",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/04": "92181f45a1c59328af9e62fad1a099637022e989",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/05": "d860ce77f2f54ce877579e6194c772e554a91740",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/06": "15a5cc2da850d15e2a7223d8ed2eb2bac594e5bb",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/07": "6fdf6f12dfd24d7ef78527bffb0dae2e978b41b9",
@@ -2824,7 +2837,7 @@
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/57": "ce176a568916fecca81093d9a902ecb3006ee261",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/58": "db589006a00af5066d7353af8e7d1386d01feba1",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/59": "cd4b8a6085cb7e22a8bd0b8351611d577beb7f82",
-      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/5a": "bd21f6fd3a8917557ec1361793545d5ecc190ba7",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/5a": "870c16b31668d035c63f3fdd467f11b53d7a3ea3",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/5c": "22a2ee2b74433de9a7fbbc305b11bf6326d4da42",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/5d": "f9fa5d8ddbabba97b9a828e5d42e0a3d212e2faa",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/5e": "8463c8df246e1df5358f22ce0d3d27dd42ea9b4c",
@@ -2908,7 +2921,7 @@
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/b8": "01521624c98bc03937faa7832e8d920176524c8f",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/b9": "713860ad3d0e8dc826073415530751a263b1ca1e",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/ba": "4908c56fb904d08492ef80fa86459bfd08000c24",
-      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/bb": "2225a97f5546fb8540c6bd28edd27cf65afad173",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/bb": "62ab69e09478ee922d6dfe2ad359cc7044bd6a93",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/bc": "d19aa5213ac20a24ec9f0920f1163d7b33cd4619",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/bd": "2b4ed32e1d4e06cf6d6a68c9c22637c70dff22a9",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/be": "3672c81ed38ca4676070aa63b68f0b89093db6de",
@@ -2980,6 +2993,7 @@
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-13116-worktree-8719dd7db144e96f-1775472894331-9ec0797db6904154": "8942807cc298edbec59f7e9ea29855d567b6021d",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-14001-worktree-38d65972b1359401-1775488000835-6e4cfef2254c4004": "8f561a005ee7e715579a984dc894c8b28b610f8a",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-15297-worktree-84a3f98283a83dd5-1775489543452-a50a843534a7f30f": "58c00d94c190b3708279aca20e4aeea82c6bd49f",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-15508-worktree-38d65972b1359401-1775498213358-456fb03c05a7ef2d": "79751775e8f22adbb78d73a3abd9586b80362287",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-18730-worktree-8719dd7db144e96f-1775468135115-af4bfb4d4a2a3a29": "788d65f87ff9b4daf6edf6e8475db0dde5dd6de2",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-19256-worktree-38d65972b1359401-1775475522150-98e77b04a7a60430": "148e6f544171746eaf0d8bf743f84564ee0a9513",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-19610-worktree-84a3f98283a83dd5-1775481121788-b912847c6a5f9738": "38ce6b5363d2f0da35ea62fe95481e65be79517c",
@@ -3006,6 +3020,7 @@
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-52277-worktree-38d65972b1359401-1775486860742-442ef0318f6cd158": "5ab4e9e60dc8666b5fba5ecd44563cc38cc2d696",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-53135-worktree-84a3f98283a83dd5-1775488078141-c9c637d856d69484": "a5beec56aaa22321694dcd3e06fa09df5a27564c",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-53393-worktree-84a3f98283a83dd5-1775476662304-cba62336422ae8ef": "a632b9f73367b5875ad8b25e388ccead9a2f458d",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-54037-worktree-8719dd7db144e96f-1775497973758-fd0e4ee1705024f5": "d74d3926190de510b031e698a524e553c525a27d",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-5441-worktree-8719dd7db144e96f-1775470624519-3cd282ff8326c05c": "3422424f4acc66f1b90f9dbb77ab6a986489c9b8",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-55332-worktree-38d65972b1359401-1775472906272-48abe93408c6966b": "d980f7bbd9d7a79329660565b11cdae31c0e8869",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-59014-worktree-84a3f98283a83dd5-1775494278281-68e549274a50b3eb": "11a837b2d1b7952540474b69bced3542700126f2",
@@ -3032,6 +3047,7 @@
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-83443-worktree-8719dd7db144e96f-1775480828243-92c65cabb688dec3": "e127363eec7af0970958cc6955c4141f53b347f2",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-8413-worktree-8719dd7db144e96f-1775472858466-26ccdf704bc21e8f": "42f7bdf39f83b10f23a0319793548d8750b2a2a0",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-87800-worktree-38d65972b1359401-1775492257353-aedd97c25d497a27": "a1017aa8de7be83f4cba5e8aca068b70cce791d6",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-88595-worktree-84a3f98283a83dd5-1775498200452-cc12da347edc049a": "38b59e4dcd7f0ad8936264e495cde4f206d5e505",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-88666-worktree-38d65972b1359401-1775482639849-d40f87cf8daf0e6c": "caf00c7d5346c834330c9b2fee125b168a16ad29",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-90391-worktree-8719dd7db144e96f-1775474467654-edd9836f31a21b7a": "e622fa2d3d16c472afe12992570d8d5a2867ec1a",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-9153-worktree-8719dd7db144e96f-1775485265015-3eb7f0f72ef57da7": "4e6d770fa5b925e2e9525c5b3a5be4a497ed07fe",
@@ -3057,6 +3073,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:fcyyQK3yhJESO8LadhgFubQ41pvAYJPPoFuQcGpdC7/wwHue8kbQK+7shmzIWTNVbDerxBCcjWl7l3sLOAQwBg=="
+    "value": "base64:SEQtzMj9MZueq57duqSCgx5M7G23vJen8NdArUIhjvxSACp+g2mCkleX8PRkHqimtj78eXwvX2kAPSV+AM0QBw=="
   }
 }

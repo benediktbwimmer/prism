@@ -2558,7 +2558,7 @@
   {
     "id": "coord-task:01kng209dwy330am5tc7qr7z74",
     "title": "Ship the deterministic v1-to-v2 migration path, dual-reader single-writer compatibility window, and compatibility aliases for legacy plan_node_create and plan_edge_create callers",
-    "status": "InProgress",
+    "status": "Completed",
     "path": "tasks/coord-task-01kng209dwy330am5tc7qr7z74-922e3dffcc0aa73a.json"
   },
   {
@@ -2576,7 +2576,7 @@
   {
     "id": "coord-task:01kng213sqtqtx0b9z20eqbnyn",
     "title": "Remove legacy execution-plan storage and compatibility-era authored graph constructs after the repo is v2-clean, including root_tasks, durable native plan nodes, and non-dependency execution edge kinds",
-    "status": "Ready",
+    "status": "InProgress",
     "path": "tasks/coord-task-01kng213sqtqtx0b9z20eqbnyn-ffddc3d9ebf566ef.json"
   },
   {
