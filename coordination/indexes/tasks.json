@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn2nj1t95nwaytv4gd7hd2k8",
+    "title": "Implement stale runtime-state process pruning and live-process filtering so daemon and bridge counts stay accurate without expensive broad process scans",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj1t95nwaytv4gd7hd2k8-345a682fba979815.json"
+  },
+  {
+    "id": "coord-task:01kn384q9273c7ak2baermst1v",
+    "title": "Triage and prioritize PRISM dogfooding improvements",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn384q9273c7ak2baermst1v-dc763500f6d4bf4b.json"
+  },
+  {
+    "id": "coord-task:01kn9hnfwp7s16np7cf557cxwr",
+    "title": "Implement tracked snapshot writers and signed publish manifests",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hnfwp7s16np7cf557cxwr-30d2f1fbcae66df2.json"
+  }
+]
