@@ -1,0 +1,75 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "tests.rs is decomposed into focused modules and common helpers live in shared support"
+      },
+      {
+        "anchors": [],
+        "label": "Small surface edits no longer require touching one monolithic test source file"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 2308
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmwmwtsvsb4fnsekv4hd29fd",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmwmwamj4y87781dsn8x7wt2",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Extract the 16k-line tests.rs file into cohesive test modules plus a shared support layer so routine edits stop rebuilding one giant unit-test binary.",
+    "tags": [
+      "modularity",
+      "phase-1",
+      "tests"
+    ],
+    "title": "Phase 1: Split the prism-mcp test monolith into focused modules and shared support",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,41 @@
+{
+  "kind": "coordination_review",
+  "payload": {
+    "artifact": "artifact:01kndqq186jevjwftx2dmwp2ez",
+    "id": "review:01kndqqa7xsrymb69bgs7n5kex",
+    "meta": {
+      "actor": {
+        "Principal": {
+          "authority_id": "local-daemon",
+          "kind": "agent",
+          "name": "codex-shared-coordination-refs-gaps-2026-04-04",
+          "principal_id": "principal:codex-shared-coordination-refs-gaps-2026-04-04:01knaqj9pv4p1vc9tfw82zvp6y"
+        }
+      },
+      "causation": null,
+      "correlation": "coord-task:01kndb7x9p7fsxqgdghg2f02a8",
+      "execution_context": {
+        "branch_ref": "refs/heads/codex/coordination-mutation-perf",
+        "credential_id": "credential:01knaqj9pv0vx0h59cvge430j7",
+        "instance_id": "instance:99090:worktree:38d65972b1359401:1775355997473",
+        "repo_id": "repo:763c8d2ae95d5376",
+        "request_id": "149",
+        "session_id": "session:01kndqe3ms1gfcfr35c54n4mrv",
+        "work_context": {
+          "coordinationTaskId": "coord-task:01kndb7x9p7fsxqgdghg2f02a8",
+          "kind": "coordination",
+          "planId": "plan:01kndb7x9ntbr6ja2fh30ejm4n",
+          "planTitle": "Optimize Coordination Mutation Performance",
+          "title": "Validate coordination mutation performance improvements against representative workflows",
+          "workId": "coord-task:01kndb7x9p7fsxqgdghg2f02a8"
+        },
+        "worktree_id": "worktree:38d65972b1359401"
+      },
+      "id": "coordination:01kndqqa7v0s1vs6t4k26th28b:SessionId--session-01kndqe3ms1gfcfr35c54n4mrv--:18",
+      "ts": 1775356324
+    },
+    "summary": "Representative coordination-mutation validation passed on the current branch and release daemon.",
+    "verdict": "Approved"
+  },
+  "schema_version": 1
+}

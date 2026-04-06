@@ -1,0 +1,47 @@
+{
+  "kind": "coordination_plan_record",
+  "payload": {
+    "plan": {
+      "authored_edges": [],
+      "created_from": null,
+      "goal": "Make tracked .prism/state the only repo-published authority by removing the remaining tracked legacy append-log surfaces for memory, concepts, contracts, and plans; keep append-only history in shared runtime only; and preserve cold-clone restore, manifest trust semantics, and startup performance.",
+      "id": "plan:01kna4g4q0xn8znaa7bn7s6vq0",
+      "kind": "TaskExecution",
+      "metadata": null,
+      "policy": {
+        "default_claim_mode": "Advisory",
+        "git_execution": {
+          "completionMode": "require",
+          "integrationMode": "external",
+          "maxCommitsBehindTarget": 0,
+          "maxFetchAgeSeconds": null,
+          "requireTaskBranch": true,
+          "startMode": "require",
+          "targetBranch": "main",
+          "targetRef": null
+        },
+        "lease_expires_after_seconds": 7200,
+        "lease_renewal_mode": "strict",
+        "lease_stale_after_seconds": 1800,
+        "max_parallel_editors_per_anchor": 2,
+        "require_review_for_completion": false,
+        "require_validation_for_completion": false,
+        "review_required_above_risk_score": null,
+        "stale_after_graph_change": true
+      },
+      "revision": 0,
+      "root_tasks": [],
+      "scheduling": {
+        "dueAt": null,
+        "importance": 0,
+        "manualBoost": 0,
+        "urgency": 0
+      },
+      "scope": "Repo",
+      "status": "Completed",
+      "tags": [],
+      "title": "Finish removing legacy tracked .prism append logs"
+    }
+  },
+  "schema_version": 1
+}

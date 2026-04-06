@@ -1,0 +1,81 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "The authoritative commit contract distinguishes blocking shared truth from lagging caches and derived projections"
+      },
+      {
+        "anchors": [],
+        "label": "Dirty revision markers or equivalent lag-tracking metadata are specified for tracked snapshot, startup checkpoint, read models, and repo projections"
+      },
+      {
+        "anchors": [],
+        "label": "The contract covers start, complete, publish-failed, and CAS-conflict mutation outcomes without ambiguity"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 190
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knc6cfapwxtkfnvhcez2wszv"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knc6cswpwztpebeb7mmtmqtc",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Decide",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knc64s1zzzxq7x324fms1cyc",
+    "priority": 99,
+    "published_task_status": null,
+    "session": null,
+    "status": "InProgress",
+    "summary": "Specify the exact request-path contract for a successful coordination mutation: which revision is checked, which authoritative state is written, which shared-ref CAS obligations are required before returning success, and which follow-on materializations are allowed to lag behind under explicit dirty revisions.",
+    "tags": [
+      "coordination",
+      "performance",
+      "storage-design"
+    ],
+    "title": "Define the minimal authoritative coordination persist contract and revision model",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,24 @@
+{
+  "kind": "runtime_descriptor",
+  "payload": {
+    "blobSnapshotHead": null,
+    "branchRef": "refs/heads/task/shared-coordination-plan-followup",
+    "capabilities": [
+      "coordination_ref_publisher",
+      "bounded_peer_reads"
+    ],
+    "checkedOutCommit": "1a032638c1a626e15e61aff909c7f7970da89189",
+    "discoveryMode": "lan_direct",
+    "exportPolicy": null,
+    "instanceStartedAt": 1775452299,
+    "lastSeenAt": 1775452299,
+    "peerEndpoint": "http://127.0.0.1:42531/peer/query",
+    "peerTransportIdentity": null,
+    "principalId": "legacy_agent_fallback",
+    "publicEndpoint": null,
+    "repoId": "repo:763c8d2ae95d5376",
+    "runtimeId": "instance:81193:worktree:5820c89d186523db:1775452289313",
+    "worktreeId": "worktree:01kng5pwdqf1fberapprn1q9hr"
+  },
+  "schema_version": 1
+}

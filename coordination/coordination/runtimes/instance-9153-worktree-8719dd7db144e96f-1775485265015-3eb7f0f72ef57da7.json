@@ -1,0 +1,24 @@
+{
+  "kind": "runtime_descriptor",
+  "payload": {
+    "blobSnapshotHead": null,
+    "branchRef": "refs/heads/task/plans-page-empty",
+    "capabilities": [
+      "coordination_ref_publisher",
+      "bounded_peer_reads"
+    ],
+    "checkedOutCommit": "9bffedfc32fab28ea558b5aebdbc68a63efe899b",
+    "discoveryMode": "lan_direct",
+    "exportPolicy": null,
+    "instanceStartedAt": 1775485270,
+    "lastSeenAt": 1775485270,
+    "peerEndpoint": "http://127.0.0.1:52695/peer/query",
+    "peerTransportIdentity": null,
+    "principalId": "legacy_agent_fallback",
+    "publicEndpoint": null,
+    "repoId": "repo:763c8d2ae95d5376",
+    "runtimeId": "instance:9153:worktree:8719dd7db144e96f:1775485265015",
+    "worktreeId": "worktree:8719dd7db144e96f"
+  },
+  "schema_version": 1
+}

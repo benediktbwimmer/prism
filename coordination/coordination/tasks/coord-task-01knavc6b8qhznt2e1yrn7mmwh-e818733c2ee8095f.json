@@ -1,0 +1,81 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Branch-local `.prism/state/**` no longer persists full shared coordination mirrors by default; remaining files are explicitly marked derived and non-authoritative."
+      },
+      {
+        "anchors": [],
+        "label": "Query, hydration, and MCP views remain correct when branch-local mirrors are absent, stale, or intentionally pruned."
+      },
+      {
+        "anchors": [],
+        "label": "Tests prove shared-ref reads and operator workflows still work after removing mirror-first assumptions."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 214
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knav6qm2h72t0pc3xqmv92zt"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knavc6b8qhznt2e1yrn7mmwh",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knav51cj8vgw0zp49qgktzps",
+    "priority": 98,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Stop mirroring full shared coordination authority into branch-local `.prism/state/**` by default and leave only bounded, explicitly derived exports so the shared ref becomes the real source of truth.",
+    "tags": [
+      "mirror",
+      "shared-ref",
+      "state"
+    ],
+    "title": "Demote branch-local shared coordination mirrors to minimal derived exports",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

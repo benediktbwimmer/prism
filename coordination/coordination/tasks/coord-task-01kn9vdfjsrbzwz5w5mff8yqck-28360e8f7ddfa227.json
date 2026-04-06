@@ -1,0 +1,78 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Tracked snapshot shards and manifests contain no absolute filesystem paths"
+      },
+      {
+        "anchors": [],
+        "label": "Shared/runtime records intended to survive across worktrees or clones do not persist absolute filesystem paths"
+      },
+      {
+        "anchors": [],
+        "label": "Change snapshots and outcome metadata use anchors plus repo-relative file references instead of absolute file paths"
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 123
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+      "coord-task:01kn9vd88apgdq35f4hr9tmsss"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn9vcavs4jft9eqw82ysmghq",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Remove absolute path leakage from tracked `.prism/state/**`, protected publication flows, shared journals, and repo-published change snapshots, using anchors as the primary reference and repo-relative paths only as the fallback file-level reference.",
+    "tags": [],
+    "title": "Normalize tracked snapshot, protected publication, and shared/runtime serialization to repo-relative paths",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

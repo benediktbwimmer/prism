@@ -1,0 +1,86 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "prism_mutate exposes explicit contract lifecycle operations with validated payloads and actionable schema examples"
+      },
+      {
+        "anchors": [],
+        "label": "The MCP resource surface exposes inspectable contract state without reading raw event logs directly"
+      },
+      {
+        "anchors": [],
+        "label": "Hosted contract mutations update the live runtime consistently with persisted contract state"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 313
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmyy5z9e5b2qv0j9gkq9db84"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmyy5z9yg4m41vgvsp52jjhb",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmyy4ykg8sh1apt74er1t0fm",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Milestone 2 is complete: contract mutations, schemas, examples, and the prism://contracts resource surface are implemented and validated.",
+    "tags": [
+      "contracts",
+      "mcp",
+      "mutation",
+      "resources"
+    ],
+    "title": "Milestone 2: Expose contract mutations, schemas, and resource surfaces",
+    "validation_refs": [
+      {
+        "id": "contracts:m2-mcp-surface"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,109 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Representative tests cover startup, restart, refresh, and migration behavior under large historical state"
+      },
+      {
+        "anchors": [],
+        "label": "Measured daemon RSS, cache DB growth, and refresh latency improve against the recorded baseline"
+      },
+      {
+        "anchors": [],
+        "label": "No correctness regressions appear in lineage, projection, or query behavior after migration"
+      }
+    ],
+    "anchors": [
+      {
+        "File": 198
+      },
+      {
+        "File": 269
+      },
+      {
+        "File": 284
+      },
+      {
+        "File": 90
+      }
+    ],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 631
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 198
+        },
+        {
+          "File": 269
+        },
+        {
+          "File": 284
+        },
+        {
+          "File": 90
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn02nzcts148twpb0t9ssxp6",
+      "coord-task:01kn02nzf7ftmveaznb5hh2r4j",
+      "coord-task:01kn02nzgqcvhrahmb2wt92gfw"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn02nzhkyych6dhta2d3he9x",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Validate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "The migration has now been validated end to end: required prism-js and prism-mcp checks passed on the rewritten co-change architecture, the release prism-cli/prism-mcp build succeeded, the restarted daemon is healthy, and native plan completion bookkeeping now accepts task-correlated validation outcomes for native node ids without requiring anchors or a backing coordination task.",
+    "tags": [
+      "health",
+      "performance",
+      "validation"
+    ],
+    "title": "Validate the migration against daemon health, performance, and correctness",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

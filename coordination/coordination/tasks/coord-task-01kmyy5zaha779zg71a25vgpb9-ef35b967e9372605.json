@@ -1,0 +1,86 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Agents can ask which contracts govern a target and inspect those contracts through standard read flows"
+      },
+      {
+        "anchors": [],
+        "label": "At least one existing impact-oriented surface reports touched contracts, affected consumers, or contract-linked validations when relevant"
+      },
+      {
+        "anchors": [],
+        "label": "The first integration distinguishes implementation-only edits from contract-affecting edits more clearly than the current baseline"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 484
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmyy5z9yg4m41vgvsp52jjhb"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmyy5zaha779zg71a25vgpb9",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmyy4ykg8sh1apt74er1t0fm",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Milestone 3 is complete: contracts now participate in normal query and review flows through contract-aware impact, afterEdit, validationPlan, readContext, workset, taskRisk, artifactRisk, and task-brief guidance.",
+    "tags": [
+      "contracts",
+      "impact",
+      "query",
+      "review"
+    ],
+    "title": "Milestone 3: Integrate contracts into normal query and review flows",
+    "validation_refs": [
+      {
+        "id": "contracts:m3-query-integration"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

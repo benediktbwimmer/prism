@@ -1,0 +1,73 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Graph and workspace identity layers no longer require absolute paths as canonical persisted file identity"
+      },
+      {
+        "anchors": [],
+        "label": "Absolute paths are treated as local execution conveniences derived from worktree root plus repo-relative path"
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 123
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn9vd1qxxaht9ap1ygbmd23g"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn9vcavs4jft9eqw82ysmghq",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Make file ids the primary internal key, make repo-relative paths the canonical stored path identity, and ensure absolute paths are derived only in local worktree runtime code that actually touches the filesystem.",
+    "tags": [],
+    "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

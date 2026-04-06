@@ -1,0 +1,92 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Release build, MCP restart, status, and health checks confirm the live daemon is serving the new UI surface correctly"
+      },
+      {
+        "anchors": [],
+        "label": "Manual dogfooding covers landing on Overview, drilling into Dashboard, inspecting Plans, and using the Graph explorer on a real repo flow"
+      },
+      {
+        "anchors": [],
+        "label": "Any missing trust signals, stale states, or broken deep links found during dogfooding are fixed or explicitly tracked before rollout"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 538
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [
+        "concept://dashboard_surface",
+        "concept://validation_and_dogfooding"
+      ],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn00t3b6svvvcm759dwvt8fw"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmzvjdhb531p74z3efn6smg3",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Validate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmzvjdhb874nxd0v44d2hdmt",
+    "priority": 10,
+    "published_task_status": null,
+    "session": null,
+    "status": "Proposed",
+    "summary": "Validate the new shell and pages end-to-end, rebuild and restart prism-mcp, dogfood the control plane on real work, and close obvious trust gaps after the graph, freshness, and structured plan-control slices are in place.",
+    "tags": [
+      "dogfood",
+      "release",
+      "trust",
+      "validation"
+    ],
+    "title": "Milestone 10: Dogfood, validate, and ship the Prism UI control plane safely",
+    "validation_refs": [
+      {
+        "id": "ui:control-plane-dogfood"
+      },
+      {
+        "id": "ui:release-build-restart"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

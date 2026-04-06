@@ -1,0 +1,99 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Repo docs and server-described behavior no longer present a shared runtime SQLite authority plane and instead explain shared refs, local SQLite, and federated peer reads."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 262
+      },
+      {
+        "File": 266
+      },
+      {
+        "File": 403
+      }
+    ],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 114
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 262
+        },
+        {
+          "File": 266
+        },
+        {
+          "File": 403
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/task/coordination-query-mcp-rewrite",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knhbywn8bs5vq694474xqmjh"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knhbywnkc64s60bt2g35w7ea",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775485406,
+    "lease_holder": {
+      "agent_id": null,
+      "principal": {
+        "authority_id": "worktree_executor",
+        "kind": "agent",
+        "name": "codex-a",
+        "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+      },
+      "session_id": "session:01knhby9c50sjy9505921r578h",
+      "worktree_id": "worktree:38d65972b1359401"
+    },
+    "lease_refreshed_at": 1775478206,
+    "lease_stale_at": 1775480006,
+    "lease_started_at": 1775478206,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knhbywm4t6qre6g4dqmayswa",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01knhby9c50sjy9505921r578h",
+    "status": "Ready",
+    "summary": null,
+    "tags": [],
+    "title": "Rewrite docs, MCP self-description, and operator guidance around the federated runtime model",
+    "validation_refs": [],
+    "worktree_id": "worktree:38d65972b1359401"
+  },
+  "schema_version": 1
+}

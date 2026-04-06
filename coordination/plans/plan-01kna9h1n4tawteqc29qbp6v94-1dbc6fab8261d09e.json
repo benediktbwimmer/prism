@@ -1,0 +1,47 @@
+{
+  "kind": "coordination_plan_record",
+  "payload": {
+    "plan": {
+      "authored_edges": [],
+      "created_from": null,
+      "goal": "Add shared-ref runtime descriptors and authenticated peer runtime reads, while simplifying or disabling the old shared-runtime versus local-runtime split wherever it is no longer needed.",
+      "id": "plan:01kna9h1n4tawteqc29qbp6v94",
+      "kind": "TaskExecution",
+      "metadata": null,
+      "policy": {
+        "default_claim_mode": "Advisory",
+        "git_execution": {
+          "completionMode": "require",
+          "integrationMode": "external",
+          "maxCommitsBehindTarget": 0,
+          "maxFetchAgeSeconds": 300,
+          "requireTaskBranch": true,
+          "startMode": "require",
+          "targetBranch": "main",
+          "targetRef": "origin/main"
+        },
+        "lease_expires_after_seconds": 7200,
+        "lease_renewal_mode": "strict",
+        "lease_stale_after_seconds": 1800,
+        "max_parallel_editors_per_anchor": 2,
+        "require_review_for_completion": false,
+        "require_validation_for_completion": false,
+        "review_required_above_risk_score": null,
+        "stale_after_graph_change": true
+      },
+      "revision": 0,
+      "root_tasks": [],
+      "scheduling": {
+        "dueAt": null,
+        "importance": 82,
+        "manualBoost": 10,
+        "urgency": 68
+      },
+      "scope": "Repo",
+      "status": "Archived",
+      "tags": [],
+      "title": "Add runtime descriptors and bounded peer reads"
+    }
+  },
+  "schema_version": 1
+}

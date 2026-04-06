@@ -1,0 +1,73 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Refresh path semantics are coherent and intentionally separated between scoped refresh, rescan, and deferred runtime sync."
+      },
+      {
+        "anchors": [],
+        "label": "Fallback behavior is minimal, justified, and measurable."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1134
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn0shaxw8prtd5jrvtbxtn6n"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn0shpfzn7pdnhw9m0qrchp9",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Decide",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn0sh5q9vv9j2q2n6jwxhtep",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Separated fallback cached rescans from true full rebuilds by introducing a distinct `rescan` refresh mode/status through prism-core and prism-mcp. Fallback snapshot diff paths now record `rescan` in session/runtime status and keep `fullRebuildCount`/`workspaceReloaded` reserved for true full rebuilds, with focused regressions in prism-core and workspace_runtime plus a release rebuild/restart to refresh the live daemon.",
+    "tags": [],
+    "title": "Harden the refresh state machine and fallback semantics",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

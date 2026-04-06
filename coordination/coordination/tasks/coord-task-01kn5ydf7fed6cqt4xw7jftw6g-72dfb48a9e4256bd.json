@@ -1,0 +1,110 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Existing tests that allow unsigned legacy hydration or external authoritative edits are replaced with migration or failure-mode expectations."
+      },
+      {
+        "anchors": [],
+        "label": "Targeted tests cover canonical serialization bytes, signature verification, trust-bundle resolution, conflict detection, truncation, quarantine/repair, and self-write suppression."
+      },
+      {
+        "anchors": [],
+        "label": "After targeted validation passes, the full workspace test suite passes and the release MCP binaries are rebuilt and restarted if required by the changed surface."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 113
+      },
+      {
+        "File": 21
+      },
+      {
+        "File": 242
+      },
+      {
+        "File": 340
+      }
+    ],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 524
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 113
+        },
+        {
+          "File": 21
+        },
+        {
+          "File": 242
+        },
+        {
+          "File": 340
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn5ydf14v5ce5m5qbd22ykbe",
+      "coord-task:01kn5ydf2qhfjjb50zav19rvm0",
+      "coord-task:01kn5ydf4876gvnh5c20zaw9w6",
+      "coord-task:01kn5ydf5tdhdry9ftd4wjwq7c"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn5ydf7fed6cqt4xw7jftw6g",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Validate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn5y6qqpxt3qaecccg12h03e",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Validation completed for the protected-state rollout. Targeted prism-core operator tests, prism-cli protected-state command tests, focused prism-mcp protected-state resource tests, `cargo test -p prism-mcp --quiet`, and `cargo test --workspace --quiet` all passed, with the known `queries_defer_request_path_refresh_when_runtime_sync_is_busy` parallel-suite flake passing immediately in isolated rerun per repo policy. Release binaries were rebuilt and the live daemon restart/status/health sequence passed on the rebuilt prism-cli and prism-mcp binaries.",
+    "tags": [
+      "protected-state",
+      "tests",
+      "validation"
+    ],
+    "title": "Validate migration semantics, tamper handling, and full-workspace behavior",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

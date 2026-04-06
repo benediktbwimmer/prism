@@ -1,0 +1,65 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1361
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kncfwbeab4tk0mq2wk147k9x",
+      "coord-task:01kncfwc8fnzkp12z98axm2ept"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kncfwdcddbj4xw025azyq6hc",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kncfv6c7tzkc21aemhr0pns2",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Ensure remote prism_query results remain explicitly peer-enriched, enforce bounded query limits remotely, and surface honest errors for missing runtime_id, capability denial, stale descriptors, and unreachable peers.",
+    "tags": [],
+    "title": "Preserve authority classes, limits, and failure semantics for federated queries",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

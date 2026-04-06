@@ -1,0 +1,74 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Before/after timings exist for the default suite and the targeted hotspots."
+      },
+      {
+        "anchors": [],
+        "label": "The repo guidance reflects the intended split between fast default coverage and explicit heavier coverage."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 73
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn8dqwqxreh653af5apa1yv0",
+      "coord-task:01kn8dqyvrpbxe16xxwwfd29dy"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn8dr8dw1b6t5726j9sy76xe",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn8dprbn5qf3fjpvj1zjxfb0",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": null,
+    "tags": [],
+    "title": "Validate the new default test path with before/after timings and record the updated repo guidance.",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,144 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [
+          {
+            "File": 505
+          },
+          {
+            "File": 68
+          },
+          {
+            "File": 83
+          }
+        ],
+        "label": "Task claims, task status transitions, handoffs, reclaims, and claim mutations must route to deterministic shard refs so unrelated tasks and anchors no longer serialize through one repo-global coordination head."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 212
+      },
+      {
+        "File": 505
+      },
+      {
+        "File": 658
+      },
+      {
+        "File": 68
+      },
+      {
+        "File": 77
+      },
+      {
+        "File": 83
+      }
+    ],
+    "assignee": "codex-d",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 408
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 212
+        },
+        {
+          "File": 505
+        },
+        {
+          "File": 658
+        },
+        {
+          "File": 68
+        },
+        {
+          "File": 77
+        },
+        {
+          "File": 83
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/task/shared-coordination-schema-envelopes",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kng427002152wgffzt627rta",
+      "coord-task:01kng42700kzp46fxnkrswh9yj"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "published_to_branch",
+      "lastPreflight": {
+        "behindTargetCommits": 0,
+        "checkedAt": 1775448745,
+        "currentBranch": "task/shared-coordination-plan-followup",
+        "dirtyPaths": [],
+        "failure": null,
+        "fetchAgeSeconds": null,
+        "headCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+        "maxCommitsBehindTarget": 0,
+        "mergeBaseCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+        "protectedDirtyPaths": [],
+        "publishRef": "task/shared-coordination-plan-followup",
+        "sourceRef": "task/shared-coordination-plan-followup",
+        "targetBranch": "main",
+        "targetCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+        "targetRef": "origin/main",
+        "worktreeDirty": false
+      },
+      "lastPublish": {
+        "attemptedAt": 1775448760,
+        "codeCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+        "coordinationCommit": null,
+        "failure": null,
+        "protectedPaths": [],
+        "publishRef": "task/shared-coordination-plan-followup",
+        "pushedRef": "refs/heads/task/shared-coordination-plan-followup",
+        "stagedPaths": []
+      },
+      "pendingTaskStatus": null,
+      "publishCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+      "publishRef": "task/shared-coordination-plan-followup",
+      "reviewArtifactRef": null,
+      "sourceCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+      "sourceRef": "task/shared-coordination-plan-followup",
+      "status": "coordination_published",
+      "targetBranch": "main",
+      "targetCommitAtPublish": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+      "targetRef": "origin/main"
+    },
+    "id": "coord-task:01kng42700hg2hrewgm8542y9j",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01knga7mvdnhzwg70wyxqygeya",
+    "status": "Completed",
+    "summary": "Implemented shard-owned task and claim publication, summary projection updates, manifest-repair handling, and shard-aware regression coverage.",
+    "tags": [],
+    "title": "Move authoritative task and claim mutations off the single live summary ref onto fixed hash-sharded task and claim ref families with deterministic shard routing and compare-and-swap publication per shard.",
+    "validation_refs": [],
+    "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
+  },
+  "schema_version": 1
+}

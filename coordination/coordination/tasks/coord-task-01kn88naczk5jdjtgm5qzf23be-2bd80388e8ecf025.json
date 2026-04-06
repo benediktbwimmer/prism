@@ -1,0 +1,62 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 49
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn88naczk5jdjtgm5qzf23be",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Investigate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+    "priority": 2,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Identify whether batching, richer aggregate views, or trace-shape changes can make heavy self-observability queries cheaper without changing general prism_query execution semantics.",
+    "tags": [],
+    "title": "Design a lighter MCP log introspection path so slow prism_query diagnostics do not need many per-call prism.mcpTrace lookups.",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

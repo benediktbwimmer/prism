@@ -1,0 +1,84 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Views can be enabled or omitted independently at runtime without adding new top-level MCP tools"
+      },
+      {
+        "anchors": [],
+        "label": "prism://capabilities exposes the enabled/disabled query-view surface with enough metadata for an agent to adapt"
+      },
+      {
+        "anchors": [],
+        "label": "Query/MCP logs can aggregate invocation count, unique task usage, latency, and result size by view name"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 108
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmwxt05gtntnfmn60ppbwpaf",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmwxra5d93wb6nmy6a79v8eh",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Implemented the query-view registry, capability advertising, runtime dispatch, and per-view query/MCP logging aggregation required for milestone 0.",
+    "tags": [
+      "feature-gating",
+      "logging",
+      "prism-query",
+      "registry"
+    ],
+    "title": "Milestone 0: Query-view registry and runtime feature gating",
+    "validation_refs": [
+      {
+        "id": "pq01:m0-registry-gating"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

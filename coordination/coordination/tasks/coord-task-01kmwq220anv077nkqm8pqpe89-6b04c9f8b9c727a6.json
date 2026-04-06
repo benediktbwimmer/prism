@@ -1,0 +1,86 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "snapshot_revisions and load_episodic_snapshot stop reparsing the full repo memory JSONL and stop replaying the full sqlite memory_event_log on unchanged or append-only paths"
+      },
+      {
+        "anchors": [],
+        "label": "Episodic save and reanchor paths use materialized state plus high-water marks instead of full event-log reconstruction"
+      },
+      {
+        "anchors": [],
+        "label": "Refresh and reload ingest only appended memory events while preserving current semantics across local and shared runtime stores"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 15271
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmwq21ymh3cqdzbggynehfxv"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmwq220anv077nkqm8pqpe89",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmwq0gyrjr66sv91wnknhzmf",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Measure episodic and repo-memory reload work before and after suffix-based ingestion, using loadedBytes and replayVolume to confirm append-only updates stop scaling with total memory history.",
+    "tags": [
+      "hydration",
+      "memory",
+      "perf",
+      "persistence"
+    ],
+    "title": "Milestone 2: Make repo memory ingestion and episodic materialization strictly suffix-based",
+    "validation_refs": [
+      {
+        "id": "perf:m2-memory-suffix-ingest"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

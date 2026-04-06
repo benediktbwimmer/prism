@@ -1,0 +1,93 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Repeated edits to the same paths cancel or supersede stale prepare and settle work instead of replaying obsolete refreshes."
+      },
+      {
+        "anchors": [],
+        "label": "Small edits reduce dependency refresh scope and direct dependent work compared with the current reconstructive path."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 107
+      },
+      {
+        "File": 256
+      },
+      {
+        "File": 84
+      }
+    ],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 249
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 107
+        },
+        {
+          "File": 256
+        },
+        {
+          "File": 84
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn55e93ftgm9bra7wfs4fnfs"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn55f7ffvqmnm2gkdptvdttd",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+    "priority": 7,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Reduce repeated work under edit storms by coalescing path requests to the latest revision, cancelling stale prepare or settle work aggressively, and shrinking dependency fanout for ordinary small edits.",
+    "tags": [],
+    "title": "Tighten coalescing, stale-work cancellation, and invalidation precision for repeated edits",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

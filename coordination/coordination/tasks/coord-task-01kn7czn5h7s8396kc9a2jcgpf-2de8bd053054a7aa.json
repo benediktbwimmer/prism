@@ -1,0 +1,99 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "The same runtimeStatus, runtimeLogs, runtimeTimeline, slowMcpCalls, mcpStats, slowQueries, and queryLog surfaces are re-run and compared against the baseline with explicit before and after evidence."
+      },
+      {
+        "anchors": [],
+        "label": "Validation includes targeted tests for changed areas, a full cargo test workspace run under repo policy, and rebuilt-release daemon restart or health verification for any runtime or MCP changes."
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 560
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn7cy67chqrcz18kvnpk7gmm",
+      "coord-task:01kn7cym8fe0dxg3ehd19fp9ge",
+      "coord-task:01kn7cywwqynsppzxgn5rqawmc",
+      "coord-task:01kn7cz3g0ks84qsqz565pfen9",
+      "coord-task:01kn7cz9ysdjmzcdr8sqtk388j"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn7czn5h7s8396kc9a2jcgpf",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Validate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn7cxa9tvnaa1svrgppcth4a",
+    "priority": 7,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Validated the hotspot improvements end to end. cargo test -p prism-store --quiet and cargo test -p prism-mcp --quiet passed; cargo test --workspace --quiet hit only the two known flakes and both passed in isolated reruns; cargo build --release -p prism-cli -p prism-mcp, prism-cli mcp restart --internal-developer, prism-cli mcp status, and prism-cli mcp health all passed. Live logs confirm task_brief latency collapse, steady-state startup prune_ms dropped to 0ms after one-time backfill, and fresh restarts no longer emit new benign rmcp transport warnings.",
+    "tags": [],
+    "title": "Validate log-backed runtime and MCP performance improvements end to end",
+    "validation_refs": [
+      {
+        "id": "./target/release/prism-cli mcp health"
+      },
+      {
+        "id": "./target/release/prism-cli mcp restart --internal-developer"
+      },
+      {
+        "id": "./target/release/prism-cli mcp status"
+      },
+      {
+        "id": "cargo build --release -p prism-cli -p prism-mcp"
+      },
+      {
+        "id": "cargo test --workspace --quiet"
+      },
+      {
+        "id": "log:post-fix-mcp-audit"
+      },
+      {
+        "id": "log:post-fix-runtime-audit"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

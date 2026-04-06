@@ -1,0 +1,47 @@
+{
+  "kind": "coordination_plan_record",
+  "payload": {
+    "plan": {
+      "authored_edges": [],
+      "created_from": null,
+      "goal": "Build the shared coordination ref authority plane, move core coordination truth onto it, and rebind git execution policy to that shared cross-branch control plane.",
+      "id": "plan:01kna9h1khpyyzjgeed0y1ggk5",
+      "kind": "TaskExecution",
+      "metadata": null,
+      "policy": {
+        "default_claim_mode": "Advisory",
+        "git_execution": {
+          "completionMode": "require",
+          "integrationMode": "external",
+          "maxCommitsBehindTarget": 0,
+          "maxFetchAgeSeconds": 300,
+          "requireTaskBranch": true,
+          "startMode": "require",
+          "targetBranch": "main",
+          "targetRef": "origin/main"
+        },
+        "lease_expires_after_seconds": 7200,
+        "lease_renewal_mode": "strict",
+        "lease_stale_after_seconds": 1800,
+        "max_parallel_editors_per_anchor": 2,
+        "require_review_for_completion": false,
+        "require_validation_for_completion": false,
+        "review_required_above_risk_score": null,
+        "stale_after_graph_change": true
+      },
+      "revision": 0,
+      "root_tasks": [],
+      "scheduling": {
+        "dueAt": null,
+        "importance": 95,
+        "manualBoost": 20,
+        "urgency": 85
+      },
+      "scope": "Repo",
+      "status": "Archived",
+      "tags": [],
+      "title": "Implement shared coordination refs and bind git execution to them"
+    }
+  },
+  "schema_version": 1
+}

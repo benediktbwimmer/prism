@@ -1,0 +1,71 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Specs and contracts explicitly state that tracked `.prism/state/changes/**` is not part of the durable repo-owned authority model"
+      },
+      {
+        "anchors": [],
+        "label": "The trust boundary between signed Git commits, PRISM manifest metadata, and shared-runtime journals is locked without ambiguity"
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1017
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn9xt9h76645shp4jcmt0bsv",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn9xsvp1a376w7xmq08gn4nh",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Define that tracked `.prism/state` keeps only current semantic state, shared runtime becomes the sole append-log owner for changes, signed Git commit history becomes the coarse-grained durable change history, and the PRISM manifest carries structured publish metadata including a short `publishSummary`.",
+    "tags": [],
+    "title": "Lock the tracked changes removal contract and commit-history trust boundary",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

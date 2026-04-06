@@ -1,0 +1,47 @@
+{
+  "kind": "coordination_plan_record",
+  "payload": {
+    "plan": {
+      "authored_edges": [],
+      "created_from": null,
+      "goal": "Improve PRISM MCP day-to-day agent ergonomics after the latest dogfooding round",
+      "id": "plan:01kn3g1v47d46eppvcahky430e",
+      "kind": "TaskExecution",
+      "metadata": null,
+      "policy": {
+        "default_claim_mode": "SoftExclusive",
+        "git_execution": {
+          "completionMode": "off",
+          "integrationMode": "external",
+          "maxCommitsBehindTarget": 0,
+          "maxFetchAgeSeconds": null,
+          "requireTaskBranch": false,
+          "startMode": "off",
+          "targetBranch": "",
+          "targetRef": null
+        },
+        "lease_expires_after_seconds": 7200,
+        "lease_renewal_mode": "strict",
+        "lease_stale_after_seconds": 1800,
+        "max_parallel_editors_per_anchor": 2,
+        "require_review_for_completion": false,
+        "require_validation_for_completion": false,
+        "review_required_above_risk_score": null,
+        "stale_after_graph_change": false
+      },
+      "revision": 0,
+      "root_tasks": [],
+      "scheduling": {
+        "dueAt": null,
+        "importance": 0,
+        "manualBoost": 0,
+        "urgency": 0
+      },
+      "scope": "Repo",
+      "status": "Archived",
+      "tags": [],
+      "title": "Improve PRISM MCP day-to-day agent ergonomics after the latest dogfooding round"
+    }
+  },
+  "schema_version": 1
+}

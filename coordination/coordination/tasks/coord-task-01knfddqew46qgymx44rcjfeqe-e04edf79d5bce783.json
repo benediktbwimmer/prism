@@ -1,0 +1,78 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Each machine keeps one encrypted local human credential instead of a plaintext reusable bearer token"
+      },
+      {
+        "anchors": [],
+        "label": "High-risk operations require fresh re-authentication"
+      },
+      {
+        "anchors": [],
+        "label": "Human login creates a bounded local human session with idle and absolute expiry"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 362
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knfddqewmqcg36tyyq0f98bd",
+      "coord-task:01knfddqewpk8b7vxba6y2cpaz"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knfddqew46qgymx44rcjfeqe",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knfddqevrg6cs9zw0fw8c6d5",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Starting the encrypted local human credential and bounded human session implementation work after completing attested bootstrap and recovery.",
+    "tags": [],
+    "title": "Implement encrypted local human credential storage and short-lived human session unlock and login behavior",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

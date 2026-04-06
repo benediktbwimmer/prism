@@ -1,0 +1,74 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Many-file edit bursts are coalesced and prepared in parallel, and stale intermediate file versions are cancelled instead of fully processed."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1832
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn2edqe64parv20k1n5k4npw"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn2edqg7qjtwt4xmtgkwyxyz",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn2edq9k2cr10t7p9pwscpjz",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Make coalescing a native part of the command model and parallelize file-local preparation aggressively. Bursty editor or agent writes must collapse obsolete intermediate versions, parallelize file-local read/parse/extract work, and merge only the newest surviving deltas into the engine commit batch.",
+    "tags": [
+      "batching",
+      "coalescing",
+      "parallelism",
+      "preparation"
+    ],
+    "title": "Parallelize file-local preparation for bursty batched edits",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

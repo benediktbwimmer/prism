@@ -1,0 +1,93 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Projection reload, memory reanchor, and coordination refresh run as explicit settle work with target-generation cancellation or coalescing."
+      },
+      {
+        "anchors": [],
+        "label": "Queries and runtime status expose pending or stale domains instead of implying fully current derived state after the fast publish path."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 108
+      },
+      {
+        "File": 256
+      },
+      {
+        "File": 84
+      }
+    ],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 249
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 108
+        },
+        {
+          "File": 256
+        },
+        {
+          "File": 84
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn55egap84qbyxkarhq6y7vz"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn55eps6ms9b7hr6nexfnjhr",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+    "priority": 5,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Push non-authoritative downstream work behind coalesced settle lanes and surface pending or stale domain states rather than doing hidden work on the publish path.",
+    "tags": [],
+    "title": "Move derived projections, memory reanchor, and coordination reloads fully behind settle",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

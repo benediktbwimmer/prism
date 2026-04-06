@@ -1,0 +1,88 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Before/after benchmarks show that each audited hotspot has been removed or demoted to an explicitly documented cold or fallback path"
+      },
+      {
+        "anchors": [],
+        "label": "Regression coverage locks in incremental refresh, reload, mutate, startup, and background throughput invariants introduced by the earlier milestones"
+      },
+      {
+        "anchors": [],
+        "label": "A final audit confirms no remaining bottleneck from the original list is still present on a hot, request, mutate, reload, startup, or background path"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 15271
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmwq21zg4hy0etha7x0nj40a",
+      "coord-task:01kmwq220anv077nkqm8pqpe89",
+      "coord-task:01kmwq2215db6wsf87n689k12p",
+      "coord-task:01kmwq2220x7gt4s80n933sh93"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmwq222tvk94q3crqke24zw1",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Validate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmwq0gyrjr66sv91wnknhzmf",
+    "priority": 2,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Use the final startup, refresh, mutate, and background measurements plus the refresh telemetry counters to verify the original audit is closed and no hot path still forces broad rebuild work.",
+    "tags": [
+      "closeout",
+      "perf",
+      "validation"
+    ],
+    "title": "Milestone 5: Burn down residual bottlenecks and prove the audit is closed",
+    "validation_refs": [
+      {
+        "id": "perf:m5-closeout-audit"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

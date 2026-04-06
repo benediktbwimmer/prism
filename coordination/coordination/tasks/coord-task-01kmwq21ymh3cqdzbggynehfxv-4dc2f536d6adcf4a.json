@@ -1,0 +1,79 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Benchmarks and traces cover no-op refresh, scoped refresh, stale auxiliary read refresh, coordination reload, coordination mutate, startup, and background indexing throughput"
+      },
+      {
+        "anchors": [],
+        "label": "Every later milestone has explicit before/after metrics and a validation recipe attached before implementation starts"
+      },
+      {
+        "anchors": [],
+        "label": "Instrumentation exposes lock hold time, replay volume, loaded bytes, and full-rebuild counts for the audited paths"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 16026
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmwq21ymh3cqdzbggynehfxv",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Investigate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmwq0gyrjr66sv91wnknhzmf",
+    "priority": 0,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Established milestone baselines and guardrails: attached per-milestone validation recipes and before/after measurement targets, exposed lockHoldMs plus loadedBytes/replayVolume/fullRebuildCount in refresh telemetry, and validated the refresh-path baseline with targeted prism-mcp tests.",
+    "tags": [
+      "baseline",
+      "benchmark",
+      "perf"
+    ],
+    "title": "Milestone 0: Establish performance baselines, budgets, and regression guardrails",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,95 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "The Graph page is backed by explicit UI-facing graph read models or query adapters rather than raw MCP payload dumping"
+      },
+      {
+        "anchors": [],
+        "label": "Users can start from a clean architectural graph, expand concept neighborhoods, inspect evidence, and follow links down toward code or supporting context"
+      },
+      {
+        "anchors": [],
+        "label": "The first release graph contract uses typed node and edge semantics plus deep-linkable focus state instead of an untyped whole-graph dump"
+      },
+      {
+        "anchors": [],
+        "label": "The graph data model is contract-ready even if the first UI only renders concept-centered neighborhoods"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 541
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [
+        "concept://dashboard_surface",
+        "concept://prism_architecture"
+      ],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmzvjdhb96zxv7pnt1t06fj8",
+      "coord-task:01kmzvjdhbpqxs2nzjxwbvznp9"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmzvjdhbgcw86tj5tjs7cd1b",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmzvjdhb874nxd0v44d2hdmt",
+    "priority": 6,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Ship the Graph page on top of explicit UI-facing graph read models and query adapters, with concept-first neighborhood loading, typed node and edge semantics, deep-linkable focus state, evidence inspection, and a data contract that is ready to incorporate contracts later without redesign.",
+    "tags": [
+      "contracts",
+      "explorer",
+      "frontend",
+      "graph",
+      "read-models"
+    ],
+    "title": "Milestone 6: Implement a contract-ready graph explorer baseline on typed read models",
+    "validation_refs": [
+      {
+        "id": "ui:graph-explorer-baseline"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

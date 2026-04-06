@@ -1,0 +1,43 @@
+{
+  "kind": "coordination_artifact",
+  "payload": {
+    "anchors": [
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::QueryHost::record_task_git_execution_authoritative_state_with_review_artifact"
+        }
+      },
+      {
+        "Node": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::git_execution_completion_trace_records_subphases_without_ui_publish"
+        }
+      }
+    ],
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 442
+    },
+    "branch_ref": "refs/heads/codex/coordination-mutation-perf",
+    "diff_ref": null,
+    "evidence": [],
+    "id": "artifact:01kndqq186jevjwftx2dmwp2ez",
+    "required_validations": [
+      "test:cargo test"
+    ],
+    "reviews": [
+      "review:01kndqqa7xsrymb69bgs7n5kex"
+    ],
+    "risk_score": 0.0,
+    "status": "Approved",
+    "task": "coord-task:01kndb7x9p7fsxqgdghg2f02a8",
+    "validated_checks": [
+      "test:cargo test"
+    ],
+    "worktree_id": "worktree:38d65972b1359401"
+  },
+  "schema_version": 1
+}

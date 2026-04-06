@@ -1,0 +1,47 @@
+{
+  "kind": "coordination_plan_record",
+  "payload": {
+    "plan": {
+      "authored_edges": [],
+      "created_from": null,
+      "goal": "Replace weak local-empty-registry bootstrap with externally attested human-root bootstrap, portable human principals, delegated server enrollment, assurance-labeled provenance, and recovery that cannot be bypassed by wiping local runtime state.",
+      "id": "plan:01knannez4esfee0qx0yskagbe",
+      "kind": "TaskExecution",
+      "metadata": null,
+      "policy": {
+        "default_claim_mode": "Advisory",
+        "git_execution": {
+          "completionMode": "require",
+          "integrationMode": "external",
+          "maxCommitsBehindTarget": 0,
+          "maxFetchAgeSeconds": null,
+          "requireTaskBranch": true,
+          "startMode": "require",
+          "targetBranch": "main",
+          "targetRef": "origin/main"
+        },
+        "lease_expires_after_seconds": 7200,
+        "lease_renewal_mode": "strict",
+        "lease_stale_after_seconds": 1800,
+        "max_parallel_editors_per_anchor": 2,
+        "require_review_for_completion": false,
+        "require_validation_for_completion": false,
+        "review_required_above_risk_score": null,
+        "stale_after_graph_change": true
+      },
+      "revision": 0,
+      "root_tasks": [],
+      "scheduling": {
+        "dueAt": null,
+        "importance": 0,
+        "manualBoost": 0,
+        "urgency": 0
+      },
+      "scope": "Repo",
+      "status": "Active",
+      "tags": [],
+      "title": "Implement external bootstrap attestation auth"
+    }
+  },
+  "schema_version": 1
+}

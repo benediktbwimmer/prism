@@ -1,0 +1,97 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Authoritative persistence no longer stores durable native plan nodes, native plan edges, root_tasks, or executable edge kinds other than depends_on."
+      },
+      {
+        "anchors": [],
+        "label": "Legacy compatibility shims are deleted once supported shared refs and callers are confirmed v2-clean."
+      },
+      {
+        "anchors": [],
+        "label": "The remaining execution graph authority is one canonical Plan/Task model with transaction-based writes and rebuildable read models."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 400
+      }
+    ],
+    "assignee": "codex-a",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 400
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/codex/coordination-graph-rewrite",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kng209dwy330am5tc7qr7z74",
+      "coord-task:01kng20jnn31h2n6ana91ja67d",
+      "coord-task:01kng20vv9wdjd1jannvnb52pn"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kng213sqtqtx0b9z20eqbnyn",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775441439,
+    "lease_holder": {
+      "agent_id": "codex-a",
+      "principal": {
+        "authority_id": "worktree_executor",
+        "kind": "agent",
+        "name": "codex-a",
+        "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+      },
+      "session_id": "session:01kng1sakrhbd4v3h17aypr7ph",
+      "worktree_id": "worktree:38d65972b1359401"
+    },
+    "lease_refreshed_at": 1775434239,
+    "lease_stale_at": 1775436039,
+    "lease_started_at": 1775434239,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01kng1sakrhbd4v3h17aypr7ph",
+    "status": "Ready",
+    "summary": null,
+    "tags": [],
+    "title": "Remove legacy execution-plan storage and compatibility-era authored graph constructs after the repo is v2-clean, including root_tasks, durable native plan nodes, and non-dependency execution edge kinds",
+    "validation_refs": [],
+    "worktree_id": "worktree:38d65972b1359401"
+  },
+  "schema_version": 1
+}

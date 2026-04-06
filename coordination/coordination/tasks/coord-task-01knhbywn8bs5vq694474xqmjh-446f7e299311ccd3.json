@@ -1,0 +1,102 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "The codebase no longer opens or writes ~/.prism/.../shared/runtime/state.db as a live backend, and the shared-runtime SQLite backend variant is removed rather than left dormant."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 137
+      },
+      {
+        "File": 138
+      },
+      {
+        "File": 91
+      }
+    ],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 114
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 137
+        },
+        {
+          "File": 138
+        },
+        {
+          "File": 91
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/task/coordination-query-mcp-rewrite",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knhbywmedse2twkahtfcz8vk",
+      "coord-task:01knhbywmk749g72vmdrabxdkd",
+      "coord-task:01knhbywmxe1phtdtztpqepsnx",
+      "coord-task:01knhbywn2y7ekjnnhcqfxdep9"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knhbywn8bs5vq694474xqmjh",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775485406,
+    "lease_holder": {
+      "agent_id": null,
+      "principal": {
+        "authority_id": "worktree_executor",
+        "kind": "agent",
+        "name": "codex-a",
+        "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+      },
+      "session_id": "session:01knhby9c50sjy9505921r578h",
+      "worktree_id": "worktree:38d65972b1359401"
+    },
+    "lease_refreshed_at": 1775478206,
+    "lease_stale_at": 1775480006,
+    "lease_started_at": 1775478206,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knhbywm4t6qre6g4dqmayswa",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01knhby9c50sjy9505921r578h",
+    "status": "Ready",
+    "summary": null,
+    "tags": [],
+    "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
+    "validation_refs": [],
+    "worktree_id": "worktree:38d65972b1359401"
+  },
+  "schema_version": 1
+}

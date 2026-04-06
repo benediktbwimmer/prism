@@ -1,0 +1,108 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Authoritative writes refuse `Conflict`, `Corrupt`, `Truncated`, `Tampered`, `UnknownTrust`, `LegacyUnsigned`, and `MigrationRequired` streams as required by the spec."
+      },
+      {
+        "anchors": [],
+        "label": "Hydration only projects verified protected data into hot memory and clearly labels diagnostic-only access to raw invalid content."
+      },
+      {
+        "anchors": [],
+        "label": "Watcher loop suppression uses recent self-write matching and never treats filesystem observation as identity proof."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 108
+      },
+      {
+        "File": 116
+      },
+      {
+        "File": 118
+      },
+      {
+        "File": 84
+      }
+    ],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 359
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 108
+        },
+        {
+          "File": 116
+        },
+        {
+          "File": 118
+        },
+        {
+          "File": 84
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn5ydf14v5ce5m5qbd22ykbe",
+      "coord-task:01kn5ydf2qhfjjb50zav19rvm0"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn5ydf4876gvnh5c20zaw9w6",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn5y6qqpxt3qaecccg12h03e",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Integrated protected-stream verification into hydration and authoritative write paths so unsigned, tampered, conflicting, truncated, or unknown-trust streams are refused as authoritative inputs.",
+    "tags": [
+      "protected-state",
+      "watchers",
+      "write-gates"
+    ],
+    "title": "Integrate verification gates into hydration, mutation, and watcher handling",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

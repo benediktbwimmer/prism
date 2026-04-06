@@ -1,0 +1,90 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Overview, Plans, and Graph expose last-updated or stale state clearly enough that humans can judge freshness before acting"
+      },
+      {
+        "anchors": [],
+        "label": "Users can manually refresh every major control-plane surface without navigating away or reloading the whole app"
+      },
+      {
+        "anchors": [],
+        "label": "Shared client infrastructure defines consistent freshness semantics across Dashboard, Overview, Plans, and Graph instead of ad hoc per-page behavior"
+      },
+      {
+        "anchors": [],
+        "label": "The implementation leaves a clear path for polling or SSE on non-dashboard surfaces where live updates materially improve trust"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 538
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmzvjdhb4depcxapk8a14naz"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn00sx8j4fjmtbte3bsyf8pv",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmzvjdhb874nxd0v44d2hdmt",
+    "priority": 8,
+    "published_task_status": null,
+    "session": null,
+    "status": "Proposed",
+    "summary": "Make Overview, Plans, and Graph trustworthy operational surfaces by adding explicit freshness semantics, stale indicators, manual refresh, and a shared path toward polling or SSE where live updates matter.",
+    "tags": [
+      "freshness",
+      "live-update",
+      "trust",
+      "ui"
+    ],
+    "title": "Milestone 8: Add freshness and live-update trust signals across control-plane surfaces",
+    "validation_refs": [
+      {
+        "id": "ui:control-plane-freshness"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

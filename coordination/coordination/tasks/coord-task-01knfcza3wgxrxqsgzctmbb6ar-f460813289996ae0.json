@@ -1,0 +1,74 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1421
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knfcza3w2x083jxnvss4cr99"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knfcza3wgxrxqsgzctmbb6ar",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775419360,
+    "lease_holder": {
+      "agent_id": "codex-runtime-storage-boundary-redesign-2026-04-01",
+      "principal": {
+        "authority_id": "local-daemon",
+        "kind": "human",
+        "name": "Codex",
+        "principal_id": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds"
+      },
+      "session_id": "session:01kndmn52rj3qhk4jam734vjjj",
+      "worktree_id": null
+    },
+    "lease_refreshed_at": 1775412160,
+    "lease_stale_at": 1775413960,
+    "lease_started_at": 1775412160,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knfcza3w9aezqbr2p883q85m",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": null,
+    "tags": [],
+    "title": "Render the fleet page with vis-timeline swimlanes from runtime and lease read models",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

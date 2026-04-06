@@ -1,0 +1,80 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Coordination mutations either proceed on a lighter-weight snapshot path or fail fast with structured retry guidance instead of blocking behind refresh_lock for long intervals."
+      },
+      {
+        "anchors": [],
+        "label": "Live slow MCP call history no longer shows multi-second or minute-scale mutateCoordination waits attributed primarily to refresh lock admission."
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 546
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn7cxtgg1r28ntzg41pgzt2r"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn7cym8fe0dxg3ehd19fp9ge",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn7cxa9tvnaa1svrgppcth4a",
+    "priority": 3,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Redesign the coordination mutation admission path so refresh activity cannot strand mutateCoordination callers behind long-held locks and then fail after minutes of waiting.",
+    "tags": [],
+    "title": "Remove long refresh-lock stalls from coordination mutation admission",
+    "validation_refs": [
+      {
+        "id": "bench:coordination-mutation-admission"
+      },
+      {
+        "id": "log:refresh-lock-admission"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

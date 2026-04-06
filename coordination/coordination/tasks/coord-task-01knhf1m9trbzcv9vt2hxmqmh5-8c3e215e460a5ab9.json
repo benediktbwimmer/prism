@@ -1,0 +1,100 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "A coordination-only workspace can start, mutate, persist, and reload without graph indexing"
+      }
+    ],
+    "anchors": [
+      {
+        "File": 134
+      },
+      {
+        "File": 135
+      },
+      {
+        "File": 91
+      }
+    ],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 98
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 134
+        },
+        {
+          "File": 135
+        },
+        {
+          "File": 91
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/main",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knhf1m9ecx7jq3q5qphtfvq6",
+      "coord-task:01knhf1m9m357r90x9jyp2syn4"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knhf1m9trbzcv9vt2hxmqmh5",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775488642,
+    "lease_holder": {
+      "agent_id": null,
+      "principal": {
+        "authority_id": "worktree_executor",
+        "kind": "agent",
+        "name": "codex-b",
+        "principal_id": "worktree:01knhcah0q0qny1c4fwcjecvkq"
+      },
+      "session_id": "session:01knherndr7kvac0xr5p161pzg",
+      "worktree_id": "worktree:84a3f98283a83dd5"
+    },
+    "lease_refreshed_at": 1775481442,
+    "lease_stale_at": 1775483242,
+    "lease_started_at": 1775481442,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knhf1m96anv1tjmhm9pv29sq",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01knherndr7kvac0xr5p161pzg",
+    "status": "Ready",
+    "summary": null,
+    "tags": [],
+    "title": "Implement coordination-only session, bootstrap, and runtime paths",
+    "validation_refs": [],
+    "worktree_id": "worktree:84a3f98283a83dd5"
+  },
+  "schema_version": 1
+}

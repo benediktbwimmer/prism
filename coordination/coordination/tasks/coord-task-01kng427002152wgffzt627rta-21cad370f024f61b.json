@@ -1,0 +1,134 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [
+          {
+            "File": 246
+          },
+          {
+            "File": 505
+          }
+        ],
+        "label": "Authoritative shared-coordination loaders must emit current schema_version envelopes, accept supported older versions, reject newer versions with upgrade-required diagnostics, and surface payload kind plus supported/observed schema versions in operator-visible errors."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 246
+      },
+      {
+        "File": 505
+      },
+      {
+        "File": 509
+      },
+      {
+        "File": 517
+      },
+      {
+        "File": 658
+      }
+    ],
+    "assignee": "codex-d",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 408
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 246
+        },
+        {
+          "File": 505
+        },
+        {
+          "File": 509
+        },
+        {
+          "File": 517
+        },
+        {
+          "File": 658
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/main",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kng42700kzp46fxnkrswh9yj"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "published_to_branch",
+      "lastPreflight": {
+        "behindTargetCommits": 0,
+        "checkedAt": 1775448835,
+        "currentBranch": "task/shared-coordination-plan-followup",
+        "dirtyPaths": [],
+        "failure": null,
+        "fetchAgeSeconds": null,
+        "headCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+        "maxCommitsBehindTarget": 0,
+        "mergeBaseCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+        "protectedDirtyPaths": [],
+        "publishRef": "task/shared-coordination-plan-followup",
+        "sourceRef": "task/shared-coordination-plan-followup",
+        "targetBranch": "main",
+        "targetCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+        "targetRef": "origin/main",
+        "worktreeDirty": false
+      },
+      "lastPublish": {
+        "attemptedAt": 1775448854,
+        "codeCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+        "coordinationCommit": null,
+        "failure": null,
+        "protectedPaths": [],
+        "publishRef": "task/shared-coordination-plan-followup",
+        "pushedRef": "refs/heads/task/shared-coordination-plan-followup",
+        "stagedPaths": []
+      },
+      "pendingTaskStatus": null,
+      "publishCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+      "publishRef": "task/shared-coordination-plan-followup",
+      "reviewArtifactRef": null,
+      "sourceCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+      "sourceRef": "task/shared-coordination-plan-followup",
+      "status": "coordination_published",
+      "targetBranch": "main",
+      "targetCommitAtPublish": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
+      "targetRef": "origin/main"
+    },
+    "id": "coord-task:01kng427002152wgffzt627rta",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01knga7mvdnhzwg70wyxqygeya",
+    "status": "Completed",
+    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics.",
+    "tags": [],
+    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
+    "validation_refs": [],
+    "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
+  },
+  "schema_version": 1
+}

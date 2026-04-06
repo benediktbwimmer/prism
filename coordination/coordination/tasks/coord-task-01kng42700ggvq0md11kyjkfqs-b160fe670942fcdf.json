@@ -1,0 +1,135 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [
+          {
+            "File": 68
+          },
+          {
+            "File": 77
+          }
+        ],
+        "label": "Lease evaluation must join lease-holder boundary facts from task and claim shards with runtime-ref liveness and restart epochs, so runtime restarts and stale heartbeats do not require rewriting unrelated task or claim state to stay authoritative."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 132
+      },
+      {
+        "File": 505
+      },
+      {
+        "File": 658
+      },
+      {
+        "File": 68
+      },
+      {
+        "File": 77
+      }
+    ],
+    "assignee": "codex-d",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 447
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 132
+        },
+        {
+          "File": 505
+        },
+        {
+          "File": 658
+        },
+        {
+          "File": 68
+        },
+        {
+          "File": 77
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/task/shared-coordination-plan-followup",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kng427008wyav2vmr5am9jg9",
+      "coord-task:01kng42700hg2hrewgm8542y9j"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "published_to_branch",
+      "lastPreflight": {
+        "behindTargetCommits": 0,
+        "checkedAt": 1775470124,
+        "currentBranch": "task/shared-coordination-plan-followup",
+        "dirtyPaths": [],
+        "failure": null,
+        "fetchAgeSeconds": null,
+        "headCommit": "341d8f423a79c9dc07d42dc3bdfb78fb3e209d94",
+        "maxCommitsBehindTarget": 0,
+        "mergeBaseCommit": "62f3263dc63e154453245b0c9a1e8e3b505d58bb",
+        "protectedDirtyPaths": [],
+        "publishRef": "task/shared-coordination-plan-followup",
+        "sourceRef": "task/shared-coordination-plan-followup",
+        "targetBranch": "main",
+        "targetCommit": "62f3263dc63e154453245b0c9a1e8e3b505d58bb",
+        "targetRef": "origin/main",
+        "worktreeDirty": false
+      },
+      "lastPublish": {
+        "attemptedAt": 1775470142,
+        "codeCommit": "341d8f423a79c9dc07d42dc3bdfb78fb3e209d94",
+        "coordinationCommit": null,
+        "failure": null,
+        "protectedPaths": [],
+        "publishRef": "task/shared-coordination-plan-followup",
+        "pushedRef": "refs/heads/task/shared-coordination-plan-followup",
+        "stagedPaths": []
+      },
+      "pendingTaskStatus": null,
+      "publishCommit": "341d8f423a79c9dc07d42dc3bdfb78fb3e209d94",
+      "publishRef": "task/shared-coordination-plan-followup",
+      "reviewArtifactRef": null,
+      "sourceCommit": "341d8f423a79c9dc07d42dc3bdfb78fb3e209d94",
+      "sourceRef": "task/shared-coordination-plan-followup",
+      "status": "coordination_published",
+      "targetBranch": "main",
+      "targetCommitAtPublish": "62f3263dc63e154453245b0c9a1e8e3b505d58bb",
+      "targetRef": "origin/main"
+    },
+    "id": "coord-task:01kng42700ggvq0md11kyjkfqs",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01knh28rpf8t53pf6kw0a67ne3",
+    "status": "Completed",
+    "summary": "Rework task and claim lease validity so durable lease-boundary facts stay in task/claim shards and runtime liveness is joined from runtime refs instead of forcing global summary rewrites.",
+    "tags": [],
+    "title": "Rework lease validity so task and claim records carry durable lease-boundary facts while runtime liveness comes from runtime refs, making lease freshness a join instead of a global summary rewrite.",
+    "validation_refs": [],
+    "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
+  },
+  "schema_version": 1
+}

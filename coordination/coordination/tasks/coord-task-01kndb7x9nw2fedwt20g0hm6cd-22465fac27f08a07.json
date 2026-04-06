@@ -1,0 +1,80 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Materialization and doc sync run once per logical workflow boundary unless correctness requires an earlier flush."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 440
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kndb7x9n3zc09arq6pxj0mch",
+      "coord-task:01kndb7x9nmx4jvcg4v54ktbe6"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kndb7x9nw2fedwt20g0hm6cd",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775350436,
+    "lease_holder": {
+      "agent_id": null,
+      "principal": {
+        "authority_id": "local-daemon",
+        "kind": "agent",
+        "name": "codex-shared-coordination-refs-gaps-2026-04-04",
+        "principal_id": "principal:codex-shared-coordination-refs-gaps-2026-04-04:01knaqj9pv4p1vc9tfw82zvp6y"
+      },
+      "session_id": "session:01knda98w57vvm1h979cer10xb",
+      "worktree_id": null
+    },
+    "lease_refreshed_at": 1775343236,
+    "lease_stale_at": 1775345036,
+    "lease_started_at": 1775343236,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kndb7x9ntbr6ja2fh30ejm4n",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Completion-path authoritative publication no longer schedules intermediate materialization. Materialization flush and PRISM doc sync now run at the outer workflow boundary, with regression coverage proving the intermediate step is suppressed.",
+    "tags": [],
+    "title": "Move materialization and PRISM doc sync to workflow-boundary flush points instead of intermediate coordination updates",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,121 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "The current startup and reload path is reduced to one concrete contract boundary between shared-ref authority and local materialized startup state."
+      },
+      {
+        "anchors": [],
+        "label": "The contract identifies the shared-ref identity key needed to validate or invalidate the local materialized snapshot."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 177
+      },
+      {
+        "File": 188
+      },
+      {
+        "File": 329
+      },
+      {
+        "File": 330
+      },
+      {
+        "File": 39
+      },
+      {
+        "File": 421
+      },
+      {
+        "File": 424
+      },
+      {
+        "File": 487
+      }
+    ],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 180
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 177
+        },
+        {
+          "File": 188
+        },
+        {
+          "File": 329
+        },
+        {
+          "File": 330
+        },
+        {
+          "File": 39
+        },
+        {
+          "File": 421
+        },
+        {
+          "File": 424
+        },
+        {
+          "File": 487
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knb0g511dtavrvd5ban1x6jq",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Investigate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Map the current daemon bootstrap, shared-ref hydration, and runtime-host reload paths; define which state remains authoritative in the shared ref versus which state becomes a local materialized startup snapshot keyed by shared-ref identity.",
+    "tags": [],
+    "title": "Define the authority vs materialized-runtime contract",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

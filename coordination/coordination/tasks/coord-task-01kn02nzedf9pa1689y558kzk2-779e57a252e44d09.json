@@ -1,0 +1,108 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Authoritative state and analytical co-change evidence are persisted in separate layers with clear ownership"
+      },
+      {
+        "anchors": [],
+        "label": "Serving-side co-change projection remains bounded and can be refreshed without full historical hydration"
+      },
+      {
+        "anchors": [],
+        "label": "The new model preserves enough evidence to derive co-change behavior without quadratic hot-path writes"
+      }
+    ],
+    "anchors": [
+      {
+        "File": 231
+      },
+      {
+        "File": 260
+      },
+      {
+        "File": 265
+      },
+      {
+        "File": 275
+      }
+    ],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 608
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 231
+        },
+        {
+          "File": 260
+        },
+        {
+          "File": 265
+        },
+        {
+          "File": 275
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn02mwy8twwr8mcjrc6w60qn"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn02nzedf9pa1689y558kzk2",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Unbounded persisted pairwise co-change history was removed from authoritative state; the store now keeps plain lineage history and derives bounded serving co-change from colder evidence instead of hydrating or persisting an unbounded historical pair table.",
+    "tags": [
+      "analytics",
+      "materialization",
+      "persistence",
+      "projection"
+    ],
+    "title": "Introduce a cold evidence model and bounded projection materialization pipeline",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

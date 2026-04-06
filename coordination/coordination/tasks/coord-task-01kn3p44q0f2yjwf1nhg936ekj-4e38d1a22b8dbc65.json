@@ -1,0 +1,74 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 128
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn3p329sn75tz26x0z73xb3s",
+      "coord-task:01kn3p363cmz6sfqstd0s5tgac",
+      "coord-task:01kn3p3cy48hz6m3g42e0374xj",
+      "coord-task:01kn3p3gsrp451he4fbaj7a74c",
+      "coord-task:01kn3p3mfw8cnhvv3m8s2bdzgq",
+      "coord-task:01kn3p3rzhgskr8vc63c5yr9af",
+      "coord-task:01kn3p3ya2p1aemdxb2bbye2sy"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn3p44q0f2yjwf1nhg936ekj",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Validate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn3p2nf687bn24v4seqzbey0",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Focused heartbeat/lease tests, the full workspace test suite, and the release-binary MCP restart/status/health checks all passed; a live post-restart task brief also succeeded, and dogfooding feedback feedback:01kn4rsn3j27xxq4ad6bphk1ef captured one remaining noisy nextAction on completed tasks.",
+    "tags": [
+      "dogfooding",
+      "release",
+      "validation"
+    ],
+    "title": "Validate the end-to-end principal-authenticated coordination cutover",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

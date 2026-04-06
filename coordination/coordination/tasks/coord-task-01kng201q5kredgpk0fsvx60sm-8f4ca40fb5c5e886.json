@@ -1,0 +1,87 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "All multi-step structural rewrites execute as one transaction against a staged snapshot and publish exactly one authoritative shared-state revision on success."
+      },
+      {
+        "anchors": [],
+        "label": "Any failed primitive mutation or invariant check aborts the whole transaction without durable partial graph changes."
+      },
+      {
+        "anchors": [],
+        "label": "plan_bootstrap and future graph macros become thin expansion helpers over coordination_transaction rather than bespoke persistence paths."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 400
+      }
+    ],
+    "assignee": "codex-a",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 400
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/codex/coordination-graph-rewrite",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kng1z8k1hzkyh0ptbw17b84z",
+      "coord-task:01kng1zj0hgqv438pm4hg6jy66",
+      "coord-task:01kng1zsbvzhcbyhfvgy0rwcy6"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kng201q5kredgpk0fsvx60sm",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01kngb8hqga3p1716w7xcn9kvb",
+    "status": "Completed",
+    "summary": null,
+    "tags": [],
+    "title": "Implement atomic coordination_transaction staging, final-graph validation, single-publish semantics, and rebase plan_bootstrap plus other structural helpers onto that transaction engine",
+    "validation_refs": [],
+    "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+  },
+  "schema_version": 1
+}

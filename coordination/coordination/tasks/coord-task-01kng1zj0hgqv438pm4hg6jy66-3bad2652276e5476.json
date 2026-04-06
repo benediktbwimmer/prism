@@ -1,0 +1,85 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Plan read models derive pending, active, blocked, broken_dependency, completed, failed, abandoned, and archived from descendant tasks plus direct dependencies."
+      },
+      {
+        "anchors": [],
+        "label": "Task read models expose lifecycle_status separately from effective_status, including blocked and broken_dependency derivation with the doc's exact precedence rules."
+      },
+      {
+        "anchors": [],
+        "label": "The runtime exposes graph_actionable_tasks before caller-specific filtering and preserves explicit blocker-cause diagnostics."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 400
+      }
+    ],
+    "assignee": "codex-a",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 25
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 400
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/codex/coordination-graph-rewrite",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kng1z8k1hzkyh0ptbw17b84z"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kng1zj0hgqv438pm4hg6jy66",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01kng8x0mxh1fghq47gcsx3ffs",
+    "status": "Completed",
+    "summary": null,
+    "tags": [],
+    "title": "Derive effective task status, derived plan status, blocker causes, descendant estimate summaries, graph-actionable task sets, and identity-agnostic readiness from the canonical graph",
+    "validation_refs": [],
+    "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,86 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Coordination read refresh no longer rebuilds snapshot, published plan projection, and live graphs from full event and log replay on each revision bump"
+      },
+      {
+        "anchors": [],
+        "label": "Coordination mutate persistence appends events without global existing-event scans and without reloading the full published plan projection"
+      },
+      {
+        "anchors": [],
+        "label": "Published plan synchronization only touches changed plans, changed logs, and necessary index entries while preserving hydration correctness"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 15271
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmwq21zg4hy0etha7x0nj40a"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmwq2215db6wsf87n689k12p",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmwq0gyrjr66sv91wnknhzmf",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Measure coordination reload and mutation persistence before and after the incremental coordination path, using refresh traces plus loadedBytes, replayVolume, and fullRebuildCount to detect broad rehydration.",
+    "tags": [
+      "coordination",
+      "perf",
+      "published-plans",
+      "reload"
+    ],
+    "title": "Milestone 3: Convert coordination reload and persistence to incremental read/write models",
+    "validation_refs": [
+      {
+        "id": "perf:m3-coordination-incremental"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,79 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "All authoritative mutation families stamp work context in a consistent schema alongside principal provenance."
+      },
+      {
+        "anchors": [],
+        "label": "Plan creation, task creation, and later mutations all preserve the originating declared work chain."
+      },
+      {
+        "anchors": [],
+        "label": "Session/task/read surfaces expose current work state and repair guidance using the new model."
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 426
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn6rmjszn0az4kypvh97yq1d",
+      "coord-task:01kn6rn36wwvrz8ezq8p0e02d6",
+      "coord-task:01kn6rnm8sffvrtsv6km1btd98"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn6rnxxzfcwhtfmty9j1hdvr",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn6rkat0t02ncv5pj0756yyz",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Authenticated coordination, claim, and artifact mutations now preserve the active declared-work chain in their execution context, and the authenticated curator apply path no longer drops inferred-edge promotions onto the non-authenticated branch.",
+    "tags": [],
+    "title": "Thread work attribution through all mutation provenance and read surfaces",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,85 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Cross-plan dependency targets render as external stubs that navigate to the target plan or task rather than as reconstructed inline containment."
+      },
+      {
+        "anchors": [],
+        "label": "Portfolio and inbox surfaces default to root-plan summaries while plan detail renders only direct child plans and direct child tasks with explicit expansion for deeper nesting."
+      },
+      {
+        "anchors": [],
+        "label": "Task cards visibly distinguish human, worktree_executor, and service work while surfacing blockers, dependencies, and effective status."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 400
+      }
+    ],
+    "assignee": "codex-a",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 167
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 400
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/task/coordination-query-mcp-rewrite",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kng20jnn31h2n6ana91ja67d"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kng20vv9wdjd1jannvnb52pn",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01knhg7epvtxx4wt9t688ewdjr",
+    "status": "Completed",
+    "summary": null,
+    "tags": [],
+    "title": "Rewrite the SSR and UI rendering model around root plans, direct child plans and tasks, external dependency stubs, and executor-aware task presentation",
+    "validation_refs": [],
+    "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+  },
+  "schema_version": 1
+}

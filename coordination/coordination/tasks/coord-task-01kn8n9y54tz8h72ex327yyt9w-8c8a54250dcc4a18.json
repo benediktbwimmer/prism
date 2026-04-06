@@ -1,0 +1,77 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "The final policy recommendation explains why commit-scope responsibility should remain with the agent or human rather than an automatic publish mode."
+      },
+      {
+        "anchors": [],
+        "label": "The repo guidance names strict `require` as the recommended default mode for normal PRISM agent work."
+      },
+      {
+        "anchors": [],
+        "label": "The rollout plan only keeps `auto` as a temporary migration aid, and explicitly removes it once strict `require` has been proven through dogfooding and validation."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 84
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn8n9x2vm8c683vpx5642f3j"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn8n9y54tz8h72ex327yyt9w",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Decide",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn8n8v0ns6jcj0xgge5f0adv",
+    "priority": 88,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Document strict `require` as the recommended default once the publish-state model is proven, and delete `auto` rather than keeping it as a normal mode because broad auto-commit behavior is too risky for multi-task agent work.",
+    "tags": [],
+    "title": "Make strict require the default and remove auto after proven dogfooding",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

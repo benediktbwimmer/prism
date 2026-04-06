@@ -1,0 +1,86 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Indexing and outcome application no longer trigger full rebuild_concepts work on every lineage batch or every single outcome event"
+      },
+      {
+        "anchors": [],
+        "label": "Startup and reload projection overlay paths avoid duplicate whole-concept rebuild passes when combining local, shared, and repo knowledge"
+      },
+      {
+        "anchors": [],
+        "label": "Projection maintenance recomputes only the concept state affected by changed lineage, outcomes, or curated concept inputs"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 15271
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmwq21zg4hy0etha7x0nj40a"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmwq2220x7gt4s80n933sh93",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmwq0gyrjr66sv91wnknhzmf",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Measure projection and concept maintenance before and after batching/incrementalization so loadedBytes, replayVolume, and fullRebuildCount drop on lineage and outcome-driven refreshes.",
+    "tags": [
+      "concepts",
+      "perf",
+      "projections",
+      "startup"
+    ],
+    "title": "Milestone 4: Batch and incrementalize projection concept maintenance",
+    "validation_refs": [
+      {
+        "id": "perf:m4-projection-incremental"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,24 @@
+{
+  "kind": "runtime_descriptor",
+  "payload": {
+    "blobSnapshotHead": null,
+    "branchRef": "refs/heads/task/layered-runtime-split",
+    "capabilities": [
+      "coordination_ref_publisher",
+      "bounded_peer_reads"
+    ],
+    "checkedOutCommit": "d7f572bba4ab475b1a14a2d80b548505f8b9f7c2",
+    "discoveryMode": "lan_direct",
+    "exportPolicy": null,
+    "instanceStartedAt": 1775488087,
+    "lastSeenAt": 1775488098,
+    "peerEndpoint": "http://127.0.0.1:51357/peer/query",
+    "peerTransportIdentity": null,
+    "principalId": "legacy_agent_fallback",
+    "publicEndpoint": null,
+    "repoId": "repo:763c8d2ae95d5376",
+    "runtimeId": "instance:53135:worktree:84a3f98283a83dd5:1775488078141",
+    "worktreeId": "worktree:01knhcah0q0qny1c4fwcjecvkq"
+  },
+  "schema_version": 1
+}

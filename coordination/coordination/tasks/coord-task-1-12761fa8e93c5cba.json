@@ -1,0 +1,75 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Persistence classification explicitly marks native plan graph data, authored node fields, authored edges, execution overlays, and stable published refs as authoritative state where appropriate."
+      },
+      {
+        "anchors": [],
+        "label": "The classification explicitly marks compatibility task projections, plan summaries and recommendations, snapshots, compaction artifacts, and other caches or exports as derived state."
+      },
+      {
+        "anchors": [],
+        "label": "The remaining persistence-migration tasks can reference this classification to avoid reintroducing dual truth between native plans and compatibility projections."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 158383
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:1",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:1",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Define what is authoritative runtime truth versus derived or export-only state, including native plan graphs, authored node and edge state, execution overlays, compatibility projections, summaries, and snapshot artifacts.",
+    "tags": [],
+    "title": "Classify authoritative state vs derived artifacts across persistence, plans, and projections",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

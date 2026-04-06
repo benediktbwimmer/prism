@@ -1,0 +1,109 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Background refresh no longer repeatedly fails with database-locked errors during expected long-running maintenance or projection work"
+      },
+      {
+        "anchors": [],
+        "label": "Daemon health and freshness reporting distinguish bounded lag from hard failure"
+      },
+      {
+        "anchors": [],
+        "label": "Request paths remain orientation-giving even while derived state is catching up"
+      }
+    ],
+    "anchors": [
+      {
+        "File": 206
+      },
+      {
+        "File": 263
+      },
+      {
+        "File": 281
+      },
+      {
+        "File": 86
+      }
+    ],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 620
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 206
+        },
+        {
+          "File": 263
+        },
+        {
+          "File": 281
+        },
+        {
+          "File": 86
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn02nzdnkxkz5dc3fbmgjfkb",
+      "coord-task:01kn02nzedf9pa1689y558kzk2"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn02nzgqcvhrahmb2wt92gfw",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Runtime refresh and freshness now treat bounded lag as a deferred state instead of a daemon failure: workspace-runtime snapshot loaders use pure-read session helpers, transient SQLite lock contention in the background refresh loop is downgraded to deferred refresh bookkeeping, and runtimeStatus reports health ok while freshness surfaces deferred lag explicitly.",
+    "tags": [
+      "freshness",
+      "health",
+      "locking",
+      "runtime"
+    ],
+    "title": "Harden refresh, locking, and freshness behavior around long-running persistence work",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

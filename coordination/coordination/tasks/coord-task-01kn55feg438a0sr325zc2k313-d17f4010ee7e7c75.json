@@ -1,0 +1,103 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "The repo has reproducible measurements for tiny-edit publish latency, queue wait, direct dependent settle latency, and checkpoint lag under nominal load."
+      },
+      {
+        "anchors": [],
+        "label": "If any budget is still missed, the remaining gap is attributed to named subsystems with follow-up work, not a generic 'needs tuning' conclusion."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 256
+      },
+      {
+        "File": 343
+      },
+      {
+        "File": 84
+      }
+    ],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 246
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 256
+        },
+        {
+          "File": 343
+        },
+        {
+          "File": 84
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn55dvkdfvxg8pdfk72p0h72",
+      "coord-task:01kn55eps6ms9b7hr6nexfnjhr",
+      "coord-task:01kn55f0wgfw5rcrxzbqa0qpm4",
+      "coord-task:01kn55f7ffvqmnm2gkdptvdttd"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn55feg438a0sr325zc2k313",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Validate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+    "priority": 8,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Use live daemon evidence and reproducible workloads to confirm whether the rewritten path hits the architecture budgets, and publish any remaining misses with attributed causes rather than hand-waving them away.",
+    "tags": [],
+    "title": "Validate refresh latency against the document budgets and publish residual gaps",
+    "validation_refs": [
+      {
+        "id": "bench:refresh-budget-validation"
+      },
+      {
+        "id": "log:live-daemon-refresh-timings"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

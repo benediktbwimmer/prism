@@ -1,0 +1,47 @@
+{
+  "kind": "coordination_plan_record",
+  "payload": {
+    "plan": {
+      "authored_edges": [],
+      "created_from": null,
+      "goal": "Investigate and reduce the next observed PRISM runtime and MCP performance hotspots from live daemon and MCP logs by tackling compact-task latency, refresh-lock admission stalls, oversized co-change work, startup/recovery fixed costs, and noisy bridge transport behavior, while preserving correctness and proving improvements with log-backed validation.",
+      "id": "plan:01kn7cxa9tvnaa1svrgppcth4a",
+      "kind": "TaskExecution",
+      "metadata": null,
+      "policy": {
+        "default_claim_mode": "Advisory",
+        "git_execution": {
+          "completionMode": "off",
+          "integrationMode": "external",
+          "maxCommitsBehindTarget": 0,
+          "maxFetchAgeSeconds": null,
+          "requireTaskBranch": false,
+          "startMode": "off",
+          "targetBranch": "",
+          "targetRef": null
+        },
+        "lease_expires_after_seconds": 7200,
+        "lease_renewal_mode": "strict",
+        "lease_stale_after_seconds": 1800,
+        "max_parallel_editors_per_anchor": 2,
+        "require_review_for_completion": false,
+        "require_validation_for_completion": false,
+        "review_required_above_risk_score": null,
+        "stale_after_graph_change": true
+      },
+      "revision": 0,
+      "root_tasks": [],
+      "scheduling": {
+        "dueAt": null,
+        "importance": 0,
+        "manualBoost": 0,
+        "urgency": 0
+      },
+      "scope": "Repo",
+      "status": "Completed",
+      "tags": [],
+      "title": "Investigate and reduce the next observed PRISM runtime and MCP performance hotspots from live daemon and MCP logs by tackling compact-task latency, refresh-lock admission stalls, oversized co-change work, startup/recovery fixed costs, and noisy bridge transport behavior, while preserving correctness and proving improvements with log-backed validation."
+    }
+  },
+  "schema_version": 1
+}

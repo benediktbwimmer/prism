@@ -1,0 +1,85 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Known routing, shell, and ownership-oriented queries rank the owning module ahead of nearby consumers."
+      },
+      {
+        "anchors": [],
+        "label": "prism_open returns edit-shaped structural context for large files without immediately forcing shell fallback."
+      },
+      {
+        "anchors": [],
+        "label": "prism_workset and related concept flows either produce reusable follow-through or fail with explicit next actions instead of empty-member dead ends."
+      },
+      {
+        "anchors": [],
+        "label": "Large-file and mixed-purpose targets emit useful pressure diagnostics and decomposition-aware next steps."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 826
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn08e60qbk9fe00zn861x5j4",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn08dk7n4ym7vrdzp2nkdjy1",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Improve locate, workset, and open follow-through so PRISM ranks owning modules first, preserves semantic-to-exact edit momentum in large files, and emits explicit monolith-pressure diagnostics instead of quietly degrading. Fold in the live friction where concept-driven worksets resolved directionally but then failed with `no reusable members`.",
+    "tags": [
+      "compact-tools",
+      "dogfood",
+      "edit-handoff",
+      "milestone",
+      "ranking"
+    ],
+    "title": "Milestone 2: Ownership-aware compact editing",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

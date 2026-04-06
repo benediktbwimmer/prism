@@ -1,0 +1,119 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Repo-scoped concept, contract, memory, and concept-relation publication uses signed protected events instead of raw filesystem edits as authority."
+      },
+      {
+        "anchors": [],
+        "label": "Hydration of these streams is fail-closed and only projects verified data into hot state."
+      },
+      {
+        "anchors": [],
+        "label": "Derived docs or convenience artifacts remain regenerated outputs, not authoritative mutation inputs."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 108
+      },
+      {
+        "File": 77
+      },
+      {
+        "File": 78
+      },
+      {
+        "File": 79
+      },
+      {
+        "File": 84
+      },
+      {
+        "File": 90
+      }
+    ],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 359
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 108
+        },
+        {
+          "File": 77
+        },
+        {
+          "File": 78
+        },
+        {
+          "File": 79
+        },
+        {
+          "File": 84
+        },
+        {
+          "File": 90
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn5ydezjztsey6m03tvhrgn3"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn5ydf14v5ce5m5qbd22ykbe",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn5y6qqpxt3qaecccg12h03e",
+    "priority": 1,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Moved repo concepts, contracts, concept relations, and memory streams onto signed protected events with fail-closed hydration of verified data only.",
+    "tags": [
+      "hydration",
+      "knowledge-streams",
+      "protected-state"
+    ],
+    "title": "Migrate repo knowledge streams onto the protected engine",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

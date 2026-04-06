@@ -1,0 +1,77 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Bootstrap no longer depends on empty local state"
+      },
+      {
+        "anchors": [],
+        "label": "Recovery requires external attestation instead of silent re-bootstrap"
+      },
+      {
+        "anchors": [],
+        "label": "Shared runtime stores portable human identity, verifier metadata, assurance level, and lifecycle state"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 360
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knfddqewmqcg36tyyq0f98bd"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knfddqewpk8b7vxba6y2cpaz",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knfddqevrg6cs9zw0fw8c6d5",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Starting the portable human bootstrap and recovery implementation work after completing the durable principal-kind refactor.",
+    "tags": [],
+    "title": "Implement portable human principal bootstrap and recovery flows backed by external attestation and shared registry metadata",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

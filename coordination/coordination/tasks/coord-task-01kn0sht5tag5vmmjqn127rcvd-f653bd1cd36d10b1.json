@@ -1,0 +1,75 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Validation demonstrates fewer or rarer full refreshes, corrected deferred behavior, and improved latency."
+      },
+      {
+        "anchors": [],
+        "label": "Regression coverage protects the intended refresh semantics going forward."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1134
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn0shet61b27jzmdh97t3mmn",
+      "coord-task:01kn0shjk66y4khmr563jwk5nn",
+      "coord-task:01kn0shpfzn7pdnhw9m0qrchp9"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn0sht5tag5vmmjqn127rcvd",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Validate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn0sh5q9vv9j2q2n6jwxhtep",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Validated the refresh plan end-to-end with focused regressions across the repaired surfaces: core watch-driven refresh still updates live session state, deferred runtime-sync reporting still skips reload work, the first mutation after a workspace refresh still avoids persisted reload, and persisted notes still reload when freshness requires it. Combined with the new `rescan` regressions and a healthy release rebuild/restart, the plan now has both semantic and behavioral coverage for the refreshed runtime path.",
+    "tags": [],
+    "title": "Validate refresh performance and regression coverage",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

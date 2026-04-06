@@ -1,0 +1,47 @@
+{
+  "kind": "coordination_plan_record",
+  "payload": {
+    "plan": {
+      "authored_edges": [],
+      "created_from": null,
+      "goal": "Define one correct path identity model for PRISM so tracked snapshots, shared/runtime state, APIs, docs, and projections never persist absolute filesystem paths; use file ids plus repo-relative paths as canonical identity and anchors as the primary semantic reference.",
+      "id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+      "kind": "TaskExecution",
+      "metadata": null,
+      "policy": {
+        "default_claim_mode": "Advisory",
+        "git_execution": {
+          "completionMode": "require",
+          "integrationMode": "external",
+          "maxCommitsBehindTarget": 0,
+          "maxFetchAgeSeconds": null,
+          "requireTaskBranch": true,
+          "startMode": "require",
+          "targetBranch": "main",
+          "targetRef": null
+        },
+        "lease_expires_after_seconds": 7200,
+        "lease_renewal_mode": "strict",
+        "lease_stale_after_seconds": 1800,
+        "max_parallel_editors_per_anchor": 2,
+        "require_review_for_completion": false,
+        "require_validation_for_completion": false,
+        "review_required_above_risk_score": null,
+        "stale_after_graph_change": true
+      },
+      "revision": 0,
+      "root_tasks": [],
+      "scheduling": {
+        "dueAt": null,
+        "importance": 100,
+        "manualBoost": 50,
+        "urgency": 90
+      },
+      "scope": "Repo",
+      "status": "Completed",
+      "tags": [],
+      "title": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+    }
+  },
+  "schema_version": 1
+}

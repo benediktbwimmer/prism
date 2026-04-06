@@ -1,0 +1,24 @@
+{
+  "kind": "runtime_descriptor",
+  "payload": {
+    "blobSnapshotHead": null,
+    "branchRef": "refs/heads/task/optimize-test-runtime-core-hotspots",
+    "capabilities": [
+      "coordination_ref_publisher",
+      "bounded_peer_reads"
+    ],
+    "checkedOutCommit": "a407c78ff2effe393e89daaa628357ba33d90610",
+    "discoveryMode": "lan_direct",
+    "exportPolicy": null,
+    "instanceStartedAt": 1775476670,
+    "lastSeenAt": 1775476681,
+    "peerEndpoint": "http://127.0.0.1:51357/peer/query",
+    "peerTransportIdentity": null,
+    "principalId": "legacy_agent_fallback",
+    "publicEndpoint": null,
+    "repoId": "repo:763c8d2ae95d5376",
+    "runtimeId": "instance:53393:worktree:84a3f98283a83dd5:1775476662304",
+    "worktreeId": "worktree:84a3f98283a83dd5"
+  },
+  "schema_version": 1
+}

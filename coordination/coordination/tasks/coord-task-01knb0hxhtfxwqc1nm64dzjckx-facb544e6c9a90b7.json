@@ -1,0 +1,73 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Shared-ref authority ingestion is no longer required during daemon startup to serve a healthy runtime."
+      },
+      {
+        "anchors": [],
+        "label": "The sync path is the sole owner of shared-ref fetch, verification, and materialized snapshot rebuild work."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 197
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knb0hdvk3pmkwcjkq0zzjgmq"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knb0hxhtfxwqc1nm64dzjckx",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Refactor shared-ref refresh, manifest verification, and record import so the expensive authority sync runs outside the daemon startup critical path and materializes the local startup snapshot as its output.",
+    "tags": [],
+    "title": "Move shared-ref fetch, verification, and import into an explicit sync path",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

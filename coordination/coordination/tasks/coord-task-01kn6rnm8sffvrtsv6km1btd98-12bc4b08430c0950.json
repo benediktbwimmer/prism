@@ -1,0 +1,78 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Agents learn the required bootstrap order through instructions and error messages instead of trial and error."
+      },
+      {
+        "anchors": [],
+        "label": "Any authoritative mutation without current or explicit work context is rejected with clear repair guidance."
+      },
+      {
+        "anchors": [],
+        "label": "The implicit session task fallback is removed from mutation resolution paths."
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 420
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn6rmjszn0az4kypvh97yq1d",
+      "coord-task:01kn6rn36wwvrz8ezq8p0e02d6"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn6rnm8sffvrtsv6km1btd98",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn6rkat0t02ncv5pj0756yyz",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Authenticated mutations now require declared work, the implicit session-task bootstrap no longer applies on the MCP mutation surface, and the updated guidance/tests validate the live server behavior.",
+    "tags": [],
+    "title": "Reject undeclared mutations and remove implicit session-task fallback",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

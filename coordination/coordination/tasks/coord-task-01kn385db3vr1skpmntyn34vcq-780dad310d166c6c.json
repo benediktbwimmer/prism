@@ -1,0 +1,73 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Heading and section queries find the governing doc section before incidental earlier mentions."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1628
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn384q9273c7ak2baermst1v"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn385db3vr1skpmntyn34vcq",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn384cseg90m3a2gpf3802ca",
+    "priority": 9,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Updated compact gather ranking for docs so Markdown heading hits outrank incidental earlier mentions, requested a larger candidate pool for doc gathers before truncation, and added a regression test covering the exact failure mode where a bullet mention previously beat the defining section heading.",
+    "tags": [
+      "compact-tools",
+      "docs",
+      "ranking"
+    ],
+    "title": "Improve heading-aware doc discovery and first-hop ranking",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

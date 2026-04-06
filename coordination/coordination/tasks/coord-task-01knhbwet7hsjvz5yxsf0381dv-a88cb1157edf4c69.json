@@ -1,0 +1,100 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Cross-runtime enrichment flows resolve peers from runtime descriptors and use federated runtime reads instead of shared SQLite lookups or shared-runtime fallback assumptions."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 241
+      },
+      {
+        "File": 248
+      },
+      {
+        "File": 403
+      }
+    ],
+    "assignee": "codex-a",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 300
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 241
+        },
+        {
+          "File": 248
+        },
+        {
+          "File": 403
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knhbwesynk1w28yjk492jspz",
+      "coord-task:01knhbwet28s6yt1h9afvj36bn"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knhbwet7hsjvz5yxsf0381dv",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775502599,
+    "lease_holder": {
+      "agent_id": "codex-a",
+      "principal": {
+        "authority_id": "worktree_executor",
+        "kind": "agent",
+        "name": "codex-a",
+        "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+      },
+      "session_id": "session:01knhw7n4cz69jwpy0n573tkjb",
+      "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+    },
+    "lease_refreshed_at": 1775495399,
+    "lease_stale_at": 1775497199,
+    "lease_started_at": 1775478127,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knhbwesj53rq8f301x6r51qj",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01knhw7n4cz69jwpy0n573tkjb",
+    "status": "InProgress",
+    "summary": null,
+    "tags": [],
+    "title": "Rebase federated peer reads and runtime-targeted query routing on runtime descriptors and runtime_id",
+    "validation_refs": [],
+    "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+  },
+  "schema_version": 1
+}

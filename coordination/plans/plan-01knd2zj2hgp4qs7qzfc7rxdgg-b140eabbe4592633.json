@@ -1,0 +1,47 @@
+{
+  "kind": "coordination_plan_record",
+  "payload": {
+    "plan": {
+      "authored_edges": [],
+      "created_from": null,
+      "goal": "Deliver the complete backend foundation for the new polling-based PRISM operator console UI: versioned REST reads for plans, task detail, and fleet utilization; a POST mutate endpoint that routes through the exact same authenticated mutation path and audit logging as MCP-triggered mutations; active local principal binding for human attribution; removal of legacy SSE/dashboard backend surfaces; and bundling of the built React UI assets into the Rust daemon binaries.",
+      "id": "plan:01knd2zj2hgp4qs7qzfc7rxdgg",
+      "kind": "TaskExecution",
+      "metadata": null,
+      "policy": {
+        "default_claim_mode": "SoftExclusive",
+        "git_execution": {
+          "completionMode": "require",
+          "integrationMode": "external",
+          "maxCommitsBehindTarget": 0,
+          "maxFetchAgeSeconds": null,
+          "requireTaskBranch": true,
+          "startMode": "require",
+          "targetBranch": "main",
+          "targetRef": null
+        },
+        "lease_expires_after_seconds": 7200,
+        "lease_renewal_mode": "strict",
+        "lease_stale_after_seconds": 1800,
+        "max_parallel_editors_per_anchor": 2,
+        "require_review_for_completion": false,
+        "require_validation_for_completion": false,
+        "review_required_above_risk_score": null,
+        "stale_after_graph_change": false
+      },
+      "revision": 0,
+      "root_tasks": [],
+      "scheduling": {
+        "dueAt": null,
+        "importance": 0,
+        "manualBoost": 0,
+        "urgency": 0
+      },
+      "scope": "Repo",
+      "status": "Completed",
+      "tags": [],
+      "title": "Implement the operator console backend and bundled UI delivery"
+    }
+  },
+  "schema_version": 1
+}

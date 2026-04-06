@@ -1,0 +1,93 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "File-local parse and candidate delta construction run off the authoritative state and can execute in parallel for multi-file refreshes."
+      },
+      {
+        "anchors": [],
+        "label": "The current serial apply_parsed loop no longer owns parse-time history, co-change, outcome, and projection mutation work."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 116
+      },
+      {
+        "File": 84
+      },
+      {
+        "File": 94
+      }
+    ],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 249
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 116
+        },
+        {
+          "File": 84
+        },
+        {
+          "File": 94
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn55e2ery38vr30wxe3ca5r3"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn55e93ftgm9bra7wfs4fnfs",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+    "priority": 3,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Build immutable candidate deltas in parallel from changed files and invalidation inputs, instead of mutating authoritative graph/history/outcome/projection state file-by-file inside the current refresh loop.",
+    "tags": [],
+    "title": "Move file-local delta construction out of the serialized refresh path",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

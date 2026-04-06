@@ -1,0 +1,97 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Full workspace test suite runs deterministically in parallel without transient SQLite lock failures"
+      },
+      {
+        "anchors": [],
+        "label": "Lock handling is centralized in shared runtime/store paths rather than ad hoc test-local retries"
+      }
+    ],
+    "anchors": [
+      {
+        "File": 242
+      },
+      {
+        "File": 243
+      },
+      {
+        "File": 316
+      },
+      {
+        "File": 406
+      }
+    ],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 288
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 242
+        },
+        {
+          "File": 243
+        },
+        {
+          "File": 316
+        },
+        {
+          "File": 406
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn5xzdb5p8pyyx0kxjpx0epx",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn5xz844mc22fb9g7g5czxw7",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Centralized SQLite write retries and immediate transactions across the store, moved malformed unresolved-row scrubbing off the graph read path, and validated with repeated full workspace runs.",
+    "tags": [],
+    "title": "Stabilize full-workspace parallel tests against SQLite locking flakes",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
