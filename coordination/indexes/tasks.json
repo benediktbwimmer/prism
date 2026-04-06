@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kna8t3rvk3n07vafmpsdzvvn",
+    "title": "Rebind strict require git execution to shared coordination publication and integration state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kna8t3rvk3n07vafmpsdzvvn-ea9f7080cef1e7ba.json"
+  },
+  {
+    "id": "coord-task:01kndb8xs418devteh768dp0cm",
+    "title": "Add compact shape-summary resources for every MCP tool with required fields, optional fields, enums, and a minimal valid payload",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb8xs418devteh768dp0cm-9bbaa81b9d0a3e68.json"
+  }
+]
