@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn7cz9ysdjmzcdr8sqtk388j",
+    "title": "Reduce noisy bridge transport warnings and make bridge lifecycle state clearer",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7cz9ysdjmzcdr8sqtk388j-73bb278efbc2cc17.json"
+  },
+  {
+    "id": "coord-task:01kn8s0kxdap9nc8376dvaap5q",
+    "title": "Validate multi-worktree and multi-clone convergence on one logical repo identity",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8s0kxdap9nc8376dvaap5q-396df7c4f0a94e0b.json"
+  },
+  {
+    "id": "coord-task:01kncfwc8fnzkp12z98axm2ept",
+    "title": "Expose runtime-targeted query chaining as prism.from(\"runtime-id\")",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kncfwc8fnzkp12z98axm2ept-d16d81c8186e8605.json"
+  },
+  {
+    "id": "coord-task:01kndb8xs4gpq67fk2tmbajx11",
+    "title": "Audit every existing MCP tool and resource for source-free operability from discovery through validateToolInput to successful call",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb8xs4gpq67fk2tmbajx11-50f2518977383566.json"
+  }
+]
