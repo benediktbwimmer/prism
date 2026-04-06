@@ -85,7 +85,11 @@ fn revision() -> prism_ir::WorkspaceRevision {
     }
 }
 
-fn runtime_descriptor(worktree_id: &str, instance_started_at: u64, last_seen_at: u64) -> RuntimeDescriptor {
+fn runtime_descriptor(
+    worktree_id: &str,
+    instance_started_at: u64,
+    last_seen_at: u64,
+) -> RuntimeDescriptor {
     RuntimeDescriptor {
         runtime_id: format!("runtime:{worktree_id}:{instance_started_at}"),
         repo_id: "repo:test".into(),

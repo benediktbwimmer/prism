@@ -583,7 +583,10 @@ fn effective_task_lease_state_joins_runtime_descriptors() {
     let task = prism
         .coordination_task(&task_id)
         .expect("task should be present for lease join");
-    assert_eq!(prism.effective_task_lease_state(&task, 50), LeaseState::Stale);
+    assert_eq!(
+        prism.effective_task_lease_state(&task, 50),
+        LeaseState::Stale
+    );
 
     prism.replace_runtime_descriptors(vec![RuntimeDescriptor {
         runtime_id: "runtime:lease-runtime".into(),
@@ -603,7 +606,10 @@ fn effective_task_lease_state_joins_runtime_descriptors() {
         export_policy: None,
     }]);
 
-    assert_eq!(prism.effective_task_lease_state(&task, 50), LeaseState::Active);
+    assert_eq!(
+        prism.effective_task_lease_state(&task, 50),
+        LeaseState::Active
+    );
 }
 
 #[test]

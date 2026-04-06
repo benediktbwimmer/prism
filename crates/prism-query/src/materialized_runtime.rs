@@ -98,14 +98,20 @@ impl MaterializedCoordinationRuntime {
         &self.runtime_descriptors
     }
 
-    pub(crate) fn replace_runtime_descriptors(&mut self, runtime_descriptors: Vec<RuntimeDescriptor>) {
+    pub(crate) fn replace_runtime_descriptors(
+        &mut self,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
+    ) {
         self.runtime_descriptors = runtime_descriptors.clone();
         self.continuity_runtime
             .replace_runtime_descriptors(runtime_descriptors);
     }
 
     pub(crate) fn replace_from_snapshot(&mut self, snapshot: CoordinationSnapshot) {
-        *self = Self::from_snapshot_with_runtime_descriptors(snapshot, self.runtime_descriptors.clone());
+        *self = Self::from_snapshot_with_runtime_descriptors(
+            snapshot,
+            self.runtime_descriptors.clone(),
+        );
     }
 
     pub(crate) fn replace_from_snapshot_with_graphs_and_overlays(
@@ -124,12 +130,17 @@ impl MaterializedCoordinationRuntime {
 
     pub(crate) fn replace_continuity_snapshot(&mut self, snapshot: CoordinationSnapshot) {
         self.continuity_runtime
-            .replace_from_snapshot_with_runtime_descriptors(snapshot, self.runtime_descriptors.clone());
+            .replace_from_snapshot_with_runtime_descriptors(
+                snapshot,
+                self.runtime_descriptors.clone(),
+            );
     }
 
     pub(crate) fn refresh_plan_runtime_from_coordination(&mut self) {
-        *self =
-            Self::from_snapshot_with_runtime_descriptors(self.snapshot(), self.runtime_descriptors.clone());
+        *self = Self::from_snapshot_with_runtime_descriptors(
+            self.snapshot(),
+            self.runtime_descriptors.clone(),
+        );
     }
 
     pub(crate) fn apply_plan_runtime_to_current_snapshot(&mut self) {
@@ -147,7 +158,10 @@ impl MaterializedCoordinationRuntime {
             .sync_task_execution_plan_statuses_from_coordination_snapshot(&snapshot)?;
         let snapshot = self.plan_runtime.apply_to_coordination_snapshot(snapshot);
         self.continuity_runtime
-            .replace_from_snapshot_with_runtime_descriptors(snapshot, self.runtime_descriptors.clone());
+            .replace_from_snapshot_with_runtime_descriptors(
+                snapshot,
+                self.runtime_descriptors.clone(),
+            );
         Ok(())
     }
 }

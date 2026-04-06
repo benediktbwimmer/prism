@@ -371,16 +371,9 @@ pub(crate) fn claim_blockers(
     now: Timestamp,
 ) -> Vec<TaskBlocker> {
     let claim_conflicts = dedupe_conflicts(simulate_conflicts(
-        state
-            .claims
-            .values()
-            .filter(|claim| {
-                claim_blocks_new_work_with_runtime_descriptors(
-                    claim,
-                    &state.runtime_descriptors,
-                    now,
-                )
-            }),
+        state.claims.values().filter(|claim| {
+            claim_blocks_new_work_with_runtime_descriptors(claim, &state.runtime_descriptors, now)
+        }),
         &task.anchors,
         Capability::Edit,
         state

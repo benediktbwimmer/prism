@@ -89,7 +89,13 @@ fn effective_lease_anchor(
 ) -> Option<Timestamp> {
     let anchor = anchor?;
     let runtime = matching_runtime_descriptor(runtime_descriptors, worktree_id, Some(anchor));
-    Some(anchor.max(runtime.map(|descriptor| descriptor.last_seen_at).unwrap_or(anchor)))
+    Some(
+        anchor.max(
+            runtime
+                .map(|descriptor| descriptor.last_seen_at)
+                .unwrap_or(anchor),
+        ),
+    )
 }
 
 fn effective_absolute_deadline(
@@ -118,19 +124,23 @@ pub fn task_lease_state_with_runtime_descriptors(
         return LeaseState::Unleased;
     };
     let anchor = task.lease_refreshed_at.or(task.lease_started_at);
-    let worktree_id = task
-        .worktree_id
-        .as_deref()
-        .or(task.lease_holder.as_ref().and_then(|holder| holder.worktree_id.as_deref()));
+    let worktree_id = task.worktree_id.as_deref().or(task
+        .lease_holder
+        .as_ref()
+        .and_then(|holder| holder.worktree_id.as_deref()));
     let effective_expires_at =
         effective_absolute_deadline(anchor, Some(expires_at), runtime_descriptors, worktree_id)
             .unwrap_or(expires_at);
     if effective_expires_at < now {
         return LeaseState::Expired;
     }
-    let effective_stale_at =
-        effective_absolute_deadline(anchor, task.lease_stale_at, runtime_descriptors, worktree_id)
-            .or(task.lease_stale_at);
+    let effective_stale_at = effective_absolute_deadline(
+        anchor,
+        task.lease_stale_at,
+        runtime_descriptors,
+        worktree_id,
+    )
+    .or(task.lease_stale_at);
     if effective_stale_at.is_some_and(|stale_at| stale_at <= now) {
         return LeaseState::Stale;
     }
@@ -153,10 +163,10 @@ pub fn claim_lease_state_with_runtime_descriptors(
         return LeaseState::Expired;
     }
     let anchor = claim.refreshed_at.or(Some(claim.since));
-    let worktree_id = claim
-        .worktree_id
-        .as_deref()
-        .or(claim.lease_holder.as_ref().and_then(|holder| holder.worktree_id.as_deref()));
+    let worktree_id = claim.worktree_id.as_deref().or(claim
+        .lease_holder
+        .as_ref()
+        .and_then(|holder| holder.worktree_id.as_deref()));
     let effective_expires_at = effective_absolute_deadline(
         anchor,
         Some(claim.expires_at),
@@ -204,10 +214,10 @@ pub fn task_heartbeat_due_state_with_runtime_descriptors(
         return LeaseHeartbeatDueState::NotDue;
     };
     let anchor = task.lease_refreshed_at.or(task.lease_started_at);
-    let worktree_id = task
-        .worktree_id
-        .as_deref()
-        .or(task.lease_holder.as_ref().and_then(|holder| holder.worktree_id.as_deref()));
+    let worktree_id = task.worktree_id.as_deref().or(task
+        .lease_holder
+        .as_ref()
+        .and_then(|holder| holder.worktree_id.as_deref()));
     let effective_stale_at =
         effective_absolute_deadline(anchor, Some(stale_at), runtime_descriptors, worktree_id)
             .unwrap_or(stale_at);
@@ -245,10 +255,10 @@ pub fn claim_heartbeat_due_state_with_runtime_descriptors(
         return LeaseHeartbeatDueState::NotDue;
     };
     let anchor = claim.refreshed_at.or(Some(claim.since));
-    let worktree_id = claim
-        .worktree_id
-        .as_deref()
-        .or(claim.lease_holder.as_ref().and_then(|holder| holder.worktree_id.as_deref()));
+    let worktree_id = claim.worktree_id.as_deref().or(claim
+        .lease_holder
+        .as_ref()
+        .and_then(|holder| holder.worktree_id.as_deref()));
     let effective_stale_at =
         effective_absolute_deadline(anchor, Some(stale_at), runtime_descriptors, worktree_id)
             .unwrap_or(stale_at);

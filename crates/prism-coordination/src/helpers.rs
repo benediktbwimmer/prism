@@ -217,11 +217,7 @@ pub(crate) fn editor_capacity_conflicts(
         .claims
         .values()
         .filter(|claim| {
-            claim_blocks_new_work_with_runtime_descriptors(
-                claim,
-                &state.runtime_descriptors,
-                now,
-            )
+            claim_blocks_new_work_with_runtime_descriptors(claim, &state.runtime_descriptors, now)
         })
         .filter(|claim| claim_matches_worktree_scope(claim, worktree_id))
         .filter(|claim| matches!(claim.capability, Capability::Edit | Capability::Merge))

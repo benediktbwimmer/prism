@@ -933,7 +933,10 @@ fn assisted_task_target(
     if task.worktree_id.as_deref() != Some(worktree_id) || task.pending_handoff_to.is_some() {
         return None;
     }
-    if !matches!(prism.effective_task_lease_state(&task, now), LeaseState::Active) {
+    if !matches!(
+        prism.effective_task_lease_state(&task, now),
+        LeaseState::Active
+    ) {
         return None;
     }
     let holder = task.lease_holder.clone()?;
@@ -958,7 +961,10 @@ fn assisted_claim_target(
     if claim.worktree_id.as_deref() != Some(worktree_id) || claim.status != ClaimStatus::Active {
         return None;
     }
-    if !matches!(prism.effective_claim_lease_state(&claim, now), LeaseState::Active) {
+    if !matches!(
+        prism.effective_claim_lease_state(&claim, now),
+        LeaseState::Active
+    ) {
         return None;
     }
     let holder = claim.lease_holder.as_ref()?;

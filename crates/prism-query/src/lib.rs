@@ -643,7 +643,9 @@ impl Prism {
         policy: &prism_coordination::CoordinationPolicy,
         now: u64,
     ) -> LeaseHeartbeatDueState {
-        self.with_coordination_runtime(|runtime| runtime.task_heartbeat_due_state(task, policy, now))
+        self.with_coordination_runtime(|runtime| {
+            runtime.task_heartbeat_due_state(task, policy, now)
+        })
     }
 
     pub fn effective_claim_heartbeat_due_state(
@@ -652,7 +654,9 @@ impl Prism {
         policy: &prism_coordination::CoordinationPolicy,
         now: u64,
     ) -> LeaseHeartbeatDueState {
-        self.with_coordination_runtime(|runtime| runtime.claim_heartbeat_due_state(claim, policy, now))
+        self.with_coordination_runtime(|runtime| {
+            runtime.claim_heartbeat_due_state(claim, policy, now)
+        })
     }
 
     pub fn record_local_assisted_task_lease(

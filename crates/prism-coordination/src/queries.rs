@@ -5,8 +5,8 @@ use prism_ir::{
 use serde_json::Value;
 
 use crate::helpers::{
-    anchors_overlap, conflict_between, dedupe_conflicts,
-    editor_capacity_conflicts, plan_policy_for_task, simulate_conflicts,
+    anchors_overlap, conflict_between, dedupe_conflicts, editor_capacity_conflicts,
+    plan_policy_for_task, simulate_conflicts,
 };
 use crate::lease::{
     claim_blocks_new_work_with_runtime_descriptors, claim_is_live_with_runtime_descriptors,
@@ -77,11 +77,7 @@ impl CoordinationStore {
             .claims
             .values()
             .filter(|claim| {
-                claim_is_live_with_runtime_descriptors(
-                    claim,
-                    &state.runtime_descriptors,
-                    now,
-                )
+                claim_is_live_with_runtime_descriptors(claim, &state.runtime_descriptors, now)
             })
             .filter(|claim| anchors_overlap(&claim.anchors, anchors))
             .cloned()
@@ -136,16 +132,13 @@ impl CoordinationStore {
             .or_else(|| policy.map(|policy| policy.default_claim_mode))
             .unwrap_or(ClaimMode::Advisory);
         let mut conflicts = simulate_conflicts(
-            state
-                .claims
-                .values()
-                .filter(|claim| {
-                    claim_blocks_new_work_with_runtime_descriptors(
-                        claim,
-                        &state.runtime_descriptors,
-                        now,
-                    )
-                }),
+            state.claims.values().filter(|claim| {
+                claim_blocks_new_work_with_runtime_descriptors(
+                    claim,
+                    &state.runtime_descriptors,
+                    now,
+                )
+            }),
             anchors,
             capability,
             mode,

@@ -83,7 +83,11 @@ impl CoordinationRuntimeState {
         self.state.runtime_descriptors = runtime_descriptors;
     }
 
-    pub fn task_lease_state(&self, task: &CoordinationTask, now: Timestamp) -> crate::lease::LeaseState {
+    pub fn task_lease_state(
+        &self,
+        task: &CoordinationTask,
+        now: Timestamp,
+    ) -> crate::lease::LeaseState {
         task_lease_state_with_runtime_descriptors(task, &self.state.runtime_descriptors, now)
     }
 
@@ -305,11 +309,7 @@ impl CoordinationRuntimeState {
             .claims
             .values()
             .filter(|claim| {
-                claim_is_live_with_runtime_descriptors(
-                    claim,
-                    &self.state.runtime_descriptors,
-                    now,
-                )
+                claim_is_live_with_runtime_descriptors(claim, &self.state.runtime_descriptors, now)
             })
             .filter(|claim| claim_matches_worktree_scope(claim, worktree_id))
             .filter(|claim| anchors_overlap(&claim.anchors, anchors))

@@ -19,7 +19,8 @@ use prism_coordination::{
     GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
 };
 use prism_core::{
-    hydrate_workspace_session, hydrate_workspace_session_with_options, index_workspace_session,
+    default_workspace_shared_runtime, hydrate_workspace_session,
+    hydrate_workspace_session_with_options, index_workspace_session,
     index_workspace_session_with_curator, index_workspace_session_with_options, PrismPaths,
     SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceSessionOptions,
@@ -7389,6 +7390,7 @@ fn coordination_inbox_and_task_brief_share_authoritative_task_backed_status() {
             edges: Vec::new(),
         }],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let envelope = host
@@ -21379,7 +21381,16 @@ fn authenticated_outcome_mutation_records_principal_actor_and_execution_context(
         )
         .expect("authenticated outcome should persist");
 
-    let reloaded = hydrate_workspace_session(&root).unwrap();
+    let reloaded = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
     let replay = reloaded
         .prism()
         .resume_task(&TaskId::new("task:authenticated-outcome"));
@@ -21480,7 +21491,16 @@ fn authenticated_outcome_mutation_records_coordination_work_context_snapshot() {
         )
         .expect("authenticated coordination outcome should persist");
 
-    let reloaded = hydrate_workspace_session(&root).unwrap();
+    let reloaded = hydrate_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
     let replay = reloaded.prism().resume_task(&TaskId::new(task_id.clone()));
     let event = replay
         .events

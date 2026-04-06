@@ -248,11 +248,7 @@ fn plan_completion_violations(
         .values()
         .filter(|claim| {
             matches!(
-                claim_lease_state_with_runtime_descriptors(
-                    claim,
-                    &state.runtime_descriptors,
-                    now,
-                ),
+                claim_lease_state_with_runtime_descriptors(claim, &state.runtime_descriptors, now,),
                 LeaseState::Active
             )
         })
@@ -697,11 +693,8 @@ pub(crate) fn heartbeat_task_mutation(
     let Some(plan) = state.plans.get(&previous.plan).cloned() else {
         return Err(anyhow!("unknown plan `{}`", previous.plan.0));
     };
-    let lease_state = task_lease_state_with_runtime_descriptors(
-        &previous,
-        &state.runtime_descriptors,
-        meta.ts,
-    );
+    let lease_state =
+        task_lease_state_with_runtime_descriptors(&previous, &state.runtime_descriptors, meta.ts);
     let current_holder = current_task_holder(&meta, &previous);
     let Some(lease_holder) = authoritative_task_holder(&previous) else {
         return Err(anyhow!(
@@ -769,12 +762,8 @@ pub(crate) fn heartbeat_task_mutation(
             violations,
         ));
     }
-    if !task_heartbeat_should_refresh(
-        &previous,
-        &plan.policy,
-        &state.runtime_descriptors,
-        meta.ts,
-    ) {
+    if !task_heartbeat_should_refresh(&previous, &plan.policy, &state.runtime_descriptors, meta.ts)
+    {
         return Ok(previous);
     }
 
@@ -2920,11 +2909,8 @@ pub(crate) fn resume_task_mutation(
             violations,
         ));
     }
-    let lease_state = task_lease_state_with_runtime_descriptors(
-        &previous,
-        &state.runtime_descriptors,
-        meta.ts,
-    );
+    let lease_state =
+        task_lease_state_with_runtime_descriptors(&previous, &state.runtime_descriptors, meta.ts);
     if !matches!(lease_state, LeaseState::Stale | LeaseState::Expired) {
         return Err(anyhow!(
             "coordination task `{}` does not have a stale or expired lease to resume",
@@ -3083,11 +3069,8 @@ pub(crate) fn reclaim_task_mutation(
     let Some(plan) = state.plans.get(&previous.plan).cloned() else {
         return Err(anyhow!("unknown plan `{}`", previous.plan.0));
     };
-    let lease_state = task_lease_state_with_runtime_descriptors(
-        &previous,
-        &state.runtime_descriptors,
-        meta.ts,
-    );
+    let lease_state =
+        task_lease_state_with_runtime_descriptors(&previous, &state.runtime_descriptors, meta.ts);
     if !matches!(lease_state, LeaseState::Stale | LeaseState::Expired) {
         return Err(anyhow!(
             "coordination task `{}` does not have a stale or expired lease to reclaim",
