@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn5xzdb5p8pyyx0kxjpx0epx",
+    "title": "Stabilize full-workspace parallel tests against SQLite locking flakes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5xzdb5p8pyyx0kxjpx0epx-66567c654de77de2.json"
+  },
+  {
+    "id": "coord-task:01knax5mvp5x40c6wnae7s3r9d",
+    "title": "Update PRISM_SHARED_COORDINATION_REFS.md to implemented reality and close the final gap list",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knax5mvp5x40c6wnae7s3r9d-a04e4ca393222ea0.json"
+  },
+  {
+    "id": "coord-task:01knc6fzv6fj09xzc6c5rpnkma",
+    "title": "Validate CAS races, crash recovery, and multi-worktree convergence under the split pipeline",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6fzv6fj09xzc6c5rpnkma-a799c882f93c25fd.json"
+  },
+  {
+    "id": "coord-task:01kndb8xs4ezed08c9shvjkxxv",
+    "title": "Add strict-byte-budget integration tests that simulate truncating harnesses across every MCP tool and resource discovery path",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb8xs4ezed08c9shvjkxxv-b506af7e5eef3ee4.json"
+  }
+]

@@ -1,0 +1,81 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "PRISM_SHARED_COORDINATION_REFS.md is updated from target-design wording to implemented reality with explicit remaining exceptions, if any."
+      },
+      {
+        "anchors": [],
+        "label": "Published plan docs, PRISM.md, and the shared-ref design doc agree on what is complete, partial, or intentionally deferred."
+      },
+      {
+        "anchors": [],
+        "label": "No remaining shared-ref gaps are left only in chat context; the repo documentation is sufficient for the next agent to resume without reconstructing intent."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 174
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knax49ge8qvv6yabya0k2xrc"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knax5mvp5x40c6wnae7s3r9d",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knav51cj8vgw0zp49qgktzps",
+    "priority": 86,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Bring the design doc and related published plan docs into sync with the implemented system so the repo stops advertising this as a purely proposed target design once the remaining work is complete.",
+    "tags": [
+      "closure",
+      "docs",
+      "shared-ref"
+    ],
+    "title": "Update PRISM_SHARED_COORDINATION_REFS.md to implemented reality and close the final gap list",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
