@@ -1,22 +1,23 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775479021,
+  "publishedAt": 1775497492,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
+    "principalId": "worktree:01knhnfx3b5vg4msz1kxt9z1db",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01knhnfx3b5vg4msz1kxt9z1db"
   },
   "workContext": {
-    "workId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
-    "kind": "coordination",
-    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
-    "coordinationTaskId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
-    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
-    "planTitle": "Implement shared coordination v1 architecture hardening"
+    "workId": "work:plan-bridge-driven-lease-renewal-and-prism-run-flight-recorder:01knhnjhf2n140ew2dyv8frdaa",
+    "kind": "ad_hoc",
+    "title": "Plan bridge-driven lease renewal and prism run flight recorder",
+    "summary": "Create the execution plan for automatic write-bridge lease renewal backed by worktree-local lease activity persistence, prism run command telemetry, compact authoritative lease summaries, and richer federated runtime inspection.",
+    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
+    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
   },
   "publishSummary": {
-    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age."
+    "title": "Plan bridge-driven lease renewal and prism run flight recorder",
+    "summary": "Create the execution plan for automatic write-bridge lease renewal backed by worktree-local lease activity persistence, prism run command telemetry, compact authoritative lease summaries, and richer federated runtime inspection."
   },
   "files": {
     "coordination/tasks/coord-task-01kn3g2b6expme2z26e91r8n9a-45c394cde47fdd59.json": {
@@ -33,14 +34,14 @@
     },
     "coordination/tasks/coord-task-01kng213sqtqtx0b9z20eqbnyn-ffddc3d9ebf566ef.json": {
       "path": "coordination/tasks/coord-task-01kng213sqtqtx0b9z20eqbnyn-ffddc3d9ebf566ef.json",
-      "sha256": "sha256:5d9acc02edb39d1da85cc936b1af100044f097112c6c07e6dc03eabb41f51c11"
+      "sha256": "sha256:8330034a6f3c13eadb8607eb53aa55d7257245cfe89b1d49aa15446fcdaf10c7"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:4927e4df15f2eccab16718ffc23f6837d4a64b029bf5796376fbbc07e40f234d"
+      "sha256": "sha256:783517135bad8c7431cec40bd80e62a0388847a2c578abebb1bff111b6466e2b"
     }
   },
-  "previousManifestDigest": "sha256:b21c3a79f18246a4cec6b3e54c85fde1a56cf186af20d2d61e0cde521e5ac378",
+  "previousManifestDigest": "sha256:2811026227f2e4e7a3c6d5b2756eb528cdf12dd7f2b3e9f1e4459e11f3f34c7b",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -50,6 +51,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:nlYWVWbwIZPbDdD6K5xcR5Zcasjjg829KMB05y6CvRYKD3uOgLdqa2a1R3E4UVmHq7I0r33DnVHBa/CcNDKHDQ=="
+    "value": "base64:vvdCnewq/sYfyeJlE8oYHrMRP9DAn+SdYve06lNPMCjIEZ597m1F72W/oYi3j1EcBILj9kB2hh7hW1U5hBp6CQ=="
   }
 }

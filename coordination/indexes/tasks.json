@@ -20,7 +20,7 @@
   {
     "id": "coord-task:01kng213sqtqtx0b9z20eqbnyn",
     "title": "Remove legacy execution-plan storage and compatibility-era authored graph constructs after the repo is v2-clean, including root_tasks, durable native plan nodes, and non-dependency execution edge kinds",
-    "status": "Ready",
+    "status": "InProgress",
     "path": "tasks/coord-task-01kng213sqtqtx0b9z20eqbnyn-ffddc3d9ebf566ef.json"
   }
 ]
