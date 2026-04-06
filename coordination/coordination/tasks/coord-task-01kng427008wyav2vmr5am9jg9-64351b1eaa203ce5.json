@@ -72,7 +72,7 @@
       "integrationStatus": "not_started",
       "lastPreflight": {
         "behindTargetCommits": 1,
-        "checkedAt": 1775451633,
+        "checkedAt": 1775451667,
         "currentBranch": "task/shared-coordination-plan-followup",
         "dirtyPaths": [
           "crates/prism-core/src/shared_coordination_ref.rs"
@@ -106,7 +106,7 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775458834,
+    "lease_expires_at": 1775458867,
     "lease_holder": {
       "agent_id": "codex-d",
       "principal": {
@@ -118,8 +118,8 @@
       "session_id": "session:01kngg65sc2q6knacbxd6zyxm4",
       "worktree_id": "worktree:5820c89d186523db"
     },
-    "lease_refreshed_at": 1775451634,
-    "lease_stale_at": 1775453434,
+    "lease_refreshed_at": 1775451667,
+    "lease_stale_at": 1775453467,
     "lease_started_at": 1775436372,
     "metadata": null,
     "pending_handoff_to": null,
