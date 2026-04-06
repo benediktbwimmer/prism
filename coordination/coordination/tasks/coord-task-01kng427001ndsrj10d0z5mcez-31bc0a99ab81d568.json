@@ -105,7 +105,7 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775488760,
+    "lease_expires_at": 1775488955,
     "lease_holder": {
       "agent_id": "codex-d",
       "principal": {
@@ -115,10 +115,10 @@
         "principal_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
       },
       "session_id": "session:01knhds3q00qz6j2avymnfaj6d",
-      "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
+      "worktree_id": "worktree:5820c89d186523db"
     },
-    "lease_refreshed_at": 1775481560,
-    "lease_stale_at": 1775483360,
+    "lease_refreshed_at": 1775481755,
+    "lease_stale_at": 1775483555,
     "lease_started_at": 1775436372,
     "metadata": null,
     "pending_handoff_to": null,
@@ -131,7 +131,7 @@
     "tags": [],
     "title": "Implement schema-aware semantic merge for refs/prism/** so shared-coordination conflicts are resolved by payload semantics and conflict classification instead of generic Git text merges or blind CAS retry loops.",
     "validation_refs": [],
-    "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
+    "worktree_id": "worktree:5820c89d186523db"
   },
   "schema_version": 1
 }

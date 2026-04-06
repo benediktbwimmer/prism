@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775481560,
+  "publishedAt": 1775481755,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
@@ -11,14 +11,14 @@
     "workId": "coord-task:01kng427001ndsrj10d0z5mcez",
     "kind": "coordination",
     "title": "Implement schema-aware semantic merge for refs/prism/** so shared-coordination conflicts are resolved by payload semantics and conflict classification instead of generic Git text merges or blind CAS retry loops.",
-    "summary": "Continuing the plan on a fresh branch to implement schema-aware semantic merge for shared coordination refs.",
+    "summary": "Implemented schema-aware semantic merge for shared coordination refs, wired task/claim/runtime and summary retry paths to the new merge policies, and validated the new retry regression plus existing shared-ref diagnostics on graph revision 566.",
     "coordinationTaskId": "coord-task:01kng427001ndsrj10d0z5mcez",
     "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
     "planTitle": "Implement shared coordination v1 architecture hardening"
   },
   "publishSummary": {
     "title": "Implement schema-aware semantic merge for refs/prism/** so shared-coordination conflicts are resolved by payload semantics and conflict classification instead of generic Git text merges or blind CAS retry loops.",
-    "summary": "Continuing the plan on a fresh branch to implement schema-aware semantic merge for shared coordination refs."
+    "summary": "Implemented schema-aware semantic merge for shared coordination refs, wired task/claim/runtime and summary retry paths to the new merge policies, and validated the new retry regression plus existing shared-ref diagnostics on graph revision 566."
   },
   "files": {
     "coordination/tasks/coord-task-01kmwxtrc6vbrsmv2xx2phnv8k-9f766974541452bf.json": {
@@ -47,14 +47,14 @@
     },
     "coordination/tasks/coord-task-01kng427001ndsrj10d0z5mcez-31bc0a99ab81d568.json": {
       "path": "coordination/tasks/coord-task-01kng427001ndsrj10d0z5mcez-31bc0a99ab81d568.json",
-      "sha256": "sha256:239bff2548b21ce6221578b1cd9eb4b694f129ded46a52b054033ebf4df47e44"
+      "sha256": "sha256:fde3c804b636426c05d35980e212e80cece79f938f246fb57e9a636b91656b77"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
       "sha256": "sha256:294c64e2894330ce9fce1bd34e5490a3052e0bb53ce8477ec19828a40722ce9b"
     }
   },
-  "previousManifestDigest": "sha256:fbcc2662c8fadb5a67eec8f4de875e63602ed2ed767326de263127f83ee8e8d3",
+  "previousManifestDigest": "sha256:fb36c720f240c324c723d20763d95acf415271bac8d33add25bfe7d6e6fb3858",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -64,6 +64,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:gSq8RAfHUaJ0gskqUbvg2mBB9a8G4C2020uAnHmREDedSoEyMlyUArd5v8aZCN1dxSmu/MLo/pIYYk+L7DBGCg=="
+    "value": "base64:9UvHAbarWjT1aU04bGavdHh2yNG15ScdQ3OFAasNUz9lS1rVm1Dr5Da+AKeZDqqvXEbvzGX3AKbnYv0LtZYDDQ=="
   }
 }
