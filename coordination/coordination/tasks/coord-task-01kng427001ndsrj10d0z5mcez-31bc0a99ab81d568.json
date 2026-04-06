@@ -34,7 +34,7 @@
     "assignee": "codex-d",
     "base_revision": {
       "git_commit": null,
-      "graph_version": 547
+      "graph_version": 566
     },
     "bindings": {
       "anchors": [
@@ -105,7 +105,7 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775488735,
+    "lease_expires_at": 1775488760,
     "lease_holder": {
       "agent_id": "codex-d",
       "principal": {
@@ -115,10 +115,10 @@
         "principal_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
       },
       "session_id": "session:01knhds3q00qz6j2avymnfaj6d",
-      "worktree_id": "worktree:5820c89d186523db"
+      "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
     },
-    "lease_refreshed_at": 1775481535,
-    "lease_stale_at": 1775483335,
+    "lease_refreshed_at": 1775481560,
+    "lease_stale_at": 1775483360,
     "lease_started_at": 1775436372,
     "metadata": null,
     "pending_handoff_to": null,
@@ -126,12 +126,12 @@
     "priority": null,
     "published_task_status": null,
     "session": "session:01knhds3q00qz6j2avymnfaj6d",
-    "status": "InProgress",
-    "summary": "Continuing the plan on a fresh branch to implement schema-aware semantic merge for shared coordination refs.",
+    "status": "Validating",
+    "summary": "Implemented schema-aware semantic merge for shared coordination refs, wired task/claim/runtime and summary retry paths to the new merge policies, and validated the new retry regression plus existing shared-ref diagnostics on graph revision 566.",
     "tags": [],
     "title": "Implement schema-aware semantic merge for refs/prism/** so shared-coordination conflicts are resolved by payload semantics and conflict classification instead of generic Git text merges or blind CAS retry loops.",
     "validation_refs": [],
-    "worktree_id": "worktree:5820c89d186523db"
+    "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
   },
   "schema_version": 1
 }
