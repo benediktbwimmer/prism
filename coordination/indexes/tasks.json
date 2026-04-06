@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01knaddam3fvr96xdqdxn2xdsj",
+    "title": "Implement remote shared-ref live sync and self-write suppression",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knaddam3fvr96xdqdxn2xdsj-6aa70e569fff79d0.json"
+  },
+  {
+    "id": "coord-task:01knavgtmdhbdm9hr190t7n7c7",
+    "title": "Keep assisted heartbeat renewal local, off by default, bounded, and non-authoritative",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knavgtmdhbdm9hr190t7n7c7-7506d3c5b58e07dc.json"
+  }
+]
