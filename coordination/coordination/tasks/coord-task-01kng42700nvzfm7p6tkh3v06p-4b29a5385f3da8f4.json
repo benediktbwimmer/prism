@@ -31,10 +31,10 @@
         "File": 83
       }
     ],
-    "assignee": null,
+    "assignee": "codex-d",
     "base_revision": {
       "git_commit": null,
-      "graph_version": 383
+      "graph_version": 510
     },
     "bindings": {
       "anchors": [
@@ -59,7 +59,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": "detached:3cc25362d1a5520be58a33b2c162cbc30963e61f",
+    "branch_ref": "refs/heads/task/shared-coordination-plan-followup",
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng42700hg2hrewgm8542y9j",
@@ -70,50 +70,67 @@
       "integrationEvidence": null,
       "integrationMode": "external",
       "integrationStatus": "not_started",
-      "lastPreflight": null,
+      "lastPreflight": {
+        "behindTargetCommits": 0,
+        "checkedAt": 1775476603,
+        "currentBranch": "task/shared-coordination-plan-followup",
+        "dirtyPaths": [],
+        "failure": null,
+        "fetchAgeSeconds": null,
+        "headCommit": "84d657319c2d0ad89482991b2ac78f7132ae66d8",
+        "maxCommitsBehindTarget": 0,
+        "mergeBaseCommit": "a407c78ff2effe393e89daaa628357ba33d90610",
+        "protectedDirtyPaths": [],
+        "publishRef": "task/shared-coordination-plan-followup",
+        "sourceRef": "task/shared-coordination-plan-followup",
+        "targetBranch": "main",
+        "targetCommit": "a407c78ff2effe393e89daaa628357ba33d90610",
+        "targetRef": "origin/main",
+        "worktreeDirty": false
+      },
       "lastPublish": null,
       "pendingTaskStatus": null,
       "publishCommit": null,
-      "publishRef": null,
+      "publishRef": "task/shared-coordination-plan-followup",
       "reviewArtifactRef": null,
-      "sourceCommit": null,
-      "sourceRef": null,
-      "status": "not_started",
-      "targetBranch": null,
-      "targetCommitAtPublish": null,
-      "targetRef": null
+      "sourceCommit": "84d657319c2d0ad89482991b2ac78f7132ae66d8",
+      "sourceRef": "task/shared-coordination-plan-followup",
+      "status": "in_progress",
+      "targetBranch": "main",
+      "targetCommitAtPublish": "a407c78ff2effe393e89daaa628357ba33d90610",
+      "targetRef": "origin/main"
     },
     "id": "coord-task:01kng42700nvzfm7p6tkh3v06p",
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775443572,
+    "lease_expires_at": 1775483804,
     "lease_holder": {
-      "agent_id": null,
+      "agent_id": "codex-d",
       "principal": {
-        "authority_id": "local-daemon",
-        "kind": "human",
-        "name": "benedikt wimmer",
-        "principal_id": "principal:benedikt-wimmer:01knfv1e1gry3k011wp7q1a6nt"
+        "authority_id": "worktree_executor",
+        "kind": "agent",
+        "name": "codex-d",
+        "principal_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
       },
-      "session_id": "session:01kng409n16se566xnq79c6e6x",
-      "worktree_id": "worktree:5820c89d186523db"
+      "session_id": "session:01knhabb9bqeyybm9zcxh0z852",
+      "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
     },
-    "lease_refreshed_at": 1775436372,
-    "lease_stale_at": 1775438172,
+    "lease_refreshed_at": 1775476604,
+    "lease_stale_at": 1775478404,
     "lease_started_at": 1775436372,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01kng409n16se566xnq79c6e6x",
-    "status": "Ready",
+    "session": "session:01knhabb9bqeyybm9zcxh0z852",
+    "status": "InProgress",
     "summary": null,
     "tags": [],
     "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
     "validation_refs": [],
-    "worktree_id": "worktree:5820c89d186523db"
+    "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
   },
   "schema_version": 1
 }
