@@ -16,5 +16,11 @@
     "title": "Implement portable human principal bootstrap and recovery flows backed by external attestation and shared registry metadata",
     "status": "Completed",
     "path": "tasks/coord-task-01knfddqewpk8b7vxba6y2cpaz-bd8d4eeb124e058e.json"
+  },
+  {
+    "id": "coord-task:01knhbxwcd7x9x36ntnefpfawz",
+    "title": "Lock the cutover contract and responsibility map for removing shared runtime SQLite",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbxwcd7x9x36ntnefpfawz-c7dd76f6bc5fa5d1.json"
   }
 ]
