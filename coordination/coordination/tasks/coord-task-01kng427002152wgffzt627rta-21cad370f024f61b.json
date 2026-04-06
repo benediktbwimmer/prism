@@ -71,7 +71,7 @@
       "integrationStatus": "not_started",
       "lastPreflight": {
         "behindTargetCommits": 0,
-        "checkedAt": 1775448520,
+        "checkedAt": 1775448774,
         "currentBranch": "task/shared-coordination-plan-followup",
         "dirtyPaths": [],
         "failure": null,
@@ -88,7 +88,7 @@
         "worktreeDirty": false
       },
       "lastPublish": {
-        "attemptedAt": 1775448520,
+        "attemptedAt": 1775448774,
         "codeCommit": "bd465b361bde5693be08c8c2fb0a06d353922c9f",
         "coordinationCommit": null,
         "failure": null,
