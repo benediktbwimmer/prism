@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn13rrg3yzbrcgrjh06ppv3h",
+    "title": "Validate crash safety, restart behavior, latency reduction, memory bounds, and multi-instance shared-runtime correctness for the migration",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13rrg3yzbrcgrjh06ppv3h-bb5c45b28cb37608.json"
+  },
+  {
+    "id": "coord-task:01kn7wnjqg9s6j9ttbvmh1z3g3",
+    "title": "Add a true current-state fast path for compact read tools",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7wnjqg9s6j9ttbvmh1z3g3-38c059d9f084f8bb.json"
+  }
+]
