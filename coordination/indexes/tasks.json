@@ -4,5 +4,11 @@
     "title": "Move tracked snapshot publication off the request path behind revisioned background reconciliation",
     "status": "Ready",
     "path": "tasks/coord-task-01knc6dqrewn2hah2p54xya9xw-3b52cd22435b1662.json"
+  },
+  {
+    "id": "coord-task:01knhbxwcybq8e8tk0cb3cwt2h",
+    "title": "Publish and consume live runtime discovery descriptors solely from shared coordination refs",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbxwcybq8e8tk0cb3cwt2h-0b9ba3c6961492d1.json"
   }
 ]
