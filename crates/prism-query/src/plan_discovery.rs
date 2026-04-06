@@ -1,8 +1,8 @@
-use prism_ir::{PlanScope, PlanStatus};
+use prism_ir::{PlanNodeStatus, PlanScope, PlanStatus};
 use std::collections::BTreeSet;
 
 use crate::plan_completion::current_timestamp;
-use crate::{NativePlanRuntimeState, PlanListEntry, Prism};
+use crate::{NativePlanRuntimeState, PlanListEntry, PlanNodeStatusCounts, Prism};
 
 const PLAN_DISCOVERY_CACHE_TTL_SECS: u64 = 5;
 
@@ -57,6 +57,7 @@ impl Prism {
             .into_iter()
             .filter_map(|graph| {
                 let summary = self.plan_summary_for_runtime(runtime, &graph.id)?;
+                let node_status_counts = plan_node_status_counts(&graph);
                 let top_recommendation = self
                     .plan_next_for_runtime(runtime, &graph.id, 1)
                     .into_iter()
@@ -74,6 +75,7 @@ impl Prism {
                         root_node_ids: graph.root_nodes,
                         summary: plan_discovery_summary(&summary),
                         plan_summary: summary,
+                        node_status_counts,
                         activity: activity_by_plan
                             .get(graph.id.0.as_str())
                             .cloned()
@@ -214,6 +216,28 @@ fn plan_status_rank(status: PlanStatus) -> u8 {
         PlanStatus::Abandoned => 4,
         PlanStatus::Archived => 5,
     }
+}
+
+fn plan_node_status_counts(graph: &prism_ir::PlanGraph) -> PlanNodeStatusCounts {
+    let mut counts = PlanNodeStatusCounts::default();
+    for node in &graph.nodes {
+        if node.is_abstract {
+            counts.abstract_nodes += 1;
+            continue;
+        }
+        match node.status {
+            PlanNodeStatus::Proposed => counts.proposed += 1,
+            PlanNodeStatus::Ready => counts.ready += 1,
+            PlanNodeStatus::InProgress => counts.in_progress += 1,
+            PlanNodeStatus::Blocked => counts.blocked += 1,
+            PlanNodeStatus::Waiting => counts.waiting += 1,
+            PlanNodeStatus::InReview => counts.in_review += 1,
+            PlanNodeStatus::Validating => counts.validating += 1,
+            PlanNodeStatus::Completed => counts.completed += 1,
+            PlanNodeStatus::Abandoned => counts.abandoned += 1,
+        }
+    }
+    counts
 }
 
 fn plan_discovery_summary(summary: &crate::PlanSummary) -> String {

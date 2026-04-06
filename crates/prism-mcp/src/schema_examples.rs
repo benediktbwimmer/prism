@@ -33,7 +33,7 @@ pub(crate) fn resource_example_uri(resource_kind: &str) -> Option<String> {
         "protected-state" => Some(protected_state_resource_uri_with_options(Some("concepts:events"))),
         "vocab" => Some(vocab_resource_uri()),
         "tool-schemas" => Some("prism://tool-schemas".to_string()),
-        "plans" => Some("prism://plans?contains=persistence&limit=5".to_string()),
+        "plans" => Some("prism://plans?contains=persistence&sort=last_updated_desc&limit=5".to_string()),
         "plan" => Some(plan_resource_uri("plan:1")),
         "contracts" => Some(contracts_resource_uri_with_options(
             Some("runtime"),
@@ -1118,6 +1118,7 @@ fn plans_payload_example() -> Value {
         "status": null,
         "scope": null,
         "contains": "persistence",
+        "sort": "last_updated_desc",
         "plans": [{
             "planId": "plan:1",
             "title": "Migrate persistence to DB-native runtime storage",
@@ -1125,22 +1126,59 @@ fn plans_payload_example() -> Value {
             "status": "active",
             "scope": "repo",
             "kind": "migration",
+            "scheduling": {
+                "importance": 3,
+                "urgency": 2,
+                "manualBoost": 0,
+                "dueAt": null
+            },
+            "gitExecutionPolicy": {
+                "startMode": "auto",
+                "completionMode": "auto",
+                "integrationMode": "branch",
+                "targetRef": null,
+                "targetBranch": "main",
+                "requireTaskBranch": false,
+                "maxCommitsBehindTarget": 0,
+                "maxFetchAgeSeconds": null
+            },
             "rootNodeIds": ["coord-task:1"],
-            "summary": {
+            "createdAt": 1712304000u64,
+            "lastUpdatedAt": 1712307600u64,
+            "nodeStatusCounts": {
+                "proposed": 0,
+                "ready": 1,
+                "inProgress": 0,
+                "blocked": 0,
+                "waiting": 0,
+                "inReview": 0,
+                "validating": 0,
+                "completed": 0,
+                "abandoned": 0,
+                "abstractNodes": 0
+            },
+            "summary": "1 actionable of 6 nodes",
+            "planSummary": {
                 "planId": "plan:1",
+                "status": "active",
                 "totalNodes": 6,
                 "completedNodes": 0,
-                "runningNodes": 0,
-                "readyNodes": 1,
-                "blockedNodes": 0,
-                "pendingNodes": 5,
+                "abandonedNodes": 0,
+                "inProgressNodes": 0,
                 "actionableNodes": 1,
                 "executionBlockedNodes": 0,
                 "completionGatedNodes": 0,
+                "reviewGatedNodes": 0,
                 "validationGatedNodes": 0,
                 "staleNodes": 0,
-                "reviewRequiredNodes": 0,
-                "claimBlockedNodes": 0,
+                "claimConflictedNodes": 0
+            },
+            "activity": {
+                "createdAt": 1712304000u64,
+                "lastUpdatedAt": 1712307600u64,
+                "lastEventKind": "plan_updated",
+                "lastEventSummary": "Prioritized persistence work.",
+                "lastEventTaskId": "coord-task:1"
             }
         }],
         "page": sample_page(),

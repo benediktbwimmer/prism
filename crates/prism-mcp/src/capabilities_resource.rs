@@ -752,7 +752,7 @@ fn resource_template_capabilities() -> Vec<ResourceTemplateCapabilityView> {
             uri_template: PLANS_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
             description:
-                "Read plan discovery results with optional status, scope, text, and pagination filters."
+                "Read plan discovery results with optional status, scope, text, sort, and pagination filters."
                     .to_string(),
             example_uri: resource_example_uri("plans"),
             shape_uri: Some(resource_shape_resource_uri("plans")),

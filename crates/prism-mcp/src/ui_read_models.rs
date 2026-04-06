@@ -6,9 +6,13 @@ use prism_coordination::{
     ready_task_count_for_active_plans, snapshot_plan_graphs, CoordinationQueueReadModel,
     CoordinationReadModel, CoordinationSnapshot, WorkClaim,
 };
-use prism_ir::{ClaimStatus, CoordinationEventKind, CoordinationTaskStatus};
+use prism_ir::{
+    sortable_token_timestamp, ClaimStatus, CoordinationEventKind, CoordinationTaskId,
+    CoordinationTaskStatus,
+};
 use prism_ir::{PlanId, PlanNodeStatus, PlanScope, PlanStatus, TaskId};
 use prism_memory::OutcomeRecallQuery;
+use prism_query::PlanActivity;
 
 use crate::ui_identity::ui_operator_identity_view;
 use crate::ui_types::{
@@ -22,8 +26,9 @@ use crate::ui_types::{
     PrismUiTaskDetailView, PrismUiTaskEditableMetadataView,
 };
 use crate::views::{
-    artifact_view, blocker_view, concept_packet_view, git_execution_policy_view, plan_graph_view,
-    plan_list_entry_view, plan_node_recommendation_view, plan_scheduling_view, plan_summary_view,
+    artifact_view, blocker_view, concept_packet_view, git_execution_policy_view,
+    plan_activity_view, plan_graph_view, plan_list_entry_view, plan_node_recommendation_view,
+    plan_node_status_counts_view, plan_scheduling_view, plan_summary_view,
     policy_violation_record_view, ConceptVerbosity,
 };
 use crate::{claim_view, coordination_task_view, current_timestamp, QueryHost, SessionState};
@@ -130,6 +135,80 @@ enum UiPlanSort {
     Actionable,
     Completion,
     Title,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PlansResourceSort {
+    LastUpdatedDesc,
+    LastUpdatedAsc,
+    CreatedAtDesc,
+    CreatedAtAsc,
+    ProposedDesc,
+    ReadyDesc,
+    InProgressDesc,
+    BlockedDesc,
+    WaitingDesc,
+    InReviewDesc,
+    ValidatingDesc,
+    CompletedDesc,
+    AbandonedDesc,
+}
+
+impl Default for PlansResourceSort {
+    fn default() -> Self {
+        Self::LastUpdatedDesc
+    }
+}
+
+impl PlansResourceSort {
+    pub(crate) fn parse(value: Option<&str>) -> Self {
+        match value
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_ascii_lowercase())
+            .as_deref()
+        {
+            Some("last_updated_asc") | Some("updated_asc") => Self::LastUpdatedAsc,
+            Some("last_updated_desc")
+            | Some("last_updated")
+            | Some("updated")
+            | Some("updated_desc")
+            | None => Self::LastUpdatedDesc,
+            Some("created_at_asc") | Some("created_asc") => Self::CreatedAtAsc,
+            Some("created_at_desc")
+            | Some("created_at")
+            | Some("created")
+            | Some("created_desc") => Self::CreatedAtDesc,
+            Some("proposed_desc") | Some("proposed") => Self::ProposedDesc,
+            Some("ready_desc") | Some("ready") => Self::ReadyDesc,
+            Some("in_progress_desc") | Some("in_progress") => Self::InProgressDesc,
+            Some("blocked_desc") | Some("blocked") => Self::BlockedDesc,
+            Some("waiting_desc") | Some("waiting") => Self::WaitingDesc,
+            Some("in_review_desc") | Some("in_review") => Self::InReviewDesc,
+            Some("validating_desc") | Some("validating") => Self::ValidatingDesc,
+            Some("completed_desc") | Some("completed") => Self::CompletedDesc,
+            Some("abandoned_desc") | Some("abandoned") => Self::AbandonedDesc,
+            _ => Self::LastUpdatedDesc,
+        }
+    }
+
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::LastUpdatedDesc => "last_updated_desc",
+            Self::LastUpdatedAsc => "last_updated_asc",
+            Self::CreatedAtDesc => "created_at_desc",
+            Self::CreatedAtAsc => "created_at_asc",
+            Self::ProposedDesc => "proposed_desc",
+            Self::ReadyDesc => "ready_desc",
+            Self::InProgressDesc => "in_progress_desc",
+            Self::BlockedDesc => "blocked_desc",
+            Self::WaitingDesc => "waiting_desc",
+            Self::InReviewDesc => "in_review_desc",
+            Self::ValidatingDesc => "validating_desc",
+            Self::CompletedDesc => "completed_desc",
+            Self::AbandonedDesc => "abandoned_desc",
+        }
+    }
 }
 
 impl Default for UiPlanSort {
@@ -978,6 +1057,7 @@ pub(crate) fn filtered_plan_entries_from_snapshot(
     status: Option<PlanStatus>,
     scope: Option<PlanScope>,
     contains: Option<&str>,
+    sort: PlansResourceSort,
 ) -> Vec<prism_js::PlanListEntryView> {
     let contains = contains
         .map(str::trim)
@@ -993,7 +1073,7 @@ pub(crate) fn filtered_plan_entries_from_snapshot(
                 .is_none_or(|needle| plan_entry_matches_contains_filter(plan, needle))
         })
         .collect::<Vec<_>>();
-    sort_plan_entries(&mut plans, UiPlanSort::Newest);
+    sort_plan_entries_for_resource(&mut plans, sort);
     plans
 }
 
@@ -1042,6 +1122,7 @@ fn normalize_plan_term(token: &str) -> String {
 pub(crate) fn plan_entries_from_snapshot(
     snapshot: &CoordinationSnapshot,
 ) -> Vec<prism_js::PlanListEntryView> {
+    let activity_by_plan = plan_activity_index_from_snapshot(snapshot);
     let graphs_by_id = snapshot_plan_graphs(snapshot)
         .into_iter()
         .map(|graph| (graph.id.0.clone(), graph))
@@ -1050,9 +1131,9 @@ pub(crate) fn plan_entries_from_snapshot(
         .plans
         .iter()
         .filter_map(|plan| {
-            graphs_by_id
-                .get(plan.id.0.as_str())
-                .map(|graph| plan_entry_from_snapshot(plan, graph))
+            graphs_by_id.get(plan.id.0.as_str()).map(|graph| {
+                plan_entry_from_snapshot(plan, graph, activity_by_plan.get(plan.id.0.as_str()))
+            })
         })
         .collect()
 }
@@ -1060,8 +1141,13 @@ pub(crate) fn plan_entries_from_snapshot(
 fn plan_entry_from_snapshot(
     plan: &prism_coordination::Plan,
     graph: &prism_ir::PlanGraph,
+    activity: Option<&PlanActivity>,
 ) -> prism_js::PlanListEntryView {
     let plan_summary = lightweight_plan_summary_view(graph);
+    let activity = activity.cloned().unwrap_or_default();
+    let created_at = activity.created_at;
+    let last_updated_at = activity.last_updated_at;
+    let activity = plan_activity_present(&activity).then(|| plan_activity_view(activity));
     prism_js::PlanListEntryView {
         plan_id: plan.id.0.to_string(),
         title: plan.title.clone(),
@@ -1076,9 +1162,12 @@ fn plan_entry_from_snapshot(
             .iter()
             .map(|node_id| node_id.0.to_string())
             .collect(),
+        created_at,
+        last_updated_at,
+        node_status_counts: plan_node_status_counts_view(plan_node_status_counts_from_graph(graph)),
         summary: lightweight_plan_summary_text(&plan_summary),
         plan_summary,
-        activity: None,
+        activity,
     }
 }
 
@@ -1174,6 +1263,44 @@ fn sort_plan_entries(plans: &mut [prism_js::PlanListEntryView], sort: UiPlanSort
     }
 }
 
+fn sort_plan_entries_for_resource(
+    plans: &mut [prism_js::PlanListEntryView],
+    sort: PlansResourceSort,
+) {
+    match sort {
+        PlansResourceSort::LastUpdatedDesc => plans.sort_by(last_updated_desc_sort_cmp),
+        PlansResourceSort::LastUpdatedAsc => plans.sort_by(last_updated_asc_sort_cmp),
+        PlansResourceSort::CreatedAtDesc => plans.sort_by(created_at_desc_sort_cmp),
+        PlansResourceSort::CreatedAtAsc => plans.sort_by(created_at_asc_sort_cmp),
+        PlansResourceSort::ProposedDesc => plans.sort_by(|left, right| {
+            status_count_desc_sort_cmp(left, right, |counts| counts.proposed)
+        }),
+        PlansResourceSort::ReadyDesc => plans
+            .sort_by(|left, right| status_count_desc_sort_cmp(left, right, |counts| counts.ready)),
+        PlansResourceSort::InProgressDesc => plans.sort_by(|left, right| {
+            status_count_desc_sort_cmp(left, right, |counts| counts.in_progress)
+        }),
+        PlansResourceSort::BlockedDesc => plans.sort_by(|left, right| {
+            status_count_desc_sort_cmp(left, right, |counts| counts.blocked)
+        }),
+        PlansResourceSort::WaitingDesc => plans.sort_by(|left, right| {
+            status_count_desc_sort_cmp(left, right, |counts| counts.waiting)
+        }),
+        PlansResourceSort::InReviewDesc => plans.sort_by(|left, right| {
+            status_count_desc_sort_cmp(left, right, |counts| counts.in_review)
+        }),
+        PlansResourceSort::ValidatingDesc => plans.sort_by(|left, right| {
+            status_count_desc_sort_cmp(left, right, |counts| counts.validating)
+        }),
+        PlansResourceSort::CompletedDesc => plans.sort_by(|left, right| {
+            status_count_desc_sort_cmp(left, right, |counts| counts.completed)
+        }),
+        PlansResourceSort::AbandonedDesc => plans.sort_by(|left, right| {
+            status_count_desc_sort_cmp(left, right, |counts| counts.abandoned)
+        }),
+    }
+}
+
 fn newest_sort_cmp(
     left: &prism_js::PlanListEntryView,
     right: &prism_js::PlanListEntryView,
@@ -1181,6 +1308,44 @@ fn newest_sort_cmp(
     plan_created_sort_token(&right.plan_id)
         .cmp(plan_created_sort_token(&left.plan_id))
         .then_with(|| left.title.cmp(&right.title))
+}
+
+fn last_updated_desc_sort_cmp(
+    left: &prism_js::PlanListEntryView,
+    right: &prism_js::PlanListEntryView,
+) -> std::cmp::Ordering {
+    right
+        .last_updated_at
+        .cmp(&left.last_updated_at)
+        .then_with(|| created_at_desc_sort_cmp(left, right))
+}
+
+fn last_updated_asc_sort_cmp(
+    left: &prism_js::PlanListEntryView,
+    right: &prism_js::PlanListEntryView,
+) -> std::cmp::Ordering {
+    left.last_updated_at
+        .cmp(&right.last_updated_at)
+        .then_with(|| created_at_asc_sort_cmp(left, right))
+}
+
+fn created_at_desc_sort_cmp(
+    left: &prism_js::PlanListEntryView,
+    right: &prism_js::PlanListEntryView,
+) -> std::cmp::Ordering {
+    right
+        .created_at
+        .cmp(&left.created_at)
+        .then_with(|| newest_sort_cmp(left, right))
+}
+
+fn created_at_asc_sort_cmp(
+    left: &prism_js::PlanListEntryView,
+    right: &prism_js::PlanListEntryView,
+) -> std::cmp::Ordering {
+    left.created_at
+        .cmp(&right.created_at)
+        .then_with(|| oldest_sort_cmp(left, right))
 }
 
 fn oldest_sort_cmp(
@@ -1253,6 +1418,289 @@ fn completion_sort_cmp(
 
 fn plan_created_sort_token(plan_id: &str) -> &str {
     plan_id.rsplit(':').next().unwrap_or(plan_id)
+}
+
+fn status_count_desc_sort_cmp(
+    left: &prism_js::PlanListEntryView,
+    right: &prism_js::PlanListEntryView,
+    select: impl Fn(&prism_js::PlanNodeStatusCountsView) -> usize,
+) -> std::cmp::Ordering {
+    select(&right.node_status_counts)
+        .cmp(&select(&left.node_status_counts))
+        .then_with(|| last_updated_desc_sort_cmp(left, right))
+}
+
+fn plan_activity_present(activity: &PlanActivity) -> bool {
+    activity.created_at.is_some()
+        || activity.last_updated_at.is_some()
+        || activity.last_event_kind.is_some()
+        || activity.last_event_summary.is_some()
+        || activity.last_event_task_id.is_some()
+}
+
+fn plan_node_status_counts_from_graph(
+    graph: &prism_ir::PlanGraph,
+) -> prism_query::PlanNodeStatusCounts {
+    let mut counts = prism_query::PlanNodeStatusCounts::default();
+    for node in &graph.nodes {
+        if node.is_abstract {
+            counts.abstract_nodes += 1;
+            continue;
+        }
+        match node.status {
+            PlanNodeStatus::Proposed => counts.proposed += 1,
+            PlanNodeStatus::Ready => counts.ready += 1,
+            PlanNodeStatus::InProgress => counts.in_progress += 1,
+            PlanNodeStatus::Blocked => counts.blocked += 1,
+            PlanNodeStatus::Waiting => counts.waiting += 1,
+            PlanNodeStatus::InReview => counts.in_review += 1,
+            PlanNodeStatus::Validating => counts.validating += 1,
+            PlanNodeStatus::Completed => counts.completed += 1,
+            PlanNodeStatus::Abandoned => counts.abandoned += 1,
+        }
+    }
+    counts
+}
+
+fn plan_activity_index_from_snapshot(
+    snapshot: &CoordinationSnapshot,
+) -> BTreeMap<String, PlanActivity> {
+    let mut fallback_last_updated = BTreeMap::<String, (u64, Option<CoordinationTaskId>)>::new();
+    let mut activity = snapshot
+        .plans
+        .iter()
+        .map(|plan| {
+            let mut entry = PlanActivity::default();
+            observe_created_at(&mut entry, sortable_token_timestamp(plan.id.0.as_str()));
+            observe_fallback_update(
+                &mut fallback_last_updated,
+                plan.id.0.as_str(),
+                sortable_token_timestamp(plan.id.0.as_str()),
+                None,
+            );
+            (plan.id.0.to_string(), entry)
+        })
+        .collect::<BTreeMap<_, _>>();
+    let task_to_plan = snapshot
+        .tasks
+        .iter()
+        .map(|task| (task.id.clone(), task.plan.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let artifact_to_task = snapshot
+        .artifacts
+        .iter()
+        .map(|artifact| (artifact.id.clone(), artifact.task.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let claim_to_plan = snapshot
+        .claims
+        .iter()
+        .filter_map(|claim| {
+            let task_id = claim.task.as_ref()?;
+            let plan_id = task_to_plan.get(task_id)?;
+            Some((claim.id.clone(), plan_id.clone()))
+        })
+        .collect::<BTreeMap<_, _>>();
+    let review_to_plan = snapshot
+        .reviews
+        .iter()
+        .filter_map(|review| {
+            let task_id = artifact_to_task.get(&review.artifact)?;
+            let plan_id = task_to_plan.get(task_id)?;
+            Some((review.id.clone(), plan_id.clone()))
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    for task in &snapshot.tasks {
+        let Some(entry) = activity.get_mut(task.plan.0.as_str()) else {
+            continue;
+        };
+        let created_at = sortable_token_timestamp(task.id.0.as_str());
+        observe_created_at(entry, created_at);
+        observe_fallback_update(
+            &mut fallback_last_updated,
+            task.plan.0.as_str(),
+            created_at,
+            Some(&task.id),
+        );
+        observe_fallback_update(
+            &mut fallback_last_updated,
+            task.plan.0.as_str(),
+            task.lease_started_at,
+            Some(&task.id),
+        );
+        observe_fallback_update(
+            &mut fallback_last_updated,
+            task.plan.0.as_str(),
+            task.lease_refreshed_at,
+            Some(&task.id),
+        );
+    }
+
+    for claim in &snapshot.claims {
+        let Some(task_id) = claim.task.as_ref() else {
+            continue;
+        };
+        let Some(plan_id) = task_to_plan.get(task_id) else {
+            continue;
+        };
+        let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
+            continue;
+        };
+        let created_at = sortable_token_timestamp(claim.id.0.as_str()).or(Some(claim.since));
+        observe_created_at(entry, created_at);
+        observe_fallback_update(
+            &mut fallback_last_updated,
+            plan_id.0.as_str(),
+            sortable_token_timestamp(claim.id.0.as_str()),
+            Some(task_id),
+        );
+        observe_fallback_update(
+            &mut fallback_last_updated,
+            plan_id.0.as_str(),
+            Some(claim.since),
+            Some(task_id),
+        );
+        observe_fallback_update(
+            &mut fallback_last_updated,
+            plan_id.0.as_str(),
+            claim.refreshed_at,
+            Some(task_id),
+        );
+    }
+
+    for artifact in &snapshot.artifacts {
+        let Some(plan_id) = task_to_plan.get(&artifact.task) else {
+            continue;
+        };
+        let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
+            continue;
+        };
+        let created_at = sortable_token_timestamp(artifact.id.0.as_str());
+        observe_created_at(entry, created_at);
+        observe_fallback_update(
+            &mut fallback_last_updated,
+            plan_id.0.as_str(),
+            created_at,
+            Some(&artifact.task),
+        );
+    }
+
+    for review in &snapshot.reviews {
+        let Some(task_id) = artifact_to_task.get(&review.artifact) else {
+            continue;
+        };
+        let Some(plan_id) = task_to_plan.get(task_id) else {
+            continue;
+        };
+        let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
+            continue;
+        };
+        let created_at = sortable_token_timestamp(review.id.0.as_str()).or(Some(review.meta.ts));
+        observe_created_at(entry, created_at);
+        observe_fallback_update(
+            &mut fallback_last_updated,
+            plan_id.0.as_str(),
+            sortable_token_timestamp(review.id.0.as_str()),
+            Some(task_id),
+        );
+        observe_fallback_update(
+            &mut fallback_last_updated,
+            plan_id.0.as_str(),
+            Some(review.meta.ts),
+            Some(task_id),
+        );
+    }
+
+    for event in &snapshot.events {
+        let plan_id = event
+            .plan
+            .clone()
+            .or_else(|| {
+                event
+                    .task
+                    .as_ref()
+                    .and_then(|task_id| task_to_plan.get(task_id).cloned())
+            })
+            .or_else(|| {
+                event
+                    .claim
+                    .as_ref()
+                    .and_then(|claim_id| claim_to_plan.get(claim_id).cloned())
+            })
+            .or_else(|| {
+                event.artifact.as_ref().and_then(|artifact_id| {
+                    artifact_to_task
+                        .get(artifact_id)
+                        .and_then(|task_id| task_to_plan.get(task_id))
+                        .cloned()
+                })
+            })
+            .or_else(|| {
+                event
+                    .review
+                    .as_ref()
+                    .and_then(|review_id| review_to_plan.get(review_id).cloned())
+            });
+        let Some(plan_id) = plan_id else {
+            continue;
+        };
+        let entry = activity.entry(plan_id.0.to_string()).or_default();
+        entry.created_at = Some(match entry.created_at {
+            Some(existing) => existing.min(event.meta.ts),
+            None => event.meta.ts,
+        });
+        let replace_last = match entry.last_updated_at {
+            Some(existing) => event.meta.ts >= existing,
+            None => true,
+        };
+        if replace_last {
+            entry.last_updated_at = Some(event.meta.ts);
+            entry.last_event_kind = Some(event.kind);
+            entry.last_event_summary = Some(event.summary.clone());
+            entry.last_event_task_id = event.task.clone();
+        }
+    }
+
+    for (plan_id, (ts, task_id)) in fallback_last_updated {
+        let Some(entry) = activity.get_mut(plan_id.as_str()) else {
+            continue;
+        };
+        if entry.last_updated_at.is_none() {
+            entry.last_updated_at = Some(ts);
+            entry.last_event_kind = None;
+            entry.last_event_summary = None;
+            entry.last_event_task_id = task_id;
+        }
+    }
+
+    activity
+}
+
+fn observe_created_at(entry: &mut PlanActivity, ts: Option<u64>) {
+    let Some(ts) = ts else {
+        return;
+    };
+    entry.created_at = Some(match entry.created_at {
+        Some(existing) => existing.min(ts),
+        None => ts,
+    });
+}
+
+fn observe_fallback_update(
+    fallback: &mut BTreeMap<String, (u64, Option<CoordinationTaskId>)>,
+    plan_id: &str,
+    ts: Option<u64>,
+    task_id: Option<&CoordinationTaskId>,
+) {
+    let Some(ts) = ts else {
+        return;
+    };
+    let replace = fallback
+        .get(plan_id)
+        .is_none_or(|(existing, _)| ts > *existing);
+    if replace {
+        fallback.insert(plan_id.to_string(), (ts, task_id.cloned()));
+    }
 }
 
 fn clamp_overview_text(text: &str) -> String {
@@ -1756,13 +2204,17 @@ fn graph_plan_touchpoints(
 
 #[cfg(test)]
 mod tests {
-    use super::{lightweight_plan_summary_view, sort_plan_entries, UiPlanSort};
+    use super::{
+        lightweight_plan_summary_view, sort_plan_entries, sort_plan_entries_for_resource,
+        PlansResourceSort, UiPlanSort,
+    };
     use prism_ir::{
         PlanEdge, PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeId, PlanNodeKind, PlanScope,
         PlanStatus,
     };
     use prism_js::{
-        GitExecutionPolicyView, PlanListEntryView, PlanSchedulingView, PlanSummaryView,
+        GitExecutionPolicyView, PlanListEntryView, PlanNodeStatusCountsView, PlanSchedulingView,
+        PlanSummaryView,
     };
     use serde_json::Value;
 
@@ -1786,6 +2238,56 @@ mod tests {
         sort_plan_entries(&mut plans, UiPlanSort::Newest);
         assert_eq!(plans[0].title, "newer");
         assert_eq!(plans[1].title, "older");
+    }
+
+    #[test]
+    fn resource_sort_defaults_to_last_updated_desc() {
+        assert_eq!(
+            PlansResourceSort::default(),
+            PlansResourceSort::LastUpdatedDesc
+        );
+        assert_eq!(
+            PlansResourceSort::parse(None),
+            PlansResourceSort::LastUpdatedDesc
+        );
+        assert_eq!(
+            PlansResourceSort::parse(Some("created_at_asc")),
+            PlansResourceSort::CreatedAtAsc
+        );
+        assert_eq!(
+            PlansResourceSort::parse(Some("blocked_desc")),
+            PlansResourceSort::BlockedDesc
+        );
+    }
+
+    #[test]
+    fn resource_sort_prefers_recent_updates_before_creation_time() {
+        let mut plans = vec![
+            plan_with_activity(
+                test_plan("plan:01kn0000000000000000000000", "older", 0, 4, 0, 0),
+                Some(10),
+                Some(20),
+            ),
+            plan_with_activity(
+                test_plan("plan:01kp0000000000000000000000", "newer", 0, 4, 0, 0),
+                Some(30),
+                Some(15),
+            ),
+        ];
+        sort_plan_entries_for_resource(&mut plans, PlansResourceSort::LastUpdatedDesc);
+        assert_eq!(plans[0].title, "older");
+        assert_eq!(plans[1].title, "newer");
+    }
+
+    #[test]
+    fn resource_sort_can_rank_by_completed_nodes() {
+        let mut plans = vec![
+            test_plan("plan:01kn0000000000000000000000", "few", 1, 4, 0, 0),
+            test_plan("plan:01kp0000000000000000000000", "many", 3, 4, 0, 0),
+        ];
+        sort_plan_entries_for_resource(&mut plans, PlansResourceSort::CompletedDesc);
+        assert_eq!(plans[0].title, "many");
+        assert_eq!(plans[1].title, "few");
     }
 
     #[test]
@@ -1817,6 +2319,23 @@ mod tests {
         assert_eq!(summary.in_progress_nodes, 1);
         assert_eq!(summary.completed_nodes, 1);
         assert_eq!(summary.execution_blocked_nodes, 1);
+    }
+
+    fn plan_with_activity(
+        mut plan: PlanListEntryView,
+        created_at: Option<u64>,
+        last_updated_at: Option<u64>,
+    ) -> PlanListEntryView {
+        plan.created_at = created_at;
+        plan.last_updated_at = last_updated_at;
+        plan.activity = Some(prism_js::PlanActivityView {
+            created_at,
+            last_updated_at,
+            last_event_kind: None,
+            last_event_summary: None,
+            last_event_task_id: None,
+        });
+        plan
     }
 
     fn test_plan(
@@ -1851,6 +2370,20 @@ mod tests {
                 max_fetch_age_seconds: None,
             },
             root_node_ids: Vec::new(),
+            created_at: None,
+            last_updated_at: None,
+            node_status_counts: PlanNodeStatusCountsView {
+                proposed: 0,
+                ready: actionable_nodes.saturating_sub(in_progress_nodes),
+                in_progress: in_progress_nodes,
+                blocked: 0,
+                waiting: 0,
+                in_review: 0,
+                validating: 0,
+                completed: completed_nodes,
+                abandoned: 0,
+                abstract_nodes: 0,
+            },
             summary: title.to_string(),
             plan_summary: PlanSummaryView {
                 plan_id: plan_id.to_string(),

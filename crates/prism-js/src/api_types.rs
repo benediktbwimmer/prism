@@ -1625,9 +1625,27 @@ pub struct PlanListEntryView {
     pub scheduling: PlanSchedulingView,
     pub git_execution_policy: GitExecutionPolicyView,
     pub root_node_ids: Vec<String>,
+    pub created_at: Option<u64>,
+    pub last_updated_at: Option<u64>,
+    pub node_status_counts: PlanNodeStatusCountsView,
     pub summary: String,
     pub plan_summary: PlanSummaryView,
     pub activity: Option<PlanActivityView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanNodeStatusCountsView {
+    pub proposed: usize,
+    pub ready: usize,
+    pub in_progress: usize,
+    pub blocked: usize,
+    pub waiting: usize,
+    pub in_review: usize,
+    pub validating: usize,
+    pub completed: usize,
+    pub abandoned: usize,
+    pub abstract_nodes: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

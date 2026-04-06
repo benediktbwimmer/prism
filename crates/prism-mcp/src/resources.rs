@@ -423,6 +423,7 @@ pub(crate) fn plans_resource_uri_with_options(
     status: Option<&str>,
     scope: Option<&str>,
     contains: Option<&str>,
+    sort: Option<&str>,
 ) -> String {
     let mut uri = plans_resource_uri();
     let mut params = Vec::new();
@@ -434,6 +435,9 @@ pub(crate) fn plans_resource_uri_with_options(
     }
     if let Some(contains) = contains.filter(|value| !value.is_empty()) {
         params.push(format!("contains={}", percent_encode_component(contains)));
+    }
+    if let Some(sort) = sort.filter(|value| !value.is_empty()) {
+        params.push(format!("sort={}", percent_encode_component(sort)));
     }
     if !params.is_empty() {
         uri.push('?');
@@ -827,9 +831,10 @@ pub(crate) fn plans_resource_view_link_with_options(
     status: Option<&str>,
     scope: Option<&str>,
     contains: Option<&str>,
+    sort: Option<&str>,
 ) -> ResourceLinkView {
     resource_link_view(
-        plans_resource_uri_with_options(status, scope, contains),
+        plans_resource_uri_with_options(status, scope, contains, sort),
         "PRISM Plans",
         "Browse published and runtime-hydrated plans with compact progress summaries",
     )

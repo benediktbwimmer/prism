@@ -282,6 +282,7 @@ pub(crate) struct PlansResourcePayload {
     pub(crate) status: Option<String>,
     pub(crate) scope: Option<String>,
     pub(crate) contains: Option<String>,
+    pub(crate) sort: String,
     pub(crate) plans: Vec<PlanListEntryView>,
     pub(crate) page: ResourcePageView,
     pub(crate) truncated: bool,

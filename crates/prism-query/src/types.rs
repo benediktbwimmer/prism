@@ -134,6 +134,20 @@ pub struct PlanActivity {
     pub last_event_task_id: Option<CoordinationTaskId>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PlanNodeStatusCounts {
+    pub proposed: usize,
+    pub ready: usize,
+    pub in_progress: usize,
+    pub blocked: usize,
+    pub waiting: usize,
+    pub in_review: usize,
+    pub validating: usize,
+    pub completed: usize,
+    pub abandoned: usize,
+    pub abstract_nodes: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlanListEntry {
     pub plan_id: PlanId,
@@ -147,6 +161,7 @@ pub struct PlanListEntry {
     pub root_node_ids: Vec<PlanNodeId>,
     pub summary: String,
     pub plan_summary: PlanSummary,
+    pub node_status_counts: PlanNodeStatusCounts,
     pub activity: PlanActivity,
 }
 

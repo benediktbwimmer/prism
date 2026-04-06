@@ -1588,6 +1588,7 @@ type PlanView = {
   kind: string;
   revision: number;
   scheduling: PlanSchedulingView;
+  gitExecutionPolicy: GitExecutionPolicyView;
   tags: string[];
   createdFrom?: string;
   rootNodeIds: string[];
@@ -1602,10 +1603,27 @@ type PlanListEntryView = {
   scope: string;
   kind: string;
   scheduling: PlanSchedulingView;
+  gitExecutionPolicy: GitExecutionPolicyView;
   rootNodeIds: string[];
+  createdAt?: number;
+  lastUpdatedAt?: number;
+  nodeStatusCounts: PlanNodeStatusCountsView;
   summary: string;
   planSummary: PlanSummaryView;
   activity?: PlanActivityView;
+};
+
+type PlanNodeStatusCountsView = {
+  proposed: number;
+  ready: number;
+  inProgress: number;
+  blocked: number;
+  waiting: number;
+  inReview: number;
+  validating: number;
+  completed: number;
+  abandoned: number;
+  abstractNodes: number;
 };
 
 type PlanActivityView = {

@@ -69,8 +69,8 @@ pub use crate::types::{
     ContractKind, ContractPacket, ContractProvenance, ContractPublication,
     ContractPublicationStatus, ContractResolution, ContractScope, ContractStability,
     ContractStatus, ContractTarget, ContractValidation, DriftCandidate, PlanActivity,
-    PlanListEntry, PlanNodeRecommendation, PlanSummary, QueryLimits, TaskIntent, TaskRisk,
-    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    PlanListEntry, PlanNodeRecommendation, PlanNodeStatusCounts, PlanSummary, QueryLimits,
+    TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 
 pub struct Prism {

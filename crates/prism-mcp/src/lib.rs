@@ -185,7 +185,7 @@ const LINEAGE_RESOURCE_TEMPLATE_URI: &str =
 const PLAN_RESOURCE_TEMPLATE_URI: &str = "prism://plan/{planId}";
 const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}?limit={limit}&cursor={cursor}";
 const PLANS_RESOURCE_TEMPLATE_URI: &str =
-    "prism://plans?status={status}&scope={scope}&contains={contains}&limit={limit}&cursor={cursor}";
+    "prism://plans?status={status}&scope={scope}&contains={contains}&sort={sort}&limit={limit}&cursor={cursor}";
 const CONTRACTS_RESOURCE_TEMPLATE_URI: &str =
     "prism://contracts?contains={contains}&status={status}&scope={scope}&kind={kind}&limit={limit}&cursor={cursor}";
 const EVENT_RESOURCE_TEMPLATE_URI: &str = "prism://event/{eventId}";

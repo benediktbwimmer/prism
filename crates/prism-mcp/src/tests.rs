@@ -24792,10 +24792,21 @@ fn plans_resource_payload_surfaces_filters_and_root_nodes() {
         .expect("plans resource should succeed");
 
     assert_eq!(payload.contains.as_deref(), Some("persistence"));
+    assert_eq!(payload.sort, "last_updated_desc");
     assert_eq!(payload.page.returned, 1);
     assert_eq!(payload.plans.len(), 1);
     assert!(payload.plans[0].summary.contains("actionable"));
     assert_eq!(payload.plans[0].plan_summary.actionable_nodes, 1);
+    assert!(payload.plans[0].created_at.is_some());
+    assert!(payload.plans[0].last_updated_at.is_some());
+    assert_eq!(payload.plans[0].node_status_counts.ready, 1);
+    assert_eq!(
+        payload.plans[0]
+            .activity
+            .as_ref()
+            .and_then(|activity| activity.created_at),
+        payload.plans[0].created_at
+    );
     assert!(payload
         .related_resources
         .iter()
@@ -24858,6 +24869,174 @@ fn plans_resource_contains_filter_matches_singular_and_plural_terms() {
         .title
         .to_ascii_lowercase()
         .contains("bottleneck"));
+}
+
+#[test]
+fn plans_resource_defaults_to_last_updated_first() {
+    let host = host_with_node(demo_node());
+
+    let older = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Older plan",
+                    "goal": "Older plan"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let older_id = older.state["id"].as_str().unwrap().to_string();
+
+    let newer = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Newer plan",
+                    "goal": "Newer plan"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let newer_id = newer.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanUpdate,
+            payload: json!({
+                "planId": older_id,
+                "title": "Older plan retitled"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let payload = host
+        .plans_resource_value(test_session(&host), "prism://plans?limit=10")
+        .expect("plans resource should succeed");
+
+    assert_eq!(payload.sort, "last_updated_desc");
+    assert_eq!(payload.plans.len(), 2);
+    assert!(payload.plans[0].last_updated_at >= payload.plans[1].last_updated_at);
+    assert!(payload
+        .plans
+        .iter()
+        .any(|plan| plan.plan_id == older.state["id"].as_str().unwrap()));
+    assert!(payload.plans.iter().any(|plan| plan.plan_id == newer_id));
+}
+
+#[test]
+fn plans_resource_supports_created_and_status_count_sorting() {
+    let host = host_with_node(demo_node());
+
+    let older = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Older plan",
+                    "goal": "Older plan"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let older_id = older.state["id"].as_str().unwrap().to_string();
+    let newer = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Newer plan",
+                    "goal": "Newer plan"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let newer_id = newer.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanNodeCreate,
+            payload: json!({
+                "planId": newer_id,
+                "title": "done 1",
+                "status": "completed"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanNodeCreate,
+            payload: json!({
+                "planId": newer.state["id"].as_str().unwrap(),
+                "title": "done 2",
+                "status": "completed"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanNodeCreate,
+            payload: json!({
+                "planId": older_id,
+                "title": "ready task"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let created_payload = host
+        .plans_resource_value(
+            test_session(&host),
+            "prism://plans?sort=created_at_asc&limit=10",
+        )
+        .expect("created_at sort should succeed");
+    assert_eq!(created_payload.sort, "created_at_asc");
+    assert!(created_payload.plans[0].created_at <= created_payload.plans[1].created_at);
+    assert!(created_payload
+        .plans
+        .iter()
+        .any(|plan| plan.plan_id == older.state["id"].as_str().unwrap()));
+    assert!(created_payload
+        .plans
+        .iter()
+        .any(|plan| plan.plan_id == newer.state["id"].as_str().unwrap()));
+
+    let completed_payload = host
+        .plans_resource_value(
+            test_session(&host),
+            "prism://plans?sort=completed_desc&limit=10",
+        )
+        .expect("completed sort should succeed");
+    assert_eq!(completed_payload.sort, "completed_desc");
+    assert_eq!(
+        completed_payload.plans[0].plan_id,
+        newer.state["id"].as_str().unwrap()
+    );
+    assert_eq!(completed_payload.plans[0].node_status_counts.completed, 2);
+    assert!(completed_payload
+        .related_resources
+        .iter()
+        .any(|link| link.uri == "prism://plans?sort=completed_desc"));
 }
 
 #[test]

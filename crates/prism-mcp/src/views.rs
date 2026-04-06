@@ -19,8 +19,8 @@ use prism_js::{
     GitExecutionOverlayView, GitExecutionPolicyView, GitPreflightReportView, GitPublishReportView,
     MemoryEntryView, MemoryEventView, NodeIdView, PlanAcceptanceCriterionView, PlanActivityView,
     PlanBindingView, PlanEdgeView, PlanExecutionOverlayView, PlanGraphView, PlanListEntryView,
-    PlanNodeBlockerView, PlanNodeRecommendationView, PlanNodeView, PlanSchedulingView,
-    PlanSummaryView, PlanView, PolicyViolationRecordView, PolicyViolationView,
+    PlanNodeBlockerView, PlanNodeRecommendationView, PlanNodeStatusCountsView, PlanNodeView,
+    PlanSchedulingView, PlanSummaryView, PlanView, PolicyViolationRecordView, PolicyViolationView,
     ProjectionAuthorityPlaneView, ProjectionClassView, QueryDiagnostic, ScoredMemoryView,
     TaskGitExecutionView, TaskIntentView, TaskRiskView, TaskValidationRecipeView,
     ValidationCheckView, ValidationRecipeView, ValidationRefView, WorkspaceRevisionView,
@@ -35,8 +35,8 @@ use prism_query::{
     ContractGuaranteeStrength, ContractHealth, ContractHealthSignals, ContractHealthStatus,
     ContractKind, ContractPacket, ContractResolution, ContractStability, ContractStatus,
     ContractTarget, ContractValidation, DriftCandidate, PlanActivity, PlanListEntry,
-    PlanNodeRecommendation, PlanSummary, Prism, TaskIntent, TaskRisk, TaskValidationRecipe,
-    ValidationCheck, ValidationRecipe,
+    PlanNodeRecommendation, PlanNodeStatusCounts, PlanSummary, Prism, TaskIntent, TaskRisk,
+    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
 use std::path::Path;
@@ -439,7 +439,7 @@ fn concept_curation_hints_view_from_packet(
     let has_explicit_members = !packet.core_members.is_empty()
         || !packet.supporting_members.is_empty()
         || !packet.likely_tests.is_empty();
-    let fallback = if !has_explicit_members && matches!(verbosity, ConceptVerbosity::Full) {
+    let fallback = if !has_explicit_members {
         crate::concept_followthrough_targets(prism, packet)
     } else {
         crate::concept_followthrough::ConceptFollowthroughTargets::default()
@@ -1309,6 +1309,7 @@ pub(crate) fn plan_view(
 }
 
 pub(crate) fn plan_list_entry_view(value: PlanListEntry) -> PlanListEntryView {
+    let activity = plan_activity_view(value.activity);
     PlanListEntryView {
         plan_id: value.plan_id.0.to_string(),
         title: value.title,
@@ -1323,9 +1324,12 @@ pub(crate) fn plan_list_entry_view(value: PlanListEntry) -> PlanListEntryView {
             .into_iter()
             .map(|node_id| node_id.0.to_string())
             .collect(),
+        created_at: activity.created_at,
+        last_updated_at: activity.last_updated_at,
+        node_status_counts: plan_node_status_counts_view(value.node_status_counts),
         summary: value.summary,
         plan_summary: plan_summary_view(value.plan_summary),
-        activity: Some(plan_activity_view(value.activity)),
+        activity: Some(activity),
     }
 }
 
@@ -1338,6 +1342,23 @@ pub(crate) fn plan_activity_view(value: PlanActivity) -> PlanActivityView {
         last_event_task_id: value
             .last_event_task_id
             .map(|task_id| task_id.0.to_string()),
+    }
+}
+
+pub(crate) fn plan_node_status_counts_view(
+    value: PlanNodeStatusCounts,
+) -> PlanNodeStatusCountsView {
+    PlanNodeStatusCountsView {
+        proposed: value.proposed,
+        ready: value.ready,
+        in_progress: value.in_progress,
+        blocked: value.blocked,
+        waiting: value.waiting,
+        in_review: value.in_review,
+        validating: value.validating,
+        completed: value.completed,
+        abandoned: value.abandoned,
+        abstract_nodes: value.abstract_nodes,
     }
 }
 

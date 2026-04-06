@@ -3035,7 +3035,7 @@ impl ServerHandler for PrismMcpServer {
                 .no_annotation(),
                 RawResourceTemplate::new(PLANS_RESOURCE_TEMPLATE_URI, "PRISM Plans Page")
                     .with_description(
-                        "Read structured plan discovery results with optional `status`, `scope`, `contains`, `limit`, and opaque `cursor` pagination",
+                        "Read structured plan discovery results with optional `status`, `scope`, `contains`, `sort`, `limit`, and opaque `cursor` pagination",
                     )
                     .with_mime_type("application/json")
                     .with_title("PRISM Plans Page")

@@ -10,7 +10,7 @@ use std::time::Instant;
 
 use crate::file_queries::file_read;
 use crate::query_types::{parse_plan_scope, parse_plan_status};
-use crate::ui_read_models::filtered_plan_entries_from_snapshot;
+use crate::ui_read_models::{filtered_plan_entries_from_snapshot, PlansResourceSort};
 use crate::{
     anchor_resource_view_links, capabilities_resource_uri, capabilities_resource_value,
     capabilities_resource_view_link, co_change_view, compact_discovery_bundle_candidate_excerpts,
@@ -397,8 +397,10 @@ impl QueryHost {
             let scope = parse_resource_query_param(uri, "scope").filter(|value| !value.is_empty());
             let contains =
                 parse_resource_query_param(uri, "contains").filter(|value| !value.is_empty());
+            let sort = parse_resource_query_param(uri, "sort").filter(|value| !value.is_empty());
             let parsed_status = status.as_deref().map(parse_plan_status).transpose()?;
             let parsed_scope = scope.as_deref().map(parse_plan_scope).transpose()?;
+            let parsed_sort = PlansResourceSort::parse(sort.as_deref());
             let snapshot = prism.coordination_snapshot();
             let paged = paginate_items(
                 filtered_plan_entries_from_snapshot(
@@ -406,6 +408,7 @@ impl QueryHost {
                     parsed_status,
                     parsed_scope,
                     contains.as_deref(),
+                    parsed_sort,
                 ),
                 parse_resource_page(
                     uri,
@@ -413,17 +416,24 @@ impl QueryHost {
                     session.limits().max_result_nodes,
                 )?,
             );
+            let canonical_sort =
+                (parsed_sort != PlansResourceSort::default()).then_some(parsed_sort.as_str());
             let related_resources = vec![
                 session_resource_view_link(),
                 schema_resource_view_link("plans"),
                 schemas_resource_view_link(),
-                if status.is_none() && scope.is_none() && contains.is_none() {
+                if status.is_none()
+                    && scope.is_none()
+                    && contains.is_none()
+                    && canonical_sort.is_none()
+                {
                     plans_resource_view_link()
                 } else {
                     plans_resource_view_link_with_options(
                         status.as_deref(),
                         scope.as_deref(),
                         contains.as_deref(),
+                        canonical_sort,
                     )
                 },
             ];
@@ -441,6 +451,7 @@ impl QueryHost {
                 status,
                 scope,
                 contains,
+                sort: parsed_sort.as_str().to_string(),
                 plans: paged.items,
                 page: paged.page,
                 truncated: paged.truncated,
