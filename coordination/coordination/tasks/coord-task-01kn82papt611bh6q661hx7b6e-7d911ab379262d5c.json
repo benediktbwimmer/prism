@@ -1,0 +1,71 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Runtime and MCP log readers can resolve worktree, repo, and all-log scopes without changing the default current-worktree behavior."
+      },
+      {
+        "anchors": [],
+        "label": "The implementation can distinguish per-worktree files and per-instance MCP records when aggregating results."
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-b-fresh",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 22
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn82papt611bh6q661hx7b6e",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn82nwqnv42m6fw33pgrabss",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Implementing scope-aware selection and aggregation for daemon and MCP call logs.",
+    "tags": [],
+    "title": "Add scope-aware runtime and MCP log backends",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
