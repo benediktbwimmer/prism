@@ -1,0 +1,101 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Large or bulk refreshes no longer emit pathological co-change delta volumes on the hot path"
+      },
+      {
+        "anchors": [],
+        "label": "Containment behavior is explicit and observable in logs or diagnostics"
+      },
+      {
+        "anchors": [],
+        "label": "The daemon remains responsive while the broader migration is still incomplete"
+      }
+    ],
+    "anchors": [
+      {
+        "File": 231
+      },
+      {
+        "File": 263
+      },
+      {
+        "File": 74
+      }
+    ],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 608
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 231
+        },
+        {
+          "File": 263
+        },
+        {
+          "File": 74
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn02mwy8twwr8mcjrc6w60qn"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn02nzcts148twpb0t9ssxp6",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "The co-change rewrite removed the hot-path source of pathological pairwise writes, so large refreshes no longer persist unbounded symbol-pair history and daemon responsiveness no longer depends on short-term guardrail skips.",
+    "tags": [
+      "co-change",
+      "containment",
+      "runtime"
+    ],
+    "title": "Add immediate guardrails against pathological co-change batches",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

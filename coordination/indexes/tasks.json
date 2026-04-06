@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn02nzcts148twpb0t9ssxp6",
+    "title": "Add immediate guardrails against pathological co-change batches",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn02nzcts148twpb0t9ssxp6-3d9e8fb99377ff20.json"
+  },
+  {
+    "id": "coord-task:01kn09je5pxad8grjdhf7hata8",
+    "title": "Introduce partial materialization and explicit index-depth tiers across the runtime",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09je5pxad8grjdhf7hata8-ce3ec50ea830e0c4.json"
+  },
+  {
+    "id": "coord-task:01kn2qbpn743ksd9zb4j24njtm",
+    "title": "Implement a cheap machine-scoped process and instance ledger for diagnostics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2qbpn743ksd9zb4j24njtm-07eb80f4f2717079.json"
+  }
+]

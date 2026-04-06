@@ -1,0 +1,73 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Runtime process and daemon/bridge status comes from an instance-aware process ledger with bounded liveness checks, not broad request-time ps scans, while staying correct for one or many local MCP daemons sharing the same runtime store."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1935
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn2qbpn743ksd9zb4j24njtm",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn2edq9k2cr10t7p9pwscpjz",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Implemented a cheap machine-scoped diagnostics process ledger by pruning dead runtime-state process records on write, filtering runtime-status process views to live PIDs only, and aligning the MCP runtime status surface with live-process semantics instead of stale runtime-state entries. Also updated the stale compact locate task-scope test expectation and revalidated with cargo test --workspace plus release rebuild/restart.",
+    "tags": [
+      "instance-ledger",
+      "liveness",
+      "multi-instance",
+      "processes",
+      "shared-runtime"
+    ],
+    "title": "Implement a cheap machine-scoped process and instance ledger for diagnostics",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
