@@ -69,7 +69,7 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775501938,
+    "lease_expires_at": 1775501969,
     "lease_holder": {
       "agent_id": "codex-a",
       "principal": {
@@ -81,8 +81,8 @@
       "session_id": "session:01knhvn7xmadz2s95cm1e840tn",
       "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
     },
-    "lease_refreshed_at": 1775494738,
-    "lease_stale_at": 1775496538,
+    "lease_refreshed_at": 1775494769,
+    "lease_stale_at": 1775496569,
     "lease_started_at": 1775478127,
     "metadata": null,
     "pending_handoff_to": null,
