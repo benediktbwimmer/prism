@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn11gkbcr6dyf31n9d03qb37",
+    "title": "Preserve standalone native plan nodes and graph-only authored structure for non-task plans",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn11gkbcr6dyf31n9d03qb37-a42edc7323d3db50.json"
+  },
+  {
+    "id": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+    "title": "Validate the full shared-ref model end to end against the design doc",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knax49ge8qvv6yabya0k2xrc-14148e048e975d8e.json"
+  },
+  {
+    "id": "coord-task:01kng42700kzp46fxnkrswh9yj",
+    "title": "Audit the current shared-coordination implementation against the v1 architecture and freeze the authoritative file/ref map for summary, runtime, task, claim, read-model, startup-checkpoint, and MCP surfaces.",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kng42700kzp46fxnkrswh9yj-d1f052400b67e472.json"
+  }
+]
