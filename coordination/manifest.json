@@ -1,24 +1,24 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775476029,
+  "publishedAt": 1775476349,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
+    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "coord-task:01kng42700xw977d4tq1ebr30s",
+    "workId": "work:ship-deterministic-v1-to-v2-migration-path:01knh793qggqjva8647mzz7q7f",
     "kind": "coordination",
-    "title": "Refactor the read path and materializer so the repo-wide summary ref is a compact derived read model with explicit freshness visibility and authoritative fallback reads from shard and runtime refs when needed.",
-    "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy.",
-    "coordinationTaskId": "coord-task:01kng42700xw977d4tq1ebr30s",
-    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
-    "planTitle": "Implement shared coordination v1 architecture hardening"
+    "title": "Ship deterministic v1-to-v2 migration path",
+    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite.",
+    "coordinationTaskId": "coord-task:01kng209dwy330am5tc7qr7z74",
+    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
+    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
   },
   "publishSummary": {
-    "title": "Refactor the read path and materializer so the repo-wide summary ref is a compact derived read model with explicit freshness visibility and authoritative fallback reads from shard and runtime refs when needed.",
-    "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy."
+    "title": "Ship deterministic v1-to-v2 migration path",
+    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite."
   },
   "files": {
     "coordination/tasks/coord-task-01kn80bmhav84s54wm0j8rt3am-e0ab175763e1538b.json": {
@@ -31,14 +31,14 @@
     },
     "coordination/tasks/coord-task-01kng20jnn31h2n6ana91ja67d-935c83de7639b4cf.json": {
       "path": "coordination/tasks/coord-task-01kng20jnn31h2n6ana91ja67d-935c83de7639b4cf.json",
-      "sha256": "sha256:da02b1af85e2485c626a50c2c8172a8a480cc40da8d1cad593ee368df335fc25"
+      "sha256": "sha256:65a808cf5816bd859af8ceab2125dee32f21cf523c50df650e2a0dd0e0984ae4"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
       "sha256": "sha256:75fb1eb1e3049c8da37a560f01a9d214ee8e65b0493c14c665b6ba10cad8fda8"
     }
   },
-  "previousManifestDigest": "sha256:a1d9c7b3d27d5235fc5a0aef8284dfb4468d40bc67c40ff108e1a4a47f37e1cc",
+  "previousManifestDigest": "sha256:3b284974aa19a4cc76c2b4f6dd8147e6e154be92988164a2ff09a9364fdbd525",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -48,6 +48,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:up/45RDgULoxfVL+6A+Y7gVaQH5o5Ke/RhJynNVJXU9EAB2G5KplyJr0IGAlFIrLB5w4qFdsh6jPdZ7DNtppDw=="
+    "value": "base64:CcjBdNrX82TdP+9++Mh2Ut8YTfPWkiCQWXJ5vMoaCx6RtlsH2ZiQ0hbw+DMRC37nk5PjBTTaJanijaST2kRGCQ=="
   }
 }
