@@ -8,7 +8,7 @@
   {
     "id": "coord-task:01kng42700hg2hrewgm8542y9j",
     "title": "Move authoritative task and claim mutations off the single live summary ref onto fixed hash-sharded task and claim ref families with deterministic shard routing and compare-and-swap publication per shard.",
-    "status": "InProgress",
+    "status": "Completed",
     "path": "tasks/coord-task-01kng42700hg2hrewgm8542y9j-e77df15e05151a74.json"
   }
 ]
