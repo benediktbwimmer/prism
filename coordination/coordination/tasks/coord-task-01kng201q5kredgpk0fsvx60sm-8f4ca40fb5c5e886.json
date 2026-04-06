@@ -36,7 +36,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": null,
+    "branch_ref": "refs/heads/codex/coordination-graph-rewrite",
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng1z8k1hzkyh0ptbw17b84z",
@@ -75,13 +75,13 @@
     "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
     "priority": null,
     "published_task_status": null,
-    "session": null,
+    "session": "session:01kngb8hqga3p1716w7xcn9kvb",
     "status": "Completed",
     "summary": null,
     "tags": [],
     "title": "Implement atomic coordination_transaction staging, final-graph validation, single-publish semantics, and rebase plan_bootstrap plus other structural helpers onto that transaction engine",
     "validation_refs": [],
-    "worktree_id": null
+    "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "schema_version": 1
 }
