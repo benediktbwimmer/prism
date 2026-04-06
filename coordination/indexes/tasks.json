@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn09je8z6tgxpsxh2f115wb2",
+    "title": "Add explicit boundary-node semantics for non-materialized, sparse, and out-of-scope regions",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09je8z6tgxpsxh2f115wb2-694652421297a552.json"
+  },
+  {
+    "id": "coord-task:01kn0c1df70t70650rs2y9b261",
+    "title": "Behavior fixes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0c1df70t70650rs2y9b261-819d9f30c7ff22a8.json"
+  },
+  {
+    "id": "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+    "title": "Lock projection contracts, authority planes, and freshness invariants",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kcgg7q9qszsfsb3j2vs7s-60a7ea9aa2ad6784.json"
+  },
+  {
+    "id": "coord-task:01knfddqewp8xgrsydm3s8fr6v",
+    "title": "Audit the current auth, credential, bridge, worktree, lease, and provenance flows against the canonical target model",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knfddqewp8xgrsydm3s8fr6v-4e7577c65a390b76.json"
+  }
+]
