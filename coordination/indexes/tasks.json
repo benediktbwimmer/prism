@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn5ydf2qhfjjb50zav19rvm0",
+    "title": "Rework published plan persistence into signed per-plan streams with derived indexes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydf2qhfjjb50zav19rvm0-5fba03656272906a.json"
+  },
+  {
+    "id": "coord-task:01kn7cym8fe0dxg3ehd19fp9ge",
+    "title": "Remove long refresh-lock stalls from coordination mutation admission",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7cym8fe0dxg3ehd19fp9ge-5d7cce0ecf338298.json"
+  }
+]
