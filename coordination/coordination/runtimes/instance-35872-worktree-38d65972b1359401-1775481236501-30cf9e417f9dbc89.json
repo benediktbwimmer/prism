@@ -1,0 +1,24 @@
+{
+  "kind": "runtime_descriptor",
+  "payload": {
+    "blobSnapshotHead": null,
+    "branchRef": "refs/heads/task/coordination-query-mcp-rewrite",
+    "capabilities": [
+      "coordination_ref_publisher",
+      "bounded_peer_reads"
+    ],
+    "checkedOutCommit": "ce0029898e2cbd5ceae4e56d4b8a24240cb23858",
+    "discoveryMode": "lan_direct",
+    "exportPolicy": null,
+    "instanceStartedAt": 1775481245,
+    "lastSeenAt": 1775481245,
+    "peerEndpoint": "http://127.0.0.1:48137/peer/query",
+    "peerTransportIdentity": null,
+    "principalId": "legacy_agent_fallback",
+    "publicEndpoint": null,
+    "repoId": "repo:763c8d2ae95d5376",
+    "runtimeId": "instance:35872:worktree:38d65972b1359401:1775481236501",
+    "worktreeId": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+  },
+  "schema_version": 1
+}
