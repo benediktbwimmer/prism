@@ -1,35 +1,34 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775497456,
+  "publishedAt": 1775498338,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01knhnfx3b5vg4msz1kxt9z1db",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01knhnfx3b5vg4msz1kxt9z1db"
+    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "work:plan-bridge-driven-lease-renewal-and-prism-run-flight-recorder:01knhnjhf2n140ew2dyv8frdaa",
-    "kind": "ad_hoc",
-    "title": "Plan bridge-driven lease renewal and prism run flight recorder",
-    "summary": "Create the execution plan for automatic write-bridge lease renewal backed by worktree-local lease activity persistence, prism run command telemetry, compact authoritative lease summaries, and richer federated runtime inspection.",
-    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
-    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
+    "workId": "coord-task:01knhbwetedap4tdgcgz66yfkk",
+    "kind": "coordination",
+    "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
+    "coordinationTaskId": "coord-task:01knhbwetedap4tdgcgz66yfkk",
+    "planId": "plan:01knhbwesj53rq8f301x6r51qj",
+    "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
   },
   "publishSummary": {
-    "title": "Plan bridge-driven lease renewal and prism run flight recorder",
-    "summary": "Create the execution plan for automatic write-bridge lease renewal backed by worktree-local lease activity persistence, prism run command telemetry, compact authoritative lease summaries, and richer federated runtime inspection."
+    "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths"
   },
   "files": {
     "coordination/tasks/coord-task-01kng209dwy330am5tc7qr7z74-922e3dffcc0aa73a.json": {
       "path": "coordination/tasks/coord-task-01kng209dwy330am5tc7qr7z74-922e3dffcc0aa73a.json",
-      "sha256": "sha256:22d3765d909bf82f6b4bd11454fd91f16d378669fc9a1ec7b92a8324bdf91d79"
+      "sha256": "sha256:ab4f5a373e0e04153e2098c04e726b2d9e284c20a1eba101c3e1690455306a89"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
       "sha256": "sha256:3f7b2653ae3fee9c382112ec655ccd93a263ee92a1afe6dd0c9431f53790b9bd"
     }
   },
-  "previousManifestDigest": "sha256:9637fca39282a30d4573a55c8d75074b71473b4fbeb7744a7e225ebd54fcc01e",
+  "previousManifestDigest": "sha256:16f7038453a66ad07a65fa47414c749222616419d793ffdd491e85349dd36444",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -39,6 +38,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:WwiNCpUWSOm7fXUeYxJoJfFl9+NS2bBO3Af7zc359CS2Oe9wq2aVaAYc+bNzGUzQ7hvdhuRvsRwOve48RckKCQ=="
+    "value": "base64:99hTHIOS+nGxy/mz5TI4TcxMuVYwVBpdnIhw3zf/KnjHOy/nFvT42YjwZlueVH5tYfwt4o2jE8eMV6XXhh49DQ=="
   }
 }
