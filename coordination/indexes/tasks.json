@@ -4,5 +4,11 @@
     "title": "Milestone 0: Query-view registry and runtime feature gating",
     "status": "Completed",
     "path": "tasks/coord-task-01kmwxt05gtntnfmn60ppbwpaf-0ecdc39b85469c00.json"
+  },
+  {
+    "id": "coord-task:01knhbywn2y7ekjnnhcqfxdep9",
+    "title": "Remove shared-runtime-coupled shared-coordination-ref watch and bootstrap behavior",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbywn2y7ekjnnhcqfxdep9-c2410d0560546335.json"
   }
 ]
