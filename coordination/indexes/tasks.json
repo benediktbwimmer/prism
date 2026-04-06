@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kmwmxw55q5xvpqg4r5g5x393",
+    "title": "Phase 6: Add explicit CI lanes for fast, indexed, and slow integration tests",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kmwmxw55q5xvpqg4r5g5x393-0cc2c13b3c0241bb.json"
+  },
+  {
+    "id": "coord-task:01kn88naczk5jdjtgm5qzf23be",
+    "title": "Design a lighter MCP log introspection path so slow prism_query diagnostics do not need many per-call prism.mcpTrace lookups.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn88naczk5jdjtgm5qzf23be-2bd80388e8ecf025.json"
+  }
+]
