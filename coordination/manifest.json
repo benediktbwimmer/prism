@@ -1,22 +1,21 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775496888,
+  "publishedAt": 1775497426,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
+    "principalId": "worktree:01knhnfx3b5vg4msz1kxt9z1db",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01knhnfx3b5vg4msz1kxt9z1db"
   },
   "workContext": {
-    "workId": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
-    "kind": "coordination",
-    "title": "Remove shared-runtime-coupled shared-coordination-ref watch and bootstrap behavior",
-    "coordinationTaskId": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
-    "planId": "plan:01knhbwesj53rq8f301x6r51qj",
-    "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
+    "workId": "work:plan-bridge-driven-lease-renewal-and-prism-run-flight-recorder:01knhnjhf2n140ew2dyv8frdaa",
+    "kind": "ad_hoc",
+    "title": "Plan bridge-driven lease renewal and prism run flight recorder",
+    "summary": "Create the execution plan for automatic write-bridge lease renewal backed by worktree-local lease activity persistence, prism run command telemetry, compact authoritative lease summaries, and richer federated runtime inspection."
   },
   "publishSummary": {
-    "title": "Remove shared-runtime-coupled shared-coordination-ref watch and bootstrap behavior"
+    "title": "Plan bridge-driven lease renewal and prism run flight recorder",
+    "summary": "Create the execution plan for automatic write-bridge lease renewal backed by worktree-local lease activity persistence, prism run command telemetry, compact authoritative lease summaries, and richer federated runtime inspection."
   },
   "files": {
     "coordination/tasks/coord-task-01kn2nj1wbag9jvvajz4ma081y-0e810e179f125947.json": {
@@ -33,7 +32,7 @@
     },
     "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json": {
       "path": "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json",
-      "sha256": "sha256:04b6c7efbcf381ae36b32dfefd65d8f70ffb61487d041fb600fc23db7bfd5f97"
+      "sha256": "sha256:d13e3d25e73d082a8aa84c76128a71b2f2c0c41348d680306afe943d77878786"
     },
     "coordination/tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json": {
       "path": "coordination/tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json",
@@ -45,10 +44,10 @@
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:3d52ad5d5ad490dc0ebd4e408e05739bd49cadaa3ab73af3e24293e0b005b9a4"
+      "sha256": "sha256:a5a05d1ea1543cc878aeee450b1ab1dc0f97f9e040a2599876d248a5815bbf7f"
     }
   },
-  "previousManifestDigest": "sha256:e9d83f216bc8da8a31c82774b911cbe2f852994977c13be53168dc7828fa9c34",
+  "previousManifestDigest": "sha256:1ac309d49d1a3cf5acc3c8b811d5ecdd96f40e1d84e6fe0ea6e341c9ee833d6b",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -58,6 +57,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:iklGnU3KTlYO1umoxKYNGpWwM25TVnbZp669JF3dqt09wTEE+auW+y1d5AzHYrzseGZGI2TpmAjjJ+tUQGYhCg=="
+    "value": "base64:tl8MrX6hMwtgcDK0FbxDMGH97O218VMv0tS1XNDKFVz0A+AnjIKLxe8C0L+ghM9KobfhHdl0GO1e22RmQxIyCg=="
   }
 }
