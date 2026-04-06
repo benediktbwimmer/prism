@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn13qdfw63hwrr79cqm7rqs3",
+    "title": "Refactor WorkspaceSession, watch, and runtime plumbing so live in-memory state is authoritative and no core request path depends on SqliteStore as the semantic source of truth",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13qdfw63hwrr79cqm7rqs3-76c1a88e311d9118.json"
+  },
+  {
+    "id": "coord-task:01kn55dvkdfvxg8pdfk72p0h72",
+    "title": "Instrument refresh latency against the architecture budgets",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn55dvkdfvxg8pdfk72p0h72-6d0555d2609720ef.json"
+  },
+  {
+    "id": "coord-task:01kn8vptjxtbw2tnffjg5gsf9e",
+    "title": "Warm follow-up coordination mutation",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8vptjxtbw2tnffjg5gsf9e-7ed64671a4b920da.json"
+  }
+]
