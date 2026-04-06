@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn80bmhav84s54wm0j8rt3am",
+    "title": "Add a dedicated protected-state watcher while keeping the source watcher blind to .prism",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80bmhav84s54wm0j8rt3am-e0ab175763e1538b.json"
+  },
+  {
+    "id": "coord-task:01knfddqew46qgymx44rcjfeqe",
+    "title": "Implement encrypted local human credential storage and short-lived human session unlock and login behavior",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knfddqew46qgymx44rcjfeqe-e04edf79d5bce783.json"
+  },
+  {
+    "id": "coord-task:01kng20jnn31h2n6ana91ja67d",
+    "title": "Rewrite the coordination query runtime and MCP surface around plan and task reads, direct children, typed dependencies, actionable_tasks(principal), and v2 transaction-first mutations",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kng20jnn31h2n6ana91ja67d-935c83de7639b4cf.json"
+  }
+]
