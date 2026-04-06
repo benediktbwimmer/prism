@@ -767,6 +767,9 @@ pub struct RuntimeSharedCoordinationRefView {
     pub compaction_previous_head_commit: Option<String>,
     pub compaction_previous_history_depth: Option<u64>,
     pub archive_boundary_manifest_digest: Option<String>,
+    pub archive_boundary_ref: Option<String>,
+    pub archive_boundary_head_commit: Option<String>,
+    pub archive_summary: Option<RuntimeSharedCoordinationArchiveSummaryView>,
     pub summary_published_at: Option<u64>,
     pub summary_freshness_status: String,
     pub authoritative_fallback_required: bool,
@@ -778,6 +781,18 @@ pub struct RuntimeSharedCoordinationRefView {
     pub runtime_descriptor_count: usize,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub runtime_descriptors: Vec<RuntimeSharedCoordinationRuntimeDescriptorView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeSharedCoordinationArchiveSummaryView {
+    pub archived_plan_count: usize,
+    pub archived_task_count: usize,
+    pub archived_claim_count: usize,
+    pub archived_artifact_count: usize,
+    pub archived_review_count: usize,
+    pub archived_event_count: usize,
+    pub archived_runtime_descriptor_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

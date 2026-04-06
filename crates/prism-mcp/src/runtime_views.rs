@@ -24,8 +24,8 @@ use prism_js::{
     RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
     RuntimeMaterializationView, RuntimeOverlayScopeView, RuntimeProcessView,
     RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView,
-    RuntimeSharedCoordinationRefView, RuntimeSharedCoordinationRuntimeDescriptorView,
-    RuntimeStatusView,
+    RuntimeSharedCoordinationArchiveSummaryView, RuntimeSharedCoordinationRefView,
+    RuntimeSharedCoordinationRuntimeDescriptorView, RuntimeStatusView,
 };
 use prism_projections::{
     ProjectionAuthorityPlane, ProjectionClass, ProjectionFreshnessState,
@@ -435,6 +435,11 @@ fn runtime_shared_coordination_ref_view(
         compaction_previous_head_commit: value.compaction_previous_head_commit,
         compaction_previous_history_depth: value.compaction_previous_history_depth,
         archive_boundary_manifest_digest: value.archive_boundary_manifest_digest,
+        archive_boundary_ref: value.archive_boundary_ref,
+        archive_boundary_head_commit: value.archive_boundary_head_commit,
+        archive_summary: value
+            .archive_summary
+            .map(runtime_shared_coordination_archive_summary_view),
         summary_published_at: value.summary_published_at,
         summary_freshness_status: value.summary_freshness_status,
         authoritative_fallback_required: value.authoritative_fallback_required,
@@ -449,6 +454,20 @@ fn runtime_shared_coordination_ref_view(
             .into_iter()
             .map(runtime_shared_coordination_runtime_descriptor_view)
             .collect(),
+    }
+}
+
+fn runtime_shared_coordination_archive_summary_view(
+    value: prism_core::SharedCoordinationArchiveSummary,
+) -> RuntimeSharedCoordinationArchiveSummaryView {
+    RuntimeSharedCoordinationArchiveSummaryView {
+        archived_plan_count: value.archived_plan_count,
+        archived_task_count: value.archived_task_count,
+        archived_claim_count: value.archived_claim_count,
+        archived_artifact_count: value.archived_artifact_count,
+        archived_review_count: value.archived_review_count,
+        archived_event_count: value.archived_event_count,
+        archived_runtime_descriptor_count: value.archived_runtime_descriptor_count,
     }
 }
 
