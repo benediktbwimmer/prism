@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn5ydf4876gvnh5c20zaw9w6",
+    "title": "Integrate verification gates into hydration, mutation, and watcher handling",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydf4876gvnh5c20zaw9w6-e04ec48f1b913923.json"
+  },
+  {
+    "id": "coord-task:01kn9hp5yrtkn0dh3fv6anbwb8",
+    "title": "Build the migration bridge from legacy tracked event logs to the first snapshot publish",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hp5yrtkn0dh3fv6anbwb8-8f8fe25170dc19ff.json"
+  }
+]
