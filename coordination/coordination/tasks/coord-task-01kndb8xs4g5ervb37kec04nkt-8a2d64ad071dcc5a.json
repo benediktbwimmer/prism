@@ -1,0 +1,79 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Each complex tool surface exposes at least one minimal valid example and one fuller example without requiring the full schema."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 419
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kndb8xs4qp4b6xbzhp671h8d"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kndb8xs4g5ervb37kec04nkt",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775350469,
+    "lease_holder": {
+      "agent_id": null,
+      "principal": {
+        "authority_id": "local-daemon",
+        "kind": "agent",
+        "name": "codex-shared-coordination-refs-gaps-2026-04-04",
+        "principal_id": "principal:codex-shared-coordination-refs-gaps-2026-04-04:01knaqj9pv4p1vc9tfw82zvp6y"
+      },
+      "session_id": "session:01knda98w57vvm1h979cer10xb",
+      "worktree_id": null
+    },
+    "lease_refreshed_at": 1775343269,
+    "lease_stale_at": 1775345069,
+    "lease_started_at": 1775343269,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kndb8xs4e1w2svt67mzvhe7n",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": null,
+    "tags": [],
+    "title": "Add example-only resources for every MCP tool action and every nested high-cardinality mutation kind",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
