@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kna9hj512cfn4r042z848gbq",
+    "title": "Move shared coordination truth onto the new ref plane for claims, leases, task status, publish state, and integration state",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hj512cfn4r042z848gbq-daec0259699ff25e.json"
+  },
+  {
+    "id": "coord-task:01kna9hj6m6r0sws8wn1ep3rry",
+    "title": "Rebind strict require git execution to shared coordination publication and integration state",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hj6m6r0sws8wn1ep3rry-34dc8801d09d2abd.json"
+  }
+]
