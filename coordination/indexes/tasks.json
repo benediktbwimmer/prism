@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kna8v02c0p53pdfckcyq0vaw",
+    "title": "Implement authenticated capability-scoped bounded peer runtime reads on local or trusted-network transport",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kna8v02c0p53pdfckcyq0vaw-942403bdbb724598.json"
+  },
+  {
+    "id": "coord-task:01kncq3sm4dazb6xfqsfz8vgex",
+    "title": "Validate starvation guards, reservation decay, and warm-chain behavior end to end",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kncq3sm4dazb6xfqsfz8vgex-3f51ab4731d90959.json"
+  }
+]
