@@ -20,7 +20,7 @@
   {
     "id": "coord-task:01kng42700nvzfm7p6tkh3v06p",
     "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
-    "status": "Ready",
+    "status": "InProgress",
     "path": "tasks/coord-task-01kng42700nvzfm7p6tkh3v06p-4b29a5385f3da8f4.json"
   }
 ]
