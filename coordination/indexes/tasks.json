@@ -1,0 +1,8 @@
+[
+  {
+    "id": "coord-task:01knhbywn8bs5vq694474xqmjh",
+    "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbywn8bs5vq694474xqmjh-446f7e299311ccd3.json"
+  }
+]
