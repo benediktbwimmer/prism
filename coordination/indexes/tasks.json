@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn09jeavcan93vyc9z9jvfkm",
+    "title": "Make runtime projections and overlays explicitly repo-, worktree-, and session-scoped",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09jeavcan93vyc9z9jvfkm-fa92311fbd10fd15.json"
+  },
+  {
+    "id": "coord-task:01knaqpp6mxkybk88n72frrq4p",
+    "title": "Implement durable target integration lifecycle and verification",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knaqpp6mxkybk88n72frrq4p-ffadc2cc3dbd3d30.json"
+  }
+]
