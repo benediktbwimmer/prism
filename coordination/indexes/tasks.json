@@ -4,5 +4,11 @@
     "title": "Strengthen concept to doc to code continuity",
     "status": "Completed",
     "path": "tasks/coord-task-01kn3ccwc6s0q937rgb9h3w4st-5ac0711a8b59683a.json"
+  },
+  {
+    "id": "coord-task:01knhf1mad5ggyjg5a0besm1rz",
+    "title": "Make persistence, startup checkpoints, and shared runtime flows layer-aware",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhf1mad5ggyjg5a0besm1rz-f84238d5d42b9892.json"
   }
 ]

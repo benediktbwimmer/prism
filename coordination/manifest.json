@@ -1,35 +1,39 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775448521,
+  "publishedAt": 1775481442,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
+    "principalId": "worktree:01knhcah0q0qny1c4fwcjecvkq",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01knhcah0q0qny1c4fwcjecvkq"
   },
   "workContext": {
-    "workId": "coord-task:01kng427002152wgffzt627rta",
-    "kind": "coordination",
-    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
-    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics.",
-    "coordinationTaskId": "coord-task:01kng427002152wgffzt627rta",
-    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
-    "planTitle": "Implement shared coordination v1 architecture hardening"
+    "workId": "work:publish-runtime-layer-composability-plan:01knhcxvjaas0a0jcfmasab53x",
+    "kind": "ad_hoc",
+    "title": "Publish runtime layer composability plan",
+    "summary": "Publish a coordination plan bootstrap for composable and independently shippable PRISM runtime layers.",
+    "planId": "plan:01knhernewtv9r1ac98d8jyrjp",
+    "planTitle": "Codex verification: downstream validator bootstrap v2"
   },
   "publishSummary": {
-    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
-    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics."
+    "title": "Publish runtime layer composability plan",
+    "summary": "Publish a coordination plan bootstrap for composable and independently shippable PRISM runtime layers."
   },
   "files": {
     "coordination/tasks/coord-task-01kn3ccwc6s0q937rgb9h3w4st-5ac0711a8b59683a.json": {
       "path": "coordination/tasks/coord-task-01kn3ccwc6s0q937rgb9h3w4st-5ac0711a8b59683a.json",
       "sha256": "sha256:b1a36aab3c84a02d8aa8840db0cd090f67b291e020b8a67088fc7ff772136b12"
     },
+    "coordination/tasks/coord-task-01knhf1mad5ggyjg5a0besm1rz-f84238d5d42b9892.json": {
+      "path": "coordination/tasks/coord-task-01knhf1mad5ggyjg5a0besm1rz-f84238d5d42b9892.json",
+      "sha256": "sha256:dc265fbb3c84b4134fa50d05d7d2db58be2eacceee78c56e9242217a01c48d3f"
+    },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:8f2f3132b222405d9646105861d2ae12f814a3f96aadd4abd5016b61b1977e75"
+      "sha256": "sha256:6585cb51396bbaf385d05323e231e1ca571a772b65a8087287f72b183ab28d5a"
     }
   },
+  "previousManifestDigest": "sha256:fc8e3cbc2b9809a9de994a877ee359b48b476dfe0818a7d293eb066463583c74",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -39,6 +43,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:Lwpg4q9vSPD4XTj7AFns3vf6O4E6jk8jBuq2iYv7ddMH/EnM/EDvJIJtONnmRgXkovHXcwXXrHWpaSC7xkY2AA=="
+    "value": "base64:AzqSXfpPB5BLdO3gEzZTZbTkQSr63ebq+s5jXjALOzJdAj87X3Wy/v2vb3oINZ6mrqYlRgr21GbIV2zPQwRCAg=="
   }
 }
