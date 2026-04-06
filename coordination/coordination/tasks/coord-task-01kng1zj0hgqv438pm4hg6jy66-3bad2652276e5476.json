@@ -36,7 +36,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": "refs/heads/codex/coordination-graph-rewrite",
+    "branch_ref": null,
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng1z8k1hzkyh0ptbw17b84z"
@@ -73,13 +73,13 @@
     "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01kng8x0mxh1fghq47gcsx3ffs",
+    "session": null,
     "status": "Completed",
     "summary": null,
     "tags": [],
     "title": "Derive effective task status, derived plan status, blocker causes, descendant estimate summaries, graph-actionable task sets, and identity-agnostic readiness from the canonical graph",
     "validation_refs": [],
-    "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+    "worktree_id": null
   },
   "schema_version": 1
 }
