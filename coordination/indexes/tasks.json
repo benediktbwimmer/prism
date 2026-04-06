@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn00sx8j4fjmtbte3bsyf8pv",
+    "title": "Milestone 8: Add freshness and live-update trust signals across control-plane surfaces",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kn00sx8j4fjmtbte3bsyf8pv-2b333094b0c20599.json"
+  },
+  {
+    "id": "coord-task:01kn2edqd9zwb32v5zrwrrff2z",
+    "title": "Remove reconstructive refresh and ordinary live-state indexer rebuilds",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqd9zwb32v5zrwrrff2z-85ac01a6949f3dcf.json"
+  }
+]
