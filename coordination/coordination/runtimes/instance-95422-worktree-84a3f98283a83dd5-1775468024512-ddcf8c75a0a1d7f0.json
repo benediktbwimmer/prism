@@ -1,0 +1,24 @@
+{
+  "kind": "runtime_descriptor",
+  "payload": {
+    "blobSnapshotHead": null,
+    "branchRef": "refs/heads/task/optimize-test-runtime-nextest",
+    "capabilities": [
+      "coordination_ref_publisher",
+      "bounded_peer_reads"
+    ],
+    "checkedOutCommit": "62f3263dc63e154453245b0c9a1e8e3b505d58bb",
+    "discoveryMode": "lan_direct",
+    "exportPolicy": null,
+    "instanceStartedAt": 1775468034,
+    "lastSeenAt": 1775468034,
+    "peerEndpoint": "http://127.0.0.1:51357/peer/query",
+    "peerTransportIdentity": null,
+    "principalId": "legacy_agent_fallback",
+    "publicEndpoint": null,
+    "repoId": "repo:763c8d2ae95d5376",
+    "runtimeId": "instance:95422:worktree:84a3f98283a83dd5:1775468024512",
+    "worktreeId": "worktree:84a3f98283a83dd5"
+  },
+  "schema_version": 1
+}
