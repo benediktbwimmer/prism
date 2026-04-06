@@ -39,7 +39,6 @@
     "depends_on": [
       "coord-task:01knhf1m9trbzcv9vt2hxmqmh5",
       "coord-task:01knhf1ma09nvbzedztmyh64c0",
-      "coord-task:01knhf1ma61wnje2bgfq0y6tfr",
       "coord-task:01knhf1mad5ggyjg5a0besm1rz"
     ],
     "git_execution": {
