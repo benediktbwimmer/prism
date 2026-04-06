@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775495541,
+  "publishedAt": 1775495684,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
@@ -2743,10 +2743,10 @@
     },
     "v2/snapshot.json": {
       "path": "v2/snapshot.json",
-      "sha256": "sha256:3ec366a319df6024ff14fd94fde81d33762dc589441af3964b6ce3c2215828f7"
+      "sha256": "sha256:c3fa6f8217d2f3dec2e03bc229867c1ae14843f6c2a0ee6229d721b9f27776f5"
     }
   },
-  "previousManifestDigest": "sha256:f6aa1603d2ada8988af9e8d00c81d18014a84dbbc0e219341ba717c3c794c84a",
+  "previousManifestDigest": "sha256:b096be0aaab7ac32800236c4f6b1b314627983dd948cc13e1810ac3484aa2223",
   "summarySources": {
     "taskShardHeads": {
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/02": "770995ff2b8722ac617b974407d7389ec962d759",
@@ -3055,6 +3055,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:orNxxb9Ddt1CqQIQiPxRT6H/nQM6f4TS3Syhqs6lwB7NDWdF1l84Nb8wc4Vqqlkqj0P7KN95F0r38pxUf+ECAw=="
+    "value": "base64:/BZv7yxZRyQZUUfhp8ADu8hm5ZhjvP1EjnlJNqM3wWxi4fFujr0jnf4FYxzlQrSX+QLoNJrQx3xd9W2+UdMpCw=="
   }
 }

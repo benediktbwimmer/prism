@@ -50910,8 +50910,81 @@
   "events": [
     {
       "meta": {
-        "id": "coordination:01knhwfw96srghsbpjr6eqq7tc:SessionId--session-01knhwcey9jvnexwwdyqzcgazr--:14",
-        "ts": 1775495541,
+        "id": "coordination:01knhwm8qtahw3z47me94mz3mw:SessionId--session-01knhwcey9jvnexwwdyqzcgazr--:16",
+        "ts": 1775495684,
+        "actor": {
+          "Principal": {
+            "authority_id": "worktree_executor",
+            "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+            "kind": "agent",
+            "name": "codex-a"
+          }
+        },
+        "correlation": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
+        "causation": "coordination:01knhwm8qnactr1kdnp3kx0qwr:SessionId--session-01knhwcey9jvnexwwdyqzcgazr--:15",
+        "execution_context": {
+          "repo_id": "repo:763c8d2ae95d5376",
+          "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+          "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
+          "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
+          "instance_id": "instance:86352:worktree:38d65972b1359401:1775495177448",
+          "request_id": "6",
+          "work_context": {
+            "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
+            "kind": "coordination",
+            "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+            "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes.",
+            "coordinationTaskId": "coord-task:01knhbwesp16r75m614k3wkksj",
+            "planId": "plan:01knhbwesj53rq8f301x6r51qj",
+            "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
+          }
+        }
+      },
+      "kind": "TaskResumed",
+      "summary": "task `coord-task:01knhbwetabrr9gjkxjnkaswvr` resumed",
+      "plan": "plan:01knhbwesj53rq8f301x6r51qj",
+      "task": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
+      "claim": null,
+      "artifact": null,
+      "review": null,
+      "metadata": {
+        "leaseState": "expired",
+        "patch": {
+          "assignee": "set",
+          "branchRef": "set",
+          "leaseExpiresAt": "set",
+          "leaseHolder": "set",
+          "leaseRefreshedAt": "set",
+          "leaseStaleAt": "set",
+          "leaseStartedAt": "set",
+          "session": "set"
+        },
+        "patchValues": {
+          "assignee": "codex-a",
+          "branchRef": "refs/heads/task/remove-shared-runtime-sqlite",
+          "leaseExpiresAt": 1775502884,
+          "leaseHolder": {
+            "agent_id": "codex-a",
+            "principal": {
+              "authority_id": "worktree_executor",
+              "kind": "agent",
+              "name": "codex-a",
+              "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+            },
+            "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
+            "worktree_id": "worktree:38d65972b1359401"
+          },
+          "leaseRefreshedAt": 1775495684,
+          "leaseStaleAt": 1775497484,
+          "leaseStartedAt": 1775478127,
+          "session": "session:01knhwcey9jvnexwwdyqzcgazr"
+        }
+      }
+    },
+    {
+      "meta": {
+        "id": "coordination:01knhwm8qnactr1kdnp3kx0qwr:SessionId--session-01knhwcey9jvnexwwdyqzcgazr--:15",
+        "ts": 1775495684,
         "actor": {
           "Principal": {
             "authority_id": "worktree_executor",
@@ -50928,7 +51001,7 @@
           "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
           "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
           "instance_id": "instance:86352:worktree:38d65972b1359401:1775495177448",
-          "request_id": "5",
+          "request_id": "6",
           "work_context": {
             "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
             "kind": "coordination",
@@ -50941,39 +51014,43 @@
         }
       },
       "kind": "TaskStatusChanged",
-      "summary": "Rebase federated peer reads and runtime-targeted query routing on runtime descriptors and runtime_id",
+      "summary": "Remove shared-runtime-coupled shared-coordination-ref watch and bootstrap behavior",
       "plan": "plan:01knhbwesj53rq8f301x6r51qj",
-      "task": "coord-task:01knhbwet7hsjvz5yxsf0381dv",
+      "task": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
       "claim": null,
       "artifact": null,
       "review": null,
       "metadata": {
         "assignee": "codex-a",
         "patch": {
+          "assignee": "set",
           "baseRevision": "set",
-          "leaseExpiresAt": "clear",
-          "leaseHolder": "clear",
-          "leaseRefreshedAt": "clear",
-          "leaseStaleAt": "clear",
-          "leaseStartedAt": "clear",
+          "leaseHolder": "set",
           "status": "set",
           "worktreeId": "set"
         },
         "patchValues": {
+          "assignee": "codex-a",
           "baseRevision": {
             "git_commit": null,
-            "graph_version": 300
+            "graph_version": 302
           },
-          "leaseExpiresAt": null,
-          "leaseHolder": null,
-          "leaseRefreshedAt": null,
-          "leaseStaleAt": null,
-          "leaseStartedAt": null,
-          "status": "Completed",
+          "leaseHolder": {
+            "agent_id": "codex-a",
+            "principal": {
+              "authority_id": "worktree_executor",
+              "kind": "agent",
+              "name": "codex-a",
+              "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+            },
+            "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
+            "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
+          },
+          "status": "InProgress",
           "worktreeId": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
         },
-        "previousStatus": "InProgress",
-        "status": "Completed"
+        "previousStatus": "Ready",
+        "status": "InProgress"
       }
     }
   ],
