@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kmwq2215db6wsf87n689k12p",
+    "title": "Milestone 3: Convert coordination reload and persistence to incremental read/write models",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmwq2215db6wsf87n689k12p-a3a107e1cca2c5e4.json"
+  },
+  {
+    "id": "coord-task:01knaqn4pzpx278wss25zqwqma",
+    "title": "Auto-install PRISM repo git support on first attach",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knaqn4pzpx278wss25zqwqma-fd625edbe91a0e0a.json"
+  }
+]
