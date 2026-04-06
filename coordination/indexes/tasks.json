@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn08efjpe3avh5zc4xm918sq",
+    "title": "Gate: Predictable operational smoothness",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn08efjpe3avh5zc4xm918sq-0233d494efdcd58f.json"
+  },
+  {
+    "id": "coord-task:01kng42701yebcet7sbmtpeqxk",
+    "title": "Cut over the remaining docs and validation suites, and add end-to-end coverage for mixed-version readers, shard routing, archive continuity, semantic merge conflicts, and high-contention shared-coordination behavior.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kng42701yebcet7sbmtpeqxk-e9b535148578239d.json"
+  }
+]
