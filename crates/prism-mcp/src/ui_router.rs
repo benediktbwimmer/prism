@@ -367,11 +367,9 @@ mod tests {
             value["session"]["bridgeIdentity"]["principalId"],
             Value::from(credential.principal_id)
         );
-        assert!(
-            value["session"]["bridgeIdentity"]["credentialId"]
-                .as_str()
-                .is_some_and(|id| id.starts_with("credential:"))
-        );
+        assert!(value["session"]["bridgeIdentity"]["credentialId"]
+            .as_str()
+            .is_some_and(|id| id.starts_with("credential:")));
     }
 
     #[tokio::test]

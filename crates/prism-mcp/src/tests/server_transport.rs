@@ -776,7 +776,10 @@ async fn stdio_proxy_can_attach_registered_agent_worktree_and_mutate_without_exp
     };
     assert_eq!(principal.authority_id.0, "worktree_executor");
     assert_eq!(principal.principal_id.0, registration.worktree_id);
-    assert_eq!(principal.name.as_deref(), Some(registration.agent_label.as_str()));
+    assert_eq!(
+        principal.name.as_deref(),
+        Some(registration.agent_label.as_str())
+    );
     let execution_context = entry
         .execution_context
         .expect("execution context should be recorded");

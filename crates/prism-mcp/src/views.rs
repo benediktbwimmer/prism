@@ -436,10 +436,10 @@ fn concept_curation_hints_view_from_packet(
     packet: &ConceptPacket,
     verbosity: ConceptVerbosity,
 ) -> ConceptCurationHintsView {
-    let fallback = if packet.core_members.is_empty()
-        && packet.supporting_members.is_empty()
-        && packet.likely_tests.is_empty()
-    {
+    let has_explicit_members = !packet.core_members.is_empty()
+        || !packet.supporting_members.is_empty()
+        || !packet.likely_tests.is_empty();
+    let fallback = if !has_explicit_members && matches!(verbosity, ConceptVerbosity::Full) {
         crate::concept_followthrough_targets(prism, packet)
     } else {
         crate::concept_followthrough::ConceptFollowthroughTargets::default()
@@ -1352,7 +1352,7 @@ pub(crate) fn plan_scheduling_view(
     }
 }
 
-fn git_execution_policy_view(
+pub(crate) fn git_execution_policy_view(
     value: prism_coordination::GitExecutionPolicy,
 ) -> GitExecutionPolicyView {
     GitExecutionPolicyView {

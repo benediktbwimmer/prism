@@ -17,6 +17,7 @@ use super::suggested_actions::{
 };
 use super::workset::budgeted_workset_result_with_followups;
 use super::*;
+use crate::session_state::{SessionHandleCategory, SessionHandleTarget};
 use crate::{
     concept_decode_lens_view, concept_followthrough_targets, concept_packet_view,
     concept_relation_view, concept_resolution_is_ambiguous, concept_verbosity_view, recent_patches,
@@ -203,20 +204,19 @@ fn agent_concept_packet_view(
         relation_evidence_omitted: relation_truncation.relation_evidence_omitted,
     }
     .into_view();
-    let fallback = if packet.core_members.is_empty()
-        && packet.supporting_members.is_empty()
-        && packet.likely_tests.is_empty()
-    {
+    let has_explicit_members = !packet.core_members.is_empty()
+        || !packet.supporting_members.is_empty()
+        || !packet.likely_tests.is_empty();
+    let fallback = if !has_explicit_members && matches!(verbosity, ConceptVerbosity::Full) {
         concept_followthrough_targets(prism, packet)
     } else {
         crate::concept_followthrough::ConceptFollowthroughTargets::default()
     };
-    let fallback_primary =
-        if core_members.is_empty() && supporting_members.is_empty() && likely_tests.is_empty() {
-            compact_optional_handle_for_id(session, prism, fallback.inspect_first.as_ref())?
-        } else {
-            None
-        };
+    let fallback_primary = if !has_explicit_members {
+        compact_optional_handle_for_id(session, prism, fallback.inspect_first.as_ref())?
+    } else {
+        None
+    };
     let primary_handle = core_members
         .first()
         .map(|member| member.handle.clone())
@@ -230,6 +230,8 @@ fn agent_concept_packet_view(
         "This concept packet was trimmed for context. Open the strongest member now, or retry with `verbosity`: `full` if you need the complete packet.".to_string()
     } else if fallback_primary.is_some() {
         "Open the suggested follow-through target now, or decode the concept with a lens while the curated member bindings are refreshed.".to_string()
+    } else if !has_explicit_members {
+        "Decode the concept with a lens now, or retry with `verbosity`: `full` if you need inferred follow-through targets while curated member bindings are refreshed.".to_string()
     } else {
         "Open the strongest core member or decode the concept with a lens.".to_string()
     };
@@ -344,11 +346,55 @@ pub(super) fn compact_handles_for_ids(
     prism: &Prism,
     ids: &[NodeId],
 ) -> Result<Vec<AgentTargetHandleView>> {
-    let symbols = symbol_views_for_ids(prism, ids.to_vec())?;
-    Ok(symbols
-        .iter()
-        .map(|symbol| compact_target_view(session, symbol, None, None))
-        .collect())
+    ids.iter()
+        .map(|id| compact_handle_for_id(session, prism, id))
+        .collect::<Result<Vec<_>>>()
+}
+
+fn compact_handle_for_id(
+    session: &SessionState,
+    prism: &Prism,
+    id: &NodeId,
+) -> Result<AgentTargetHandleView> {
+    let symbol = symbol_for(prism, id)?;
+    let node = symbol.node();
+    let file_path = prism
+        .graph()
+        .file_path(node.file)
+        .map(|path| path.to_string_lossy().into_owned());
+    let why_short = super::clamp_string(
+        &file_path
+            .as_ref()
+            .map(|path| format!("{} in {}", node.kind, path))
+            .unwrap_or_else(|| format!("{} target", node.kind)),
+        super::MAX_WHY_SHORT_CHARS,
+    );
+    let location = symbol.location();
+    let handle = session.intern_target_handle(SessionHandleTarget {
+        id: id.clone(),
+        lineage_id: prism.lineage_of(id).map(|lineage| lineage.0.to_string()),
+        handle_category: SessionHandleCategory::Symbol,
+        name: symbol.name().to_owned(),
+        kind: node.kind,
+        file_path: file_path.clone(),
+        query: None,
+        why_short: why_short.clone(),
+        start_line: location.as_ref().map(|location| location.start_line),
+        end_line: location.as_ref().map(|location| location.end_line),
+        start_column: location.as_ref().map(|location| location.start_column),
+        end_column: location.as_ref().map(|location| location.end_column),
+    });
+    Ok(AgentTargetHandleView {
+        handle,
+        handle_category: super::agent_handle_category_view(SessionHandleCategory::Symbol),
+        kind: node.kind,
+        path: id.path.to_string(),
+        name: symbol.name().to_owned(),
+        why_short,
+        why_not_top: None,
+        confidence_label: None,
+        file_path,
+    })
 }
 
 fn compact_optional_handle_for_id(

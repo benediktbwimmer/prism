@@ -160,8 +160,7 @@ pub(crate) fn workspace_session_with_owner_credential(
 }
 
 pub(crate) fn register_test_human_worktree(root: &Path) -> String {
-    register_test_worktree(root, "operator", WorktreeMode::Human)
-        .agent_label
+    register_test_worktree(root, "operator", WorktreeMode::Human).agent_label
 }
 
 pub(crate) fn register_test_agent_worktree(root: &Path) -> WorktreeRegistrationRecord {

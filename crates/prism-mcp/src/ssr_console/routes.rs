@@ -510,9 +510,9 @@ async fn console_concept_page(
          <div class=\"console-grid-two\">\
          <article class=\"console-doc\"><h3>Summary</h3>{}<h3>Neighbor list</h3><ul class=\"console-list\">{}</ul></article>\
          <article class=\"console-card\"><div class=\"console-card-header\"><h3>Concept graph slice</h3><span class=\"console-muted console-small\">Depth {} · {}</span></div><pre class=\"console-mermaid prism-mermaid mermaid\">{}</pre></article>\
-         </div></section></main>",
+        </div></section></main>",
         escape_html(&slice.focus.canonical_name),
-        status_badge(&format!("{:?}", slice.focus.scope)),
+        status_badge(&slice.focus.scope_label),
         escape_html(&concept_handle_to_slug(&slice.focus.handle)),
         escape_html(&slice.focus.handle),
         render_depth_options(depth),

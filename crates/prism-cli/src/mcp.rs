@@ -575,19 +575,24 @@ fn list_processes(root: &Path) -> Result<Vec<McpProcess>> {
         );
     }
 
-    let root_flag = format!("--root {}", root.display());
     let lines = String::from_utf8_lossy(&output.stdout);
     let mut processes = Vec::new();
     for line in lines.lines() {
         let Some(process) = parse_ps_line(line) else {
             continue;
         };
-        if !process.command.contains("prism-mcp") || !process.command.contains(&root_flag) {
+        if !process_matches_root(&process, root) {
             continue;
         }
         processes.push(process);
     }
     Ok(processes)
+}
+
+fn process_matches_root(process: &McpProcess, root: &Path) -> bool {
+    process.command.contains("prism-mcp")
+        && command_option_value(&process.command, "--root")
+            .is_some_and(|command_root| Path::new(&command_root) == root)
 }
 
 fn parse_ps_line(line: &str) -> Option<McpProcess> {
@@ -1837,6 +1842,32 @@ mod tests {
 
         assert_eq!(candidates.len(), 1);
         assert!(candidates.iter().any(|process| process.pid == 12));
+    }
+
+    #[test]
+    fn process_root_match_requires_exact_root_value() {
+        let root = Path::new("/tmp/prism");
+        let exact = McpProcess {
+            pid: 10,
+            ppid: 1,
+            rss_kb: 1,
+            elapsed: "00:01".to_string(),
+            command: "prism-mcp --mode daemon --root /tmp/prism".to_string(),
+            kind: McpProcessKind::Daemon,
+            health_path: Some("/healthz".to_string()),
+        };
+        let prefixed = McpProcess {
+            pid: 11,
+            ppid: 1,
+            rss_kb: 1,
+            elapsed: "00:01".to_string(),
+            command: "prism-mcp --mode daemon --root /tmp/prism-other".to_string(),
+            kind: McpProcessKind::Daemon,
+            health_path: Some("/healthz".to_string()),
+        };
+
+        assert!(process_matches_root(&exact, root));
+        assert!(!process_matches_root(&prefixed, root));
     }
 
     #[test]

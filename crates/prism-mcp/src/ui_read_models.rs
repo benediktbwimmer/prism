@@ -3,11 +3,11 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use anyhow::{anyhow, Result};
 use prism_coordination::{
     coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
-    ready_task_count_for_active_plans, CoordinationQueueReadModel, CoordinationReadModel,
-    WorkClaim,
+    ready_task_count_for_active_plans, snapshot_plan_graphs, CoordinationQueueReadModel,
+    CoordinationReadModel, CoordinationSnapshot, WorkClaim,
 };
 use prism_ir::{ClaimStatus, CoordinationEventKind, CoordinationTaskStatus};
-use prism_ir::{PlanId, PlanStatus, TaskId};
+use prism_ir::{PlanId, PlanNodeStatus, PlanScope, PlanStatus, TaskId};
 use prism_memory::OutcomeRecallQuery;
 
 use crate::ui_identity::ui_operator_identity_view;
@@ -22,8 +22,8 @@ use crate::ui_types::{
     PrismUiTaskDetailView, PrismUiTaskEditableMetadataView,
 };
 use crate::views::{
-    artifact_view, blocker_view, concept_packet_view, plan_execution_overlay_view, plan_graph_view,
-    plan_list_entry_view, plan_node_recommendation_view, plan_summary_view,
+    artifact_view, blocker_view, concept_packet_view, git_execution_policy_view, plan_graph_view,
+    plan_list_entry_view, plan_node_recommendation_view, plan_scheduling_view, plan_summary_view,
     policy_violation_record_view, ConceptVerbosity,
 };
 use crate::{claim_view, coordination_task_view, current_timestamp, QueryHost, SessionState};
@@ -35,11 +35,7 @@ const OVERVIEW_CONCEPT_LIMIT: usize = 4;
 const OVERVIEW_OUTCOME_LIMIT: usize = 6;
 const OVERVIEW_HANDOFF_LIMIT: usize = 4;
 const OVERVIEW_TEXT_MAX_CHARS: usize = 180;
-const PLAN_DETAIL_NEXT_LIMIT: usize = 6;
 const PLAN_DETAIL_READY_LIMIT: usize = 8;
-const PLAN_DETAIL_REVIEW_LIMIT: usize = 8;
-const PLAN_DETAIL_HANDOFF_LIMIT: usize = 6;
-const PLAN_DETAIL_VIOLATION_LIMIT: usize = 6;
 const PLAN_DETAIL_OUTCOME_LIMIT: usize = 8;
 const PLAN_DETAIL_OUTCOMES_PER_TASK: usize = 2;
 const GRAPH_ENTRY_LIMIT: usize = 8;
@@ -318,11 +314,8 @@ impl QueryHostUiReadModelsExt for QueryHost {
 
     fn ui_plans_view(&self, options: UiPlansQueryOptions) -> Result<PrismPlansView> {
         let prism = self.current_prism();
-        let all_plans = prism
-            .plans(None, None, None)
-            .into_iter()
-            .map(plan_list_entry_view)
-            .collect::<Vec<_>>();
+        let snapshot = prism.coordination_snapshot();
+        let all_plans = plan_entries_from_snapshot(&snapshot);
         let status_filter = UiPlanStatusFilter::parse(options.status.as_deref());
         let sort = UiPlanSort::parse(options.sort.as_deref());
         let search = options
@@ -380,7 +373,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
             .map(str::to_string)
             .or_else(|| plans.first().map(|plan| plan.plan_id.clone()));
         let selected_plan = match selected_plan_id.as_deref() {
-            Some(plan_id) => build_plan_detail_view(self, &prism, &plans, plan_id)?,
+            Some(plan_id) => build_plan_detail_view(&prism, &snapshot, &plans, plan_id)?,
             None => None,
         };
 
@@ -460,12 +453,9 @@ impl QueryHostUiReadModelsExt for QueryHost {
 
     fn ui_plan_graph_view(&self, plan_id: &str) -> Result<Option<PrismPlanDetailView>> {
         let prism = self.current_prism();
-        let plans = prism
-            .plans(None, None, None)
-            .into_iter()
-            .map(plan_list_entry_view)
-            .collect::<Vec<_>>();
-        build_plan_detail_view(self, &prism, &plans, plan_id)
+        let snapshot = prism.coordination_snapshot();
+        let plans = plan_entries_from_snapshot(&snapshot);
+        build_plan_detail_view(&prism, &snapshot, &plans, plan_id)
     }
 
     fn ui_task_detail_view(&self, task_id: &str) -> Result<Option<PrismUiTaskDetailView>> {
@@ -983,6 +973,191 @@ fn plan_matches_agent(
     })
 }
 
+pub(crate) fn filtered_plan_entries_from_snapshot(
+    snapshot: &CoordinationSnapshot,
+    status: Option<PlanStatus>,
+    scope: Option<PlanScope>,
+    contains: Option<&str>,
+) -> Vec<prism_js::PlanListEntryView> {
+    let contains = contains
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_ascii_lowercase());
+    let mut plans = plan_entries_from_snapshot(snapshot)
+        .into_iter()
+        .filter(|plan| status.is_none_or(|expected| plan.status == expected))
+        .filter(|plan| scope.is_none_or(|expected| plan.scope == expected))
+        .filter(|plan| {
+            contains
+                .as_deref()
+                .is_none_or(|needle| plan_entry_matches_contains_filter(plan, needle))
+        })
+        .collect::<Vec<_>>();
+    sort_plan_entries(&mut plans, UiPlanSort::Newest);
+    plans
+}
+
+fn plan_entry_matches_contains_filter(plan: &prism_js::PlanListEntryView, needle: &str) -> bool {
+    let id = plan.plan_id.to_ascii_lowercase();
+    let title = plan.title.to_ascii_lowercase();
+    let goal = plan.goal.to_ascii_lowercase();
+    if id.contains(needle) || title.contains(needle) || goal.contains(needle) {
+        return true;
+    }
+
+    let plan_terms = normalized_plan_terms(&format!("{id} {title} {goal}"));
+    let query_terms = normalized_plan_terms(needle);
+    !query_terms.is_empty()
+        && query_terms
+            .iter()
+            .all(|term| plan_terms.contains(term.as_str()))
+}
+
+fn normalized_plan_terms(value: &str) -> BTreeSet<String> {
+    value
+        .split(|ch: char| !ch.is_ascii_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .map(|token| normalize_plan_term(&token.to_ascii_lowercase()))
+        .filter(|token| !token.is_empty())
+        .collect()
+}
+
+fn normalize_plan_term(token: &str) -> String {
+    if token.len() > 3 && token.ends_with("ies") {
+        let mut stem = token[..token.len() - 3].to_string();
+        stem.push('y');
+        return stem;
+    }
+    if token.len() > 3
+        && token.ends_with('s')
+        && !token.ends_with("ss")
+        && !token.ends_with("us")
+        && !token.ends_with("is")
+    {
+        return token[..token.len() - 1].to_string();
+    }
+    token.to_string()
+}
+
+pub(crate) fn plan_entries_from_snapshot(
+    snapshot: &CoordinationSnapshot,
+) -> Vec<prism_js::PlanListEntryView> {
+    let graphs_by_id = snapshot_plan_graphs(snapshot)
+        .into_iter()
+        .map(|graph| (graph.id.0.clone(), graph))
+        .collect::<BTreeMap<_, _>>();
+    snapshot
+        .plans
+        .iter()
+        .filter_map(|plan| {
+            graphs_by_id
+                .get(plan.id.0.as_str())
+                .map(|graph| plan_entry_from_snapshot(plan, graph))
+        })
+        .collect()
+}
+
+fn plan_entry_from_snapshot(
+    plan: &prism_coordination::Plan,
+    graph: &prism_ir::PlanGraph,
+) -> prism_js::PlanListEntryView {
+    let plan_summary = lightweight_plan_summary_view(graph);
+    prism_js::PlanListEntryView {
+        plan_id: plan.id.0.to_string(),
+        title: plan.title.clone(),
+        goal: plan.goal.clone(),
+        status: plan.status,
+        scope: plan.scope,
+        kind: plan.kind,
+        scheduling: plan_scheduling_view(plan.scheduling.clone()),
+        git_execution_policy: git_execution_policy_view(plan.policy.git_execution.clone()),
+        root_node_ids: graph
+            .root_nodes
+            .iter()
+            .map(|node_id| node_id.0.to_string())
+            .collect(),
+        summary: lightweight_plan_summary_text(&plan_summary),
+        plan_summary,
+        activity: None,
+    }
+}
+
+pub(crate) fn lightweight_plan_summary_view(
+    graph: &prism_ir::PlanGraph,
+) -> prism_js::PlanSummaryView {
+    let mut completed_nodes = 0;
+    let mut abandoned_nodes = 0;
+    let mut in_progress_nodes = 0;
+    let mut actionable_nodes = 0;
+
+    for node in graph.nodes.iter().filter(|node| !node.is_abstract) {
+        match node.status {
+            PlanNodeStatus::Completed => completed_nodes += 1,
+            PlanNodeStatus::Abandoned => abandoned_nodes += 1,
+            PlanNodeStatus::InProgress => {
+                in_progress_nodes += 1;
+                actionable_nodes += 1;
+            }
+            PlanNodeStatus::Ready => actionable_nodes += 1,
+            _ => {}
+        }
+    }
+
+    let execution_blocked_nodes = graph
+        .nodes
+        .iter()
+        .filter(|node| {
+            !node.is_abstract
+                && !matches!(
+                    node.status,
+                    PlanNodeStatus::Completed
+                        | PlanNodeStatus::Abandoned
+                        | PlanNodeStatus::Ready
+                        | PlanNodeStatus::InProgress
+                )
+        })
+        .count();
+
+    prism_js::PlanSummaryView {
+        plan_id: graph.id.0.to_string(),
+        status: graph.status,
+        total_nodes: graph.nodes.len(),
+        completed_nodes,
+        abandoned_nodes,
+        in_progress_nodes,
+        actionable_nodes,
+        execution_blocked_nodes,
+        completion_gated_nodes: 0,
+        review_gated_nodes: 0,
+        validation_gated_nodes: 0,
+        stale_nodes: 0,
+        claim_conflicted_nodes: 0,
+    }
+}
+
+fn lightweight_plan_summary_text(summary: &prism_js::PlanSummaryView) -> String {
+    let mut parts = Vec::new();
+    if summary.actionable_nodes > 0 {
+        parts.push(format!("{} actionable", summary.actionable_nodes));
+    }
+    if summary.in_progress_nodes > 0 {
+        parts.push(format!("{} in progress", summary.in_progress_nodes));
+    }
+    if summary.execution_blocked_nodes > 0 {
+        parts.push(format!("{} blocked", summary.execution_blocked_nodes));
+    }
+    if summary.completed_nodes > 0 {
+        parts.push(format!("{} completed", summary.completed_nodes));
+    }
+    if summary.abandoned_nodes > 0 {
+        parts.push(format!("{} abandoned", summary.abandoned_nodes));
+    }
+    if parts.is_empty() {
+        parts.push(format!("{} nodes", summary.total_nodes));
+    }
+    format!("{} of {} nodes", parts.join(", "), summary.total_nodes)
+}
+
 fn sort_plan_entries(plans: &mut [prism_js::PlanListEntryView], sort: UiPlanSort) {
     match sort {
         UiPlanSort::Newest => plans.sort_by(newest_sort_cmp),
@@ -1092,8 +1267,8 @@ fn clamp_overview_text(text: &str) -> String {
 }
 
 fn build_plan_detail_view(
-    host: &QueryHost,
     prism: &prism_query::Prism,
+    snapshot: &CoordinationSnapshot,
     plans: &[prism_js::PlanListEntryView],
     selected_plan_id: &str,
 ) -> Result<Option<PrismPlanDetailView>> {
@@ -1106,68 +1281,33 @@ fn build_plan_detail_view(
     };
 
     let plan_id = PlanId::new(plan.plan_id.clone());
-    let Some(graph) = prism.plan_graph(&plan_id).map(plan_graph_view) else {
+    let Some(graph) = snapshot_plan_graphs(snapshot)
+        .into_iter()
+        .find(|graph| graph.id == plan_id)
+    else {
         return Ok(None);
     };
-    let Some(summary) = prism.plan_summary(&plan_id).map(plan_summary_view) else {
-        return Ok(None);
-    };
-
-    let execution = prism
-        .plan_execution(&plan_id)
-        .into_iter()
-        .map(plan_execution_overlay_view)
-        .collect::<Vec<_>>();
-    let next_nodes = prism
-        .plan_next(&plan_id, PLAN_DETAIL_NEXT_LIMIT)
-        .into_iter()
-        .map(plan_node_recommendation_view)
-        .collect::<Vec<_>>();
+    let summary = lightweight_plan_summary_view(&graph);
     let ready_tasks = prism
         .ready_tasks(&plan_id, crate::current_timestamp())
         .into_iter()
         .take(PLAN_DETAIL_READY_LIMIT)
         .map(crate::coordination_task_view)
         .collect::<Vec<_>>();
-    let pending_reviews = prism
-        .pending_reviews(Some(&plan_id))
-        .into_iter()
-        .take(PLAN_DETAIL_REVIEW_LIMIT)
-        .map(artifact_view)
-        .collect::<Vec<_>>();
-    let pending_handoffs = host
-        .ui_coordination_queues()?
-        .pending_handoffs
-        .into_iter()
-        .filter(|task| task.plan_id == plan.plan_id)
-        .take(PLAN_DETAIL_HANDOFF_LIMIT)
-        .collect::<Vec<_>>();
-    let recent_violations = prism
-        .policy_violations(Some(&plan_id), None, PLAN_DETAIL_VIOLATION_LIMIT)
-        .into_iter()
-        .map(policy_violation_record_view)
-        .collect::<Vec<_>>();
-    let recent_outcomes =
-        plan_recent_outcomes(prism, &ready_tasks, &pending_handoffs, &pending_reviews);
+    let recent_outcomes = plan_recent_outcomes(prism, snapshot, &plan_id);
 
     Ok(Some(PrismPlanDetailView {
         plan,
         summary,
-        graph,
-        execution,
-        next_nodes,
+        graph: plan_graph_view(graph),
+        execution: Vec::new(),
+        next_nodes: Vec::new(),
         ready_tasks,
-        pending_reviews,
-        pending_handoffs,
-        recent_violations,
+        pending_reviews: Vec::new(),
+        pending_handoffs: Vec::new(),
+        recent_violations: Vec::new(),
         recent_outcomes,
     }))
-}
-
-impl QueryHost {
-    pub(crate) fn ui_coordination_queues(&self) -> Result<PrismOverviewCoordinationQueuesView> {
-        ui_overview_coordination_queues(self)
-    }
 }
 
 fn ui_overview_summary_view(host: &QueryHost) -> Result<PrismOverviewSummaryView> {
@@ -1393,19 +1533,14 @@ fn current_task_journal(
 
 fn plan_recent_outcomes(
     prism: &prism_query::Prism,
-    ready_tasks: &[prism_js::CoordinationTaskView],
-    pending_handoffs: &[prism_js::CoordinationTaskView],
-    pending_reviews: &[prism_js::ArtifactView],
+    snapshot: &CoordinationSnapshot,
+    plan_id: &PlanId,
 ) -> Vec<prism_js::AgentOutcomeSummaryView> {
-    let task_ids = ready_tasks
+    let task_ids = snapshot
+        .tasks
         .iter()
-        .map(|task| task.id.clone())
-        .chain(pending_handoffs.iter().map(|task| task.id.clone()))
-        .chain(
-            pending_reviews
-                .iter()
-                .map(|artifact| artifact.task_id.clone()),
-        )
+        .filter(|task| task.plan == *plan_id)
+        .map(|task| task.id.0.clone())
         .collect::<BTreeSet<_>>();
     let mut seen_event_ids = HashSet::<String>::new();
     let mut outcomes = task_ids
@@ -1621,11 +1756,15 @@ fn graph_plan_touchpoints(
 
 #[cfg(test)]
 mod tests {
-    use super::{sort_plan_entries, UiPlanSort};
-    use prism_ir::{PlanKind, PlanScope, PlanStatus};
+    use super::{lightweight_plan_summary_view, sort_plan_entries, UiPlanSort};
+    use prism_ir::{
+        PlanEdge, PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeId, PlanNodeKind, PlanScope,
+        PlanStatus,
+    };
     use prism_js::{
         GitExecutionPolicyView, PlanListEntryView, PlanSchedulingView, PlanSummaryView,
     };
+    use serde_json::Value;
 
     #[test]
     fn ui_plan_sort_defaults_to_newest() {
@@ -1647,6 +1786,37 @@ mod tests {
         sort_plan_entries(&mut plans, UiPlanSort::Newest);
         assert_eq!(plans[0].title, "newer");
         assert_eq!(plans[1].title, "older");
+    }
+
+    #[test]
+    fn lightweight_plan_summary_tracks_progress_without_blocker_scoring() {
+        let summary = lightweight_plan_summary_view(&PlanGraph {
+            id: PlanId::new("plan:01kp0000000000000000000000"),
+            scope: PlanScope::Repo,
+            kind: PlanKind::TaskExecution,
+            title: "plan".to_string(),
+            goal: "goal".to_string(),
+            status: PlanStatus::Active,
+            revision: 0,
+            root_nodes: vec![PlanNodeId::new("root")],
+            tags: Vec::new(),
+            created_from: None,
+            metadata: Value::Null,
+            nodes: vec![
+                test_node("root", prism_ir::PlanNodeStatus::Ready, false),
+                test_node("progress", prism_ir::PlanNodeStatus::InProgress, false),
+                test_node("done", prism_ir::PlanNodeStatus::Completed, false),
+                test_node("abstract", prism_ir::PlanNodeStatus::Ready, true),
+                test_node("blocked", prism_ir::PlanNodeStatus::Blocked, false),
+            ],
+            edges: Vec::<PlanEdge>::new(),
+        });
+
+        assert_eq!(summary.total_nodes, 5);
+        assert_eq!(summary.actionable_nodes, 2);
+        assert_eq!(summary.in_progress_nodes, 1);
+        assert_eq!(summary.completed_nodes, 1);
+        assert_eq!(summary.execution_blocked_nodes, 1);
     }
 
     fn test_plan(
@@ -1698,6 +1868,26 @@ mod tests {
                 claim_conflicted_nodes: 0,
             },
             activity: None,
+        }
+    }
+
+    fn test_node(node_id: &str, status: prism_ir::PlanNodeStatus, is_abstract: bool) -> PlanNode {
+        PlanNode {
+            id: PlanNodeId::new(node_id),
+            plan_id: PlanId::new("plan:01kp0000000000000000000000"),
+            kind: PlanNodeKind::Edit,
+            title: node_id.to_string(),
+            summary: None,
+            status,
+            bindings: prism_ir::PlanBinding::default(),
+            acceptance: Vec::new(),
+            validation_refs: Vec::new(),
+            is_abstract,
+            assignee: None,
+            base_revision: prism_ir::WorkspaceRevision::default(),
+            priority: None,
+            tags: Vec::new(),
+            metadata: Value::Null,
         }
     }
 }

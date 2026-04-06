@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use prism_js::ConceptPacketView;
+use prism_js::ConceptRelationView;
 use prism_query::Prism;
 
-use crate::views::{concept_packet_view, ConceptVerbosity};
+use crate::views::concept_relation_view;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ConceptDirection {
@@ -31,8 +31,17 @@ impl ConceptDirection {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct SsrConceptFocus {
+    pub(crate) handle: String,
+    pub(crate) canonical_name: String,
+    pub(crate) summary: String,
+    pub(crate) scope_label: String,
+    pub(crate) relations: Vec<ConceptRelationView>,
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct SsrConceptSlice {
-    pub(crate) focus: ConceptPacketView,
+    pub(crate) focus: SsrConceptFocus,
     pub(crate) nodes: Vec<(String, String)>,
     pub(crate) edges: Vec<(String, String, String)>,
     pub(crate) depth: usize,
@@ -63,17 +72,25 @@ pub(crate) fn build_concept_slice(
     relation_filter: Option<&str>,
 ) -> Option<SsrConceptSlice> {
     let focus_packet = prism.concept_by_handle(handle)?;
-    let focus = concept_packet_view(
-        prism,
-        focus_packet.clone(),
-        ConceptVerbosity::Standard,
-        false,
-        None,
-    );
     let normalized_filter = relation_filter
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(|value| value.to_ascii_lowercase());
+    let focus_relations = prism
+        .concept_relations_for_handle(handle)
+        .into_iter()
+        .filter(|relation| {
+            relation_matches(relation, handle, direction, normalized_filter.as_deref())
+        })
+        .map(|relation| concept_relation_view(prism, handle, relation))
+        .collect::<Vec<_>>();
+    let focus = SsrConceptFocus {
+        handle: focus_packet.handle.clone(),
+        canonical_name: focus_packet.canonical_name.clone(),
+        summary: focus_packet.summary.clone(),
+        scope_label: format!("{:?}", focus_packet.scope),
+        relations: focus_relations,
+    };
 
     let mut queue = VecDeque::from([(handle.to_string(), 0usize)]);
     let mut seen = BTreeSet::from([handle.to_string()]);
@@ -86,24 +103,13 @@ pub(crate) fn build_concept_slice(
             continue;
         }
         for relation in prism.concept_relations_for_handle(&current) {
+            if !relation_matches(&relation, &current, direction, normalized_filter.as_deref()) {
+                continue;
+            }
             let source = relation.source_handle.clone();
             let target = relation.target_handle.clone();
             let outgoing = source == current;
-            let incoming = target == current;
-            let direction_matches = match direction {
-                ConceptDirection::Outbound => outgoing,
-                ConceptDirection::Inbound => incoming,
-                ConceptDirection::Both => outgoing || incoming,
-            };
-            if !direction_matches {
-                continue;
-            }
             let relation_label = format!("{:?}", relation.kind).to_ascii_lowercase();
-            if let Some(filter) = &normalized_filter {
-                if &relation_label != filter {
-                    continue;
-                }
-            }
             let neighbor = if outgoing {
                 target.clone()
             } else {
@@ -129,4 +135,24 @@ pub(crate) fn build_concept_slice(
         direction,
         relation_filter: normalized_filter,
     })
+}
+
+fn relation_matches(
+    relation: &prism_projections::ConceptRelation,
+    current: &str,
+    direction: ConceptDirection,
+    normalized_filter: Option<&str>,
+) -> bool {
+    let outgoing = relation.source_handle == current;
+    let incoming = relation.target_handle == current;
+    let direction_matches = match direction {
+        ConceptDirection::Outbound => outgoing,
+        ConceptDirection::Inbound => incoming,
+        ConceptDirection::Both => outgoing || incoming,
+    };
+    if !direction_matches {
+        return false;
+    }
+    let relation_label = format!("{:?}", relation.kind).to_ascii_lowercase();
+    normalized_filter.is_none_or(|filter| relation_label == filter)
 }

@@ -9,6 +9,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::file_queries::file_read;
+use crate::query_types::{parse_plan_scope, parse_plan_status};
+use crate::ui_read_models::filtered_plan_entries_from_snapshot;
 use crate::{
     anchor_resource_view_links, capabilities_resource_uri, capabilities_resource_value,
     capabilities_resource_view_link, co_change_view, compact_discovery_bundle_candidate_excerpts,
@@ -31,9 +33,9 @@ use crate::{
     workspace_revision_view, CapabilitiesResourcePayload, ContractsResourcePayload,
     CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
     EventResourcePayload, FeatureFlagsView, FileResourcePayload, InferredEdgeRecordView,
-    LineageResourcePayload, MemoryResourcePayload, PlanResourcePayload, PlansQueryArgs,
-    PlansResourcePayload, ProtectedStateResourcePayload, ProtectedStateStreamView, QueryExecution,
-    QueryHost, ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
+    LineageResourcePayload, MemoryResourcePayload, PlanResourcePayload, PlansResourcePayload,
+    ProtectedStateResourcePayload, ProtectedStateStreamView, QueryExecution, QueryHost,
+    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
     SessionRepairActionView, SessionResourcePayload, SessionState, SessionTaskView, SessionView,
     SessionWorkView, SymbolResourcePayload, TaskHeartbeatAdvice, TaskResourcePayload,
     VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
@@ -390,29 +392,21 @@ impl QueryHost {
         self.execute_traced_resource_read("plans", uri, || {
             let schema_uri = schema_resource_uri("plans");
             let prism = self.current_prism();
-            let execution = QueryExecution::new(
-                self.clone(),
-                Arc::clone(&session),
-                prism.clone(),
-                self.begin_query_run(
-                    session.as_ref(),
-                    "read_resource",
-                    "resource",
-                    "prism://plans",
-                ),
-            );
             let status =
                 parse_resource_query_param(uri, "status").filter(|value| !value.is_empty());
             let scope = parse_resource_query_param(uri, "scope").filter(|value| !value.is_empty());
             let contains =
                 parse_resource_query_param(uri, "contains").filter(|value| !value.is_empty());
+            let parsed_status = status.as_deref().map(parse_plan_status).transpose()?;
+            let parsed_scope = scope.as_deref().map(parse_plan_scope).transpose()?;
+            let snapshot = prism.coordination_snapshot();
             let paged = paginate_items(
-                execution.plans(PlansQueryArgs {
-                    status: status.clone(),
-                    scope: scope.clone(),
-                    contains: contains.clone(),
-                    limit: Some(session.limits().max_result_nodes),
-                })?,
+                filtered_plan_entries_from_snapshot(
+                    &snapshot,
+                    parsed_status,
+                    parsed_scope,
+                    contains.as_deref(),
+                ),
                 parse_resource_page(
                     uri,
                     DEFAULT_RESOURCE_PAGE_LIMIT,
@@ -450,7 +444,7 @@ impl QueryHost {
                 plans: paged.items,
                 page: paged.page,
                 truncated: paged.truncated,
-                diagnostics: execution.diagnostics(),
+                diagnostics: Vec::new(),
                 related_resources: dedupe_resource_link_views(related_resources),
             })
         })
