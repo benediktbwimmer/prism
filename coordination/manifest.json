@@ -1,27 +1,27 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775493197,
+  "publishedAt": 1775493270,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "coord-task:01knhbwesp16r75m614k3wkksj",
+    "workId": "coord-task:01knhbwestce3vvf17y44330hw",
     "kind": "coordination",
-    "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
-    "coordinationTaskId": "coord-task:01knhbwesp16r75m614k3wkksj",
+    "title": "Stop using shared runtime SQLite as a sink for rich runtime materialization and keep those journals local-only",
+    "coordinationTaskId": "coord-task:01knhbwestce3vvf17y44330hw",
     "planId": "plan:01knhbwesj53rq8f301x6r51qj",
     "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
   },
   "publishSummary": {
-    "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models"
+    "title": "Stop using shared runtime SQLite as a sink for rich runtime materialization and keep those journals local-only"
   },
   "files": {
     "coordination/tasks/coord-task-01knhbwesp16r75m614k3wkksj-767f146850c35c5a.json": {
       "path": "coordination/tasks/coord-task-01knhbwesp16r75m614k3wkksj-767f146850c35c5a.json",
-      "sha256": "sha256:92892343501110765df3df74869f6b9659c4ecda9b5218c6c1f0d7871e075c65"
+      "sha256": "sha256:74b8f9eaf935d99f05e59c60a0cc3e803a6e9702f44836c40af350b97e78f4de"
     },
     "coordination/tasks/coord-task-14-851c69a13d8f481e.json": {
       "path": "coordination/tasks/coord-task-14-851c69a13d8f481e.json",
@@ -32,7 +32,7 @@
       "sha256": "sha256:0f178dee0bd55669be7869ea29262e204ea52c091611105579afa92ff986de90"
     }
   },
-  "previousManifestDigest": "sha256:d9da85fb4b645e8291b7c9fcf7c9ff5d78a7f2d31dc6f5d299f6bdad04227fd8",
+  "previousManifestDigest": "sha256:6915fcfba5c08bec304e146aa602015570cbc1a280507f4e96ac433246775a48",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -42,6 +42,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:JKS8zrbz0hTLsjdcLfMK9rx00OFA8A7sX4DUBTWu8oxIra+AeJIu/aNs2igrfiE17tMRgKvceZ8td4r8adizBQ=="
+    "value": "base64:S/Yqdo5vl17decILZ70Lz9S2mID/3Jl+Pvqt3zu6PwEg3frcGY4EKA0s2HZwtDxD6BsGgGjJbWNzxt6qkA4EAQ=="
   }
 }

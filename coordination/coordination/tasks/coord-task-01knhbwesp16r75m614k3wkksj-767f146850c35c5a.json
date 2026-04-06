@@ -21,7 +21,7 @@
     "assignee": "codex-a",
     "base_revision": {
       "git_commit": null,
-      "graph_version": 262
+      "graph_version": 230
     },
     "bindings": {
       "anchors": [
