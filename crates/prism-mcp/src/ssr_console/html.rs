@@ -1,4 +1,4 @@
-use pulldown_cmark::{Options, Parser, html};
+use pulldown_cmark::{html, Options, Parser};
 
 use super::assets::{HTMX_CDN, MERMAID_CDN, VIS_TIMELINE_CSS_CDN, VIS_TIMELINE_JS_CDN};
 use crate::SessionView;

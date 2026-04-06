@@ -1,19 +1,19 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow};
-use axum::Router;
+use anyhow::{anyhow, Result};
 use axum::body::Body;
 use axum::extract::{Form, Path, Query, State};
-use axum::http::{HeaderMap, HeaderValue, Response, StatusCode, header::CONTENT_TYPE};
+use axum::http::{header::CONTENT_TYPE, HeaderMap, HeaderValue, Response, StatusCode};
 use axum::response::{Html, IntoResponse};
 use axum::routing::{get, post};
+use axum::Router;
 use serde::Deserialize;
 use serde_json::json;
 
 use super::assets::{console_css, console_js};
 use super::concepts::{
-    ConceptDirection, build_concept_slice, concept_handle_to_slug, concept_slug_to_handle,
+    build_concept_slice, concept_handle_to_slug, concept_slug_to_handle, ConceptDirection,
 };
 use super::html::{
     duration_label, escape_html, json_script_escape, markdown_to_html, page_shell, percent,
@@ -21,7 +21,7 @@ use super::html::{
 };
 use super::mermaid::{concept_graph_mermaid, plan_graph_mermaid};
 use crate::ui_assets::prism_ui_asset;
-use crate::ui_mutations::{PrismUiMutateRequest, map_ui_mutation_error, resolve_ui_mutation_args};
+use crate::ui_mutations::{map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest};
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_router::PrismUiState;
 use crate::ui_types::{PrismPlanDetailView, PrismPlansView, PrismUiFleetView};
@@ -365,10 +365,7 @@ async fn console_concepts_index(
         .host
         .ui_session_bootstrap_view()
         .map_err(internal_error)?;
-    let entry_concepts = state
-        .host
-        .ui_concept_entrypoints_view()
-        .unwrap_or_default();
+    let entry_concepts = state.host.ui_concept_entrypoints_view().unwrap_or_default();
     let search = query
         .search
         .as_deref()
@@ -1061,12 +1058,16 @@ fn internal_error(error: anyhow::Error) -> (StatusCode, String) {
 fn ui_error_to_status_message(
     error: (StatusCode, axum::Json<serde_json::Value>),
 ) -> (StatusCode, String) {
-    (error.0, error.1.0.to_string())
+    (error.0, error.1 .0.to_string())
 }
 
 fn rejected_mutation_message(result: &crate::PrismMutationResult) -> Option<String> {
     let payload = result.result.as_object()?;
-    if !payload.get("rejected").and_then(serde_json::Value::as_bool).unwrap_or(false) {
+    if !payload
+        .get("rejected")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
         return None;
     }
     payload
@@ -1100,7 +1101,7 @@ async fn prism_ui_favicon(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::body::{Body, to_bytes};
+    use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
     use tower::util::ServiceExt;
 

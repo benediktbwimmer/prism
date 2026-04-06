@@ -41,7 +41,10 @@ pub(crate) struct SsrConceptSlice {
 }
 
 pub(crate) fn concept_handle_to_slug(handle: &str) -> String {
-    handle.strip_prefix("concept://").unwrap_or(handle).to_string()
+    handle
+        .strip_prefix("concept://")
+        .unwrap_or(handle)
+        .to_string()
 }
 
 pub(crate) fn concept_slug_to_handle(slug: &str) -> String {
@@ -60,7 +63,13 @@ pub(crate) fn build_concept_slice(
     relation_filter: Option<&str>,
 ) -> Option<SsrConceptSlice> {
     let focus_packet = prism.concept_by_handle(handle)?;
-    let focus = concept_packet_view(prism, focus_packet.clone(), ConceptVerbosity::Standard, false, None);
+    let focus = concept_packet_view(
+        prism,
+        focus_packet.clone(),
+        ConceptVerbosity::Standard,
+        false,
+        None,
+    );
     let normalized_filter = relation_filter
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -95,7 +104,11 @@ pub(crate) fn build_concept_slice(
                     continue;
                 }
             }
-            let neighbor = if outgoing { target.clone() } else { source.clone() };
+            let neighbor = if outgoing {
+                target.clone()
+            } else {
+                source.clone()
+            };
             if let Some(packet) = prism.concept_by_handle(&neighbor) {
                 labels
                     .entry(neighbor.clone())

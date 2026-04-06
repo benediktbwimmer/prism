@@ -203,7 +203,10 @@ pub(crate) fn refresh_task_lease(
     let holder = LeaseHolder {
         principal: principal_from_meta(meta),
         session_id: task.session.clone().or_else(|| session_id_from_meta(meta)),
-        worktree_id: task.worktree_id.clone().or_else(|| worktree_id_from_meta(meta)),
+        worktree_id: task
+            .worktree_id
+            .clone()
+            .or_else(|| worktree_id_from_meta(meta)),
         agent_id: task.assignee.clone(),
     };
     if !holder_has_identity(&holder) {
@@ -232,7 +235,10 @@ pub(crate) fn refresh_claim_lease(
     let holder = LeaseHolder {
         principal: principal_from_meta(meta),
         session_id: Some(claim.holder.clone()),
-        worktree_id: claim.worktree_id.clone().or_else(|| worktree_id_from_meta(meta)),
+        worktree_id: claim
+            .worktree_id
+            .clone()
+            .or_else(|| worktree_id_from_meta(meta)),
         agent_id: claim.agent.clone(),
     };
     claim.lease_holder = holder_has_identity(&holder).then_some(holder);
@@ -285,7 +291,10 @@ pub(crate) fn current_task_holder(meta: &EventMeta, task: &CoordinationTask) -> 
     LeaseHolder {
         principal: principal_from_meta(meta),
         session_id: session_id_from_meta(meta).or_else(|| task.session.clone()),
-        worktree_id: task.worktree_id.clone().or_else(|| worktree_id_from_meta(meta)),
+        worktree_id: task
+            .worktree_id
+            .clone()
+            .or_else(|| worktree_id_from_meta(meta)),
         agent_id: task.assignee.clone(),
     }
 }
@@ -298,7 +307,10 @@ pub(crate) fn current_claim_holder(
     LeaseHolder {
         principal: principal_from_meta(meta),
         session_id: Some(session_id.clone()),
-        worktree_id: claim.worktree_id.clone().or_else(|| worktree_id_from_meta(meta)),
+        worktree_id: claim
+            .worktree_id
+            .clone()
+            .or_else(|| worktree_id_from_meta(meta)),
         agent_id: claim.agent.clone(),
     }
 }

@@ -1,5 +1,5 @@
 use prism_core::ValidationFeedbackRecord;
-use prism_core::{AuthenticatedPrincipal, WorktreeMutatorSlotRecord, WorkspaceSession};
+use prism_core::{AuthenticatedPrincipal, WorkspaceSession, WorktreeMutatorSlotRecord};
 use prism_ir::{
     CoordinationTaskId, CredentialId, EventActor, EventExecutionContext, EventId, EventMeta,
     PrincipalActor, PrincipalAuthorityId, PrincipalId, TaskId, WorkContextKind,

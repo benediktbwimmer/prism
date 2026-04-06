@@ -9,8 +9,9 @@ use crate::tests_support::{
 };
 use prism_coordination::TaskCreateInput;
 use prism_core::{
-    default_workspace_shared_runtime, index_workspace_session, index_workspace_session_with_options,
-    BootstrapOwnerInput, MintPrincipalRequest, PrismPaths, WorkspaceSessionOptions, WorktreeMode,
+    default_workspace_shared_runtime, index_workspace_session,
+    index_workspace_session_with_options, BootstrapOwnerInput, MintPrincipalRequest, PrismPaths,
+    WorkspaceSessionOptions, WorktreeMode,
 };
 use prism_ir::{
     CoordinationTaskStatus, CredentialCapability, CredentialId, EventActor, EventId, EventMeta,
@@ -1066,7 +1067,10 @@ async fn mcp_server_auto_resumes_stale_same_worktree_executor_task_on_update() {
         .await
         .unwrap();
     let resumed = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(resumed["result"]["state"]["id"], Value::from(task_id.0.to_string()));
+    assert_eq!(
+        resumed["result"]["state"]["id"],
+        Value::from(task_id.0.to_string())
+    );
     assert_eq!(
         resumed["result"]["state"]["summary"],
         Value::from("bridge continuity resumed the stale task")
@@ -1078,7 +1082,9 @@ async fn mcp_server_auto_resumes_stale_same_worktree_executor_task_on_update() {
         .coordination_task(&task_id)
         .expect("task should remain queryable");
     let holder = task.lease_holder.expect("task should carry a lease holder");
-    let principal = holder.principal.expect("lease holder principal should be recorded");
+    let principal = holder
+        .principal
+        .expect("lease holder principal should be recorded");
     assert_eq!(principal.authority_id.0, "worktree_executor");
     assert_eq!(principal.principal_id.0, registration.worktree_id);
 
@@ -1976,7 +1982,10 @@ async fn mcp_server_allows_human_authenticated_mutation_on_registered_human_work
         .unwrap();
 
     let declared = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(declared["action"], Value::String("declare_work".to_string()));
+    assert_eq!(
+        declared["action"],
+        Value::String("declare_work".to_string())
+    );
 
     running.cancel().await.unwrap();
 }

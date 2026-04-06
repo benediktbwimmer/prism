@@ -11,8 +11,8 @@ mod parsing;
 mod projection_commands;
 mod protected_state_commands;
 mod runtime;
-mod worktree_commands;
 mod workspace_root;
+mod worktree_commands;
 
 use anyhow::Result;
 use clap::Parser;

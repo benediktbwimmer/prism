@@ -755,13 +755,7 @@ mod tests {
     #[test]
     fn worktree_register_parses() {
         let cli = Cli::parse_from([
-            "prism",
-            "worktree",
-            "register",
-            "--label",
-            "codex-d",
-            "--mode",
-            "agent",
+            "prism", "worktree", "register", "--label", "codex-d", "--mode", "agent",
         ]);
         assert!(cli.root.is_none());
         match cli.command {
@@ -791,13 +785,7 @@ mod tests {
 
     #[test]
     fn worktree_takeover_parses() {
-        let cli = Cli::parse_from([
-            "prism",
-            "worktree",
-            "takeover",
-            "--reason",
-            "stuck bridge",
-        ]);
+        let cli = Cli::parse_from(["prism", "worktree", "takeover", "--reason", "stuck bridge"]);
         assert!(cli.root.is_none());
         match cli.command {
             Command::Worktree {

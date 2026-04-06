@@ -42,8 +42,8 @@ use serde_json::Value;
 use std::path::Path;
 
 use crate::{
-    compact_followups::workspace_display_path, normalize_query_diagnostic,
-    InferredEdgeRecordView, SessionState,
+    compact_followups::workspace_display_path, normalize_query_diagnostic, InferredEdgeRecordView,
+    SessionState,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

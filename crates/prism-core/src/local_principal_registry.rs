@@ -2,9 +2,9 @@ use std::path::Path;
 
 use anyhow::Result;
 use prism_ir::{
-    CredentialCapability, CredentialId, CredentialRecord, CredentialStatus,
-    HumanPrincipalProfile, PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile,
-    PrincipalRegistrySnapshot, PrincipalStatus,
+    CredentialCapability, CredentialId, CredentialRecord, CredentialStatus, HumanPrincipalProfile,
+    PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile, PrincipalRegistrySnapshot,
+    PrincipalStatus,
 };
 use prism_store::MaterializationStore;
 use serde_json::Value;
@@ -31,9 +31,10 @@ pub fn ensure_local_principal_registry_snapshot<S: MaterializationStore>(
     let credentials = CredentialsFile::load(&paths.credentials_path()?)?;
     let mut sessions = HumanSessionFile::load(&paths.human_session_path()?)?;
     let active_human_session = sessions.active_session(current_timestamp(), false);
-    let Some(snapshot) =
-        rebuild_registry_snapshot_from_local_credentials(&credentials, active_human_session.as_ref())
-    else {
+    let Some(snapshot) = rebuild_registry_snapshot_from_local_credentials(
+        &credentials,
+        active_human_session.as_ref(),
+    ) else {
         return Ok(None);
     };
     store.save_principal_registry_snapshot(&snapshot)?;
@@ -278,12 +279,10 @@ mod tests {
 
     use super::rebuild_registry_snapshot_from_local_credentials;
     use crate::local_credentials::{
-        CredentialProfile, CredentialProfileCredentialMetadata,
-        CredentialProfilePrincipalMetadata, CredentialsFile, HumanSessionRecord,
+        CredentialProfile, CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata,
+        CredentialsFile, HumanSessionRecord,
     };
-    use prism_ir::{
-        CredentialCapability, CredentialStatus, PrincipalKind, PrincipalStatus,
-    };
+    use prism_ir::{CredentialCapability, CredentialStatus, PrincipalKind, PrincipalStatus};
 
     #[test]
     fn rebuild_registry_snapshot_ignores_legacy_agent_compatibility_profiles() {

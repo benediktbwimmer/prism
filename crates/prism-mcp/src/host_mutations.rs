@@ -9,8 +9,7 @@ use prism_coordination::{
 };
 use prism_core::{
     AdmissionBusyError, AuthenticatedPrincipal, PrismPaths, ValidationFeedbackCategory,
-    ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceSession,
-    WorktreeMode,
+    ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceSession, WorktreeMode,
 };
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CuratorJobId, CuratorProposal,
@@ -1265,7 +1264,10 @@ fn current_task_holder(meta: &EventMeta, task: &CoordinationTask) -> LeaseHolder
     LeaseHolder {
         principal: principal_from_meta(meta),
         session_id: session_id_from_meta(meta).or_else(|| task.session.clone()),
-        worktree_id: task.worktree_id.clone().or_else(|| worktree_id_from_meta(meta)),
+        worktree_id: task
+            .worktree_id
+            .clone()
+            .or_else(|| worktree_id_from_meta(meta)),
         agent_id: task.assignee.clone(),
     }
 }
@@ -1337,8 +1339,14 @@ fn maybe_auto_resume_stale_same_holder_task(
         TaskResumeInput {
             task_id: task_id.clone(),
             agent: task.assignee.clone().or_else(|| execution.assignee.clone()),
-            worktree_id: task.worktree_id.clone().or_else(|| execution.worktree_id.clone()),
-            branch_ref: task.branch_ref.clone().or_else(|| execution.branch_ref.clone()),
+            worktree_id: task
+                .worktree_id
+                .clone()
+                .or_else(|| execution.worktree_id.clone()),
+            branch_ref: task
+                .branch_ref
+                .clone()
+                .or_else(|| execution.branch_ref.clone()),
         },
     )?;
     Ok(true)
@@ -3909,14 +3917,13 @@ impl QueryHost {
             |prism| {
                 let _ = self.ensure_coordination_runtime_current(workspace)?;
                 let auto_resume_started = std::time::Instant::now();
-                let auto_resume_result =
-                    maybe_auto_resume_stale_same_holder_task(
-                        prism,
-                        session,
-                        &apply_meta,
-                        &task_id,
-                        &coordination_execution_binding(self.workspace_root()),
-                    );
+                let auto_resume_result = maybe_auto_resume_stale_same_holder_task(
+                    prism,
+                    session,
+                    &apply_meta,
+                    &task_id,
+                    &coordination_execution_binding(self.workspace_root()),
+                );
                 record_optional_trace_result(
                     trace,
                     "mutation.gitExecution.autoResumeStaleTask",
@@ -4309,14 +4316,13 @@ impl QueryHost {
                 Some(&session.session_id()),
                 |prism| {
                     let _ = self.ensure_coordination_runtime_current(workspace)?;
-                    let _ =
-                        maybe_auto_resume_stale_same_holder_task(
-                            prism,
-                            session,
-                            &meta,
-                            task_id,
-                            &coordination_execution_binding(self.workspace_root()),
-                        )?;
+                    let _ = maybe_auto_resume_stale_same_holder_task(
+                        prism,
+                        session,
+                        &meta,
+                        task_id,
+                        &coordination_execution_binding(self.workspace_root()),
+                    )?;
                     mutate(prism, meta)
                 },
                 observed,
@@ -4326,14 +4332,13 @@ impl QueryHost {
                 Some(&session.session_id()),
                 |prism| {
                     let _ = self.ensure_coordination_runtime_current(workspace)?;
-                    let _ =
-                        maybe_auto_resume_stale_same_holder_task(
-                            prism,
-                            session,
-                            &meta,
-                            task_id,
-                            &coordination_execution_binding(self.workspace_root()),
-                        )?;
+                    let _ = maybe_auto_resume_stale_same_holder_task(
+                        prism,
+                        session,
+                        &meta,
+                        task_id,
+                        &coordination_execution_binding(self.workspace_root()),
+                    )?;
                     mutate(prism, meta)
                 },
                 observed,
@@ -5373,7 +5378,10 @@ impl QueryHost {
             }
             CoordinationMutationKindInput::Resume => {
                 let payload: TaskResumePayload = serde_json::from_value(args.payload)?;
-                let session_agent = execution.assignee.clone().or_else(|| session.current_agent());
+                let session_agent = execution
+                    .assignee
+                    .clone()
+                    .or_else(|| session.current_agent());
                 if let (Some(expected), Some(current)) =
                     (payload.agent.as_ref(), session_agent.as_ref())
                 {
@@ -5397,7 +5405,10 @@ impl QueryHost {
             }
             CoordinationMutationKindInput::Reclaim => {
                 let payload: TaskReclaimPayload = serde_json::from_value(args.payload)?;
-                let session_agent = execution.assignee.clone().or_else(|| session.current_agent());
+                let session_agent = execution
+                    .assignee
+                    .clone()
+                    .or_else(|| session.current_agent());
                 if let (Some(expected), Some(current)) =
                     (payload.agent.as_ref(), session_agent.as_ref())
                 {
@@ -5421,7 +5432,10 @@ impl QueryHost {
             }
             CoordinationMutationKindInput::HandoffAccept => {
                 let payload: HandoffAcceptPayload = serde_json::from_value(args.payload)?;
-                let session_agent = execution.assignee.clone().or_else(|| session.current_agent());
+                let session_agent = execution
+                    .assignee
+                    .clone()
+                    .or_else(|| session.current_agent());
                 if let (Some(expected), Some(current)) =
                     (payload.agent.as_ref(), session_agent.as_ref())
                 {

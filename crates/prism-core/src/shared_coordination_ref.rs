@@ -30,12 +30,18 @@ use crate::protected_state::repo_streams::{
 };
 use crate::protected_state::trust::{load_active_runtime_signing_key, resolve_trusted_runtime_key};
 use crate::published_plans::load_hydrated_coordination_plan_state;
+use crate::shared_coordination_schema::{
+    parse_authoritative_payload, parse_top_level_authoritative_payload, wrap_authoritative_payload,
+    SHARED_COORDINATION_KIND_ARTIFACT, SHARED_COORDINATION_KIND_CLAIM,
+    SHARED_COORDINATION_KIND_MANIFEST, SHARED_COORDINATION_KIND_PLAN_RECORD,
+    SHARED_COORDINATION_KIND_REVIEW, SHARED_COORDINATION_KIND_RUNTIME_DESCRIPTOR,
+    SHARED_COORDINATION_KIND_TASK, SHARED_COORDINATION_SCHEMA_VERSION,
+};
 use crate::tracked_snapshot::{SnapshotManifestPublishSummary, TrackedSnapshotPublishContext};
 use crate::util::{current_timestamp, stable_hash_bytes};
 use crate::workspace_identity::workspace_identity_for_root;
 use crate::PrismPaths;
 
-const SHARED_COORDINATION_MANIFEST_VERSION: u32 = 1;
 const SHARED_COORDINATION_PUSH_MAX_RETRIES: usize = 3;
 const SHARED_COORDINATION_HISTORY_MAX_COMMITS: u64 = 32;
 static SHARED_COORDINATION_LIVE_SYNC_STATE: OnceLock<
@@ -109,7 +115,10 @@ struct SharedCoordinationManifestCompaction {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SharedCoordinationManifest {
-    version: u32,
+    #[serde(rename = "schema_version", alias = "schemaVersion", alias = "version")]
+    schema_version: u32,
+    #[serde(default = "shared_coordination_manifest_kind")]
+    kind: String,
     published_at: u64,
     publisher: SharedCoordinationManifestPublisher,
     work_context: WorkContextSnapshot,
@@ -128,7 +137,9 @@ struct SharedCoordinationManifest {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SharedCoordinationManifestSigningView<'a> {
-    version: u32,
+    #[serde(rename = "schema_version")]
+    schema_version: u32,
+    kind: &'a str,
     published_at: u64,
     publisher: &'a SharedCoordinationManifestPublisher,
     work_context: &'a WorkContextSnapshot,
@@ -209,6 +220,10 @@ pub struct SharedCoordinationRefDiagnostics {
 pub(crate) enum SharedCoordinationRefLiveSync {
     Unchanged,
     Changed(SharedCoordinationRefState),
+}
+
+fn shared_coordination_manifest_kind() -> String {
+    SHARED_COORDINATION_KIND_MANIFEST.to_string()
 }
 
 fn shared_coordination_ref_name(root: &Path) -> String {
@@ -707,32 +722,50 @@ fn load_shared_coordination_ref_state_from_current_ref(
     let manifest = contents.parse_manifest()?;
     verify_shared_coordination_manifest(root, &manifest, &contents)?;
     let plan_records = contents
-        .parse_records::<SharedCoordinationPlanRecord, _>(|path| path.starts_with("plans/"))?
+        .parse_authoritative_records::<SharedCoordinationPlanRecord, _>(
+            |path| path.starts_with("plans/"),
+            SHARED_COORDINATION_KIND_PLAN_RECORD,
+        )?
         .into_iter()
         .map(|(_, record)| record)
         .collect::<Vec<_>>();
     let tasks = contents
-        .parse_records::<CoordinationTask, _>(|path| path.starts_with("coordination/tasks/"))?
+        .parse_authoritative_records::<CoordinationTask, _>(
+            |path| path.starts_with("coordination/tasks/"),
+            SHARED_COORDINATION_KIND_TASK,
+        )?
         .into_iter()
         .map(|(_, task)| task)
         .collect::<Vec<_>>();
     let artifacts = contents
-        .parse_records::<Artifact, _>(|path| path.starts_with("coordination/artifacts/"))?
+        .parse_authoritative_records::<Artifact, _>(
+            |path| path.starts_with("coordination/artifacts/"),
+            SHARED_COORDINATION_KIND_ARTIFACT,
+        )?
         .into_iter()
         .map(|(_, artifact)| artifact)
         .collect::<Vec<_>>();
     let claims = contents
-        .parse_records::<WorkClaim, _>(|path| path.starts_with("coordination/claims/"))?
+        .parse_authoritative_records::<WorkClaim, _>(
+            |path| path.starts_with("coordination/claims/"),
+            SHARED_COORDINATION_KIND_CLAIM,
+        )?
         .into_iter()
         .map(|(_, claim)| claim)
         .collect::<Vec<_>>();
     let reviews = contents
-        .parse_records::<ArtifactReview, _>(|path| path.starts_with("coordination/reviews/"))?
+        .parse_authoritative_records::<ArtifactReview, _>(
+            |path| path.starts_with("coordination/reviews/"),
+            SHARED_COORDINATION_KIND_REVIEW,
+        )?
         .into_iter()
         .map(|(_, review)| review)
         .collect::<Vec<_>>();
     let mut runtime_descriptors = contents
-        .parse_records::<RuntimeDescriptor, _>(|path| path.starts_with("coordination/runtimes/"))?
+        .parse_authoritative_records::<RuntimeDescriptor, _>(
+            |path| path.starts_with("coordination/runtimes/"),
+            SHARED_COORDINATION_KIND_RUNTIME_DESCRIPTOR,
+        )?
         .into_iter()
         .map(|(_, descriptor)| descriptor)
         .collect::<Vec<_>>();
@@ -1185,16 +1218,17 @@ fn sync_plan_objects(
         };
         let path = plan_snapshot_path(stage_dir, &plan.id.0);
         expected.insert(path.clone());
+        let record = SharedCoordinationPlanRecord {
+            plan: plan.clone(),
+            graph: graph.clone(),
+            execution_overlays: execution_overlays
+                .get(plan.id.0.as_str())
+                .cloned()
+                .unwrap_or_default(),
+        };
         write_json_file(
             &path,
-            &SharedCoordinationPlanRecord {
-                plan: plan.clone(),
-                graph: graph.clone(),
-                execution_overlays: execution_overlays
-                    .get(plan.id.0.as_str())
-                    .cloned()
-                    .unwrap_or_default(),
-            },
+            &wrap_authoritative_payload(&record, SHARED_COORDINATION_KIND_PLAN_RECORD)?,
         )?;
     }
     cleanup_directory_json_files(&stage_plans_dir(stage_dir), &expected)
@@ -1205,7 +1239,10 @@ fn sync_task_objects(stage_dir: &Path, tasks: &[CoordinationTask]) -> Result<()>
     for task in tasks {
         let path = task_snapshot_path(stage_dir, &task.id.0);
         expected.insert(path.clone());
-        write_json_file(&path, task)?;
+        write_json_file(
+            &path,
+            &wrap_authoritative_payload(task, SHARED_COORDINATION_KIND_TASK)?,
+        )?;
     }
     cleanup_directory_json_files(&stage_tasks_dir(stage_dir), &expected)
 }
@@ -1215,7 +1252,10 @@ fn sync_artifact_objects(stage_dir: &Path, artifacts: &[Artifact]) -> Result<()>
     for artifact in artifacts {
         let path = artifact_snapshot_path(stage_dir, &artifact.id.0);
         expected.insert(path.clone());
-        write_json_file(&path, artifact)?;
+        write_json_file(
+            &path,
+            &wrap_authoritative_payload(artifact, SHARED_COORDINATION_KIND_ARTIFACT)?,
+        )?;
     }
     cleanup_directory_json_files(&stage_artifacts_dir(stage_dir), &expected)
 }
@@ -1225,7 +1265,10 @@ fn sync_claim_objects(stage_dir: &Path, claims: &[WorkClaim]) -> Result<()> {
     for claim in claims {
         let path = claim_snapshot_path(stage_dir, &claim.id.0);
         expected.insert(path.clone());
-        write_json_file(&path, claim)?;
+        write_json_file(
+            &path,
+            &wrap_authoritative_payload(claim, SHARED_COORDINATION_KIND_CLAIM)?,
+        )?;
     }
     cleanup_directory_json_files(&stage_claims_dir(stage_dir), &expected)
 }
@@ -1235,7 +1278,10 @@ fn sync_review_objects(stage_dir: &Path, reviews: &[ArtifactReview]) -> Result<(
     for review in reviews {
         let path = review_snapshot_path(stage_dir, &review.id.0);
         expected.insert(path.clone());
-        write_json_file(&path, review)?;
+        write_json_file(
+            &path,
+            &wrap_authoritative_payload(review, SHARED_COORDINATION_KIND_REVIEW)?,
+        )?;
     }
     cleanup_directory_json_files(&stage_reviews_dir(stage_dir), &expected)
 }
@@ -1248,7 +1294,10 @@ fn sync_runtime_descriptor_objects(
     for descriptor in descriptors {
         let path = runtime_descriptor_snapshot_path(stage_dir, &descriptor.worktree_id);
         expected.insert(path.clone());
-        write_json_file(&path, descriptor)?;
+        write_json_file(
+            &path,
+            &wrap_authoritative_payload(descriptor, SHARED_COORDINATION_KIND_RUNTIME_DESCRIPTOR)?,
+        )?;
     }
     cleanup_directory_json_files(&stage_runtimes_dir(stage_dir), &expected)
 }
@@ -1482,7 +1531,8 @@ fn write_manifest(
         .or_else(|| previous_manifest.and_then(|manifest| manifest.publish_diagnostics.clone()));
     let active_key = load_active_runtime_signing_key(paths)?;
     let mut manifest = SharedCoordinationManifest {
-        version: SHARED_COORDINATION_MANIFEST_VERSION,
+        schema_version: SHARED_COORDINATION_SCHEMA_VERSION,
+        kind: shared_coordination_manifest_kind(),
         published_at: publish.published_at,
         publisher: SharedCoordinationManifestPublisher {
             principal_authority_id: publish.principal.principal_authority_id,
@@ -1505,7 +1555,8 @@ fn write_manifest(
     };
     let signature = active_key.signing_key.sign(&canonical_json_bytes(
         &SharedCoordinationManifestSigningView {
-            version: manifest.version,
+            schema_version: manifest.schema_version,
+            kind: manifest.kind.as_str(),
             published_at: manifest.published_at,
             publisher: &manifest.publisher,
             work_context: &manifest.work_context,
@@ -1538,10 +1589,11 @@ fn load_shared_coordination_manifest_from_ref(
         &["show", &format!("{ref_name}:coordination/manifest.json")],
     );
     match blob {
-        Ok(contents) => Ok(Some(
-            serde_json::from_str(contents.trim())
-                .context("failed to parse shared coordination manifest from git ref")?,
-        )),
+        Ok(contents) => Ok(Some(parse_top_level_authoritative_payload(
+            contents.trim().as_bytes(),
+            "coordination/manifest.json",
+            SHARED_COORDINATION_KIND_MANIFEST,
+        )?)),
         Err(error) => {
             let message = error.to_string();
             if message.contains("does not exist")
@@ -1580,6 +1632,21 @@ fn verify_shared_coordination_manifest(
     manifest: &SharedCoordinationManifest,
     contents: &SharedCoordinationRefContents,
 ) -> Result<()> {
+    if manifest.schema_version > SHARED_COORDINATION_SCHEMA_VERSION {
+        return Err(anyhow!(
+            "shared coordination payload `coordination/manifest.json` requires schema_version {} for kind `{}`, but this PRISM supports up to {}. Upgrade PRISM and retry.",
+            manifest.schema_version,
+            manifest.kind,
+            SHARED_COORDINATION_SCHEMA_VERSION,
+        ));
+    }
+    if manifest.kind != SHARED_COORDINATION_KIND_MANIFEST {
+        return Err(anyhow!(
+            "shared coordination payload `coordination/manifest.json` declared kind `{}`, expected `{}`",
+            manifest.kind,
+            SHARED_COORDINATION_KIND_MANIFEST,
+        ));
+    }
     let paths = PrismPaths::for_workspace_root(root)?;
     let trusted = resolve_trusted_runtime_key(
         &paths,
@@ -1592,7 +1659,8 @@ fn verify_shared_coordination_manifest(
         .verifying_key
         .verify(
             &canonical_json_bytes(&SharedCoordinationManifestSigningView {
-                version: manifest.version,
+                schema_version: manifest.schema_version,
+                kind: manifest.kind.as_str(),
                 published_at: manifest.published_at,
                 publisher: &manifest.publisher,
                 work_context: &manifest.work_context,
@@ -2034,14 +2102,18 @@ impl SharedCoordinationRefContents {
             .files
             .get("manifest.json")
             .ok_or_else(|| anyhow!("shared coordination manifest is missing"))?;
-        serde_json::from_slice(bytes).context("failed to parse shared coordination manifest")
+        parse_top_level_authoritative_payload(
+            bytes,
+            "coordination/manifest.json",
+            SHARED_COORDINATION_KIND_MANIFEST,
+        )
     }
 
     fn coordination_bytes(&self, relative_path: &str) -> Option<Vec<u8>> {
         self.files.get(relative_path).cloned()
     }
 
-    fn parse_records<T, F>(&self, filter: F) -> Result<Vec<(String, T)>>
+    fn parse_authoritative_records<T, F>(&self, filter: F, kind: &str) -> Result<Vec<(String, T)>>
     where
         T: for<'de> Deserialize<'de>,
         F: Fn(&str) -> bool,
@@ -2051,9 +2123,7 @@ impl SharedCoordinationRefContents {
             .iter()
             .filter(|(path, _)| filter(path.as_str()))
             .map(|(path, bytes)| {
-                let value = serde_json::from_slice::<T>(bytes).with_context(|| {
-                    format!("failed to parse shared coordination ref file `{path}`")
-                })?;
+                let value = parse_authoritative_payload(bytes, path, kind)?;
                 Ok((path.clone(), value))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -3961,6 +4031,15 @@ mod tests {
         let diagnostics = shared_coordination_ref_diagnostics(&root)
             .unwrap()
             .expect("shared coordination diagnostics should exist");
+        let ref_name = super::shared_coordination_ref_name(&root);
+        let raw_manifest: serde_json::Value = serde_json::from_str(
+            &super::run_git(
+                &root,
+                &["show", &format!("{ref_name}:coordination/manifest.json")],
+            )
+            .unwrap(),
+        )
+        .unwrap();
         assert!(diagnostics.ref_name.starts_with("refs/prism/coordination/"));
         assert!(diagnostics.head_commit.is_some());
         assert!(diagnostics.history_depth >= 1);
@@ -3981,6 +4060,12 @@ mod tests {
         );
         assert_eq!(diagnostics.runtime_descriptor_count, 1);
         assert_eq!(diagnostics.runtime_descriptors.len(), 1);
+        assert_eq!(raw_manifest["schema_version"], serde_json::json!(1));
+        assert_eq!(
+            raw_manifest["kind"],
+            serde_json::json!(super::SHARED_COORDINATION_KIND_MANIFEST)
+        );
+        assert!(raw_manifest.get("version").is_none());
         assert!(diagnostics.runtime_descriptors[0]
             .capabilities
             .contains(&RuntimeDescriptorCapability::CoordinationRefPublisher));
