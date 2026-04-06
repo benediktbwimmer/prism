@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn3p3mfw8cnhvv3m8s2bdzgq",
+    "title": "Add heartbeat_lease, server-side due-state evaluation, and bounded assisted watcher renewal",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p3mfw8cnhvv3m8s2bdzgq-1a46b1a0c025980a.json"
+  },
+  {
+    "id": "coord-task:01kn5ydf7fed6cqt4xw7jftw6g",
+    "title": "Validate migration semantics, tamper handling, and full-workspace behavior",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydf7fed6cqt4xw7jftw6g-72dfb48a9e4256bd.json"
+  },
+  {
+    "id": "coord-task:01kn88n8aef9wcbvsbb6bjhfpq",
+    "title": "Profile warm prism_concept latency and isolate the expensive concept resolution, decode, and render work.",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn88n8aef9wcbvsbb6bjhfpq-d866cb58dd33fac0.json"
+  },
+  {
+    "id": "coord-task:01kndb8xs40rk0fr6vjma8nakj",
+    "title": "Update capabilities, tool-schema indexes, and instructions to advertise the compact discovery workflow and preferred authoring path",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb8xs40rk0fr6vjma8nakj-afe20442fb823ec8.json"
+  }
+]
