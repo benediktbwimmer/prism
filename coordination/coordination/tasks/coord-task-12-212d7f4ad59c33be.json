@@ -1,0 +1,77 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Compact and query latency reflects handler cost instead of hidden synchronous rebuild cost"
+      },
+      {
+        "anchors": [],
+        "label": "Logs can distinguish stale, deferred, shallow, deep, and recovery states"
+      },
+      {
+        "anchors": [],
+        "label": "Refresh phases expose lock wait, revision check, delta application, and reload timing explicitly"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 172853
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:11"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:12",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:2",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": null,
+    "tags": [],
+    "title": "Instrument freshness and materialization state and validate latency behavior",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

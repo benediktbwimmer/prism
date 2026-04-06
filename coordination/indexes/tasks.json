@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kmwmwtsvsb4fnsekv4hd29fd",
+    "title": "Phase 1: Split the prism-mcp test monolith into focused modules and shared support",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmwmwtsvsb4fnsekv4hd29fd-b8a10a00e7d88f17.json"
+  },
+  {
+    "id": "coord-task:01knfcza3wwwae6camv3wnt679",
+    "title": "Add htmx-powered operator mutations and pessimistic refresh flows for plan and task actions",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knfcza3wwwae6camv3wnt679-1ceb0f10195f82cf.json"
+  },
+  {
+    "id": "coord-task:12",
+    "title": "Instrument freshness and materialization state and validate latency behavior",
+    "status": "Ready",
+    "path": "tasks/coord-task-12-212d7f4ad59c33be.json"
+  }
+]
