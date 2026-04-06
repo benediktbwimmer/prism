@@ -44,20 +44,19 @@ use prism_store::{Graph, MemoryStore, ProjectionMaterializationMetadata, SqliteS
 use serde_json::json;
 
 use super::{
-    bootstrap_owner_principal_in_registry, hydrate_workspace_session,
-    hydrate_workspace_session_with_options, index_workspace,
-    index_workspace_session, index_workspace_session_with_curator,
-    index_workspace_session_with_options, inspect_legacy_path_identity_state,
-    inspect_repo_published_plan_artifacts, list_registered_worktrees,
-    regenerate_repo_published_plan_artifacts,
+    bootstrap_owner_principal_in_registry,
+    ensure_local_principal_registry_snapshot_with_unlocked_profile, hydrate_workspace_session,
+    hydrate_workspace_session_with_options, index_workspace, index_workspace_session,
+    index_workspace_session_with_curator, index_workspace_session_with_options,
+    inspect_legacy_path_identity_state, inspect_repo_published_plan_artifacts,
+    list_registered_worktrees, regenerate_repo_published_plan_artifacts,
     repair_legacy_path_identity_state, repair_repo_published_plan_artifacts,
     AttestedHumanPrincipalInput, BootstrapOwnerInput, CredentialProfile,
     CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata, CredentialsFile,
-    HumanSessionFile, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
-    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
-    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode,
-    WorktreeMutatorSlotError, WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
-    ensure_local_principal_registry_snapshot_with_unlocked_profile,
+    HumanSessionFile, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths, SharedRuntimeBackend,
+    ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
+    WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode, WorktreeMutatorSlotError,
+    WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
 };
 use crate::concept_events::append_repo_concept_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
@@ -645,7 +644,11 @@ fn list_registered_worktrees_discovers_machine_registrations() {
         fs::create_dir_all(root).unwrap();
         fs::create_dir_all(root.join(".git")).unwrap();
         fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
-        fs::write(root.join(".git/HEAD"), format!("ref: refs/heads/{branch}\n")).unwrap();
+        fs::write(
+            root.join(".git/HEAD"),
+            format!("ref: refs/heads/{branch}\n"),
+        )
+        .unwrap();
     }
     fs::create_dir_all(&prism_home).unwrap();
 
@@ -666,8 +669,14 @@ fn list_registered_worktrees_discovers_machine_registrations() {
     assert_eq!(registrations[0].mode, WorktreeMode::Agent);
     assert_eq!(registrations[1].agent_label, "operator-a");
     assert_eq!(registrations[1].mode, WorktreeMode::Human);
-    assert_eq!(registrations[0].branch_ref.as_deref(), Some("refs/heads/task/agent"));
-    assert_eq!(registrations[1].branch_ref.as_deref(), Some("refs/heads/main"));
+    assert_eq!(
+        registrations[0].branch_ref.as_deref(),
+        Some("refs/heads/task/agent")
+    );
+    assert_eq!(
+        registrations[1].branch_ref.as_deref(),
+        Some("refs/heads/main")
+    );
 }
 
 #[test]
@@ -4657,7 +4666,10 @@ fn bootstrap_owner_with_attestation_records_shared_human_profile_metadata() {
     assert_eq!(attestation.subject, "bene");
     assert_eq!(attestation.assurance, HumanAttestationAssurance::High);
     assert_eq!(attestation.operation, HumanAttestationOperation::Bootstrap);
-    assert_eq!(issued.principal.authority_id, PrincipalAuthorityId::new("github"));
+    assert_eq!(
+        issued.principal.authority_id,
+        PrincipalAuthorityId::new("github")
+    );
 
     let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(shared_runtime_root);
@@ -4819,10 +4831,14 @@ fn workspace_session_rehydrates_missing_principal_registry_from_local_credential
         }),
     };
     credentials.upsert_profile(profile.clone(), true);
-    credentials.save(&paths.credentials_path().unwrap()).unwrap();
+    credentials
+        .save(&paths.credentials_path().unwrap())
+        .unwrap();
     let mut human_sessions = HumanSessionFile::load(&paths.human_session_path().unwrap()).unwrap();
     human_sessions.activate(&profile, issued.principal_token.clone(), 200);
-    human_sessions.save(&paths.human_session_path().unwrap()).unwrap();
+    human_sessions
+        .save(&paths.human_session_path().unwrap())
+        .unwrap();
 
     let mut shared_runtime = SqliteStore::open(paths.shared_runtime_db_path().unwrap()).unwrap();
     shared_runtime
@@ -4832,7 +4848,10 @@ fn workspace_session_rehydrates_missing_principal_registry_from_local_credential
 
     let reloaded = index_workspace_session(&root).unwrap();
     let authenticated = reloaded
-        .authenticate_principal_credential(&issued.credential.credential_id, &issued.principal_token)
+        .authenticate_principal_credential(
+            &issued.credential.credential_id,
+            &issued.principal_token,
+        )
         .unwrap();
     assert_eq!(authenticated.principal.kind, PrincipalKind::Human);
     assert_eq!(
@@ -4892,7 +4911,9 @@ fn principal_registry_rehydrates_from_unlocked_encrypted_human_profile() {
         .encrypt_principal_token(&issued.principal_token, passphrase)
         .unwrap();
     credentials.upsert_profile(profile.clone(), true);
-    credentials.save(&paths.credentials_path().unwrap()).unwrap();
+    credentials
+        .save(&paths.credentials_path().unwrap())
+        .unwrap();
     HumanSessionFile::default()
         .save(&paths.human_session_path().unwrap())
         .unwrap();

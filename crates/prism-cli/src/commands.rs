@@ -33,8 +33,8 @@ use crate::runtime::{
     record_validation_outcome, resolve_optional_anchors, resolve_single_symbol,
     run_validation_command,
 };
-use crate::worktree_commands::handle_worktree_command;
 use crate::workspace_root;
+use crate::worktree_commands::handle_worktree_command;
 
 pub fn run(cli: Cli) -> Result<()> {
     let Cli { root, command } = cli;

@@ -752,7 +752,10 @@ async fn stdio_proxy_can_attach_registered_agent_worktree_and_mutate_without_exp
     let session_payload =
         serde_json::from_str::<Value>(session_text).expect("session resource should be valid json");
     assert_eq!(session_payload["bridgeIdentity"]["status"], "bound");
-    assert_eq!(session_payload["bridgeIdentity"]["worktreeId"], registration.worktree_id);
+    assert_eq!(
+        session_payload["bridgeIdentity"]["worktreeId"],
+        registration.worktree_id
+    );
     assert_eq!(session_payload["bridgeIdentity"]["agentLabel"], "agent-a");
     assert_eq!(session_payload["bridgeIdentity"]["worktreeMode"], "agent");
     assert!(session_payload["bridgeIdentity"]["profile"].is_null());

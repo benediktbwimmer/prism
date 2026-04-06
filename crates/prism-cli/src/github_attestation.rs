@@ -9,7 +9,7 @@ use prism_ir::{
     PrincipalAuthorityId,
 };
 use reqwest::blocking::Client;
-use reqwest::header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT};
 use serde::Deserialize;
 
 use crate::cli::AuthAssuranceArg;
@@ -33,7 +33,9 @@ pub(crate) struct VerifiedGithubIdentity {
 }
 
 pub(crate) fn issuer_uses_github_device_flow(issuer: &str) -> bool {
-    issuer.trim().eq_ignore_ascii_case(GITHUB_DEVICE_FLOW_ISSUER)
+    issuer
+        .trim()
+        .eq_ignore_ascii_case(GITHUB_DEVICE_FLOW_ISSUER)
 }
 
 pub(crate) fn resolve_github_attested_human_input(
@@ -92,9 +94,7 @@ fn resolve_github_authority(authority: &str) -> Result<PrincipalAuthorityId> {
     if trimmed.is_empty() || trimmed == "local-daemon" || trimmed == GITHUB_AUTHORITY_ID {
         return Ok(PrincipalAuthorityId::new(GITHUB_AUTHORITY_ID));
     }
-    bail!(
-        "`github-device-flow` must use authority `github`; got `{trimmed}`"
-    )
+    bail!("`github-device-flow` must use authority `github`; got `{trimmed}`")
 }
 
 fn sanitize_optional(value: Option<&str>) -> Option<&str> {
@@ -381,11 +381,9 @@ mod tests {
         );
 
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("requires `--assurance high`")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("requires `--assurance high`"));
     }
 }

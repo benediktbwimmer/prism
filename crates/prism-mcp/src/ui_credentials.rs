@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use prism_core::{CredentialProfile, CredentialsFile, PrismPaths, WorkspaceSession};
 use prism_ir::{CredentialStatus, PrincipalRegistrySnapshot};
 
@@ -31,13 +31,11 @@ fn select_ui_credential_profile<'a>(
     bound_principal_id: Option<&str>,
     registry: Option<&PrincipalRegistrySnapshot>,
 ) -> Result<&'a CredentialProfile> {
-    let profiles = credentials
-        .profiles
-        .iter()
-        .enumerate()
-        .collect::<Vec<_>>();
+    let profiles = credentials.profiles.iter().enumerate().collect::<Vec<_>>();
     if profiles.is_empty() {
-        return Err(anyhow!("no stored credential matched the requested selector"));
+        return Err(anyhow!(
+            "no stored credential matched the requested selector"
+        ));
     }
 
     let valid_credentials = registry.map(|snapshot| {
@@ -85,12 +83,7 @@ fn select_ui_credential_profile<'a>(
     candidates
         .iter()
         .copied()
-        .max_by_key(|(index, profile)| {
-            (
-                active_profile == Some(profile.profile.as_str()),
-                *index,
-            )
-        })
+        .max_by_key(|(index, profile)| (active_profile == Some(profile.profile.as_str()), *index))
         .map(|(_, profile)| profile)
         .ok_or_else(|| anyhow!("no stored credential matched the requested selector"))
 }
@@ -105,11 +98,7 @@ mod tests {
 
     use super::select_ui_credential_profile;
 
-    fn profile(
-        profile: &str,
-        principal_id: &str,
-        credential_id: &str,
-    ) -> CredentialProfile {
+    fn profile(profile: &str, principal_id: &str, credential_id: &str) -> CredentialProfile {
         CredentialProfile {
             profile: profile.to_string(),
             authority_id: "local-daemon".to_string(),

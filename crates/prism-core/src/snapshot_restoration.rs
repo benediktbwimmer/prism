@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use prism_memory::{MemoryEvent, MemoryEventKind};
 use prism_projections::{
-    curated_concepts_from_events, curated_contracts_from_events, concept_relations_from_events,
+    concept_relations_from_events, curated_concepts_from_events, curated_contracts_from_events,
     ConceptEvent, ConceptRelation, ConceptRelationEvent, ContractEvent,
 };
 use serde::de::DeserializeOwned;
@@ -68,7 +68,12 @@ pub fn restore_legacy_repo_published_knowledge(
             }
             let event = latest_by_handle
                 .get(packet.handle.as_str())
-                .with_context(|| format!("missing latest legacy concept event for `{}`", packet.handle))?;
+                .with_context(|| {
+                    format!(
+                        "missing latest legacy concept event for `{}`",
+                        packet.handle
+                    )
+                })?;
             append_repo_concept_event(root, event)?;
             report.restored_concepts += 1;
         }
@@ -85,9 +90,9 @@ pub fn restore_legacy_repo_published_knowledge(
                 report.skipped_existing_relations += 1;
                 continue;
             }
-            let event = latest_by_relation
-                .get(identity.as_str())
-                .with_context(|| format!("missing latest legacy concept relation event for `{identity}`"))?;
+            let event = latest_by_relation.get(identity.as_str()).with_context(|| {
+                format!("missing latest legacy concept relation event for `{identity}`")
+            })?;
             append_repo_concept_relation_event(root, event)?;
             report.restored_relations += 1;
         }
@@ -105,7 +110,12 @@ pub fn restore_legacy_repo_published_knowledge(
             }
             let event = latest_by_handle
                 .get(packet.handle.as_str())
-                .with_context(|| format!("missing latest legacy contract event for `{}`", packet.handle))?;
+                .with_context(|| {
+                    format!(
+                        "missing latest legacy contract event for `{}`",
+                        packet.handle
+                    )
+                })?;
             append_repo_contract_event(root, event)?;
             report.restored_contracts += 1;
         }
@@ -121,9 +131,8 @@ pub fn restore_legacy_repo_published_knowledge(
             .cloned()
             .collect::<BTreeSet<_>>();
 
-        report.skipped_existing_memories += active_memory_ids
-            .intersection(&current_memories)
-            .count();
+        report.skipped_existing_memories +=
+            active_memory_ids.intersection(&current_memories).count();
 
         let mut sorted_events = events;
         sorted_events.sort_by(|left, right| {
@@ -148,7 +157,10 @@ pub fn restore_legacy_repo_published_knowledge(
     Ok(report)
 }
 
-fn load_optional_legacy_jsonl<T>(root: &Path, relative_path: &str) -> Result<Option<(PathBuf, Vec<T>)>>
+fn load_optional_legacy_jsonl<T>(
+    root: &Path,
+    relative_path: &str,
+) -> Result<Option<(PathBuf, Vec<T>)>>
 where
     T: DeserializeOwned,
 {
@@ -173,7 +185,9 @@ where
     let reader = BufReader::new(file);
     let mut values = Vec::new();
     for (index, line) in reader.lines().enumerate() {
-        let line = line.with_context(|| format!("failed to read line {} from {}", index + 1, path.display()))?;
+        let line = line.with_context(|| {
+            format!("failed to read line {} from {}", index + 1, path.display())
+        })?;
         if line.trim().is_empty() {
             continue;
         }
@@ -257,8 +271,7 @@ mod tests {
     use std::path::PathBuf;
 
     use prism_memory::{
-        MemoryEntry, MemoryEvent, MemoryEventKind, MemoryId, MemoryKind, MemoryScope,
-        MemorySource,
+        MemoryEntry, MemoryEvent, MemoryEventKind, MemoryId, MemoryKind, MemoryScope, MemorySource,
     };
     use prism_projections::{
         ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance, ConceptPublication,
@@ -316,8 +329,12 @@ mod tests {
 
         let concepts = load_concept_snapshots(&root).unwrap();
         assert_eq!(concepts.len(), 2);
-        assert!(concepts.iter().any(|packet| packet.handle == "concept://legacy-alpha"));
-        assert!(concepts.iter().any(|packet| packet.handle == "concept://current-alpha"));
+        assert!(concepts
+            .iter()
+            .any(|packet| packet.handle == "concept://legacy-alpha"));
+        assert!(concepts
+            .iter()
+            .any(|packet| packet.handle == "concept://current-alpha"));
 
         let contracts = load_contract_snapshots(&root).unwrap();
         assert_eq!(contracts.len(), 2);

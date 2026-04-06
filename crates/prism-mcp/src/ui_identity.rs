@@ -2,8 +2,8 @@ use std::path::Path;
 
 use prism_core::{HumanSessionFile, PrismPaths, WorkspaceSession};
 
-use crate::ui_credentials::{load_ui_credentials, resolve_ui_credential_profile};
 use crate::resource_schemas::BridgeIdentityView;
+use crate::ui_credentials::{load_ui_credentials, resolve_ui_credential_profile};
 
 pub(crate) fn ui_operator_identity_view(
     root: &Path,

@@ -457,7 +457,10 @@ impl PrismMcpServer {
                     })),
                 )
             })?;
-        self.load_registered_worktree_for_authenticated_mutation(workspace.as_ref(), &authenticated)?;
+        self.load_registered_worktree_for_authenticated_mutation(
+            workspace.as_ref(),
+            &authenticated,
+        )?;
         workspace
             .acquire_or_refresh_worktree_mutator_slot(&authenticated, &self.session.session_id())
             .map_err(Self::map_worktree_mutator_slot_error)?;
@@ -649,11 +652,10 @@ impl PrismMcpServer {
                     }
                 };
                 let registration_started = Instant::now();
-                let registration_result = self
-                    .load_registered_worktree_for_authenticated_mutation(
-                        workspace.as_ref(),
-                        &authenticated,
-                    );
+                let registration_result = self.load_registered_worktree_for_authenticated_mutation(
+                    workspace.as_ref(),
+                    &authenticated,
+                );
                 let registration = match registration_result {
                     Ok(registration) => {
                         run.record_phase(

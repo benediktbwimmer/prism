@@ -4907,41 +4907,42 @@ fn mcp_plan_archive_terminalizes_active_task_execution_plan_before_archiving() {
 
     let plan_id_value = prism_ir::PlanId::new(plan_id.clone());
     let node_id = prism_ir::PlanNodeId::new(task_id);
-    host.current_prism().replace_coordination_snapshot_and_plan_graphs(
-        host.current_prism().coordination_snapshot(),
-        vec![prism_ir::PlanGraph {
-            id: plan_id_value.clone(),
-            scope: prism_ir::PlanScope::Repo,
-            kind: prism_ir::PlanKind::TaskExecution,
-            title: "Archive active task execution plan".into(),
-            goal: "Archive active task execution plan".into(),
-            status: prism_ir::PlanStatus::Active,
-            revision: 1,
-            root_nodes: vec![node_id.clone()],
-            tags: Vec::new(),
-            created_from: None,
-            metadata: serde_json::Value::Null,
-            nodes: vec![prism_ir::PlanNode {
-                id: node_id,
-                plan_id: plan_id_value.clone(),
-                kind: prism_ir::PlanNodeKind::Release,
-                title: "Only task".into(),
-                summary: None,
-                status: prism_ir::PlanNodeStatus::Ready,
-                bindings: prism_ir::PlanBinding::default(),
-                acceptance: Vec::new(),
-                validation_refs: Vec::new(),
-                is_abstract: false,
-                assignee: None,
-                base_revision: prism_ir::WorkspaceRevision::default(),
-                priority: None,
+    host.current_prism()
+        .replace_coordination_snapshot_and_plan_graphs(
+            host.current_prism().coordination_snapshot(),
+            vec![prism_ir::PlanGraph {
+                id: plan_id_value.clone(),
+                scope: prism_ir::PlanScope::Repo,
+                kind: prism_ir::PlanKind::TaskExecution,
+                title: "Archive active task execution plan".into(),
+                goal: "Archive active task execution plan".into(),
+                status: prism_ir::PlanStatus::Active,
+                revision: 1,
+                root_nodes: vec![node_id.clone()],
                 tags: Vec::new(),
+                created_from: None,
                 metadata: serde_json::Value::Null,
+                nodes: vec![prism_ir::PlanNode {
+                    id: node_id,
+                    plan_id: plan_id_value.clone(),
+                    kind: prism_ir::PlanNodeKind::Release,
+                    title: "Only task".into(),
+                    summary: None,
+                    status: prism_ir::PlanNodeStatus::Ready,
+                    bindings: prism_ir::PlanBinding::default(),
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    assignee: None,
+                    base_revision: prism_ir::WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::Value::Null,
+                }],
+                edges: Vec::new(),
             }],
-            edges: Vec::new(),
-        }],
-        std::collections::BTreeMap::new(),
-    );
+            std::collections::BTreeMap::new(),
+        );
 
     let archived = host
         .store_coordination(
@@ -11887,8 +11888,7 @@ fn ui_concept_entrypoints_view_lists_curated_concepts_without_root_fallback() {
         ConceptPacket {
             handle: "concept://zeta_runtime".to_string(),
             canonical_name: "Zeta runtime".to_string(),
-            summary: "Runtime concept used to verify direct concept inventory listing."
-                .to_string(),
+            summary: "Runtime concept used to verify direct concept inventory listing.".to_string(),
             aliases: vec!["zeta".to_string()],
             confidence: 0.95,
             core_members: Vec::new(),
@@ -11911,8 +11911,7 @@ fn ui_concept_entrypoints_view_lists_curated_concepts_without_root_fallback() {
         ConceptPacket {
             handle: "concept://alpha_identity".to_string(),
             canonical_name: "Alpha identity".to_string(),
-            summary: "Identity concept used to verify stable alphabetical ordering."
-                .to_string(),
+            summary: "Identity concept used to verify stable alphabetical ordering.".to_string(),
             aliases: vec!["alpha".to_string()],
             confidence: 0.95,
             core_members: Vec::new(),

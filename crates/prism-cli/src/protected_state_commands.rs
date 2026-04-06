@@ -9,11 +9,11 @@ use prism_core::{
     quarantine_protected_state_stream, reconcile_protected_state_stream,
     regenerate_repo_snapshot_derived_artifacts, repair_legacy_path_identity_state,
     repair_protected_state_stream_to_last_valid, repair_repo_published_plan_artifacts,
-    restore_legacy_repo_published_knowledge, LegacyRepoKnowledgeRestoreReport,
-    verify_protected_state, LegacyPathIdentityRepairReport, ProtectedStateQuarantineReport,
-    ProtectedStateReconcileReport, ProtectedStateRepairReport, ProtectedStateStreamReport,
-    ProtectedStateTrustExport, ProtectedStateTrustImportReport, ProtectedStateVerifyReport,
-    PublishedPlanArtifactRepairReport,
+    restore_legacy_repo_published_knowledge, verify_protected_state,
+    LegacyPathIdentityRepairReport, LegacyRepoKnowledgeRestoreReport,
+    ProtectedStateQuarantineReport, ProtectedStateReconcileReport, ProtectedStateRepairReport,
+    ProtectedStateStreamReport, ProtectedStateTrustExport, ProtectedStateTrustImportReport,
+    ProtectedStateVerifyReport, PublishedPlanArtifactRepairReport,
 };
 
 use crate::cli::{ProtectedStateCommand, ProtectedStateTrustCommand};

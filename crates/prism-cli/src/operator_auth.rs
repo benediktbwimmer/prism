@@ -82,7 +82,8 @@ pub(crate) fn require_active_human_session(root: &Path) -> Result<ActiveHumanSes
 
 impl ActiveHumanSessionContext {
     pub(crate) fn persist(&mut self) -> Result<()> {
-        self.store.save_principal_registry_snapshot(&self.snapshot)?;
+        self.store
+            .save_principal_registry_snapshot(&self.snapshot)?;
         self.sessions.save(&self.human_session_path)
     }
 }

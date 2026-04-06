@@ -51,10 +51,7 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                 subject,
                 assurance,
             )?;
-            let issued = bootstrap_owner_principal_in_registry(
-                &mut snapshot,
-                attested_input,
-            )?;
+            let issued = bootstrap_owner_principal_in_registry(&mut snapshot, attested_input)?;
             store.save_principal_registry_snapshot(&snapshot)?;
             let passphrase = prompt_new_passphrase()?;
             let mut credentials = CredentialsFile::load(&credentials_path)?;
@@ -89,10 +86,7 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                 subject,
                 assurance,
             )?;
-            let issued = recover_owner_principal_in_registry(
-                &mut snapshot,
-                attested_input,
-            )?;
+            let issued = recover_owner_principal_in_registry(&mut snapshot, attested_input)?;
             store.save_principal_registry_snapshot(&snapshot)?;
             let passphrase = prompt_new_passphrase()?;
             let mut credentials = CredentialsFile::load(&credentials_path)?;
@@ -122,7 +116,9 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                 .clone();
             let passphrase = prompt_existing_passphrase()?;
             let principal_token = selected.decrypt_principal_token(&passphrase)?;
-            let mut snapshot = store.load_principal_registry_snapshot()?.unwrap_or_default();
+            let mut snapshot = store
+                .load_principal_registry_snapshot()?
+                .unwrap_or_default();
             if snapshot.principals.is_empty() || snapshot.credentials.is_empty() {
                 snapshot = ensure_local_principal_registry_snapshot_with_unlocked_profile(
                     root,

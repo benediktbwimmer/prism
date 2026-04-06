@@ -4,9 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Result};
 use clap::ValueEnum;
-use prism_core::{
-    hydrate_workspace_session, list_registered_worktrees, PrismPaths, WorktreeMode,
-};
+use prism_core::{hydrate_workspace_session, list_registered_worktrees, PrismPaths, WorktreeMode};
 use prism_ir::SessionId;
 
 use crate::cli::WorktreeCommand;

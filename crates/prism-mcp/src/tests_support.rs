@@ -21,8 +21,8 @@ use serde_json::{json, Value};
 use super::*;
 use prism_core::{
     default_workspace_shared_runtime, index_workspace_session,
-    index_workspace_session_with_options, BootstrapOwnerInput, PrismPaths, WorktreeMode,
-    WorkspaceSessionOptions,
+    index_workspace_session_with_options, BootstrapOwnerInput, PrismPaths, WorkspaceSessionOptions,
+    WorktreeMode,
 };
 use prism_ir::new_sortable_token;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
