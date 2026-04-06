@@ -1,35 +1,40 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775448521,
+  "publishedAt": 1775478206,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
+    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "coord-task:01kng427002152wgffzt627rta",
+    "workId": "work:ship-deterministic-v1-to-v2-migration-path:01knh793qggqjva8647mzz7q7f",
     "kind": "coordination",
-    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
-    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics.",
-    "coordinationTaskId": "coord-task:01kng427002152wgffzt627rta",
-    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
-    "planTitle": "Implement shared coordination v1 architecture hardening"
+    "title": "Ship deterministic v1-to-v2 migration path",
+    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite.",
+    "coordinationTaskId": "coord-task:01kng209dwy330am5tc7qr7z74",
+    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
+    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
   },
   "publishSummary": {
-    "title": "Introduce explicit schema_version envelopes and compatibility validation for every authoritative shared-coordination payload, including the summary manifest, runtime descriptors, and the future task and claim shard payload shapes.",
-    "summary": "Implement explicit schema_version/kind envelopes for the summary manifest, runtime descriptors, and the authoritative coordination object payloads, then gate readers with explicit upgrade-required diagnostics."
+    "title": "Ship deterministic v1-to-v2 migration path",
+    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite."
   },
   "files": {
     "coordination/tasks/coord-task-01kn8881wy1ezws32kge141gk7-4f51e8eab949f1e1.json": {
       "path": "coordination/tasks/coord-task-01kn8881wy1ezws32kge141gk7-4f51e8eab949f1e1.json",
       "sha256": "sha256:b2e6d9bcc34fa93cce07b3b0aec705df4364e4dfc5d7c43d351f3ab0f8924189"
     },
+    "coordination/tasks/coord-task-01knhbywnkc64s60bt2g35w7ea-8b6d84de32c19d07.json": {
+      "path": "coordination/tasks/coord-task-01knhbywnkc64s60bt2g35w7ea-8b6d84de32c19d07.json",
+      "sha256": "sha256:6dd07f89bf60844b8f1c3e1dfd04d476904cfa35a2617040e1ae9a0d4d3da604"
+    },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:bafd0a4ac47ed5e747b9072d9828203bba482631b8bd29caa462c33d3d51a1c5"
+      "sha256": "sha256:5b85ed5f27d8bdc6ad1c82a11b28cafd014a7819dfe65848785c14fbaf9ed01f"
     }
   },
+  "previousManifestDigest": "sha256:9fcc91d904905c4690ba137883c33f553c301f731196655e7fd8b2d2eec7749c",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -39,6 +44,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:cjtCrW/Gfqb8RC9kWZCSEF2nD7fOQHUtzR0wJnupKW04rPZ3CNCMb+63V7yRbdnESkBU1fSoJ+7kxOwcF5tbBA=="
+    "value": "base64:LipfOGQmUbblWsQtyMzO7zsQw8qc5S2E7ifXKXpVtb1IRWk/7bf3/Y2A5iNIszmmlQdR2lQGf5fRYkMAn72DBg=="
   }
 }

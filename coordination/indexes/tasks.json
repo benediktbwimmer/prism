@@ -4,5 +4,11 @@
     "title": "Tighten freshness for newly added files and docs in anchors and compact reads",
     "status": "Completed",
     "path": "tasks/coord-task-01kn8881wy1ezws32kge141gk7-4f51e8eab949f1e1.json"
+  },
+  {
+    "id": "coord-task:01knhbywnkc64s60bt2g35w7ea",
+    "title": "Rewrite docs, MCP self-description, and operator guidance around the federated runtime model",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbywnkc64s60bt2g35w7ea-8b6d84de32c19d07.json"
   }
 ]
