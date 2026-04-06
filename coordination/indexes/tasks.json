@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn2edqg7qjtwt4xmtgkwyxyz",
+    "title": "Parallelize file-local preparation for bursty batched edits",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqg7qjtwt4xmtgkwyxyz-26fe94d09f6e63ae.json"
+  },
+  {
+    "id": "coord-task:01kndb7x9n913bb6gwz9dhe8h6",
+    "title": "Remove avoidable persistence hot spots including quadratic appended-event scanning and redundant loaded-revision sync work",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb7x9n913bb6gwz9dhe8h6-33139f94e380f5f6.json"
+  }
+]
