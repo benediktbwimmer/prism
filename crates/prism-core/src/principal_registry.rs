@@ -1,9 +1,9 @@
 use anyhow::{anyhow, bail, Result};
 use prism_ir::{
-    new_prefixed_id, new_slugged_id, CredentialCapability, CredentialId, CredentialRecord,
-    CredentialStatus, HumanAttestationAssurance, HumanAttestationOperation, HumanAttestationRecord,
-    HumanPrincipalProfile, PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile,
-    PrincipalRegistrySnapshot, PrincipalStatus,
+    new_prefixed_id, new_slugged_id, slugify_id_fragment, CredentialCapability, CredentialId,
+    CredentialRecord, CredentialStatus, HumanAttestationAssurance, HumanAttestationOperation,
+    HumanAttestationRecord, HumanPrincipalProfile, PrincipalAuthorityId, PrincipalId,
+    PrincipalKind, PrincipalProfile, PrincipalRegistrySnapshot, PrincipalStatus,
 };
 use rand::rngs::OsRng;
 use rand::RngCore;
@@ -286,6 +286,7 @@ fn issue_principal_credential(
     ensure_supported_durable_principal_kind(request.kind)?;
     let authority_id = request
         .authority_id
+        .clone()
         .unwrap_or_else(|| PrincipalAuthorityId::new(DEFAULT_PRINCIPAL_AUTHORITY_ID));
     if request.name.trim().is_empty() {
         bail!("principal name cannot be empty");
@@ -306,9 +307,19 @@ fn issue_principal_credential(
     }
 
     let now = current_timestamp();
+    let principal_id = principal_id_for_request(&request, &authority_id)?;
+    if snapshot.principals.iter().any(|principal| {
+        principal.authority_id == authority_id && principal.principal_id == principal_id
+    }) {
+        bail!(
+            "principal `{}` already exists in authority `{}`",
+            principal_id.0,
+            authority_id.0
+        );
+    }
     let principal = PrincipalProfile {
         authority_id: authority_id.clone(),
-        principal_id: PrincipalId::new(new_slugged_id("principal", &request.name)),
+        principal_id,
         kind: request.kind,
         name: request.name,
         role: request.role,
@@ -337,6 +348,40 @@ fn issue_principal_credential(
         credential,
         principal_token,
     })
+}
+
+fn principal_id_for_request(
+    request: &MintPrincipalRequest,
+    authority_id: &PrincipalAuthorityId,
+) -> Result<PrincipalId> {
+    if request.kind == PrincipalKind::Human {
+        let profile: HumanPrincipalProfile = serde_json::from_value(request.profile.clone())?;
+        if let Some(attestation) = profile.attestation {
+            return Ok(deterministic_human_principal_id(
+                authority_id,
+                &attestation.subject,
+            ));
+        }
+    }
+    Ok(PrincipalId::new(new_slugged_id("principal", &request.name)))
+}
+
+fn deterministic_human_principal_id(
+    authority_id: &PrincipalAuthorityId,
+    subject: &str,
+) -> PrincipalId {
+    let mut hasher = Sha256::new();
+    hasher.update(b"prism-human-principal-v1");
+    hasher.update(authority_id.0.as_bytes());
+    hasher.update([0]);
+    hasher.update(subject.as_bytes());
+    let digest = hex_encode(&hasher.finalize());
+    let authority_fragment = slugify_id_fragment(&authority_id.0);
+    PrincipalId::new(format!(
+        "principal:{}:{}",
+        authority_fragment,
+        &digest[..20]
+    ))
 }
 
 fn ensure_supported_durable_principal_kind(kind: PrincipalKind) -> Result<()> {

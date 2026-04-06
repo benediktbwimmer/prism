@@ -91,6 +91,8 @@ Properties:
 
 The preferred high-assurance default bootstrap source is GitHub-backed attestation.
 The canonical human-readable name should come from the GitHub identity when that path is used.
+For GitHub-backed attestation, the stable principal subject should be the numeric GitHub user id, not the mutable login.
+Durable human principal id should be derived from the authority namespace plus that stable verified subject, so the same GitHub account resolves to the same PRISM principal id on every machine.
 SSH-signature bootstrap may remain available as a lower-assurance fallback.
 
 ### 4.3 Local human credential
@@ -231,6 +233,8 @@ Local agents are execution lanes, not principals.
 Brand-new human principals must be created only via verified external bootstrap attestation.
 
 PRISM must not use "empty local registry" as permission to bootstrap.
+
+For GitHub bootstrap, verification should use a real GitHub authentication ceremony rather than user-supplied issuer or subject strings.
 
 ### 6.2 Recovery rule
 
@@ -576,7 +580,7 @@ Shared runtime holds portable identity metadata and verification state.
 
 Representative commands should include:
 
-- `prism auth bootstrap`
+- `prism auth bootstrap --authority github --issuer github-device-flow --assurance high`
 - `prism auth recover`
 - `prism auth login`
 - `prism auth whoami`
@@ -598,6 +602,12 @@ Registration UX should be:
 - a non-interactive command path when args are supplied
 - an interactive guided path when args are missing
 - the same first-use registration prompt shape in future UI surfaces
+
+Current implementation note:
+
+- `github-device-flow` requires a GitHub OAuth app client id in `PRISM_GITHUB_OAUTH_CLIENT_ID`
+- the verified GitHub login becomes the local human-readable principal name
+- the verified numeric GitHub user id becomes the attestation subject used for stable principal-id derivation
 
 ## 16. Migration
 

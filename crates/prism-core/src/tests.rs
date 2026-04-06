@@ -44,7 +44,8 @@ use prism_store::{Graph, MemoryStore, ProjectionMaterializationMetadata, SqliteS
 use serde_json::json;
 
 use super::{
-    hydrate_workspace_session, hydrate_workspace_session_with_options, index_workspace,
+    bootstrap_owner_principal_in_registry, hydrate_workspace_session,
+    hydrate_workspace_session_with_options, index_workspace,
     index_workspace_session, index_workspace_session_with_curator,
     index_workspace_session_with_options, inspect_legacy_path_identity_state,
     inspect_repo_published_plan_artifacts, list_registered_worktrees,
@@ -4656,9 +4657,51 @@ fn bootstrap_owner_with_attestation_records_shared_human_profile_metadata() {
     assert_eq!(attestation.subject, "bene");
     assert_eq!(attestation.assurance, HumanAttestationAssurance::High);
     assert_eq!(attestation.operation, HumanAttestationOperation::Bootstrap);
+    assert_eq!(issued.principal.authority_id, PrincipalAuthorityId::new("github"));
 
     let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn attested_human_bootstrap_uses_deterministic_principal_id_per_authority_subject() {
+    let snapshot_a = &mut PrincipalRegistrySnapshot::default();
+    let first = bootstrap_owner_principal_in_registry(
+        snapshot_a,
+        AttestedHumanPrincipalInput {
+            authority_id: Some(PrincipalAuthorityId::new("github")),
+            name: "bene".to_string(),
+            role: Some("repo_owner".to_string()),
+            attestation: HumanAttestationRecord {
+                issuer: "github-device-flow".to_string(),
+                subject: "123456".to_string(),
+                assurance: HumanAttestationAssurance::High,
+                operation: HumanAttestationOperation::Bootstrap,
+                verified_at: 123,
+            },
+        },
+    )
+    .unwrap();
+
+    let snapshot_b = &mut PrincipalRegistrySnapshot::default();
+    let second = bootstrap_owner_principal_in_registry(
+        snapshot_b,
+        AttestedHumanPrincipalInput {
+            authority_id: Some(PrincipalAuthorityId::new("github")),
+            name: "bene-renamed".to_string(),
+            role: Some("repo_owner".to_string()),
+            attestation: HumanAttestationRecord {
+                issuer: "github-oidc".to_string(),
+                subject: "123456".to_string(),
+                assurance: HumanAttestationAssurance::High,
+                operation: HumanAttestationOperation::Bootstrap,
+                verified_at: 456,
+            },
+        },
+    )
+    .unwrap();
+
+    assert_eq!(first.principal.principal_id, second.principal.principal_id);
 }
 
 #[test]

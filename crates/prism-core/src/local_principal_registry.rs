@@ -123,14 +123,16 @@ fn rebuild_registry_snapshot_from_local_credentials_with_unlocked_profile(
 fn build_principal_profile(
     profile: &CredentialProfile,
     active_human_session: Option<&HumanSessionRecord>,
-    _unlocked_profile: Option<(&CredentialProfile, &str)>,
+    unlocked_profile: Option<(&CredentialProfile, &str)>,
     now: u64,
 ) -> Option<PrincipalProfile> {
     if let Some(metadata) = profile.principal_metadata.as_ref() {
         return Some(metadata_to_principal_profile(profile, metadata));
     }
 
-    if matches_active_human_session(profile, active_human_session) {
+    if matches_active_human_session(profile, active_human_session)
+        || matches_unlocked_profile(profile, unlocked_profile.map(|(candidate, _)| candidate))
+    {
         return Some(PrincipalProfile {
             authority_id: PrincipalAuthorityId::new(profile.authority_id.clone()),
             principal_id: PrincipalId::new(profile.principal_id.clone()),
@@ -151,7 +153,7 @@ fn build_principal_profile(
 fn build_credential_record(
     profile: &CredentialProfile,
     active_human_session: Option<&HumanSessionRecord>,
-    _unlocked_profile: Option<(&CredentialProfile, &str)>,
+    unlocked_profile: Option<(&CredentialProfile, &str)>,
     now: u64,
 ) -> Option<CredentialRecord> {
     if let Some(metadata) = profile.credential_metadata.as_ref() {
@@ -165,6 +167,12 @@ fn build_credential_record(
             active_human_session
                 .filter(|session| matches_active_human_session(profile, Some(session)))
                 .map(|session| credential_token_verifier(&session.principal_token))
+        })
+        .or_else(|| {
+            unlocked_profile.and_then(|(unlocked, principal_token)| {
+                matches_unlocked_profile(profile, Some(unlocked))
+                    .then(|| credential_token_verifier(principal_token))
+            })
         })?;
 
     Some(CredentialRecord {
@@ -190,6 +198,18 @@ fn matches_active_human_session(
     session.profile == profile.profile
         && session.principal_id == profile.principal_id
         && session.credential_id == profile.credential_id
+}
+
+fn matches_unlocked_profile(
+    profile: &CredentialProfile,
+    unlocked_profile: Option<&CredentialProfile>,
+) -> bool {
+    let Some(unlocked) = unlocked_profile else {
+        return false;
+    };
+    unlocked.profile == profile.profile
+        && unlocked.principal_id == profile.principal_id
+        && unlocked.credential_id == profile.credential_id
 }
 
 fn metadata_to_principal_profile(

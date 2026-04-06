@@ -4,6 +4,7 @@ mod commands;
 mod daemon_log;
 mod display;
 mod git_support;
+mod github_attestation;
 mod mcp;
 mod operator_auth;
 mod parsing;

@@ -2002,6 +2002,7 @@ dependencies = [
  "prism-memory",
  "prism-query",
  "prism-store",
+ "reqwest 0.12.28",
  "rpassword",
  "serde",
  "serde_json",

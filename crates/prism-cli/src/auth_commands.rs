@@ -17,6 +17,9 @@ use prism_store::Store;
 use serde_json::Value;
 
 use crate::cli::{AuthAssuranceArg, AuthCommand, PrincipalCommand};
+use crate::github_attestation::{
+    issuer_uses_github_device_flow, resolve_github_attested_human_input,
+};
 use crate::operator_auth::{load_auth_registry_context, load_principal_registry_snapshot};
 use crate::parsing::{parse_credential_capability, parse_principal_kind};
 
@@ -39,20 +42,18 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             let mut snapshot = store
                 .load_principal_registry_snapshot()?
                 .unwrap_or_default();
+            let attested_input = resolve_attested_human_input(
+                HumanAttestationOperation::Bootstrap,
+                name,
+                authority,
+                role,
+                issuer,
+                subject,
+                assurance,
+            )?;
             let issued = bootstrap_owner_principal_in_registry(
                 &mut snapshot,
-                AttestedHumanPrincipalInput {
-                    authority_id: Some(PrincipalAuthorityId::new(authority)),
-                    name,
-                    role,
-                    attestation: HumanAttestationRecord {
-                        issuer,
-                        subject,
-                        assurance: map_assurance_arg(assurance),
-                        operation: HumanAttestationOperation::Bootstrap,
-                        verified_at: current_unix_timestamp(),
-                    },
-                },
+                attested_input,
             )?;
             store.save_principal_registry_snapshot(&snapshot)?;
             let passphrase = prompt_new_passphrase()?;
@@ -79,20 +80,18 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             let mut snapshot = store
                 .load_principal_registry_snapshot()?
                 .unwrap_or_default();
+            let attested_input = resolve_attested_human_input(
+                HumanAttestationOperation::Recovery,
+                name,
+                authority,
+                role,
+                issuer,
+                subject,
+                assurance,
+            )?;
             let issued = recover_owner_principal_in_registry(
                 &mut snapshot,
-                AttestedHumanPrincipalInput {
-                    authority_id: Some(PrincipalAuthorityId::new(authority)),
-                    name,
-                    role,
-                    attestation: HumanAttestationRecord {
-                        issuer,
-                        subject,
-                        assurance: map_assurance_arg(assurance),
-                        operation: HumanAttestationOperation::Recovery,
-                        verified_at: current_unix_timestamp(),
-                    },
-                },
+                attested_input,
             )?;
             store.save_principal_registry_snapshot(&snapshot)?;
             let passphrase = prompt_new_passphrase()?;
@@ -227,6 +226,49 @@ fn map_assurance_arg(value: AuthAssuranceArg) -> HumanAttestationAssurance {
         AuthAssuranceArg::Moderate => HumanAttestationAssurance::Moderate,
         AuthAssuranceArg::Legacy => HumanAttestationAssurance::Legacy,
     }
+}
+
+fn resolve_attested_human_input(
+    operation: HumanAttestationOperation,
+    name: Option<String>,
+    authority: String,
+    role: Option<String>,
+    issuer: String,
+    subject: Option<String>,
+    assurance: AuthAssuranceArg,
+) -> Result<AttestedHumanPrincipalInput> {
+    if issuer_uses_github_device_flow(&issuer) {
+        return resolve_github_attested_human_input(
+            operation,
+            &authority,
+            name.as_deref(),
+            role,
+            subject.as_deref(),
+            assurance,
+        );
+    }
+
+    let name = name
+        .map(|candidate| candidate.trim().to_string())
+        .filter(|candidate| !candidate.is_empty())
+        .ok_or_else(|| anyhow!("`--name` is required for non-GitHub bootstrap flows"))?;
+    let subject = subject
+        .map(|candidate| candidate.trim().to_string())
+        .filter(|candidate| !candidate.is_empty())
+        .ok_or_else(|| anyhow!("`--subject` is required for non-GitHub bootstrap flows"))?;
+
+    Ok(AttestedHumanPrincipalInput {
+        authority_id: Some(PrincipalAuthorityId::new(authority)),
+        name,
+        role,
+        attestation: HumanAttestationRecord {
+            issuer,
+            subject,
+            assurance: map_assurance_arg(assurance),
+            operation,
+            verified_at: current_unix_timestamp(),
+        },
+    })
 }
 
 fn current_unix_timestamp() -> u64 {

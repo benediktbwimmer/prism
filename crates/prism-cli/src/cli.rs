@@ -110,7 +110,7 @@ pub enum Command {
 pub enum AuthCommand {
     Bootstrap {
         #[arg(long)]
-        name: String,
+        name: Option<String>,
         #[arg(long, default_value = "local-daemon")]
         authority: String,
         #[arg(long)]
@@ -118,13 +118,13 @@ pub enum AuthCommand {
         #[arg(long)]
         issuer: String,
         #[arg(long)]
-        subject: String,
+        subject: Option<String>,
         #[arg(long, value_enum)]
         assurance: AuthAssuranceArg,
     },
     Recover {
         #[arg(long)]
-        name: String,
+        name: Option<String>,
         #[arg(long, default_value = "local-daemon")]
         authority: String,
         #[arg(long)]
@@ -132,7 +132,7 @@ pub enum AuthCommand {
         #[arg(long)]
         issuer: String,
         #[arg(long)]
-        subject: String,
+        subject: Option<String>,
         #[arg(long, value_enum)]
         assurance: AuthAssuranceArg,
     },
@@ -654,12 +654,8 @@ mod tests {
             "prism",
             "auth",
             "bootstrap",
-            "--name",
-            "Bene",
             "--issuer",
             "github-device-flow",
-            "--subject",
-            "bene",
             "--assurance",
             "high",
         ]);
@@ -676,11 +672,11 @@ mod tests {
                         assurance,
                     },
             } => {
-                assert_eq!(name, "Bene");
+                assert!(name.is_none());
                 assert_eq!(authority, "local-daemon");
                 assert!(role.is_none());
                 assert_eq!(issuer, "github-device-flow");
-                assert_eq!(subject, "bene");
+                assert!(subject.is_none());
                 assert_eq!(assurance, AuthAssuranceArg::High);
             }
             _ => panic!("unexpected command"),
@@ -707,14 +703,16 @@ mod tests {
             Command::Auth {
                 command:
                     AuthCommand::Recover {
+                        name,
                         issuer,
                         subject,
                         assurance,
                         ..
                     },
             } => {
+                assert_eq!(name.as_deref(), Some("Bene"));
                 assert_eq!(issuer, "ssh-signature");
-                assert_eq!(subject, "bene@laptop");
+                assert_eq!(subject.as_deref(), Some("bene@laptop"));
                 assert_eq!(assurance, AuthAssuranceArg::Moderate);
             }
             _ => panic!("unexpected command"),
