@@ -1,24 +1,23 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775478206,
+  "publishedAt": 1775481442,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
+    "principalId": "worktree:01knhcah0q0qny1c4fwcjecvkq",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01knhcah0q0qny1c4fwcjecvkq"
   },
   "workContext": {
-    "workId": "work:ship-deterministic-v1-to-v2-migration-path:01knh793qggqjva8647mzz7q7f",
-    "kind": "coordination",
-    "title": "Ship deterministic v1-to-v2 migration path",
-    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite.",
-    "coordinationTaskId": "coord-task:01kng209dwy330am5tc7qr7z74",
-    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
-    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
+    "workId": "work:publish-runtime-layer-composability-plan:01knhcxvjaas0a0jcfmasab53x",
+    "kind": "ad_hoc",
+    "title": "Publish runtime layer composability plan",
+    "summary": "Publish a coordination plan bootstrap for composable and independently shippable PRISM runtime layers.",
+    "planId": "plan:01knhernewtv9r1ac98d8jyrjp",
+    "planTitle": "Codex verification: downstream validator bootstrap v2"
   },
   "publishSummary": {
-    "title": "Ship deterministic v1-to-v2 migration path",
-    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite."
+    "title": "Publish runtime layer composability plan",
+    "summary": "Publish a coordination plan bootstrap for composable and independently shippable PRISM runtime layers."
   },
   "files": {
     "coordination/tasks/coord-task-01kn3g2az4kq3g8nahzdnxeaw7-919599b73dae557d.json": {
@@ -29,12 +28,16 @@
       "path": "coordination/tasks/coord-task-01knhbywnrjb7yhtxxsv86c20x-968670629cd0b552.json",
       "sha256": "sha256:46174ce45591e40bd2d31c4304952eadb4da6a4a83c5ea3eefc6e8c9fdc49294"
     },
+    "coordination/tasks/coord-task-01knhf1ma09nvbzedztmyh64c0-66e55f377915a102.json": {
+      "path": "coordination/tasks/coord-task-01knhf1ma09nvbzedztmyh64c0-66e55f377915a102.json",
+      "sha256": "sha256:b6d2c28c0e6212e9dc22ee14d8040f1af01bd0454599b6957f4a798e2d34a8e3"
+    },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:ee897cd14302d073539d4990958f3733a65a5245bdc544fb570533993c6fe361"
+      "sha256": "sha256:7c8bde63bfb2a84fe65900d117e4c9dbb1399903e9d899d718026b4a8c005d63"
     }
   },
-  "previousManifestDigest": "sha256:09cdfdcd0070de0e3983afa15501e3d4532c8779628fce39498093bf5742fc1f",
+  "previousManifestDigest": "sha256:8597c805dae1c8c75f61fa9f2b00994de728685d36275bf25d54b2382a8dd803",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -44,6 +47,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:MGh+uIYyf/lafrSKuo/bJMPKE9w8vlzRGwC87w2SPYT98wgE4vJ0AYWNA1m8RI+km5hfh27yLZGWpQ4ThABmBw=="
+    "value": "base64:rmJDYw7xg5BwYvLzAAg1akuT8yjAS8BTXT9SM5WEBxC9sbIjWCyRyvwRB996UGX7250PobalRHnWDBjJqRnnAQ=="
   }
 }
