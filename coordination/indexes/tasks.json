@@ -4,5 +4,11 @@
     "title": "Make the bridge self-heal dead upstream daemons instead of retrying a stale URI indefinitely",
     "status": "Completed",
     "path": "tasks/coord-task-01kn80sf4w82cwjjy9xtsdatq8-b34702c8419c6483.json"
+  },
+  {
+    "id": "coord-task:01knhbywmxe1phtdtztpqepsnx",
+    "title": "Rebase federated peer reads and runtime-targeted query routing on runtime descriptors and runtime_id",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbywmxe1phtdtztpqepsnx-9df46b3657e6b939.json"
   }
 ]
