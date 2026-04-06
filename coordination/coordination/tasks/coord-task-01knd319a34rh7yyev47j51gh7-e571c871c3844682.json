@@ -1,0 +1,75 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1398
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knd3101gyc685tfd37gf9agb",
+      "coord-task:01knd316hmq70qkf7be1qwcnrp"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knd319a34rh7yyev47j51gh7",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775346369,
+    "lease_holder": {
+      "agent_id": "codex-runtime-storage-boundary-redesign-2026-04-01",
+      "principal": {
+        "authority_id": "local-daemon",
+        "kind": "human",
+        "name": "Codex",
+        "principal_id": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds"
+      },
+      "session_id": "session:01knd68fgsxwns79n8ahjdca21",
+      "worktree_id": null
+    },
+    "lease_refreshed_at": 1775339169,
+    "lease_stale_at": 1775340969,
+    "lease_started_at": 1775334629,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knd2zj2hgp4qs7qzfc7rxdgg",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": null,
+    "tags": [],
+    "title": "Implement the strategic plans portfolio and dependency graph read models with filters and sorting",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
