@@ -8,7 +8,7 @@
   {
     "id": "coord-task:01kng42700ggvq0md11kyjkfqs",
     "title": "Rework lease validity so task and claim records carry durable lease-boundary facts while runtime liveness comes from runtime refs, making lease freshness a join instead of a global summary rewrite.",
-    "status": "InProgress",
+    "status": "Completed",
     "path": "tasks/coord-task-01kng42700ggvq0md11kyjkfqs-b160fe670942fcdf.json"
   }
 ]
