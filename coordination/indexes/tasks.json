@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn02nzedf9pa1689y558kzk2",
+    "title": "Introduce a cold evidence model and bounded projection materialization pipeline",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn02nzedf9pa1689y558kzk2-779e57a252e44d09.json"
+  },
+  {
+    "id": "coord-task:01kn7wnt1me2w8bsq5pkz31tvt",
+    "title": "Coalesce concurrent compact-read refresh work across sessions",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7wnt1me2w8bsq5pkz31tvt-eb539fcf8b40d6a3.json"
+  },
+  {
+    "id": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
+    "title": "Freeze the final section-by-section shared-ref gap matrix and acceptance contract",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knav6qm2h72t0pc3xqmv92zt-f23b1727f3c0eae6.json"
+  }
+]
