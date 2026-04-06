@@ -1,22 +1,21 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775479061,
+  "publishedAt": 1775481148,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
+    "principalId": "worktree:01knhcah0q0qny1c4fwcjecvkq",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01knhcah0q0qny1c4fwcjecvkq"
   },
   "workContext": {
-    "workId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
-    "kind": "coordination",
-    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
-    "coordinationTaskId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
-    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
-    "planTitle": "Implement shared coordination v1 architecture hardening"
+    "workId": "work:publish-runtime-layer-composability-plan:01knhcxvjaas0a0jcfmasab53x",
+    "kind": "ad_hoc",
+    "title": "Publish runtime layer composability plan",
+    "summary": "Publish a coordination plan bootstrap for composable and independently shippable PRISM runtime layers."
   },
   "publishSummary": {
-    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age."
+    "title": "Publish runtime layer composability plan",
+    "summary": "Publish a coordination plan bootstrap for composable and independently shippable PRISM runtime layers."
   },
   "files": {
     "coordination/tasks/coord-task-01kn2nj1wbag9jvvajz4ma081y-0e810e179f125947.json": {
@@ -35,16 +34,20 @@
       "path": "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json",
       "sha256": "sha256:909ea53fb9fadde4ed6bfcd59edd58b41673c33c87b20ff8b2d22d9b44d680cf"
     },
+    "coordination/tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json": {
+      "path": "coordination/tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json",
+      "sha256": "sha256:5bbcb65ea57d0a1e105166c2698160a2c0aee34ab85fb9bfe04492be60ec151d"
+    },
     "coordination/tasks/coord-task-10-67c149fb5a3697c7.json": {
       "path": "coordination/tasks/coord-task-10-67c149fb5a3697c7.json",
       "sha256": "sha256:9069a26fac2fbd3277055a8dd6eee8ebb5d3acfb7eaab700a5ebcc8d82050003"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:550d8ea0124b78197affd2f6b61d2c176850855c747dc70c597130da2922a8b3"
+      "sha256": "sha256:3d52ad5d5ad490dc0ebd4e408e05739bd49cadaa3ab73af3e24293e0b005b9a4"
     }
   },
-  "previousManifestDigest": "sha256:683bdc960b9c3c6b8db3c5d7c74d4da13715af1d1f6e9ef38faeefbdbedbecad",
+  "previousManifestDigest": "sha256:a6045b9271f902cf77326ef12cd9d82e13d48b4ee5f4cb1fb230ae978f36be06",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -54,6 +57,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:i7VIh+HgkXC9GT0d29Sf+ayBKtp2gsMOQXPm0qXtb5qL+O8srjwlPHezkIiTfKdCcBIwZiqscDxbTjVibsV6Aw=="
+    "value": "base64:CMLlh07Bs3wjAIEYbeXa2EgMJPVkSXQhJsAoxttDxEvgirHh3fVUZVNRGZhiOpxwGRFb1D4INMXfZNapmwfxAw=="
   }
 }

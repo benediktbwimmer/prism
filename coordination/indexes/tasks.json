@@ -24,6 +24,12 @@
     "path": "tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json"
   },
   {
+    "id": "coord-task:01knhd3xkt02kqv87gy1r03mt9",
+    "title": "Document packaging boundaries, rollout order, and release policy for each layer",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json"
+  },
+  {
     "id": "coord-task:10",
     "title": "Make mutations patch live runtime first and isolate admin-only rebuild flows",
     "status": "Completed",
