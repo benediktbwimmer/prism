@@ -8287,6 +8287,7 @@ fn load_hydrated_coordination_snapshot_v2_migrates_standalone_legacy_plan_nodes(
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
+            authored_nodes: Vec::new(),
             authored_edges: Vec::new(),
             root_tasks: vec![prism_ir::CoordinationTaskId::new("coord-task:existing")],
         }],

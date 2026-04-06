@@ -131,6 +131,7 @@ fn coordination_snapshot_preserves_task_lease_fields() {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
+                authored_nodes: Vec::new(),
                 authored_edges: Vec::new(),
                 root_tasks: vec![task_id.clone()],
             }],
@@ -237,6 +238,7 @@ fn replace_coordination_snapshot_and_plan_graphs_reconciles_task_backed_node_sta
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
+                authored_nodes: Vec::new(),
                 authored_edges: Vec::new(),
                 root_tasks: vec![task_id.clone()],
             }],
@@ -360,6 +362,7 @@ fn coordination_snapshot_v2_projects_legacy_snapshot_into_canonical_records() {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::json!({"legacy": true}),
+                authored_nodes: Vec::new(),
                 authored_edges: Vec::new(),
                 root_tasks: vec![task_id.clone()],
             }],
@@ -446,6 +449,7 @@ fn plan_activity_falls_back_to_ids_and_embedded_timestamps_when_events_are_compa
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
+                authored_nodes: Vec::new(),
                 authored_edges: Vec::new(),
                 root_tasks: vec![task_id.clone()],
             }],
@@ -826,6 +830,111 @@ fn bootstrap_native_plan_rejects_unknown_client_ids_without_partial_state() {
         .to_string()
         .contains("unknown client id `missing` in `toClientId`"));
     assert_eq!(prism.coordination_snapshot(), before);
+}
+
+#[test]
+fn bootstrap_native_plan_persists_native_nodes_and_downstream_validation_edges() {
+    let prism = Prism::new(Graph::new());
+
+    let bootstrap = prism
+        .bootstrap_native_plan(
+            coordination_event_meta("coord:plan:bootstrap:native", 1),
+            NativePlanBootstrapInput {
+                title: "Bootstrap native nodes".into(),
+                goal: "Persist native nodes and mixed dependency edges".into(),
+                status: Some(PlanStatus::Active),
+                policy: None,
+                scheduling: None,
+                tasks: vec![NativePlanBootstrapTaskInput {
+                    client_id: "t0".into(),
+                    title: "Implement the change".into(),
+                    status: None,
+                    assignee: None,
+                    session: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision::default(),
+                }],
+                nodes: vec![super::NativePlanBootstrapNodeInput {
+                    client_id: "n0".into(),
+                    kind: PlanNodeKind::Validate,
+                    title: "Validate the change".into(),
+                    summary: None,
+                    status: None,
+                    assignee: None,
+                    is_abstract: false,
+                    bindings: prism_ir::PlanBinding::default(),
+                    depends_on: vec!["t0".into()],
+                    acceptance: Vec::new(),
+                    validation_refs: vec![prism_ir::ValidationRef {
+                        id: "test:bootstrap-native".into(),
+                    }],
+                    base_revision: WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                }],
+                edges: vec![NativePlanBootstrapEdgeInput {
+                    from_client_id: "t0".into(),
+                    to_client_id: "n0".into(),
+                    kind: PlanEdgeKind::Validates,
+                }],
+            },
+        )
+        .expect("bootstrap should accept a validator that depends on the work node");
+
+    let plan_id = bootstrap.plan_id;
+    let task_node = PlanNodeId::new(
+        bootstrap
+            .task_ids_by_client_id
+            .get("t0")
+            .expect("task id")
+            .0
+            .clone(),
+    );
+    let native_node = bootstrap
+        .node_ids_by_client_id
+        .get("n0")
+        .expect("native node id")
+        .clone();
+
+    let graph = prism.plan_graph(&plan_id).expect("plan graph");
+    assert!(graph.nodes.iter().any(|node| node.id == task_node));
+    assert!(graph.nodes.iter().any(|node| node.id == native_node));
+    assert!(graph.edges.iter().any(|edge| {
+        edge.kind == PlanEdgeKind::DependsOn && edge.from == native_node && edge.to == task_node
+    }));
+    assert!(graph.edges.iter().any(|edge| {
+        edge.kind == PlanEdgeKind::Validates && edge.from == task_node && edge.to == native_node
+    }));
+    assert_eq!(graph.root_nodes, vec![task_node.clone()]);
+
+    let snapshot = prism.coordination_snapshot();
+    let plan = snapshot
+        .plans
+        .iter()
+        .find(|plan| plan.id == plan_id)
+        .expect("persisted plan");
+    assert_eq!(snapshot.tasks.len(), 1);
+    assert_eq!(plan.authored_nodes.len(), 1);
+    assert!(plan.authored_edges.iter().any(|edge| {
+        edge.kind == PlanEdgeKind::DependsOn && edge.from == native_node && edge.to == task_node
+    }));
+    assert!(plan.authored_edges.iter().any(|edge| {
+        edge.kind == PlanEdgeKind::Validates && edge.from == task_node && edge.to == native_node
+    }));
+
+    prism.replace_coordination_snapshot(snapshot);
+    let reloaded = prism.plan_graph(&plan_id).expect("reloaded plan graph");
+    assert!(reloaded.nodes.iter().any(|node| node.id == native_node));
+    assert!(reloaded.edges.iter().any(|edge| {
+        edge.kind == PlanEdgeKind::DependsOn && edge.from == native_node && edge.to == task_node
+    }));
+    assert!(reloaded.edges.iter().any(|edge| {
+        edge.kind == PlanEdgeKind::Validates && edge.from == task_node && edge.to == native_node
+    }));
 }
 
 #[test]
@@ -3864,6 +3973,7 @@ fn ready_tasks_for_executor_filters_by_executor_policy() {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
+                authored_nodes: Vec::new(),
                 authored_edges: Vec::new(),
                 root_tasks: vec![matching_task_id.clone(), pinned_elsewhere_task_id.clone()],
             }],
@@ -5486,6 +5596,7 @@ fn portfolio_next_ranks_actionable_nodes_across_active_plans() {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
+                authored_nodes: Vec::new(),
                 authored_edges: Vec::new(),
                 root_tasks: Vec::new(),
             },
@@ -5502,6 +5613,7 @@ fn portfolio_next_ranks_actionable_nodes_across_active_plans() {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
+                authored_nodes: Vec::new(),
                 authored_edges: Vec::new(),
                 root_tasks: Vec::new(),
             },

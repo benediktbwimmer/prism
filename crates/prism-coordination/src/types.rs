@@ -129,6 +129,8 @@ pub struct Plan {
     pub created_from: Option<String>,
     #[serde(default)]
     pub metadata: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authored_nodes: Vec<prism_ir::PlanNode>,
     #[serde(default)]
     pub authored_edges: Vec<PlanEdge>,
     pub root_tasks: Vec<CoordinationTaskId>,

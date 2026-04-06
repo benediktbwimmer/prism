@@ -381,6 +381,7 @@ fn merge_stored_plan_metadata(plan: &mut Plan, stored: Plan) {
     plan.tags = stored.tags;
     plan.created_from = stored.created_from;
     plan.metadata = stored.metadata;
+    plan.authored_nodes = stored.authored_nodes;
     plan.authored_edges = stored.authored_edges;
 }
 
@@ -452,6 +453,18 @@ fn recompute_root_tasks(
             (plan_id.clone(), targets)
         })
         .collect::<HashMap<_, _>>();
+    let dependency_sources = plans
+        .iter()
+        .map(|(plan_id, plan)| {
+            let sources = plan
+                .authored_edges
+                .iter()
+                .filter(|edge| edge.kind == PlanEdgeKind::DependsOn)
+                .map(|edge| CoordinationTaskId::new(edge.from.0.clone()))
+                .collect::<Vec<_>>();
+            (plan_id.clone(), sources)
+        })
+        .collect::<HashMap<_, _>>();
     for plan in plans.values_mut() {
         plan.root_tasks.clear();
     }
@@ -463,9 +476,30 @@ fn recompute_root_tasks(
                 .get(&task.plan)
                 .map(|targets| targets.contains(&task.id))
                 .unwrap_or(false)
+                && !dependency_sources
+                    .get(&task.plan)
+                    .map(|sources| sources.contains(&task.id))
+                    .unwrap_or(false)
         })
         .map(|task| (task.plan.clone(), task.id.clone()))
         .collect::<Vec<_>>();
+    for (plan_id, plan) in plans.iter() {
+        let native_roots = plan
+            .authored_nodes
+            .iter()
+            .filter(|node| {
+                !child_targets
+                    .get(plan_id)
+                    .map(|targets| targets.contains(&CoordinationTaskId::new(node.id.0.clone())))
+                    .unwrap_or(false)
+                    && !dependency_sources
+                        .get(plan_id)
+                        .map(|sources| sources.contains(&CoordinationTaskId::new(node.id.0.clone())))
+                        .unwrap_or(false)
+            })
+            .map(|node| (plan_id.clone(), CoordinationTaskId::new(node.id.0.clone())));
+        roots.extend(native_roots);
+    }
     roots.sort_by(|left, right| {
         left.0
              .0

@@ -29,21 +29,24 @@ pub fn snapshot_plan_graphs(snapshot: &CoordinationSnapshot) -> Vec<PlanGraph> {
 
 pub fn plan_graph_from_coordination(plan: Plan, mut tasks: Vec<CoordinationTask>) -> PlanGraph {
     tasks.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    let nodes = tasks
+    let mut nodes = tasks
         .iter()
         .cloned()
         .map(plan_node_from_task)
         .collect::<Vec<_>>();
+    nodes.extend(
+        plan.authored_nodes
+            .iter()
+            .filter(|node| !is_task_backed_plan_node_id(node.id.0.as_str()))
+            .cloned(),
+    );
+    nodes.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    nodes.dedup_by(|left, right| left.id == right.id);
     let mut edges = tasks
         .iter()
         .flat_map(|task| dependency_edges_for_task(task))
         .collect::<Vec<_>>();
-    edges.extend(
-        plan.authored_edges
-            .iter()
-            .filter(|edge| edge.kind != PlanEdgeKind::DependsOn)
-            .cloned(),
-    );
+    edges.extend(plan.authored_edges.iter().cloned());
     dedupe_and_sort_edges(&mut edges);
 
     PlanGraph {
@@ -132,7 +135,10 @@ pub fn coordination_snapshot_from_plan_graphs(
             .collect::<BTreeMap<_, _>>();
         let mut dependencies = BTreeMap::<String, TaskDependencyBuckets>::new();
         for edge in &graph.edges {
-            if edge.kind != PlanEdgeKind::DependsOn {
+            if edge.kind != PlanEdgeKind::DependsOn
+                || !is_task_backed_plan_node_id(edge.from.0.as_str())
+                || !is_task_backed_plan_node_id(edge.to.0.as_str())
+            {
                 continue;
             }
             let buckets = dependencies.entry(edge.from.0.to_string()).or_default();
@@ -149,6 +155,9 @@ pub fn coordination_snapshot_from_plan_graphs(
             }
         }
         for node in &graph.nodes {
+            if !is_task_backed_plan_node_id(node.id.0.as_str()) {
+                continue;
+            }
             let buckets = dependencies.remove(node.id.0.as_str()).unwrap_or_default();
             snapshot.tasks.push(task_from_plan_node(
                 graph.id.clone(),
@@ -234,10 +243,20 @@ fn plan_from_graph(graph: &PlanGraph) -> Plan {
         tags: graph.tags.clone(),
         created_from: graph.created_from.clone(),
         metadata: graph.metadata.clone(),
+        authored_nodes: graph
+            .nodes
+            .iter()
+            .filter(|node| !is_task_backed_plan_node_id(node.id.0.as_str()))
+            .cloned()
+            .collect(),
         authored_edges: graph
             .edges
             .iter()
-            .filter(|edge| edge.kind != PlanEdgeKind::DependsOn)
+            .filter(|edge| {
+                edge.kind != PlanEdgeKind::DependsOn
+                    || !is_task_backed_plan_node_id(edge.from.0.as_str())
+                    || !is_task_backed_plan_node_id(edge.to.0.as_str())
+            })
             .cloned()
             .collect(),
         root_tasks: graph
@@ -488,4 +507,8 @@ fn plan_node_id_from_task_id(task_id: prism_ir::CoordinationTaskId) -> PlanNodeI
 
 fn coordination_task_id_from_plan_node_id(node_id: PlanNodeId) -> prism_ir::CoordinationTaskId {
     prism_ir::CoordinationTaskId::new(node_id.0)
+}
+
+fn is_task_backed_plan_node_id(id: &str) -> bool {
+    id.starts_with("coord-task:")
 }

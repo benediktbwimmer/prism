@@ -4785,6 +4785,82 @@ fn mcp_plan_bootstrap_creates_plan_graph_from_client_ids() {
 }
 
 #[test]
+fn mcp_plan_bootstrap_allows_validator_nodes_that_depend_on_their_work() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let created = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanBootstrap,
+                payload: json!({
+                    "plan": {
+                        "title": "Bootstrap downstream validator",
+                        "goal": "Bootstrap downstream validator"
+                    },
+                    "tasks": [{
+                        "clientId": "t0",
+                        "title": "Capture the baseline"
+                    }, {
+                        "clientId": "t1",
+                        "title": "Implement the fix",
+                        "dependsOn": ["t0"]
+                    }],
+                    "nodes": [{
+                        "clientId": "n0",
+                        "kind": "validate",
+                        "title": "Verify the fix",
+                        "validationRefs": [{ "id": "test:downstream-validator" }],
+                        "dependsOn": ["t1"]
+                    }],
+                    "edges": [{
+                        "fromClientId": "t1",
+                        "toClientId": "n0",
+                        "kind": "validates"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+    })
+    .expect("bootstrap should accept a validate node that runs after the work node");
+
+    let plan_id = created.state["planId"].as_str().unwrap().to_string();
+    let task_t0 = created.state["taskIdsByClientId"]["t0"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let task_t1 = created.state["taskIdsByClientId"]["t1"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let node_n0 = created.state["nodeIdsByClientId"]["n0"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    let graph = host
+        .current_prism()
+        .plan_graph(&PlanId::new(plan_id))
+        .expect("plan graph");
+    assert!(graph.edges.iter().any(|edge| edge.from.0 == task_t1
+        && edge.to.0 == task_t0
+        && edge.kind == PlanEdgeKind::DependsOn));
+    assert!(graph.edges.iter().any(|edge| edge.from.0 == node_n0
+        && edge.to.0 == task_t1
+        && edge.kind == PlanEdgeKind::DependsOn));
+    assert!(graph.edges.iter().any(|edge| edge.from.0 == task_t1
+        && edge.to.0 == node_n0
+        && edge.kind == PlanEdgeKind::Validates));
+    assert_eq!(
+        graph.root_nodes,
+        vec![prism_ir::PlanNodeId::new(task_t0)],
+        "the validator should remain downstream of the task it validates"
+    );
+}
+
+#[test]
 fn mcp_plan_bootstrap_rejects_unknown_client_ids_without_partial_state() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -7313,6 +7389,7 @@ fn coordination_inbox_and_task_brief_share_authoritative_task_backed_status() {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
+                authored_nodes: Vec::new(),
                 authored_edges: Vec::new(),
                 root_tasks: vec![task_id.clone()],
             }],

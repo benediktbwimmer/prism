@@ -11,7 +11,7 @@ use base64::Engine;
 use ed25519_dalek::{Signer, Verifier};
 use prism_coordination::{
     execution_overlays_from_tasks, migrate_legacy_hybrid_snapshot_to_canonical_v2,
-    plan_graph_from_coordination, Artifact, ArtifactReview, CoordinationSnapshot,
+    snapshot_plan_graphs, Artifact, ArtifactReview, CoordinationSnapshot,
     CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor,
     RuntimeDescriptorCapability, WorkClaim, COORDINATION_SCHEMA_V2,
 };
@@ -2092,12 +2092,7 @@ fn execution_overlays_by_plan(
 }
 
 fn authored_summary_plan_graphs(snapshot: &CoordinationSnapshot) -> Vec<PlanGraph> {
-    let mut plan_graphs = snapshot
-        .plans
-        .iter()
-        .cloned()
-        .map(|plan| plan_graph_from_coordination(plan, Vec::new()))
-        .collect::<Vec<_>>();
+    let mut plan_graphs = snapshot_plan_graphs(snapshot);
     plan_graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
     plan_graphs
 }
@@ -4086,6 +4081,7 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
+            authored_nodes: Vec::new(),
             authored_edges: Vec::new(),
             root_tasks: vec![task_id.clone()],
         };
@@ -4164,6 +4160,7 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
+            authored_nodes: Vec::new(),
             authored_edges: Vec::new(),
             root_tasks: vec![task_id.clone()],
         };
@@ -4286,6 +4283,138 @@ mod tests {
     }
 
     #[test]
+    fn authored_summary_plan_graphs_preserve_task_backed_nodes_for_mixed_authored_edges() {
+        let plan_id = PlanId::new("plan:summary-mixed".to_string());
+        let task_id = CoordinationTaskId::new("coord-task:summary-mixed".to_string());
+        let native_node_id = prism_ir::PlanNodeId::new("plan-node:summary-validate");
+        let snapshot = CoordinationSnapshot {
+            plans: vec![Plan {
+                id: plan_id.clone(),
+                goal: "Preserve mixed authored edges".to_string(),
+                title: "Preserve mixed authored edges".to_string(),
+                status: PlanStatus::Active,
+                policy: CoordinationPolicy::default(),
+                scope: PlanScope::Repo,
+                kind: PlanKind::TaskExecution,
+                revision: 1,
+                scheduling: PlanScheduling::default(),
+                tags: Vec::new(),
+                created_from: None,
+                metadata: serde_json::Value::Null,
+                authored_nodes: vec![prism_ir::PlanNode {
+                    id: native_node_id.clone(),
+                    plan_id: plan_id.clone(),
+                    kind: prism_ir::PlanNodeKind::Validate,
+                    title: "Validate".to_string(),
+                    summary: None,
+                    status: prism_ir::PlanNodeStatus::Ready,
+                    bindings: prism_ir::PlanBinding::default(),
+                    acceptance: Vec::new(),
+                    validation_refs: vec![prism_ir::ValidationRef {
+                        id: "test:shared-summary".to_string(),
+                    }],
+                    is_abstract: false,
+                    assignee: None,
+                    base_revision: WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::Value::Null,
+                }],
+                authored_edges: vec![
+                    prism_ir::PlanEdge {
+                        id: prism_ir::PlanEdgeId::new(format!(
+                            "plan-edge:{}:depends-on:{}",
+                            native_node_id.0, task_id.0
+                        )),
+                        plan_id: plan_id.clone(),
+                        from: native_node_id.clone(),
+                        to: prism_ir::PlanNodeId::new(task_id.0.clone()),
+                        kind: prism_ir::PlanEdgeKind::DependsOn,
+                        summary: None,
+                        metadata: serde_json::json!({ "dependencyLifecycle": "completed" }),
+                    },
+                    prism_ir::PlanEdge {
+                        id: prism_ir::PlanEdgeId::new(format!(
+                            "plan-edge:{}:validates:{}",
+                            task_id.0, native_node_id.0
+                        )),
+                        plan_id: plan_id.clone(),
+                        from: prism_ir::PlanNodeId::new(task_id.0.clone()),
+                        to: native_node_id.clone(),
+                        kind: prism_ir::PlanEdgeKind::Validates,
+                        summary: None,
+                        metadata: serde_json::Value::Null,
+                    },
+                ],
+                root_tasks: vec![task_id.clone()],
+            }],
+            tasks: vec![CoordinationTask {
+                id: task_id.clone(),
+                plan: plan_id.clone(),
+                kind: prism_ir::PlanNodeKind::Edit,
+                title: "Implement".to_string(),
+                summary: None,
+                status: CoordinationTaskStatus::Ready,
+                published_task_status: None,
+                assignee: None,
+                pending_handoff_to: None,
+                session: None,
+                lease_holder: None,
+                lease_started_at: None,
+                lease_refreshed_at: None,
+                lease_stale_at: None,
+                lease_expires_at: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                bindings: prism_ir::PlanBinding::default(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+                git_execution: TaskGitExecution::default(),
+            }],
+            claims: Vec::new(),
+            artifacts: Vec::new(),
+            reviews: Vec::new(),
+            events: Vec::new(),
+            next_plan: 1,
+            next_task: 1,
+            next_claim: 0,
+            next_artifact: 0,
+            next_review: 0,
+        };
+
+        let graphs = super::authored_summary_plan_graphs(&snapshot);
+        assert_eq!(graphs.len(), 1);
+        let graph = &graphs[0];
+        assert!(graph
+            .nodes
+            .iter()
+            .any(|node| node.id.0 == task_id.0));
+        assert!(graph
+            .nodes
+            .iter()
+            .any(|node| node.id == native_node_id));
+        assert!(graph.edges.iter().any(|edge| {
+            edge.kind == prism_ir::PlanEdgeKind::DependsOn
+                && edge.from == native_node_id
+                && edge.to.0 == task_id.0
+        }));
+        assert!(graph.edges.iter().any(|edge| {
+            edge.kind == prism_ir::PlanEdgeKind::Validates
+                && edge.from.0 == task_id.0
+                && edge.to == native_node_id
+        }));
+    }
+
+    #[test]
     fn hydrated_plan_state_prefers_shared_coordination_ref_over_branch_snapshot() {
         let root = temp_git_repo();
         let plan_id = PlanId::new("plan:shared".to_string());
@@ -4303,6 +4432,7 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
+            authored_nodes: Vec::new(),
             authored_edges: Vec::new(),
             root_tasks: vec![task_id.clone()],
         };
@@ -4474,6 +4604,7 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
+            authored_nodes: Vec::new(),
             authored_edges: Vec::new(),
             root_tasks: vec![task_id.clone()],
         };
@@ -4635,6 +4766,7 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
+            authored_nodes: Vec::new(),
             authored_edges: Vec::new(),
             root_tasks: vec![task_id.clone()],
         };
@@ -4892,6 +5024,7 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
+            authored_nodes: Vec::new(),
             authored_edges: Vec::new(),
             root_tasks: vec![task_a_id.clone(), task_b_id.clone()],
         };
@@ -5118,6 +5251,7 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
+            authored_nodes: Vec::new(),
             authored_edges: Vec::new(),
             root_tasks: vec![task_id.clone()],
         };

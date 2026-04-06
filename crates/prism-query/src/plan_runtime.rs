@@ -1168,6 +1168,9 @@ fn completion_blockers_for_node(graph: &PlanGraph, node: &PlanNode) -> Vec<PlanN
         let Some(target) = graph_node_by_id(graph, &edge.to) else {
             continue;
         };
+        if constrained_path_exists(graph, &target.id, &node.id) {
+            continue;
+        }
         if is_completed_status(target.status) {
             continue;
         }
@@ -1684,7 +1687,6 @@ fn edge_kind_requires_acyclic_graph(kind: PlanEdgeKind) -> bool {
         kind,
         PlanEdgeKind::DependsOn
             | PlanEdgeKind::Blocks
-            | PlanEdgeKind::Validates
             | PlanEdgeKind::HandoffTo
             | PlanEdgeKind::ChildOf
     )
