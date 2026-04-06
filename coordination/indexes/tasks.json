@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn5ydf14v5ce5m5qbd22ykbe",
+    "title": "Migrate repo knowledge streams onto the protected engine",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydf14v5ce5m5qbd22ykbe-a391199fb5709faa.json"
+  },
+  {
+    "id": "coord-task:01kn6t3shx6ks37m500hme2gpj",
+    "title": "Enforce exclusive principal binding per worktree and define pre-declare edit policy",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6t3shx6ks37m500hme2gpj-c422c51af800c6cb.json"
+  }
+]

@@ -1,0 +1,77 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Bridge and runtime state enforce at most one actively bound principal per worktree at a time, with explicit rejection on ambiguous or conflicting binds."
+      },
+      {
+        "anchors": [],
+        "label": "The design and runtime contract distinguish hot observed edits from repo-published authored change provenance."
+      },
+      {
+        "anchors": [],
+        "label": "Watcher-observed edits that occur before declared work exists are handled explicitly and do not silently become durable authored history."
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 371
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn6s12m8w9qgs766n8453aa4"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn6t3shx6ks37m500hme2gpj",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn6rkat0t02ncv5pj0756yyz",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Enforced one-principal-per-worktree on authenticated mutations by binding the first verified principal in WorkspaceSession and rejecting later mutation attempts from different principals with a structured conflict response.",
+    "tags": [],
+    "title": "Enforce exclusive principal binding per worktree and define pre-declare edit policy",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
