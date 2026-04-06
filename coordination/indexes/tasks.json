@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn3p3cy48hz6m3g42e0374xj",
+    "title": "Persist canonical provenance and execution-context snapshots in mutation events",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p3cy48hz6m3g42e0374xj-4dd0ba36a1a74421.json"
+  },
+  {
+    "id": "coord-task:01kndb7x9nn4nk1h4enpjajyzp",
+    "title": "Establish current coordination-mutation baselines and success criteria",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb7x9nn4nk1h4enpjajyzp-10988207735349ac.json"
+  }
+]
