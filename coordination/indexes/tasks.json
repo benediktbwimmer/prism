@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn08e60qbk9fe00zn861x5j4",
+    "title": "Milestone 2: Ownership-aware compact editing",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn08e60qbk9fe00zn861x5j4-cbf969cfa32e240e.json"
+  },
+  {
+    "id": "coord-task:01kn80cbhehcndfs9fv21dbk4f",
+    "title": "Validate bootstrap, live-sync, self-write suppression, and missed-event recovery across all protected streams",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn80cbhehcndfs9fv21dbk4f-9050e10174a6a8d8.json"
+  },
+  {
+    "id": "coord-task:01kn9hmqncfe5nfm4chtm6dt2s",
+    "title": "Define signed publish manifests, chaining, and publish atomicity",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hmqncfe5nfm4chtm6dt2s-6b959e8f1c332b3e.json"
+  },
+  {
+    "id": "coord-task:19",
+    "title": "Implement the selected refresh-path fixes and any approved optimization work",
+    "status": "Ready",
+    "path": "tasks/coord-task-19-6388dabdc4e7bb8e.json"
+  }
+]
