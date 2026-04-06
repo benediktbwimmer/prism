@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn9hpcdqsrjqcg23rate5ps8",
+    "title": "Update projections, tooling, docs, and validation around the new authority model",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hpcdqsrjqcg23rate5ps8-c46246bb1f73568a.json"
+  },
+  {
+    "id": "coord-task:01knd316hmq70qkf7be1qwcnrp",
+    "title": "Implement the versioned REST router and polling-friendly operator console API foundation",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knd316hmq70qkf7be1qwcnrp-a19bcec08422bb46.json"
+  }
+]
