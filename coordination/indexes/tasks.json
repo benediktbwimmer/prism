@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn9vdznkm34knqjxgdqdqcxe",
+    "title": "Add migration, auditing, and repair paths for legacy absolute-path data",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9vdznkm34knqjxgdqdqcxe-971f0ebdb8afc96a.json"
+  },
+  {
+    "id": "coord-task:01kna8v52e247h2xymfv8ksdb0",
+    "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kna8v52e247h2xymfv8ksdb0-49ee0589d9feadf0.json"
+  }
+]
