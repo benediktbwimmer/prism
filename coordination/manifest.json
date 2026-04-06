@@ -1,22 +1,22 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775496888,
+  "publishedAt": 1775496936,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
+    "workId": "coord-task:01knhbwetedap4tdgcgz66yfkk",
     "kind": "coordination",
-    "title": "Remove shared-runtime-coupled shared-coordination-ref watch and bootstrap behavior",
-    "coordinationTaskId": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
+    "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
+    "coordinationTaskId": "coord-task:01knhbwetedap4tdgcgz66yfkk",
     "planId": "plan:01knhbwesj53rq8f301x6r51qj",
     "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
   },
   "publishSummary": {
-    "title": "Remove shared-runtime-coupled shared-coordination-ref watch and bootstrap behavior"
+    "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths"
   },
   "files": {
     "coordination/artifacts/artifact-01kndqq186jevjwftx2dmwp2ez-402f2ed5b78fa885.json": {
@@ -101,7 +101,7 @@
     },
     "coordination/runtimes/instance-35917-worktree-84a3f98283a83dd5-1775496888406-ec368caf9395cf39.json": {
       "path": "coordination/runtimes/instance-35917-worktree-84a3f98283a83dd5-1775496888406-ec368caf9395cf39.json",
-      "sha256": "sha256:a1757515338b01c8414e2e8cb61ca648e97fefe474844558c476f406392a57fa"
+      "sha256": "sha256:b77edcc05eda1c47bcc58a7741de750109e23a7515006e312f18184c9f57995d"
     },
     "coordination/runtimes/instance-36936-worktree-38d65972b1359401-1775486350858-53e7f5b3a99171ea.json": {
       "path": "coordination/runtimes/instance-36936-worktree-38d65972b1359401-1775486350858-53e7f5b3a99171ea.json",
@@ -2745,10 +2745,10 @@
     },
     "v2/snapshot.json": {
       "path": "v2/snapshot.json",
-      "sha256": "sha256:25ba908af030d0dcf8555450ff95d5a0b3601bc5953fbb14a60e4a6fb1b8917e"
+      "sha256": "sha256:7377eecd899859740426e2f67e735234626dc8b4a64e59d11f880fdb81c3d2bc"
     }
   },
-  "previousManifestDigest": "sha256:c959fe893facc4eb1a2d39703315888f766578f4f32734efa3f80198d11dbfee",
+  "previousManifestDigest": "sha256:da7f1023006d7afba08b138e4af97903f1de38064f888e1ff28d9343825fc3c1",
   "summarySources": {
     "taskShardHeads": {
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/02": "770995ff2b8722ac617b974407d7389ec962d759",
@@ -2992,7 +2992,7 @@
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-34528-worktree-38d65972b1359401-1775477465818-6b0d89e5fd624948": "29845ac8c852b7852a8a3325b3770bfeff6fe0a7",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-35766-worktree-8719dd7db144e96f-1775469614307-2c78ed64aaf74933": "4891e8801fd31c9475ffb12530f5db72f957ed6e",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-35872-worktree-38d65972b1359401-1775481236501-30cf9e417f9dbc89": "f47340aeefd1943022cb5e58e799834cc648643a",
-      "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-35917-worktree-84a3f98283a83dd5-1775496888406-ec368caf9395cf39": "16d8d9af779e7671394465f3dd4a31868ca28de1",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-35917-worktree-84a3f98283a83dd5-1775496888406-ec368caf9395cf39": "b02502647b8b52055a8d845092abae6f5aac80ea",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-36936-worktree-38d65972b1359401-1775486350858-53e7f5b3a99171ea": "b8b0c8be4b2db36a1555ffdf53bad4515bbfc2a3",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-37926-worktree-8719dd7db144e96f-1775469073132-fb0360327408d9c3": "321796dfd6c9317ddd8c039ecbc0b781dfb664a9",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-38808-worktree-8719dd7db144e96f-1775470572241-43d922bd1caae5da": "ad17b906adca450a7232c3148206f10955c3f55f",
@@ -3058,6 +3058,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:PXdYBrct97W3+ab7VIeFkERfC4Wg9020cabg6HFbYySCAoxthQWmGmhJLjHLNc+DaU3npLXcWWLroKTxFOAdAg=="
+    "value": "base64:fQlF8Ca9kWu2GDrprSfqsLEyjQUo6YFbc/Hznbg+NNoySO7GpSfk6hCv1LA35dYMqtXyH6oZ8tjeJ6Oju30cCQ=="
   }
 }
