@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn6rppndba3zmwxf2fhcjr24",
+    "title": "Update instructions, schemas, examples, specs, and concept docs for strict declared work",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rppndba3zmwxf2fhcjr24-3c5329d76ab8f0d1.json"
+  },
+  {
+    "id": "coord-task:01kndb8xs4qp4b6xbzhp671h8d",
+    "title": "Define the self-description contract for truncation-hostile harnesses and the required discovery ladder for successful authoring",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb8xs4qp4b6xbzhp671h8d-0819c75b25c760bc.json"
+  }
+]
