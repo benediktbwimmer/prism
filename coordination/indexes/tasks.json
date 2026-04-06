@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn385dcetbhcjm4hpse9y4jw",
+    "title": "Strengthen concept packets with concrete follow-through targets",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn385dcetbhcjm4hpse9y4jw-bb6677e9eeaa4b3b.json"
+  },
+  {
+    "id": "coord-task:01kndb7x9nmx4jvcg4v54ktbe6",
+    "title": "Implement the batched git-execution completion path and remove repeated revision and persistence cycles",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb7x9nmx4jvcg4v54ktbe6-2aad178c78c9325a.json"
+  },
+  {
+    "id": "coord-task:01knfddqewr7g67y65tk2g70mm",
+    "title": "Add explicit worktree registration with generated worktree ids, unique labels, and human or agent mode",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knfddqewr7g67y65tk2g70mm-b1d2c2f907fd4cf6.json"
+  }
+]
