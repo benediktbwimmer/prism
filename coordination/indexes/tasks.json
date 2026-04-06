@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn46t35msk4qky98byxn789j",
+    "title": "Introduce distinct path and bootstrap defaults for worktree cache db vs shared runtime db",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn46t35msk4qky98byxn789j-68d310e5c6dcfb6e.json"
+  },
+  {
+    "id": "coord-task:01kn8dqwqxreh653af5apa1yv0",
+    "title": "Implement first-pass test-speed wins in the highest-leverage fixtures and harness helpers.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8dqwqxreh653af5apa1yv0-74d6af3273085ff1.json"
+  }
+]
