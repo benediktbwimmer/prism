@@ -20,7 +20,7 @@
   {
     "id": "coord-task:01kng20vv9wdjd1jannvnb52pn",
     "title": "Rewrite the SSR and UI rendering model around root plans, direct child plans and tasks, external dependency stubs, and executor-aware task presentation",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json"
   },
   {
