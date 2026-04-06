@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn6rnxxzfcwhtfmty9j1hdvr",
+    "title": "Thread work attribution through all mutation provenance and read surfaces",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rnxxzfcwhtfmty9j1hdvr-72b990f3309e3503.json"
+  },
+  {
+    "id": "coord-task:01kndg3q265m0jjy4ztzgcxp3h",
+    "title": "Reframe the app shell and routing around the operator console",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndg3q265m0jjy4ztzgcxp3h-42fc3dd53e87fe1d.json"
+  }
+]
