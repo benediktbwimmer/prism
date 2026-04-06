@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn7czn5h7s8396kc9a2jcgpf",
+    "title": "Validate log-backed runtime and MCP performance improvements end to end",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7czn5h7s8396kc9a2jcgpf-2de8bd053054a7aa.json"
+  },
+  {
+    "id": "coord-task:01knc6cfapwxtkfnvhcez2wszv",
+    "title": "Freeze latency budgets and classify every synchronous coordination side effect",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01knc6cfapwxtkfnvhcez2wszv-1c33b6491597f990.json"
+  }
+]
