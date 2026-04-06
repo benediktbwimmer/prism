@@ -1,0 +1,86 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "repoPlaybook() returns actionable build, test, lint, format, and gotcha guidance with sources or provenance"
+      },
+      {
+        "anchors": [],
+        "label": "validationPlan(...) returns fast and broader checks with explicit why fields and does not require a new MCP tool"
+      },
+      {
+        "anchors": [],
+        "label": "Both views are independently gateable, logged by view name, and documented in the API reference"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 181
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmwxt8f457f2f0kwzfbfq50h"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmwxth0nk7w9jrf4zhs8w348",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmwxra5d93wb6nmy6a79v8eh",
+    "priority": 2,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Implemented repoPlaybook() and validationPlan(...) as feature-gated dynamic query views with typed API/docs coverage, per-view logging continuity, focused validation tests, and a refreshed live daemon.",
+    "tags": [
+      "experimental",
+      "new-view",
+      "playbook",
+      "validation-plan"
+    ],
+    "title": "Milestone 2: Add repoPlaybook() and validationPlan(...)",
+    "validation_refs": [
+      {
+        "id": "pq01:m2-playbook-validation-plan"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

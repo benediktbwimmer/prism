@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kmwxth0nk7w9jrf4zhs8w348",
+    "title": "Milestone 2: Add repoPlaybook() and validationPlan(...)",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmwxth0nk7w9jrf4zhs8w348-39edce81342f0aff.json"
+  },
+  {
+    "id": "coord-task:01kn2edqe64parv20k1n5k4npw",
+    "title": "Implement persistent per-file semantic facts and delta batches",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqe64parv20k1n5k4npw-c74949c0a6de5aea.json"
+  },
+  {
+    "id": "coord-task:01kna8tv5khkd6ypdg9q6dfs87",
+    "title": "Add shared coordination runtime descriptors for live runtime discovery and capability advertisement",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kna8tv5khkd6ypdg9q6dfs87-056630de9a1a1291.json"
+  }
+]
