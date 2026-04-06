@@ -22,5 +22,11 @@
     "title": "Lock the cutover contract and responsibility map for removing shared runtime SQLite",
     "status": "Ready",
     "path": "tasks/coord-task-01knhbxwcd7x9x36ntnefpfawz-c7dd76f6bc5fa5d1.json"
+  },
+  {
+    "id": "coord-task:01knhd3xjewtncj47p04zzz9ea",
+    "title": "Introduce an explicit layer set and runtime capability model in core and MCP",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhd3xjewtncj47p04zzz9ea-9b4b8edef50a0136.json"
   }
 ]
