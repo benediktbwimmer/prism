@@ -21,7 +21,7 @@
     "assignee": "codex-a",
     "base_revision": {
       "git_commit": null,
-      "graph_version": 287
+      "graph_version": 296
     },
     "bindings": {
       "anchors": [
@@ -69,28 +69,18 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775501969,
-    "lease_holder": {
-      "agent_id": "codex-a",
-      "principal": {
-        "authority_id": "worktree_executor",
-        "kind": "agent",
-        "name": "codex-a",
-        "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
-      },
-      "session_id": "session:01knhvn7xmadz2s95cm1e840tn",
-      "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
-    },
-    "lease_refreshed_at": 1775494769,
-    "lease_stale_at": 1775496569,
-    "lease_started_at": 1775478127,
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01knhbwesj53rq8f301x6r51qj",
     "priority": null,
     "published_task_status": null,
     "session": "session:01knhvn7xmadz2s95cm1e840tn",
-    "status": "InProgress",
+    "status": "Completed",
     "summary": null,
     "tags": [],
     "title": "Rewrite workspace runtime sync, freshness, and diagnostics to stop consulting shared runtime DB revisions",
