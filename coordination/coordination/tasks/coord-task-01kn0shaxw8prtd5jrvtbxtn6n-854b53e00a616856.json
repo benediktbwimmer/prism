@@ -1,0 +1,71 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Refresh samples identify where full rescans are coming from and which subphase dominates the slow path."
+      },
+      {
+        "anchors": [],
+        "label": "Deferred behavior is broken down into fs refresh, snapshot, and reload timing with a clear pathology statement."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1058
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn0shaxw8prtd5jrvtbxtn6n",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Investigate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn0sh5q9vv9j2q2n6jwxhtep",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Baseline captured from live runtimeStatus/runtimeLogs and source inspection: a clean-state fallback probe in `refresh_fs_nonblocking` was surfacing `DeferredBusy` while `fsObserved == fsApplied`, producing false deferred refresh events; recent live full refreshes were about 2563 ms and repeated deferred refreshes also showed snapshot-revision holds up to about 20.9s and 22.7s.",
+    "tags": [],
+    "title": "Baseline the live refresh paths and quantify full vs deferred triggers",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
