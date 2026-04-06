@@ -325,6 +325,53 @@ return {
         )
         .expect_err("coordination-only prism_query should reject cognition reads");
     assert!(error.to_string().contains("cognition"), "{}", error);
+
+    let file_anchor_error = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.claims([
+  {
+    type: "file",
+    path: "src/lib.rs",
+  },
+]);
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("coordination-only claims should reject file anchors");
+    assert!(
+        file_anchor_error
+            .to_string()
+            .contains("file anchors are unavailable"),
+        "{}",
+        file_anchor_error
+    );
+
+    let simulate_file_anchor_error = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.simulateClaim({
+  anchors: [
+    {
+      type: "file",
+      path: "src/lib.rs",
+    },
+  ],
+  capability: "Edit",
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("coordination-only simulateClaim should reject file anchors");
+    assert!(
+        simulate_file_anchor_error
+            .to_string()
+            .contains("file anchors are unavailable"),
+        "{}",
+        simulate_file_anchor_error
+    );
 }
 
 #[test]

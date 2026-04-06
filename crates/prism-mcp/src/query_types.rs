@@ -588,6 +588,11 @@ pub(crate) fn convert_anchors(
                 Ok(AnchorRef::Lineage(prism_ir::LineageId::new(lineage_id)))
             }
             AnchorRefInput::File { file_id, path } => {
+                if !prism.runtime_capabilities().cognition_enabled() {
+                    return Err(anyhow!(
+                        "file anchors are unavailable when cognition is disabled; coordination-only mode only supports durable non-file anchors on direct public APIs"
+                    ));
+                }
                 let resolved_from_path = match path {
                     Some(path) => {
                         let file_path = resolve_anchor_file_path(&path, workspace_root)?;

@@ -134,6 +134,9 @@ impl Prism {
         let mut blockers = self.with_coordination_runtime(|runtime| {
             runtime.blockers(task_id, self.workspace_revision(), now)
         });
+        if !self.runtime_capabilities().cognition_enabled() {
+            return dedupe_blockers(blockers);
+        }
         if let Some(risk) = self.task_risk(task_id, now) {
             if !risk.stale_artifact_ids.is_empty() {
                 blockers.push(TaskBlocker {

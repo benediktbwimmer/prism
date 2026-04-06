@@ -771,6 +771,7 @@ impl QueryHost {
         worker_pool: JsWorkerPool,
     ) -> Self {
         let prism = Arc::new(prism);
+        prism.set_runtime_capabilities(features.runtime_capabilities());
         Self {
             prism: prism.clone(),
             notes: Arc::new(SessionMemory::new()),
@@ -846,6 +847,7 @@ impl QueryHost {
         worker_pool: JsWorkerPool,
     ) -> Self {
         let prism = workspace.prism_arc();
+        prism.set_runtime_capabilities(features.runtime_capabilities());
         let notes = Arc::new(SessionMemory::new());
         let inferred_edges = Arc::new(InferenceStore::new());
         let mcp_call_log_store = Arc::new(McpCallLogStore::for_root(Some(workspace.root())));

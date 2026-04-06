@@ -8103,6 +8103,131 @@ fn task_backed_native_graph_blockers_follow_published_validation_fields() {
 }
 
 #[test]
+fn coordination_only_blockers_skip_graph_derived_risk_augmentation() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:coordination-only-blockers"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Coordination-only blockers".into(),
+                goal: "Avoid graph-derived blocker augmentation".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    require_validation_for_completion: true,
+                    review_required_above_risk_score: Some(0.2),
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let task_id = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:coordination-only-blockers"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task with graph-derived risk".into(),
+                status: None,
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                depends_on: vec![],
+                coordination_depends_on: vec![],
+                integrated_depends_on: vec![],
+                acceptance: vec![],
+                base_revision: WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap()
+        .0;
+    coordination
+        .update_task(
+            EventMeta {
+                id: EventId::new("coord:task:update-coordination-only-blockers"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                kind: None,
+                status: None,
+                published_task_status: None,
+                git_execution: None,
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
+                acceptance: None,
+                validation_refs: Some(vec![prism_ir::ValidationRef {
+                    id: "test:alpha_integration".into(),
+                }]),
+                is_abstract: None,
+                base_revision: None,
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            3,
+        )
+        .unwrap();
+
+    let projections = ProjectionIndex::default();
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination.snapshot(),
+        projections,
+    );
+    prism.set_runtime_capabilities(PrismRuntimeMode::CoordinationOnly.capabilities());
+
+    let blockers = prism.blockers(&task_id, 5);
+    assert!(!blockers
+        .iter()
+        .any(|blocker| blocker.kind == prism_coordination::BlockerKind::RiskReviewRequired));
+    assert!(!blockers
+        .iter()
+        .any(|blocker| blocker.kind == prism_coordination::BlockerKind::ValidationRequired));
+}
+
+#[test]
 fn exposes_intent_links_and_task_intent() {
     let mut graph = Graph::new();
     let spec = NodeId::new(
