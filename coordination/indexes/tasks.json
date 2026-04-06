@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn11g3qvfcx3dtbgqpxpjjkr",
+    "title": "Refactor task-backed plan graph projection so task state is the only source of truth",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn11g3qvfcx3dtbgqpxpjjkr-2d2f6a7ab0da4156.json"
+  },
+  {
+    "id": "coord-task:01kn11h4jf0zhf89bsjfrcty7n",
+    "title": "Align plan completion, blockers, task brief, and validation surfaces with the unified ownership model",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn11h4jf0zhf89bsjfrcty7n-e04ed0904bd7e68e.json"
+  }
+]
