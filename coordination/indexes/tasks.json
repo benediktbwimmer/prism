@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn2nhy59rebs6sz3xs7rzgc8",
+    "title": "Implement first-class archive semantics in mutation, persistence, and hydration paths",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nhy59rebs6sz3xs7rzgc8-80518d3e12947a29.json"
+  },
+  {
+    "id": "coord-task:01kn3p3ya2p1aemdxb2bbye2sy",
+    "title": "Cut over away from prism_session as coordination authority and migrate legacy actor history",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p3ya2p1aemdxb2bbye2sy-a21c621ad718ee1f.json"
+  }
+]
