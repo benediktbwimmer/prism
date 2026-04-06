@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01knavg5dce3ytrw4pbsfrbz1g",
+    "title": "Finish durable lease publication and low-frequency authoritative renewal on the shared ref",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knavg5dce3ytrw4pbsfrbz1g-d16f0f98f829679a.json"
+  },
+  {
+    "id": "coord-task:01kndg3q260bjb78v3rdn91sjf",
+    "title": "Implement pessimistic task mutations and pending-action UX in the drawer",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndg3q260bjb78v3rdn91sjf-b1c350d91227a442.json"
+  }
+]
