@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn2edqbj2w6gfhv8xnw00abb",
+    "title": "Build WorkspaceRuntimeEngine and the coalescing-aware command model",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqbj2w6gfhv8xnw00abb-c86044d40f6cad10.json"
+  },
+  {
+    "id": "coord-task:01kn2edqf5rm8zt5aczfqrqp7f",
+    "title": "Add precise invalidation and reverse dependency indexes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqf5rm8zt5aczfqrqp7f-46274bd52c66a30a.json"
+  },
+  {
+    "id": "coord-task:01kn2nj1rsdv7bs5vws1fynq7g",
+    "title": "Audit runtime-state process lifecycle and define the canonical pruning/update rules for cheap multi-instance-safe runtimeStatus reporting",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj1rsdv7bs5vws1fynq7g-5a2c419db9a18f17.json"
+  },
+  {
+    "id": "coord-task:01knfddqewd4x0gd18ae39xgrs",
+    "title": "Implement worktree mutation-slot ownership, liveness, same-worktree reacquire, and human-authorized takeover",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knfddqewd4x0gd18ae39xgrs-73e895a0fbc71863.json"
+  }
+]
