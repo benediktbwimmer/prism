@@ -1,24 +1,24 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775474437,
+  "publishedAt": 1775475744,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
+    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
   },
   "workContext": {
-    "workId": "work:ship-deterministic-v1-to-v2-migration-path:01knh793qggqjva8647mzz7q7f",
+    "workId": "coord-task:01kng42700xw977d4tq1ebr30s",
     "kind": "coordination",
-    "title": "Ship deterministic v1-to-v2 migration path",
-    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite.",
-    "coordinationTaskId": "coord-task:01kng209dwy330am5tc7qr7z74",
-    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
-    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
+    "title": "Refactor the read path and materializer so the repo-wide summary ref is a compact derived read model with explicit freshness visibility and authoritative fallback reads from shard and runtime refs when needed.",
+    "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy.",
+    "coordinationTaskId": "coord-task:01kng42700xw977d4tq1ebr30s",
+    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
+    "planTitle": "Implement shared coordination v1 architecture hardening"
   },
   "publishSummary": {
-    "title": "Ship deterministic v1-to-v2 migration path",
-    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite."
+    "title": "Refactor the read path and materializer so the repo-wide summary ref is a compact derived read model with explicit freshness visibility and authoritative fallback reads from shard and runtime refs when needed.",
+    "summary": "Added explicit summary freshness diagnostics and stale-summary authoritative fallback; the remaining work is to replace the current always-authoritative comparison path with a cheaper summary-first materialization strategy."
   },
   "files": {
     "coordination/tasks/coord-task-01kmwxtrc6vbrsmv2xx2phnv8k-9f766974541452bf.json": {
@@ -43,18 +43,18 @@
     },
     "coordination/tasks/coord-task-01kng1zsbvzhcbyhfvgy0rwcy6-cf3c02b93cc3ba37.json": {
       "path": "coordination/tasks/coord-task-01kng1zsbvzhcbyhfvgy0rwcy6-cf3c02b93cc3ba37.json",
-      "sha256": "sha256:54e3e1343200e45112dffc4707454ba001a34789bd31638cd00f00fbe93b1b46"
+      "sha256": "sha256:9112c9f4a2c433c7f103691930295a9e8dec854bab727933aaf5a3caf7062c5f"
     },
     "coordination/tasks/coord-task-01kng427001ndsrj10d0z5mcez-31bc0a99ab81d568.json": {
       "path": "coordination/tasks/coord-task-01kng427001ndsrj10d0z5mcez-31bc0a99ab81d568.json",
-      "sha256": "sha256:334a42cf987a10c49ab630936ed1f758702fbfd75affd86fecc770d9214a3805"
+      "sha256": "sha256:1ae8779b140e3a82559d5a8ad4bf48a4380b45b5b956968f62317283b65a24c8"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
       "sha256": "sha256:2c4b1f38da5cdda3925eb11752b84e8b5a18b6e828dba9002c698fb09d420bd4"
     }
   },
-  "previousManifestDigest": "sha256:b3caada1c187a5fbc38194579e8dd7e5019ee62d8818e1f7c2a3a912f7848b4d",
+  "previousManifestDigest": "sha256:6e918e6f762f98ce110eafea7469dc0bdc569bf399ac5c3895b771faba8cf1c0",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -64,6 +64,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:WwPah2YvOsOV1X6Be+Yh8qaUDgJyjqNjRAy/f+Usl6lLykAZ7z2z2M0TuIf1oMU1EgifLySdDjV+SomklnA/Bw=="
+    "value": "base64:qX0HvviKdQ3RDbVmomxoXQa61l108InVfFKJ+9/VfTrLR5SFXeNWOkWIA1jtdUwhxavTEOFVjjJmIebbPF95Dw=="
   }
 }
