@@ -10,5 +10,11 @@
     "title": "Complete manual_pr integration mode with review-backed observation and landing verification",
     "status": "Completed",
     "path": "tasks/coord-task-01knave01nvcrq91vnt8np1mkg-8243c5ba734653e9.json"
+  },
+  {
+    "id": "coord-task:01knhbwesynk1w28yjk492jspz",
+    "title": "Rewrite workspace runtime sync, freshness, and diagnostics to stop consulting shared runtime DB revisions",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbwesynk1w28yjk492jspz-440487d4c7ec5062.json"
   }
 ]
