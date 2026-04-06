@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn09je51g42y7gg7cph5144f",
+    "title": "Replace broad runtime reloads with region-scoped incremental mutation and bounded hot-state hydration",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09je51g42y7gg7cph5144f-29c09291f35083ae.json"
+  },
+  {
+    "id": "coord-task:01kn80c3hk4bk0kt0391289zh5",
+    "title": "Expose protected-state sync status, diagnostics, and fallback reconciliation",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn80c3hk4bk0kt0391289zh5-2d06dd1e77a0ddc3.json"
+  }
+]
