@@ -4,5 +4,11 @@
     "title": "Strengthen concept -> doc -> code continuity across compact flows",
     "status": "Completed",
     "path": "tasks/coord-task-01kn3g2az4kq3g8nahzdnxeaw7-919599b73dae557d.json"
+  },
+  {
+    "id": "coord-task:01knhbywnrjb7yhtxxsv86c20x",
+    "title": "Validate multi-worktree federated behavior end to end and prove the shared-runtime lock-contention class is gone",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbywnrjb7yhtxxsv86c20x-968670629cd0b552.json"
   }
 ]
