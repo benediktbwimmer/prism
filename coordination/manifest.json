@@ -1,24 +1,24 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775484470,
+  "publishedAt": 1775494638,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "work:complete-the-migration-compatibility-window-task:01knhhxymhz10kj3qtjkz78j5w",
+    "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
     "kind": "coordination",
-    "title": "Complete the migration compatibility window task",
-    "summary": "Repair the stale PRISM plan state by marking the migration compatibility task complete after its implementation and validation already landed.",
-    "coordinationTaskId": "coord-task:01kng209dwy330am5tc7qr7z74",
-    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
-    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
+    "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+    "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes.",
+    "coordinationTaskId": "coord-task:01knhbwesp16r75m614k3wkksj",
+    "planId": "plan:01knhbwesj53rq8f301x6r51qj",
+    "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
   },
   "publishSummary": {
-    "title": "Complete the migration compatibility window task",
-    "summary": "Repair the stale PRISM plan state by marking the migration compatibility task complete after its implementation and validation already landed."
+    "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
+    "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes."
   },
   "files": {
     "coordination/tasks/coord-task-01kn2nj1wbag9jvvajz4ma081y-0e810e179f125947.json": {
@@ -35,7 +35,7 @@
     },
     "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json": {
       "path": "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json",
-      "sha256": "sha256:07b8bf3a988125f89caee5c3413b7c81627c7338d56e2fd2a07e77c7c19cde6f"
+      "sha256": "sha256:04b6c7efbcf381ae36b32dfefd65d8f70ffb61487d041fb600fc23db7bfd5f97"
     },
     "coordination/tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json": {
       "path": "coordination/tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json",
@@ -47,10 +47,10 @@
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:a5a05d1ea1543cc878aeee450b1ab1dc0f97f9e040a2599876d248a5815bbf7f"
+      "sha256": "sha256:3d52ad5d5ad490dc0ebd4e408e05739bd49cadaa3ab73af3e24293e0b005b9a4"
     }
   },
-  "previousManifestDigest": "sha256:97f4070458f322ef1be973b5c361d900c3811bbf55f6810fe4ed0277a5194b6b",
+  "previousManifestDigest": "sha256:aa0aca780cee5abca223c8cb14e1348852ec2b7c1ee309de031ba9da4b471175",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -60,6 +60,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:1clsls9QQtBpYPotx4ZMP0xGtdSM4/BVZEFjdYlAdy5EYb4DXiQWEiVPk23vj3X/KJHSSA1Yu47+Y4H+gbzJCQ=="
+    "value": "base64:EeubD5hyCXUqrLsbt11lh3X4oNiHYGiTvwy+gSKP0XTlnXvVDoV0pSmn4g9YO/3P1PeiV4Vd/GPIDjaxvlvcCw=="
   }
 }
