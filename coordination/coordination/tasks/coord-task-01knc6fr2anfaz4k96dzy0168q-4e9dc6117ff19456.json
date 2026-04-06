@@ -1,0 +1,84 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Runtime and query surfaces expose authoritative revision plus lagging revision state for each deferred surface"
+      },
+      {
+        "anchors": [],
+        "label": "Trace output and diagnostics can distinguish authoritative write latency from deferred catch-up latency"
+      },
+      {
+        "anchors": [],
+        "label": "Operators can tell when a mutation is fast but a derived surface is stale, rebuilding, or failed"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 189
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knc6dqrewn2hah2p54xya9xw",
+      "coord-task:01knc6dzagp1zbg7ne0df1gyqh",
+      "coord-task:01knc6e8tbctzsqh0ngt4963ak",
+      "coord-task:01knc6egjk5ay9wm7amhm2p86c"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knc6fr2anfaz4k96dzy0168q",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Validate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knc64s1zzzxq7x324fms1cyc",
+    "priority": 91,
+    "published_task_status": null,
+    "session": null,
+    "status": "Ready",
+    "summary": "Add first-class diagnostics for authoritative revision, lagging tracked snapshot revision, lagging checkpoint/read-model revisions, and hot-path phase timings so operators and agents can see when deferred materializations are healthy, behind, or broken instead of experiencing invisible latency or stale reads.",
+    "tags": [
+      "diagnostics",
+      "observability",
+      "performance"
+    ],
+    "title": "Expose deferred-surface lag, dirty revisions, and hot-path diagnostics explicitly",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

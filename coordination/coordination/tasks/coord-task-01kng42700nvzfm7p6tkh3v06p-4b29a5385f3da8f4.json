@@ -1,0 +1,119 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [
+          {
+            "File": 128
+          },
+          {
+            "File": 505
+          }
+        ],
+        "label": "The hot coordination plane must retain only active working state, archive completed or stale state into explicit archive targets with continuity metadata, and preserve authoritative reads across hot plus archive state without losing signed trust continuity."
+      }
+    ],
+    "anchors": [
+      {
+        "File": 128
+      },
+      {
+        "File": 505
+      },
+      {
+        "File": 509
+      },
+      {
+        "File": 658
+      },
+      {
+        "File": 83
+      }
+    ],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 383
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 128
+        },
+        {
+          "File": 505
+        },
+        {
+          "File": 509
+        },
+        {
+          "File": 658
+        },
+        {
+          "File": 83
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": "detached:3cc25362d1a5520be58a33b2c162cbc30963e61f",
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kng42700hg2hrewgm8542y9j",
+      "coord-task:01kng42700xw977d4tq1ebr30s"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kng42700nvzfm7p6tkh3v06p",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775443572,
+    "lease_holder": {
+      "agent_id": null,
+      "principal": {
+        "authority_id": "local-daemon",
+        "kind": "human",
+        "name": "benedikt wimmer",
+        "principal_id": "principal:benedikt-wimmer:01knfv1e1gry3k011wp7q1a6nt"
+      },
+      "session_id": "session:01kng409n16se566xnq79c6e6x",
+      "worktree_id": "worktree:5820c89d186523db"
+    },
+    "lease_refreshed_at": 1775436372,
+    "lease_stale_at": 1775438172,
+    "lease_started_at": 1775436372,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kng427007ptj9mpg3s0gp4vc",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01kng409n16se566xnq79c6e6x",
+    "status": "Ready",
+    "summary": null,
+    "tags": [],
+    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
+    "validation_refs": [],
+    "worktree_id": "worktree:5820c89d186523db"
+  },
+  "schema_version": 1
+}

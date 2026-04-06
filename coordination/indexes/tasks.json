@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn3g2axtp38kdahjc7p1nrad",
+    "title": "Lean more on active task context in compact-tool ranking and follow-through",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2axtp38kdahjc7p1nrad-b5df5badc417217a.json"
+  },
+  {
+    "id": "coord-task:01knc6fr2anfaz4k96dzy0168q",
+    "title": "Expose deferred-surface lag, dirty revisions, and hot-path diagnostics explicitly",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6fr2anfaz4k96dzy0168q-4e9dc6117ff19456.json"
+  },
+  {
+    "id": "coord-task:01knfddqewtyzb0npmeyfy36e7",
+    "title": "Replace bridge credential adoption with worktree-slot attachment and worktree-executor authorization",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knfddqewtyzb0npmeyfy36e7-7a04a436da4593b1.json"
+  },
+  {
+    "id": "coord-task:01kng42700nvzfm7p6tkh3v06p",
+    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kng42700nvzfm7p6tkh3v06p-4b29a5385f3da8f4.json"
+  }
+]
