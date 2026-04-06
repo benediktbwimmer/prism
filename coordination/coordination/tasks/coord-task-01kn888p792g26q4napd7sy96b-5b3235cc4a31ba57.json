@@ -1,0 +1,81 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Release daemon rebuild, restart, status, and health pass on the final state"
+      },
+      {
+        "anchors": [],
+        "label": "Targeted regressions cover each implemented improvement track"
+      },
+      {
+        "anchors": [],
+        "label": "cargo test --workspace --quiet passes, or only accepted non-regression flakes remain until the flake task lands"
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 862
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn88705a26qcc46r29w6zy5k",
+      "coord-task:01kn887c7vzqbqeq28g6dpejs7",
+      "coord-task:01kn887qhy3394rwdsqj43tzz3",
+      "coord-task:01kn8881wy1ezws32kge141gk7",
+      "coord-task:01kn888c0tajwyg12b26d389nf"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn888p792g26q4napd7sy96b",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn8868kh84bkb3rtdc12bdkc",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Validated the feedback-driven repo-awareness improvements end to end after completing task-brief guidance fixes, compact ranking follow-through, runtimeStatus diagnostics cleanup, fresh-file/doc freshness handling, and deterministic flake elimination. Validation evidence includes targeted PRISM MCP regressions, cargo test -p prism-mcp --quiet, cargo test --workspace --quiet, and the required release build plus daemon restart/status/health sequence on the updated binaries.",
+    "tags": [],
+    "title": "Validate the feedback-driven repo-awareness improvements end to end",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

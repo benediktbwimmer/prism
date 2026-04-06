@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn888p792g26q4napd7sy96b",
+    "title": "Validate the feedback-driven repo-awareness improvements end to end",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn888p792g26q4napd7sy96b-5b3235cc4a31ba57.json"
+  },
+  {
+    "id": "coord-task:01knfddqew0a8028mfnjbdq9ya",
+    "title": "Add migration and compatibility shims for legacy local agent credential profiles and bridge-auth surfaces",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knfddqew0a8028mfnjbdq9ya-25b0052d1f236526.json"
+  }
+]
