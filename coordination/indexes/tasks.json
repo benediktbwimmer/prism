@@ -10,5 +10,11 @@
     "title": "Move derived projections, memory reanchor, and coordination reloads fully behind settle",
     "status": "Ready",
     "path": "tasks/coord-task-01kn55eps6ms9b7hr6nexfnjhr-2bf256ffcdbe647e.json"
+  },
+  {
+    "id": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
+    "title": "Remove shared-runtime-coupled shared-coordination-ref watch and bootstrap behavior",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbwetabrr9gjkxjnkaswvr-82de29363be758ec.json"
   }
 ]
