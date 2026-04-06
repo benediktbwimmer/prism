@@ -42,9 +42,7 @@
     },
     "branch_ref": "refs/heads/main",
     "coordination_depends_on": [],
-    "depends_on": [
-      "coord-task:01knhf1m982dyw4r03g5btgb0y"
-    ],
+    "depends_on": [],
     "git_execution": {
       "integrationCommit": null,
       "integrationEvidence": null,
