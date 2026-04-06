@@ -24,6 +24,12 @@
     "path": "tasks/coord-task-01knfcza3xavgp1ffcx7n17k49-2860e44a4f9357ed.json"
   },
   {
+    "id": "coord-task:01knhbwet28s6yt1h9afvj36bn",
+    "title": "Publish and consume live runtime discovery descriptors solely from shared coordination refs",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbwet28s6yt1h9afvj36bn-b4b266582e041ad1.json"
+  },
+  {
     "id": "coord-task:9",
     "title": "Cut synchronous request-path refresh from read surfaces",
     "status": "Completed",
