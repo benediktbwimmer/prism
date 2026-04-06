@@ -4,5 +4,11 @@
     "title": "Reduce parse/apply and persist cost for large fanout edits",
     "status": "Completed",
     "path": "tasks/coord-task-01kn3p6x28h7567wcmymy825g3-9d5186e32fc7abff.json"
+  },
+  {
+    "id": "coord-task:01knhbywmr3a44b8r8v0hddeff",
+    "title": "Publish and consume live runtime discovery descriptors solely from shared coordination refs",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbywmr3a44b8r8v0hddeff-2ab8ac256184a085.json"
   }
 ]
