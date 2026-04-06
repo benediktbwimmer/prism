@@ -125,20 +125,20 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775486385,
+    "lease_expires_at": 1775443572,
     "lease_holder": {
-      "agent_id": "codex-d",
+      "agent_id": null,
       "principal": {
-        "authority_id": "worktree_executor",
-        "kind": "agent",
-        "name": "codex-d",
-        "principal_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
+        "authority_id": "local-daemon",
+        "kind": "human",
+        "name": "benedikt wimmer",
+        "principal_id": "principal:benedikt-wimmer:01knfv1e1gry3k011wp7q1a6nt"
       },
-      "session_id": "session:01knhcsjbjx57e6kbme89890c1",
-      "worktree_id": "worktree:01kng5pwdqf1fberapprn1q9hr"
+      "session_id": "session:01kng409n16se566xnq79c6e6x",
+      "worktree_id": "worktree:5820c89d186523db"
     },
-    "lease_refreshed_at": 1775479185,
-    "lease_stale_at": 1775480985,
+    "lease_refreshed_at": 1775436372,
+    "lease_stale_at": 1775438172,
     "lease_started_at": 1775436372,
     "metadata": null,
     "pending_handoff_to": null,

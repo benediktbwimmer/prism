@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775479185,
+  "publishedAt": 1775479272,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
@@ -11,12 +11,14 @@
     "workId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
     "kind": "coordination",
     "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
+    "summary": "Archive-plane pruning now publishes explicit archive boundary refs, keeps hot shared coordination state bounded, and surfaces archive-boundary metadata in runtime diagnostics. Completion is pending commit/integration per the task git-execution policy.",
     "coordinationTaskId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
     "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
     "planTitle": "Implement shared coordination v1 architecture hardening"
   },
   "publishSummary": {
-    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age."
+    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
+    "summary": "Archive-plane pruning now publishes explicit archive boundary refs, keeps hot shared coordination state bounded, and surfaces archive-boundary metadata in runtime diagnostics. Completion is pending commit/integration per the task git-execution policy."
   },
   "files": {
     "coordination/tasks/coord-task-01kn3g2axtp38kdahjc7p1nrad-b5df5badc417217a.json": {
@@ -33,7 +35,7 @@
     },
     "coordination/tasks/coord-task-01kng42700nvzfm7p6tkh3v06p-4b29a5385f3da8f4.json": {
       "path": "coordination/tasks/coord-task-01kng42700nvzfm7p6tkh3v06p-4b29a5385f3da8f4.json",
-      "sha256": "sha256:cec423ecc5d5f1bab6380948b33a644f935d331bd007b29f9fb534e3083b0f1b"
+      "sha256": "sha256:bbcaa8ba7f062aae19c64abfd64e24e9179e545f9ef3d5bc756f8f5cc88444db"
     },
     "coordination/tasks/coord-task-01knhbxwdn8zfs2k1ampcftcyw-e905395cff735127.json": {
       "path": "coordination/tasks/coord-task-01knhbxwdn8zfs2k1ampcftcyw-e905395cff735127.json",
@@ -44,7 +46,7 @@
       "sha256": "sha256:a645af19b115cf224c32d8af48f7f59d5a79eddbdf1d097b9d1ab573e3586686"
     }
   },
-  "previousManifestDigest": "sha256:ba5683031d9af2a47579ffe89d4cdfff3aca0b2f670f0aff0253db2f720e2c06",
+  "previousManifestDigest": "sha256:b18b0d3b33eaf0b2589375b300bb6b35e0b14e014ab97bb0f784932ed357b586",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -54,6 +56,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:kz65lurNvNThRUeQmF6TUgF2ByX+2v2Hv1HbxHcaVZhJTx7GqWkImj/Y92UPQl3dIA7WwhrK7Th2BSYbhGrDBQ=="
+    "value": "base64:Djzw80i/IaXN9mC6smg+BNFSb4jHbUWO3k53WHvqdfS3eG87Z4ROa686pi4TmL8nKiuQYdD44QEzpxbGRhO3Ag=="
   }
 }
