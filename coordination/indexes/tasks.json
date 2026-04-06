@@ -8,7 +8,7 @@
   {
     "id": "coord-task:01kng427008wyav2vmr5am9jg9",
     "title": "Split runtime liveness and discovery out of the repo-wide live summary onto per-runtime authoritative refs, and keep the summary runtime index as a derived aggregate instead of the hot heartbeat write path.",
-    "status": "InProgress",
+    "status": "Completed",
     "path": "tasks/coord-task-01kng427008wyav2vmr5am9jg9-64351b1eaa203ce5.json"
   }
 ]
