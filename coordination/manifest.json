@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775475744,
+  "publishedAt": 1775475793,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
@@ -31,14 +31,14 @@
     },
     "coordination/tasks/coord-task-01kng1yn34wwn8whre1egw851z-8bac1f9c22f49830.json": {
       "path": "coordination/tasks/coord-task-01kng1yn34wwn8whre1egw851z-8bac1f9c22f49830.json",
-      "sha256": "sha256:77e98351757a957a1480c1a4e1b121f410bb6229c06a124e27a9ae12d4949f86"
+      "sha256": "sha256:2f63bf74494247739db3c25f77397375af3cf2e43a0639c1124f769c5c585312"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
       "sha256": "sha256:20727f25699bdbb0f6acd80d79c2eb3be8f91979ed310098a7edc7bd296933d7"
     }
   },
-  "previousManifestDigest": "sha256:39b49057623483c34c1799368725395b2b8ca210959045642f63a8064df3f9c8",
+  "previousManifestDigest": "sha256:f3f72d65641cf0def7751c8f3bf279b4df7704d7d17e37d5a61c6e9671ac7046",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -48,6 +48,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:ozGq0NYmZqyIaPxdR1UKLAhsE+TzCr2qQrt+w0k+/GFceZ2c++XyXXDwHmIhsRFO7sgWE6aDmMY/SLxmXbYDAA=="
+    "value": "base64:fPSL6247mEU/QaiiyZxPe29jylK5dz/Qc79vvgUmrfuopVUUmiu0qXd0Jo7KFnUakvJ5afhnx/pORxwBOBMwBA=="
   }
 }
