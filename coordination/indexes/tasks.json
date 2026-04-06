@@ -4,5 +4,11 @@
     "title": "Restore shared-ref runtime descriptors and live descriptor publication",
     "status": "Completed",
     "path": "tasks/coord-task-01kncfw8xh4mephwpkg8ky3mem-e006a721ce8eecd7.json"
+  },
+  {
+    "id": "coord-task:01knhbwetpa19yaw9w8f1y31t4",
+    "title": "Rewrite docs, MCP self-description, and operator guidance around the federated runtime model",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbwetpa19yaw9w8f1y31t4-d8bb62cbd6320ab6.json"
   }
 ]
