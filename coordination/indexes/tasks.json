@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kmzvjdhbpqxs2nzjxwbvznp9",
+    "title": "Milestone 2: Introduce a routed frontend shell and shared client data layer",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmzvjdhbpqxs2nzjxwbvznp9-c4fa5ae06dd14ef9.json"
+  },
+  {
+    "id": "coord-task:01kndb8xs6x06d85z8hn500dnx",
+    "title": "Validate the full MCP surface remains usable without source access under truncation budgets",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kndb8xs6x06d85z8hn500dnx-508dbeba450ea65b.json"
+  },
+  {
+    "id": "coord-task:01kng1zj0hgqv438pm4hg6jy66",
+    "title": "Derive effective task status, derived plan status, blocker causes, descendant estimate summaries, graph-actionable task sets, and identity-agnostic readiness from the canonical graph",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kng1zj0hgqv438pm4hg6jy66-3bad2652276e5476.json"
+  }
+]

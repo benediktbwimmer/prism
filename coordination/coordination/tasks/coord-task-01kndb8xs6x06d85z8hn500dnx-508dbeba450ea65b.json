@@ -1,0 +1,78 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Agents can gather exactly the information they need for each supported workflow through MCP alone, within enforced response budgets."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 426
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kndb8xs46tt2pgt67701jk6d"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kndb8xs6x06d85z8hn500dnx",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Validate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kndb8xs4e1w2svt67mzvhe7n",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": null,
+    "tags": [
+      "mcp",
+      "self-description",
+      "truncation",
+      "validation"
+    ],
+    "title": "Validate the full MCP surface remains usable without source access under truncation budgets",
+    "validation_refs": [
+      {
+        "id": "mcp-self-description-truncation-regression"
+      }
+    ],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

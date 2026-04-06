@@ -1,0 +1,83 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "The frontend has an app shell and navigation that can host Overview, Dashboard, Plans, and Graph as coherent sibling surfaces"
+      },
+      {
+        "anchors": [],
+        "label": "Shared fetching, bootstrap, and SSE connection state live in reusable client infrastructure instead of being duplicated per page"
+      },
+      {
+        "anchors": [],
+        "label": "The current dashboard UI survives as a dedicated page inside the new shell rather than being discarded as throwaway code"
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 491
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [
+        "concept://dashboard_surface"
+      ],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kmzvjdhbwhnhz1fgkrebe94p"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kmzvjdhbpqxs2nzjxwbvznp9",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kmzvjdhb874nxd0v44d2hdmt",
+    "priority": 2,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Completed the routed frontend shell and shared client data layer: the monolithic dashboard app is split into an app frame, route model, reusable dashboard bootstrap/SSE hook, dedicated dashboard page, overview page, and placeholder plans/graph pages without discarding the current dashboard surface.",
+    "tags": [
+      "frontend",
+      "navigation",
+      "shell"
+    ],
+    "title": "Milestone 2: Introduce a routed frontend shell and shared client data layer",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
