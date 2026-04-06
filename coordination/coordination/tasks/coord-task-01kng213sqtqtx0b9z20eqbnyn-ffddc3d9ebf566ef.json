@@ -36,7 +36,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": null,
+    "branch_ref": "refs/heads/codex/coordination-graph-rewrite",
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01kng209dwy330am5tc7qr7z74",
@@ -85,13 +85,13 @@
     "plan": "plan:01kng1xsx7yvfqh77cph9v7p60",
     "priority": null,
     "published_task_status": null,
-    "session": null,
+    "session": "session:01kng1sakrhbd4v3h17aypr7ph",
     "status": "Ready",
     "summary": null,
     "tags": [],
     "title": "Remove legacy execution-plan storage and compatibility-era authored graph constructs after the repo is v2-clean, including root_tasks, durable native plan nodes, and non-dependency execution edge kinds",
     "validation_refs": [],
-    "worktree_id": null
+    "worktree_id": "worktree:38d65972b1359401"
   },
   "schema_version": 1
 }
