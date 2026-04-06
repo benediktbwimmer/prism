@@ -2695,6 +2695,7 @@ fn plan_node_mutations_return_graph_native_views() {
             edges: Vec::new(),
         }],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let updated = host
@@ -2871,6 +2872,7 @@ fn native_plan_node_completion_rejects_missing_review_and_validation() {
             edges: Vec::new(),
         }],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let execution = QueryExecution::new(
@@ -2987,6 +2989,7 @@ fn coordination_update_routes_plain_ids_to_native_plan_nodes() {
             edges: Vec::new(),
         }],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let updated = host
@@ -3848,6 +3851,7 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
             ],
         }],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let execution = QueryExecution::new(
@@ -4858,6 +4862,7 @@ fn mcp_plan_update_rehydrates_stale_coordination_runtime_before_mutating() {
             prism_coordination::CoordinationSnapshot::default(),
             state.plan_graphs.clone(),
             state.execution_overlays.clone(),
+            Vec::new(),
         );
     host.loaded_coordination_revision_handle()
         .expect("coordination revision handle")
@@ -5109,10 +5114,11 @@ fn mcp_plan_archive_terminalizes_active_task_execution_plan_before_archiving() {
                     tags: Vec::new(),
                     metadata: serde_json::Value::Null,
                 }],
-                edges: Vec::new(),
-            }],
-            std::collections::BTreeMap::new(),
-        );
+            edges: Vec::new(),
+        }],
+        std::collections::BTreeMap::new(),
+        Vec::new(),
+    );
 
     let archived = host
         .store_coordination(
@@ -6883,6 +6889,7 @@ fn validation_plan_accepts_native_plan_node_task_ids() {
         prism.coordination_snapshot(),
         vec![native_graph],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let envelope = host
@@ -6980,6 +6987,7 @@ fn task_surfaces_accept_native_plan_node_task_ids() {
         prism.coordination_snapshot(),
         vec![native_graph],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let envelope = host
@@ -7128,6 +7136,7 @@ fn task_backed_query_surfaces_follow_published_plan_validation_fields() {
         prism.coordination_snapshot(),
         vec![native_graph],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let envelope = host
@@ -14785,6 +14794,7 @@ fn compact_task_brief_self_contained_native_node_ignores_related_plan_neighbors(
             }],
         }],
         std::collections::BTreeMap::new(),
+        Vec::new(),
     );
 
     let brief = host

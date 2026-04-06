@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
+use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor};
 use prism_ir::{PlanExecutionOverlay, PlanGraph};
 use serde::{Deserialize, Serialize};
 
@@ -25,8 +25,10 @@ pub struct CoordinationStartupCheckpoint {
     pub canonical_snapshot_v2: Option<CoordinationSnapshotV2>,
     pub plan_graphs: Vec<PlanGraph>,
     pub execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    #[serde(default)]
+    pub runtime_descriptors: Vec<RuntimeDescriptor>,
 }
 
 impl CoordinationStartupCheckpoint {
-    pub const VERSION: u32 = 2;
+    pub const VERSION: u32 = 3;
 }

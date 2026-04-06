@@ -170,6 +170,7 @@ where
                 &repo_semantic_snapshot,
                 &derived.plan_graphs,
                 &repo_semantic_execution_overlays,
+                &[],
             )
         },
     )?;

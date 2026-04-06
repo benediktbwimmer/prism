@@ -10528,6 +10528,7 @@ fn publish_generation_with_incremental_intent_matches_fresh_derivation() {
         CoordinationSnapshot::default(),
         Vec::new(),
         std::collections::BTreeMap::new(),
+        Vec::new(),
         prism_projections::ProjectionIndex::default(),
     );
     let current = old_state.publish_generation(prism_ir::WorkspaceRevision::default(), None);
@@ -10559,6 +10560,7 @@ fn publish_generation_with_incremental_intent_matches_fresh_derivation() {
         CoordinationSnapshot::default(),
         Vec::new(),
         std::collections::BTreeMap::new(),
+        Vec::new(),
         prism_projections::ProjectionIndex::default(),
     );
 

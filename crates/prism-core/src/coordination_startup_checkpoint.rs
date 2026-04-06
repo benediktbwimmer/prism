@@ -33,6 +33,7 @@ where
         Some(snapshot) => {
             let mut plan_graphs = checkpoint.plan_graphs;
             let mut execution_overlays = checkpoint.execution_overlays;
+            let runtime_descriptors = checkpoint.runtime_descriptors;
             merge_snapshot_bootstrap_into_plan_state(
                 &snapshot,
                 &mut plan_graphs,
@@ -48,6 +49,7 @@ where
                 snapshot,
                 plan_graphs,
                 execution_overlays,
+                runtime_descriptors,
             })
         }
         None => {
@@ -63,6 +65,7 @@ where
                 snapshot,
                 plan_graphs: checkpoint.plan_graphs,
                 execution_overlays: checkpoint.execution_overlays,
+                runtime_descriptors: checkpoint.runtime_descriptors,
             })
         }
     })
@@ -124,6 +127,7 @@ pub(crate) fn save_shared_coordination_startup_checkpoint<S>(
     snapshot: &CoordinationSnapshot,
     plan_graphs: &[PlanGraph],
     execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    runtime_descriptors: &[prism_coordination::RuntimeDescriptor],
 ) -> Result<()>
 where
     S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
@@ -144,6 +148,7 @@ where
         )?),
         plan_graphs: plan_graphs.to_vec(),
         execution_overlays: execution_overlays.clone(),
+        runtime_descriptors: runtime_descriptors.to_vec(),
     })
 }
 

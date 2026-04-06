@@ -30,8 +30,8 @@ use prism_coordination::{
     migrate_legacy_hybrid_snapshot_to_canonical_v2, Artifact, ArtifactProposeInput, ArtifactReview,
     ArtifactReviewInput, ArtifactSupersedeInput, CoordinationConflict, CoordinationRuntimeState,
     CoordinationSnapshot, CoordinationSnapshotV2, CoordinationTask, HandoffAcceptInput,
-    HandoffInput, PlanScheduling, TaskCreateInput, TaskReclaimInput, TaskResumeInput,
-    TaskUpdateInput, WorkClaim,
+    HandoffInput, LeaseHeartbeatDueState, LeaseState, PlanScheduling, RuntimeDescriptor,
+    TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
@@ -287,6 +287,7 @@ impl Prism {
             projections,
             plan_graphs,
             execution_overlays,
+            Vec::new(),
             None,
         )
     }
@@ -299,6 +300,7 @@ impl Prism {
         projections: ProjectionIndex,
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
         intent_override: Option<IntentIndex>,
     ) -> Self {
         Self::with_shared_history_outcomes_coordination_projections_and_native_plans(
@@ -306,10 +308,11 @@ impl Prism {
             history,
             outcomes,
             projections,
-            MaterializedCoordinationRuntime::from_snapshot_with_graphs_and_overlays(
+            MaterializedCoordinationRuntime::from_snapshot_with_graphs_overlays_and_runtime_descriptors(
                 coordination,
                 plan_graphs,
                 execution_overlays,
+                runtime_descriptors,
             ),
             intent_override,
         )
@@ -593,18 +596,63 @@ impl Prism {
         snapshot: CoordinationSnapshot,
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
     ) {
         let prune_snapshot = snapshot.clone();
+        let mut runtime = self
+            .materialized_runtime
+            .write()
+            .expect("materialized runtime lock poisoned");
+        runtime.replace_from_snapshot_with_graphs_and_overlays(
+            snapshot,
+            plan_graphs,
+            execution_overlays,
+        );
+        runtime.replace_runtime_descriptors(runtime_descriptors);
+        self.prune_local_assisted_leases(&prune_snapshot);
+        self.invalidate_plan_discovery_cache();
+    }
+
+    pub fn replace_runtime_descriptors(&self, runtime_descriptors: Vec<RuntimeDescriptor>) {
         self.materialized_runtime
             .write()
             .expect("materialized runtime lock poisoned")
-            .replace_from_snapshot_with_graphs_and_overlays(
-                snapshot,
-                plan_graphs,
-                execution_overlays,
-            );
-        self.prune_local_assisted_leases(&prune_snapshot);
+            .replace_runtime_descriptors(runtime_descriptors);
         self.invalidate_plan_discovery_cache();
+    }
+
+    pub fn runtime_descriptors(&self) -> Vec<RuntimeDescriptor> {
+        self.materialized_runtime
+            .read()
+            .expect("materialized runtime lock poisoned")
+            .runtime_descriptors()
+            .to_vec()
+    }
+
+    pub fn effective_task_lease_state(&self, task: &CoordinationTask, now: u64) -> LeaseState {
+        self.with_coordination_runtime(|runtime| runtime.task_lease_state(task, now))
+    }
+
+    pub fn effective_claim_lease_state(&self, claim: &WorkClaim, now: u64) -> LeaseState {
+        self.with_coordination_runtime(|runtime| runtime.claim_lease_state(claim, now))
+    }
+
+    pub fn effective_task_heartbeat_due_state(
+        &self,
+        task: &CoordinationTask,
+        policy: &prism_coordination::CoordinationPolicy,
+        now: u64,
+    ) -> LeaseHeartbeatDueState {
+        self.with_coordination_runtime(|runtime| runtime.task_heartbeat_due_state(task, policy, now))
+    }
+
+    pub fn effective_claim_heartbeat_due_state(
+        &self,
+        claim: &WorkClaim,
+        policy: &prism_coordination::CoordinationPolicy,
+        now: u64,
+    ) -> LeaseHeartbeatDueState {
+        self.with_coordination_runtime(|runtime| runtime.claim_heartbeat_due_state(claim, policy, now))
     }
 
     pub fn record_local_assisted_task_lease(

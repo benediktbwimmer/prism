@@ -8,7 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use prism_coordination::{
     coordination_snapshot_from_plan_graphs, execution_overlays_from_tasks,
     migrate_legacy_hybrid_snapshot_to_canonical_v2, snapshot_plan_graphs, CoordinationSnapshot,
-    CoordinationSnapshotV2, CoordinationTask, Plan,
+    CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor,
 };
 use prism_ir::{
     CoordinationTaskId, PlanEdge, PlanEdgeId, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode,
@@ -232,6 +232,7 @@ pub(crate) struct HydratedCoordinationPlanState {
     pub(crate) canonical_snapshot_v2: CoordinationSnapshotV2,
     pub(crate) plan_graphs: Vec<PlanGraph>,
     pub(crate) execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    pub(crate) runtime_descriptors: Vec<RuntimeDescriptor>,
 }
 
 pub(crate) fn sync_repo_published_plans(
@@ -467,6 +468,7 @@ pub(crate) fn load_hydrated_coordination_plan_state(
                     snapshot,
                     plan_graphs: shared.plan_graphs,
                     execution_overlays: shared.execution_overlays,
+                    runtime_descriptors: shared.runtime_descriptors,
                 })
             }
             None => Some(HydratedCoordinationPlanState {
@@ -474,6 +476,7 @@ pub(crate) fn load_hydrated_coordination_plan_state(
                 snapshot: shared.snapshot,
                 plan_graphs: shared.plan_graphs,
                 execution_overlays: shared.execution_overlays,
+                runtime_descriptors: shared.runtime_descriptors,
             }),
         });
     }
@@ -508,6 +511,7 @@ pub(crate) fn load_hydrated_coordination_plan_state(
                     snapshot,
                     plan_graphs: tracked.plan_graphs,
                     execution_overlays: tracked.execution_overlays,
+                    runtime_descriptors: Vec::new(),
                 })
             }
         });
@@ -531,6 +535,7 @@ pub(crate) fn load_hydrated_coordination_plan_state(
                 snapshot,
                 plan_graphs: state.plan_graphs,
                 execution_overlays: state.execution_overlays,
+                runtime_descriptors: state.runtime_descriptors,
             }))
         }
         (Some(snapshot), None) => {
@@ -545,6 +550,7 @@ pub(crate) fn load_hydrated_coordination_plan_state(
                 plan_graphs,
                 execution_overlays,
                 snapshot,
+                runtime_descriptors: Vec::new(),
             }))
         }
         (None, Some(published)) if published.legacy_only => {
@@ -587,6 +593,7 @@ fn hydrated_plan_state_from_projection(
         snapshot,
         plan_graphs: graphs,
         execution_overlays,
+        runtime_descriptors: Vec::new(),
     })
 }
 

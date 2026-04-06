@@ -1,4 +1,4 @@
-use prism_coordination::{task_heartbeat_due_state, CoordinationTask, LeaseHeartbeatDueState};
+use prism_coordination::{CoordinationTask, LeaseHeartbeatDueState};
 use prism_ir::{CoordinationTaskId, LeaseRenewalMode};
 use prism_query::Prism;
 
@@ -16,7 +16,7 @@ pub(crate) fn task_heartbeat_advice(
 ) -> Option<TaskHeartbeatAdvice> {
     let task = prism.coordination_task(task_id)?;
     let plan = prism.coordination_plan(&task.plan)?;
-    let due_state = task_heartbeat_due_state(&task, &plan.policy, now);
+    let due_state = prism.effective_task_heartbeat_due_state(&task, &plan.policy, now);
     if !matches!(due_state, LeaseHeartbeatDueState::NotDue)
         && prism.task_has_active_local_assisted_lease(&task, now)
     {

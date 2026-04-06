@@ -355,6 +355,7 @@ impl WorkspaceIndexer<SqliteStore> {
             self.coordination_snapshot,
             self.plan_graphs,
             self.plan_execution_overlays,
+            Vec::new(),
             self.projections,
             self.startup_refresh,
             self.coordination_enabled,
@@ -483,6 +484,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             coordination_snapshot,
             plan_graphs,
             plan_execution_overlays,
+            runtime_descriptors: _,
             projections,
         } = runtime_state;
         merge_repo_patch_events_into_memory(&root, &outcomes)?;
@@ -1580,6 +1582,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             self.coordination_snapshot,
             self.plan_graphs,
             self.plan_execution_overlays,
+            Vec::new(),
             self.projections,
         )
     }

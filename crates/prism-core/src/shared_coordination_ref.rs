@@ -3961,6 +3961,7 @@ mod tests {
                 canonical_snapshot_v2: Some(canonical_snapshot_v2.clone()),
                 plan_graphs: vec![graph.clone()],
                 execution_overlays: execution_overlays.clone(),
+                runtime_descriptors: Vec::new(),
             })
             .unwrap();
 

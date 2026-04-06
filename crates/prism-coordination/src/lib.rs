@@ -52,7 +52,10 @@ pub use git_execution::{
 };
 pub use lease::{
     assisted_heartbeat_window, claim_heartbeat_due_state, claim_lease_state,
-    heartbeat_due_soon_window, task_heartbeat_due_state, task_lease_state, LeaseHeartbeatDueState,
+    claim_heartbeat_due_state_with_runtime_descriptors,
+    claim_lease_state_with_runtime_descriptors, heartbeat_due_soon_window,
+    task_heartbeat_due_state, task_heartbeat_due_state_with_runtime_descriptors,
+    task_lease_state, task_lease_state_with_runtime_descriptors, LeaseHeartbeatDueState,
     LeaseState,
 };
 pub use legacy_migration::migrate_legacy_hybrid_snapshot_to_canonical_v2;

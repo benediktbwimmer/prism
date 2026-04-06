@@ -20,9 +20,10 @@ use crate::helpers::{
     simulate_conflicts, validate_plan_transition, validate_task_transition,
 };
 use crate::lease::{
-    authoritative_task_holder, claim_lease_state, claim_renewal_should_refresh, clear_task_lease,
-    current_claim_holder, current_task_holder, refresh_claim_lease, refresh_task_lease,
-    same_holder, task_heartbeat_should_refresh, task_lease_state, LeaseState,
+    authoritative_task_holder, claim_lease_state_with_runtime_descriptors,
+    claim_renewal_should_refresh, clear_task_lease, current_claim_holder, current_task_holder,
+    refresh_claim_lease, refresh_task_lease, same_holder, task_heartbeat_should_refresh,
+    task_lease_state_with_runtime_descriptors, LeaseState,
 };
 use crate::state::CoordinationState;
 use crate::state::CoordinationStore;
@@ -115,7 +116,8 @@ fn enforce_task_lease_for_standard_mutation(
     task: &CoordinationTask,
     summary: &str,
 ) -> Result<()> {
-    let lease_state = task_lease_state(task, meta.ts);
+    let lease_state =
+        task_lease_state_with_runtime_descriptors(task, &state.runtime_descriptors, meta.ts);
     if matches!(lease_state, LeaseState::Unleased) {
         return Ok(());
     }
@@ -244,7 +246,16 @@ fn plan_completion_violations(
     let active_claim_violations = state
         .claims
         .values()
-        .filter(|claim| matches!(claim_lease_state(claim, now), LeaseState::Active))
+        .filter(|claim| {
+            matches!(
+                claim_lease_state_with_runtime_descriptors(
+                    claim,
+                    &state.runtime_descriptors,
+                    now,
+                ),
+                LeaseState::Active
+            )
+        })
         .filter(|claim| {
             claim
                 .task
@@ -442,7 +453,16 @@ pub(crate) fn acquire_claim_mutation(
             .claims
             .values()
             .filter(|claim| claim_matches_worktree_scope(claim, input.worktree_id.as_deref()))
-            .filter(|claim| matches!(claim_lease_state(claim, meta.ts), LeaseState::Active)),
+            .filter(|claim| {
+                matches!(
+                    claim_lease_state_with_runtime_descriptors(
+                        claim,
+                        &state.runtime_descriptors,
+                        meta.ts,
+                    ),
+                    LeaseState::Active
+                )
+            }),
         &anchors,
         input.capability,
         mode,
@@ -634,7 +654,13 @@ pub(crate) fn renew_claim_mutation(
     if claim.status == prism_ir::ClaimStatus::Released {
         return Err(anyhow!("claim `{}` has already been released", claim_id.0));
     }
-    if !claim_renewal_should_refresh(&claim_snapshot, claim_policy.as_ref(), meta.ts, ttl_seconds) {
+    if !claim_renewal_should_refresh(
+        &claim_snapshot,
+        claim_policy.as_ref(),
+        &state.runtime_descriptors,
+        meta.ts,
+        ttl_seconds,
+    ) {
         return Ok(claim_snapshot);
     }
     claim.status = prism_ir::ClaimStatus::Active;
@@ -671,7 +697,11 @@ pub(crate) fn heartbeat_task_mutation(
     let Some(plan) = state.plans.get(&previous.plan).cloned() else {
         return Err(anyhow!("unknown plan `{}`", previous.plan.0));
     };
-    let lease_state = task_lease_state(&previous, meta.ts);
+    let lease_state = task_lease_state_with_runtime_descriptors(
+        &previous,
+        &state.runtime_descriptors,
+        meta.ts,
+    );
     let current_holder = current_task_holder(&meta, &previous);
     let Some(lease_holder) = authoritative_task_holder(&previous) else {
         return Err(anyhow!(
@@ -739,7 +769,12 @@ pub(crate) fn heartbeat_task_mutation(
             violations,
         ));
     }
-    if !task_heartbeat_should_refresh(&previous, &plan.policy, meta.ts) {
+    if !task_heartbeat_should_refresh(
+        &previous,
+        &plan.policy,
+        &state.runtime_descriptors,
+        meta.ts,
+    ) {
         return Ok(previous);
     }
 
@@ -2885,7 +2920,11 @@ pub(crate) fn resume_task_mutation(
             violations,
         ));
     }
-    let lease_state = task_lease_state(&previous, meta.ts);
+    let lease_state = task_lease_state_with_runtime_descriptors(
+        &previous,
+        &state.runtime_descriptors,
+        meta.ts,
+    );
     if !matches!(lease_state, LeaseState::Stale | LeaseState::Expired) {
         return Err(anyhow!(
             "coordination task `{}` does not have a stale or expired lease to resume",
@@ -3044,7 +3083,11 @@ pub(crate) fn reclaim_task_mutation(
     let Some(plan) = state.plans.get(&previous.plan).cloned() else {
         return Err(anyhow!("unknown plan `{}`", previous.plan.0));
     };
-    let lease_state = task_lease_state(&previous, meta.ts);
+    let lease_state = task_lease_state_with_runtime_descriptors(
+        &previous,
+        &state.runtime_descriptors,
+        meta.ts,
+    );
     if !matches!(lease_state, LeaseState::Stale | LeaseState::Expired) {
         return Err(anyhow!(
             "coordination task `{}` does not have a stale or expired lease to reclaim",
