@@ -1,24 +1,22 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775478206,
+  "publishedAt": 1775479021,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
+    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
   },
   "workContext": {
-    "workId": "work:ship-deterministic-v1-to-v2-migration-path:01knh793qggqjva8647mzz7q7f",
+    "workId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
     "kind": "coordination",
-    "title": "Ship deterministic v1-to-v2 migration path",
-    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite.",
-    "coordinationTaskId": "coord-task:01kng209dwy330am5tc7qr7z74",
-    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
-    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
+    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
+    "coordinationTaskId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
+    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
+    "planTitle": "Implement shared coordination v1 architecture hardening"
   },
   "publishSummary": {
-    "title": "Ship deterministic v1-to-v2 migration path",
-    "summary": "Continue the compatibility-window and legacy-alias implementation for the coordination graph rewrite."
+    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age."
   },
   "files": {
     "coordination/tasks/coord-task-01kn3g2axtp38kdahjc7p1nrad-b5df5badc417217a.json": {
@@ -35,7 +33,7 @@
     },
     "coordination/tasks/coord-task-01kng42700nvzfm7p6tkh3v06p-4b29a5385f3da8f4.json": {
       "path": "coordination/tasks/coord-task-01kng42700nvzfm7p6tkh3v06p-4b29a5385f3da8f4.json",
-      "sha256": "sha256:c50ebe40076174b51fdee3df0f55a21bbe16dabc38be73082ba528a96a984a74"
+      "sha256": "sha256:e0dce799fb5526f410cfd401f10437ec2ed7aaca57f9d12f7ac626824a03c87c"
     },
     "coordination/tasks/coord-task-01knhbxwdn8zfs2k1ampcftcyw-e905395cff735127.json": {
       "path": "coordination/tasks/coord-task-01knhbxwdn8zfs2k1ampcftcyw-e905395cff735127.json",
@@ -46,7 +44,7 @@
       "sha256": "sha256:b4015daf1946486406f760b25aecef1fc61e35658922a3dd64b936e99770cd3d"
     }
   },
-  "previousManifestDigest": "sha256:e55daae085d8849e445994086a6fa11c77300e70306250e55b61c268fc8afec0",
+  "previousManifestDigest": "sha256:a13cf9514dcb4e93187faf653c250e4bc708a8cccbb3d96684e9c109f6527955",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -56,6 +54,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:wTsRPV+1m9H9608HGiI+zdppn6kd4LBIs3PcDPaC2NbzDum7dTcoYV8riqSMA5NoXXCX9s24Ooo7qJpc57TzAg=="
+    "value": "base64:Kp2BU4W0wMUwX21rZIG8wG2aqEpRt7/D8t4WXcAlzQOFGvYjWEpt5mfZH67XvKoBQuhvwK6V6j22LoLTL5FxBA=="
   }
 }
