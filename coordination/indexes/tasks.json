@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn08e5zpqsed4xsmjy2g0zq5",
+    "title": "Milestone 1: Trusted workflow contracts",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn08e5zpqsed4xsmjy2g0zq5-6f94b044bcab1f5e.json"
+  },
+  {
+    "id": "coord-task:01kn8rzyqxvzpnw7m4c0zzk9ex",
+    "title": "Map local repo-instance migration and compatibility rules around the new logical identity",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8rzyqxvzpnw7m4c0zzk9ex-876630cbf18b8428.json"
+  }
+]
