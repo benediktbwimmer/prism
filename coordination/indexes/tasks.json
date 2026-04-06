@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn46t33h51asymhpnse5h0g1",
+    "title": "Classify persisted domains into shared runtime, worktree-local cache, and process-local hot state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn46t33h51asymhpnse5h0g1-2e60d1e2da909e4e.json"
+  },
+  {
+    "id": "coord-task:01kn55e2ery38vr30wxe3ca5r3",
+    "title": "Define the incremental delta-commit contract for refresh",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55e2ery38vr30wxe3ca5r3-0cb20a6dc18760cf.json"
+  },
+  {
+    "id": "coord-task:01kna9hjd5a38ezszy5fqr6h0d",
+    "title": "Implement authenticated capability-scoped bounded peer runtime reads on local or trusted-network transport",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hjd5a38ezszy5fqr6h0d-7e68c4da966beb8d.json"
+  },
+  {
+    "id": "coord-task:01knaqmkjbz69aka2dzh8yhyke",
+    "title": "Audit current git-support and snapshot artifact conflict classes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knaqmkjbz69aka2dzh8yhyke-349eb16f8f3bd7f5.json"
+  }
+]
