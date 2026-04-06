@@ -1,0 +1,77 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Future daemon exits leave durable structured logs or persisted state indicating exit path and restart context."
+      },
+      {
+        "anchors": [],
+        "label": "Launcher or supervisor paths capture enough metadata to distinguish crash, clean shutdown, and external kill scenarios."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 15
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn80ry7wvfr9w7gp0dw8s5s6"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn80s8e7gg2n1czt0jwrh8w5",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn80rqn6t0pgv1dt0zqay9j5",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Added durable daemon lifecycle observability in runtime state and top-level logging, recorded bridge upstream connection failures during warmup and reconnect, rebuilt the release binaries, and restarted the live daemon successfully. Targeted prism-mcp tests passed; full workspace cargo test is still blocked by unrelated prism-store pragma-count assertions.",
+    "tags": [
+      "daemon",
+      "logging",
+      "observability"
+    ],
+    "title": "Add durable daemon crash and shutdown observability",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

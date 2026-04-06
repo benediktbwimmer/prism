@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coord-task:01kn2na0msksb21hqg2321ta0k",
+    "title": "Validate spec drift end-to-end across the spec corpus and harden regressions",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn2na0msksb21hqg2321ta0k-0872bf2257f45bf5.json"
+  },
+  {
+    "id": "coord-task:01kn80s8e7gg2n1czt0jwrh8w5",
+    "title": "Add durable daemon crash and shutdown observability",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80s8e7gg2n1czt0jwrh8w5-97f9f314e0698063.json"
+  },
+  {
+    "id": "coord-task:01kng1yn34wwn8whre1egw851z",
+    "title": "Lock the canonical v2 Plan/Task graph contract across durable types, containment, typed NodeRef dependencies, and authored-vs-derived state boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kng1yn34wwn8whre1egw851z-8bac1f9c22f49830.json"
+  }
+]
