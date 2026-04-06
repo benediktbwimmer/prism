@@ -1,0 +1,118 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Documents the current pathological path from refresh to co-change persistence to daemon health degradation"
+      },
+      {
+        "anchors": [],
+        "label": "Defines the target separation between authoritative runtime state, bounded serving projections, and cold analytical evidence"
+      },
+      {
+        "anchors": [],
+        "label": "Captures baseline measurements for cache growth, startup load, refresh latency, and daemon RSS"
+      }
+    ],
+    "anchors": [
+      {
+        "File": 104
+      },
+      {
+        "File": 231
+      },
+      {
+        "File": 260
+      },
+      {
+        "File": 275
+      },
+      {
+        "File": 281
+      },
+      {
+        "File": 74
+      }
+    ],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 544
+    },
+    "bindings": {
+      "anchors": [
+        {
+          "File": 104
+        },
+        {
+          "File": 231
+        },
+        {
+          "File": 260
+        },
+        {
+          "File": 275
+        },
+        {
+          "File": 281
+        },
+        {
+          "File": 74
+        }
+      ],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn02mwy8twwr8mcjrc6w60qn",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Investigate",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+    "priority": null,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Baseline and migration invariants are captured in docs/CO_CHANGE_RUNTIME_REWRITE.md, including current cache and daemon metrics, the pathological 3.49M co-change delta refresh, and the required boundary split between authoritative state, bounded serving projections, and cold analytical evidence.",
+    "tags": [
+      "architecture",
+      "baseline",
+      "co-change",
+      "runtime"
+    ],
+    "title": "Capture migration invariants and baseline the current failure mode",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}
