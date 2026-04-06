@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn09je3c546kafd2z7bcgnyq",
+    "title": "Define the runtime rewrite contracts and migration invariants",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09je3c546kafd2z7bcgnyq-ee413c40eeaa6d94.json"
+  },
+  {
+    "id": "coord-task:01kn88ntbg34qjspspev07mxj1",
+    "title": "Implement the prism://plans latency fixes with a warm-path target comfortably below the current 1.27s read.",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn88ntbg34qjspspev07mxj1-1fdaeb684f53614c.json"
+  },
+  {
+    "id": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
+    "title": "Add migration and repair for repos that already carry tracked changes state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9xv8x94h8gwja48wahgsnb-cdfe79523838ee90.json"
+  },
+  {
+    "id": "coord-task:01knadd8hh7hxr20jgcc46ywhe",
+    "title": "Add CAS retry and retry-safe shared ref reconciliation",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knadd8hh7hxr20jgcc46ywhe-1637bca6daafda46.json"
+  }
+]
