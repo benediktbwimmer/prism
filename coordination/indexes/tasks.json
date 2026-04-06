@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kmzvjdhb96zxv7pnt1t06fj8",
+    "title": "Milestone 5: Define the concept-graph projection, zoom model, and overlay contract",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmzvjdhb96zxv7pnt1t06fj8-846a9f57aba0eab8.json"
+  },
+  {
+    "id": "coord-task:01kn3ccwasnywp14s14dfnpcxw",
+    "title": "Explain why compact-tool results won ranking",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3ccwasnywp14s14dfnpcxw-f4890fdd81397e70.json"
+  },
+  {
+    "id": "coord-task:01knavfm5fk9gsvb56pbsb58hh",
+    "title": "Make scheduling, dependency gating, and query views integration-aware",
+    "status": "Completed",
+    "path": "tasks/coord-task-01knavfm5fk9gsvb56pbsb58hh-18fc2119d9377c59.json"
+  },
+  {
+    "id": "coord-task:01kncfwfa5ngfp1z2kfcp6vfy0",
+    "title": "Validate two-runtime local federation and public URL descriptor flow end to end",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kncfwfa5ngfp1z2kfcp6vfy0-6cef781030e49884.json"
+  }
+]
