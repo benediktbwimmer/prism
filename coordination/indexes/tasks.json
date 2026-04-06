@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn3p363cmz6sfqstd0s5tgac",
+    "title": "Require authenticated mutation envelopes and capability checks on authoritative writes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p363cmz6sfqstd0s5tgac-7df53d438616f077.json"
+  },
+  {
+    "id": "coord-task:01kn46t38scs0cybmvnbw7ws7r",
+    "title": "Decide ownership, retention, and compaction rules for outcomes and curator state under the split",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn46t38scs0cybmvnbw7ws7r-ab6124bbd3868dc6.json"
+  }
+]
