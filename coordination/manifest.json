@@ -1,22 +1,21 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775496936,
+  "publishedAt": 1775497426,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
+    "principalId": "worktree:01knhnfx3b5vg4msz1kxt9z1db",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01knhnfx3b5vg4msz1kxt9z1db"
   },
   "workContext": {
-    "workId": "coord-task:01knhbwetedap4tdgcgz66yfkk",
-    "kind": "coordination",
-    "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths",
-    "coordinationTaskId": "coord-task:01knhbwetedap4tdgcgz66yfkk",
-    "planId": "plan:01knhbwesj53rq8f301x6r51qj",
-    "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
+    "workId": "work:plan-bridge-driven-lease-renewal-and-prism-run-flight-recorder:01knhnjhf2n140ew2dyv8frdaa",
+    "kind": "ad_hoc",
+    "title": "Plan bridge-driven lease renewal and prism run flight recorder",
+    "summary": "Create the execution plan for automatic write-bridge lease renewal backed by worktree-local lease activity persistence, prism run command telemetry, compact authoritative lease summaries, and richer federated runtime inspection."
   },
   "publishSummary": {
-    "title": "Delete SharedRuntimeBackend::Sqlite and all remaining shared runtime DB bootstrap, open, reopen, and fallback code paths"
+    "title": "Plan bridge-driven lease renewal and prism run flight recorder",
+    "summary": "Create the execution plan for automatic write-bridge lease renewal backed by worktree-local lease activity persistence, prism run command telemetry, compact authoritative lease summaries, and richer federated runtime inspection."
   },
   "files": {
     "coordination/artifacts/artifact-01kndqq186jevjwftx2dmwp2ez-402f2ed5b78fa885.json": {
@@ -2033,7 +2032,7 @@
     },
     "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json": {
       "path": "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json",
-      "sha256": "sha256:04b6c7efbcf381ae36b32dfefd65d8f70ffb61487d041fb600fc23db7bfd5f97"
+      "sha256": "sha256:d13e3d25e73d082a8aa84c76128a71b2f2c0c41348d680306afe943d77878786"
     },
     "coordination/tasks/coord-task-01kng213sqtqtx0b9z20eqbnyn-ffddc3d9ebf566ef.json": {
       "path": "coordination/tasks/coord-task-01kng213sqtqtx0b9z20eqbnyn-ffddc3d9ebf566ef.json",
@@ -2389,7 +2388,7 @@
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:2a609f3babc470acd1b1a32a5faf8103222dc33aae3e085a5d4be072c4e833c0"
+      "sha256": "sha256:1d5d16769dce3da8dd228f87563190afc639a11bfd5e543de1fd3d7f232f7d7a"
     },
     "plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json": {
       "path": "plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json",
@@ -2745,14 +2744,14 @@
     },
     "v2/snapshot.json": {
       "path": "v2/snapshot.json",
-      "sha256": "sha256:7377eecd899859740426e2f67e735234626dc8b4a64e59d11f880fdb81c3d2bc"
+      "sha256": "sha256:bd25da2d07da89acfcb5e57f5360d123561d8c6dfc0f94590a887445df03e171"
     }
   },
-  "previousManifestDigest": "sha256:da7f1023006d7afba08b138e4af97903f1de38064f888e1ff28d9343825fc3c1",
+  "previousManifestDigest": "sha256:fc319542ca38e75f81617ff019995399b8c1de87efd1993d66313f9fabdff04b",
   "summarySources": {
     "taskShardHeads": {
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/02": "770995ff2b8722ac617b974407d7389ec962d759",
-      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/04": "f38cab392bde65029c6497235e322efe16fe1acc",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/04": "fc9bd6f3425017cbe5fc2b018b2490de4a16a1af",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/05": "d860ce77f2f54ce877579e6194c772e554a91740",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/06": "15a5cc2da850d15e2a7223d8ed2eb2bac594e5bb",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/07": "6fdf6f12dfd24d7ef78527bffb0dae2e978b41b9",
@@ -3058,6 +3057,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:fQlF8Ca9kWu2GDrprSfqsLEyjQUo6YFbc/Hznbg+NNoySO7GpSfk6hCv1LA35dYMqtXyH6oZ8tjeJ6Oju30cCQ=="
+    "value": "base64:fcyyQK3yhJESO8LadhgFubQ41pvAYJPPoFuQcGpdC7/wwHue8kbQK+7shmzIWTNVbDerxBCcjWl7l3sLOAQwBg=="
   }
 }
