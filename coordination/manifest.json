@@ -1,24 +1,24 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775483293,
+  "publishedAt": 1775483346,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
     "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "work:rewrite-the-ssr-coordination-ui-around-canonical-direct-child-plan-task-views:01knhgt1wc9p1zzmn0eskn8nqb",
+    "workId": "work:rewrite-coordination-query-runtime-and-mcp-surface:01knhcgsz4m072p4hncf3x07ww",
     "kind": "coordination",
-    "title": "Rewrite the SSR coordination UI around canonical direct-child plan/task views",
-    "summary": "Implement task 9 of the coordination graph rewrite: move the SSR console plan and task rendering to canonical v2 direct children, external dependency stubs, and root-plan views without touching the React UI.",
-    "coordinationTaskId": "coord-task:01kng20vv9wdjd1jannvnb52pn",
+    "title": "Rewrite coordination query runtime and MCP surface",
+    "summary": "Implement task 8 of the coordination graph rewrite: move query and MCP surfaces onto plan/task reads, typed dependencies, actionable task views, and transaction-first v2 mutations.",
+    "coordinationTaskId": "coord-task:01kng20jnn31h2n6ana91ja67d",
     "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
     "planTitle": "Implement the canonical PRISM coordination graph rewrite"
   },
   "publishSummary": {
-    "title": "Rewrite the SSR coordination UI around canonical direct-child plan/task views",
-    "summary": "Implement task 9 of the coordination graph rewrite: move the SSR console plan and task rendering to canonical v2 direct children, external dependency stubs, and root-plan views without touching the React UI."
+    "title": "Rewrite coordination query runtime and MCP surface",
+    "summary": "Implement task 8 of the coordination graph rewrite: move query and MCP surfaces onto plan/task reads, typed dependencies, actionable task views, and transaction-first v2 mutations."
   },
   "files": {
     "coordination/tasks/coord-task-01kn2nj1wbag9jvvajz4ma081y-0e810e179f125947.json": {
@@ -35,7 +35,7 @@
     },
     "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json": {
       "path": "coordination/tasks/coord-task-01kng20vv9wdjd1jannvnb52pn-d6cff074d19b5c28.json",
-      "sha256": "sha256:46bba66a413c1d2f285b038592f67e8e0fb5079d31e3a58e3fcda27947a0ae91"
+      "sha256": "sha256:a417eed613b62c14e3f431a7bcaf6e923685183b2a6feea799edeeca01a35331"
     },
     "coordination/tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json": {
       "path": "coordination/tasks/coord-task-01knhd3xkt02kqv87gy1r03mt9-2c3406eea4333db9.json",
@@ -50,7 +50,7 @@
       "sha256": "sha256:21caf8b8d7f2388f412be7500f25feb245afb03a0bea9d17aa747a8d132dd905"
     }
   },
-  "previousManifestDigest": "sha256:9d2f3eb356df007ee650c11d4bf41379af7fc3c8e914885dd8a42c4ed98f4599",
+  "previousManifestDigest": "sha256:8992ebd592e26d53e37e40f11507b6484c0c778944e36e2d57715f6c0b09ff13",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -60,6 +60,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:Rp0URWj1SSdQcXg8eZoh4zvN1b7vrl9A8X2bCI8jpvvcdcj7nxjspxpL7NWkcC1toOOhNsy5PGYpWqQpxlkPBw=="
+    "value": "base64:JaDanlY9lZ+LfDEgGB7K5Hy583ht28PcmojduChJIe/fzvwr5fjD8bvrEPLJnpqwyDu7M5ncY313lK7OWaNvBQ=="
   }
 }
