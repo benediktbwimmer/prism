@@ -19,7 +19,7 @@ use super::workset::{
     structured_symbol_followups,
 };
 use super::*;
-use crate::{concept_relation_view, validation_recipe_view_with};
+use crate::{concept_relation_view, symbol_view_without_excerpt, validation_recipe_view_with};
 
 impl QueryHost {
     pub(crate) fn compact_expand(
@@ -57,7 +57,7 @@ impl QueryHost {
                             compact_text_fragment_diagnostics(&target)
                         } else {
                             let symbol = symbol_for(prism.as_ref(), target_symbol_id(&target)?)?;
-                            let symbol = symbol_view(prism.as_ref(), &symbol)?;
+                            let symbol = symbol_view_without_excerpt(prism.as_ref(), &symbol)?;
                             json!({
                                 "query": target.query,
                                 "whyShort": target.why_short,
@@ -1242,7 +1242,7 @@ fn compact_touch_targets(
             Ok(symbol) => symbol,
             Err(_) => continue,
         };
-        let symbol = symbol_view(prism, &symbol)?;
+        let symbol = symbol_view_without_excerpt(prism, &symbol)?;
         if is_test_like_symbol(&symbol) || !seen.insert(symbol.id.path.clone()) {
             continue;
         }

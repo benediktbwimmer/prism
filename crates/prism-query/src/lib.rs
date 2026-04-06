@@ -20,7 +20,7 @@ mod types;
 #[cfg(test)]
 mod tests;
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
@@ -33,10 +33,10 @@ use prism_coordination::{
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
-    AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, EventId, EventMeta, LineageEvent,
-    LineageId, NodeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId,
-    PlanNodeKind, PlanNodeStatus, PlanStatus, ReviewId, SessionId, TaskId, ValidationRef,
-    WorkspaceRevision,
+    AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, EdgeKind, EventId, EventMeta,
+    LineageEvent, LineageId, NodeId, NodeKind, ObservedChangeSet, PlanEdgeKind,
+    PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanStatus,
+    ReviewId, SessionId, TaskId, ValidationRef, WorkspaceRevision,
 };
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
 use prism_memory::{OutcomeRecallQuery, TaskReplay};
@@ -244,6 +244,7 @@ impl Prism {
             Arc::new(outcomes),
             projections,
             MaterializedCoordinationRuntime::from_snapshot(coordination),
+            None,
         )
     }
 
@@ -276,6 +277,28 @@ impl Prism {
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) -> Self {
+        Self::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_intent(
+            graph,
+            history,
+            outcomes,
+            coordination,
+            projections,
+            plan_graphs,
+            execution_overlays,
+            None,
+        )
+    }
+
+    pub fn with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_intent(
+        graph: Arc<Graph>,
+        history: Arc<HistoryStore>,
+        outcomes: Arc<OutcomeMemory>,
+        coordination: CoordinationSnapshot,
+        projections: ProjectionIndex,
+        plan_graphs: Vec<PlanGraph>,
+        execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+        intent_override: Option<IntentIndex>,
+    ) -> Self {
         Self::with_shared_history_outcomes_coordination_projections_and_native_plans(
             graph,
             history,
@@ -286,6 +309,7 @@ impl Prism {
                 plan_graphs,
                 execution_overlays,
             ),
+            intent_override,
         )
     }
 
@@ -295,6 +319,7 @@ impl Prism {
         outcomes: Arc<OutcomeMemory>,
         mut projections: ProjectionIndex,
         materialized_runtime: MaterializedCoordinationRuntime,
+        intent_override: Option<IntentIndex>,
     ) -> Self {
         projections.reseed_from_history(&history.snapshot());
         let started = Instant::now();
@@ -302,9 +327,17 @@ impl Prism {
         let edge_count = graph.edge_count();
         let file_count = graph.file_count();
         let intent_started = Instant::now();
-        let intent = IntentIndex::derive(
-            graph.all_nodes().collect::<Vec<_>>(),
-            graph.edges.iter().collect::<Vec<_>>(),
+        let (intent, reused_intent) = intent_override.map_or_else(
+            || {
+                (
+                    IntentIndex::derive(
+                        graph.all_nodes().collect::<Vec<_>>(),
+                        graph.edges.iter().collect::<Vec<_>>(),
+                    ),
+                    false,
+                )
+            },
+            |intent| (intent, true),
         );
         let derive_intent_ms = intent_started.elapsed().as_millis();
         let default_workspace_revision = WorkspaceRevision {
@@ -316,6 +349,7 @@ impl Prism {
             edge_count,
             file_count,
             derive_intent_ms,
+            reused_intent,
             total_ms = started.elapsed().as_millis(),
             "built prism query state"
         );
@@ -422,6 +456,40 @@ impl Prism {
             .write()
             .expect("workspace revision lock poisoned") = revision;
         self.invalidate_plan_discovery_cache();
+    }
+
+    pub fn intent_snapshot(&self) -> IntentIndex {
+        self.intent.read().expect("intent lock poisoned").clone()
+    }
+
+    pub fn updated_intent_for_observed_changes(
+        &self,
+        graph: &Graph,
+        observed_changes: &[ObservedChangeSet],
+    ) -> IntentIndex {
+        let mut intent = self.intent_snapshot();
+        for spec in affected_intent_specs(observed_changes) {
+            intent.remove_spec_projection(&spec);
+            let Some(node) = graph.node(&spec) else {
+                continue;
+            };
+            if !is_intent_source_node_kind(node.kind) {
+                continue;
+            }
+            let mut implementations = Vec::new();
+            let mut validations = Vec::new();
+            let mut related = Vec::new();
+            for edge in graph.edges_from(&spec, None) {
+                match edge.kind {
+                    EdgeKind::Specifies => implementations.push(edge.target.clone()),
+                    EdgeKind::Validates => validations.push(edge.target.clone()),
+                    EdgeKind::RelatedTo => related.push(edge.target.clone()),
+                    _ => {}
+                }
+            }
+            intent.replace_spec_projection(spec, implementations, validations, related);
+        }
+        intent
     }
 
     pub fn anchors_for(&self, anchors: &[AnchorRef]) -> Vec<AnchorRef> {
@@ -2001,6 +2069,55 @@ fn resolve_bootstrap_node_reference(
         .ok_or_else(|| {
             anyhow!("plan bootstrap references unknown client id `{client_id}` in `{field}`")
         })
+}
+
+fn affected_intent_specs(observed_changes: &[ObservedChangeSet]) -> HashSet<NodeId> {
+    let mut specs = HashSet::new();
+    for observed in observed_changes {
+        for added in &observed.added {
+            if is_intent_source_node_kind(added.node.kind) {
+                specs.insert(added.node.id.clone());
+            }
+        }
+        for removed in &observed.removed {
+            if is_intent_source_node_kind(removed.node.kind) {
+                specs.insert(removed.node.id.clone());
+            }
+        }
+        for (before, after) in &observed.updated {
+            if is_intent_source_node_kind(before.node.kind) {
+                specs.insert(before.node.id.clone());
+            }
+            if is_intent_source_node_kind(after.node.kind) {
+                specs.insert(after.node.id.clone());
+            }
+        }
+        for edge in observed
+            .edge_added
+            .iter()
+            .chain(observed.edge_removed.iter())
+            .filter(|edge| {
+                matches!(
+                    edge.kind,
+                    EdgeKind::Specifies | EdgeKind::Validates | EdgeKind::RelatedTo
+                )
+            })
+        {
+            specs.insert(edge.source.clone());
+        }
+    }
+    specs
+}
+
+fn is_intent_source_node_kind(kind: NodeKind) -> bool {
+    matches!(
+        kind,
+        NodeKind::Document
+            | NodeKind::MarkdownHeading
+            | NodeKind::JsonKey
+            | NodeKind::TomlKey
+            | NodeKind::YamlKey
+    )
 }
 
 fn merge_lineage_events(hot: Vec<LineageEvent>, cold: Vec<LineageEvent>) -> Vec<LineageEvent> {

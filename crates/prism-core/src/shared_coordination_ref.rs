@@ -605,6 +605,9 @@ pub(crate) fn sync_shared_coordination_ref_state(
     execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
     publish: Option<&TrackedSnapshotPublishContext>,
 ) -> Result<()> {
+    if !git_repo_available(root) {
+        return Ok(());
+    }
     sync_shared_coordination_summary_ref_state(
         root,
         snapshot,
@@ -2947,6 +2950,12 @@ fn run_git_with_env(root: &Path, envs: &[(&str, &str)], args: &[&str]) -> Result
     let mut command = Command::new("git");
     command
         .current_dir(root)
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_COMMON_DIR")
+        .env_remove("GIT_INDEX_FILE")
+        .env_remove("GIT_OBJECT_DIRECTORY")
+        .env_remove("GIT_ALTERNATE_OBJECT_DIRECTORIES")
         .env("GIT_AUTHOR_NAME", "PRISM")
         .env("GIT_AUTHOR_EMAIL", "prism@local")
         .env("GIT_COMMITTER_NAME", "PRISM")

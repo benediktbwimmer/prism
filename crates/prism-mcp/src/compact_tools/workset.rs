@@ -14,7 +14,8 @@ use super::text_fragments::{
 use super::*;
 use crate::compact_followups::{workspace_display_path, workspace_scoped_path};
 use crate::{
-    concept_resolution_is_ambiguous, resolve_concepts_for_task_context, weak_concept_match_reason,
+    concept_resolution_is_ambiguous, resolve_concepts_for_task_context,
+    symbol_view_without_excerpt, weak_concept_match_reason,
 };
 
 impl QueryHost {
@@ -643,7 +644,7 @@ fn contract_target_handle_view(
     let Ok(symbol) = symbol_for(prism, node) else {
         return Ok(None);
     };
-    let symbol = symbol_view(prism, &symbol)?;
+    let symbol = symbol_view_without_excerpt(prism, &symbol)?;
     Ok(Some(compact_target_view(
         session,
         &symbol,
@@ -747,7 +748,7 @@ pub(super) fn structured_symbol_followups(
     }
     let symbol_id = target_symbol_id(target)?;
     let symbol = symbol_for(prism, symbol_id)?;
-    let current = symbol_view(prism, &symbol)?;
+    let current = symbol_view_without_excerpt(prism, &symbol)?;
     let workspace_root = host.workspace_root();
     let current_file_path = current.file_path.as_deref().or(target.file_path.as_deref());
     let parent_id = structured_parent_symbol_id(symbol_id);
@@ -757,7 +758,7 @@ pub(super) fn structured_symbol_followups(
 
     if let Some(parent_id) = parent_id.as_ref() {
         if let Ok(parent_symbol) = symbol_for(prism, parent_id) {
-            let parent_view = symbol_view(prism, &parent_symbol)?;
+            let parent_view = symbol_view_without_excerpt(prism, &parent_symbol)?;
             push_structured_followup(
                 &mut followups,
                 &mut seen,
@@ -793,7 +794,7 @@ pub(super) fn structured_symbol_followups(
             Some(target.kind),
             scoped_file_path.as_deref(),
         ) {
-            let view = symbol_view(prism, &candidate)?;
+            let view = symbol_view_without_excerpt(prism, &candidate)?;
             let Some(relationship) = structured_family_relationship(
                 view.id.path.as_str(),
                 current_path,
@@ -838,7 +839,7 @@ pub(super) fn edit_ready_symbol_followups(
 ) -> Result<Vec<AgentTargetHandleView>> {
     let symbol_id = target_symbol_id(target)?;
     let symbol = symbol_for(prism, symbol_id)?;
-    let current = symbol_view(prism, &symbol)?;
+    let current = symbol_view_without_excerpt(prism, &symbol)?;
     let relations = symbol.relations();
     let workspace_root = host.workspace_root();
     let current_file_path = current.file_path.as_deref().or(target.file_path.as_deref());
@@ -863,7 +864,15 @@ pub(super) fn edit_ready_symbol_followups(
                 .map(|record| record.edge.source),
         ),
         "Direct caller of this symbol.",
+        limit,
     )?;
+    if edit_followups_reached_limit(&same_file_followups, &cross_file_followups, limit) {
+        return Ok(finalize_edit_followups(
+            same_file_followups,
+            cross_file_followups,
+            limit,
+        ));
+    }
     push_edit_followups_for_ids(
         &mut same_file_followups,
         &mut cross_file_followups,
@@ -881,7 +890,15 @@ pub(super) fn edit_ready_symbol_followups(
                 .map(|record| record.edge.target),
         ),
         "Direct callee from this symbol.",
+        limit,
     )?;
+    if edit_followups_reached_limit(&same_file_followups, &cross_file_followups, limit) {
+        return Ok(finalize_edit_followups(
+            same_file_followups,
+            cross_file_followups,
+            limit,
+        ));
+    }
     push_edit_followups_for_ids(
         &mut same_file_followups,
         &mut cross_file_followups,
@@ -918,7 +935,15 @@ pub(super) fn edit_ready_symbol_followups(
                     .map(|record| record.edge.source),
             ),
         "Direct reference neighbor for this symbol.",
+        limit,
     )?;
+    if edit_followups_reached_limit(&same_file_followups, &cross_file_followups, limit) {
+        return Ok(finalize_edit_followups(
+            same_file_followups,
+            cross_file_followups,
+            limit,
+        ));
+    }
     push_edit_followups_for_ids(
         &mut same_file_followups,
         &mut cross_file_followups,
@@ -936,7 +961,15 @@ pub(super) fn edit_ready_symbol_followups(
                 .map(|record| record.edge.target),
         ),
         "Imported dependency used by this symbol.",
+        limit,
     )?;
+    if edit_followups_reached_limit(&same_file_followups, &cross_file_followups, limit) {
+        return Ok(finalize_edit_followups(
+            same_file_followups,
+            cross_file_followups,
+            limit,
+        ));
+    }
     push_edit_followups_for_ids(
         &mut same_file_followups,
         &mut cross_file_followups,
@@ -954,7 +987,15 @@ pub(super) fn edit_ready_symbol_followups(
                 .map(|record| record.edge.target),
         ),
         "Implementation surface linked to this symbol.",
+        limit,
     )?;
+    if edit_followups_reached_limit(&same_file_followups, &cross_file_followups, limit) {
+        return Ok(finalize_edit_followups(
+            same_file_followups,
+            cross_file_followups,
+            limit,
+        ));
+    }
     push_edit_followups_for_ids(
         &mut same_file_followups,
         &mut cross_file_followups,
@@ -984,7 +1025,15 @@ pub(super) fn edit_ready_symbol_followups(
                 ),
             ),
         "Specification-linked symbol.",
+        limit,
     )?;
+    if edit_followups_reached_limit(&same_file_followups, &cross_file_followups, limit) {
+        return Ok(finalize_edit_followups(
+            same_file_followups,
+            cross_file_followups,
+            limit,
+        ));
+    }
     push_edit_followups_for_ids(
         &mut same_file_followups,
         &mut cross_file_followups,
@@ -1014,7 +1063,15 @@ pub(super) fn edit_ready_symbol_followups(
                 ),
             ),
         "Validation-linked symbol.",
+        limit,
     )?;
+    if edit_followups_reached_limit(&same_file_followups, &cross_file_followups, limit) {
+        return Ok(finalize_edit_followups(
+            same_file_followups,
+            cross_file_followups,
+            limit,
+        ));
+    }
     push_edit_followups_for_ids(
         &mut same_file_followups,
         &mut cross_file_followups,
@@ -1044,7 +1101,15 @@ pub(super) fn edit_ready_symbol_followups(
                 ),
             ),
         "Directly related symbol.",
+        limit,
     )?;
+    if edit_followups_reached_limit(&same_file_followups, &cross_file_followups, limit) {
+        return Ok(finalize_edit_followups(
+            same_file_followups,
+            cross_file_followups,
+            limit,
+        ));
+    }
 
     for candidate in next_reads(prism, symbol_id, limit.saturating_mul(4).max(limit + 2))? {
         push_edit_followup(
@@ -1060,11 +1125,11 @@ pub(super) fn edit_ready_symbol_followups(
         );
     }
 
-    Ok(same_file_followups
-        .into_iter()
-        .chain(cross_file_followups)
-        .take(limit)
-        .collect())
+    Ok(finalize_edit_followups(
+        same_file_followups,
+        cross_file_followups,
+        limit,
+    ))
 }
 
 fn structured_parent_symbol_id(id: &NodeId) -> Option<NodeId> {
@@ -1150,16 +1215,20 @@ fn push_edit_followups_for_ids<I>(
     prism: &Prism,
     ids: I,
     why: &str,
+    limit: usize,
 ) -> Result<()>
 where
     I: IntoIterator<Item = NodeId>,
 {
     for id in ids {
+        if edit_followups_reached_limit(same_file_followups, cross_file_followups, limit) {
+            break;
+        }
         let symbol = match symbol_for(prism, &id) {
             Ok(symbol) => symbol,
             Err(_) => continue,
         };
-        let candidate = symbol_view(prism, &symbol)?;
+        let candidate = symbol_view_without_excerpt(prism, &symbol)?;
         push_edit_followup(
             same_file_followups,
             cross_file_followups,
@@ -1173,6 +1242,26 @@ where
         );
     }
     Ok(())
+}
+
+fn edit_followups_reached_limit(
+    same_file_followups: &[AgentTargetHandleView],
+    cross_file_followups: &[AgentTargetHandleView],
+    limit: usize,
+) -> bool {
+    same_file_followups.len() + cross_file_followups.len() >= limit
+}
+
+fn finalize_edit_followups(
+    same_file_followups: Vec<AgentTargetHandleView>,
+    cross_file_followups: Vec<AgentTargetHandleView>,
+    limit: usize,
+) -> Vec<AgentTargetHandleView> {
+    same_file_followups
+        .into_iter()
+        .chain(cross_file_followups)
+        .take(limit)
+        .collect()
 }
 
 fn push_edit_followup(
@@ -1411,7 +1500,7 @@ fn spec_identifier_symbol_matches(
         NodeKind::TypeAlias,
     ] {
         for symbol in prism.search(term, SPEC_IDENTIFIER_SEARCH_LIMIT, Some(kind), path) {
-            let view = symbol_view(prism, &symbol)?;
+            let view = symbol_view_without_excerpt(prism, &symbol)?;
             if !is_code_like_kind(view.kind) || is_test_like_symbol(&view) {
                 continue;
             }

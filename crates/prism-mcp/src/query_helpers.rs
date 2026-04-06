@@ -39,10 +39,26 @@ pub(crate) fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolVi
     symbol_view_with_owner_hint(prism, symbol, None)
 }
 
+pub(crate) fn symbol_view_without_excerpt(
+    prism: &Prism,
+    symbol: &Symbol<'_>,
+) -> Result<SymbolView> {
+    symbol_view_with_excerpt(prism, symbol, None, false)
+}
+
 pub(crate) fn symbol_view_with_owner_hint(
     prism: &Prism,
     symbol: &Symbol<'_>,
     owner_hint: Option<OwnerHintView>,
+) -> Result<SymbolView> {
+    symbol_view_with_excerpt(prism, symbol, owner_hint, true)
+}
+
+fn symbol_view_with_excerpt(
+    prism: &Prism,
+    symbol: &Symbol<'_>,
+    owner_hint: Option<OwnerHintView>,
+    include_source_excerpt: bool,
 ) -> Result<SymbolView> {
     let node = symbol.node();
     Ok(SymbolView {
@@ -60,8 +76,9 @@ pub(crate) fn symbol_view_with_owner_hint(
         lineage_id: prism
             .lineage_of(symbol.id())
             .map(|lineage| lineage.0.to_string()),
-        source_excerpt: symbol
-            .excerpt(SourceExcerptOptions::default())
+        source_excerpt: include_source_excerpt
+            .then(|| symbol.excerpt(SourceExcerptOptions::default()))
+            .flatten()
             .map(source_excerpt_view),
         owner_hint,
     })
@@ -70,6 +87,17 @@ pub(crate) fn symbol_view_with_owner_hint(
 pub(crate) fn symbol_views_for_ids(prism: &Prism, ids: Vec<NodeId>) -> Result<Vec<SymbolView>> {
     ids.into_iter()
         .map(|id| symbol_for(prism, &id).and_then(|symbol| symbol_view(prism, &symbol)))
+        .collect()
+}
+
+pub(crate) fn symbol_views_for_ids_without_excerpt(
+    prism: &Prism,
+    ids: Vec<NodeId>,
+) -> Result<Vec<SymbolView>> {
+    ids.into_iter()
+        .map(|id| {
+            symbol_for(prism, &id).and_then(|symbol| symbol_view_without_excerpt(prism, &symbol))
+        })
         .collect()
 }
 
@@ -98,7 +126,7 @@ pub(crate) fn focused_block_for_symbol(
     symbol: &Symbol<'_>,
     options: EditSliceOptions,
 ) -> Result<FocusedBlockView> {
-    let symbol_view = symbol_view(prism, symbol)?;
+    let symbol_view = symbol_view_without_excerpt(prism, symbol)?;
     let fallback_max_lines = options
         .max_lines
         .max(FOCUSED_BLOCK_EXCERPT_OPTIONS.max_lines);

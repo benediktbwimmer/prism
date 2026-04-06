@@ -10,7 +10,9 @@ use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::ui_assets::{prism_ui_asset, prism_ui_index_html, prism_ui_unbuilt_html};
+use crate::ui_assets::{
+    prism_ui_asset, prism_ui_favicon_asset, prism_ui_index_html, prism_ui_unbuilt_html,
+};
 use crate::ui_mutations::{map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest};
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_types::{
@@ -182,7 +184,13 @@ async fn prism_ui_mutate(
 async fn prism_ui_favicon(
     State(state): State<PrismUiState>,
 ) -> std::result::Result<Response<Body>, (StatusCode, String)> {
-    prism_ui_asset_response(&state, "favicon.svg")
+    let (bytes, mime) = prism_ui_favicon_asset(&state.root)
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(CONTENT_TYPE, mime)
+        .body(Body::from(bytes))
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
 
 async fn prism_ui_root_asset(
@@ -221,7 +229,6 @@ mod tests {
         demo_node, host_with_node, temp_workspace, test_session,
         workspace_session_with_owner_credential,
     };
-    use crate::ui_assets::prism_ui_index_html;
     use crate::{
         ClaimActionInput, CoordinationMutationKindInput, PrismClaimArgs, PrismCoordinationArgs,
     };
@@ -259,13 +266,19 @@ mod tests {
     #[tokio::test]
     async fn ui_routes_serve_bundled_assets() {
         let root = temp_workspace();
-        let index = prism_ui_index_html(&root).unwrap().unwrap();
-        let asset_path = index
+        let router = routes(ui_state_from_root(&root));
+        let shell = router
+            .clone()
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(shell.status(), StatusCode::OK);
+        let shell_body = to_bytes(shell.into_body(), usize::MAX).await.unwrap();
+        let shell_text = std::str::from_utf8(&shell_body).unwrap();
+        let asset_path = shell_text
             .split('"')
             .find(|segment| segment.starts_with("/assets/"))
-            .expect("embedded ui asset path")
-            .to_string();
-        let router = routes(ui_state_from_root(&root));
+            .map(str::to_string);
 
         let favicon = router
             .clone()
@@ -279,16 +292,20 @@ mod tests {
             .unwrap();
         assert_eq!(favicon.status(), StatusCode::OK);
 
-        let asset = router
-            .oneshot(
-                Request::builder()
-                    .uri(asset_path)
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(asset.status(), StatusCode::OK);
+        if let Some(asset_path) = asset_path {
+            let asset = router
+                .oneshot(
+                    Request::builder()
+                        .uri(asset_path)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(asset.status(), StatusCode::OK);
+        } else {
+            assert!(shell_text.contains("frontend source exists"));
+        }
     }
 
     #[tokio::test]

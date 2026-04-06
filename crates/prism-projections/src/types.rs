@@ -526,7 +526,7 @@ pub struct ProjectionSnapshot {
     pub concept_relations: Vec<ConceptRelation>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntentSpecProjection {
     pub spec: NodeId,
     pub implementations: Vec<NodeId>,

@@ -5,7 +5,7 @@ use prism_ir::{Edge, EdgeKind, Node, NodeId};
 use crate::common::{is_intent_source_kind, push_unique};
 use crate::types::{IntentDriftRecord, IntentSpecProjection};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct IntentIndex {
     by_spec: HashMap<NodeId, IntentSpecProjection>,
     specs_by_target: HashMap<NodeId, Vec<NodeId>>,
@@ -124,5 +124,48 @@ impl IntentIndex {
         let mut specs = self.by_spec.keys().cloned().collect::<Vec<_>>();
         specs.sort_by(|left, right| left.path.cmp(&right.path));
         specs
+    }
+
+    pub fn remove_spec_projection(&mut self, spec: &NodeId) {
+        let Some(previous) = self.by_spec.remove(spec) else {
+            return;
+        };
+        for target in previous.implementations {
+            let remove_target = if let Some(specs) = self.specs_by_target.get_mut(&target) {
+                specs.retain(|candidate| candidate != spec);
+                specs.is_empty()
+            } else {
+                false
+            };
+            if remove_target {
+                self.specs_by_target.remove(&target);
+            }
+        }
+    }
+
+    pub fn replace_spec_projection(
+        &mut self,
+        spec: NodeId,
+        implementations: Vec<NodeId>,
+        validations: Vec<NodeId>,
+        related: Vec<NodeId>,
+    ) {
+        self.remove_spec_projection(&spec);
+        if implementations.is_empty() && validations.is_empty() && related.is_empty() {
+            return;
+        }
+        let projection = IntentSpecProjection {
+            spec: spec.clone(),
+            implementations: implementations.clone(),
+            validations,
+            related,
+        };
+        for target in implementations {
+            push_unique(
+                self.specs_by_target.entry(target).or_default(),
+                spec.clone(),
+            );
+        }
+        self.by_spec.insert(spec, projection);
     }
 }

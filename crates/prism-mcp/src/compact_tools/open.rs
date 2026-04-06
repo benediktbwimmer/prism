@@ -17,6 +17,7 @@ use super::workset::{
 use super::*;
 use crate::compact_followups::workspace_scoped_path;
 use crate::file_queries::file_around;
+use crate::symbol_view_without_excerpt;
 
 const STRUCTURED_PREVIEW_FOLLOWUP_LIMIT: usize = 8;
 const STRUCTURED_PREVIEW_MAX_CHARS: usize = 240;
@@ -154,7 +155,7 @@ fn compact_open_symbol_result(
 ) -> Result<AgentOpenResultView> {
     let symbol_id = target_symbol_id(target)?;
     let symbol = symbol_for(prism, symbol_id)?;
-    let symbol_view = symbol_view(prism, &symbol)?;
+    let symbol_view = symbol_view_without_excerpt(prism, &symbol)?;
     let file_path = symbol_view
         .file_path
         .clone()
@@ -870,7 +871,7 @@ pub(super) fn compact_preview_for_symbol_view(
         symbol.kind,
     );
     let symbol = symbol_for(prism, &id)?;
-    let file_path = symbol_view(prism, &symbol)?
+    let file_path = symbol_view_without_excerpt(prism, &symbol)?
         .file_path
         .as_deref()
         .ok_or_else(|| anyhow!("target `{}` has no workspace file path", id.path))?
@@ -909,7 +910,7 @@ pub(super) fn compact_preview_for_structured_target(
     }
     let symbol_id = target_symbol_id(target)?;
     let symbol = symbol_for(prism, symbol_id)?;
-    let symbol_view = symbol_view(prism, &symbol)?;
+    let symbol_view = symbol_view_without_excerpt(prism, &symbol)?;
     let file_path = symbol_view
         .file_path
         .clone()

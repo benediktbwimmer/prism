@@ -26,7 +26,7 @@ use super::html::{
     status_badge, status_slug, truncate,
 };
 use super::mermaid::{concept_graph_mermaid, plan_graph_mermaid};
-use crate::ui_assets::prism_ui_asset;
+use crate::ui_assets::prism_ui_favicon_asset;
 use crate::ui_mutations::{map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest};
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_router::PrismUiState;
@@ -1165,14 +1165,8 @@ fn rejected_mutation_message(result: &crate::PrismMutationResult) -> Option<Stri
 async fn prism_ui_favicon(
     State(state): State<PrismUiState>,
 ) -> std::result::Result<Response<Body>, (StatusCode, String)> {
-    let Some((bytes, mime)) = prism_ui_asset(&state.root, "favicon.svg")
-        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-    else {
-        return Err((
-            StatusCode::NOT_FOUND,
-            "ui asset not found: favicon.svg".to_string(),
-        ));
-    };
+    let (bytes, mime) = prism_ui_favicon_asset(&state.root)
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     Response::builder()
         .status(StatusCode::OK)
         .header(CONTENT_TYPE, mime)

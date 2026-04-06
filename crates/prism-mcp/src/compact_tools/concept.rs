@@ -17,11 +17,10 @@ use super::suggested_actions::{
 };
 use super::workset::budgeted_workset_result_with_followups;
 use super::*;
-use crate::session_state::{SessionHandleCategory, SessionHandleTarget};
 use crate::{
     concept_decode_lens_view, concept_followthrough_targets, concept_packet_view,
     concept_relation_view, concept_resolution_is_ambiguous, concept_verbosity_view, recent_patches,
-    resolve_concepts_for_task_context, scored_memory_view, symbol_views_for_ids,
+    resolve_concepts_for_task_context, scored_memory_view, symbol_views_for_ids_without_excerpt,
     truncate_concept_relations, truncate_vec_with_omitted, validation_recipe_view_with,
     ConceptPacketTruncationStats, ConceptVerbosity,
 };
@@ -58,18 +57,18 @@ impl QueryHost {
             move |host, query_run| {
                 let prism = host.current_prism();
                 let resolve_started = Instant::now();
-                let resolution = resolve_concept_packet(prism.as_ref(), session.as_ref(), &args)?;
+                let selection = resolve_concept_selection(prism.as_ref(), session.as_ref(), &args)?;
                 query_run.record_phase(
                     "concept.resolve",
                     &json!({
                         "mode": if args.handle.is_some() { "handle" } else { "query" },
-                        "matchedHandle": resolution.packet.handle,
+                        "matchedHandle": selection.primary.packet.handle,
                     }),
                     resolve_started.elapsed(),
                     true,
                     None,
                 );
-                let packet = resolution.packet.clone();
+                let packet = selection.primary.packet.clone();
                 let verbosity = concept_verbosity(args.verbosity);
                 let packet_view_started = Instant::now();
                 let packet_view = agent_concept_packet_view(
@@ -77,7 +76,7 @@ impl QueryHost {
                     prism.as_ref(),
                     &packet,
                     verbosity,
-                    Some(resolution.clone()),
+                    Some(selection.primary.clone()),
                     args.include_binding_metadata.unwrap_or(false),
                 )?;
                 query_run.record_phase(
@@ -93,12 +92,10 @@ impl QueryHost {
                     None,
                 );
                 let alternates_started = Instant::now();
-                let alternates = resolve_concept_alternates(
-                    prism.as_ref(),
+                let alternates = render_concept_alternates(
                     session.as_ref(),
-                    &args,
-                    packet.handle.as_str(),
-                    verbosity,
+                    prism.as_ref(),
+                    selection.alternates,
                     args.include_binding_metadata.unwrap_or(false),
                 )?;
                 query_run.record_phase(
@@ -141,25 +138,53 @@ impl QueryHost {
     }
 }
 
-fn resolve_concept_packet(
+#[derive(Debug, Clone)]
+struct CompactConceptResolutionSelection {
+    primary: prism_query::ConceptResolution,
+    alternates: Vec<prism_query::ConceptResolution>,
+}
+
+fn resolve_concept_selection(
     prism: &Prism,
     session: &SessionState,
     args: &PrismConceptArgs,
-) -> Result<prism_query::ConceptResolution> {
+) -> Result<CompactConceptResolutionSelection> {
     match (args.handle.as_deref(), args.query.as_deref()) {
         (Some(handle), _) => prism
             .concept_by_handle(handle)
-            .map(|packet| prism_query::ConceptResolution {
-                packet,
-                score: i32::MAX,
-                reasons: vec!["handle exact match".to_string()],
+            .map(|packet| CompactConceptResolutionSelection {
+                primary: prism_query::ConceptResolution {
+                    packet,
+                    score: i32::MAX,
+                    reasons: vec!["handle exact match".to_string()],
+                },
+                alternates: Vec::new(),
             })
             .ok_or_else(|| anyhow!("no concept packet matched `{handle}`")),
         (None, Some(query)) => {
-            resolve_concepts_for_task_context(prism, session, args.task_id.as_deref(), query, 1)
-                .into_iter()
-                .next()
-                .ok_or_else(|| anyhow!("no concept packet matched `{query}`"))
+            let mut resolutions = resolve_concepts_for_task_context(
+                prism,
+                session,
+                args.task_id.as_deref(),
+                query,
+                3,
+            );
+            let primary = resolutions
+                .first()
+                .cloned()
+                .ok_or_else(|| anyhow!("no concept packet matched `{query}`"))?;
+            let alternates = if concept_resolution_is_ambiguous(&resolutions) {
+                resolutions
+                    .drain(1..)
+                    .filter(|resolution| resolution.packet.handle != primary.packet.handle)
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            Ok(CompactConceptResolutionSelection {
+                primary,
+                alternates,
+            })
         }
         (None, None) => Err(anyhow!("prism_concept requires `handle` or `query`")),
     }
@@ -207,7 +232,7 @@ fn agent_concept_packet_view(
     let has_explicit_members = !packet.core_members.is_empty()
         || !packet.supporting_members.is_empty()
         || !packet.likely_tests.is_empty();
-    let fallback = if !has_explicit_members && matches!(verbosity, ConceptVerbosity::Full) {
+    let fallback = if !has_explicit_members {
         concept_followthrough_targets(prism, packet)
     } else {
         crate::concept_followthrough::ConceptFollowthroughTargets::default()
@@ -308,32 +333,21 @@ fn agent_concept_packet_view(
     })
 }
 
-fn resolve_concept_alternates(
-    prism: &Prism,
+fn render_concept_alternates(
     session: &SessionState,
-    args: &PrismConceptArgs,
-    selected_handle: &str,
-    verbosity: ConceptVerbosity,
+    prism: &Prism,
+    resolutions: Vec<prism_query::ConceptResolution>,
     include_binding_metadata: bool,
 ) -> Result<Vec<AgentConceptPacketView>> {
-    let Some(query) = args.query.as_deref() else {
-        return Ok(Vec::new());
-    };
-    let resolutions =
-        resolve_concepts_for_task_context(prism, session, args.task_id.as_deref(), query, 3);
-    if !concept_resolution_is_ambiguous(&resolutions) {
-        return Ok(Vec::new());
-    }
     resolutions
         .into_iter()
-        .filter(|resolution| resolution.packet.handle != selected_handle)
         .map(|resolution| {
             let packet = resolution.packet.clone();
             agent_concept_packet_view(
                 session,
                 prism,
                 &packet,
-                verbosity,
+                ConceptVerbosity::Summary,
                 Some(resolution),
                 include_binding_metadata,
             )
@@ -346,55 +360,11 @@ pub(super) fn compact_handles_for_ids(
     prism: &Prism,
     ids: &[NodeId],
 ) -> Result<Vec<AgentTargetHandleView>> {
-    ids.iter()
-        .map(|id| compact_handle_for_id(session, prism, id))
-        .collect::<Result<Vec<_>>>()
-}
-
-fn compact_handle_for_id(
-    session: &SessionState,
-    prism: &Prism,
-    id: &NodeId,
-) -> Result<AgentTargetHandleView> {
-    let symbol = symbol_for(prism, id)?;
-    let node = symbol.node();
-    let file_path = prism
-        .graph()
-        .file_path(node.file)
-        .map(|path| path.to_string_lossy().into_owned());
-    let why_short = super::clamp_string(
-        &file_path
-            .as_ref()
-            .map(|path| format!("{} in {}", node.kind, path))
-            .unwrap_or_else(|| format!("{} target", node.kind)),
-        super::MAX_WHY_SHORT_CHARS,
-    );
-    let location = symbol.location();
-    let handle = session.intern_target_handle(SessionHandleTarget {
-        id: id.clone(),
-        lineage_id: prism.lineage_of(id).map(|lineage| lineage.0.to_string()),
-        handle_category: SessionHandleCategory::Symbol,
-        name: symbol.name().to_owned(),
-        kind: node.kind,
-        file_path: file_path.clone(),
-        query: None,
-        why_short: why_short.clone(),
-        start_line: location.as_ref().map(|location| location.start_line),
-        end_line: location.as_ref().map(|location| location.end_line),
-        start_column: location.as_ref().map(|location| location.start_column),
-        end_column: location.as_ref().map(|location| location.end_column),
-    });
-    Ok(AgentTargetHandleView {
-        handle,
-        handle_category: super::agent_handle_category_view(SessionHandleCategory::Symbol),
-        kind: node.kind,
-        path: id.path.to_string(),
-        name: symbol.name().to_owned(),
-        why_short,
-        why_not_top: None,
-        confidence_label: None,
-        file_path,
-    })
+    let symbols = symbol_views_for_ids_without_excerpt(prism, ids.to_vec())?;
+    Ok(symbols
+        .iter()
+        .map(|symbol| compact_target_view(session, symbol, None, None))
+        .collect())
 }
 
 fn compact_optional_handle_for_id(
@@ -623,10 +593,11 @@ fn decode_concept(
     verbosity: ConceptVerbosity,
 ) -> Result<ConceptDecodeView> {
     let concept = concept_packet_view(prism, packet.clone(), verbosity, false, None);
-    let members = symbol_views_for_ids(prism, packet.core_members.clone())?;
+    let members = symbol_views_for_ids_without_excerpt(prism, packet.core_members.clone())?;
     let primary = members.first().cloned();
-    let supporting_reads = symbol_views_for_ids(prism, packet.supporting_members.clone())?;
-    let likely_tests = symbol_views_for_ids(prism, packet.likely_tests.clone())?;
+    let supporting_reads =
+        symbol_views_for_ids_without_excerpt(prism, packet.supporting_members.clone())?;
+    let likely_tests = symbol_views_for_ids_without_excerpt(prism, packet.likely_tests.clone())?;
     let anchors = prism.anchors_for(
         &packet
             .core_members

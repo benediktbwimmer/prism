@@ -10,6 +10,8 @@ pub(crate) struct EmbeddedUiAsset {
 
 include!(concat!(env!("OUT_DIR"), "/prism_ui_assets_generated.rs"));
 
+const FALLBACK_FAVICON_SVG: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#111827"/><path d="M18 46V18h18.5c6.2 0 10.5 3.8 10.5 9.3 0 5.7-4.3 9.5-10.5 9.5H26.8V46H18zm8.8-16.2h8.2c2.3 0 3.8-1.1 3.8-2.9 0-1.8-1.5-2.9-3.8-2.9h-8.2v5.8z" fill="#f9fafb"/></svg>"##;
+
 pub(crate) fn prism_ui_root(root: &Path) -> PathBuf {
     root.join("www").join("dashboard")
 }
@@ -48,6 +50,11 @@ pub(crate) fn prism_ui_asset(root: &Path, path: &str) -> Result<Option<(Vec<u8>,
     let bytes = fs::read(&disk_path)
         .with_context(|| format!("failed to read prism ui asset {}", disk_path.display()))?;
     Ok(Some((bytes, disk_mime_for_path(&normalized))))
+}
+
+pub(crate) fn prism_ui_favicon_asset(root: &Path) -> Result<(Vec<u8>, &'static str)> {
+    Ok(prism_ui_asset(root, "favicon.svg")?
+        .unwrap_or_else(|| (FALLBACK_FAVICON_SVG.to_vec(), "image/svg+xml")))
 }
 
 pub(crate) fn prism_ui_unbuilt_html(root: &Path) -> String {

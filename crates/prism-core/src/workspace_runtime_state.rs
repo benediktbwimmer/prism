@@ -2,7 +2,7 @@ use prism_coordination::CoordinationSnapshot;
 use prism_history::HistoryStore;
 use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkspaceRevision};
 use prism_memory::OutcomeMemory;
-use prism_projections::ProjectionIndex;
+use prism_projections::{IntentIndex, ProjectionIndex};
 use prism_query::Prism;
 use prism_store::{CoordinationPersistContext, Graph};
 use std::collections::BTreeMap;
@@ -103,15 +103,26 @@ impl WorkspaceRuntimeState {
         workspace_revision: WorkspaceRevision,
         coordination_context: Option<CoordinationPersistContext>,
     ) -> WorkspacePublishedGeneration {
-        let prism = Prism::with_shared_history_outcomes_coordination_projections_and_plan_graphs(
-            Arc::clone(&self.graph),
-            Arc::clone(&self.history),
-            Arc::clone(&self.outcomes),
-            self.coordination_snapshot.clone(),
-            self.projections.clone(),
-            self.plan_graphs.clone(),
-            self.plan_execution_overlays.clone(),
-        );
+        self.publish_generation_with_intent(workspace_revision, coordination_context, None)
+    }
+
+    pub(crate) fn publish_generation_with_intent(
+        &self,
+        workspace_revision: WorkspaceRevision,
+        coordination_context: Option<CoordinationPersistContext>,
+        intent_override: Option<IntentIndex>,
+    ) -> WorkspacePublishedGeneration {
+        let prism =
+            Prism::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_intent(
+                Arc::clone(&self.graph),
+                Arc::clone(&self.history),
+                Arc::clone(&self.outcomes),
+                self.coordination_snapshot.clone(),
+                self.projections.clone(),
+                self.plan_graphs.clone(),
+                self.plan_execution_overlays.clone(),
+                intent_override,
+            );
         prism.set_workspace_revision(workspace_revision.clone());
         prism.set_coordination_context(coordination_context.clone());
         WorkspacePublishedGeneration::new(prism, workspace_revision, coordination_context)

@@ -34,11 +34,11 @@ use crate::session_state::{SessionHandleCategory, SessionHandleTarget};
 use crate::text_search::search_text;
 use crate::{
     diff_for, focused_block_for_symbol, next_reads, owner_views_for_target,
-    spec_drift_explanation_view, symbol_for, symbol_view, validation_context_view_cached,
-    FileAroundArgs, FileReadArgs, PrismConceptArgs, PrismExpandArgs, PrismExpandKindInput,
-    PrismGatherArgs, PrismLocateArgs, PrismLocateTaskIntentInput, PrismOpenArgs,
-    PrismOpenModeInput, PrismWorksetArgs, QueryHost, QueryRun, SearchArgs, SearchTextArgs,
-    SessionState,
+    spec_drift_explanation_view, symbol_for, symbol_view, symbol_view_without_excerpt,
+    validation_context_view_cached, FileAroundArgs, FileReadArgs, PrismConceptArgs,
+    PrismExpandArgs, PrismExpandKindInput, PrismGatherArgs, PrismLocateArgs,
+    PrismLocateTaskIntentInput, PrismOpenArgs, PrismOpenModeInput, PrismWorksetArgs, QueryHost,
+    QueryRun, SearchArgs, SearchTextArgs, SessionState,
 };
 
 const DEFAULT_LOCATE_LIMIT: usize = 3;
@@ -605,7 +605,7 @@ fn resolve_handle_target(
         }
     }
     let symbol = symbol_for(prism, &target.id)?;
-    let symbol_view = symbol_view(prism, &symbol)?;
+    let symbol_view = symbol_view_without_excerpt(prism, &symbol)?;
     target.name = symbol_view.name;
     target.kind = symbol_view.kind;
     target.file_path = symbol_view.file_path;

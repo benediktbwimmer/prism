@@ -943,13 +943,15 @@ impl WorkspaceSession {
         local_workspace_revision: u64,
         workspace_revision: u64,
         coordination_context: Option<prism_store::CoordinationPersistContext>,
+        intent_override: Option<prism_projections::IntentIndex>,
     ) {
-        let next = runtime_state.publish_generation(
+        let next = runtime_state.publish_generation_with_intent(
             prism_ir::WorkspaceRevision {
                 graph_version: local_workspace_revision,
                 git_commit: None,
             },
             coordination_context,
+            intent_override,
         );
         Self::attach_cold_query_backends(
             next.prism_arc().as_ref(),
@@ -1280,6 +1282,7 @@ impl WorkspaceSession {
                 .expect("workspace runtime state lock poisoned") = fallback_state;
             return Err(error);
         }
+        let observed_changes = index_result.expect("deepening index result checked above");
 
         let local_workspace_revision = indexer.store.workspace_revision()?;
         let workspace_revision = composite_workspace_revision(
@@ -1291,11 +1294,14 @@ impl WorkspaceSession {
                 .transpose()?,
         );
         let next_state = indexer.into_runtime_state();
+        let next_intent = current_prism
+            .updated_intent_for_observed_changes(Arc::as_ref(&next_state.graph), &observed_changes);
         self.publish_runtime_state(
             next_state,
             local_workspace_revision,
             workspace_revision,
             coordination_context,
+            Some(next_intent),
         );
         info!(
             root = %self.root.display(),
@@ -1605,6 +1611,7 @@ impl WorkspaceSession {
             local_workspace_revision,
             workspace_revision,
             Some(coordination_persist_context_for_root(&self.root, None)),
+            None,
         );
         self.record_runtime_refresh_observation_with_work(
             "recovery",
@@ -2664,6 +2671,7 @@ impl WorkspaceSession {
             local_workspace_revision,
             workspace_revision,
             coordination_context,
+            None,
         );
         result
     }

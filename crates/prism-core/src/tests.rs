@@ -10284,6 +10284,136 @@ fn workspace_session_can_deepen_unchanged_shallow_file_on_demand() {
 }
 
 #[test]
+fn publish_generation_with_incremental_intent_matches_fresh_derivation() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    let layout = crate::layout::discover_layout(&root).unwrap();
+
+    let spec = prism_ir::Node {
+        id: NodeId::new(
+            "demo",
+            "demo::document::docs::spec_md::contract",
+            NodeKind::MarkdownHeading,
+        ),
+        name: "Contract".into(),
+        kind: NodeKind::MarkdownHeading,
+        file: prism_ir::FileId(1),
+        span: prism_ir::Span::line(1),
+        language: prism_ir::Language::Markdown,
+    };
+    let alpha = prism_ir::Node {
+        id: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: prism_ir::FileId(2),
+        span: prism_ir::Span::line(1),
+        language: prism_ir::Language::Rust,
+    };
+    let alpha_test = prism_ir::Node {
+        id: NodeId::new("demo", "demo::alpha_test", NodeKind::Function),
+        name: "alpha_test".into(),
+        kind: NodeKind::Function,
+        file: prism_ir::FileId(3),
+        span: prism_ir::Span::line(1),
+        language: prism_ir::Language::Rust,
+    };
+
+    let mut old_graph = Graph::new();
+    old_graph.add_node(spec.clone());
+    old_graph.add_node(alpha.clone());
+    old_graph.add_edge(prism_ir::Edge {
+        kind: EdgeKind::Specifies,
+        source: spec.id.clone(),
+        target: alpha.id.clone(),
+        origin: prism_ir::EdgeOrigin::Static,
+        confidence: 0.8,
+    });
+    let old_state = crate::workspace_runtime_state::WorkspaceRuntimeState::new(
+        layout.clone(),
+        old_graph,
+        prism_history::HistoryStore::new(),
+        prism_memory::OutcomeMemory::new(),
+        CoordinationSnapshot::default(),
+        Vec::new(),
+        std::collections::BTreeMap::new(),
+        prism_projections::ProjectionIndex::default(),
+    );
+    let current = old_state.publish_generation(prism_ir::WorkspaceRevision::default(), None);
+
+    let mut new_graph = Graph::new();
+    new_graph.add_node(spec.clone());
+    new_graph.add_node(alpha.clone());
+    new_graph.add_node(alpha_test.clone());
+    new_graph.add_edge(prism_ir::Edge {
+        kind: EdgeKind::Specifies,
+        source: spec.id.clone(),
+        target: alpha.id.clone(),
+        origin: prism_ir::EdgeOrigin::Static,
+        confidence: 0.8,
+    });
+    let validation_edge = prism_ir::Edge {
+        kind: EdgeKind::Validates,
+        source: spec.id.clone(),
+        target: alpha_test.id.clone(),
+        origin: prism_ir::EdgeOrigin::Static,
+        confidence: 0.8,
+    };
+    new_graph.add_edge(validation_edge.clone());
+    let new_state = crate::workspace_runtime_state::WorkspaceRuntimeState::new(
+        layout,
+        new_graph,
+        prism_history::HistoryStore::new(),
+        prism_memory::OutcomeMemory::new(),
+        CoordinationSnapshot::default(),
+        Vec::new(),
+        std::collections::BTreeMap::new(),
+        prism_projections::ProjectionIndex::default(),
+    );
+
+    let incremental_intent = current.prism_arc().updated_intent_for_observed_changes(
+        new_state.graph.as_ref(),
+        &[prism_ir::ObservedChangeSet {
+            meta: EventMeta {
+                id: EventId::new("evt:core-intent-refresh"),
+                ts: 1,
+                actor: EventActor::System,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            trigger: ChangeTrigger::ManualReindex,
+            files: vec![prism_ir::FileId(1), prism_ir::FileId(3)],
+            previous_path: None,
+            current_path: None,
+            added: vec![prism_ir::ObservedNode {
+                node: alpha_test,
+                fingerprint: prism_ir::SymbolFingerprint::new(1),
+            }],
+            removed: Vec::new(),
+            updated: Vec::new(),
+            edge_added: vec![validation_edge],
+            edge_removed: Vec::new(),
+        }],
+    );
+    let incremental = new_state.publish_generation_with_intent(
+        prism_ir::WorkspaceRevision::default(),
+        None,
+        Some(incremental_intent),
+    );
+    let fresh = new_state.publish_generation(prism_ir::WorkspaceRevision::default(), None);
+
+    assert_eq!(
+        incremental.prism_arc().intent_snapshot(),
+        fresh.prism_arc().intent_snapshot()
+    );
+}
+
+#[test]
 fn oversized_targeted_refresh_in_large_repo_stays_shallow_until_explicitly_deepened() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

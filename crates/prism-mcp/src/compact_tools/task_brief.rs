@@ -20,7 +20,8 @@ use serde_json::json;
 use super::suggested_actions::{dedupe_suggested_actions, suggested_open_action};
 use super::*;
 use crate::{
-    task_heartbeat_advice, task_heartbeat_next_action, PrismTaskBriefArgs, TaskHeartbeatAdvice,
+    symbol_view_without_excerpt, task_heartbeat_advice, task_heartbeat_next_action,
+    PrismTaskBriefArgs, TaskHeartbeatAdvice,
 };
 
 impl QueryHost {
@@ -458,7 +459,7 @@ fn compact_task_next_reads(
             Ok(symbol) => symbol,
             Err(_) => continue,
         };
-        let symbol = symbol_view(prism, &symbol)?;
+        let symbol = symbol_view_without_excerpt(prism, &symbol)?;
         next_reads.push(compact_target_view(session, &symbol, None, Some(why)));
         if next_reads.len() >= TASK_BRIEF_NEXT_READ_LIMIT {
             break;

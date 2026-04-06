@@ -7448,6 +7448,90 @@ fn drift_candidates_flag_specs_without_validations() {
 }
 
 #[test]
+fn incremental_intent_refresh_matches_fresh_derivation_for_observed_changes() {
+    let spec = Node {
+        id: NodeId::new(
+            "demo",
+            "demo::document::docs::spec_md::contract",
+            NodeKind::MarkdownHeading,
+        ),
+        name: "Contract".into(),
+        kind: NodeKind::MarkdownHeading,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Markdown,
+    };
+    let alpha = Node {
+        id: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(2),
+        span: Span::line(1),
+        language: Language::Rust,
+    };
+    let alpha_test = Node {
+        id: NodeId::new("demo", "demo::alpha_test", NodeKind::Function),
+        name: "alpha_test".into(),
+        kind: NodeKind::Function,
+        file: FileId(3),
+        span: Span::line(1),
+        language: Language::Rust,
+    };
+
+    let mut old_graph = Graph::new();
+    old_graph.add_node(spec.clone());
+    old_graph.add_node(alpha.clone());
+    old_graph.add_edge(Edge {
+        kind: EdgeKind::Specifies,
+        source: spec.id.clone(),
+        target: alpha.id.clone(),
+        origin: prism_ir::EdgeOrigin::Static,
+        confidence: 0.8,
+    });
+
+    let mut new_graph = old_graph.clone();
+    new_graph.add_node(alpha_test.clone());
+    let validation_edge = Edge {
+        kind: EdgeKind::Validates,
+        source: spec.id.clone(),
+        target: alpha_test.id.clone(),
+        origin: prism_ir::EdgeOrigin::Static,
+        confidence: 0.8,
+    };
+    new_graph.add_edge(validation_edge.clone());
+
+    let prism = Prism::new(old_graph);
+    let updated = prism.updated_intent_for_observed_changes(
+        &new_graph,
+        &[ObservedChangeSet {
+            meta: EventMeta {
+                id: EventId::new("evt:intent-refresh"),
+                ts: 1,
+                actor: EventActor::System,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            trigger: ChangeTrigger::ManualReindex,
+            files: vec![FileId(1), FileId(3)],
+            previous_path: None,
+            current_path: None,
+            added: vec![ObservedNode {
+                node: alpha_test,
+                fingerprint: prism_ir::SymbolFingerprint::new(1),
+            }],
+            removed: Vec::new(),
+            updated: Vec::new(),
+            edge_added: vec![validation_edge],
+            edge_removed: Vec::new(),
+        }],
+    );
+
+    let fresh = Prism::new(new_graph);
+    assert_eq!(updated, fresh.intent_snapshot());
+}
+
+#[test]
 fn policy_violations_expose_rejected_coordination_mutations() {
     let coordination = CoordinationStore::new();
     let (plan_id, _) = coordination
