@@ -1,0 +1,35 @@
+{
+  "kind": "coordination_claim",
+  "payload": {
+    "agent": "codex-runtime-storage-boundary-redesign-2026-04-01",
+    "anchors": [],
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 1119
+    },
+    "branch_ref": "refs/heads/task/shared-coordination-refs",
+    "capability": "Edit",
+    "expires_at": 1775245619,
+    "holder": "session:01knacdqfzqz97qywe873qv2cm",
+    "id": "claim:01knacdy49ksedar8n5akan7m9",
+    "lease_holder": {
+      "agent_id": "codex-runtime-storage-boundary-redesign-2026-04-01",
+      "principal": {
+        "authority_id": "local-daemon",
+        "kind": "agent",
+        "name": "Tracked Changes Rewrite",
+        "principal_id": "principal:tracked-changes-rewrite:01kn9y81k21524vwvyy9y7nhbn"
+      },
+      "session_id": "session:01knacdqfzqz97qywe873qv2cm",
+      "worktree_id": null
+    },
+    "mode": "SoftExclusive",
+    "refreshed_at": 1775243819,
+    "since": 1775243819,
+    "stale_at": 1775245619,
+    "status": "Expired",
+    "task": "coord-task:01kna8t3rvk3n07vafmpsdzvvn",
+    "worktree_id": "worktree:8719dd7db144e96f"
+  },
+  "schema_version": 1
+}
