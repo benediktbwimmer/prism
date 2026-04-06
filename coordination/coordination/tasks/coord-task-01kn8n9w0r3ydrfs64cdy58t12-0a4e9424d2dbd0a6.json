@@ -1,0 +1,77 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "PRISM can represent publish-pending and publish-failed states without falsely marking a task completed before repo publication succeeds."
+      },
+      {
+        "anchors": [],
+        "label": "Publish acknowledgement and verification state live outside the repo-published projection so confirming publication does not re-dirty `.prism` artifacts or create a commit loop."
+      },
+      {
+        "anchors": [],
+        "label": "Task lifecycle and publish lifecycle are represented separately enough for `require` to track desired completion before final publication while keeping source-code commit scope with the agent or human."
+      }
+    ],
+    "anchors": [],
+    "assignee": null,
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 119
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01kn8n9ssejh5kkx8zb4hjxt09"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01kn8n9w0r3ydrfs64cdy58t12",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": null,
+    "lease_holder": null,
+    "lease_refreshed_at": null,
+    "lease_stale_at": null,
+    "lease_started_at": null,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01kn8n8v0ns6jcj0xgge5f0adv",
+    "priority": 95,
+    "published_task_status": null,
+    "session": null,
+    "status": "Completed",
+    "summary": "Make publish intent, publish-pending, publish-failed, and publish-ack semantics explicit so strict `require` can separate logical task completion from repo publication, prevent false completion during push failures, and keep user-code commit scope manual.",
+    "tags": [],
+    "title": "Split task lifecycle from publish lifecycle and harden strict completion semantics",
+    "validation_refs": [],
+    "worktree_id": null
+  },
+  "schema_version": 1
+}

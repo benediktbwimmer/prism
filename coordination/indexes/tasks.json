@@ -1,0 +1,26 @@
+[
+  {
+    "id": "coord-task:01kn80bbb2ty6xt505xtxsw4hw",
+    "title": "Implement stream-oriented protected-state import handlers and runtime freshness tracking",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80bbb2ty6xt505xtxsw4hw-adaaaccb16c04a08.json"
+  },
+  {
+    "id": "coord-task:01kn891asb951r6bdzws74dbtv",
+    "title": "Define the docs/prism projection hierarchy and coverage map",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn891asb951r6bdzws74dbtv-bc1a59f9f46dc0fe.json"
+  },
+  {
+    "id": "coord-task:01kn8n9w0r3ydrfs64cdy58t12",
+    "title": "Split task lifecycle from publish lifecycle and harden strict completion semantics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn8n9w0r3ydrfs64cdy58t12-0a4e9424d2dbd0a6.json"
+  },
+  {
+    "id": "coord-task:01kn8na3jdcx78a3t4n9htmhx5",
+    "title": "Dogfood the portfolio inbox against concurrent active plans",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8na3jdcx78a3t4n9htmhx5-a0f909114fa0ea79.json"
+  }
+]
