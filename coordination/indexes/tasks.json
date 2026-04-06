@@ -2,7 +2,7 @@
   {
     "id": "coord-task:01kng42700xw977d4tq1ebr30s",
     "title": "Refactor the read path and materializer so the repo-wide summary ref is a compact derived read model with explicit freshness visibility and authoritative fallback reads from shard and runtime refs when needed.",
-    "status": "InProgress",
+    "status": "Completed",
     "path": "tasks/coord-task-01kng42700xw977d4tq1ebr30s-cd7ef9c51d3bf3b9.json"
   },
   {
