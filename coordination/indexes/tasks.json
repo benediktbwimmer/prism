@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn9vdqfnnkkywq1bb0jk5fq8",
+    "title": "Audit MCP/query/docs/projection surfaces for path leakage and anchor misuse",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9vdqfnnkkywq1bb0jk5fq8-e8f227e8f9eb292e.json"
+  },
+  {
+    "id": "coord-task:01kng42700ggvq0md11kyjkfqs",
+    "title": "Rework lease validity so task and claim records carry durable lease-boundary facts while runtime liveness comes from runtime refs, making lease freshness a join instead of a global summary rewrite.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kng42700ggvq0md11kyjkfqs-b160fe670942fcdf.json"
+  }
+]
