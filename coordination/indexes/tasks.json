@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn09je49f0ncgdyh2jng7whm",
+    "title": "Complete the incremental invalidation substrate with formal dependency-aware propagation and localized reprojection",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09je49f0ncgdyh2jng7whm-f5659f412de5fc49.json"
+  },
+  {
+    "id": "coord-task:01kna8tgf7s523e5edfv0gc0v9",
+    "title": "Audit and simplify or disable the old shared-runtime versus local-runtime split in daemon startup and runtime wiring",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kna8tgf7s523e5edfv0gc0v9-f6864768f3c4d9d5.json"
+  }
+]
