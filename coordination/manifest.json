@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775518573,
+  "publishedAt": 1775519598,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
     "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
@@ -292,6 +292,10 @@
     "coordination/runtimes/instance-90391-worktree-8719dd7db144e96f-1775474467654-edd9836f31a21b7a.json": {
       "path": "coordination/runtimes/instance-90391-worktree-8719dd7db144e96f-1775474467654-edd9836f31a21b7a.json",
       "sha256": "sha256:be19aaf2ca615f1a438e72ad606aa7b23dfe6ce92293a18a4bf70ad6ff2bc408"
+    },
+    "coordination/runtimes/instance-90613-worktree-38d65972b1359401-1775519535716-d1ce2e8104a326c8.json": {
+      "path": "coordination/runtimes/instance-90613-worktree-38d65972b1359401-1775519535716-d1ce2e8104a326c8.json",
+      "sha256": "sha256:512439f925165fa2cca218827c7e03499c272abdaae6995e16eed9764d43068c"
     },
     "coordination/runtimes/instance-9153-worktree-8719dd7db144e96f-1775485265015-3eb7f0f72ef57da7.json": {
       "path": "coordination/runtimes/instance-9153-worktree-8719dd7db144e96f-1775485265015-3eb7f0f72ef57da7.json",
@@ -2143,11 +2147,11 @@
     },
     "coordination/tasks/coord-task-01knhbwetjb7ygfbpfee51d2ve-ebc50aa89db7f6cc.json": {
       "path": "coordination/tasks/coord-task-01knhbwetjb7ygfbpfee51d2ve-ebc50aa89db7f6cc.json",
-      "sha256": "sha256:d2bceb8736931e6666c68fb14cf16eaf1e7e434ea0372d3cfa38663013d936d1"
+      "sha256": "sha256:17f0668b79fe6114485be4a9cb2efda7e43110e29b69a385bd1421527fd378d1"
     },
     "coordination/tasks/coord-task-01knhbwetpa19yaw9w8f1y31t4-d8bb62cbd6320ab6.json": {
       "path": "coordination/tasks/coord-task-01knhbwetpa19yaw9w8f1y31t4-d8bb62cbd6320ab6.json",
-      "sha256": "sha256:e7a2c1c226f00358624ec45ac9e7f629b94cfbab452a6d80b94b2fea6afb3db2"
+      "sha256": "sha256:cb51ff5993aecb74c436a8ea5f8c1333a64d3653d70c54301157c790ad60de81"
     },
     "coordination/tasks/coord-task-01knhbwettxwq967xdd56xfrcf-8a446d46e909ed6a.json": {
       "path": "coordination/tasks/coord-task-01knhbwettxwq967xdd56xfrcf-8a446d46e909ed6a.json",
@@ -2407,11 +2411,11 @@
     },
     "indexes/runtimes.json": {
       "path": "indexes/runtimes.json",
-      "sha256": "sha256:144944e9512653c0bdf9b62befe6dedfb68a6ed94e137244ad9ed781da8cf687"
+      "sha256": "sha256:871864bb2149b17d1331890512caf958eae0dc116499d382cf65d6530644e33d"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:a2c1227afa272c9f415a92cb548bec72356708f14c9b78d04dac722f4aa0e39b"
+      "sha256": "sha256:f990fcc1772144f9e78a02ac80e9ae848a29fbf56f1ab281bdb7f1ca2f061d6e"
     },
     "plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json": {
       "path": "plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json",
@@ -2767,10 +2771,10 @@
     },
     "v2/snapshot.json": {
       "path": "v2/snapshot.json",
-      "sha256": "sha256:ee91c570efac7ed0f04389c1ae3b84a7036492547fd35fcaf6cf887546c3cd8b"
+      "sha256": "sha256:229bb896079dc8924d9870f06d83ad2863b9aab45c763911b5ff4610315c0125"
     }
   },
-  "previousManifestDigest": "sha256:1815c3af21f5d8696660f3aa02765e36ce1ca37fafe53c6e2e02c52d0e688a6e",
+  "previousManifestDigest": "sha256:5566d7a76ab5f3a498e4b3864695d3d1fa64f3936664cfbedf0b2a7c1120f38c",
   "summarySources": {
     "taskShardHeads": {
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/02": "770995ff2b8722ac617b974407d7389ec962d759",
@@ -2855,7 +2859,7 @@
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/61": "085674ebf26240cbd70cd53d089c61f00a50b664",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/62": "140313773ee45a0415860eb82dae106c1752f0e8",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/63": "782bb9920f469ba37eb67960ffbda8ca207b227f",
-      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/64": "66f479acad5ba93be2be9393e0aec2fa91d0de17",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/64": "efe4372378aecb4f662ef491b0bfca3555af49f0",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/68": "097e4270627a8f61cd683d015a675bfb4a5ccfb5",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/69": "22db686cc1b4ab050b927fb283a9fd11168b27d7",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/6b": "f481799f0bc4b72db378fa0257c4440705344e9a",
@@ -2908,7 +2912,7 @@
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/9f": "dc86aabe3cb658da2b41546b070f0fbf0ae9eada",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a0": "b2483cf329b95a93b79c99659f700fbbe8f6d13a",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a1": "74b95ecc72a4733fa213f0043223a0d16e90c518",
-      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a2": "7164769fcfa915f82a90705e800f2ccc97b79ce7",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a2": "1ca3dc975772b2b4acf620f2a705c59143bde31c",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a3": "7b68f4997ebf89eeafe4a4042b02c056ee4669c4",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a5": "85caff7d0ec4c25d9aed0624b16f24654b006b0e",
       "refs/prism/coordination/repo-763c8d2ae95d5376/tasks/a6": "42a204154cc27de21cca3a58516595d577e297e9",
@@ -3062,6 +3066,7 @@
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-88595-worktree-84a3f98283a83dd5-1775498200452-cc12da347edc049a": "38b59e4dcd7f0ad8936264e495cde4f206d5e505",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-88666-worktree-38d65972b1359401-1775482639849-d40f87cf8daf0e6c": "caf00c7d5346c834330c9b2fee125b168a16ad29",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-90391-worktree-8719dd7db144e96f-1775474467654-edd9836f31a21b7a": "e622fa2d3d16c472afe12992570d8d5a2867ec1a",
+      "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-90613-worktree-38d65972b1359401-1775519535716-d1ce2e8104a326c8": "61a445c8f5c53ddc92556bf399b723f1413b7589",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-9153-worktree-8719dd7db144e96f-1775485265015-3eb7f0f72ef57da7": "4e6d770fa5b925e2e9525c5b3a5be4a497ed07fe",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-91734-worktree-8719dd7db144e96f-1775470490399-29fc7f75cdc6c906": "7e210492447bc64276a01bb615ac89b7be1f2ae2",
       "refs/prism/coordination/repo-763c8d2ae95d5376/runtimes/instance-91929-worktree-8719dd7db144e96f-1775475616235-bd3be432cda4ed83": "b512be0fce297272ea8f477d6fec0f3be5ed1001",
@@ -3085,6 +3090,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:hfl9fFppXWE81t4I5hRhpAwLVO6os9X92C3VzdXj2y4fv/niRNt83pWz3705S6NUuvYemEzaXeus5WTkSwHnBQ=="
+    "value": "base64:e1wxS0ECJmlFIGmuHZsnsJhSUVVib2zsJ2ycX2lDKgBhhC49c5KkelpgZlL8mXqqZTlEt65WAWYwbF1VzFbIDg=="
   }
 }
