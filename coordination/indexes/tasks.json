@@ -1,0 +1,14 @@
+[
+  {
+    "id": "coord-task:01kn13ryrrk04aacsvg1ac96c2",
+    "title": "Review the migration outcome with the user and decide together whether a separate persistence worker deserves a follow-up plan",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13ryrrk04aacsvg1ac96c2-bc7d69a13bfdc56c.json"
+  },
+  {
+    "id": "coord-task:01kn9hnq7j6p60y8arjfrccw5r",
+    "title": "Replace tracked append-log surfaces with snapshot publication and snapshot-backed reads",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hnq7j6p60y8arjfrccw5r-3a0ced6117bf8fb5.json"
+  }
+]
