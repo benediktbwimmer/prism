@@ -18,7 +18,7 @@
         "File": 85
       }
     ],
-    "assignee": null,
+    "assignee": "codex-a",
     "base_revision": {
       "git_commit": null,
       "graph_version": 114
@@ -40,7 +40,7 @@
       "memory_refs": [],
       "outcome_refs": []
     },
-    "branch_ref": "refs/heads/task/coordination-query-mcp-rewrite",
+    "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
     "coordination_depends_on": [],
     "depends_on": [
       "coord-task:01knhbwesks6nwbgdg4jrxxmj5"
@@ -67,27 +67,27 @@
     "integrated_depends_on": [],
     "is_abstract": false,
     "kind": "Edit",
-    "lease_expires_at": 1775485327,
+    "lease_expires_at": 1775497707,
     "lease_holder": {
-      "agent_id": null,
+      "agent_id": "codex-a",
       "principal": {
         "authority_id": "worktree_executor",
         "kind": "agent",
         "name": "codex-a",
         "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
       },
-      "session_id": "session:01knhbapwgzc1nbjxrec0n36g4",
+      "session_id": "session:01knhppkydn5ffgd4mm2m84fmx",
       "worktree_id": "worktree:38d65972b1359401"
     },
-    "lease_refreshed_at": 1775478127,
-    "lease_stale_at": 1775479927,
+    "lease_refreshed_at": 1775490507,
+    "lease_stale_at": 1775492307,
     "lease_started_at": 1775478127,
     "metadata": null,
     "pending_handoff_to": null,
     "plan": "plan:01knhbwesj53rq8f301x6r51qj",
     "priority": null,
     "published_task_status": null,
-    "session": "session:01knhbapwgzc1nbjxrec0n36g4",
+    "session": "session:01knhppkydn5ffgd4mm2m84fmx",
     "status": "Ready",
     "summary": null,
     "tags": [],
