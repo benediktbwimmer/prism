@@ -35550,7 +35550,7 @@
       "parentPlanId": "plan:01kng1xsx7yvfqh77cph9v7p60",
       "title": "Rewrite the SSR and UI rendering model around root plans, direct child plans and tasks, external dependency stubs, and executor-aware task presentation",
       "summary": null,
-      "lifecycleStatus": "completed",
+      "lifecycleStatus": "pending",
       "estimatedMinutes": 0,
       "executor": {
         "executorClass": "worktree_executor",
@@ -35558,14 +35558,24 @@
         "allowedPrincipals": []
       },
       "assignee": "codex-a",
-      "session": "session:01knhg7epvtxx4wt9t688ewdjr",
-      "leaseHolder": null,
-      "leaseStartedAt": null,
-      "leaseRefreshedAt": null,
-      "leaseStaleAt": null,
-      "leaseExpiresAt": null,
-      "worktreeId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
-      "branchRef": "refs/heads/task/coordination-query-mcp-rewrite",
+      "session": "session:01kng1sakrhbd4v3h17aypr7ph",
+      "leaseHolder": {
+        "principal": {
+          "authority_id": "worktree_executor",
+          "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+          "kind": "agent",
+          "name": "codex-a"
+        },
+        "session_id": "session:01kng1sakrhbd4v3h17aypr7ph",
+        "worktree_id": "worktree:38d65972b1359401",
+        "agent_id": "codex-a"
+      },
+      "leaseStartedAt": 1775434231,
+      "leaseRefreshedAt": 1775434231,
+      "leaseStaleAt": 1775436031,
+      "leaseExpiresAt": 1775441431,
+      "worktreeId": "worktree:38d65972b1359401",
+      "branchRef": "refs/heads/codex/coordination-graph-rewrite",
       "anchors": [
         {
           "File": 400
@@ -37830,32 +37840,22 @@
       "parentPlanId": "plan:01knhbwesj53rq8f301x6r51qj",
       "title": "Remove shared-runtime-coupled shared-coordination-ref watch and bootstrap behavior",
       "summary": null,
-      "lifecycleStatus": "pending",
+      "lifecycleStatus": "completed",
       "estimatedMinutes": 0,
       "executor": {
         "executorClass": "worktree_executor",
         "targetLabel": null,
         "allowedPrincipals": []
       },
-      "assignee": null,
-      "session": "session:01knhbapwgzc1nbjxrec0n36g4",
-      "leaseHolder": {
-        "principal": {
-          "authority_id": "worktree_executor",
-          "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
-          "kind": "agent",
-          "name": "codex-a"
-        },
-        "session_id": "session:01knhbapwgzc1nbjxrec0n36g4",
-        "worktree_id": "worktree:38d65972b1359401",
-        "agent_id": null
-      },
-      "leaseStartedAt": 1775478127,
-      "leaseRefreshedAt": 1775478127,
-      "leaseStaleAt": 1775479927,
-      "leaseExpiresAt": 1775485327,
-      "worktreeId": "worktree:38d65972b1359401",
-      "branchRef": "refs/heads/task/coordination-query-mcp-rewrite",
+      "assignee": "codex-a",
+      "session": "session:01knhxp91s37r1gd1jkhhyygpe",
+      "leaseHolder": null,
+      "leaseStartedAt": null,
+      "leaseRefreshedAt": null,
+      "leaseStaleAt": null,
+      "leaseExpiresAt": null,
+      "worktreeId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+      "branchRef": "refs/heads/task/remove-shared-runtime-sqlite",
       "anchors": [
         {
           "File": 135
@@ -37892,7 +37892,7 @@
       ],
       "validationRefs": [],
       "baseRevision": {
-        "graph_version": 114,
+        "graph_version": 321,
         "git_commit": null
       },
       "priority": null,
@@ -50910,8 +50910,8 @@
   "events": [
     {
       "meta": {
-        "id": "coordination:01knhwm8qtahw3z47me94mz3mw:SessionId--session-01knhwcey9jvnexwwdyqzcgazr--:16",
-        "ts": 1775495684,
+        "id": "coordination:01knhxs0b8jzdj7w81wk9tk6rv:SessionId--session-01knhxp91s37r1gd1jkhhyygpe--:2",
+        "ts": 1775496888,
         "actor": {
           "Principal": {
             "authority_id": "worktree_executor",
@@ -50921,20 +50921,19 @@
           }
         },
         "correlation": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
-        "causation": "coordination:01knhwm8qnactr1kdnp3kx0qwr:SessionId--session-01knhwcey9jvnexwwdyqzcgazr--:15",
+        "causation": "coordination:01knhxs0b40g31yrtqhnv0qy6c:SessionId--session-01knhxp91s37r1gd1jkhhyygpe--:1",
         "execution_context": {
           "repo_id": "repo:763c8d2ae95d5376",
           "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
           "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
-          "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
-          "instance_id": "instance:86352:worktree:38d65972b1359401:1775495177448",
-          "request_id": "6",
+          "session_id": "session:01knhxp91s37r1gd1jkhhyygpe",
+          "instance_id": "instance:57986:worktree:38d65972b1359401:1775496783910",
+          "request_id": "14",
           "work_context": {
-            "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
+            "workId": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
             "kind": "coordination",
-            "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
-            "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes.",
-            "coordinationTaskId": "coord-task:01knhbwesp16r75m614k3wkksj",
+            "title": "Remove shared-runtime-coupled shared-coordination-ref watch and bootstrap behavior",
+            "coordinationTaskId": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
             "planId": "plan:01knhbwesj53rq8f301x6r51qj",
             "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
           }
@@ -50962,7 +50961,7 @@
         "patchValues": {
           "assignee": "codex-a",
           "branchRef": "refs/heads/task/remove-shared-runtime-sqlite",
-          "leaseExpiresAt": 1775502884,
+          "leaseExpiresAt": 1775504088,
           "leaseHolder": {
             "agent_id": "codex-a",
             "principal": {
@@ -50971,20 +50970,20 @@
               "name": "codex-a",
               "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
             },
-            "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
+            "session_id": "session:01knhxp91s37r1gd1jkhhyygpe",
             "worktree_id": "worktree:38d65972b1359401"
           },
-          "leaseRefreshedAt": 1775495684,
-          "leaseStaleAt": 1775497484,
+          "leaseRefreshedAt": 1775496888,
+          "leaseStaleAt": 1775498688,
           "leaseStartedAt": 1775478127,
-          "session": "session:01knhwcey9jvnexwwdyqzcgazr"
+          "session": "session:01knhxp91s37r1gd1jkhhyygpe"
         }
       }
     },
     {
       "meta": {
-        "id": "coordination:01knhwm8qnactr1kdnp3kx0qwr:SessionId--session-01knhwcey9jvnexwwdyqzcgazr--:15",
-        "ts": 1775495684,
+        "id": "coordination:01knhxs0b40g31yrtqhnv0qy6c:SessionId--session-01knhxp91s37r1gd1jkhhyygpe--:1",
+        "ts": 1775496888,
         "actor": {
           "Principal": {
             "authority_id": "worktree_executor",
@@ -50993,21 +50992,20 @@
             "name": "codex-a"
           }
         },
-        "correlation": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
+        "correlation": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
         "causation": null,
         "execution_context": {
           "repo_id": "repo:763c8d2ae95d5376",
           "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
           "branch_ref": "refs/heads/task/remove-shared-runtime-sqlite",
-          "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
-          "instance_id": "instance:86352:worktree:38d65972b1359401:1775495177448",
-          "request_id": "6",
+          "session_id": "session:01knhxp91s37r1gd1jkhhyygpe",
+          "instance_id": "instance:57986:worktree:38d65972b1359401:1775496783910",
+          "request_id": "14",
           "work_context": {
-            "workId": "work:route-coordination-authority-exclusively-through-shared-coordination-refs-plus-local-coordination-checkpoints-read-models:01knhqp362y2cnnazmy2jb9r02",
+            "workId": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
             "kind": "coordination",
-            "title": "Route coordination authority exclusively through shared coordination refs plus local coordination checkpoints/read models",
-            "summary": "Start the first code cutover that removes shared runtime SQLite from authoritative coordination reads and writes.",
-            "coordinationTaskId": "coord-task:01knhbwesp16r75m614k3wkksj",
+            "title": "Remove shared-runtime-coupled shared-coordination-ref watch and bootstrap behavior",
+            "coordinationTaskId": "coord-task:01knhbwetabrr9gjkxjnkaswvr",
             "planId": "plan:01knhbwesj53rq8f301x6r51qj",
             "planTitle": "Eliminate the shared runtime SQLite backend and complete federated runtime cutover"
           }
@@ -51023,34 +51021,30 @@
       "metadata": {
         "assignee": "codex-a",
         "patch": {
-          "assignee": "set",
           "baseRevision": "set",
-          "leaseHolder": "set",
+          "leaseExpiresAt": "clear",
+          "leaseHolder": "clear",
+          "leaseRefreshedAt": "clear",
+          "leaseStaleAt": "clear",
+          "leaseStartedAt": "clear",
           "status": "set",
           "worktreeId": "set"
         },
         "patchValues": {
-          "assignee": "codex-a",
           "baseRevision": {
             "git_commit": null,
-            "graph_version": 302
+            "graph_version": 321
           },
-          "leaseHolder": {
-            "agent_id": "codex-a",
-            "principal": {
-              "authority_id": "worktree_executor",
-              "kind": "agent",
-              "name": "codex-a",
-              "principal_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
-            },
-            "session_id": "session:01knhwcey9jvnexwwdyqzcgazr",
-            "worktree_id": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
-          },
-          "status": "InProgress",
+          "leaseExpiresAt": null,
+          "leaseHolder": null,
+          "leaseRefreshedAt": null,
+          "leaseStaleAt": null,
+          "leaseStartedAt": null,
+          "status": "Completed",
           "worktreeId": "worktree:01kng1b8pfwh2r5ysegahq0t1p"
         },
         "previousStatus": "Ready",
-        "status": "InProgress"
+        "status": "Completed"
       }
     }
   ],
