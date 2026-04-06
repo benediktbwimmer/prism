@@ -1,0 +1,8 @@
+[
+  {
+    "id": "coord-task:01kng427019vvq94aea3emmxms",
+    "title": "Build migration, repair, and backfill tooling that can lift the current single-live-summary topology into versioned runtime, task, and claim shard refs without losing authoritative coordination continuity.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kng427019vvq94aea3emmxms-e0407075ea005d95.json"
+  }
+]
