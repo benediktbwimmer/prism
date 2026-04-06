@@ -10,5 +10,11 @@
     "title": "Add compact shape-summary resources for every MCP tool with required fields, optional fields, enums, and a minimal valid payload",
     "status": "Completed",
     "path": "tasks/coord-task-01kndb8xs418devteh768dp0cm-9bbaa81b9d0a3e68.json"
+  },
+  {
+    "id": "coord-task:01knherney70rde31swd7x23ja",
+    "title": "Implement the work",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knherney70rde31swd7x23ja-0fa04d649f41adc7.json"
   }
 ]
