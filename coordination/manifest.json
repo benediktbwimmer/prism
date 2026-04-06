@@ -1,22 +1,24 @@
 {
   "schema_version": 1,
   "kind": "coordination_manifest",
-  "publishedAt": 1775479021,
+  "publishedAt": 1775482987,
   "publisher": {
     "principalAuthorityId": "worktree_executor",
-    "principalId": "worktree:01kng5pwdqf1fberapprn1q9hr",
-    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng5pwdqf1fberapprn1q9hr"
+    "principalId": "worktree:01kng1b8pfwh2r5ysegahq0t1p",
+    "credentialId": "credential:implicit:principal:worktree_executor:worktree:01kng1b8pfwh2r5ysegahq0t1p"
   },
   "workContext": {
-    "workId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
+    "workId": "work:rewrite-coordination-query-runtime-and-mcp-surface:01knhcgsz4m072p4hncf3x07ww",
     "kind": "coordination",
-    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age.",
-    "coordinationTaskId": "coord-task:01kng42700nvzfm7p6tkh3v06p",
-    "planId": "plan:01kng427007ptj9mpg3s0gp4vc",
-    "planTitle": "Implement shared coordination v1 architecture hardening"
+    "title": "Rewrite coordination query runtime and MCP surface",
+    "summary": "Implement task 8 of the coordination graph rewrite: move query and MCP surfaces onto plan/task reads, typed dependencies, actionable task views, and transaction-first v2 mutations.",
+    "coordinationTaskId": "coord-task:01kng20jnn31h2n6ana91ja67d",
+    "planId": "plan:01kng1xsx7yvfqh77cph9v7p60",
+    "planTitle": "Implement the canonical PRISM coordination graph rewrite"
   },
   "publishSummary": {
-    "title": "Add bounded hot-state pruning and an archive plane for summary, runtime, task, and claim data, including continuity metadata and archive-aware read behavior so active coordination scales with current work instead of repository age."
+    "title": "Rewrite coordination query runtime and MCP surface",
+    "summary": "Implement task 8 of the coordination graph rewrite: move query and MCP surfaces onto plan/task reads, typed dependencies, actionable task views, and transaction-first v2 mutations."
   },
   "files": {
     "coordination/tasks/coord-task-01kn80bmhav84s54wm0j8rt3am-e0ab175763e1538b.json": {
@@ -29,14 +31,14 @@
     },
     "coordination/tasks/coord-task-01kng20jnn31h2n6ana91ja67d-935c83de7639b4cf.json": {
       "path": "coordination/tasks/coord-task-01kng20jnn31h2n6ana91ja67d-935c83de7639b4cf.json",
-      "sha256": "sha256:da02b1af85e2485c626a50c2c8172a8a480cc40da8d1cad593ee368df335fc25"
+      "sha256": "sha256:157c40c7fd8a0f8f9822f349b5005ee7323a344ad6eb4502cd49e88a3d11017f"
     },
     "indexes/tasks.json": {
       "path": "indexes/tasks.json",
-      "sha256": "sha256:75fb1eb1e3049c8da37a560f01a9d214ee8e65b0493c14c665b6ba10cad8fda8"
+      "sha256": "sha256:9a32cd1d967edaa5d23f26a175c2033f93bb46fec42516ee700538fce56d21bb"
     }
   },
-  "previousManifestDigest": "sha256:055b4aabf76fa819dd75cebb32c0e712192ac5010fb6360e1e05fb75eef2d68a",
+  "previousManifestDigest": "sha256:59b57d3861fa4d193d1368a10a3245f1be162eb696cd00e6eab135269e1f40b1",
   "publishDiagnostics": {
     "retryCount": 0,
     "retryBudget": 3
@@ -46,6 +48,6 @@
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:KBEsmLD+oft4UazPESCp1XhMUrmZdDe7cMCEygep5oyiczlXWu6RTorAJavx7HC0jV88lTF11lrp6r4xDFPjAw=="
+    "value": "base64:/2eiN0VmxsHTGkHo9W8ERXogdeZ9hHMP0Sg9xAxxXTh9csKiKuaSPgIoYXt8CeKYb1AzfmbltGi8oN88QNzfCw=="
   }
 }
