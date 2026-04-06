@@ -4,5 +4,11 @@
     "title": "Namespace shared runtime backends by logical repo identity",
     "status": "Ready",
     "path": "tasks/coord-task-01kn8rzmv5sa7xj8xt557rtzrg-80167037ba5e77d3.json"
+  },
+  {
+    "id": "coord-task:01knhbwetjb7ygfbpfee51d2ve",
+    "title": "Add migration, cleanup, and restart recovery for repositories that still have shared runtime DB artifacts",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knhbwetjb7ygfbpfee51d2ve-ebc50aa89db7f6cc.json"
   }
 ]
