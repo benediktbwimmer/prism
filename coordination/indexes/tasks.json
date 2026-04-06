@@ -14,7 +14,7 @@
   {
     "id": "coord-task:01kng20jnn31h2n6ana91ja67d",
     "title": "Rewrite the coordination query runtime and MCP surface around plan and task reads, direct children, typed dependencies, actionable_tasks(principal), and v2 transaction-first mutations",
-    "status": "Completed",
+    "status": "Ready",
     "path": "tasks/coord-task-01kng20jnn31h2n6ana91ja67d-935c83de7639b4cf.json"
   }
 ]
