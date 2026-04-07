@@ -35,7 +35,7 @@ use crate::indexer::WorkspaceIndexer;
 use crate::layout::discover_layout;
 use crate::observed_change_tracker::SharedObservedChangeTracker;
 use crate::protected_state::runtime_sync::{
-    load_repo_protected_knowledge, load_repo_protected_plan_state,
+    load_repo_protected_knowledge_for_runtime, load_repo_protected_plan_state,
     sync_selected_repo_protected_state, ProtectedStateImportSelection,
 };
 use crate::protected_state::streams::{classify_protected_repo_relative_path, ProtectedRepoStream};
@@ -1123,7 +1123,12 @@ pub(crate) fn sync_protected_state_watch_update(
     coordination_enabled: bool,
     streams: &[ProtectedRepoStream],
 ) -> Result<()> {
-    let selection = ProtectedStateImportSelection::from_streams(streams.iter());
+    let runtime_capabilities = runtime_state
+        .lock()
+        .expect("workspace runtime state lock poisoned")
+        .runtime_capabilities;
+    let selection = ProtectedStateImportSelection::from_streams(streams.iter())
+        .filtered_for_runtime(runtime_capabilities);
     if selection.is_empty() {
         return Ok(());
     }
@@ -1146,7 +1151,7 @@ pub(crate) fn sync_protected_state_watch_update(
         .expect("workspace runtime state lock poisoned")
         .clone();
     if selection.reloads_projection_knowledge() {
-        let repo_knowledge = load_repo_protected_knowledge(root)?;
+        let repo_knowledge = load_repo_protected_knowledge_for_runtime(root, runtime_capabilities)?;
         next_state
             .projections
             .replace_curated_concepts(repo_knowledge.curated_concepts);
@@ -1267,10 +1272,8 @@ fn apply_shared_coordination_ref_watch_state(
         &shared.canonical_snapshot_v2,
         Some(&shared.runtime_descriptors),
     )?;
-    next_state.replace_coordination_runtime(
-        shared.snapshot.clone(),
-        shared.runtime_descriptors.clone(),
-    );
+    next_state
+        .replace_coordination_runtime(shared.snapshot.clone(), shared.runtime_descriptors.clone());
     let next = next_state.publish_generation(
         prism_ir::WorkspaceRevision {
             graph_version: local_workspace_revision,

@@ -131,6 +131,7 @@ impl WorkspaceRuntimeState {
 
     pub(crate) fn sanitize_for_runtime_capabilities(&mut self) {
         if !self.runtime_capabilities.knowledge_storage_enabled() {
+            self.graph = Arc::new(Graph::default());
             self.history = Arc::new(HistoryStore::default());
             self.outcomes = Arc::new(OutcomeMemory::default());
             self.projections = ProjectionIndex::default();

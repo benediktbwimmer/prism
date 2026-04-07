@@ -9,7 +9,8 @@ use anyhow::{anyhow, Result};
 use prism_agent::{InferenceSnapshot, InferredEdgeRecord};
 use prism_coordination::{
     coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
-    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    CoordinationSnapshotV2,
 };
 use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
@@ -80,7 +81,8 @@ use crate::prism_doc::{
 };
 use crate::projection_hydration::persisted_projection_load_plan;
 use crate::protected_state::runtime_sync::{
-    load_repo_protected_knowledge, load_repo_protected_plan_state, sync_repo_protected_state,
+    load_repo_protected_knowledge_for_runtime, load_repo_protected_plan_state,
+    sync_repo_protected_state,
 };
 use crate::published_knowledge::{
     validate_repo_concept_event, validate_repo_concept_relation_event,
@@ -1388,41 +1390,68 @@ impl WorkspaceSession {
     #[allow(dead_code)]
     fn recover_runtime_from_persisted_state_locked(&self) -> Result<()> {
         let started = Instant::now();
+        let runtime_capabilities = self.prism_arc().runtime_capabilities();
+        let knowledge_storage = runtime_capabilities.knowledge_storage_enabled();
         let mut store = self.store.lock().expect("workspace store lock poisoned");
         let local_workspace_revision = store.workspace_revision()?;
-        sync_repo_protected_state(&self.root, &mut *store)?;
+        sync_repo_protected_state(&self.root, &mut *store, runtime_capabilities)?;
         let workspace_revision = local_workspace_revision;
-        let mut graph = store.load_graph()?.unwrap_or_default();
-        graph.bind_workspace_root(&self.root);
         let layout = discover_layout(&self.root)?;
-        sync_root_nodes(&mut graph, &layout);
-        resolve_graph_edges(&mut graph, None);
-        let projection_metadata = store.load_projection_materialization_metadata()?;
-        let local_projection_snapshot = if self.hydrate_persisted_projections {
-            store.load_projection_snapshot()?
-        } else if self.hydrate_persisted_co_change {
-            store.load_projection_snapshot()?
+        let mut graph = if knowledge_storage {
+            store.load_graph()?.unwrap_or_default()
         } else {
-            store.load_projection_snapshot_without_co_change()?
+            Graph::default()
+        };
+        if knowledge_storage {
+            graph.bind_workspace_root(&self.root);
+            sync_root_nodes(&mut graph, &layout);
+            resolve_graph_edges(&mut graph, None);
+        }
+        let projection_metadata = if knowledge_storage {
+            store.load_projection_materialization_metadata()?
+        } else {
+            Default::default()
+        };
+        let local_projection_snapshot = if knowledge_storage {
+            if self.hydrate_persisted_projections {
+                store.load_projection_snapshot()?
+            } else if self.hydrate_persisted_co_change {
+                store.load_projection_snapshot()?
+            } else {
+                store.load_projection_snapshot_without_co_change()?
+            }
+        } else {
+            None
         };
         let load_plan = persisted_projection_load_plan(
             projection_metadata,
-            self.hydrate_persisted_projections,
-            self.hydrate_persisted_co_change,
+            self.hydrate_persisted_projections && knowledge_storage,
+            self.hydrate_persisted_co_change && knowledge_storage,
         );
-        let mut history = store
-            .load_history_snapshot_with_options(load_plan.load_history_events)?
-            .map(HistoryStore::from_snapshot)
-            .unwrap_or_else(HistoryStore::new);
-        history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
-        let outcomes = if load_plan.load_full_outcomes {
-            store.load_outcome_snapshot()?
+        let mut history = if knowledge_storage {
+            store
+                .load_history_snapshot_with_options(load_plan.load_history_events)?
+                .map(HistoryStore::from_snapshot)
+                .unwrap_or_else(HistoryStore::new)
         } else {
-            store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
+            HistoryStore::new()
+        };
+        if knowledge_storage {
+            history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
         }
-        .map(OutcomeMemory::from_snapshot)
-        .unwrap_or_else(OutcomeMemory::new);
-        merge_repo_patch_events_into_memory(&self.root, &outcomes)?;
+        let outcomes = if knowledge_storage {
+            let outcomes = if load_plan.load_full_outcomes {
+                store.load_outcome_snapshot()?
+            } else {
+                store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
+            }
+            .map(OutcomeMemory::from_snapshot)
+            .unwrap_or_else(OutcomeMemory::new);
+            merge_repo_patch_events_into_memory(&self.root, &outcomes)?;
+            outcomes
+        } else {
+            OutcomeMemory::new()
+        };
         let plan_state = if self.coordination_enabled {
             load_repo_protected_plan_state(&self.root, &mut *store)?
         } else {
@@ -1432,17 +1461,26 @@ impl WorkspaceSession {
             .as_ref()
             .map(|state| state.snapshot.clone())
             .unwrap_or_default();
-        let repo_knowledge = load_repo_protected_knowledge(&self.root)?;
-        let protected_knowledge_work = protected_knowledge_recovery_work(&repo_knowledge)?;
-        let projections = merged_projection_index(
-            local_projection_snapshot,
-            None,
-            repo_knowledge.curated_concepts,
-            repo_knowledge.curated_contracts,
-            repo_knowledge.concept_relations,
-            &history.snapshot(),
-            &outcomes.snapshot(),
-        );
+        let repo_knowledge =
+            load_repo_protected_knowledge_for_runtime(&self.root, runtime_capabilities)?;
+        let protected_knowledge_work = if knowledge_storage {
+            protected_knowledge_recovery_work(&repo_knowledge)?
+        } else {
+            WorkspaceRefreshWork::default()
+        };
+        let projections = if knowledge_storage {
+            merged_projection_index(
+                local_projection_snapshot,
+                None,
+                repo_knowledge.curated_concepts,
+                repo_knowledge.curated_contracts,
+                repo_knowledge.concept_relations,
+                &history.snapshot(),
+                &outcomes.snapshot(),
+            )
+        } else {
+            ProjectionIndex::default()
+        };
         let recovery_work = workspace_recovery_work(
             &graph,
             &history,
@@ -1952,9 +1990,7 @@ impl WorkspaceSession {
             return Ok(None);
         }
         Ok(self
-            .read_coordination_snapshot_v2_with_consistency(
-                CoordinationReadConsistency::Eventual,
-            )?
+            .read_coordination_snapshot_v2_with_consistency(CoordinationReadConsistency::Eventual)?
             .into_value())
     }
 
@@ -2090,7 +2126,7 @@ impl WorkspaceSession {
                     eventual_load(&mut *store)?
                 };
                 Ok(match value {
-                    Some(value) => CoordinationReadResult::verified_stale(consistency, value, None),
+                    Some(value) => CoordinationReadResult::verified_current(consistency, value),
                     None => CoordinationReadResult::unavailable(consistency, None),
                 })
             }
@@ -2235,10 +2271,7 @@ impl WorkspaceSession {
         self.runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned")
-            .replace_coordination_runtime(
-                snapshot.clone(),
-                runtime_descriptors,
-            );
+            .replace_coordination_runtime(snapshot.clone(), runtime_descriptors);
         let authoritative_revision = self
             .store
             .lock()
@@ -2382,10 +2415,7 @@ impl WorkspaceSession {
         self.runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned")
-            .replace_coordination_runtime(
-                snapshot.clone(),
-                runtime_descriptors,
-            );
+            .replace_coordination_runtime(snapshot.clone(), runtime_descriptors);
         let should_persist = !appended_events.is_empty() || snapshot != before;
         if should_persist {
             let persist_started = Instant::now();

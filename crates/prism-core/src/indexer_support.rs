@@ -58,7 +58,7 @@ pub(crate) fn build_workspace_session(
 ) -> Result<WorkspaceSession> {
     let started = Instant::now();
     let sync_protected_started = Instant::now();
-    sync_repo_protected_state(&root, &mut store)?;
+    sync_repo_protected_state(&root, &mut store, runtime_capabilities)?;
     let sync_repo_protected_state_ms = sync_protected_started.elapsed().as_millis();
     let workspace_revision_started = Instant::now();
     let workspace_revision = store.workspace_revision()?;

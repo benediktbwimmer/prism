@@ -28,7 +28,7 @@ use crate::indexer::workspace_recovery_work;
 use crate::indexer::WorkspaceIndexer;
 use crate::layout::WorkspaceLayout;
 use crate::projection_hydration::persisted_projection_load_plan;
-use crate::protected_state::runtime_sync::load_repo_protected_knowledge;
+use crate::protected_state::runtime_sync::load_repo_protected_knowledge_for_runtime;
 use crate::repo_patch_events::merge_repo_patch_events_into_memory;
 use crate::session::{WorkspaceRefreshSeed, HOT_OUTCOME_HYDRATION_LIMIT};
 use crate::shared_runtime::{
@@ -807,7 +807,7 @@ fn load_workspace_runtime_startup_checkpoint(
             &read_bytes_segment(&mut reader, "projection snapshot json")?,
             "projection snapshot",
         )?;
-        let runtime_state = WorkspaceRuntimeState::new(
+        let mut runtime_state = WorkspaceRuntimeState::new(
             layout.clone(),
             Graph::from_snapshot(graph_snapshot),
             HistoryStore::from_snapshot(history_snapshot.clone()),
@@ -820,6 +820,7 @@ fn load_workspace_runtime_startup_checkpoint(
             ),
             options.runtime_capabilities(),
         );
+        runtime_state.sanitize_for_runtime_capabilities();
         Ok(RestoredWorkspaceRuntimeCheckpoint {
             revisions: header.revisions,
             layout,
@@ -859,6 +860,9 @@ fn refresh_restored_runtime_domains(
     if !local_stale && !outcome_stale && !coordination_stale {
         return Ok(metrics);
     }
+    if !options.knowledge_storage_enabled() {
+        return Ok(metrics);
+    }
     let projection_metadata = indexer.store.load_projection_materialization_metadata()?;
     let local_projection_snapshot = if options.hydrate_persisted_projections {
         indexer.store.load_projection_snapshot()?
@@ -884,7 +888,8 @@ fn refresh_restored_runtime_domains(
     metrics.load_outcomes_ms = outcomes_started.elapsed().as_millis();
 
     let projections_started = Instant::now();
-    let repo_knowledge = load_repo_protected_knowledge(root)?;
+    let repo_knowledge =
+        load_repo_protected_knowledge_for_runtime(root, options.runtime_capabilities())?;
     let base_local_projection_snapshot = local_projection_snapshot.clone().map(|snapshot| {
         if options.hydrate_persisted_projections {
             snapshot

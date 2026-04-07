@@ -170,7 +170,7 @@ codebase.
 `WorkspaceSessionOptions` should stop being a grab bag of partial booleans. It should express:
 
 - selected runtime mode or layer set
-- shared runtime backend selection
+- shared coordination/runtime cache selection
 - optional hydration policy details that are subordinate to the mode
 
 The session/bootstrap layer should decide from that contract whether it needs:
@@ -609,7 +609,7 @@ Core runtime coverage:
   `coordination_only_mode_reopens_full_workspace_without_exposing_knowledge_layers`
 - reopen from coordination-only back to full rehydrates graph state:
   `full_mode_reopens_coordination_only_workspace_and_rehydrates_graph_state`
-- shared-runtime SQLite reload preserves coordination-only behavior:
+- shared runtime cache reload preserves coordination-only behavior:
   `coordination_only_shared_runtime_sqlite_reloads_coordination_without_graph_state`
   `coordination_only_shared_runtime_sqlite_hides_knowledge_when_reopened_from_full_mode`
   `full_mode_shared_runtime_sqlite_reopens_coordination_only_workspace_and_rehydrates_graph_state`

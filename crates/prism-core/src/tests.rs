@@ -49,10 +49,9 @@ use super::{
     ensure_local_principal_registry_snapshot_with_unlocked_profile, hydrate_workspace_session,
     hydrate_workspace_session_with_options, index_workspace, index_workspace_session,
     index_workspace_session_with_curator, index_workspace_session_with_options,
-    inspect_legacy_path_identity_state,
-    list_registered_worktrees, regenerate_repo_published_plan_artifacts,
-    render_repo_published_plan_markdown, repair_legacy_path_identity_state,
-    AttestedHumanPrincipalInput, BootstrapOwnerInput,
+    inspect_legacy_path_identity_state, list_registered_worktrees,
+    regenerate_repo_published_plan_artifacts, render_repo_published_plan_markdown,
+    repair_legacy_path_identity_state, AttestedHumanPrincipalInput, BootstrapOwnerInput,
     CredentialProfile, CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata,
     CredentialsFile, HumanSessionFile, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
     SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
@@ -5443,12 +5442,9 @@ fn shared_plan_markdown_renderer_reuses_repo_plan_doc_format() {
         .into_iter()
         .find(|plan| plan.id == plan_id)
         .map(|plan| plan.status);
-    let markdown = render_repo_published_plan_markdown(
-        &prism.coordination_snapshot_v2(),
-        &plan_id,
-        status,
-    )
-    .expect("plan markdown should render");
+    let markdown =
+        render_repo_published_plan_markdown(&prism.coordination_snapshot_v2(), &plan_id, status)
+            .expect("plan markdown should render");
 
     assert!(markdown.contains("# Render shared plan markdown"));
     assert!(markdown.contains("## Goal"));
@@ -6410,13 +6406,11 @@ fn repo_published_plans_hydrate_from_tracked_snapshots_without_plan_logs() {
         .tasks
         .iter()
         .any(|task| task.id == task_id && task.plan == plan_id));
-    assert!(
-        hydrated
-            .canonical_snapshot_v2
-            .plans
-            .iter()
-            .any(|plan| plan.id == plan_id)
-    );
+    assert!(hydrated
+        .canonical_snapshot_v2
+        .plans
+        .iter()
+        .any(|plan| plan.id == plan_id));
 
     let _ = fs::remove_dir_all(root);
 }
@@ -6949,13 +6943,11 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
             && task.plan == plan_id
             && task.title == "Hydrate native plan state through the store facade"
     }));
-    assert!(
-        hydrated
-            .canonical_snapshot_v2
-            .tasks
-            .iter()
-            .any(|task| task.id.0 == task_id.0)
-    );
+    assert!(hydrated
+        .canonical_snapshot_v2
+        .tasks
+        .iter()
+        .any(|task| task.id.0 == task_id.0));
 
     let _ = fs::remove_dir_all(root);
 }
@@ -7265,7 +7257,10 @@ fn coordination_session_materializes_read_models_off_request_path() {
     assert!(session.load_coordination_read_model().unwrap().is_none());
     let authoritative_revision = session.coordination_revision().unwrap();
 
-    assert!(session.load_coordination_queue_read_model().unwrap().is_none());
+    assert!(session
+        .load_coordination_queue_read_model()
+        .unwrap()
+        .is_none());
 
     session.flush_materializations().unwrap();
 
@@ -10709,6 +10704,46 @@ fn workspace_session_can_disable_coordination_entirely() {
         error.to_string(),
         "coordination is disabled for this workspace session"
     );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_only_runtime_bootstrap_skips_graph_and_knowledge_hydration() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() -> u32 { 7 }\n").unwrap();
+
+    let full = index_workspace_session_with_options(&root, WorkspaceSessionOptions::default())
+        .expect("full workspace index");
+    assert!(
+        full.prism().graph().node_count() > 0,
+        "full mode should hydrate graph state"
+    );
+    drop(full);
+
+    let coordination_only = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: prism_ir::PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .expect("coordination-only workspace index");
+    let prism = coordination_only.prism();
+    assert_eq!(prism.graph().node_count(), 0);
+    assert!(prism.hot_history_snapshot().events.is_empty());
+    assert!(prism.outcome_snapshot().events.is_empty());
+    assert!(prism.curated_concepts_snapshot().is_empty());
+    assert!(prism.curated_contracts().is_empty());
+    assert!(prism.concept_relations_snapshot().is_empty());
 
     let _ = fs::remove_dir_all(root);
 }

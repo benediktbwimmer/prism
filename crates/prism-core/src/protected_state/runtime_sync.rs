@@ -113,19 +113,33 @@ pub(crate) fn load_repo_protected_knowledge(root: &Path) -> Result<RepoProtected
     })
 }
 
+pub(crate) fn load_repo_protected_knowledge_for_runtime(
+    root: &Path,
+    runtime: PrismRuntimeCapabilities,
+) -> Result<RepoProtectedKnowledge> {
+    if !runtime.knowledge_storage_enabled() {
+        return Ok(RepoProtectedKnowledge::default());
+    }
+    load_repo_protected_knowledge(root)
+}
+
 pub(crate) fn sync_repo_protected_state<S: prism_store::EventJournalStore>(
     root: &Path,
     store: &mut S,
+    runtime: PrismRuntimeCapabilities,
 ) -> Result<ProtectedStateSyncReport> {
-    if !has_repo_protected_state(root) {
-        return Ok(ProtectedStateSyncReport::default());
-    }
-    let imported_memory_events = sync_repo_memory_stream(root, store)?;
-    let imported_patch_events = sync_repo_patch_stream(root, store)?;
-    Ok(ProtectedStateSyncReport {
-        imported_memory_events,
-        imported_patch_events,
-    })
+    sync_selected_repo_protected_state(
+        root,
+        store,
+        ProtectedStateImportSelection {
+            memory: true,
+            patch_events: true,
+            concepts: true,
+            concept_relations: true,
+            contracts: true,
+        }
+        .filtered_for_runtime(runtime),
+    )
 }
 
 pub(crate) fn sync_selected_repo_protected_state<S: prism_store::EventJournalStore>(
@@ -216,7 +230,7 @@ fn has_repo_protected_state(root: &Path) -> bool {
 mod tests {
     use std::fs;
 
-    use prism_ir::new_sortable_token;
+    use prism_ir::{new_sortable_token, PrismRuntimeMode};
     use prism_store::MemoryStore;
 
     use super::*;
@@ -235,10 +249,25 @@ mod tests {
         assert!(knowledge.concept_relations.is_empty());
 
         let mut store = MemoryStore::default();
-        let report = sync_repo_protected_state(&root, &mut store)
-            .expect("protected state sync should succeed");
+        let report =
+            sync_repo_protected_state(&root, &mut store, PrismRuntimeMode::Full.capabilities())
+                .expect("protected state sync should succeed");
         assert_eq!(report, ProtectedStateSyncReport::default());
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn runtime_filtering_disables_protected_state_imports_for_coordination_only() {
+        let selection = ProtectedStateImportSelection {
+            memory: true,
+            patch_events: true,
+            concepts: true,
+            concept_relations: true,
+            contracts: true,
+        }
+        .filtered_for_runtime(PrismRuntimeMode::CoordinationOnly.capabilities());
+
+        assert!(selection.is_empty());
     }
 }

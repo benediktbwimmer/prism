@@ -58,6 +58,7 @@ pub enum PrismRuntimeMode {
     Full,
     CoordinationOnly,
     KnowledgeStorage,
+    /// Migration-only compatibility mode for legacy non-coordination runtimes.
     CoreLegacy,
 }
 

@@ -10,8 +10,8 @@ use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use ed25519_dalek::{Signer, Verifier};
 use prism_coordination::{
-    Artifact, ArtifactReview, CoordinationSnapshot, CoordinationSnapshotV2, CoordinationTask,
-    Plan, RuntimeDescriptor, RuntimeDescriptorCapability, WorkClaim, COORDINATION_SCHEMA_V2,
+    Artifact, ArtifactReview, CoordinationSnapshot, CoordinationSnapshotV2, CoordinationTask, Plan,
+    RuntimeDescriptor, RuntimeDescriptorCapability, WorkClaim, COORDINATION_SCHEMA_V2,
 };
 use prism_ir::{WorkContextKind, WorkContextSnapshot};
 use prism_store::CoordinationStartupCheckpointAuthority;
@@ -932,12 +932,7 @@ pub(crate) fn sync_shared_coordination_ref_state(
     }
     sync_task_shard_refs(root, &snapshot.tasks, publish)?;
     sync_claim_shard_refs(root, &snapshot.claims, publish)?;
-    sync_shared_coordination_summary_ref_state(
-        root,
-        snapshot,
-        canonical_snapshot_v2,
-        publish,
-    )?;
+    sync_shared_coordination_summary_ref_state(root, snapshot, canonical_snapshot_v2, publish)?;
     record_observed_shared_coordination_head(
         root,
         authoritative_shared_coordination_state_key(root)?,
@@ -1513,7 +1508,6 @@ fn load_authoritative_shared_coordination_ref_state(
         .sort_by(|left, right| left.id.0.cmp(&right.id.0));
     Ok(Some(state))
 }
-
 
 fn load_shared_coordination_runtime_refs(root: &Path) -> Result<Vec<RuntimeDescriptor>> {
     let mut runtime_descriptors = load_shared_coordination_sharded_records(
@@ -2163,15 +2157,14 @@ pub fn shared_coordination_ref_status_summary(
     }))
 }
 
-fn sync_plan_objects(
-    stage_dir: &Path,
-    snapshot: &CoordinationSnapshot,
-) -> Result<()> {
+fn sync_plan_objects(stage_dir: &Path, snapshot: &CoordinationSnapshot) -> Result<()> {
     let mut expected = BTreeSet::new();
     for plan in &snapshot.plans {
         let path = plan_snapshot_path(stage_dir, &plan.id.0);
         expected.insert(path.clone());
-        let record = SharedCoordinationPlanRecord { plan: summary_plan_record(plan) };
+        let record = SharedCoordinationPlanRecord {
+            plan: summary_plan_record(plan),
+        };
         write_json_file(
             &path,
             &wrap_authoritative_payload(&record, SHARED_COORDINATION_KIND_PLAN_RECORD)?,
@@ -3817,10 +3810,7 @@ mod tests {
         super::publish_stage_to_ref(root, &stage_dir, &ref_name).unwrap();
     }
 
-    fn sample_snapshot_for(
-        plan_id: &str,
-        task_id: &str,
-    ) -> CoordinationSnapshot {
+    fn sample_snapshot_for(plan_id: &str, task_id: &str) -> CoordinationSnapshot {
         let plan_id = PlanId::new(plan_id.to_string());
         let task_id = CoordinationTaskId::new(task_id.to_string());
         let plan = Plan {
@@ -4094,8 +4084,12 @@ mod tests {
             next_artifact: 0,
             next_review: 0,
         };
-        sync_shared_coordination_ref_state(&root, &shared_snapshot, Some(&sample_publish_context()))
-            .unwrap();
+        sync_shared_coordination_ref_state(
+            &root,
+            &shared_snapshot,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
 
         task.git_execution = TaskGitExecution::default();
         task.session = None;
@@ -4172,13 +4166,7 @@ mod tests {
         let snapshot = sample_snapshot_for("plan:checkpoint-save", "coord-task:checkpoint-save");
         let mut store = MemoryStore::default();
 
-        save_shared_coordination_startup_checkpoint(
-            &root,
-            &mut store,
-            &snapshot,
-            None,
-        )
-        .unwrap();
+        save_shared_coordination_startup_checkpoint(&root, &mut store, &snapshot, None).unwrap();
 
         let checkpoint = store
             .load_coordination_startup_checkpoint()
@@ -4207,12 +4195,8 @@ mod tests {
             "coord-task:checkpoint-runtime-descriptors",
         );
         let canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&sample_publish_context()))
+            .unwrap();
         let authority = super::shared_coordination_startup_authority(&root)
             .unwrap()
             .expect("shared coordination authority");
@@ -4371,8 +4355,11 @@ mod tests {
             .unwrap();
 
         tamper_shared_coordination_manifest_signature(&root);
-        let error = sync_shared_coordination_ref_state(&root, &snapshot, Some(&sample_publish_context()))
-            .expect_err("authoritative publish should fail while the shared manifest is invalid");
+        let error =
+            sync_shared_coordination_ref_state(&root, &snapshot, Some(&sample_publish_context()))
+                .expect_err(
+                    "authoritative publish should fail while the shared manifest is invalid",
+                );
         assert!(error.to_string().contains("base64"));
     }
 
@@ -4441,8 +4428,12 @@ mod tests {
             next_artifact: 0,
             next_review: 0,
         };
-        sync_shared_coordination_ref_state(&root_a, &base_snapshot, Some(&sample_publish_context()))
-            .unwrap();
+        sync_shared_coordination_ref_state(
+            &root_a,
+            &base_snapshot,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
 
         let ref_name = super::shared_coordination_ref_name(&root_b);
         let expected_head = super::refresh_local_shared_coordination_ref(
@@ -4719,8 +4710,12 @@ mod tests {
         );
         let task_shard_head_before =
             super::run_git(&root, &["rev-parse", &task_shard_ref]).unwrap();
-        sync_shared_coordination_ref_state(&root, &changed_snapshot, Some(&sample_publish_context()))
-            .unwrap();
+        sync_shared_coordination_ref_state(
+            &root,
+            &changed_snapshot,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
         let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
         let task_shard_head_after = super::run_git(&root, &["rev-parse", &task_shard_ref]).unwrap();
         assert_ne!(
@@ -4914,8 +4909,12 @@ mod tests {
             next_artifact: 0,
             next_review: 0,
         };
-        sync_shared_coordination_ref_state(&root_b, &changed_snapshot, Some(&sample_publish_context()))
-            .unwrap();
+        sync_shared_coordination_ref_state(
+            &root_b,
+            &changed_snapshot,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
 
         crate::watch::sync_shared_coordination_ref_watch_update(
             &root_a,
@@ -4942,10 +4941,7 @@ mod tests {
             .unwrap()
             .into_value()
             .expect("eventual coordination snapshot should exist after live sync");
-        assert_eq!(
-            eventual.tasks[0].status,
-            CoordinationTaskStatus::Completed
-        );
+        assert_eq!(eventual.tasks[0].status, CoordinationTaskStatus::Completed);
         assert!(matches!(
             poll_shared_coordination_ref_live_sync(&root_a).unwrap(),
             SharedCoordinationRefLiveSync::Unchanged
@@ -4957,8 +4953,7 @@ mod tests {
         let (root_a, _remote) = temp_git_repo_with_origin();
         seed_workspace_project(&root_a);
 
-        let snapshot =
-            sample_snapshot_for("plan:coord-read-modes", "coord-task:coord-read-modes");
+        let snapshot = sample_snapshot_for("plan:coord-read-modes", "coord-task:coord-read-modes");
         sync_shared_coordination_ref_state(&root_a, &snapshot, Some(&sample_publish_context()))
             .unwrap();
 
@@ -4992,7 +4987,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             eventual_after_initial.freshness,
-            CoordinationReadFreshness::VerifiedStale
+            CoordinationReadFreshness::VerifiedCurrent
         );
         assert_eq!(
             eventual_after_initial
@@ -5511,8 +5506,7 @@ mod tests {
     #[test]
     fn shared_coordination_ref_diagnostics_surface_degraded_verification_state() {
         let (root, _remote) = temp_git_repo_with_origin();
-        let snapshot =
-            sample_snapshot_for("plan:shared-degraded", "coord-task:shared-degraded");
+        let snapshot = sample_snapshot_for("plan:shared-degraded", "coord-task:shared-degraded");
         let publish = sample_publish_context();
         sync_shared_coordination_ref_state(&root, &snapshot, Some(&publish)).unwrap();
 
@@ -5543,8 +5537,12 @@ mod tests {
         let (root, _remote) = temp_git_repo_with_origin();
         let shared_snapshot =
             sample_snapshot_for("plan:shared-blocked", "coord-task:shared-blocked");
-        sync_shared_coordination_ref_state(&root, &shared_snapshot, Some(&sample_publish_context()))
-            .unwrap();
+        sync_shared_coordination_ref_state(
+            &root,
+            &shared_snapshot,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
         tamper_shared_coordination_manifest(&root, |manifest| {
             manifest.published_at += 1;
         });
