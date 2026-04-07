@@ -1097,6 +1097,7 @@ pub(crate) fn convert_completion_context(
         prism_coordination::TaskCompletionContext {
             risk_score: payload.risk_score,
             required_validations: payload.required_validations.unwrap_or_default(),
+            validated_checks: payload.validated_checks.unwrap_or_default(),
             review_artifact_ref,
             integration_commit,
             integration_evidence,

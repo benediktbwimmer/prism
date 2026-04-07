@@ -9,8 +9,8 @@ use bincode::Options;
 use prism_history::{HistorySnapshot, HistoryStore, LineageTombstone};
 use prism_ir::{
     CredentialId, EventActor, EventExecutionContext, EventId, LineageEvent, LineageEventKind,
-    LineageEvidence, LineageId, NodeId, PrincipalActor, TaskId, WorkContextKind,
-    WorkContextSnapshot,
+    LineageEvidence, LineageId, NodeId, PlanExecutionOverlay, PrincipalActor, TaskId,
+    WorkContextKind, WorkContextSnapshot,
 };
 use prism_memory::{OutcomeMemory, OutcomeMemorySnapshot};
 use prism_projections::{IntentIndex, ProjectionIndex, ProjectionSnapshot};
@@ -35,13 +35,12 @@ use crate::shared_runtime::{
     merged_projection_index, overlay_persisted_projection_knowledge,
     projection_snapshot_without_knowledge,
 };
-use crate::shared_runtime_store::SharedRuntimeStore;
 use crate::util::cache_path;
 use crate::workspace_runtime_state::WorkspaceRuntimeState;
 use crate::{WorkspaceSession, WorkspaceSessionOptions};
 
 const WORKSPACE_RUNTIME_STARTUP_CHECKPOINT_MAGIC: &[u8; 8] = b"PRWSCP01";
-const WORKSPACE_RUNTIME_STARTUP_CHECKPOINT_VERSION: u32 = 9;
+const WORKSPACE_RUNTIME_STARTUP_CHECKPOINT_VERSION: u32 = 8;
 const MAX_STARTUP_CHECKPOINT_SEGMENT_BYTES: u64 = 1 << 30;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -464,21 +463,11 @@ pub(crate) fn build_workspace_indexer_with_startup_checkpoint(
 ) -> Result<WorkspaceIndexer<SqliteStore>> {
     let root = root.canonicalize()?;
     let store = SqliteStore::open(cache_path(&root)?)?;
-    let shared_runtime_aliases_workspace_store = options
-        .shared_runtime
-        .aliases_sqlite_path(&cache_path(&root)?);
-    let shared_runtime_store = SharedRuntimeStore::open(&options.shared_runtime)?;
-    if let Some(restored) = load_workspace_runtime_startup_checkpoint(
-        &root,
-        &store,
-        shared_runtime_store.as_ref(),
-        shared_runtime_aliases_workspace_store,
-    )? {
+    if let Some(restored) = load_workspace_runtime_startup_checkpoint(&root, &store, &options)? {
         let started = Instant::now();
         let mut indexer = WorkspaceIndexer::with_runtime_state_stores_and_options(
             &root,
             store,
-            shared_runtime_store,
             restored.runtime_state,
             restored.layout,
             false,
@@ -490,7 +479,6 @@ pub(crate) fn build_workspace_indexer_with_startup_checkpoint(
             &root,
             &mut indexer,
             &options,
-            shared_runtime_aliases_workspace_store,
             restored.local_stale,
             restored.outcome_stale,
             restored.coordination_stale,
@@ -507,6 +495,8 @@ pub(crate) fn build_workspace_indexer_with_startup_checkpoint(
             &indexer.outcomes,
             crate::session::WorkspaceRefreshWork::default(),
             &indexer.coordination_snapshot,
+            &indexer.plan_graphs,
+            &indexer.plan_execution_overlays,
         )?;
         recovery_work.workspace_reloaded = true;
         indexer.startup_refresh = Some(WorkspaceRefreshSeed {
@@ -537,8 +527,12 @@ pub(crate) fn build_workspace_indexer_with_startup_checkpoint(
 pub(crate) fn persist_workspace_runtime_startup_checkpoint(
     session: &WorkspaceSession,
 ) -> Result<()> {
-    let revisions = session.snapshot_revisions()?;
-    let outcome_revision = merged_outcome_revision_for_session(session)?;
+    let revisions = session.snapshot_revisions_for_runtime()?;
+    let outcome_revision = session
+        .store
+        .lock()
+        .expect("workspace store lock poisoned")
+        .outcome_revision()?;
     let coordination_authority = coordination_startup_authority(session.root())?;
     let (
         layout,
@@ -547,6 +541,8 @@ pub(crate) fn persist_workspace_runtime_startup_checkpoint(
         intent_index,
         outcome_snapshot,
         coordination_snapshot,
+        plan_graphs,
+        plan_execution_overlays,
         projection_snapshot,
     ) = {
         let runtime_state = session
@@ -563,6 +559,8 @@ pub(crate) fn persist_workspace_runtime_startup_checkpoint(
             ),
             runtime_state.outcomes.snapshot(),
             runtime_state.coordination_snapshot.clone(),
+            runtime_state.plan_graphs.clone(),
+            runtime_state.plan_execution_overlays.clone(),
             runtime_state.projections.snapshot(),
         )
     };
@@ -615,6 +613,12 @@ pub(crate) fn persist_workspace_runtime_startup_checkpoint(
         &encode_json(&coordination_snapshot)?,
         "coordination snapshot json",
     )?;
+    write_bytes_segment(&mut writer, &encode_json(&plan_graphs)?, "plan graphs json")?;
+    write_bytes_segment(
+        &mut writer,
+        &encode_json(&plan_execution_overlays)?,
+        "plan execution overlays json",
+    )?;
     write_bytes_segment(
         &mut writer,
         &encode_json(&projection_snapshot)?,
@@ -662,8 +666,7 @@ struct RestoredRuntimeReloadMetrics {
 fn load_workspace_runtime_startup_checkpoint(
     root: &Path,
     store: &SqliteStore,
-    shared_runtime_store: Option<&SharedRuntimeStore>,
-    shared_runtime_aliases_workspace_store: bool,
+    options: &WorkspaceSessionOptions,
 ) -> Result<Option<RestoredWorkspaceRuntimeCheckpoint>> {
     let path =
         crate::PrismPaths::for_workspace_root(root)?.workspace_runtime_startup_checkpoint_path()?;
@@ -710,16 +713,8 @@ fn load_workspace_runtime_startup_checkpoint(
         );
         return Ok(None);
     }
-    let current_revisions = merged_snapshot_revisions(
-        store,
-        shared_runtime_store,
-        shared_runtime_aliases_workspace_store,
-    )?;
-    let current_outcome_revision = merged_outcome_revision(
-        store,
-        shared_runtime_store,
-        shared_runtime_aliases_workspace_store,
-    )?;
+    let current_revisions = store.snapshot_revisions()?;
+    let current_outcome_revision = store.outcome_revision()?;
     let local_stale = !local_restore_revisions_match(header.revisions, current_revisions);
     if local_stale && !local_restore_revisions_recoverable(header.revisions, current_revisions) {
         info!(
@@ -820,6 +815,14 @@ fn load_workspace_runtime_startup_checkpoint(
             &read_bytes_segment(&mut reader, "coordination snapshot json")?,
             "coordination snapshot",
         )?;
+        let plan_graphs: Vec<prism_ir::PlanGraph> = decode_json(
+            &read_bytes_segment(&mut reader, "plan graphs json")?,
+            "plan graphs",
+        )?;
+        let plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>> = decode_json(
+            &read_bytes_segment(&mut reader, "plan execution overlays json")?,
+            "plan execution overlays",
+        )?;
         let projection_snapshot: ProjectionSnapshot = decode_json(
             &read_bytes_segment(&mut reader, "projection snapshot json")?,
             "projection snapshot",
@@ -830,11 +833,14 @@ fn load_workspace_runtime_startup_checkpoint(
             HistoryStore::from_snapshot(history_snapshot.clone()),
             OutcomeMemory::from_snapshot(outcome_snapshot),
             coordination_snapshot,
+            plan_graphs,
+            plan_execution_overlays,
             Vec::new(),
             ProjectionIndex::from_snapshot_with_history(
                 projection_snapshot,
                 Some(&history_snapshot),
             ),
+            options.runtime_capabilities(),
         );
         Ok(RestoredWorkspaceRuntimeCheckpoint {
             revisions: header.revisions,
@@ -863,69 +869,10 @@ fn load_workspace_runtime_startup_checkpoint(
     }
 }
 
-fn merged_snapshot_revisions(
-    store: &SqliteStore,
-    shared_runtime_store: Option<&SharedRuntimeStore>,
-    shared_runtime_aliases_workspace_store: bool,
-) -> Result<SnapshotRevisions> {
-    let local = store.snapshot_revisions()?;
-    if shared_runtime_aliases_workspace_store {
-        return Ok(local);
-    }
-    let Some(shared) = shared_runtime_store else {
-        return Ok(local);
-    };
-    let shared = shared.snapshot_revisions()?;
-    Ok(SnapshotRevisions {
-        workspace: local.workspace.max(shared.workspace),
-        episodic: local.episodic.max(shared.episodic),
-        inference: local.inference.max(shared.inference),
-        coordination: local.coordination.max(shared.coordination),
-    })
-}
-
-fn merged_outcome_revision(
-    store: &SqliteStore,
-    shared_runtime_store: Option<&SharedRuntimeStore>,
-    shared_runtime_aliases_workspace_store: bool,
-) -> Result<u64> {
-    let local = store.outcome_revision()?;
-    if shared_runtime_aliases_workspace_store {
-        return Ok(local);
-    }
-    let Some(shared) = shared_runtime_store else {
-        return Ok(local);
-    };
-    Ok(local.max(shared.outcome_revision()?))
-}
-
-fn merged_outcome_revision_for_session(session: &WorkspaceSession) -> Result<u64> {
-    let local = session
-        .store
-        .lock()
-        .expect("workspace store lock poisoned")
-        .outcome_revision()?;
-    let Some(shared_runtime_store) = session.shared_runtime_store.as_ref() else {
-        return Ok(local);
-    };
-    let shared_runtime_aliases_workspace_store = session
-        .shared_runtime
-        .aliases_sqlite_path(&cache_path(session.root())?);
-    if shared_runtime_aliases_workspace_store {
-        return Ok(local);
-    }
-    let shared = shared_runtime_store
-        .lock()
-        .expect("shared runtime store lock poisoned")
-        .outcome_revision()?;
-    Ok(local.max(shared))
-}
-
 fn refresh_restored_runtime_domains(
     root: &Path,
     indexer: &mut WorkspaceIndexer<SqliteStore>,
     options: &WorkspaceSessionOptions,
-    shared_runtime_aliases_workspace_store: bool,
     local_stale: bool,
     outcome_stale: bool,
     coordination_stale: bool,
@@ -948,24 +895,7 @@ fn refresh_restored_runtime_domains(
         options.hydrate_persisted_co_change,
     );
     let outcomes_started = Instant::now();
-    let mut shared_projection_snapshot = None;
-    indexer.outcomes = if shared_runtime_aliases_workspace_store {
-        if load_plan.load_full_outcomes {
-            Store::load_outcome_snapshot(&mut indexer.store)?
-        } else {
-            Store::load_recent_outcome_snapshot(&mut indexer.store, HOT_OUTCOME_HYDRATION_LIMIT)?
-        }
-    } else if let Some(shared_store) = indexer.shared_runtime_store.as_mut() {
-        shared_projection_snapshot = shared_store.load_projection_knowledge_snapshot()?;
-        if load_plan.load_full_outcomes {
-            prism_store::ColdQueryStore::load_outcome_snapshot(shared_store)?
-        } else {
-            prism_store::ColdQueryStore::load_recent_outcome_snapshot(
-                shared_store,
-                HOT_OUTCOME_HYDRATION_LIMIT,
-            )?
-        }
-    } else if load_plan.load_full_outcomes {
+    indexer.outcomes = if load_plan.load_full_outcomes {
         Store::load_outcome_snapshot(&mut indexer.store)?
     } else {
         Store::load_recent_outcome_snapshot(&mut indexer.store, HOT_OUTCOME_HYDRATION_LIMIT)?
@@ -984,14 +914,9 @@ fn refresh_restored_runtime_domains(
             projection_snapshot_without_knowledge(snapshot)
         }
     });
-    let base_shared_projection_snapshot = if options.hydrate_persisted_projections {
-        shared_projection_snapshot.clone()
-    } else {
-        None
-    };
     indexer.projections = merged_projection_index(
         base_local_projection_snapshot,
-        base_shared_projection_snapshot,
+        None,
         repo_knowledge.curated_concepts,
         repo_knowledge.curated_contracts,
         repo_knowledge.concept_relations,
@@ -999,16 +924,11 @@ fn refresh_restored_runtime_domains(
         &indexer.outcomes.snapshot(),
     );
     if !options.hydrate_persisted_projections {
-        overlay_persisted_projection_knowledge(
-            &mut indexer.projections,
-            local_projection_snapshot
-                .into_iter()
-                .chain(shared_projection_snapshot),
-        );
+        overlay_persisted_projection_knowledge(&mut indexer.projections, local_projection_snapshot);
     }
     metrics.reload_projections_ms = projections_started.elapsed().as_millis();
 
-    let _ = (root, coordination_stale, options.coordination);
+    let _ = (root, coordination_stale, options.coordination_enabled());
 
     Ok(metrics)
 }
@@ -1253,9 +1173,10 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use prism_ir::{EventMeta, LineageEvent, LineageEventKind, LineageEvidence, NodeId, NodeKind};
+    use prism_memory::OutcomeMemorySnapshot;
     use prism_store::{
-        CoordinationStartupCheckpointAuthority, SnapshotRevisions, WorkspaceTreeFileFingerprint,
-        WorkspaceTreeSnapshot,
+        CoordinationStartupCheckpointAuthority, Graph, IndexPersistBatch, MaterializationStore,
+        SnapshotRevisions, WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
     };
 
     use super::{
@@ -1263,7 +1184,9 @@ mod tests {
         local_restore_revisions_match, local_restore_revisions_recoverable, read_bincode_segment,
         write_bincode_segment, HistorySnapshotCheckpoint, WorkspaceTreeSnapshotCheckpoint,
     };
-    use crate::{index_workspace_session_with_options, WorkspaceSessionOptions};
+    use crate::{
+        index_workspace_session_with_options, SharedRuntimeBackend, WorkspaceSessionOptions,
+    };
 
     static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(1);
 
@@ -1384,6 +1307,125 @@ mod tests {
         assert!(
             restored.trust_cached_query_state,
             "clean startup checkpoint restore should trust cached query state"
+        );
+    }
+
+    #[test]
+    fn startup_checkpoint_restore_ignores_shared_runtime_workspace_revision_bumps() {
+        ensure_test_live_watches_disabled();
+        let shared_runtime_root = temp_workspace();
+        let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+        let root = temp_workspace();
+        fs::create_dir_all(root.join("src")).expect("workspace src dir should exist");
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .expect("workspace manifest should write");
+        fs::write(root.join("src/lib.rs"), "pub fn alpha() -> u32 { 7 }\n")
+            .expect("workspace source should write");
+
+        let options = WorkspaceSessionOptions {
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        };
+        let session =
+            index_workspace_session_with_options(&root, options.clone()).expect("workspace index");
+        session
+            .persist_runtime_startup_checkpoint()
+            .expect("startup checkpoint should persist");
+        drop(session);
+
+        let mut shared_store =
+            prism_store::SqliteStore::open(shared_runtime_sqlite).expect("shared runtime store");
+        while shared_store
+            .workspace_revision()
+            .expect("shared workspace revision")
+            <= prism_store::SqliteStore::open(crate::util::cache_path(&root).unwrap())
+                .expect("workspace store")
+                .workspace_revision()
+                .expect("workspace revision")
+        {
+            MaterializationStore::commit_index_persist_batch(
+                &mut shared_store,
+                &Graph::default(),
+                &IndexPersistBatch {
+                    upserted_paths: Vec::new(),
+                    in_place_upserted_paths: Vec::new(),
+                    removed_paths: Vec::new(),
+                    history_snapshot: None,
+                    history_delta: None,
+                    outcome_snapshot: None,
+                    outcome_events: Vec::new(),
+                    defer_graph_materialization: false,
+                    co_change_deltas: Vec::new(),
+                    validation_deltas: Vec::new(),
+                    projection_snapshot: None,
+                    workspace_tree_snapshot: None,
+                },
+            )
+            .expect("shared runtime revision bump");
+        }
+
+        let restored = build_workspace_indexer_with_startup_checkpoint(&root, options)
+            .expect("startup checkpoint restore should succeed");
+        assert!(
+            restored.startup_intent.is_some(),
+            "shared runtime workspace revision bumps must not invalidate the local startup checkpoint"
+        );
+        assert!(
+            restored.trust_cached_query_state,
+            "shared runtime workspace revision bumps must not force a local startup reload"
+        );
+    }
+
+    #[test]
+    fn startup_checkpoint_restore_ignores_shared_runtime_outcome_revision_bumps() {
+        ensure_test_live_watches_disabled();
+        let shared_runtime_root = temp_workspace();
+        let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+        let root = temp_workspace();
+        fs::create_dir_all(root.join("src")).expect("workspace src dir should exist");
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .expect("workspace manifest should write");
+        fs::write(root.join("src/lib.rs"), "pub fn alpha() -> u32 { 7 }\n")
+            .expect("workspace source should write");
+
+        let options = WorkspaceSessionOptions {
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        };
+        let session =
+            index_workspace_session_with_options(&root, options.clone()).expect("workspace index");
+        session
+            .persist_runtime_startup_checkpoint()
+            .expect("startup checkpoint should persist");
+        drop(session);
+
+        let mut shared_store =
+            prism_store::SqliteStore::open(shared_runtime_sqlite).expect("shared runtime store");
+        MaterializationStore::save_outcome_snapshot(
+            &mut shared_store,
+            &OutcomeMemorySnapshot { events: Vec::new() },
+        )
+        .expect("shared outcome revision bump");
+
+        let restored = build_workspace_indexer_with_startup_checkpoint(&root, options)
+            .expect("startup checkpoint restore should succeed");
+        assert!(
+            restored.startup_intent.is_some(),
+            "shared runtime outcome revisions must not invalidate the local startup checkpoint"
+        );
+        assert!(
+            restored.trust_cached_query_state,
+            "shared runtime outcome revisions must not force a local startup reload"
         );
     }
 

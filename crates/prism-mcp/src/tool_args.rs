@@ -3100,6 +3100,7 @@ pub(crate) struct PlanEdgeDeletePayload {
 pub(crate) struct TaskCompletionContextPayload {
     pub(crate) risk_score: Option<f32>,
     pub(crate) required_validations: Option<Vec<String>>,
+    pub(crate) validated_checks: Option<Vec<String>>,
     pub(crate) review_artifact_ref: Option<String>,
     pub(crate) integration_commit: Option<String>,
     pub(crate) integration_evidence: Option<prism_ir::GitIntegrationEvidence>,

@@ -3,9 +3,10 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
+use prism_coordination::TaskExecutorCaller;
 use prism_ir::{
     AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId, PlanNode,
-    PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId,
+    PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId, TaskId,
 };
 use prism_js::{
     AdHocPlanProjectionDiffView, AdHocPlanProjectionView, ChangedFileView, ChangedSymbolView,
@@ -40,32 +41,34 @@ use crate::{
     combined_parse_typescript_error, concept_decode_lens_view, concept_packet_view,
     concept_relation_view, concept_resolution_is_ambiguous, conflict_view, contract_packet_view,
     convert_anchors, convert_capability, convert_claim_mode, convert_node_id,
-    coordination_task_view, current_timestamp, diff_for, diff_for_from_events,
+    coordination_plan_v2_view, coordination_task_v2_view, coordination_task_view,
+    coordination_task_view_from_v2, current_timestamp, diff_for, diff_for_from_events,
     drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol, entrypoints_for,
     focused_block_for_symbol, invalid_query_argument_error, is_query_parse_error, js_runtime,
     lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint,
-    next_reads, owner_symbol_views_for_query, owner_symbol_views_for_target,
+    next_reads, node_ref_view, owner_symbol_views_for_query, owner_symbol_views_for_target,
     owner_views_for_target, parse_event_actor, parse_memory_event_action, parse_memory_kind,
     parse_memory_scope, parse_node_kind, parse_outcome_kind, parse_outcome_result,
-    parse_plan_scope, parse_plan_status, parse_typescript_error, plan_execution_overlay_view,
-    plan_graph_view, plan_node_blocker_view, plan_node_recommendation_view, plan_node_view,
-    plan_summary_view, plan_view, policy_violation_record_view, promoted_memory_entries,
-    promoted_summary_texts, promoted_validation_checks, query_diagnostic,
-    query_feature_disabled_error, query_method_specs, rank_search_results,
-    read_context_view_cached, recent_change_context_view_cached, recent_patches,
-    recent_patches_from_events, relations_view, resolve_concepts_for_session, result_decode_error,
-    runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
-    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_intent_view, task_risk_view, task_validation_recipe_view,
-    tool_catalog_views_with_features, tool_schema_view_with_features,
-    validate_tool_input_value_with_features, validation_context_view_cached,
-    validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
-    weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
-    ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs, ConceptVerbosity, ContractQueryArgs,
-    ContractsQueryArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
-    CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
-    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, McpLogArgs, McpTraceArgs,
-    MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
+    parse_plan_scope, parse_plan_status, parse_typescript_error, plan_children_v2_view,
+    plan_execution_overlay_view, plan_graph_view, plan_node_blocker_view,
+    plan_node_recommendation_view, plan_node_view, plan_summary_view, plan_view, plan_view_from_v2,
+    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
+    promoted_validation_checks, query_diagnostic, query_feature_disabled_error, query_method_specs,
+    rank_search_results, read_context_view_cached, recent_change_context_view_cached,
+    recent_patches, recent_patches_from_events, relations_view, resolve_concepts_for_session,
+    result_decode_error, runtime_or_serialization_error, scored_memory_view, search_queries,
+    source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view, symbol_for,
+    symbol_view, symbol_views_for_ids, task_intent_view, task_risk_view,
+    task_validation_recipe_view, tool_catalog_views_with_features,
+    tool_schema_view_with_features, validate_tool_input_value_with_features,
+    validation_context_view_cached, validation_recipe_view_with, weak_concept_match_reason,
+    weak_search_match_diagnostic_data, weak_search_match_reason, where_used,
+    AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, ConceptHandleArgs,
+    ConceptQueryArgs, ConceptVerbosity, ContractQueryArgs, ContractsQueryArgs,
+    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, CuratorProposalsArgs,
+    DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs,
+    FileReadArgs, ImplementationTargetArgs, LimitArgs, McpLogArgs, McpTraceArgs, MemoryEventArgs,
+    MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
     PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanProjectionAtArgs,
     PlanProjectionDiffArgs, PlanTargetArgs, PlansQueryArgs, PolicyViolationQueryArgs, QueryHost,
     QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs,
@@ -118,6 +121,19 @@ struct RemoteQueryDispatchArgs {
     path: Vec<String>,
     #[serde(default)]
     args: Vec<Value>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NodeRefArgs {
+    kind: prism_ir::NodeRefKind,
+    id: String,
+}
+
+#[derive(Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ActionableTasksArgs {
+    principal: Option<String>,
 }
 
 fn is_identifier_segment(segment: &str) -> bool {
@@ -1225,19 +1241,44 @@ impl QueryExecution {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     let plan_id = PlanId::new(args.plan_id);
                     Ok(serde_json::to_value(
-                        self.prism.coordination_plan(&plan_id).map(|plan| {
-                            let root_node_ids = self
-                                .prism
-                                .plan_graph(&plan_id)
-                                .map(|graph| graph.root_nodes)
-                                .unwrap_or_else(|| {
-                                    plan.root_tasks
-                                        .iter()
-                                        .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
-                                        .collect()
-                                });
-                            plan_view(plan, root_node_ids, self.prism.plan_activity(&plan_id))
-                        }),
+                        self.prism
+                            .coordination_plan_v2(&plan_id)
+                            .map(|plan| {
+                                plan_view_from_v2(
+                                    plan,
+                                    self.prism.coordination_plan(&plan_id),
+                                    self.prism.plan_activity(&plan_id),
+                                )
+                            })
+                            .or_else(|| {
+                                self.prism.coordination_plan(&plan_id).map(|plan| {
+                                    let root_node_ids = self
+                                        .prism
+                                        .plan_graph(&plan_id)
+                                        .map(|graph| graph.root_nodes)
+                                        .unwrap_or_else(|| {
+                                            plan.root_tasks
+                                                .iter()
+                                                .map(|task_id| {
+                                                    prism_ir::PlanNodeId::new(task_id.0.clone())
+                                                })
+                                                .collect()
+                                        });
+                                    plan_view(
+                                        plan,
+                                        root_node_ids,
+                                        self.prism.plan_activity(&plan_id),
+                                    )
+                                })
+                            }),
+                    )?)
+                }
+                "planV2" => {
+                    let args: PlanTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .coordination_plan_v2(&PlanId::new(args.plan_id))
+                            .map(coordination_plan_v2_view),
                     )?)
                 }
                 "planGraph" => {
@@ -1318,6 +1359,47 @@ impl QueryExecution {
                             .collect::<Vec<_>>(),
                     )?)
                 }
+                "children" => {
+                    let args: PlanTargetArgs = serde_json::from_value(args)?;
+                    let plan_id = PlanId::new(args.plan_id);
+                    let children = self.prism.plan_children_v2(&plan_id);
+                    Ok(serde_json::to_value(Some(plan_children_v2_view(
+                        &plan_id, children,
+                    )))?)
+                }
+                "dependencies" => {
+                    let args: NodeRefArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .node_dependencies_v2(&prism_ir::NodeRef {
+                                kind: args.kind,
+                                id: args.id,
+                            })
+                            .into_iter()
+                            .map(node_ref_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "dependents" => {
+                    let args: NodeRefArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .node_dependents_v2(&prism_ir::NodeRef {
+                                kind: args.kind,
+                                id: args.id,
+                            })
+                            .into_iter()
+                            .map(node_ref_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "portfolio" => Ok(serde_json::to_value(
+                    self.prism
+                        .root_plans_v2()
+                        .into_iter()
+                        .map(coordination_plan_v2_view)
+                        .collect::<Vec<_>>(),
+                )?),
                 "portfolioNext" => {
                     let args: LimitArgs = serde_json::from_value(args)?;
                     let limit = args
@@ -1334,10 +1416,61 @@ impl QueryExecution {
                 }
                 "coordinationTask" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    let task_id = args.task_id;
                     Ok(serde_json::to_value(
                         self.prism
-                            .coordination_task(&CoordinationTaskId::new(args.task_id))
-                            .map(coordination_task_view),
+                            .coordination_task_v2(&TaskId::new(task_id.clone()))
+                            .map(|task| {
+                                coordination_task_view_from_v2(
+                                    task,
+                                    self.prism.coordination_task(&CoordinationTaskId::new(
+                                        task_id.clone(),
+                                    )),
+                                )
+                            })
+                            .or_else(|| {
+                                self.prism
+                                    .coordination_task(&CoordinationTaskId::new(task_id))
+                                    .map(coordination_task_view)
+                            }),
+                    )?)
+                }
+                "taskV2" => {
+                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .coordination_task_v2(&TaskId::new(args.task_id))
+                            .map(coordination_task_v2_view),
+                    )?)
+                }
+                "graphActionableTasks" => Ok(serde_json::to_value(
+                    self.prism
+                        .graph_actionable_tasks_v2()
+                        .into_iter()
+                        .map(coordination_task_v2_view)
+                        .collect::<Vec<_>>(),
+                )?),
+                "actionableTasks" => {
+                    let args: ActionableTasksArgs = serde_json::from_value(args)?;
+                    let tasks = if let Some(principal) = args.principal {
+                        self.prism
+                            .actionable_tasks_for_executor_v2(&TaskExecutorCaller::new(
+                                prism_ir::ExecutorClass::WorktreeExecutor,
+                                None,
+                                Some(prism_ir::PrincipalId::new(principal)),
+                            ))
+                    } else if let Some(caller) =
+                        current_executor_caller(self.workspace_root(), Some(self.session()))
+                    {
+                        self.prism.actionable_tasks_for_executor_v2(&caller)
+                    } else {
+                        self.prism.graph_actionable_tasks_v2()
+                    };
+                    Ok(serde_json::to_value(
+                        tasks
+                            .into_iter()
+                            .map(coordination_task_v2_view)
+                            .collect::<Vec<_>>(),
                     )?)
                 }
                 "readyTasks" => {

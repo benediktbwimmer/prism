@@ -121,10 +121,11 @@ pub(crate) fn completion_policy_blockers(
 
         if plan.policy.require_validation_for_completion && !context.required_validations.is_empty()
         {
-            let validated = approved_artifacts
+            let mut validated = approved_artifacts
                 .iter()
                 .flat_map(|artifact| artifact.validated_checks.iter().cloned())
                 .collect::<Vec<_>>();
+            validated.extend(context.validated_checks.iter().cloned());
             let validated = dedupe_strings(validated);
             let missing = context
                 .required_validations

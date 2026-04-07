@@ -573,7 +573,6 @@ mod tests {
             runtime_mode: crate::PrismRuntimeModeArg::Full,
             internal_developer: false,
             ui: false,
-            shared_runtime_sqlite: None,
             shared_runtime_uri: None,
             restart_nonce: None,
             enable_coordination: Vec::new(),

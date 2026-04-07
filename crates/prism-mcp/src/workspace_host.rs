@@ -167,14 +167,25 @@ impl WorkspaceRuntimeBinding {
         let loaded_episodic_revision = Arc::new(AtomicU64::new(0));
         let loaded_inference_revision = Arc::new(AtomicU64::new(0));
         let loaded_coordination_revision = Arc::new(AtomicU64::new(0));
+        let runtime_revisions = workspace.snapshot_revisions_for_runtime().ok();
         let current_revisions = shared_workspace_runtime_current_revisions(
             context.root(),
-            workspace
-                .workspace_revision()
-                .unwrap_or_else(|_| workspace.loaded_workspace_revision()),
-            workspace.episodic_revision().unwrap_or(0),
-            workspace.inference_revision().unwrap_or(0),
-            workspace.coordination_runtime_revision().unwrap_or(0),
+            runtime_revisions
+                .as_ref()
+                .map(|revisions| revisions.workspace)
+                .unwrap_or_else(|| workspace.loaded_workspace_revision()),
+            runtime_revisions
+                .as_ref()
+                .map(|revisions| revisions.episodic)
+                .unwrap_or(0),
+            runtime_revisions
+                .as_ref()
+                .map(|revisions| revisions.inference)
+                .unwrap_or(0),
+            runtime_revisions
+                .as_ref()
+                .map(|revisions| revisions.coordination)
+                .unwrap_or(0),
         );
         let read_sync = shared_workspace_runtime_read_sync(context.root());
         let config = WorkspaceRuntimeConfig {

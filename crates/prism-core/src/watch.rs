@@ -23,7 +23,7 @@ use prism_memory::OutcomeMemory;
 use prism_projections::ProjectionIndex;
 use prism_query::Prism;
 use prism_store::CoordinationJournal;
-use prism_store::{CoordinationPersistContext, Graph, SqliteStore, WorkspaceTreeSnapshot};
+use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, info, warn};
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
@@ -31,7 +31,7 @@ use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::curator::{enqueue_curator_for_observed_async, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
-use crate::layout::{discover_layout, WorkspaceLayout};
+use crate::layout::discover_layout;
 use crate::observed_change_tracker::SharedObservedChangeTracker;
 use crate::protected_state::runtime_sync::{
     load_repo_protected_knowledge, load_repo_protected_plan_state,
@@ -43,18 +43,17 @@ use crate::session::{
 };
 use crate::shared_coordination_ref::{
     poll_shared_coordination_ref_live_sync, SharedCoordinationRefLiveSync,
+    SharedCoordinationRefState,
 };
-use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
-use crate::shared_runtime_store::SharedRuntimeStore;
-use crate::util::{cache_path, current_timestamp};
+use crate::util::current_timestamp;
 use crate::workspace_identity::{
     coordination_persist_context_for_root, workspace_identity_for_root,
 };
 use crate::workspace_runtime_state::{WorkspacePublishedGeneration, WorkspaceRuntimeState};
 use crate::workspace_tree::{
     diff_workspace_tree_snapshot, plan_full_refresh, plan_incremental_refresh,
-    populate_package_regions, WorkspaceRefreshMode, WorkspaceRefreshPlan,
+    populate_package_regions, WorkspaceRefreshMode,
 };
 use crate::worktree_principal::BoundWorktreePrincipal;
 
@@ -88,14 +87,11 @@ pub(crate) fn spawn_fs_watch(
     runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
     store: Arc<Mutex<SqliteStore>>,
     cold_query_store: Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<Arc<Mutex<SharedRuntimeStore>>>,
-    shared_runtime_sqlite: Option<PathBuf>,
     refresh_lock: Arc<Mutex<()>>,
     refresh_state: Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: Arc<AtomicU64>,
     fs_snapshot: Arc<Mutex<WorkspaceTreeSnapshot>>,
     checkpoint_materializer: Option<CheckpointMaterializerHandle>,
-    shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     coordination_enabled: bool,
     curator: Option<CuratorHandleRef>,
     observed_change_tracker: SharedObservedChangeTracker,
@@ -180,14 +176,11 @@ pub(crate) fn spawn_fs_watch(
                     &runtime_state,
                     &store,
                     &cold_query_store,
-                    shared_runtime_store.as_ref(),
-                    shared_runtime_sqlite.as_deref(),
                     &refresh_lock,
                     &refresh_state,
                     &loaded_workspace_revision,
                     &fs_snapshot,
                     checkpoint_materializer.clone(),
-                    shared_runtime_materializer.clone(),
                     coordination_enabled,
                     curator.as_ref(),
                     &observed_change_tracker,
@@ -221,8 +214,6 @@ pub(crate) fn spawn_protected_state_watch(
     runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
     store: Arc<Mutex<SqliteStore>>,
     cold_query_store: Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<Arc<Mutex<SharedRuntimeStore>>>,
-    shared_runtime_sqlite: Option<PathBuf>,
     refresh_lock: Arc<Mutex<()>>,
     loaded_workspace_revision: Arc<AtomicU64>,
     coordination_enabled: bool,
@@ -292,8 +283,6 @@ pub(crate) fn spawn_protected_state_watch(
                 &runtime_state,
                 &store,
                 &cold_query_store,
-                shared_runtime_store.as_ref(),
-                shared_runtime_sqlite.as_deref(),
                 &refresh_lock,
                 &loaded_workspace_revision,
                 coordination_enabled,
@@ -323,27 +312,19 @@ pub(crate) fn spawn_shared_coordination_ref_watch(
     runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
     store: Arc<Mutex<SqliteStore>>,
     cold_query_store: Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<Arc<Mutex<SharedRuntimeStore>>>,
     refresh_lock: Arc<Mutex<()>>,
     loaded_workspace_revision: Arc<AtomicU64>,
     coordination_runtime_revision: Arc<AtomicU64>,
     coordination_enabled: bool,
 ) -> Result<WatchHandle> {
     let (msg_tx, msg_rx) = mpsc::channel::<WatchMessage>();
-    let handle = thread::spawn(move || loop {
-        match msg_rx.recv_timeout(SHARED_COORDINATION_REF_POLL_INTERVAL) {
-            Ok(WatchMessage::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
-            Ok(WatchMessage::Fs(_)) => continue,
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-        }
-
+    let handle = thread::spawn(move || {
         if let Err(error) = sync_shared_coordination_ref_watch_update(
             &root,
             &published_generation,
             &runtime_state,
             &store,
             &cold_query_store,
-            shared_runtime_store.as_ref(),
             &refresh_lock,
             &loaded_workspace_revision,
             &coordination_runtime_revision,
@@ -355,6 +336,32 @@ pub(crate) fn spawn_shared_coordination_ref_watch(
                 error_chain = %format_error_chain(&error),
                 "prism shared coordination ref live sync failed"
             );
+        }
+        loop {
+            match msg_rx.recv_timeout(SHARED_COORDINATION_REF_POLL_INTERVAL) {
+                Ok(WatchMessage::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
+                Ok(WatchMessage::Fs(_)) => continue,
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+            }
+
+            if let Err(error) = sync_shared_coordination_ref_watch_update(
+                &root,
+                &published_generation,
+                &runtime_state,
+                &store,
+                &cold_query_store,
+                &refresh_lock,
+                &loaded_workspace_revision,
+                &coordination_runtime_revision,
+                coordination_enabled,
+            ) {
+                error!(
+                    root = %root.display(),
+                    error = %error,
+                    error_chain = %format_error_chain(&error),
+                    "prism shared coordination ref live sync failed"
+                );
+            }
         }
     });
 
@@ -370,14 +377,11 @@ pub(crate) fn refresh_prism_snapshot(
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
-    shared_runtime_sqlite: Option<&Path>,
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
     fs_snapshot: &Arc<Mutex<WorkspaceTreeSnapshot>>,
     checkpoint_materializer: Option<CheckpointMaterializerHandle>,
-    shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
     observed_change_tracker: &SharedObservedChangeTracker,
@@ -395,13 +399,10 @@ pub(crate) fn refresh_prism_snapshot(
         runtime_state,
         store,
         cold_query_store,
-        shared_runtime_store,
-        shared_runtime_sqlite,
         refresh_state,
         loaded_workspace_revision,
         fs_snapshot,
         checkpoint_materializer,
-        shared_runtime_materializer,
         coordination_enabled,
         curator,
         observed_change_tracker,
@@ -419,14 +420,11 @@ pub(crate) fn try_refresh_prism_snapshot(
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
-    shared_runtime_sqlite: Option<&Path>,
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
     fs_snapshot: &Arc<Mutex<WorkspaceTreeSnapshot>>,
     checkpoint_materializer: Option<CheckpointMaterializerHandle>,
-    shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
     observed_change_tracker: &SharedObservedChangeTracker,
@@ -444,13 +442,10 @@ pub(crate) fn try_refresh_prism_snapshot(
         runtime_state,
         store,
         cold_query_store,
-        shared_runtime_store,
-        shared_runtime_sqlite,
         refresh_state,
         loaded_workspace_revision,
         fs_snapshot,
         checkpoint_materializer,
-        shared_runtime_materializer,
         coordination_enabled,
         curator,
         observed_change_tracker,
@@ -469,13 +464,10 @@ fn refresh_prism_snapshot_with_guard(
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
-    shared_runtime_sqlite: Option<&Path>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
     fs_snapshot: &Arc<Mutex<WorkspaceTreeSnapshot>>,
     checkpoint_materializer: Option<CheckpointMaterializerHandle>,
-    shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
     observed_change_tracker: &SharedObservedChangeTracker,
@@ -517,35 +509,6 @@ fn refresh_prism_snapshot_with_guard(
     };
     let plan_refresh_ms = u64::try_from(plan_started.elapsed().as_millis()).unwrap_or(u64::MAX);
     if plan.delta.is_empty() {
-        let current_prism = published_generation
-            .read()
-            .expect("workspace published generation lock poisoned")
-            .prism_arc();
-        if !current_prism
-            .runtime_capabilities()
-            .knowledge_storage_enabled()
-        {
-            let next = {
-                let mut state = runtime_state
-                    .lock()
-                    .expect("workspace runtime state lock poisoned");
-                state.runtime_capabilities = current_prism.runtime_capabilities();
-                state.sanitize_for_runtime_capabilities();
-                state.publish_generation(
-                    current_prism.workspace_revision(),
-                    current_prism.coordination_context(),
-                )
-            };
-            WorkspaceSession::strip_query_state_for_runtime_capabilities(next.prism_arc().as_ref());
-            WorkspaceSession::attach_cold_query_backends(
-                next.prism_arc().as_ref(),
-                cold_query_store,
-                shared_runtime_store,
-            );
-            *published_generation
-                .write()
-                .expect("workspace published generation lock poisoned") = next;
-        }
         *fs_snapshot
             .lock()
             .expect("workspace tree snapshot lock poisoned") = plan.next_snapshot;
@@ -564,7 +527,6 @@ fn refresh_prism_snapshot_with_guard(
         .read()
         .expect("workspace published generation lock poisoned")
         .prism_arc();
-    let runtime_capabilities = current_prism.runtime_capabilities();
     let coordination_context = current_prism.coordination_context();
     let runtime_state_value = {
         let mut state = runtime_state
@@ -572,12 +534,11 @@ fn refresh_prism_snapshot_with_guard(
             .expect("workspace runtime state lock poisoned");
         let placeholder = WorkspaceRuntimeState::placeholder_with_layout_and_capabilities(
             state.layout(),
-            state.runtime_capabilities,
+            current_prism.runtime_capabilities(),
         );
         std::mem::replace(&mut *state, placeholder)
     };
     let mut runtime_state_value = runtime_state_value;
-    runtime_state_value.runtime_capabilities = runtime_capabilities;
     runtime_state_value.overlay_live_projection_knowledge(current_prism.as_ref());
     let cached_layout = runtime_state_value.layout();
     let layout_refresh_required = plan.mode != WorkspaceRefreshMode::Incremental
@@ -587,30 +548,6 @@ fn refresh_prism_snapshot_with_guard(
     } else {
         cached_layout.clone()
     };
-    if !runtime_capabilities.cognition_enabled() {
-        return refresh_coordination_only_snapshot(
-            root,
-            published_generation,
-            runtime_state,
-            store,
-            cold_query_store,
-            shared_runtime_store,
-            refresh_state,
-            loaded_workspace_revision,
-            fs_snapshot,
-            coordination_enabled,
-            trigger,
-            dirty_paths,
-            observed_revision,
-            started,
-            plan,
-            plan_refresh_ms,
-            build_indexer_started,
-            runtime_state_value,
-            next_layout,
-            coordination_context,
-        );
-    }
     let refresh_runtime_roots = layout_refresh_required
         || next_layout.workspace_manifest != cached_layout.workspace_manifest
         || next_layout.packages.len() != cached_layout.packages.len();
@@ -618,38 +555,24 @@ fn refresh_prism_snapshot_with_guard(
         .lock()
         .expect("workspace store lock poisoned")
         .reopen_runtime_writer()?;
-    let reopened_shared_runtime_store: Option<SharedRuntimeStore> = shared_runtime_store
-        .map(|store| {
-            store
-                .lock()
-                .expect("shared runtime store lock poisoned")
-                .reopen_runtime_writer()
-        })
-        .transpose()?;
     let mut indexer = WorkspaceIndexer::with_runtime_state_stores_and_options(
         root,
         reopened_store,
-        reopened_shared_runtime_store,
         runtime_state_value,
         next_layout.clone(),
         refresh_runtime_roots,
         Some(cached_snapshot),
         checkpoint_materializer,
         crate::WorkspaceSessionOptions {
-            runtime_mode: crate::PrismRuntimeMode::from_capabilities(
+            runtime_mode: prism_ir::PrismRuntimeMode::from_capabilities(
                 current_prism.runtime_capabilities(),
             )
-            .expect("workspace refresh should preserve a supported runtime mode"),
-            shared_runtime: shared_runtime_sqlite
-                .map(|path| SharedRuntimeBackend::Sqlite {
-                    path: path.to_path_buf(),
-                })
-                .unwrap_or(SharedRuntimeBackend::Disabled),
+            .unwrap_or(prism_ir::PrismRuntimeMode::Full),
+            shared_runtime: SharedRuntimeBackend::Disabled,
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: true,
         },
     )?;
-    indexer.shared_runtime_materializer = shared_runtime_materializer;
     populate_package_regions(&mut plan.delta, &indexer.layout);
     let build_indexer_ms =
         u64::try_from(build_indexer_started.elapsed().as_millis()).unwrap_or(u64::MAX);
@@ -692,14 +615,7 @@ fn refresh_prism_snapshot_with_guard(
             &observed,
         );
     let local_workspace_revision = indexer.store.workspace_revision()?;
-    let workspace_revision = composite_workspace_revision(
-        local_workspace_revision,
-        indexer
-            .shared_runtime_store
-            .as_ref()
-            .map(SharedRuntimeStore::workspace_revision)
-            .transpose()?,
-    );
+    let workspace_revision = local_workspace_revision;
     let mut next_state = indexer.into_runtime_state();
     let published_workspace_revision = prism_ir::WorkspaceRevision {
         graph_version: local_workspace_revision,
@@ -715,12 +631,7 @@ fn refresh_prism_snapshot_with_guard(
     let mut assisted_lease_ms = 0u64;
     if trigger == ChangeTrigger::FsWatch && coordination_enabled {
         let assisted_lease_started = Instant::now();
-        match maybe_auto_heartbeat_assisted_leases(
-            root,
-            next.prism_arc().as_ref(),
-            store,
-            shared_runtime_store,
-        ) {
+        match maybe_auto_heartbeat_assisted_leases(root, next.prism_arc().as_ref(), store) {
             Ok(true) => {
                 let prism = next.prism_arc();
                 next_state.replace_coordination_runtime(
@@ -767,11 +678,7 @@ fn refresh_prism_snapshot_with_guard(
     let curator_enqueue_ms =
         u64::try_from(curator_started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let attach_cold_query_backends_started = Instant::now();
-    WorkspaceSession::attach_cold_query_backends(
-        next.prism_arc().as_ref(),
-        cold_query_store,
-        shared_runtime_store,
-    );
+    WorkspaceSession::attach_cold_query_backends(next.prism_arc().as_ref(), cold_query_store);
     let attach_cold_query_backends_ms =
         u64::try_from(attach_cold_query_backends_started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let finalize_refresh_state_started = Instant::now();
@@ -822,128 +729,6 @@ fn refresh_prism_snapshot_with_guard(
         observed,
         breakdown,
     })
-}
-
-#[allow(clippy::too_many_arguments)]
-fn refresh_coordination_only_snapshot(
-    root: &Path,
-    published_generation: &Arc<RwLock<WorkspacePublishedGeneration>>,
-    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
-    store: &Arc<Mutex<SqliteStore>>,
-    cold_query_store: &Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
-    refresh_state: &Arc<WorkspaceRefreshState>,
-    loaded_workspace_revision: &Arc<AtomicU64>,
-    fs_snapshot: &Arc<Mutex<WorkspaceTreeSnapshot>>,
-    coordination_enabled: bool,
-    trigger: ChangeTrigger,
-    dirty_paths: Vec<PathBuf>,
-    observed_revision: u64,
-    started: Instant,
-    plan: WorkspaceRefreshPlan,
-    plan_refresh_ms: u64,
-    build_indexer_started: Instant,
-    mut runtime_state_value: WorkspaceRuntimeState,
-    next_layout: WorkspaceLayout,
-    coordination_context: Option<CoordinationPersistContext>,
-) -> Result<WorkspaceRefreshResult> {
-    let result = (|| -> Result<WorkspaceRefreshResult> {
-        runtime_state_value.layout = Arc::new(next_layout);
-        runtime_state_value.sanitize_for_runtime_capabilities();
-        let build_indexer_ms =
-            u64::try_from(build_indexer_started.elapsed().as_millis()).unwrap_or(u64::MAX);
-        let local_workspace_revision = store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .workspace_revision()?;
-        let workspace_revision = composite_workspace_revision(
-            local_workspace_revision,
-            shared_runtime_store
-                .map(|store| {
-                    store
-                        .lock()
-                        .expect("shared runtime store lock poisoned")
-                        .workspace_revision()
-                })
-                .transpose()?,
-        );
-        let published_workspace_revision = prism_ir::WorkspaceRevision {
-            graph_version: local_workspace_revision,
-            git_commit: None,
-        };
-        let publish_generation_started = Instant::now();
-        let next = runtime_state_value
-            .publish_generation(published_workspace_revision, coordination_context);
-        WorkspaceSession::strip_query_state_for_runtime_capabilities(next.prism_arc().as_ref());
-        let publish_generation_ms =
-            u64::try_from(publish_generation_started.elapsed().as_millis()).unwrap_or(u64::MAX);
-        let assisted_lease_ms = 0;
-        *fs_snapshot
-            .lock()
-            .expect("workspace tree snapshot lock poisoned") = plan.next_snapshot;
-        let curator_enqueue_ms = 0;
-        let attach_cold_query_backends_started = Instant::now();
-        WorkspaceSession::attach_cold_query_backends(
-            next.prism_arc().as_ref(),
-            cold_query_store,
-            shared_runtime_store,
-        );
-        let attach_cold_query_backends_ms =
-            u64::try_from(attach_cold_query_backends_started.elapsed().as_millis())
-                .unwrap_or(u64::MAX);
-        let finalize_refresh_state_started = Instant::now();
-        *runtime_state
-            .lock()
-            .expect("workspace runtime state lock poisoned") = runtime_state_value.clone();
-        *published_generation
-            .write()
-            .expect("workspace published generation lock poisoned") = next;
-        loaded_workspace_revision.store(workspace_revision, Ordering::Relaxed);
-        refresh_state.mark_refreshed_revision(observed_revision, &dirty_paths);
-        refresh_state.record_refresh(
-            plan.mode.as_str(),
-            started.elapsed().as_millis() as u64,
-            workspace_revision,
-            &plan.delta,
-        );
-        let finalize_refresh_state_ms =
-            u64::try_from(finalize_refresh_state_started.elapsed().as_millis()).unwrap_or(u64::MAX);
-        let breakdown = WorkspaceRefreshBreakdown {
-            plan_refresh_ms,
-            build_indexer_ms,
-            index_workspace_ms: 0,
-            publish_generation_ms,
-            assisted_lease_ms,
-            curator_enqueue_ms,
-            attach_cold_query_backends_ms,
-            finalize_refresh_state_ms,
-        };
-        info!(
-            root = %root.display(),
-            trigger = ?trigger,
-            refresh_mode = %plan.mode.as_str(),
-            coordination_enabled,
-            plan_refresh_ms,
-            build_indexer_ms,
-            publish_generation_ms,
-            attach_cold_query_backends_ms,
-            finalize_refresh_state_ms,
-            total_ms = started.elapsed().as_millis(),
-            "completed coordination-only workspace refresh without graph indexing"
-        );
-        Ok(WorkspaceRefreshResult {
-            mode: Some(plan.mode),
-            observed: Vec::new(),
-            breakdown,
-        })
-    })();
-    if let Err(error) = result {
-        *runtime_state
-            .lock()
-            .expect("workspace runtime state lock poisoned") = runtime_state_value;
-        return Err(error);
-    }
-    result
 }
 
 #[derive(Debug, Clone)]
@@ -1033,20 +818,12 @@ fn maybe_auto_heartbeat_assisted_leases(
     root: &Path,
     prism: &Prism,
     store: &Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
 ) -> Result<bool> {
     if !assisted_lease_renewal_enabled() {
         return Ok(false);
     }
-    if let Some(shared_runtime_store) = shared_runtime_store {
-        let mut store = shared_runtime_store
-            .lock()
-            .expect("shared runtime store lock poisoned");
-        maybe_auto_heartbeat_assisted_leases_in_store(root, prism, &mut *store)
-    } else {
-        let mut store = store.lock().expect("workspace store lock poisoned");
-        maybe_auto_heartbeat_assisted_leases_in_store(root, prism, &mut *store)
-    }
+    let mut store = store.lock().expect("workspace store lock poisoned");
+    maybe_auto_heartbeat_assisted_leases_in_store(root, prism, &mut *store)
 }
 
 fn maybe_auto_heartbeat_assisted_leases_in_store<T>(
@@ -1348,76 +1125,34 @@ pub(crate) fn sync_protected_state_watch_update(
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
-    shared_runtime_sqlite: Option<&Path>,
     refresh_lock: &Arc<Mutex<()>>,
     loaded_workspace_revision: &Arc<AtomicU64>,
     coordination_enabled: bool,
     streams: &[ProtectedRepoStream],
 ) -> Result<()> {
-    let runtime_capabilities = runtime_state
-        .lock()
-        .expect("workspace runtime state lock poisoned")
-        .runtime_capabilities;
-    let selection = ProtectedStateImportSelection::from_streams(streams.iter())
-        .filtered_for_runtime(runtime_capabilities);
+    let selection = ProtectedStateImportSelection::from_streams(streams.iter());
     if selection.is_empty() {
         return Ok(());
     }
     let _guard = refresh_lock
         .lock()
         .expect("protected-state refresh lock poisoned");
-    let workspace_cache_path = cache_path(root)?;
-    let shared_runtime_aliases_workspace_store =
-        shared_runtime_sqlite == Some(workspace_cache_path.as_path());
-
-    let (report, local_workspace_revision, shared_workspace_revision, plan_state) =
-        if let Some(shared_runtime_store) = shared_runtime_store {
-            let local_store = store.lock().expect("workspace store lock poisoned");
-            let local_workspace_revision = local_store.workspace_revision()?;
-            drop(local_store);
-
-            let mut shared_store = shared_runtime_store
-                .lock()
-                .expect("shared runtime store lock poisoned");
-            let report = sync_selected_repo_protected_state(root, &mut *shared_store, selection)?;
-            let plan_state = if coordination_enabled && selection.reloads_coordination() {
-                let mut local_store = store.lock().expect("workspace store lock poisoned");
-                load_repo_protected_plan_state(root, &mut *local_store)?
-            } else {
-                None
-            };
-            let shared_workspace_revision = if shared_runtime_aliases_workspace_store {
-                None
-            } else {
-                Some(shared_store.workspace_revision()?)
-            };
-            (
-                report,
-                local_workspace_revision,
-                shared_workspace_revision,
-                plan_state,
-            )
+    let (report, workspace_revision, plan_state) = {
+        let mut local_store = store.lock().expect("workspace store lock poisoned");
+        let report = sync_selected_repo_protected_state(root, &mut *local_store, selection)?;
+        let plan_state = if coordination_enabled && selection.reloads_coordination() {
+            load_repo_protected_plan_state(root, &mut *local_store)?
         } else {
-            let mut local_store = store.lock().expect("workspace store lock poisoned");
-            let report = sync_selected_repo_protected_state(root, &mut *local_store, selection)?;
-            let plan_state = if coordination_enabled && selection.reloads_coordination() {
-                load_repo_protected_plan_state(root, &mut *local_store)?
-            } else {
-                None
-            };
-            let local_workspace_revision = local_store.workspace_revision()?;
-            (report, local_workspace_revision, None, plan_state)
+            None
         };
-
-    let workspace_revision =
-        composite_workspace_revision(local_workspace_revision, shared_workspace_revision);
+        let local_workspace_revision = local_store.workspace_revision()?;
+        (report, local_workspace_revision, plan_state)
+    };
     let mut next_state = runtime_state
         .lock()
         .expect("workspace runtime state lock poisoned")
         .clone();
-    if runtime_capabilities.knowledge_storage_enabled() && selection.reloads_projection_knowledge()
-    {
+    if selection.reloads_projection_knowledge() {
         let repo_knowledge = load_repo_protected_knowledge(root)?;
         next_state
             .projections
@@ -1455,16 +1190,12 @@ pub(crate) fn sync_protected_state_watch_update(
         .collect::<Vec<_>>();
     let next = next_state.publish_generation(
         prism_ir::WorkspaceRevision {
-            graph_version: local_workspace_revision,
+            graph_version: workspace_revision,
             git_commit: None,
         },
         Some(coordination_persist_context_for_root(root, None)),
     );
-    WorkspaceSession::attach_cold_query_backends(
-        next.prism_arc().as_ref(),
-        cold_query_store,
-        shared_runtime_store,
-    );
+    WorkspaceSession::attach_cold_query_backends(next.prism_arc().as_ref(), cold_query_store);
     *runtime_state
         .lock()
         .expect("workspace runtime state lock poisoned") = next_state;
@@ -1490,7 +1221,6 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
     refresh_lock: &Arc<Mutex<()>>,
     loaded_workspace_revision: &Arc<AtomicU64>,
     coordination_runtime_revision: &Arc<AtomicU64>,
@@ -1505,6 +1235,30 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
         return Ok(());
     };
 
+    apply_shared_coordination_ref_watch_state(
+        root,
+        published_generation,
+        runtime_state,
+        store,
+        cold_query_store,
+        refresh_lock,
+        loaded_workspace_revision,
+        coordination_runtime_revision,
+        &shared,
+    )
+}
+
+fn apply_shared_coordination_ref_watch_state(
+    root: &Path,
+    published_generation: &Arc<RwLock<WorkspacePublishedGeneration>>,
+    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
+    store: &Arc<Mutex<SqliteStore>>,
+    cold_query_store: &Arc<Mutex<SqliteStore>>,
+    refresh_lock: &Arc<Mutex<()>>,
+    loaded_workspace_revision: &Arc<AtomicU64>,
+    coordination_runtime_revision: &Arc<AtomicU64>,
+    shared: &SharedCoordinationRefState,
+) -> Result<()> {
     let _guard = refresh_lock
         .lock()
         .expect("shared coordination ref refresh lock poisoned");
@@ -1517,17 +1271,6 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
         .lock()
         .expect("workspace store lock poisoned")
         .coordination_revision()?;
-    let shared_workspace_revision = shared_runtime_store
-        .map(|store| {
-            store
-                .lock()
-                .expect("shared runtime store lock poisoned")
-                .workspace_revision()
-        })
-        .transpose()?;
-    let workspace_revision =
-        composite_workspace_revision(local_workspace_revision, shared_workspace_revision);
-
     let mut next_state = runtime_state
         .lock()
         .expect("workspace runtime state lock poisoned")
@@ -1538,7 +1281,6 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
         &shared.snapshot,
         &shared.plan_graphs,
         &shared.execution_overlays,
-        &shared.runtime_descriptors,
     )?;
     next_state.replace_coordination_runtime(
         shared.snapshot.clone(),
@@ -1553,18 +1295,14 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
         },
         Some(coordination_persist_context_for_root(root, None)),
     );
-    WorkspaceSession::attach_cold_query_backends(
-        next.prism_arc().as_ref(),
-        cold_query_store,
-        shared_runtime_store,
-    );
+    WorkspaceSession::attach_cold_query_backends(next.prism_arc().as_ref(), cold_query_store);
     *runtime_state
         .lock()
         .expect("workspace runtime state lock poisoned") = next_state;
     *published_generation
         .write()
         .expect("workspace published generation lock poisoned") = next;
-    loaded_workspace_revision.store(workspace_revision, Ordering::Relaxed);
+    loaded_workspace_revision.store(local_workspace_revision, Ordering::Relaxed);
     let next_coordination_revision = coordination_runtime_revision
         .load(Ordering::Relaxed)
         .max(persisted_coordination_revision)
@@ -1632,14 +1370,32 @@ mod tests {
     };
     use prism_ir::{AgentId, EventActor, EventExecutionContext, EventId, EventMeta, SessionId};
     use prism_query::Prism;
-    use prism_store::{CoordinationJournal, Graph, MemoryStore};
+    use prism_store::{
+        CoordinationJournal, Graph, IndexPersistBatch, MaterializationStore, MemoryStore,
+    };
+    use std::collections::BTreeMap;
     use std::path::PathBuf;
-    use std::sync::Mutex;
+    use std::sync::atomic::Ordering;
+    use std::sync::{Mutex, OnceLock};
 
+    use crate::shared_coordination_ref::SharedCoordinationRefState;
     use crate::util::current_timestamp;
     use crate::workspace_identity::coordination_persist_context_for_root;
+    use crate::{
+        index_workspace_session_with_options, SharedRuntimeBackend, WorkspaceSessionOptions,
+    };
 
     static ASSISTED_LEASE_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn ensure_test_live_watches_disabled() {
+        static TEST_WATCH_FLAG: OnceLock<()> = OnceLock::new();
+        TEST_WATCH_FLAG.get_or_init(|| {
+            // SAFETY: tests set this process-wide flag once and never mutate it again.
+            unsafe {
+                std::env::set_var("PRISM_TEST_DISABLE_LIVE_WATCHERS", "1");
+            }
+        });
+    }
 
     fn temp_root(name: &str) -> PathBuf {
         let root = std::env::temp_dir().join(prism_ir::new_prefixed_id(name).to_string());
@@ -1764,6 +1520,91 @@ mod tests {
 
         let streams = relevant_protected_state_streams(&root, &event);
         assert!(streams.is_empty());
+    }
+
+    #[test]
+    fn shared_coordination_ref_watch_sync_ignores_shared_runtime_workspace_revision() {
+        ensure_test_live_watches_disabled();
+        let shared_runtime_root = temp_root("shared-runtime-watch");
+        let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+        let root = temp_root("shared-coordination-watch");
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let session = index_workspace_session_with_options(
+            &root,
+            WorkspaceSessionOptions {
+                runtime_mode: prism_ir::PrismRuntimeMode::Full,
+                shared_runtime: SharedRuntimeBackend::Disabled,
+                hydrate_persisted_projections: false,
+                hydrate_persisted_co_change: true,
+            },
+        )
+        .unwrap();
+
+        let local_workspace_revision = session
+            .store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .workspace_revision()
+            .unwrap();
+        let mut shared_store =
+            prism_store::SqliteStore::open(shared_runtime_sqlite).expect("shared runtime store");
+        while shared_store.workspace_revision().unwrap() <= local_workspace_revision {
+            MaterializationStore::commit_index_persist_batch(
+                &mut shared_store,
+                &Graph::default(),
+                &IndexPersistBatch {
+                    upserted_paths: Vec::new(),
+                    in_place_upserted_paths: Vec::new(),
+                    removed_paths: Vec::new(),
+                    history_snapshot: None,
+                    history_delta: None,
+                    outcome_snapshot: None,
+                    outcome_events: Vec::new(),
+                    defer_graph_materialization: false,
+                    co_change_deltas: Vec::new(),
+                    validation_deltas: Vec::new(),
+                    projection_snapshot: None,
+                    workspace_tree_snapshot: None,
+                },
+            )
+            .unwrap();
+        }
+        drop(shared_store);
+
+        session
+            .loaded_workspace_revision
+            .store(0, Ordering::Relaxed);
+        super::apply_shared_coordination_ref_watch_state(
+            &root,
+            &session.published_generation,
+            &session.runtime_state,
+            &session.store,
+            &session.cold_query_store,
+            &session.refresh_lock,
+            &session.loaded_workspace_revision,
+            &session.coordination_runtime_revision,
+            &SharedCoordinationRefState {
+                snapshot: Default::default(),
+                canonical_snapshot_v2: Default::default(),
+                plan_graphs: Vec::new(),
+                execution_overlays: BTreeMap::new(),
+                runtime_descriptors: Vec::new(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            session.loaded_workspace_revision.load(Ordering::Relaxed),
+            local_workspace_revision,
+            "shared-coordination-ref live sync must track the local workspace revision, not the shared runtime sqlite revision"
+        );
     }
 
     #[test]

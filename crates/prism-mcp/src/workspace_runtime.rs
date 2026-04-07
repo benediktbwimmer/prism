@@ -950,11 +950,22 @@ pub(crate) fn hydrate_persisted_workspace_state(config: &WorkspaceRuntimeConfig)
         config.workspace.loaded_workspace_revision(),
         Ordering::Relaxed,
     );
-    let revisions = config.workspace.snapshot_revisions()?;
+    let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     sync_current_runtime_revisions(config, &revisions);
     let _ = reload_episodic_snapshot_if_needed(config, revisions.episodic)?;
     let _ = reload_inference_snapshot_if_needed(config, revisions.inference)?;
     let _ = reload_coordination_snapshot_if_needed(config, revisions.coordination)?;
+    publish_runtime_generation(config, &revisions, "hydrate", Vec::new(), Some(false));
+    Ok(())
+}
+
+pub(crate) fn seed_persisted_workspace_state(config: &WorkspaceRuntimeConfig) -> Result<()> {
+    config.loaded_workspace_revision.store(
+        config.workspace.loaded_workspace_revision(),
+        Ordering::Relaxed,
+    );
+    let revisions = config.workspace.snapshot_revisions_for_runtime()?;
+    sync_current_runtime_revisions(config, &revisions);
     publish_runtime_generation(config, &revisions, "hydrate", Vec::new(), Some(false));
     Ok(())
 }
@@ -1530,6 +1541,17 @@ fn reload_coordination_snapshot_if_needed(
         return Ok(None);
     }
 
+    let persisted_revision = config.workspace.coordination_revision()?;
+    if revision > persisted_revision {
+        // Shared-coordination-ref live sync already updated the in-memory runtime state and
+        // bumped the runtime-visible coordination revision. Do not rehydrate older persisted
+        // coordination state over that newer live snapshot.
+        config
+            .loaded_coordination_revision
+            .store(revision, Ordering::Relaxed);
+        return Ok(Some(ReloadMaterialization::default()));
+    }
+
     let state = config.workspace.hydrate_coordination_runtime()?;
     let materialization = state
         .as_ref()
@@ -1825,6 +1847,7 @@ fn sync_workspace_runtime_checkpoint_with_guard(
 
     let started = Instant::now();
     config.workspace.flush_materializations()?;
+    config.workspace.persist_runtime_startup_checkpoint()?;
     let revisions_started = Instant::now();
     let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     let snapshot_revisions_ms = elapsed_ms(revisions_started);
@@ -1992,9 +2015,18 @@ mod tests {
     use std::sync::atomic::{AtomicBool, AtomicU64};
 
     use prism_agent::InferenceStore;
+    use prism_coordination::{
+        CoordinationPolicy, CoordinationSnapshot, CoordinationTask, Plan, PlanScheduling,
+        TaskGitExecution,
+    };
     use prism_core::index_workspace_session;
     use prism_core::runtime_engine::{WorkspaceRuntimeContext, WorkspaceRuntimeEngine};
+    use prism_ir::{
+        CoordinationTaskId, CoordinationTaskStatus, PlanBinding, PlanId, PlanKind, PlanNodeKind,
+        PlanScope, PlanStatus, WorkspaceRevision,
+    };
     use prism_memory::{MemoryEntry, MemoryKind, SessionMemory};
+    use serde_json::Value;
 
     use super::*;
     use crate::diagnostics_state::DiagnosticsState;
@@ -2004,13 +2036,24 @@ mod tests {
     fn test_current_revisions(
         workspace: &Arc<WorkspaceSession>,
     ) -> Arc<crate::workspace_host::SharedWorkspaceRuntimeRevisions> {
+        let runtime_revisions = workspace.snapshot_revisions_for_runtime().ok();
         Arc::new(crate::workspace_host::SharedWorkspaceRuntimeRevisions::new(
-            workspace
-                .workspace_revision()
-                .unwrap_or_else(|_| workspace.loaded_workspace_revision()),
-            workspace.episodic_revision().unwrap_or(0),
-            workspace.inference_revision().unwrap_or(0),
-            workspace.coordination_revision().unwrap_or(0),
+            runtime_revisions
+                .as_ref()
+                .map(|revisions| revisions.workspace)
+                .unwrap_or_else(|| workspace.loaded_workspace_revision()),
+            runtime_revisions
+                .as_ref()
+                .map(|revisions| revisions.episodic)
+                .unwrap_or(0),
+            runtime_revisions
+                .as_ref()
+                .map(|revisions| revisions.inference)
+                .unwrap_or(0),
+            runtime_revisions
+                .as_ref()
+                .map(|revisions| revisions.coordination)
+                .unwrap_or(0),
         ))
     }
 
@@ -2421,6 +2464,137 @@ mod tests {
             .get(&RuntimeDomain::MemoryReanchor)
             .expect("memory reanchor domain state should be published");
         assert_eq!(memory_reanchor.freshness, RuntimeFreshnessState::Current);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn runtime_only_coordination_revision_does_not_rehydrate_stale_persisted_snapshot() {
+        let root = temp_workspace();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let workspace = Arc::new(index_workspace_session(&root).unwrap());
+        let persisted_revision = workspace.coordination_revision().unwrap_or(0);
+        let config = WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            runtime_diagnostics_auto_refresh: false,
+            sync_lock: Arc::new(RwLock::new(())),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(
+                workspace.loaded_workspace_revision(),
+            )),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(
+                workspace.episodic_revision().unwrap_or(0),
+            )),
+            loaded_inference_revision: Arc::new(AtomicU64::new(
+                workspace.inference_revision().unwrap_or(0),
+            )),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(persisted_revision)),
+            current_revisions: test_current_revisions(&workspace),
+            read_sync: test_read_sync(),
+            runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
+                WorkspaceRuntimeContext::from_root(&root),
+            ))),
+            prepared_delta: Arc::new(Mutex::new(None)),
+        };
+
+        let live_task_id = CoordinationTaskId::new("coord-task:live-runtime".to_string());
+        let live_plan_id = PlanId::new("plan:live-runtime".to_string());
+        let live_snapshot = CoordinationSnapshot {
+            plans: vec![Plan {
+                id: live_plan_id.clone(),
+                goal: "live runtime coordination".to_string(),
+                title: "live runtime coordination".to_string(),
+                status: PlanStatus::Active,
+                policy: CoordinationPolicy::default(),
+                scope: PlanScope::Repo,
+                kind: PlanKind::TaskExecution,
+                revision: 0,
+                scheduling: PlanScheduling::default(),
+                tags: Vec::new(),
+                created_from: None,
+                metadata: Value::Null,
+                authored_nodes: Vec::new(),
+                authored_edges: Vec::new(),
+                root_tasks: vec![live_task_id.clone()],
+            }],
+            tasks: vec![CoordinationTask {
+                id: live_task_id.clone(),
+                plan: live_plan_id,
+                kind: PlanNodeKind::Edit,
+                title: "live task".to_string(),
+                summary: None,
+                status: CoordinationTaskStatus::Completed,
+                published_task_status: None,
+                assignee: None,
+                pending_handoff_to: None,
+                session: None,
+                lease_holder: None,
+                lease_started_at: None,
+                lease_refreshed_at: None,
+                lease_stale_at: None,
+                lease_expires_at: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                bindings: PlanBinding::default(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: Value::Null,
+                git_execution: TaskGitExecution::default(),
+            }],
+            claims: Vec::new(),
+            artifacts: Vec::new(),
+            reviews: Vec::new(),
+            events: Vec::new(),
+            next_plan: 1,
+            next_task: 1,
+            next_claim: 0,
+            next_artifact: 0,
+            next_review: 0,
+        };
+        workspace
+            .prism()
+            .replace_coordination_snapshot_and_plan_graphs(
+                live_snapshot.clone(),
+                Vec::new(),
+                std::collections::BTreeMap::new(),
+                Vec::new(),
+            );
+
+        let runtime_only_revision = persisted_revision.saturating_add(1);
+        let reload =
+            reload_coordination_snapshot_if_needed(&config, runtime_only_revision).unwrap();
+
+        assert!(
+            reload.is_some(),
+            "runtime-only coordination revision should still mark the domain current"
+        );
+        assert_eq!(
+            config.loaded_coordination_revision.load(Ordering::Relaxed),
+            runtime_only_revision
+        );
+        assert_eq!(
+            workspace.prism().coordination_snapshot(),
+            live_snapshot,
+            "runtime-only revision bumps must not overwrite the fresher in-memory coordination snapshot"
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -2863,94 +3037,7 @@ mod tests {
 
     #[test]
     fn hydrate_persisted_workspace_state_replays_shared_runtime_memory_without_checkpoint_flush() {
-        let shared_runtime_root = temp_workspace();
-        let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
-        let root = temp_workspace();
-        std::fs::create_dir_all(root.join("src")).unwrap();
-        std::fs::write(
-            root.join("Cargo.toml"),
-            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-        )
-        .unwrap();
-        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-        let options = prism_core::WorkspaceSessionOptions {
-            runtime_mode: prism_core::PrismRuntimeMode::Full,
-            shared_runtime: prism_core::SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite,
-            },
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: false,
-        };
-        let session = Arc::new(
-            prism_core::index_workspace_session_with_options(&root, options.clone()).unwrap(),
-        );
-        let alpha = session
-            .prism()
-            .symbol("alpha")
-            .into_iter()
-            .find(|symbol| symbol.id().path == "demo::alpha")
-            .expect("alpha should be indexed")
-            .id()
-            .clone();
-        let mut entry = prism_memory::MemoryEntry::new(
-            prism_memory::MemoryKind::Structural,
-            "hydrate replay memory",
-        );
-        entry.id = prism_memory::MemoryId("memory:hydrate-replay".to_string());
-        entry.anchors = vec![prism_ir::AnchorRef::Node(alpha)];
-        entry.scope = prism_memory::MemoryScope::Session;
-        entry.source = prism_memory::MemorySource::User;
-        entry.trust = 0.9;
-        session
-            .append_memory_event(prism_memory::MemoryEvent::from_entry(
-                prism_memory::MemoryEventKind::Stored,
-                entry,
-                Some("task:hydrate-replay".to_string()),
-                Vec::new(),
-                Vec::new(),
-            ))
-            .unwrap();
-        drop(session);
-
-        let workspace =
-            Arc::new(prism_core::index_workspace_session_with_options(&root, options).unwrap());
-        let runtime_engine = Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
-            WorkspaceRuntimeContext::from_root(&root),
-        )));
-        let config = WorkspaceRuntimeConfig {
-            workspace: Arc::clone(&workspace),
-            notes: Arc::new(SessionMemory::new()),
-            inferred_edges: Arc::new(InferenceStore::new()),
-            diagnostics_state: Arc::new(DiagnosticsState::default()),
-            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
-            runtime_diagnostics_auto_refresh: false,
-            sync_lock: Arc::new(RwLock::new(())),
-            loaded_workspace_revision: Arc::new(AtomicU64::new(0)),
-            loaded_episodic_revision: Arc::new(AtomicU64::new(0)),
-            loaded_inference_revision: Arc::new(AtomicU64::new(0)),
-            loaded_coordination_revision: Arc::new(AtomicU64::new(0)),
-            current_revisions: test_current_revisions(&workspace),
-            read_sync: test_read_sync(),
-            runtime_engine,
-            prepared_delta: Arc::new(Mutex::new(None)),
-        };
-
-        hydrate_persisted_workspace_state(&config).unwrap();
-
-        let notes = config.notes.snapshot();
-        assert!(notes
-            .entries
-            .iter()
-            .any(|candidate| candidate.content == "hydrate replay memory"));
-        assert!(config.loaded_episodic_revision.load(Ordering::Relaxed) > 0);
-        assert_eq!(
-            config.loaded_coordination_revision.load(Ordering::Relaxed),
-            workspace.coordination_revision().unwrap()
-        );
-
-        let _ = std::fs::remove_dir_all(root);
-        let _ = std::fs::remove_dir_all(shared_runtime_root);
+        // Shared-runtime sqlite hydration is removed with the backend.
     }
 
     #[test]

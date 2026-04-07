@@ -23,7 +23,8 @@ use crate::worktree_registration::{
 const PRISM_HOME_ENV: &str = "PRISM_HOME";
 const REPO_METADATA_VERSION: u32 = 1;
 const MIGRATION_CONFLICTS_DIR_NAME: &str = "migration-conflicts";
-const PRINCIPAL_REGISTRY_RECONCILED_MARKER: &str = ".principal-registry-merged-v1";
+const PRINCIPAL_REGISTRY_RECONCILED_MARKER: &str =
+    ".archived-shared-runtime-principal-registry-merged-v1";
 const REPO_METADATA_FILE_NAME: &str = "repo.json";
 const SESSION_SEED_FILE_NAME: &str = "prism-mcp-session-seed.json";
 pub(crate) const WORKTREE_METADATA_FILE_NAME: &str = "worktree.json";
@@ -63,7 +64,6 @@ pub struct PrismPaths {
     worktree_cache_dir: PathBuf,
     worktree_cache_db_path: PathBuf,
     worktree_backups_dir: PathBuf,
-    shared_runtime_dir: PathBuf,
     shared_runtime_db_path: PathBuf,
     shared_backups_dir: PathBuf,
     feedback_dir: PathBuf,
@@ -82,7 +82,6 @@ impl PrismPaths {
             .join("repos")
             .join(storage_component(&identity.repo_id));
         maybe_migrate_legacy_repo_home(&home_root, &identity, &repo_home_dir)?;
-        reconcile_archived_shared_runtime_principal_registry(&repo_home_dir)?;
         let worktree_dir = repo_home_dir
             .join("worktrees")
             .join(storage_component(&identity.storage_worktree_id));
@@ -92,7 +91,6 @@ impl PrismPaths {
             metadata.apply_to_identity(&mut identity);
         }
         let worktree_cache_dir = worktree_dir.join("cache");
-        let shared_runtime_dir = repo_home_dir.join("shared").join("runtime");
         let feedback_dir = repo_home_dir.join("feedback");
         let worktree_mcp_state_dir = worktree_dir.join("mcp").join("state");
         let worktree_mcp_logs_dir = worktree_dir.join("mcp").join("logs");
@@ -103,11 +101,13 @@ impl PrismPaths {
             worktree_cache_dir: worktree_cache_dir.clone(),
             worktree_cache_db_path: worktree_cache_dir.join("state.db"),
             worktree_backups_dir: worktree_dir.join("backups"),
-            shared_runtime_db_path: shared_runtime_dir.join("state.db"),
+            shared_runtime_db_path: repo_home_dir
+                .join("shared")
+                .join("runtime")
+                .join("state.db"),
             shared_backups_dir: repo_home_dir.join("shared").join("backups"),
             validation_feedback_path: feedback_dir.join("validation_feedback.jsonl"),
             repo_home_dir,
-            shared_runtime_dir,
             feedback_dir,
             worktree_dir,
             worktree_mcp_state_dir,
@@ -129,14 +129,6 @@ impl PrismPaths {
 
     pub fn repo_home_dir(&self) -> &Path {
         &self.repo_home_dir
-    }
-
-    pub fn shared_runtime_dir(&self) -> &Path {
-        &self.shared_runtime_dir
-    }
-
-    pub fn shared_backups_dir(&self) -> &Path {
-        &self.shared_backups_dir
     }
 
     pub fn feedback_dir(&self) -> &Path {
@@ -208,8 +200,6 @@ impl PrismPaths {
 
     pub fn shared_runtime_db_path(&self) -> Result<PathBuf> {
         self.ensure_home_metadata()?;
-        fs::create_dir_all(&self.shared_runtime_dir)
-            .with_context(|| format!("failed to create {}", self.shared_runtime_dir.display()))?;
         Ok(self.shared_runtime_db_path.clone())
     }
 
@@ -230,6 +220,16 @@ impl PrismPaths {
         migrate_worktree_cache_from_shared_runtime(
             &self.worktree_cache_db_path,
             &self.shared_runtime_db_path,
+        )?;
+        merge_principal_registry_from_runtime_db(
+            &self.shared_runtime_db_path,
+            &self.worktree_cache_db_path,
+        )?;
+        archive_legacy_shared_runtime_db(&self.shared_runtime_db_path, &self.shared_backups_dir)?;
+        reconcile_archived_shared_runtime_principal_registry(
+            &self.worktree_cache_db_path,
+            &self.worktree_cache_dir,
+            &self.repo_home_dir,
         )?;
         Ok(self.worktree_cache_db_path.clone())
     }
@@ -454,21 +454,20 @@ fn maybe_migrate_legacy_repo_home(
     Ok(())
 }
 
-fn reconcile_archived_shared_runtime_principal_registry(repo_home_dir: &Path) -> Result<()> {
+fn reconcile_archived_shared_runtime_principal_registry(
+    target_db: &Path,
+    marker_dir: &Path,
+    repo_home_dir: &Path,
+) -> Result<()> {
     let conflicts_dir = repo_home_dir.join(MIGRATION_CONFLICTS_DIR_NAME);
     if !conflicts_dir.exists() {
         return Ok(());
     }
-    let marker = conflicts_dir.join(PRINCIPAL_REGISTRY_RECONCILED_MARKER);
-    if marker.exists() {
+    if !target_db.exists() {
         return Ok(());
     }
-
-    let target_db = repo_home_dir
-        .join("shared")
-        .join("runtime")
-        .join("state.db");
-    if !target_db.exists() {
+    let marker = marker_dir.join(PRINCIPAL_REGISTRY_RECONCILED_MARKER);
+    if marker.exists() {
         return Ok(());
     }
 
@@ -485,6 +484,45 @@ fn reconcile_archived_shared_runtime_principal_registry(repo_home_dir: &Path) ->
 
     write_json_file(&marker, &serde_json::json!({ "done": true }))?;
     Ok(())
+}
+
+fn archive_legacy_shared_runtime_db(shared_db: &Path, backups_dir: &Path) -> Result<bool> {
+    let has_legacy_runtime = ["", "-shm", "-wal"]
+        .into_iter()
+        .map(|suffix| with_suffix(shared_db, suffix))
+        .any(|path| path.exists());
+    if !has_legacy_runtime {
+        return Ok(false);
+    }
+
+    fs::create_dir_all(backups_dir)
+        .with_context(|| format!("failed to create {}", backups_dir.display()))?;
+
+    let base_name = loop {
+        let candidate = format!(
+            "shared-runtime-state-db-{}-{}.db",
+            current_timestamp_millis(),
+            prism_ir::new_sortable_token()
+        );
+        if !backups_dir.join(&candidate).exists() {
+            break candidate;
+        }
+    };
+    let archive_base = backups_dir.join(base_name);
+    for suffix in ["", "-shm", "-wal"] {
+        let source = with_suffix(shared_db, suffix);
+        if !source.exists() {
+            continue;
+        }
+        let target = with_suffix(&archive_base, suffix);
+        rename_or_copy(&source, &target)?;
+    }
+
+    remove_dir_if_empty(shared_db.parent().unwrap_or(shared_db));
+    if let Some(parent) = shared_db.parent().and_then(Path::parent) {
+        remove_dir_if_empty(parent);
+    }
+    Ok(true)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1096,4 +1134,153 @@ fn remove_dir_if_empty(path: &Path) {
 
 fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(format!("{}{}", path.display(), suffix))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use prism_ir::{
+        CredentialCapability, CredentialId, PrincipalAuthorityId, PrincipalId, PrincipalKind,
+        PrincipalStatus,
+    };
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "prism-paths-{label}-{}",
+            prism_ir::new_sortable_token()
+        ));
+        let _ = fs::remove_dir_all(&path);
+        fs::create_dir_all(&path).expect("temp dir should be created");
+        path
+    }
+
+    fn write_workspace_root(root: &Path) {
+        fs::create_dir_all(root.join(".git")).expect("git dir");
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").expect("Cargo.toml");
+        fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").expect("HEAD");
+    }
+
+    fn sample_registry_snapshot(suffix: &str) -> PrincipalRegistrySnapshot {
+        let principal = PrincipalProfile {
+            authority_id: PrincipalAuthorityId::new("local-daemon"),
+            principal_id: PrincipalId::new(format!("principal:{suffix}")),
+            kind: PrincipalKind::Agent,
+            name: format!("Principal {suffix}"),
+            role: None,
+            status: PrincipalStatus::Active,
+            created_at: 10,
+            updated_at: 11,
+            parent_principal_id: None,
+            profile: serde_json::Value::Null,
+        };
+        let credential = CredentialRecord {
+            credential_id: CredentialId::new(format!("credential:{suffix}")),
+            authority_id: principal.authority_id.clone(),
+            principal_id: principal.principal_id.clone(),
+            token_verifier: format!("sha256:{suffix}"),
+            capabilities: vec![CredentialCapability::MutateCoordination],
+            status: CredentialStatus::Active,
+            created_at: 10,
+            last_used_at: Some(11),
+            revoked_at: None,
+        };
+        PrincipalRegistrySnapshot {
+            principals: vec![principal],
+            credentials: vec![credential],
+        }
+    }
+
+    #[test]
+    fn worktree_cache_db_path_migrates_and_archives_legacy_shared_runtime_db() {
+        let root = temp_dir("workspace-migrate");
+        let prism_home = temp_dir("home-migrate");
+        let _guard = set_test_prism_home_override(&prism_home);
+        write_workspace_root(&root);
+
+        let paths = PrismPaths::for_workspace_root(&root).expect("paths");
+        let shared_db = paths.shared_runtime_db_path().expect("shared db path");
+        let legacy_snapshot = sample_registry_snapshot("legacy-live");
+        let mut shared_store = SqliteStore::open(&shared_db).expect("shared store");
+        Store::save_principal_registry_snapshot(&mut shared_store, &legacy_snapshot)
+            .expect("shared principal registry");
+
+        let local_db = paths.worktree_cache_db_path().expect("local cache path");
+        let mut local_store = SqliteStore::open(&local_db).expect("local store");
+        let local_snapshot = Store::load_principal_registry_snapshot(&mut local_store)
+            .expect("load local snapshot")
+            .expect("local principal registry");
+
+        assert_eq!(local_snapshot.principals, legacy_snapshot.principals);
+        assert_eq!(local_snapshot.credentials, legacy_snapshot.credentials);
+        assert!(
+            !shared_db.exists(),
+            "legacy shared runtime db should be archived"
+        );
+
+        let archived = fs::read_dir(&paths.shared_backups_dir)
+            .expect("shared backups dir")
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|path| is_archived_shared_runtime_db(path))
+            .collect::<Vec<_>>();
+        assert_eq!(archived.len(), 1, "one archived shared runtime db expected");
+
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&prism_home);
+    }
+
+    #[test]
+    fn worktree_cache_db_path_reconciles_archived_shared_runtime_principal_registry_once() {
+        let root = temp_dir("workspace-reconcile");
+        let prism_home = temp_dir("home-reconcile");
+        let _guard = set_test_prism_home_override(&prism_home);
+        write_workspace_root(&root);
+
+        let paths = PrismPaths::for_workspace_root(&root).expect("paths");
+        let local_db = paths.worktree_cache_db_path().expect("local cache path");
+        let mut local_store = SqliteStore::open(&local_db).expect("local store");
+        let local_snapshot = sample_registry_snapshot("local");
+        Store::save_principal_registry_snapshot(&mut local_store, &local_snapshot)
+            .expect("local principal registry");
+
+        let conflicts_dir = paths.repo_home_dir.join(MIGRATION_CONFLICTS_DIR_NAME);
+        fs::create_dir_all(&conflicts_dir).expect("migration conflicts dir");
+        let archived_db = conflicts_dir.join("shared-runtime-state-db-archived.db");
+        let archived_snapshot = sample_registry_snapshot("archived");
+        let mut archived_store = SqliteStore::open(&archived_db).expect("archived store");
+        Store::save_principal_registry_snapshot(&mut archived_store, &archived_snapshot)
+            .expect("archived principal registry");
+
+        let resolved_db = paths
+            .worktree_cache_db_path()
+            .expect("re-resolved local cache path");
+        assert_eq!(resolved_db, local_db);
+
+        let mut reloaded_store = SqliteStore::open(&local_db).expect("reloaded local store");
+        let merged_snapshot = Store::load_principal_registry_snapshot(&mut reloaded_store)
+            .expect("load merged snapshot")
+            .expect("merged principal registry");
+        assert!(merged_snapshot
+            .principals
+            .iter()
+            .any(|principal| principal.principal_id == local_snapshot.principals[0].principal_id));
+        assert!(merged_snapshot.principals.iter().any(
+            |principal| principal.principal_id == archived_snapshot.principals[0].principal_id
+        ));
+
+        let marker = paths
+            .worktree_cache_dir
+            .join(PRINCIPAL_REGISTRY_RECONCILED_MARKER);
+        assert!(marker.exists(), "reconciliation marker should be written");
+
+        let _ = fs::remove_file(&archived_db);
+        let _ = fs::remove_file(&marker);
+        let resolved_again = paths
+            .worktree_cache_db_path()
+            .expect("local cache path again");
+        assert_eq!(resolved_again, local_db);
+
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&prism_home);
+    }
 }

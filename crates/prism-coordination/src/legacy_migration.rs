@@ -22,6 +22,7 @@ pub fn migrate_legacy_hybrid_snapshot_to_canonical_v2(
     let mut migrated = snapshot.to_canonical_snapshot_v2();
     let mut state = MigrationState::new(&mut migrated, plan_graphs, execution_overlays);
     state.migrate()?;
+    migrated.validate_graph()?;
     Ok(migrated)
 }
 
@@ -105,6 +106,7 @@ impl<'a> MigrationState<'a> {
     }
 
     fn migrate_graph(&mut self, graph: &PlanGraph) -> Result<()> {
+        self.ensure_root_plan(graph);
         let nodes = graph
             .nodes
             .iter()
@@ -140,13 +142,23 @@ impl<'a> MigrationState<'a> {
         for node_id in &node_ids {
             let node = &nodes[node_id];
             if node.is_abstract {
+                self.drop_native_plan_node_task_alias(node_id);
                 self.ensure_migrated_child_plan(graph, node, child_parents.get(node_id))?;
             }
         }
 
         for node_id in &node_ids {
             let node = &nodes[node_id];
-            if node.is_abstract || self.task_index.contains_key(node_id) {
+            if node.is_abstract {
+                continue;
+            }
+            if is_native_plan_node_alias(node.id.0.as_str())
+                && self.task_index.contains_key(node_id)
+            {
+                self.rewrite_native_plan_node_task_alias(graph, node, child_parents.get(node_id))?;
+                continue;
+            }
+            if self.task_index.contains_key(node_id) {
                 continue;
             }
             self.ensure_migrated_leaf_task(graph, node, child_parents.get(node_id))?;
@@ -167,6 +179,95 @@ impl<'a> MigrationState<'a> {
         }
 
         Ok(())
+    }
+
+    fn drop_native_plan_node_task_alias(&mut self, task_id: &str) {
+        if !is_native_plan_node_alias(task_id) {
+            return;
+        }
+        let Some(index) = self.task_index.get(task_id).copied() else {
+            return;
+        };
+        self.migrated.tasks.remove(index);
+        self.migrated.dependencies.retain(|edge| {
+            !((edge.source.kind == prism_ir::NodeRefKind::Task && edge.source.id == task_id)
+                || (edge.target.kind == prism_ir::NodeRefKind::Task && edge.target.id == task_id))
+        });
+        self.rebuild_indexes();
+    }
+
+    fn rewrite_native_plan_node_task_alias(
+        &mut self,
+        graph: &PlanGraph,
+        node: &PlanNode,
+        parent_node_id: Option<&String>,
+    ) -> Result<()> {
+        let Some(index) = self.task_index.get(node.id.0.as_str()).copied() else {
+            return Ok(());
+        };
+        let overlay = self
+            .execution_overlays
+            .get(graph.id.0.as_str())
+            .and_then(|overlays| overlays.iter().find(|overlay| overlay.node_id == node.id));
+        let parent_plan_id = self.resolve_parent_plan_id(graph, parent_node_id)?;
+        let metadata = migrated_task_metadata(node, graph.id.clone());
+        let task = self
+            .migrated
+            .tasks
+            .get_mut(index)
+            .ok_or_else(|| anyhow!("missing native plan-node task alias `{}`", node.id.0))?;
+        task.parent_plan_id = parent_plan_id;
+        task.title = node.title.clone();
+        task.summary = node.summary.clone();
+        task.lifecycle_status = migrated_task_lifecycle(node.status);
+        task.estimated_minutes = 0;
+        task.executor = migrated_task_executor_policy(&node.metadata);
+        task.assignee = node.assignee.clone();
+        task.session = overlay.and_then(|overlay| overlay.session.clone());
+        task.lease_holder = None;
+        task.lease_started_at = None;
+        task.lease_refreshed_at = None;
+        task.lease_stale_at = None;
+        task.lease_expires_at = None;
+        task.worktree_id = overlay.and_then(|overlay| overlay.worktree_id.clone());
+        task.branch_ref = overlay.and_then(|overlay| overlay.branch_ref.clone());
+        task.anchors = node.bindings.anchors.clone();
+        task.bindings = node.bindings.clone();
+        task.acceptance = node
+            .acceptance
+            .iter()
+            .map(migrate_acceptance)
+            .collect::<Vec<_>>();
+        task.validation_refs = node.validation_refs.clone();
+        task.base_revision = node.base_revision.clone();
+        task.priority = node.priority;
+        task.tags = node.tags.clone();
+        task.metadata = metadata;
+        task.git_execution = migrated_git_execution(overlay);
+        Ok(())
+    }
+
+    fn ensure_root_plan(&mut self, graph: &PlanGraph) {
+        if self.plan_index.contains_key(graph.id.0.as_str()) {
+            return;
+        }
+        let record = CanonicalPlanRecord {
+            id: graph.id.clone(),
+            parent_plan_id: None,
+            title: graph.title.clone(),
+            goal: graph.goal.clone(),
+            scope: graph.scope,
+            kind: graph.kind,
+            policy: CoordinationPolicy::default(),
+            scheduling: PlanScheduling::default(),
+            tags: graph.tags.clone(),
+            created_from: graph.created_from.clone(),
+            metadata: graph.metadata.clone(),
+            operator_state: PlanOperatorState::None,
+        };
+        self.plan_index
+            .insert(graph.id.0.to_string(), self.migrated.plans.len());
+        self.migrated.plans.push(record);
     }
 
     fn ensure_migrated_child_plan(
@@ -208,7 +309,11 @@ impl<'a> MigrationState<'a> {
         node: &PlanNode,
         parent_node_id: Option<&String>,
     ) -> Result<()> {
-        let task_id = migrated_leaf_task_id(&node.id);
+        let task_id = if is_native_plan_node_alias(node.id.0.as_str()) {
+            TaskId::new(node.id.0.clone())
+        } else {
+            migrated_leaf_task_id(&node.id)
+        };
         if self.task_index.contains_key(task_id.0.as_str()) {
             return Ok(());
         }
@@ -402,14 +507,48 @@ impl<'a> MigrationState<'a> {
             None => Ok(graph.id.clone()),
         }
     }
+
+    fn rebuild_indexes(&mut self) {
+        self.plan_index = self
+            .migrated
+            .plans
+            .iter()
+            .enumerate()
+            .map(|(index, plan)| (plan.id.0.to_string(), index))
+            .collect();
+        self.task_index = self
+            .migrated
+            .tasks
+            .iter()
+            .enumerate()
+            .map(|(index, task)| (task.id.0.to_string(), index))
+            .collect();
+        self.dependency_keys = self
+            .migrated
+            .dependencies
+            .iter()
+            .map(|edge| {
+                (
+                    edge.source.kind,
+                    edge.source.id.clone(),
+                    edge.target.kind,
+                    edge.target.id.clone(),
+                )
+            })
+            .collect();
+    }
 }
 
 fn migrated_child_plan_id(node_id: &PlanNodeId) -> PlanId {
     PlanId::new(format!("plan:migrated:{}", node_id.0))
 }
 
+fn is_native_plan_node_alias(id: &str) -> bool {
+    id.starts_with("plan-node:")
+}
+
 fn migrated_leaf_task_id(node_id: &PlanNodeId) -> TaskId {
-    TaskId::new(format!("task:migrated:{}", node_id.0))
+    TaskId::new(node_id.0.clone())
 }
 
 fn migrated_placeholder_task_id(node_id: &PlanNodeId) -> TaskId {
@@ -745,7 +884,7 @@ mod tests {
             .any(|plan| plan.id.0 == "plan:migrated:plan-node:parent"
                 && plan.parent_plan_id == Some(plan_id.clone())));
         assert!(migrated.tasks.iter().any(|task| {
-            task.id.0 == "task:migrated:plan-node:leaf"
+            task.id.0 == "plan-node:leaf"
                 && task.parent_plan_id.0 == "plan:migrated:plan-node:parent"
         }));
         assert!(migrated.tasks.iter().any(|task| {
@@ -754,12 +893,12 @@ mod tests {
         }));
         assert!(migrated.dependencies.iter().any(|edge| {
             edge.source == NodeRef::task(TaskId::new("coord-task:existing"))
-                && edge.target == NodeRef::task(TaskId::new("task:migrated:plan-node:leaf"))
+                && edge.target == NodeRef::task(TaskId::new("plan-node:leaf"))
         }));
         let migrated_leaf = migrated
             .tasks
             .iter()
-            .find(|task| task.id.0 == "task:migrated:plan-node:leaf")
+            .find(|task| task.id.0 == "plan-node:leaf")
             .expect("migrated leaf task");
         assert_eq!(
             migrated_leaf

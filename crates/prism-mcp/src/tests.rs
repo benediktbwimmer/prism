@@ -15,15 +15,14 @@ use crate::tests_support::*;
 use crate::ui_read_models::QueryHostUiReadModelsExt;
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_coordination::{
-    ArtifactProposeInput, CoordinationPolicy, CoordinationSnapshot, CoordinationStore,
-    GitExecutionCompletionMode, GitExecutionPolicy, GitExecutionStartMode, PlanCreateInput,
-    TaskCreateInput,
+    CoordinationPolicy, CoordinationStore, GitExecutionCompletionMode, GitExecutionPolicy,
+    GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
 };
 use prism_core::{
     default_workspace_shared_runtime, hydrate_workspace_session,
     hydrate_workspace_session_with_options, index_workspace_session,
     index_workspace_session_with_curator, index_workspace_session_with_options, PrismPaths,
-    PrismRuntimeMode, SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceSessionOptions,
 };
 use prism_curator::{
@@ -35,16 +34,14 @@ use prism_history::HistoryStore;
 use prism_ir::{
     AnchorRef, ChangeTrigger, CredentialId, Edge, EdgeKind, EventActor, EventExecutionContext,
     EventId, EventMeta, FileId, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
-    PlanEdgeKind, PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeId, PlanNodeKind, PlanNodeStatus,
-    PlanScope, PlanStatus, PrincipalActor, PrincipalAuthorityId, PrincipalId, Span,
-    SymbolFingerprint, TaskId, WorkContextKind, WorkContextSnapshot, WorkspaceRevision,
+    PlanEdgeKind, PlanId, PrincipalActor, PrincipalAuthorityId, PrincipalId, Span,
+    SymbolFingerprint, TaskId, WorkContextKind, WorkContextSnapshot,
 };
 use prism_js::{AnchorRefView, ContractKindView, ContractStabilityView, ContractStatusView};
 use prism_memory::{
     MemoryEntry, MemoryEventQuery, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent,
     OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
 };
-use prism_projections::ProjectionIndex;
 use prism_query::{
     ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptScope, ContractKind,
     ContractStability, ContractStatus,
@@ -173,489 +170,13 @@ fn cli_no_coordination_flag_disables_coordination_features() {
     let cli = PrismMcpCli::parse_from(["prism-mcp", "--no-coordination"]);
     let features = cli.features();
     assert_eq!(features.mode_label(), "simple");
-    assert_eq!(features.runtime_mode(), PrismRuntimeMode::Full);
-    assert!(features.coordination_layer_enabled());
     assert!(!features.coordination.workflow);
     assert!(!features.coordination.claims);
     assert!(!features.coordination.artifacts);
 }
 
 #[test]
-fn cli_runtime_mode_flag_selects_coordination_only_runtime() {
-    let cli = PrismMcpCli::parse_from(["prism-mcp", "--runtime-mode", "coordination_only"]);
-    let features = cli.features();
-    assert_eq!(features.runtime_mode(), PrismRuntimeMode::CoordinationOnly);
-    assert!(features.coordination_layer_enabled());
-    assert!(!features.knowledge_storage_layer_enabled());
-    assert!(!features.cognition_layer_enabled());
-    assert!(features.is_tool_enabled("prism_query"));
-    assert!(features.is_tool_enabled("prism_mutate"));
-    assert!(features.is_tool_enabled("prism_task_brief"));
-    assert!(!features.is_tool_enabled("prism_locate"));
-    assert!(features.query_method_visible("plans"));
-    assert!(features.query_method_visible("tool"));
-    assert!(!features.query_method_visible("symbol"));
-    assert!(!features.query_view_enabled(crate::QueryViewFeatureFlag::RepoPlaybook));
-}
-
-#[test]
-fn coordination_only_runtime_preserves_internal_developer_ops_queries() {
-    let features = PrismMcpFeatures::full()
-        .with_internal_developer(true)
-        .with_runtime_mode(PrismRuntimeMode::CoordinationOnly);
-    assert!(features.query_method_visible("runtimeStatus"));
-    assert!(features.query_method_visible("mcpLog"));
-    assert!(features.query_method_visible("queryTrace"));
-}
-
-#[test]
-fn cli_runtime_mode_flag_selects_knowledge_storage_runtime() {
-    let cli = PrismMcpCli::parse_from(["prism-mcp", "--runtime-mode", "knowledge_storage"]);
-    let features = cli.features();
-    assert_eq!(features.runtime_mode(), PrismRuntimeMode::KnowledgeStorage);
-    assert!(features.coordination_layer_enabled());
-    assert!(features.knowledge_storage_layer_enabled());
-    assert!(!features.cognition_layer_enabled());
-}
-
-#[test]
-fn coordination_only_instructions_strip_cognition_guidance() {
-    let index = crate::instructions::render_instructions_index(PrismRuntimeMode::CoordinationOnly);
-    assert!(index.contains("PRISM Coordination-Only Instructions"));
-    assert!(index.contains("`coordination_only`"));
-    assert!(index.contains("- runtime mode: `coordination_only`"));
-    assert!(index.contains("- coordination workflow: enabled"));
-    assert!(index.contains("- coordination claims: enabled"));
-    assert!(index.contains("- coordination artifacts: enabled"));
-    assert!(index.contains("`coordination`"));
-    assert!(index.contains("`prism_query`"));
-    assert!(index.contains("`prism_mutate`"));
-    assert!(index.contains("`prism_task_brief`"));
-    assert!(index.contains("`prism://protected-state`"));
-    assert!(index.contains("`prism://vocab`"));
-    assert!(index.contains("`prism://tool-schemas`"));
-    assert!(index.contains("`prism://plans`"));
-    assert!(index.contains("`prism://session`"));
-    assert!(index.contains("`prism://capabilities`"));
-    assert!(!index.contains("`execution`"));
-    assert!(!index.contains("`planning`"));
-
-    assert!(crate::instructions::render_instruction_set(
-        "execution",
-        PrismRuntimeMode::CoordinationOnly
-    )
-    .is_none());
-    let coordination = crate::instructions::render_instruction_set(
-        "coordination",
-        PrismRuntimeMode::CoordinationOnly,
-    )
-    .expect("coordination instructions should remain available");
-    assert!(coordination.contains("without cognition"));
-    assert!(coordination.contains("coordination"));
-    assert!(coordination.contains("Mode contract:"));
-    assert!(coordination.contains("- coordination claims: enabled"));
-}
-
-#[test]
-fn coordination_only_instruction_render_reflects_feature_toggles() {
-    let mut features = PrismMcpFeatures::full()
-        .with_runtime_mode(PrismRuntimeMode::CoordinationOnly)
-        .with_internal_developer(true);
-    features
-        .coordination
-        .apply(CoordinationFeatureFlag::Claims, false);
-    features
-        .coordination
-        .apply(CoordinationFeatureFlag::Artifacts, false);
-
-    let index = crate::instructions::render_instructions_index_with_features(&features);
-    assert!(index.contains("- coordination claims: disabled"));
-    assert!(index.contains("- coordination artifacts: disabled"));
-    assert!(index.contains("runtime and MCP diagnostics"));
-
-    let coordination =
-        crate::instructions::render_instruction_set_with_features("coordination", &features)
-            .expect("coordination instructions should remain available");
-    assert!(coordination.contains("- coordination claims: disabled"));
-    assert!(coordination.contains("- coordination artifacts: disabled"));
-    assert!(coordination.contains("- internal developer queries: enabled"));
-}
-
-#[test]
-fn coordination_only_prism_query_keeps_coordination_reads_and_rejects_cognition_reads() {
-    let mut graph = Graph::default();
-    graph.nodes.insert(demo_node().id.clone(), demo_node());
-    graph.adjacency = HashMap::new();
-    graph.reverse_adjacency = HashMap::new();
-    let host = QueryHost::new_with_limits_and_features(
-        Prism::new(graph),
-        QueryLimits::default(),
-        PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
-    );
-
-    let result = host
-        .execute(
-            test_session(&host),
-            r#"
-const tools = prism.tools().map((tool) => tool.toolName).sort();
-const plans = prism.plans();
-return {
-  tools,
-  planCount: plans.length,
-};
-"#,
-            QueryLanguage::Ts,
-        )
-        .expect("coordination-only prism_query should execute reduced coordination reads");
-    assert_eq!(
-        result.result["tools"]
-            .as_array()
-            .expect("tool names should be an array")
-            .iter()
-            .filter_map(|value| value.as_str())
-            .collect::<Vec<_>>(),
-        vec!["prism_mutate", "prism_query", "prism_task_brief"]
-    );
-    assert_eq!(result.result["planCount"], 0);
-
-    let error = host
-        .execute(
-            test_session(&host),
-            r#"return prism.symbol("demo::main");"#,
-            QueryLanguage::Ts,
-        )
-        .expect_err("coordination-only prism_query should reject cognition reads");
-    assert!(error.to_string().contains("cognition"), "{}", error);
-
-    let file_anchor_error = host
-        .execute(
-            test_session(&host),
-            r#"
-return prism.claims([
-  {
-    type: "file",
-    path: "src/lib.rs",
-  },
-]);
-"#,
-            QueryLanguage::Ts,
-        )
-        .expect_err("coordination-only claims should reject file anchors");
-    assert!(
-        file_anchor_error
-            .to_string()
-            .contains("file anchors are unavailable"),
-        "{}",
-        file_anchor_error
-    );
-
-    let simulate_file_anchor_error = host
-        .execute(
-            test_session(&host),
-            r#"
-return prism.simulateClaim({
-  anchors: [
-    {
-      type: "file",
-      path: "src/lib.rs",
-    },
-  ],
-  capability: "Edit",
-});
-"#,
-            QueryLanguage::Ts,
-        )
-        .expect_err("coordination-only simulateClaim should reject file anchors");
-    assert!(
-        simulate_file_anchor_error
-            .to_string()
-            .contains("file anchors are unavailable"),
-        "{}",
-        simulate_file_anchor_error
-    );
-}
-
-#[test]
-fn coordination_only_prism_query_filters_mutate_schema_and_validation() {
-    let host = QueryHost::new_with_limits_and_features(
-        Prism::new(Graph::default()),
-        QueryLimits::default(),
-        PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
-    );
-
-    let result = host
-        .execute(
-            test_session(&host),
-            r#"
-const tool = prism.tool("prism_mutate");
-const invalid = prism.validateToolInput("prism_mutate", {
-  action: "memory",
-  input: { action: "store", payload: { scope: "session", text: "x" } },
-});
-return {
-  actions: tool?.actions.map((action) => action.action).sort() ?? [],
-  invalid,
-};
-"#,
-            QueryLanguage::Ts,
-        )
-        .expect("coordination-only mutate schema should remain queryable");
-
-    assert_eq!(
-        result.result["actions"]
-            .as_array()
-            .expect("actions should be an array")
-            .iter()
-            .filter_map(|value| value.as_str())
-            .collect::<Vec<_>>(),
-        vec![
-            "artifact",
-            "claim",
-            "coordination",
-            "declare_work",
-            "heartbeat_lease",
-        ]
-    );
-    assert_eq!(result.result["invalid"]["valid"], false);
-    assert!(
-        result.result["invalid"]["summary"]
-            .as_str()
-            .expect("invalid summary should be a string")
-            .contains(
-                "valid actions: declare_work, heartbeat_lease, coordination, claim, artifact",
-            ),
-        "{}",
-        result.result["invalid"]
-    );
-}
-
-#[test]
-fn coordination_only_prism_query_plan_graph_keeps_durable_bindings() {
-    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
-        Graph::default(),
-        HistoryStore::new(),
-        OutcomeMemory::new(),
-        CoordinationSnapshot::default(),
-        ProjectionIndex::default(),
-        vec![PlanGraph {
-            id: PlanId::new("plan:coordination-only-bindings"),
-            scope: PlanScope::Repo,
-            kind: PlanKind::Migration,
-            title: "Coordination-only plan graph".into(),
-            goal: "Expose durable bindings through reduced prism_query.".into(),
-            status: PlanStatus::Active,
-            revision: 1,
-            root_nodes: vec![PlanNodeId::new("plan-node:coordination-only-bindings")],
-            tags: Vec::new(),
-            created_from: None,
-            metadata: serde_json::Value::Null,
-            nodes: vec![PlanNode {
-                id: PlanNodeId::new("plan-node:coordination-only-bindings"),
-                plan_id: PlanId::new("plan:coordination-only-bindings"),
-                kind: PlanNodeKind::Edit,
-                title: "Carry durable bindings".into(),
-                summary: None,
-                status: PlanNodeStatus::Ready,
-                bindings: prism_ir::PlanBinding {
-                    anchors: Vec::new(),
-                    concept_handles: vec!["concept://coordination-only-binding".into()],
-                    artifact_refs: Vec::new(),
-                    memory_refs: vec!["memory:coordination-only-note".into()],
-                    outcome_refs: vec!["outcome:coordination-only-result".into()],
-                },
-                acceptance: Vec::new(),
-                validation_refs: Vec::new(),
-                is_abstract: false,
-                assignee: None,
-                base_revision: WorkspaceRevision::default(),
-                priority: None,
-                tags: Vec::new(),
-                metadata: serde_json::Value::Null,
-            }],
-            edges: Vec::new(),
-        }],
-        std::collections::BTreeMap::new(),
-    );
-    prism.set_runtime_capabilities(PrismRuntimeMode::CoordinationOnly.capabilities());
-    let host = QueryHost::new_with_limits_and_features(
-        prism,
-        QueryLimits::default(),
-        PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
-    );
-
-    let result = host
-        .execute(
-            test_session(&host),
-            r#"
-const graph = prism.planGraph("plan:coordination-only-bindings");
-const node = graph?.nodes?.[0];
-return {
-  conceptHandles: node?.bindings?.conceptHandles ?? [],
-  memoryRefs: node?.bindings?.memoryRefs ?? [],
-  outcomeRefs: node?.bindings?.outcomeRefs ?? [],
-  anchors: node?.bindings?.anchors ?? [],
-};
-"#,
-            QueryLanguage::Ts,
-        )
-        .expect("coordination-only prism_query should expose durable plan bindings");
-
-    assert_eq!(
-        result.result["conceptHandles"]
-            .as_array()
-            .expect("concept handles should be an array")
-            .iter()
-            .filter_map(|value| value.as_str())
-            .collect::<Vec<_>>(),
-        vec!["concept://coordination-only-binding"]
-    );
-    assert_eq!(
-        result.result["memoryRefs"]
-            .as_array()
-            .expect("memory refs should be an array")
-            .iter()
-            .filter_map(|value| value.as_str())
-            .collect::<Vec<_>>(),
-        vec!["memory:coordination-only-note"]
-    );
-    assert_eq!(
-        result.result["outcomeRefs"]
-            .as_array()
-            .expect("outcome refs should be an array")
-            .iter()
-            .filter_map(|value| value.as_str())
-            .collect::<Vec<_>>(),
-        vec!["outcome:coordination-only-result"]
-    );
-    assert_eq!(
-        result.result["anchors"]
-            .as_array()
-            .expect("anchors should be an array")
-            .len(),
-        0
-    );
-}
-
-#[test]
-fn coordination_only_prism_query_artifact_risk_uses_degraded_artifact_view() {
-    let coordination = CoordinationStore::new();
-    let (plan_id, _) = coordination
-        .create_plan(
-            EventMeta {
-                id: EventId::new("coord:plan:coordination-only-artifact-view"),
-                ts: 1,
-                actor: EventActor::Agent,
-                correlation: None,
-                causation: None,
-                execution_context: None,
-            },
-            PlanCreateInput {
-                title: "Coordination-only artifact view".into(),
-                goal: "Serve artifact risk without cognition".into(),
-                status: None,
-                policy: Some(CoordinationPolicy {
-                    review_required_above_risk_score: Some(0.2),
-                    ..CoordinationPolicy::default()
-                }),
-            },
-        )
-        .unwrap();
-    let (task_id, _) = coordination
-        .create_task(
-            EventMeta {
-                id: EventId::new("coord:task:coordination-only-artifact-view"),
-                ts: 2,
-                actor: EventActor::Agent,
-                correlation: None,
-                causation: None,
-                execution_context: None,
-            },
-            TaskCreateInput {
-                plan_id,
-                title: "Edit alpha".into(),
-                status: None,
-                assignee: None,
-                session: None,
-                worktree_id: None,
-                branch_ref: None,
-                anchors: Vec::new(),
-                depends_on: Vec::new(),
-                coordination_depends_on: Vec::new(),
-                integrated_depends_on: Vec::new(),
-                acceptance: Vec::new(),
-                base_revision: WorkspaceRevision::default(),
-            },
-        )
-        .unwrap();
-    let (artifact_id, _) = coordination
-        .propose_artifact(
-            EventMeta {
-                id: EventId::new("coord:artifact:coordination-only-artifact-view"),
-                ts: 3,
-                actor: EventActor::Agent,
-                correlation: None,
-                causation: None,
-                execution_context: None,
-            },
-            ArtifactProposeInput {
-                task_id,
-                anchors: Vec::new(),
-                diff_ref: Some("patch:coordination-only-artifact-view".into()),
-                evidence: Vec::new(),
-                base_revision: WorkspaceRevision::default(),
-                current_revision: WorkspaceRevision::default(),
-                required_validations: vec!["test:artifact-check".into()],
-                validated_checks: Vec::new(),
-                risk_score: Some(0.7),
-                worktree_id: None,
-                branch_ref: None,
-            },
-        )
-        .unwrap();
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
-        Graph::default(),
-        HistoryStore::new(),
-        OutcomeMemory::new(),
-        coordination.snapshot(),
-        ProjectionIndex::default(),
-    );
-    prism.set_runtime_capabilities(PrismRuntimeMode::CoordinationOnly.capabilities());
-    let host = QueryHost::new_with_limits_and_features(
-        prism,
-        QueryLimits::default(),
-        PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
-    );
-
-    let result = host
-        .execute(
-            test_session(&host),
-            &format!(r#"return prism.artifactRisk("{}");"#, artifact_id.0),
-            QueryLanguage::Ts,
-        )
-        .expect("coordination-only artifact risk should execute through prism_query");
-
-    assert!(
-        (result.result["riskScore"]
-            .as_f64()
-            .expect("risk score should be numeric")
-            - 0.7)
-            .abs()
-            < 0.0001
-    );
-    assert_eq!(result.result["reviewRequired"], Value::Bool(true));
-    assert_eq!(
-        result.result["missingValidations"],
-        Value::Array(vec![Value::String("test:artifact-check".into())])
-    );
-    assert_eq!(result.result["contracts"], Value::Array(Vec::new()));
-    assert_eq!(
-        result.result["contractReviewNotes"],
-        Value::Array(Vec::new())
-    );
-}
-
-#[test]
-fn cli_defaults_shared_runtime_backend_to_repo_sqlite() {
+fn cli_defaults_shared_runtime_backend_to_disabled() {
     let root = temp_workspace();
     let cli = PrismMcpCli::parse_from(["prism-mcp"]);
     let expected = PrismPaths::for_workspace_root(&root)
@@ -673,7 +194,7 @@ fn cli_defaults_shared_runtime_backend_to_repo_sqlite() {
 
     assert_eq!(
         cli.shared_runtime_backend(&root).unwrap(),
-        SharedRuntimeBackend::Sqlite { path: expected }
+        SharedRuntimeBackend::Disabled
     );
 
     let _ = fs::remove_dir_all(root);
@@ -928,7 +449,7 @@ fn git_execution_policy_start_rejects_main_branch_and_records_failure() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -1008,7 +529,7 @@ fn git_execution_policy_start_combines_requested_mutation_and_git_execution_reco
         index_workspace_session_with_options(
             &root,
             WorkspaceSessionOptions {
-                runtime_mode: PrismRuntimeMode::Full,
+                runtime_mode: prism_ir::PrismRuntimeMode::Full,
                 shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
                 hydrate_persisted_projections: false,
                 hydrate_persisted_co_change: false,
@@ -1417,7 +938,7 @@ fn git_execution_policy_defaults_to_off_modes() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -1465,7 +986,7 @@ fn git_execution_policy_task_create_rejects_direct_in_progress_creation() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -1522,7 +1043,7 @@ fn git_execution_policy_plan_node_create_rejects_direct_in_progress_creation() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -1654,7 +1175,7 @@ fn git_execution_policy_completion_require_rejects_dirty_user_changes() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -1766,7 +1287,7 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -1938,7 +1459,7 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
         index_workspace_session_with_options(
             &root,
             WorkspaceSessionOptions {
-                runtime_mode: PrismRuntimeMode::Full,
+                runtime_mode: prism_ir::PrismRuntimeMode::Full,
                 shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
                 hydrate_persisted_projections: false,
                 hydrate_persisted_co_change: false,
@@ -2102,7 +1623,7 @@ fn git_execution_policy_completion_rehydrates_stale_plan_policy_before_publish()
         index_workspace_session_with_options(
             &root,
             WorkspaceSessionOptions {
-                runtime_mode: PrismRuntimeMode::Full,
+                runtime_mode: prism_ir::PrismRuntimeMode::Full,
                 shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
                 hydrate_persisted_projections: false,
                 hydrate_persisted_co_change: false,
@@ -2157,7 +1678,7 @@ fn git_execution_policy_completion_rehydrates_stale_plan_policy_before_publish()
         index_workspace_session_with_options(
             &root,
             WorkspaceSessionOptions {
-                runtime_mode: PrismRuntimeMode::Full,
+                runtime_mode: prism_ir::PrismRuntimeMode::Full,
                 shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
                 hydrate_persisted_projections: false,
                 hydrate_persisted_co_change: false,
@@ -2250,7 +1771,7 @@ fn auto_pr_completion_creates_and_links_review_artifact() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -2372,7 +1893,7 @@ fn auto_pr_approved_review_advances_integration_and_allows_verified_landing() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -2559,7 +2080,7 @@ fn auto_pr_rejected_review_marks_integration_failed() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -2681,7 +2202,7 @@ fn direct_integrate_completion_lands_target_and_records_trusted_evidence() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -2802,7 +2323,7 @@ fn git_execution_policy_completion_require_push_failure_keeps_task_in_progress()
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -3849,7 +3370,7 @@ fn plan_edge_mutations_update_projected_dependency_graph() {
 }
 
 #[test]
-fn plan_edge_mutations_support_non_dependency_edge_kinds() {
+fn coordination_task_completion_accepts_recorded_test_outcomes() {
     let host = host_with_node(demo_node());
 
     let plan = host
@@ -3857,94 +3378,187 @@ fn plan_edge_mutations_support_non_dependency_edge_kinds() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "title": "Shape native graph edges", "goal": "Shape native graph edges" }),
+                payload: json!({
+                    "title": "Require coordination validation evidence",
+                    "goal": "Require coordination validation evidence",
+                    "policy": { "requireValidationForCompletion": true }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+    let required_test =
+        "test:cargo test -p prism-core shared_coordination_ref::tests:: -- --nocapture";
+
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Validate coordination migration",
+                    "validationRefs": [{ "id": required_test }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_outcome(
+        test_session(&host).as_ref(),
+        PrismOutcomeArgs {
+            kind: OutcomeKindInput::TestRan,
+            anchors: Vec::new(),
+            summary: "shared coordination ref validation passed".to_string(),
+            result: Some(OutcomeResultInput::Success),
+            evidence: Some(vec![OutcomeEvidenceInput::Test {
+                name: required_test.to_string(),
+                passed: true,
+            }]),
+            task_id: Some(task_id.clone()),
+        },
+    )
+    .unwrap();
+
+    let completed = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task_id,
+                    "status": "completed",
+                    "completionContext": {
+                        "requiredValidations": [required_test]
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(completed.state["status"], "Completed");
+}
+
+#[test]
+fn plan_edge_compatibility_aliases_materialize_v2_containment_and_dependencies() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Materialize compatibility aliases",
+                    "goal": "Materialize compatibility aliases"
+                }),
                 task_id: None,
             },
         )
         .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
-    let source = host
+    let parent = host
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanNodeCreate,
                 payload: json!({
                     "planId": plan_id.clone(),
-                    "title": "Implement change"
+                    "kind": "note",
+                    "title": "Nested work",
+                    "isAbstract": true
                 }),
                 task_id: None,
             },
         )
         .unwrap();
-    let source_id = source.state["id"].as_str().unwrap().to_string();
+    let parent_id = parent.state["id"].as_str().unwrap().to_string();
 
-    let target = host
+    let dependency = host
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanNodeCreate,
                 payload: json!({
                     "planId": plan_id.clone(),
-                    "kind": "validate",
-                    "title": "Validate change",
-                    "validationRefs": [{ "id": "validation:change" }]
+                    "title": "Prepare shared context"
                 }),
                 task_id: None,
             },
         )
         .unwrap();
-    let target_id = target.state["id"].as_str().unwrap().to_string();
+    let dependency_id = dependency.state["id"].as_str().unwrap().to_string();
 
-    let created = host
+    let child = host
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanEdgeCreate,
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
                 payload: json!({
                     "planId": plan_id.clone(),
-                    "fromNodeId": source_id.clone(),
-                    "toNodeId": target_id.clone(),
-                    "kind": "validates"
+                    "title": "Implement nested work"
                 }),
                 task_id: None,
             },
         )
         .unwrap();
-    assert_eq!(created.state["kind"], "Validates");
+    let child_id = child.state["id"].as_str().unwrap().to_string();
 
-    let graph = host
-        .current_prism()
-        .plan_graph(&PlanId::new(plan_id.clone()))
-        .expect("plan graph");
-    assert!(graph.edges.iter().any(|edge| edge.from.0 == source_id
-        && edge.to.0 == target_id
-        && edge.kind == PlanEdgeKind::Validates));
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanEdgeCreate,
+            payload: json!({
+                "planId": plan_id.clone(),
+                "fromNodeId": child_id.clone(),
+                "toNodeId": parent_id.clone(),
+                "kind": "child_of"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
 
-    let deleted = host
-        .store_coordination(
-            test_session(&host).as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanEdgeDelete,
-                payload: json!({
-                    "planId": plan_id.clone(),
-                    "fromNodeId": source_id.clone(),
-                    "toNodeId": target_id.clone(),
-                    "kind": "validates"
-                }),
-                task_id: None,
-            },
-        )
-        .unwrap();
-    assert_eq!(deleted.state["kind"], "Validates");
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanEdgeCreate,
+            payload: json!({
+                "planId": plan_id.clone(),
+                "fromNodeId": child_id.clone(),
+                "toNodeId": dependency_id.clone(),
+                "kind": "depends_on"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
 
-    let graph = host
-        .current_prism()
-        .plan_graph(&PlanId::new(plan_id))
-        .expect("plan graph");
-    assert!(!graph.edges.iter().any(|edge| edge.from.0 == source_id
-        && edge.to.0 == target_id
-        && edge.kind == PlanEdgeKind::Validates));
+    let child_plan_id = format!("plan:migrated:{parent_id}");
+    let child_task_id = child_id.clone();
+    let dependency_task_id = dependency_id.clone();
+    let snapshot_v2 = host.current_prism().coordination_snapshot_v2();
+    assert!(snapshot_v2
+        .plans
+        .iter()
+        .any(|plan| plan.id.0 == child_plan_id
+            && plan.parent_plan_id.as_ref().map(|id| id.0.as_str()) == Some(plan_id.as_str())));
+    assert!(snapshot_v2
+        .tasks
+        .iter()
+        .any(|task| task.id.0 == child_task_id && task.parent_plan_id.0 == child_plan_id));
+    assert!(snapshot_v2
+        .tasks
+        .iter()
+        .any(|task| task.id.0 == dependency_task_id && task.parent_plan_id.0 == plan_id));
+    assert!(snapshot_v2
+        .dependencies
+        .iter()
+        .any(|edge| { edge.source.id == child_task_id && edge.target.id == dependency_task_id }));
 }
 
 #[test]
@@ -4044,10 +3658,10 @@ fn plan_edge_mutations_enforce_native_edge_semantics() {
                 task_id: None,
             },
         )
-        .expect_err("validates should require validate target");
+        .expect_err("unsupported compatibility edge kinds should reject");
     assert!(validates_error
         .to_string()
-        .contains("must target a Validate node"));
+        .contains("legacy `plan_edge_create` compatibility alias only supports"));
 
     let handoff_error = host
         .store_coordination(
@@ -4063,10 +3677,10 @@ fn plan_edge_mutations_enforce_native_edge_semantics() {
                 task_id: None,
             },
         )
-        .expect_err("handoff should reject abstract target");
+        .expect_err("unsupported compatibility edge kinds should reject");
     assert!(handoff_error
         .to_string()
-        .contains("must connect executable nodes"));
+        .contains("use task metadata or explicit review/handoff state instead"));
 }
 
 #[test]
@@ -4879,9 +4493,9 @@ fn plan_edge_mutations_reject_invalid_scheduling_graphs() {
                 kind: CoordinationMutationKindInput::PlanNodeCreate,
                 payload: json!({
                     "planId": plan_id.clone(),
-                    "title": "Validate change",
-                    "kind": "Validate",
-                    "validationRefs": [{ "id": "validation:change" }]
+                    "title": "Parent group",
+                    "kind": "Note",
+                    "isAbstract": true
                 }),
                 task_id: None,
             },
@@ -4897,7 +4511,7 @@ fn plan_edge_mutations_reject_invalid_scheduling_graphs() {
                 "planId": plan_id.clone(),
                 "fromNodeId": source_id.clone(),
                 "toNodeId": target_id.clone(),
-                "kind": "validates"
+                "kind": "child_of"
             }),
             task_id: None,
         },
@@ -4913,7 +4527,7 @@ fn plan_edge_mutations_reject_invalid_scheduling_graphs() {
                     "planId": plan_id.clone(),
                     "fromNodeId": target_id.clone(),
                     "toNodeId": source_id.clone(),
-                    "kind": "handoff_to"
+                    "kind": "blocks"
                 }),
                 task_id: None,
             },
@@ -7739,6 +7353,10 @@ return {{
         .likely_validations
         .iter()
         .any(|check| check == native_only_check));
+    assert!(brief
+        .blockers
+        .iter()
+        .any(|blocker| blocker.kind == prism_coordination::BlockerKind::ValidationRequired));
     assert!(!brief
         .likely_validations
         .iter()
@@ -7879,7 +7497,7 @@ fn coordination_inbox_and_task_brief_share_authoritative_task_backed_status() {
                 title: "Reconcile task-backed node status".into(),
                 summary: None,
                 status: prism_ir::CoordinationTaskStatus::Completed,
-                published_task_status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                published_task_status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 pending_handoff_to: None,
                 session: None,
@@ -7953,8 +7571,11 @@ fn coordination_inbox_and_task_brief_share_authoritative_task_backed_status() {
         .execute(
             test_session(&host),
             &format!(
-                r#"return {{ inbox: prism.coordinationInbox("{}") }};"#,
-                plan_id.0
+                r#"return {{
+                    inbox: prism.coordinationInbox("{}"),
+                    task: prism.task("{}"),
+                }};"#,
+                plan_id.0, task_id.0
             ),
             QueryLanguage::Ts,
         )
@@ -7964,8 +7585,20 @@ fn coordination_inbox_and_task_brief_share_authoritative_task_backed_status() {
         Value::String("Completed".to_string())
     );
     assert_eq!(
+        envelope.result["inbox"]["planV2"]["id"],
+        Value::String(plan_id.0.to_string())
+    );
+    assert_eq!(
         envelope.result["inbox"]["planSummary"]["completedNodes"],
         Value::from(1)
+    );
+    assert_eq!(
+        envelope.result["task"]["status"],
+        Value::String("Completed".to_string())
+    );
+    assert_eq!(
+        envelope.result["task"]["publishedTaskStatus"],
+        Value::String("Ready".to_string())
     );
 
     let brief = host
@@ -10990,7 +10623,7 @@ fn coordination_update_records_trusted_landing_evidence_after_coordination_publi
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -11144,7 +10777,7 @@ fn manual_pr_requires_approved_review_artifact_before_recording_target_landing()
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -11379,7 +11012,7 @@ fn manual_pr_approved_review_auto_observes_merge_landing_on_task_touch() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -11548,7 +11181,7 @@ fn manual_pr_review_approval_observes_already_landed_merge() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -11704,7 +11337,7 @@ fn manual_pr_rebase_landing_accepts_verified_trusted_record() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
             shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
@@ -15616,6 +15249,12 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
         .next_action
         .as_deref()
         .is_some_and(|value| value.contains("non-authoritative")));
+    assert_eq!(brief.lease_state.as_deref(), Some("active"));
+    let lease_holder = brief
+        .lease_holder
+        .expect("brief should surface lease holder");
+    assert_eq!(lease_holder.principal.as_deref(), Some("agent:a"));
+    assert_eq!(lease_holder.session_id.as_deref(), Some("session:a"));
 }
 
 #[test]
@@ -15715,6 +15354,105 @@ fn compact_task_brief_suppresses_heartbeat_instruction_when_local_assistance_is_
         .next_action
         .as_deref()
         .is_some_and(|value| value.contains("heartbeat_lease")));
+    assert_eq!(brief.lease_state.as_deref(), Some("active"));
+}
+
+#[test]
+fn compact_task_brief_exposes_authoritative_task_lease_without_claim_holders() {
+    let now = crate::current_timestamp();
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let meta = EventMeta {
+        id: EventId::new("coord:plan:task-brief-active-lease"),
+        ts: now.saturating_sub(30),
+        actor: EventActor::Principal(prism_ir::PrincipalActor {
+            authority_id: prism_ir::PrincipalAuthorityId::new("local"),
+            principal_id: prism_ir::PrincipalId::new("agent:a"),
+            kind: Some(prism_ir::PrincipalKind::Agent),
+            name: Some("agent:a".to_string()),
+        }),
+        correlation: None,
+        causation: None,
+        execution_context: Some(prism_ir::EventExecutionContext {
+            repo_id: None,
+            worktree_id: Some("worktree:demo".to_string()),
+            branch_ref: None,
+            session_id: Some("session:a".to_string()),
+            instance_id: None,
+            request_id: None,
+            credential_id: None,
+            work_context: None,
+        }),
+    };
+    let (plan_id, _) = coordination
+        .create_plan(
+            meta.clone(),
+            PlanCreateInput {
+                title: "Show task lease holder".into(),
+                goal: "Show task lease holder".into(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: Some(CoordinationPolicy::default()),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:task-brief-active-lease"),
+                ts: now.saturating_sub(20),
+                ..meta
+            },
+            TaskCreateInput {
+                plan_id,
+                title: "Edit alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: Some("worktree:demo".to_string()),
+                branch_ref: None,
+                anchors: vec![AnchorRef::Node(alpha)],
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
+    prism.replace_coordination_snapshot(coordination.snapshot());
+    let host = host_with_prism(prism);
+
+    let brief = host
+        .compact_task_brief(
+            test_session(&host),
+            PrismTaskBriefArgs {
+                task_id: task_id.0.to_string(),
+            },
+        )
+        .expect("task brief should succeed");
+
+    assert!(brief.claim_holders.is_empty());
+    assert_eq!(brief.lease_state.as_deref(), Some("active"));
+    let lease_holder = brief
+        .lease_holder
+        .expect("brief should surface lease holder");
+    assert_eq!(lease_holder.principal.as_deref(), Some("agent:a"));
+    assert_eq!(lease_holder.session_id.as_deref(), Some("session:a"));
+    assert_eq!(lease_holder.worktree_id.as_deref(), Some("worktree:demo"));
+    assert_eq!(lease_holder.agent_id.as_deref(), Some("agent:a"));
 }
 
 #[test]
@@ -16530,121 +16268,6 @@ async fn mcp_server_executes_prism_task_brief_round_trip() {
             && value.contains("validations")
             && value.contains("prism_query")
     }));
-
-    running.cancel().await.unwrap();
-}
-
-#[tokio::test]
-async fn coordination_only_task_brief_avoids_stripped_tool_guidance() {
-    let root = temp_workspace();
-    let workspace = shared_workspace_session(&root);
-    let writer =
-        host_with_shared_session_and_features(Arc::clone(&workspace), PrismMcpFeatures::full());
-    let server = server_with_shared_session_and_features(
-        workspace,
-        PrismMcpFeatures::full().with_runtime_mode(prism_core::PrismRuntimeMode::CoordinationOnly),
-    );
-    let plan = retry_on_runtime_sync_busy(|| {
-        writer.store_coordination(
-            test_session(&writer).as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "title": "Coordinate main", "goal": "Coordinate main" }),
-                task_id: None,
-            },
-        )
-    })
-    .expect("plan create should succeed");
-    let plan_id = plan.state["id"].as_str().unwrap().to_string();
-    let task = retry_on_runtime_sync_busy(|| {
-        writer.store_coordination(
-            test_session(&writer).as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::TaskCreate,
-                payload: json!({
-                    "planId": plan_id,
-                    "title": "Inspect main",
-                    "status": "Ready",
-                    "anchors": [{
-                        "type": "node",
-                        "crateName": "demo",
-                        "path": "demo::alpha",
-                        "kind": "function"
-                    }]
-                }),
-                task_id: None,
-            },
-        )
-    })
-    .expect("task create should succeed");
-    let task_id = task.state["id"].as_str().unwrap().to_string();
-    writer
-        .store_outcome(
-            test_session(&writer).as_ref(),
-            PrismOutcomeArgs {
-                kind: OutcomeKindInput::FixValidated,
-                anchors: vec![AnchorRefInput::Node {
-                    crate_name: "demo".to_string(),
-                    path: "demo::alpha".to_string(),
-                    kind: "function".to_string(),
-                }],
-                summary: "validated main".to_string(),
-                result: Some(OutcomeResultInput::Success),
-                evidence: None,
-                task_id: Some(task_id.clone()),
-            },
-        )
-        .expect("outcome should store");
-
-    let (server_transport, client_transport) = tokio::io::duplex(4096);
-    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
-    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
-
-    let _ = initialize_client(&mut client).await;
-    client.send(initialized_notification()).await.unwrap();
-    let running = server_task
-        .await
-        .expect("server join should succeed")
-        .expect("server should initialize");
-
-    client
-        .send(call_tool_request(
-            2,
-            "prism_task_brief",
-            json!({
-                "taskId": task_id,
-            })
-            .as_object()
-            .expect("tool args should be an object")
-            .clone(),
-        ))
-        .await
-        .unwrap();
-    let brief = first_tool_content_json(client.receive().await.unwrap());
-    let next_action = brief["nextAction"]
-        .as_str()
-        .expect("task brief nextAction should be text");
-    assert_eq!(brief["title"], "Inspect main");
-    assert_eq!(
-        brief["nextReads"]
-            .as_array()
-            .expect("task brief nextReads should be an array")
-            .len(),
-        0
-    );
-    assert!(
-        brief["suggestedActions"].is_null()
-            || brief["suggestedActions"]
-                .as_array()
-                .is_some_and(|items| items.is_empty())
-    );
-    assert!(!next_action.contains("prism_query"));
-    assert!(!next_action.contains("prism_open"));
-    assert!(!next_action.contains("prism.blockers"));
-    assert!(
-        next_action.contains("prism_task_brief") || next_action.contains("prism_mutate"),
-        "{next_action}"
-    );
 
     running.cancel().await.unwrap();
 }
@@ -21626,7 +21249,7 @@ fn repo_published_memory_retains_declared_work_context_without_runtime_db() {
     let _ = fs::remove_file(runtime_db.with_extension("db-wal"));
     let _ = fs::remove_file(runtime_db.with_extension("db-shm"));
 
-    let reloaded = hydrate_workspace_session(&root).unwrap();
+    let reloaded = index_workspace_session_with_shared_runtime(&root);
     let events = reloaded
         .memory_events(&MemoryEventQuery {
             memory_id: Some(MemoryId(result.memory_id.clone())),
@@ -22014,7 +21637,7 @@ fn validation_feedback_mutation_persists_to_workspace_log() {
     assert!(result.entry_id.starts_with("feedback:"));
     assert_eq!(result.task_id, "task:feedback");
 
-    let reloaded = hydrate_workspace_session(&root).unwrap();
+    let reloaded = index_workspace_session_with_shared_runtime(&root);
     let entries = reloaded.validation_feedback(Some(5)).unwrap();
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].context, "blast-radius check for alpha");
@@ -22052,16 +21675,7 @@ fn authenticated_outcome_mutation_records_principal_actor_and_execution_context(
         )
         .expect("authenticated outcome should persist");
 
-    let reloaded = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
-            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: false,
-        },
-    )
-    .unwrap();
+    let reloaded = hydrate_workspace_session_with_shared_runtime(&root);
     let replay = reloaded
         .prism()
         .resume_task(&TaskId::new("task:authenticated-outcome"));
@@ -22162,16 +21776,7 @@ fn authenticated_outcome_mutation_records_coordination_work_context_snapshot() {
         )
         .expect("authenticated coordination outcome should persist");
 
-    let reloaded = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
-            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: false,
-        },
-    )
-    .unwrap();
+    let reloaded = hydrate_workspace_session_with_shared_runtime(&root);
     let replay = reloaded.prism().resume_task(&TaskId::new(task_id.clone()));
     let event = replay
         .events
@@ -23468,7 +23073,7 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
         index_workspace_session_with_options(
             &root,
             WorkspaceSessionOptions {
-                runtime_mode: PrismRuntimeMode::Full,
+                runtime_mode: prism_ir::PrismRuntimeMode::Full,
                 shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
                 hydrate_persisted_projections: false,
                 hydrate_persisted_co_change: true,
@@ -23507,6 +23112,8 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
     if let Some(workspace) = host.workspace_session() {
         workspace.flush_materializations().unwrap();
     }
+    prism_core::sync_live_runtime_descriptor(&root)
+        .expect("runtime descriptor should publish before diagnostics are inspected");
 
     let status = crate::runtime_views::refresh_cached_runtime_status(&host)
         .expect("runtime status should succeed");
@@ -23630,10 +23237,17 @@ fn workspace_binding_seeds_cached_runtime_status_on_startup() {
         PrismMcpFeatures::default().with_runtime_diagnostics_auto_refresh(true),
     );
 
-    let cached = host
-        .diagnostics_state()
-        .runtime_status()
-        .expect("workspace binding should seed cached runtime status");
+    let started = Instant::now();
+    let cached = loop {
+        if let Some(cached) = host.diagnostics_state().runtime_status() {
+            break cached;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "workspace binding should seed cached runtime status"
+        );
+        thread::sleep(Duration::from_millis(10));
+    };
     assert!(cached
         .root
         .ends_with(root.file_name().unwrap().to_string_lossy().as_ref()));

@@ -55,7 +55,7 @@ use super::{
     repair_repo_published_plan_artifacts, AttestedHumanPrincipalInput, BootstrapOwnerInput,
     CredentialProfile, CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata,
     CredentialsFile, HumanSessionFile, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
-    PrismRuntimeMode, SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode,
     WorktreeMutatorSlotError, WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
 };
@@ -1104,7 +1104,7 @@ fn prism_paths_migrates_legacy_canonical_repo_home_into_git_common_dir_repo_home
         migrated_worktree_metadata["repo_id"],
         json!(identity.repo_id)
     );
-    let mut migrated_store = SqliteStore::open(current_runtime_db).unwrap();
+    let mut migrated_store = SqliteStore::open(paths.worktree_cache_db_path().unwrap()).unwrap();
     let migrated_registry = migrated_store
         .load_principal_registry_snapshot()
         .unwrap()
@@ -2029,16 +2029,12 @@ fn legacy_path_identity_repair_rewrites_patch_logs_and_graph_snapshots() {
     let paths = PrismPaths::for_workspace_root(&root).unwrap();
     let mut shared_runtime = SqliteStore::open(paths.shared_runtime_db_path().unwrap()).unwrap();
     shared_runtime
-        .save_outcome_snapshot(&OutcomeMemorySnapshot {
-            events: vec![patch_event.clone()],
-        })
+        .append_outcome_events(std::slice::from_ref(&patch_event), &[])
         .unwrap();
 
     let mut worktree_cache = SqliteStore::open(paths.worktree_cache_db_path().unwrap()).unwrap();
     worktree_cache
-        .save_outcome_snapshot(&OutcomeMemorySnapshot {
-            events: vec![patch_event.clone()],
-        })
+        .append_outcome_events(std::slice::from_ref(&patch_event), &[])
         .unwrap();
     let mut legacy_graph = Graph::new();
     legacy_graph.upsert_file(
@@ -2067,29 +2063,15 @@ fn legacy_path_identity_repair_rewrites_patch_logs_and_graph_snapshots() {
         .iter()
         .any(|target| target.label == "repo patch stream" && target.entries_needing_repair > 0));
     assert!(inspection.targets.iter().any(|target| {
-        target.label == "shared runtime patch log" && target.entries_needing_repair > 0
-    }));
-    assert!(inspection.targets.iter().any(|target| {
         target.label == "worktree cache patch log" && target.entries_needing_repair > 0
     }));
 
     let repair = repair_legacy_path_identity_state(&root).unwrap();
-    assert!(repair.repaired_target_count >= 3);
+    assert!(repair.repaired_target_count >= 2);
 
     let repo_events = load_repo_patch_events(&root).unwrap();
     assert_eq!(
         repo_events[0].metadata["filePaths"][0].as_str(),
-        Some("src/lib.rs")
-    );
-
-    let repaired_shared_runtime =
-        SqliteStore::open(paths.shared_runtime_db_path().unwrap()).unwrap();
-    let shared_event = repaired_shared_runtime
-        .load_outcome_event(&EventId::new("outcome:legacy-absolute-path"))
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        shared_event.metadata["filePaths"][0].as_str(),
         Some("src/lib.rs")
     );
 
@@ -3199,8 +3181,6 @@ fn protected_state_watcher_imports_repo_memory_without_source_refresh() {
         &session.runtime_state,
         &session.store,
         &session.cold_query_store,
-        session.shared_runtime_store.as_ref(),
-        session.shared_runtime.sqlite_path(),
         &session.refresh_lock,
         &session.loaded_workspace_revision,
         session.coordination_enabled,
@@ -4052,8 +4032,6 @@ fn protected_state_watcher_imports_repo_concepts_without_source_refresh() {
         &session.runtime_state,
         &session.store,
         &session.cold_query_store,
-        session.shared_runtime_store.as_ref(),
-        session.shared_runtime.sqlite_path(),
         &session.refresh_lock,
         &session.loaded_workspace_revision,
         session.coordination_enabled,
@@ -4247,281 +4225,7 @@ fn legacy_repo_concept_stream_is_ignored_once_snapshot_authority_exists() {
 }
 
 #[test]
-fn shared_runtime_sqlite_shares_session_memory_and_concepts_across_workspaces() {
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
-    let root_one = temp_workspace();
-    let root_two = temp_workspace();
-    for root in [&root_one, &root_two] {
-        fs::create_dir_all(root.join("src")).unwrap();
-        fs::write(
-            root.join("Cargo.toml"),
-            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-        )
-        .unwrap();
-        fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
-    }
-
-    let options = WorkspaceSessionOptions {
-        runtime_mode: PrismRuntimeMode::Full,
-        shared_runtime: SharedRuntimeBackend::Sqlite {
-            path: shared_runtime_sqlite.clone(),
-        },
-        hydrate_persisted_projections: false,
-        hydrate_persisted_co_change: true,
-    };
-    let session_one = index_workspace_session_with_options(&root_one, options.clone()).unwrap();
-    let alpha = session_one
-        .prism()
-        .symbol("alpha")
-        .into_iter()
-        .next()
-        .expect("alpha should be indexed")
-        .id()
-        .clone();
-
-    let mut entry = MemoryEntry::new(MemoryKind::Structural, "shared session memory");
-    entry.id = MemoryId("memory:shared-session".to_string());
-    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
-    entry.scope = MemoryScope::Session;
-    entry.source = MemorySource::User;
-    entry.trust = 0.9;
-    session_one
-        .append_memory_event(MemoryEvent::from_entry(
-            MemoryEventKind::Stored,
-            entry.clone(),
-            Some("task:shared-runtime".to_string()),
-            Vec::new(),
-            Vec::new(),
-        ))
-        .unwrap();
-    session_one
-        .persist_episodic(&EpisodicMemorySnapshot {
-            entries: vec![entry.clone()],
-        })
-        .unwrap();
-
-    session_one
-        .append_concept_event(ConceptEvent {
-            id: "concept-event:shared-runtime".to_string(),
-            recorded_at: 23,
-            task_id: Some("task:shared-runtime".to_string()),
-            actor: None,
-            execution_context: None,
-            action: ConceptEventAction::Promote,
-            patch: None,
-            concept: ConceptPacket {
-                handle: "concept://shared_alpha".to_string(),
-                canonical_name: "shared_alpha".to_string(),
-                summary: "Session concept persisted through the shared runtime sqlite.".to_string(),
-                aliases: vec!["shared alpha".to_string()],
-                confidence: 0.87,
-                core_members: vec![alpha.clone()],
-                core_member_lineages: vec![session_one.prism().lineage_of(&alpha)],
-                supporting_members: Vec::new(),
-                supporting_member_lineages: Vec::new(),
-                likely_tests: Vec::new(),
-                likely_test_lineages: Vec::new(),
-                evidence: vec!["Session-scoped concept".to_string()],
-                risk_hint: None,
-                decode_lenses: vec![ConceptDecodeLens::Open],
-                scope: ConceptScope::Session,
-                provenance: ConceptProvenance {
-                    origin: "test".to_string(),
-                    kind: "shared_runtime_sqlite".to_string(),
-                    task_id: Some("task:shared-runtime".to_string()),
-                },
-                publication: None,
-            },
-        })
-        .unwrap();
-    drop(session_one);
-
-    let session_two = index_workspace_session_with_options(&root_two, options).unwrap();
-    let snapshot = session_two
-        .load_episodic_snapshot()
-        .unwrap()
-        .expect("shared session memory should reload");
-    assert!(snapshot
-        .entries
-        .iter()
-        .any(|candidate| candidate.id == entry.id));
-
-    let concept = session_two
-        .prism()
-        .concept_by_handle("concept://shared_alpha")
-        .expect("shared concept should reload");
-    assert_eq!(concept.scope, ConceptScope::Session);
-    assert_eq!(
-        concept.summary,
-        "Session concept persisted through the shared runtime sqlite."
-    );
-
-    let _ = fs::remove_dir_all(root_one);
-    let _ = fs::remove_dir_all(root_two);
-    let _ = fs::remove_dir_all(shared_runtime_root);
-}
-
-#[test]
-fn shared_runtime_sqlite_shares_memory_events_without_checkpoint_flush() {
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
-    let root_one = temp_workspace();
-    let root_two = temp_workspace();
-    for root in [&root_one, &root_two] {
-        fs::create_dir_all(root.join("src")).unwrap();
-        fs::write(
-            root.join("Cargo.toml"),
-            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-        )
-        .unwrap();
-        fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
-    }
-
-    let options = WorkspaceSessionOptions {
-        runtime_mode: PrismRuntimeMode::Full,
-        shared_runtime: SharedRuntimeBackend::Sqlite {
-            path: shared_runtime_sqlite.clone(),
-        },
-        hydrate_persisted_projections: false,
-        hydrate_persisted_co_change: true,
-    };
-    let session_one = index_workspace_session_with_options(&root_one, options.clone()).unwrap();
-    let alpha = session_one
-        .prism()
-        .symbol("alpha")
-        .into_iter()
-        .next()
-        .expect("alpha should be indexed")
-        .id()
-        .clone();
-
-    let mut entry = MemoryEntry::new(MemoryKind::Structural, "shared event journal memory");
-    entry.id = MemoryId("memory:shared-runtime-journal".to_string());
-    entry.anchors = vec![AnchorRef::Node(alpha)];
-    entry.scope = MemoryScope::Session;
-    entry.source = MemorySource::User;
-    entry.trust = 0.9;
-    session_one
-        .append_memory_event(MemoryEvent::from_entry(
-            MemoryEventKind::Stored,
-            entry.clone(),
-            Some("task:shared-runtime-journal".to_string()),
-            Vec::new(),
-            Vec::new(),
-        ))
-        .unwrap();
-    drop(session_one);
-
-    let session_two = index_workspace_session_with_options(&root_two, options).unwrap();
-    let events = session_two
-        .memory_events(&MemoryEventQuery {
-            memory_id: Some(entry.id.clone()),
-            focus: Vec::new(),
-            text: None,
-            limit: 5,
-            kinds: None,
-            actions: Some(vec![MemoryEventKind::Stored]),
-            scope: Some(MemoryScope::Session),
-            task_id: Some("task:shared-runtime-journal".to_string()),
-            since: None,
-        })
-        .unwrap();
-    assert_eq!(events.len(), 1);
-    assert_eq!(
-        events[0]
-            .entry
-            .as_ref()
-            .map(|candidate| candidate.id.clone()),
-        Some(entry.id)
-    );
-    let snapshot = session_two
-        .load_episodic_snapshot()
-        .unwrap()
-        .expect("shared runtime should rebuild episodic view from authoritative memory events");
-    assert!(snapshot
-        .entries
-        .iter()
-        .any(|candidate| candidate.content == "shared event journal memory"));
-
-    let _ = fs::remove_dir_all(root_one);
-    let _ = fs::remove_dir_all(root_two);
-    let _ = fs::remove_dir_all(shared_runtime_root);
-}
-
-#[test]
-fn shared_runtime_sqlite_shares_principal_registry_across_workspaces() {
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
-    let root_one = temp_workspace();
-    let root_two = temp_workspace();
-    for root in [&root_one, &root_two] {
-        fs::create_dir_all(root.join("src")).unwrap();
-        fs::write(
-            root.join("Cargo.toml"),
-            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-        )
-        .unwrap();
-        fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
-    }
-
-    let options = WorkspaceSessionOptions {
-        runtime_mode: PrismRuntimeMode::Full,
-        shared_runtime: SharedRuntimeBackend::Sqlite {
-            path: shared_runtime_sqlite.clone(),
-        },
-        hydrate_persisted_projections: false,
-        hydrate_persisted_co_change: true,
-    };
-    let session_one = index_workspace_session_with_options(&root_one, options.clone()).unwrap();
-    let snapshot = PrincipalRegistrySnapshot {
-        principals: vec![PrincipalProfile {
-            authority_id: PrincipalAuthorityId("authority:test".into()),
-            principal_id: PrincipalId("principal:agent-one".into()),
-            kind: PrincipalKind::Agent,
-            name: "Agent One".to_string(),
-            role: Some("coordination_worker".to_string()),
-            status: PrincipalStatus::Active,
-            created_at: 101,
-            updated_at: 102,
-            parent_principal_id: Some(PrincipalId("principal:human-root".into())),
-            profile: json!({
-                "session": "one",
-            }),
-        }],
-        credentials: vec![CredentialRecord {
-            credential_id: CredentialId("credential:agent-one".into()),
-            authority_id: PrincipalAuthorityId("authority:test".into()),
-            principal_id: PrincipalId("principal:agent-one".into()),
-            token_verifier: "verifier:agent-one".to_string(),
-            capabilities: vec![
-                CredentialCapability::MutateCoordination,
-                CredentialCapability::MutateRepoMemory,
-            ],
-            status: CredentialStatus::Active,
-            created_at: 103,
-            last_used_at: Some(104),
-            revoked_at: None,
-        }],
-    };
-    session_one.persist_principal_registry(&snapshot).unwrap();
-    drop(session_one);
-
-    let session_two = index_workspace_session_with_options(&root_two, options).unwrap();
-    assert_eq!(
-        session_two.load_principal_registry().unwrap(),
-        Some(snapshot)
-    );
-
-    let _ = fs::remove_dir_all(root_one);
-    let _ = fs::remove_dir_all(root_two);
-    let _ = fs::remove_dir_all(shared_runtime_root);
-}
-
-#[test]
 fn bootstrap_owner_and_mint_child_service_round_trip_through_shared_runtime_registry() {
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4534,10 +4238,8 @@ fn bootstrap_owner_and_mint_child_service_round_trip_through_shared_runtime_regi
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoreLegacy,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite.clone(),
-            },
+            runtime_mode: prism_ir::PrismRuntimeMode::CoreLegacy,
+            shared_runtime: SharedRuntimeBackend::Disabled,
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: true,
         },
@@ -4606,13 +4308,10 @@ fn bootstrap_owner_and_mint_child_service_round_trip_through_shared_runtime_regi
     }));
 
     let _ = fs::remove_dir_all(root);
-    let _ = fs::remove_dir_all(shared_runtime_root);
 }
 
 #[test]
 fn bootstrap_owner_with_attestation_records_shared_human_profile_metadata() {
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4625,10 +4324,8 @@ fn bootstrap_owner_with_attestation_records_shared_human_profile_metadata() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoreLegacy,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite.clone(),
-            },
+            runtime_mode: prism_ir::PrismRuntimeMode::CoreLegacy,
+            shared_runtime: SharedRuntimeBackend::Disabled,
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: true,
         },
@@ -4663,7 +4360,6 @@ fn bootstrap_owner_with_attestation_records_shared_human_profile_metadata() {
     );
 
     let _ = fs::remove_dir_all(root);
-    let _ = fs::remove_dir_all(shared_runtime_root);
 }
 
 #[test]
@@ -4709,8 +4405,6 @@ fn attested_human_bootstrap_uses_deterministic_principal_id_per_authority_subjec
 
 #[test]
 fn recover_owner_with_attestation_records_recovery_operation() {
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4723,10 +4417,8 @@ fn recover_owner_with_attestation_records_recovery_operation() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoreLegacy,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite.clone(),
-            },
+            runtime_mode: prism_ir::PrismRuntimeMode::CoreLegacy,
+            shared_runtime: SharedRuntimeBackend::Disabled,
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: true,
         },
@@ -4756,7 +4448,6 @@ fn recover_owner_with_attestation_records_recovery_operation() {
     );
 
     let _ = fs::remove_dir_all(root);
-    let _ = fs::remove_dir_all(shared_runtime_root);
 }
 
 #[test]
@@ -4940,8 +4631,6 @@ fn principal_registry_rehydrates_from_unlocked_encrypted_human_profile() {
 
 #[test]
 fn mint_child_principal_rejects_legacy_agent_principals() {
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4954,10 +4643,8 @@ fn mint_child_principal_rejects_legacy_agent_principals() {
     let session = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoreLegacy,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite.clone(),
-            },
+            runtime_mode: prism_ir::PrismRuntimeMode::CoreLegacy,
+            shared_runtime: SharedRuntimeBackend::Disabled,
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: true,
         },
@@ -4994,7 +4681,6 @@ fn mint_child_principal_rejects_legacy_agent_principals() {
         .contains("legacy local agent principals are no longer mintable"));
 
     let _ = fs::remove_dir_all(root);
-    let _ = fs::remove_dir_all(shared_runtime_root);
 }
 
 #[test]
@@ -6506,13 +6192,13 @@ fn repo_plan_state_hydrates_from_workspace_sqlite_without_shared_runtime_db() {
     );
 
     drop(session);
-    fs::remove_file(
-        PrismPaths::for_workspace_root(&root)
-            .unwrap()
-            .shared_runtime_db_path()
-            .unwrap(),
-    )
-    .unwrap();
+    let shared_runtime_db = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .shared_runtime_db_path()
+        .unwrap();
+    if shared_runtime_db.exists() {
+        fs::remove_file(shared_runtime_db).unwrap();
+    }
 
     let reloaded = index_workspace_session(&root).unwrap();
     let snapshot = reloaded
@@ -7851,10 +7537,49 @@ fn coordination_read_models_ignore_stale_persisted_shared_runtime_cache() {
         .unwrap()
         .expect("coordination queue model should load from the local cache");
     assert_eq!(queue_model.pending_handoff_tasks.len(), 0);
-    assert!(session
+    let snapshot = session
         .load_coordination_snapshot()
         .unwrap()
-        .expect("coordination snapshot should hydrate from the local store")
+        .expect("coordination snapshot should hydrate from the local store");
+    assert!(snapshot
+        .tasks
+        .iter()
+        .any(|task| task.title == "Prefer local coordination cache over shared runtime cache"));
+    let snapshot_v2 = session
+        .load_coordination_snapshot_v2()
+        .unwrap()
+        .expect("coordination snapshot v2 should hydrate from the local store");
+    assert!(snapshot_v2
+        .tasks
+        .iter()
+        .any(|task| task.title == "Prefer local coordination cache over shared runtime cache"));
+    let plan_state = session
+        .load_coordination_plan_state()
+        .unwrap()
+        .expect("coordination plan state should hydrate from the local store");
+    assert!(plan_state
+        .snapshot
+        .tasks
+        .iter()
+        .any(|task| task.title == "Prefer local coordination cache over shared runtime cache"));
+    drop(shared_runtime_store);
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let reloaded_plan_state = reloaded
+        .load_coordination_plan_state()
+        .unwrap()
+        .expect("reloaded coordination plan state should still hydrate from the local store");
+    assert!(reloaded_plan_state
+        .snapshot
+        .tasks
+        .iter()
+        .any(|task| task.title == "Prefer local coordination cache over shared runtime cache"));
+    let reloaded_snapshot_v2 = reloaded
+        .load_coordination_snapshot_v2()
+        .unwrap()
+        .expect("reloaded coordination snapshot v2 should still hydrate from the local store");
+    assert!(reloaded_snapshot_v2
         .tasks
         .iter()
         .any(|task| task.title == "Prefer local coordination cache over shared runtime cache"));
@@ -8426,7 +8151,7 @@ fn load_hydrated_coordination_snapshot_v2_migrates_standalone_legacy_plan_nodes(
         .any(|plan| plan.id.0 == "plan:migrated:plan-node:parent"
             && plan.parent_plan_id == Some(plan_id.clone())));
     assert!(loaded_v2.tasks.iter().any(|task| {
-        task.id.0 == "task:migrated:plan-node:leaf"
+        task.id.0 == "plan-node:leaf"
             && task.parent_plan_id.0 == "plan:migrated:plan-node:parent"
     }));
     assert_ne!(loaded_v2, snapshot.to_canonical_snapshot_v2());
@@ -9876,111 +9601,7 @@ fn recovery_rebuild_from_persisted_state_records_replay_bounds() {
 
 #[test]
 fn recovery_rebuild_from_shared_runtime_journals_without_checkpoint_flush() {
-    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
-
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let options = WorkspaceSessionOptions {
-        runtime_mode: PrismRuntimeMode::Full,
-        shared_runtime: SharedRuntimeBackend::Sqlite {
-            path: shared_runtime_sqlite,
-        },
-        hydrate_persisted_projections: false,
-        hydrate_persisted_co_change: true,
-    };
-    let session = index_workspace_session_with_options(&root, options.clone()).unwrap();
-    let alpha = session
-        .prism()
-        .symbol("alpha")
-        .into_iter()
-        .find(|symbol| symbol.id().path == "demo::alpha")
-        .expect("alpha should be indexed")
-        .id()
-        .clone();
-
-    let mut entry = MemoryEntry::new(MemoryKind::Structural, "shared runtime recovery memory");
-    entry.id = MemoryId("memory:shared-runtime-recovery".to_string());
-    entry.anchors = vec![AnchorRef::Node(alpha)];
-    entry.scope = MemoryScope::Session;
-    entry.source = MemorySource::User;
-    entry.trust = 0.9;
-    session
-        .append_memory_event(MemoryEvent::from_entry(
-            MemoryEventKind::Stored,
-            entry.clone(),
-            Some("task:shared-runtime-recovery".to_string()),
-            Vec::new(),
-            Vec::new(),
-        ))
-        .unwrap();
-
-    let plan_id = session
-        .mutate_coordination(|prism| {
-            prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:shared-runtime-recovery"),
-                    ts: 1,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:shared-runtime-recovery")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Recover coordination from shared-runtime journal".into(),
-                "Recover coordination from shared-runtime journal".into(),
-                None,
-                Some(Default::default()),
-            )
-        })
-        .unwrap();
-    drop(session);
-
-    let reloaded = index_workspace_session_with_options(&root, options).unwrap();
-    reloaded.record_runtime_refresh_observation("deferred", 0);
-
-    let recovered = reloaded.try_recover_runtime_from_persisted_state().unwrap();
-    assert!(recovered);
-
-    let recovery = reloaded
-        .last_refresh()
-        .expect("recovery should record runtime refresh metadata");
-    assert_eq!(recovery.path, "recovery");
-    assert!(recovery.workspace_reloaded);
-    assert_eq!(recovery.full_rebuild_count, 0);
-    assert!(recovery.loaded_bytes > 0);
-    assert!(recovery.replay_volume > 0);
-
-    let events = reloaded
-        .memory_events(&MemoryEventQuery {
-            memory_id: Some(entry.id.clone()),
-            focus: Vec::new(),
-            text: None,
-            limit: 5,
-            kinds: None,
-            actions: Some(vec![MemoryEventKind::Stored]),
-            scope: Some(MemoryScope::Session),
-            task_id: Some("task:shared-runtime-recovery".to_string()),
-            since: None,
-        })
-        .unwrap();
-    assert_eq!(events.len(), 1);
-    let state = reloaded
-        .load_coordination_plan_state()
-        .unwrap()
-        .expect("shared runtime coordination state should replay");
-    assert!(state.snapshot.plans.iter().any(|plan| plan.id == plan_id
-        && plan.goal == "Recover coordination from shared-runtime journal"));
-
-    let _ = fs::remove_dir_all(root);
-    let _ = fs::remove_dir_all(shared_runtime_root);
+    // Shared-runtime journal recovery was removed with the SQLite backend.
 }
 
 #[test]
@@ -11333,6 +10954,147 @@ fn appended_outcome_flushes_projection_materialization_off_request_path() {
 }
 
 #[test]
+fn shared_runtime_sqlite_stops_receiving_outcome_and_episodic_writes() {
+    let _guard = background_worker_test_guard();
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let options = WorkspaceSessionOptions {
+        runtime_mode: prism_ir::PrismRuntimeMode::Full,
+        shared_runtime: SharedRuntimeBackend::Disabled,
+        hydrate_persisted_projections: false,
+        hydrate_persisted_co_change: true,
+    };
+    let session = index_workspace_session_with_options(&root, options).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    session
+        .append_outcome(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:shared-runtime-local-only"),
+                ts: 10,
+                actor: EventActor::User,
+                correlation: Some(TaskId::new("task:shared-runtime-local-only")),
+                causation: None,
+                execution_context: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "alpha should stay local".into(),
+            evidence: vec![OutcomeEvidence::Test {
+                name: "alpha_local_only".into(),
+                passed: false,
+            }],
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+
+    let mut note = MemoryEntry::new(MemoryKind::Episodic, "local-only episodic note");
+    note.anchors = vec![AnchorRef::Node(alpha)];
+    session
+        .persist_episodic(&EpisodicMemorySnapshot {
+            entries: vec![note],
+        })
+        .unwrap();
+    session.flush_materializations().unwrap();
+
+    let mut shared_store = SqliteStore::open(shared_runtime_sqlite).unwrap();
+    let shared_replay = shared_store
+        .load_task_replay(&TaskId::new("task:shared-runtime-local-only"))
+        .unwrap();
+    assert!(
+        shared_replay.events.is_empty(),
+        "shared runtime db should not receive local outcome events anymore"
+    );
+    assert!(
+        shared_store.load_episodic_snapshot().unwrap().is_none(),
+        "shared runtime db should not receive episodic snapshots anymore"
+    );
+
+    let local_replay = session
+        .store
+        .lock()
+        .expect("workspace store lock poisoned")
+        .load_task_replay(&TaskId::new("task:shared-runtime-local-only"))
+        .unwrap();
+    assert_eq!(local_replay.events.len(), 1);
+    assert!(session.load_episodic_snapshot().unwrap().is_some());
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn runtime_snapshot_revisions_ignore_shared_runtime_sqlite_episodic_bumps() {
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    let baseline_runtime = session.snapshot_revisions_for_runtime().unwrap();
+    let mut shared_store = SqliteStore::open(shared_runtime_sqlite).unwrap();
+    prism_store::MaterializationStore::save_episodic_snapshot(
+        &mut shared_store,
+        &EpisodicMemorySnapshot {
+            entries: vec![MemoryEntry::new(
+                MemoryKind::Episodic,
+                "shared-runtime-only episodic snapshot",
+            )],
+        },
+    )
+    .unwrap();
+    drop(shared_store);
+
+    let runtime_revisions = session.snapshot_revisions_for_runtime().unwrap();
+    let merged_revisions = session.snapshot_revisions().unwrap();
+    assert_eq!(
+        runtime_revisions.episodic, baseline_runtime.episodic,
+        "runtime freshness must ignore shared-runtime sqlite episodic revisions"
+    );
+    assert_eq!(
+        runtime_revisions.workspace, baseline_runtime.workspace,
+        "runtime freshness must ignore shared-runtime sqlite workspace revisions"
+    );
+    assert_eq!(merged_revisions.episodic, baseline_runtime.episodic);
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
 fn refresh_fs_materializes_graph_snapshot_off_request_path() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -11548,7 +11310,7 @@ fn workspace_session_can_disable_coordination_entirely() {
     let disabled = index_workspace_session_with_options(
         &root,
         WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoreLegacy,
+            runtime_mode: prism_ir::PrismRuntimeMode::CoreLegacy,
             shared_runtime: SharedRuntimeBackend::Disabled,
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: true,
@@ -11567,1432 +11329,6 @@ fn workspace_session_can_disable_coordination_entirely() {
     );
 
     let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn hydrate_coordination_only_session_skips_graph_indexing_and_reloads_coordination_state() {
-    let _guard = background_worker_test_guard();
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let options = WorkspaceSessionOptions {
-        runtime_mode: PrismRuntimeMode::CoordinationOnly,
-        shared_runtime: SharedRuntimeBackend::Disabled,
-        hydrate_persisted_projections: false,
-        hydrate_persisted_co_change: true,
-    };
-
-    let session = hydrate_workspace_session_with_options(&root, options.clone()).unwrap();
-    assert_eq!(
-        session.prism().runtime_capabilities(),
-        PrismRuntimeMode::CoordinationOnly.capabilities()
-    );
-    assert!(session.prism().symbol("alpha").is_empty());
-
-    session
-        .mutate_coordination(|prism| {
-            prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:coordination-only-bootstrap"),
-                    ts: 1,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:coordination-only-bootstrap")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Coordinate alpha without cognition".into(),
-                "Keep coordination state live without indexing".into(),
-                None,
-                None,
-            )
-        })
-        .unwrap();
-    flush_coordination_materializations(&session);
-    drop(session);
-
-    let reloaded = hydrate_workspace_session_with_options(&root, options).unwrap();
-    assert_eq!(
-        reloaded.prism().runtime_capabilities(),
-        PrismRuntimeMode::CoordinationOnly.capabilities()
-    );
-    assert!(reloaded.prism().symbol("alpha").is_empty());
-    assert!(reloaded
-        .prism()
-        .coordination_snapshot()
-        .plans
-        .iter()
-        .any(|plan| plan.title == "Coordinate alpha without cognition"));
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn coordination_only_refresh_fs_updates_snapshot_without_graph_indexing() {
-    let _guard = background_worker_test_guard();
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let session = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoordinationOnly,
-            shared_runtime: SharedRuntimeBackend::Disabled,
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-    assert!(session.prism().symbol("alpha").is_empty());
-
-    fs::write(
-        root.join("src/lib.rs"),
-        "pub fn alpha() {}\npub fn beta() {}\n",
-    )
-    .unwrap();
-    let outcome = session
-        .refresh_fs_with_paths(vec![root.join("src/lib.rs")])
-        .unwrap();
-
-    assert!(outcome.observed.is_empty());
-    assert!(session.prism().symbol("alpha").is_empty());
-    assert!(session.prism().symbol("beta").is_empty());
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn coordination_only_refresh_fs_drops_live_projection_knowledge() {
-    let _guard = background_worker_test_guard();
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let session = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoordinationOnly,
-            shared_runtime: SharedRuntimeBackend::Disabled,
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-    session.prism().upsert_curated_concept(ConceptPacket {
-        handle: "concept://coordination-only-live-refresh".to_string(),
-        canonical_name: "coordination_only_live_refresh".to_string(),
-        summary: "Live projection state should not survive coordination-only refresh.".to_string(),
-        aliases: vec!["coordination-only refresh".to_string()],
-        confidence: 0.9,
-        core_members: Vec::new(),
-        core_member_lineages: Vec::new(),
-        supporting_members: Vec::new(),
-        supporting_member_lineages: Vec::new(),
-        likely_tests: Vec::new(),
-        likely_test_lineages: Vec::new(),
-        evidence: vec!["Injected directly into the live prism state.".to_string()],
-        risk_hint: None,
-        decode_lenses: vec![ConceptDecodeLens::Open],
-        scope: ConceptScope::Session,
-        provenance: ConceptProvenance {
-            origin: "test".to_string(),
-            kind: "coordination_only_refresh".to_string(),
-            task_id: None,
-        },
-        publication: None,
-    });
-    assert!(session
-        .prism()
-        .concept_by_handle("concept://coordination-only-live-refresh")
-        .is_some());
-
-    fs::write(
-        root.join("src/lib.rs"),
-        "pub fn alpha() {}\npub fn beta() {}\n",
-    )
-    .unwrap();
-    session
-        .refresh_state
-        .mark_fs_dirty_paths([root.join("src/lib.rs")]);
-
-    let observed = session.refresh_fs().unwrap();
-    assert!(observed.is_empty());
-    assert!(session
-        .prism()
-        .concept_by_handle("concept://coordination-only-live-refresh")
-        .is_none());
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn coordination_only_refresh_fs_drops_live_outcomes_without_knowledge_storage() {
-    let _guard = background_worker_test_guard();
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let session = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoordinationOnly,
-            shared_runtime: SharedRuntimeBackend::Disabled,
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-    session
-        .append_outcome(OutcomeEvent {
-            meta: EventMeta {
-                id: EventId::new("outcome:coordination-only-live-refresh"),
-                ts: 1,
-                actor: EventActor::Agent,
-                correlation: Some(TaskId::new("task:coordination-only-live-refresh")),
-                causation: None,
-                execution_context: None,
-            },
-            anchors: Vec::new(),
-            kind: OutcomeKind::FixValidated,
-            result: OutcomeResult::Success,
-            summary: "live outcome should not survive coordination-only refresh".to_string(),
-            evidence: Vec::new(),
-            metadata: serde_json::Value::Null,
-        })
-        .unwrap();
-    assert_eq!(
-        session
-            .prism()
-            .query_outcomes(&OutcomeRecallQuery {
-                kinds: Some(vec![OutcomeKind::FixValidated]),
-                result: Some(OutcomeResult::Success),
-                limit: 5,
-                ..OutcomeRecallQuery::default()
-            })
-            .len(),
-        1
-    );
-
-    fs::write(
-        root.join("src/lib.rs"),
-        "pub fn alpha() {}\npub fn beta() {}\n",
-    )
-    .unwrap();
-    session
-        .refresh_state
-        .mark_fs_dirty_paths([root.join("src/lib.rs")]);
-
-    let observed = session.refresh_fs().unwrap();
-    assert!(observed.is_empty());
-    assert!(session
-        .prism()
-        .query_outcomes(&OutcomeRecallQuery {
-            kinds: Some(vec![OutcomeKind::FixValidated]),
-            result: Some(OutcomeResult::Success),
-            limit: 5,
-            ..OutcomeRecallQuery::default()
-        })
-        .is_empty());
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn indexed_coordination_only_session_still_skips_graph_indexing() {
-    let _guard = background_worker_test_guard();
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let session = index_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoordinationOnly,
-            shared_runtime: SharedRuntimeBackend::Disabled,
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-
-    assert_eq!(
-        session.prism().runtime_capabilities(),
-        PrismRuntimeMode::CoordinationOnly.capabilities()
-    );
-    assert!(session.prism().symbol("alpha").is_empty());
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn coordination_only_recovery_ignores_repo_memory_and_concept_state() {
-    let _guard = background_worker_test_guard();
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let options = WorkspaceSessionOptions {
-        runtime_mode: PrismRuntimeMode::CoordinationOnly,
-        shared_runtime: SharedRuntimeBackend::Disabled,
-        hydrate_persisted_projections: false,
-        hydrate_persisted_co_change: true,
-    };
-
-    let session = hydrate_workspace_session_with_options(&root, options.clone()).unwrap();
-    session
-        .mutate_coordination(|prism| {
-            prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:coordination-only-recovery"),
-                    ts: 1,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:coordination-only-recovery")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Coordinate recovery without protected knowledge".into(),
-                "Coordination-only recovery should ignore repo memory and concepts.".into(),
-                None,
-                None,
-            )
-        })
-        .unwrap();
-    flush_coordination_materializations(&session);
-
-    let mut entry = MemoryEntry::new(MemoryKind::Structural, "repo memory should stay hidden");
-    entry.id = MemoryId("memory:coordination-only-recovery".to_string());
-    entry.scope = MemoryScope::Repo;
-    entry.source = MemorySource::User;
-    entry.trust = 0.9;
-    append_repo_memory_event(
-        &root,
-        &MemoryEvent::from_entry(
-            MemoryEventKind::Promoted,
-            entry.clone(),
-            Some("task:coordination-only-recovery".to_string()),
-            Vec::new(),
-            Vec::new(),
-        ),
-    )
-    .unwrap();
-    crate::concept_events::append_repo_concept_event(
-        &root,
-        &ConceptEvent {
-            id: "concept-event:coordination-only-recovery".to_string(),
-            recorded_at: 2,
-            task_id: Some("task:coordination-only-recovery".to_string()),
-            actor: None,
-            execution_context: None,
-            action: ConceptEventAction::Promote,
-            patch: None,
-            concept: ConceptPacket {
-                handle: "concept://coordination_only_hidden".to_string(),
-                canonical_name: "coordination_only_hidden".to_string(),
-                summary: "Should not be visible in coordination-only mode.".to_string(),
-                aliases: vec!["hidden".to_string()],
-                confidence: 0.8,
-                core_members: Vec::new(),
-                core_member_lineages: Vec::new(),
-                supporting_members: Vec::new(),
-                supporting_member_lineages: Vec::new(),
-                likely_tests: Vec::new(),
-                likely_test_lineages: Vec::new(),
-                evidence: vec!["coordination-only recovery test".to_string()],
-                risk_hint: None,
-                decode_lenses: vec![ConceptDecodeLens::Open],
-                scope: ConceptScope::Repo,
-                provenance: ConceptProvenance {
-                    origin: "test".to_string(),
-                    kind: "coordination_only".to_string(),
-                    task_id: Some("task:coordination-only-recovery".to_string()),
-                },
-                publication: Some(ConceptPublication {
-                    published_at: 2,
-                    last_reviewed_at: Some(2),
-                    status: ConceptPublicationStatus::Active,
-                    supersedes: Vec::new(),
-                    retired_at: None,
-                    retirement_reason: None,
-                }),
-            },
-        },
-    )
-    .unwrap();
-    drop(session);
-
-    let recovered = hydrate_workspace_session_with_options(&root, options).unwrap();
-    assert!(recovered
-        .prism()
-        .coordination_snapshot()
-        .plans
-        .iter()
-        .any(|plan| plan.title == "Coordinate recovery without protected knowledge"));
-    assert!(recovered
-        .memory_events(&MemoryEventQuery {
-            memory_id: Some(entry.id.clone()),
-            focus: Vec::new(),
-            text: None,
-            limit: 5,
-            kinds: None,
-            actions: Some(vec![MemoryEventKind::Promoted]),
-            scope: Some(MemoryScope::Repo),
-            task_id: Some("task:coordination-only-recovery".to_string()),
-            since: None,
-        })
-        .unwrap()
-        .is_empty());
-    assert!(recovered
-        .prism()
-        .curated_concepts_snapshot()
-        .into_iter()
-        .all(|concept| concept.handle != "concept://coordination_only_hidden"));
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn coordination_only_protected_state_watch_ignores_knowledge_streams() {
-    let _guard = background_worker_test_guard();
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let session = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoordinationOnly,
-            shared_runtime: SharedRuntimeBackend::Disabled,
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-
-    let mut entry = MemoryEntry::new(MemoryKind::Structural, "ignored protected memory");
-    entry.id = MemoryId("memory:coordination-only-watch".to_string());
-    entry.scope = MemoryScope::Repo;
-    entry.source = MemorySource::User;
-    entry.trust = 0.9;
-    append_repo_memory_event(
-        &root,
-        &MemoryEvent::from_entry(
-            MemoryEventKind::Promoted,
-            entry.clone(),
-            Some("task:coordination-only-watch".to_string()),
-            Vec::new(),
-            Vec::new(),
-        ),
-    )
-    .unwrap();
-
-    crate::watch::sync_protected_state_watch_update(
-        &root,
-        &session.published_generation,
-        &session.runtime_state,
-        &session.store,
-        &session.cold_query_store,
-        session.shared_runtime_store.as_ref(),
-        session.shared_runtime.sqlite_path(),
-        &session.refresh_lock,
-        &session.loaded_workspace_revision,
-        session.coordination_enabled,
-        &[
-            crate::protected_state::streams::ProtectedRepoStream::memory_stream("events.jsonl")
-                .expect("memory stream should classify"),
-        ],
-    )
-    .unwrap();
-
-    assert!(session
-        .memory_events(&MemoryEventQuery {
-            memory_id: Some(entry.id),
-            focus: Vec::new(),
-            text: None,
-            limit: 5,
-            kinds: None,
-            actions: Some(vec![MemoryEventKind::Promoted]),
-            scope: Some(MemoryScope::Repo),
-            task_id: Some("task:coordination-only-watch".to_string()),
-            since: None,
-        })
-        .unwrap()
-        .is_empty());
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn coordination_only_mode_reopens_full_workspace_without_exposing_knowledge_layers() {
-    let _guard = background_worker_test_guard();
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let full = index_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
-            shared_runtime: SharedRuntimeBackend::Disabled,
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-    let alpha = full
-        .prism()
-        .symbol("alpha")
-        .into_iter()
-        .find(|symbol| symbol.id().path == "demo::alpha")
-        .expect("alpha should be indexed")
-        .id()
-        .clone();
-    let mut entry = MemoryEntry::new(MemoryKind::Structural, "full-mode repo memory");
-    entry.id = MemoryId("memory:full-to-coordination-only".to_string());
-    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
-    entry.scope = MemoryScope::Repo;
-    entry.source = MemorySource::User;
-    entry.trust = 0.9;
-    append_repo_memory_event(
-        &root,
-        &MemoryEvent::from_entry(
-            MemoryEventKind::Promoted,
-            entry.clone(),
-            Some("task:full-to-coordination-only".to_string()),
-            Vec::new(),
-            Vec::new(),
-        ),
-    )
-    .unwrap();
-    crate::concept_events::append_repo_concept_event(
-        &root,
-        &ConceptEvent {
-            id: "concept-event:full-to-coordination-only".to_string(),
-            recorded_at: 2,
-            task_id: Some("task:full-to-coordination-only".to_string()),
-            actor: None,
-            execution_context: None,
-            action: ConceptEventAction::Promote,
-            patch: None,
-            concept: ConceptPacket {
-                handle: "concept://full_mode_alpha".to_string(),
-                canonical_name: "full_mode_alpha".to_string(),
-                summary: "Full-mode concept should stay hidden in coordination-only mode."
-                    .to_string(),
-                aliases: vec!["alpha".to_string()],
-                confidence: 0.9,
-                core_members: vec![alpha.clone()],
-                core_member_lineages: vec![full.prism().lineage_of(&alpha)],
-                supporting_members: Vec::new(),
-                supporting_member_lineages: Vec::new(),
-                likely_tests: Vec::new(),
-                likely_test_lineages: Vec::new(),
-                evidence: vec!["full mode transition test".to_string()],
-                risk_hint: None,
-                decode_lenses: vec![ConceptDecodeLens::Open],
-                scope: ConceptScope::Repo,
-                provenance: ConceptProvenance {
-                    origin: "test".to_string(),
-                    kind: "mode_transition".to_string(),
-                    task_id: Some("task:full-to-coordination-only".to_string()),
-                },
-                publication: Some(ConceptPublication {
-                    published_at: 2,
-                    last_reviewed_at: Some(2),
-                    status: ConceptPublicationStatus::Active,
-                    supersedes: Vec::new(),
-                    retired_at: None,
-                    retirement_reason: None,
-                }),
-            },
-        },
-    )
-    .unwrap();
-    let plan_id = full
-        .mutate_coordination(|prism| {
-            prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:full-to-coordination-only"),
-                    ts: 3,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:full-to-coordination-only")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Carry coordination through runtime mode changes".into(),
-                "Coordination state should survive when cognition is disabled.".into(),
-                None,
-                None,
-            )
-        })
-        .unwrap();
-    flush_coordination_materializations(&full);
-    drop(full);
-
-    let coordination_only = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoordinationOnly,
-            shared_runtime: SharedRuntimeBackend::Disabled,
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-
-    assert!(coordination_only.prism().symbol("alpha").is_empty());
-    assert!(coordination_only
-        .memory_events(&MemoryEventQuery {
-            memory_id: Some(entry.id),
-            focus: Vec::new(),
-            text: None,
-            limit: 5,
-            kinds: None,
-            actions: Some(vec![MemoryEventKind::Promoted]),
-            scope: Some(MemoryScope::Repo),
-            task_id: Some("task:full-to-coordination-only".to_string()),
-            since: None,
-        })
-        .unwrap()
-        .is_empty());
-    assert!(coordination_only
-        .prism()
-        .curated_concepts_snapshot()
-        .into_iter()
-        .all(|concept| concept.handle != "concept://full_mode_alpha"));
-    assert!(coordination_only
-        .prism()
-        .coordination_snapshot()
-        .plans
-        .iter()
-        .any(|plan| plan.id == plan_id));
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn coordination_only_reopen_from_full_preserves_native_plan_bindings() {
-    let _guard = background_worker_test_guard();
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let full = index_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
-            shared_runtime: SharedRuntimeBackend::Disabled,
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-    full.prism().upsert_curated_concept(ConceptPacket {
-        handle: "concept://full-mode-durable-binding".to_string(),
-        canonical_name: "full_mode_durable_binding".to_string(),
-        summary: "A full-mode concept used to validate coordination-only transition persistence."
-            .to_string(),
-        aliases: vec!["durable binding".to_string()],
-        confidence: 0.9,
-        core_members: Vec::new(),
-        core_member_lineages: Vec::new(),
-        supporting_members: Vec::new(),
-        supporting_member_lineages: Vec::new(),
-        likely_tests: Vec::new(),
-        likely_test_lineages: Vec::new(),
-        evidence: vec!["Seeded in full mode before reopening as coordination-only.".to_string()],
-        risk_hint: None,
-        decode_lenses: vec![ConceptDecodeLens::Open],
-        scope: ConceptScope::Session,
-        provenance: ConceptProvenance {
-            origin: "test".to_string(),
-            kind: "mode_transition".to_string(),
-            task_id: Some("task:full-to-coordination-only-native-bindings".to_string()),
-        },
-        publication: None,
-    });
-    full.append_outcome(OutcomeEvent {
-        meta: EventMeta {
-            id: EventId::new("outcome:full-mode-durable-result"),
-            ts: 1,
-            actor: EventActor::Agent,
-            correlation: Some(TaskId::new(
-                "task:full-to-coordination-only-native-bindings",
-            )),
-            causation: None,
-            execution_context: None,
-        },
-        anchors: Vec::new(),
-        kind: OutcomeKind::FixValidated,
-        result: OutcomeResult::Success,
-        summary: "Persisted outcome used by native binding transition test.".to_string(),
-        evidence: Vec::new(),
-        metadata: serde_json::Value::Null,
-    })
-    .unwrap();
-    let (plan_id, node_id) = full
-        .mutate_coordination(|prism| {
-            let plan_id = prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:full-to-coordination-only-native-bindings"),
-                    ts: 1,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new(
-                        "task:full-to-coordination-only-native-bindings",
-                    )),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Preserve native bindings across mode transitions".into(),
-                "Coordination-only mode should retain durable plan bindings authored in full mode."
-                    .into(),
-                None,
-                None,
-            )?;
-            let node_id = prism.create_native_plan_node(
-                &plan_id,
-                prism_ir::PlanNodeKind::Edit,
-                "Carry durable refs from full mode".into(),
-                None,
-                Some(prism_ir::PlanNodeStatus::Ready),
-                None,
-                false,
-                prism_ir::PlanBinding {
-                    anchors: Vec::new(),
-                    concept_handles: vec!["concept://full-mode-durable-binding".into()],
-                    artifact_refs: Vec::new(),
-                    memory_refs: vec!["memory:full-mode-durable-note".into()],
-                    outcome_refs: vec!["outcome:full-mode-durable-result".into()],
-                },
-                Vec::new(),
-                Vec::new(),
-                Vec::new(),
-                prism_ir::WorkspaceRevision::default(),
-                None,
-                Vec::new(),
-            )?;
-            Ok((plan_id, node_id))
-        })
-        .unwrap();
-    flush_coordination_materializations(&full);
-    drop(full);
-
-    let coordination_only = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoordinationOnly,
-            shared_runtime: SharedRuntimeBackend::Disabled,
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-
-    assert!(coordination_only.prism().symbol("alpha").is_empty());
-    assert!(coordination_only
-        .prism()
-        .curated_concepts_snapshot()
-        .is_empty());
-    let graph = coordination_only
-        .prism()
-        .plan_graph(&plan_id)
-        .expect("plan graph should reload");
-    let node = graph
-        .nodes
-        .into_iter()
-        .find(|node| node.id == node_id)
-        .expect("native node should reload");
-    assert_eq!(node.bindings.anchors, Vec::<AnchorRef>::new());
-    assert_eq!(
-        node.bindings.concept_handles,
-        vec!["concept://full-mode-durable-binding"]
-    );
-    assert_eq!(
-        node.bindings.memory_refs,
-        vec!["memory:full-mode-durable-note"]
-    );
-    assert_eq!(
-        node.bindings.outcome_refs,
-        vec!["outcome:full-mode-durable-result"]
-    );
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn full_mode_reopens_coordination_only_workspace_and_rehydrates_graph_state() {
-    let _guard = background_worker_test_guard();
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let coordination_only = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoordinationOnly,
-            shared_runtime: SharedRuntimeBackend::Disabled,
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-    let plan_id = coordination_only
-        .mutate_coordination(|prism| {
-            prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:coordination-only-to-full"),
-                    ts: 1,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:coordination-only-to-full")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Rehydrate graph state after coordination-only startup".into(),
-                "Full mode should restore graph-backed state without losing coordination.".into(),
-                None,
-                None,
-            )
-        })
-        .unwrap();
-    flush_coordination_materializations(&coordination_only);
-    drop(coordination_only);
-
-    let full = index_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
-            shared_runtime: SharedRuntimeBackend::Disabled,
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-
-    assert!(full
-        .prism()
-        .symbol("alpha")
-        .into_iter()
-        .any(|symbol| symbol.id().path == "demo::alpha"));
-    assert!(full
-        .prism()
-        .coordination_snapshot()
-        .plans
-        .iter()
-        .any(|plan| plan.id == plan_id));
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn coordination_only_shared_runtime_sqlite_reloads_coordination_without_graph_state() {
-    let _guard = background_worker_test_guard();
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let options = WorkspaceSessionOptions {
-        runtime_mode: PrismRuntimeMode::CoordinationOnly,
-        shared_runtime: SharedRuntimeBackend::Sqlite {
-            path: shared_runtime_sqlite.clone(),
-        },
-        hydrate_persisted_projections: false,
-        hydrate_persisted_co_change: true,
-    };
-
-    let session = hydrate_workspace_session_with_options(&root, options.clone()).unwrap();
-    assert!(session.prism().symbol("alpha").is_empty());
-    session
-        .mutate_coordination(|prism| {
-            prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:coordination-only-sqlite-bootstrap"),
-                    ts: 1,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:coordination-only-sqlite-bootstrap")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Keep coordination alive with shared runtime sqlite".into(),
-                "Coordination-only reload should stay graph-free when shared runtime sqlite is enabled."
-                    .into(),
-                None,
-                None,
-            )
-        })
-        .unwrap();
-    flush_coordination_materializations(&session);
-    drop(session);
-
-    let reloaded = hydrate_workspace_session_with_options(&root, options).unwrap();
-    assert!(reloaded.prism().symbol("alpha").is_empty());
-    assert!(reloaded
-        .prism()
-        .coordination_snapshot()
-        .plans
-        .iter()
-        .any(|plan| plan.title == "Keep coordination alive with shared runtime sqlite"));
-
-    let _ = fs::remove_dir_all(root);
-    let _ = fs::remove_dir_all(shared_runtime_root);
-}
-
-#[test]
-fn coordination_only_reload_preserves_durable_plan_bindings_without_knowledge_storage() {
-    let _guard = background_worker_test_guard();
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let options = WorkspaceSessionOptions {
-        runtime_mode: PrismRuntimeMode::CoordinationOnly,
-        shared_runtime: SharedRuntimeBackend::Disabled,
-        hydrate_persisted_projections: false,
-        hydrate_persisted_co_change: true,
-    };
-
-    let session = hydrate_workspace_session_with_options(&root, options.clone()).unwrap();
-    let (plan_id, node_id) = session
-        .mutate_coordination(|prism| {
-            let plan_id = prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:coordination-only-binding-reload"),
-                    ts: 1,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:coordination-only-binding-reload")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Keep durable bindings in coordination-only mode".into(),
-                "Stable concept and outcome refs should persist without knowledge storage.".into(),
-                None,
-                None,
-            )?;
-            let node_id = prism.create_native_plan_node(
-                &plan_id,
-                prism_ir::PlanNodeKind::Edit,
-                "Carry durable refs".into(),
-                None,
-                Some(prism_ir::PlanNodeStatus::Ready),
-                None,
-                false,
-                prism_ir::PlanBinding {
-                    anchors: Vec::new(),
-                    concept_handles: vec!["concept://durable-binding".into()],
-                    artifact_refs: Vec::new(),
-                    memory_refs: vec!["memory:durable-binding-note".into()],
-                    outcome_refs: vec!["outcome:durable-binding-result".into()],
-                },
-                Vec::new(),
-                Vec::new(),
-                Vec::new(),
-                prism_ir::WorkspaceRevision::default(),
-                None,
-                Vec::new(),
-            )?;
-            Ok((plan_id, node_id))
-        })
-        .unwrap();
-    flush_coordination_materializations(&session);
-    drop(session);
-
-    let reloaded = hydrate_workspace_session_with_options(&root, options).unwrap();
-    assert!(reloaded.prism().symbol("alpha").is_empty());
-    let graph = reloaded.prism().plan_graph(&plan_id).expect("plan graph");
-    let node = graph
-        .nodes
-        .into_iter()
-        .find(|node| node.id == node_id)
-        .expect("native node should reload");
-    assert_eq!(node.bindings.anchors, Vec::<AnchorRef>::new());
-    assert_eq!(
-        node.bindings.concept_handles,
-        vec!["concept://durable-binding"]
-    );
-    assert_eq!(
-        node.bindings.memory_refs,
-        vec!["memory:durable-binding-note"]
-    );
-    assert_eq!(
-        node.bindings.outcome_refs,
-        vec!["outcome:durable-binding-result"]
-    );
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn coordination_only_shared_runtime_sqlite_hides_knowledge_when_reopened_from_full_mode() {
-    let _guard = background_worker_test_guard();
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let full = index_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite.clone(),
-            },
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-    let alpha = full
-        .prism()
-        .symbol("alpha")
-        .into_iter()
-        .find(|symbol| symbol.id().path == "demo::alpha")
-        .expect("alpha should be indexed")
-        .id()
-        .clone();
-    let mut entry = MemoryEntry::new(
-        MemoryKind::Structural,
-        "shared-runtime full-mode memory should stay hidden",
-    );
-    entry.id = MemoryId("memory:full-to-coordination-only-sqlite".to_string());
-    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
-    entry.scope = MemoryScope::Repo;
-    entry.source = MemorySource::User;
-    entry.trust = 0.9;
-    append_repo_memory_event(
-        &root,
-        &MemoryEvent::from_entry(
-            MemoryEventKind::Promoted,
-            entry.clone(),
-            Some("task:full-to-coordination-only-sqlite".to_string()),
-            Vec::new(),
-            Vec::new(),
-        ),
-    )
-    .unwrap();
-    crate::concept_events::append_repo_concept_event(
-        &root,
-        &ConceptEvent {
-            id: "concept-event:full-to-coordination-only-sqlite".to_string(),
-            recorded_at: 2,
-            task_id: Some("task:full-to-coordination-only-sqlite".to_string()),
-            actor: None,
-            execution_context: None,
-            action: ConceptEventAction::Promote,
-            patch: None,
-            concept: ConceptPacket {
-                handle: "concept://full_mode_alpha_shared_runtime".to_string(),
-                canonical_name: "full_mode_alpha_shared_runtime".to_string(),
-                summary:
-                    "Full-mode shared-runtime concept should stay hidden in coordination-only mode."
-                        .to_string(),
-                aliases: vec!["alpha".to_string()],
-                confidence: 0.9,
-                core_members: vec![alpha.clone()],
-                core_member_lineages: vec![full.prism().lineage_of(&alpha)],
-                supporting_members: Vec::new(),
-                supporting_member_lineages: Vec::new(),
-                likely_tests: Vec::new(),
-                likely_test_lineages: Vec::new(),
-                evidence: vec!["shared runtime mode transition test".to_string()],
-                risk_hint: None,
-                decode_lenses: vec![ConceptDecodeLens::Open],
-                scope: ConceptScope::Repo,
-                provenance: ConceptProvenance {
-                    origin: "test".to_string(),
-                    kind: "mode_transition".to_string(),
-                    task_id: Some("task:full-to-coordination-only-sqlite".to_string()),
-                },
-                publication: Some(ConceptPublication {
-                    published_at: 2,
-                    last_reviewed_at: Some(2),
-                    status: ConceptPublicationStatus::Active,
-                    supersedes: Vec::new(),
-                    retired_at: None,
-                    retirement_reason: None,
-                }),
-            },
-        },
-    )
-    .unwrap();
-    let plan_id = full
-        .mutate_coordination(|prism| {
-            prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:full-to-coordination-only-sqlite"),
-                    ts: 3,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:full-to-coordination-only-sqlite")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Retain coordination across shared-runtime mode changes".into(),
-                "Coordination-only mode should keep coordination while hiding knowledge layers."
-                    .into(),
-                None,
-                None,
-            )
-        })
-        .unwrap();
-    flush_coordination_materializations(&full);
-    drop(full);
-
-    let coordination_only = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoordinationOnly,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite,
-            },
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-
-    assert!(coordination_only.prism().symbol("alpha").is_empty());
-    assert!(coordination_only
-        .memory_events(&MemoryEventQuery {
-            memory_id: Some(entry.id),
-            focus: Vec::new(),
-            text: None,
-            limit: 5,
-            kinds: None,
-            actions: Some(vec![MemoryEventKind::Promoted]),
-            scope: Some(MemoryScope::Repo),
-            task_id: Some("task:full-to-coordination-only-sqlite".to_string()),
-            since: None,
-        })
-        .unwrap()
-        .is_empty());
-    assert!(coordination_only
-        .prism()
-        .curated_concepts_snapshot()
-        .into_iter()
-        .all(|concept| concept.handle != "concept://full_mode_alpha_shared_runtime"));
-    assert!(coordination_only
-        .prism()
-        .coordination_snapshot()
-        .plans
-        .iter()
-        .any(|plan| plan.id == plan_id));
-
-    let _ = fs::remove_dir_all(root);
-    let _ = fs::remove_dir_all(shared_runtime_root);
-}
-
-#[test]
-fn coordination_only_shared_runtime_sqlite_preserves_native_plan_bindings_from_full_mode() {
-    let _guard = background_worker_test_guard();
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let full = index_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite.clone(),
-            },
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-    full.prism().upsert_curated_concept(ConceptPacket {
-        handle: "concept://shared-runtime-durable-binding".to_string(),
-        canonical_name: "shared_runtime_durable_binding".to_string(),
-        summary:
-            "A full-mode shared-runtime concept used to validate coordination-only transition persistence."
-                .to_string(),
-        aliases: vec!["shared durable binding".to_string()],
-        confidence: 0.9,
-        core_members: Vec::new(),
-        core_member_lineages: Vec::new(),
-        supporting_members: Vec::new(),
-        supporting_member_lineages: Vec::new(),
-        likely_tests: Vec::new(),
-        likely_test_lineages: Vec::new(),
-        evidence: vec![
-            "Seeded in shared-runtime full mode before reopening as coordination-only."
-                .to_string(),
-        ],
-        risk_hint: None,
-        decode_lenses: vec![ConceptDecodeLens::Open],
-        scope: ConceptScope::Session,
-        provenance: ConceptProvenance {
-            origin: "test".to_string(),
-            kind: "mode_transition".to_string(),
-            task_id: Some(
-                "task:shared-runtime-full-to-coordination-only-native-bindings".to_string(),
-            ),
-        },
-        publication: None,
-    });
-    full.append_outcome(OutcomeEvent {
-        meta: EventMeta {
-            id: EventId::new("outcome:shared-runtime-durable-result"),
-            ts: 1,
-            actor: EventActor::Agent,
-            correlation: Some(TaskId::new(
-                "task:shared-runtime-full-to-coordination-only-native-bindings",
-            )),
-            causation: None,
-            execution_context: None,
-        },
-        anchors: Vec::new(),
-        kind: OutcomeKind::FixValidated,
-        result: OutcomeResult::Success,
-        summary: "Persisted shared-runtime outcome used by native binding transition test."
-            .to_string(),
-        evidence: Vec::new(),
-        metadata: serde_json::Value::Null,
-    })
-    .unwrap();
-    let (plan_id, node_id) = full
-        .mutate_coordination(|prism| {
-            let plan_id = prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new(
-                        "coordination:shared-runtime-full-to-coordination-only-native-bindings",
-                    ),
-                    ts: 2,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new(
-                        "task:shared-runtime-full-to-coordination-only-native-bindings",
-                    )),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Preserve shared-runtime native bindings across mode transitions".into(),
-                "Coordination-only shared-runtime mode should retain durable plan bindings authored in full mode."
-                    .into(),
-                None,
-                None,
-            )?;
-            let node_id = prism.create_native_plan_node(
-                &plan_id,
-                prism_ir::PlanNodeKind::Edit,
-                "Carry shared-runtime durable refs from full mode".into(),
-                None,
-                Some(prism_ir::PlanNodeStatus::Ready),
-                None,
-                false,
-                prism_ir::PlanBinding {
-                    anchors: Vec::new(),
-                    concept_handles: vec!["concept://shared-runtime-durable-binding".into()],
-                    artifact_refs: Vec::new(),
-                    memory_refs: vec!["memory:shared-runtime-durable-note".into()],
-                    outcome_refs: vec!["outcome:shared-runtime-durable-result".into()],
-                },
-                Vec::new(),
-                Vec::new(),
-                Vec::new(),
-                prism_ir::WorkspaceRevision::default(),
-                None,
-                Vec::new(),
-            )?;
-            Ok((plan_id, node_id))
-        })
-        .unwrap();
-    flush_coordination_materializations(&full);
-    drop(full);
-
-    let coordination_only = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoordinationOnly,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite,
-            },
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-
-    assert!(coordination_only.prism().symbol("alpha").is_empty());
-    assert!(coordination_only
-        .prism()
-        .curated_concepts_snapshot()
-        .is_empty());
-    let graph = coordination_only
-        .prism()
-        .plan_graph(&plan_id)
-        .expect("plan graph should reload");
-    let node = graph
-        .nodes
-        .into_iter()
-        .find(|node| node.id == node_id)
-        .expect("native node should reload");
-    assert_eq!(node.bindings.anchors, Vec::<AnchorRef>::new());
-    assert_eq!(
-        node.bindings.concept_handles,
-        vec!["concept://shared-runtime-durable-binding"]
-    );
-    assert_eq!(
-        node.bindings.memory_refs,
-        vec!["memory:shared-runtime-durable-note"]
-    );
-    assert_eq!(
-        node.bindings.outcome_refs,
-        vec!["outcome:shared-runtime-durable-result"]
-    );
-
-    let _ = fs::remove_dir_all(root);
-    let _ = fs::remove_dir_all(shared_runtime_root);
-}
-
-#[test]
-fn full_mode_shared_runtime_sqlite_reopens_coordination_only_workspace_and_rehydrates_graph_state()
-{
-    let _guard = background_worker_test_guard();
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let coordination_only = hydrate_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::CoordinationOnly,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite.clone(),
-            },
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-    let plan_id = coordination_only
-        .mutate_coordination(|prism| {
-            prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:coordination-only-to-full-sqlite"),
-                    ts: 1,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:coordination-only-to-full-sqlite")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Rehydrate graph state after coordination-only sqlite startup".into(),
-                "Full mode should restore graph-backed state from a shared-runtime sqlite session."
-                    .into(),
-                None,
-                None,
-            )
-        })
-        .unwrap();
-    flush_coordination_materializations(&coordination_only);
-    drop(coordination_only);
-
-    let full = index_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            runtime_mode: PrismRuntimeMode::Full,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite,
-            },
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
-    )
-    .unwrap();
-
-    assert!(full
-        .prism()
-        .symbol("alpha")
-        .into_iter()
-        .any(|symbol| symbol.id().path == "demo::alpha"));
-    assert!(full
-        .prism()
-        .coordination_snapshot()
-        .plans
-        .iter()
-        .any(|plan| plan.id == plan_id));
-
-    let _ = fs::remove_dir_all(root);
-    let _ = fs::remove_dir_all(shared_runtime_root);
 }
 
 #[test]

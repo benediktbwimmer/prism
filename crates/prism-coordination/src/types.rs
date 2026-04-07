@@ -471,6 +471,7 @@ pub struct TaskUpdateInput {
 pub struct TaskCompletionContext {
     pub risk_score: Option<f32>,
     pub required_validations: Vec<String>,
+    pub validated_checks: Vec<String>,
     pub review_artifact_ref: Option<String>,
     pub integration_commit: Option<String>,
     pub integration_evidence: Option<prism_ir::GitIntegrationEvidence>,

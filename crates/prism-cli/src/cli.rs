@@ -187,8 +187,6 @@ pub enum McpCommand {
         no_coordination: bool,
         #[arg(long, default_value_t = false)]
         internal_developer: bool,
-        #[arg(long = "shared-runtime-sqlite")]
-        shared_runtime_sqlite: Option<PathBuf>,
         #[arg(long = "shared-runtime-uri")]
         shared_runtime_uri: Option<String>,
         #[arg(long, hide = true, default_value_t = false)]
@@ -205,8 +203,6 @@ pub enum McpCommand {
         ui: bool,
         #[arg(long = "http-bind")]
         http_bind: Option<String>,
-        #[arg(long = "shared-runtime-sqlite")]
-        shared_runtime_sqlite: Option<PathBuf>,
         #[arg(long = "shared-runtime-uri")]
         shared_runtime_uri: Option<String>,
     },
@@ -227,8 +223,6 @@ pub enum McpCommand {
         ui: bool,
         #[arg(long = "http-bind")]
         http_bind: Option<String>,
-        #[arg(long = "shared-runtime-sqlite")]
-        shared_runtime_sqlite: Option<PathBuf>,
         #[arg(long = "shared-runtime-uri")]
         shared_runtime_uri: Option<String>,
         #[arg(
@@ -479,7 +473,6 @@ mod tests {
                         internal_developer,
                         ui,
                         http_bind,
-                        shared_runtime_sqlite,
                         shared_runtime_uri,
                     },
             } => {
@@ -488,7 +481,6 @@ mod tests {
                 assert!(!internal_developer);
                 assert!(!ui);
                 assert!(http_bind.is_none());
-                assert!(shared_runtime_sqlite.is_none());
                 assert!(shared_runtime_uri.is_none());
             }
             _ => panic!("unexpected command"),

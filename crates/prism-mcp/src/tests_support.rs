@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
-use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
@@ -21,9 +20,10 @@ use serde_json::{json, Value};
 
 use super::*;
 use prism_core::{
-    default_workspace_session_options, index_workspace_session,
-    index_workspace_session_with_options, BootstrapOwnerInput, PrismPaths, WorktreeMode,
-    WorktreeRegistrationRecord,
+    default_workspace_session_options, default_workspace_shared_runtime,
+    hydrate_workspace_session_with_options, index_workspace_session,
+    index_workspace_session_with_options, BootstrapOwnerInput, PrismPaths, WorkspaceSessionOptions,
+    WorktreeMode, WorktreeRegistrationRecord,
 };
 use prism_ir::new_sortable_token;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
@@ -43,8 +43,6 @@ thread_local! {
         paths: Vec::new(),
     });
 }
-
-static CREDENTIALS_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 struct TempTestDirState {
     paths: Vec<PathBuf>,
@@ -73,7 +71,6 @@ pub(crate) fn ensure_process_test_prism_home() -> &'static PathBuf {
         unsafe {
             env::set_var("PRISM_HOME", &path);
             env::set_var("PRISM_TEST_DISABLE_LIVE_WATCHERS", "1");
-            env::set_var("PRISM_TEST_DISABLE_DEFAULT_SHARED_RUNTIME", "1");
             env::set_var("PRISM_TEST_DISABLE_SHARED_COORDINATION_REF_PUBLISH", "1");
             env::set_var("PRISM_TEST_FAST_PROXY_RECONNECT", "1");
         }
@@ -82,10 +79,11 @@ pub(crate) fn ensure_process_test_prism_home() -> &'static PathBuf {
 }
 
 pub(crate) fn credentials_test_lock() -> MutexGuard<'static, ()> {
-    match CREDENTIALS_TEST_LOCK.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    }
+    static CREDENTIALS_TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    CREDENTIALS_TEST_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("credentials test lock poisoned")
 }
 
 pub(crate) fn temp_test_dir(prefix: &str) -> PathBuf {
@@ -170,7 +168,7 @@ pub(crate) fn workspace_session_with_owner_credential(
     let _ = ensure_process_test_prism_home();
     let mut options = default_workspace_session_options(root)
         .expect("default workspace session options should resolve");
-    options.runtime_mode = prism_core::PrismRuntimeMode::Full;
+    options.runtime_mode = prism_ir::PrismRuntimeMode::Full;
     options.hydrate_persisted_projections = false;
     options.hydrate_persisted_co_change = false;
     let session = index_workspace_session_with_options(root, options)
@@ -193,6 +191,36 @@ pub(crate) fn workspace_session_with_owner_credential(
     )
 }
 
+pub(crate) fn hydrate_workspace_session_with_shared_runtime(root: &Path) -> WorkspaceSession {
+    let _ = ensure_process_test_prism_home();
+    hydrate_workspace_session_with_options(
+        root,
+        WorkspaceSessionOptions {
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
+            shared_runtime: default_workspace_shared_runtime(root)
+                .expect("default shared runtime should resolve"),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .expect("workspace session should hydrate")
+}
+
+pub(crate) fn index_workspace_session_with_shared_runtime(root: &Path) -> WorkspaceSession {
+    let _ = ensure_process_test_prism_home();
+    index_workspace_session_with_options(
+        root,
+        WorkspaceSessionOptions {
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
+            shared_runtime: default_workspace_shared_runtime(root)
+                .expect("default shared runtime should resolve"),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .expect("workspace session should index")
+}
+
 pub(crate) fn register_test_human_worktree(root: &Path) -> String {
     register_test_worktree(root, "operator", WorktreeMode::Human).agent_label
 }
@@ -206,14 +234,11 @@ fn register_test_worktree(
     prefix: &str,
     mode: WorktreeMode,
 ) -> WorktreeRegistrationRecord {
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    root.hash(&mut hasher);
     let label = format!(
-        "{prefix}-{}-{:x}",
+        "{prefix}-{}",
         root.file_name()
             .and_then(|name| name.to_str())
-            .unwrap_or("test-root"),
-        hasher.finish()
+            .unwrap_or("test-root")
     );
     PrismPaths::for_workspace_root(root)
         .expect("paths should resolve")
@@ -386,22 +411,6 @@ pub(crate) fn server_with_node_and_features(
     graph.adjacency = HashMap::new();
     graph.reverse_adjacency = HashMap::new();
     PrismMcpServer::new_with_features(Prism::new(graph), features)
-}
-
-pub(crate) fn server_with_shared_session_and_features(
-    workspace: Arc<WorkspaceSession>,
-    features: PrismMcpFeatures,
-) -> PrismMcpServer {
-    let host = Arc::new(QueryHost::with_shared_session_and_limits_and_features(
-        workspace,
-        QueryLimits::default(),
-        features.with_runtime_diagnostics_auto_refresh(false),
-    ));
-    PrismMcpServer {
-        tool_router: PrismMcpServer::build_tool_router(),
-        session: host.new_session_state(),
-        host,
-    }
 }
 
 pub(crate) async fn spawn_http_upstream(

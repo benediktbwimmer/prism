@@ -162,7 +162,6 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
         McpCommand::Bridge {
             no_coordination,
             internal_developer,
-            shared_runtime_sqlite,
             shared_runtime_uri,
             bootstrap_build_worktree_release,
             bridge_daemon_binary,
@@ -170,7 +169,6 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             &root,
             no_coordination,
             internal_developer,
-            shared_runtime_sqlite,
             shared_runtime_uri,
             bootstrap_build_worktree_release,
             bridge_daemon_binary,
@@ -180,7 +178,6 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             internal_developer,
             ui,
             http_bind,
-            shared_runtime_sqlite,
             shared_runtime_uri,
         } => start(
             &root,
@@ -188,7 +185,6 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             internal_developer,
             ui,
             http_bind,
-            shared_runtime_sqlite,
             shared_runtime_uri,
             "start",
             None,
@@ -201,7 +197,6 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             internal_developer,
             ui,
             http_bind,
-            shared_runtime_sqlite,
             shared_runtime_uri,
         } => {
             let paths = McpPaths::for_root(&root)?;
@@ -224,7 +219,6 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
                 internal_developer,
                 ui,
                 http_bind,
-                shared_runtime_sqlite,
                 shared_runtime_uri,
                 "restart",
                 Some(&restart_nonce),
@@ -240,15 +234,10 @@ fn bridge(
     root: &Path,
     no_coordination: bool,
     internal_developer: bool,
-    shared_runtime_sqlite: Option<PathBuf>,
     shared_runtime_uri: Option<String>,
     bootstrap_build_worktree_release: bool,
     bridge_daemon_binary: Option<PathBuf>,
 ) -> Result<()> {
-    if shared_runtime_sqlite.is_some() && shared_runtime_uri.is_some() {
-        bail!("configure either shared runtime sqlite or shared runtime uri, not both");
-    }
-
     let paths = McpPaths::for_root(root)?;
     let binary = prism_mcp_binary()?;
     let args = bridge_exec_args(
@@ -256,7 +245,6 @@ fn bridge(
         &paths,
         no_coordination,
         internal_developer,
-        shared_runtime_sqlite.as_deref(),
         shared_runtime_uri.as_deref(),
         bootstrap_build_worktree_release,
         bridge_daemon_binary.as_deref(),
@@ -427,7 +415,6 @@ fn start(
     internal_developer: bool,
     ui: bool,
     http_bind: Option<String>,
-    shared_runtime_sqlite: Option<PathBuf>,
     shared_runtime_uri: Option<String>,
     operation: &str,
     restart_nonce: Option<&str>,
@@ -482,7 +469,6 @@ fn start(
         no_coordination,
         internal_developer,
         ui,
-        shared_runtime_sqlite.as_deref(),
         shared_runtime_uri.as_deref(),
         restart_nonce,
     )?;
@@ -724,7 +710,6 @@ fn bridge_exec_args(
     paths: &McpPaths,
     no_coordination: bool,
     internal_developer: bool,
-    shared_runtime_sqlite: Option<&Path>,
     shared_runtime_uri: Option<&str>,
     bootstrap_build_worktree_release: bool,
     bridge_daemon_binary: Option<&Path>,
@@ -742,10 +727,6 @@ fn bridge_exec_args(
     }
     if internal_developer {
         args.push(OsString::from("--internal-developer"));
-    }
-    if let Some(shared_runtime_sqlite) = shared_runtime_sqlite {
-        args.push(OsString::from("--shared-runtime-sqlite"));
-        args.push(shared_runtime_sqlite.as_os_str().to_os_string());
     }
     if let Some(shared_runtime_uri) = shared_runtime_uri {
         args.push(OsString::from("--shared-runtime-uri"));
@@ -810,13 +791,9 @@ fn spawn_daemon(
     no_coordination: bool,
     internal_developer: bool,
     ui: bool,
-    shared_runtime_sqlite: Option<&Path>,
     shared_runtime_uri: Option<&str>,
     restart_nonce: Option<&str>,
 ) -> Result<()> {
-    if shared_runtime_sqlite.is_some() && shared_runtime_uri.is_some() {
-        bail!("configure either shared runtime sqlite or shared runtime uri, not both");
-    }
     let mut args = vec![
         "--mode".to_string(),
         "daemon".to_string(),
@@ -842,10 +819,6 @@ fn spawn_daemon(
     }
     if ui {
         args.push("--ui".to_string());
-    }
-    if let Some(shared_runtime_sqlite) = shared_runtime_sqlite {
-        args.push("--shared-runtime-sqlite".to_string());
-        args.push(shared_runtime_sqlite.display().to_string());
     }
     if let Some(shared_runtime_uri) = shared_runtime_uri {
         args.push("--shared-runtime-uri".to_string());
@@ -2188,7 +2161,7 @@ mod tests {
     fn bridge_exec_args_include_required_bridge_flags() {
         let root = temp_root("bridge-exec-args");
         let paths = McpPaths::for_root(&root).unwrap();
-        let args = bridge_exec_args(&root, &paths, false, true, None, None, false, None)
+        let args = bridge_exec_args(&root, &paths, false, true, None, false, None)
             .into_iter()
             .map(|arg| arg.to_string_lossy().to_string())
             .collect::<Vec<_>>();
@@ -2209,31 +2182,15 @@ mod tests {
     }
 
     #[test]
-    fn bridge_exec_args_forward_shared_runtime_selection() {
+    fn bridge_exec_args_omit_shared_runtime_uri_when_unset() {
         let root = temp_root("bridge-exec-shared-runtime");
         let paths = McpPaths::for_root(&root).unwrap();
-        let sqlite = root.join("shared-runtime.db");
-        let args = bridge_exec_args(
-            &root,
-            &paths,
-            true,
-            false,
-            Some(sqlite.as_path()),
-            None,
-            false,
-            None,
-        )
-        .into_iter()
-        .map(|arg| arg.to_string_lossy().to_string())
-        .collect::<Vec<_>>();
+        let args = bridge_exec_args(&root, &paths, true, false, None, false, None)
+            .into_iter()
+            .map(|arg| arg.to_string_lossy().to_string())
+            .collect::<Vec<_>>();
 
-        assert!(args.windows(2).any(|window| {
-            window
-                == [
-                    "--shared-runtime-sqlite".to_string(),
-                    sqlite.display().to_string(),
-                ]
-        }));
+        assert!(!args.contains(&"--shared-runtime-uri".to_string()));
         assert!(args.contains(&"--no-coordination".to_string()));
         fs::remove_dir_all(root).ok();
     }

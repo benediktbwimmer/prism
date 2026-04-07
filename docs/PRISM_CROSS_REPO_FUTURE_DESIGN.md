@@ -668,7 +668,8 @@ The backend is the place for:
 The first useful shape is:
 
 - one PRISM daemon per machine as the normal operating form
-- one shared runtime SQLite store per repo on that machine today
+- worktree-local SQLite stores for hot runtime state
+- shared coordination refs plus runtime descriptors for repo-shared continuity
 - optional project-scoped coordination storage above repo scope
 - one `WorkspaceRuntimeEngine` per worktree/workspace internally
 

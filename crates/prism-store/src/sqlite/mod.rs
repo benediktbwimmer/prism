@@ -488,6 +488,10 @@ impl SqliteStore {
         })
     }
 
+    pub fn outcome_revision(&self) -> Result<u64> {
+        retry::retry_on_transient_sqlite_read(|| metadata_value(&self.conn, OUTCOME_REVISION_KEY))
+    }
+
     pub fn load_lineage_history(
         &self,
         lineage: &prism_ir::LineageId,

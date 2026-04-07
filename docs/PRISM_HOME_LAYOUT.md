@@ -171,11 +171,13 @@ support.
 
 ## Current Implementation Status
 
-The current codebase already implements the first half of this split:
+The current codebase already implements the worktree-local hot-state side of this split:
 
 - `PRISM_HOME` override support with `$HOME/.prism` as the default
-- repo-scoped shared runtime storage at
-  `~/.prism/repos/<repo_id>/shared/runtime/state.db`
+- worktree-scoped runtime cache storage at
+  `~/.prism/repos/<repo_id>/worktrees/<worktree_id>/cache/state.db`
+- repo-scoped shared coordination refs and shared-backup migration artifacts under
+  `~/.prism/repos/<repo_id>/shared/`
 - repo-scoped validation feedback under `feedback/`
 - worktree-scoped MCP URI, runtime, session-seed, and log paths under
   `worktrees/<worktree_id>/mcp/`
@@ -362,8 +364,8 @@ published repo knowledge.
 | `<repo>/.prism/concepts/**` | unchanged | repo | published repo truth |
 | `<repo>/.prism/contracts/**` | unchanged | repo | published repo truth |
 | `<repo>/.prism/memory/**` | unchanged | repo | published repo truth |
-| `<repo>/.prism/cache.db*` | `~/.prism/repos/<repo_id>/shared/runtime/state.db*` | shared runtime authority | repo-scoped local mutable truth |
-| `<repo>/.prism/backups/cache.db*.bak` | `~/.prism/repos/<repo_id>/shared/backups/state.db*.bak` | shared runtime authority | local recovery material for shared runtime state |
+| `<repo>/.prism/cache.db*` | `~/.prism/repos/<repo_id>/worktrees/<worktree_id>/cache/state.db*` | worktree-local runtime cache | local mutable truth for rich runtime state |
+| `<repo>/.prism/backups/cache.db*.bak` | `~/.prism/repos/<repo_id>/worktrees/<worktree_id>/backups/state.db*.bak` | worktree-local runtime cache | local recovery material for worktree cache state |
 | `<repo>/.prism/validation_feedback.jsonl` | `~/.prism/repos/<repo_id>/feedback/validation_feedback.jsonl` | repo-local user state | not publishable repo truth |
 | `<repo>/.prism/prism-mcp-http-uri` | `~/.prism/repos/<repo_id>/worktrees/<worktree_id>/mcp/state/prism-mcp-http-uri` | worktree | process handoff file |
 | `<repo>/.prism/prism-mcp-runtime.json` | `~/.prism/repos/<repo_id>/worktrees/<worktree_id>/mcp/state/prism-mcp-runtime.json` | worktree | local runtime snapshot |

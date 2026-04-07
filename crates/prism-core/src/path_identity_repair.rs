@@ -54,7 +54,7 @@ fn inspect_or_repair_legacy_path_identity_state(
     }
 
     let paths = PrismPaths::for_workspace_root(root)?;
-    let shared_runtime_path = paths.shared_runtime_dir().join("state.db");
+    let shared_runtime_path = paths.shared_runtime_db_path()?;
     if let Some(report) = inspect_or_repair_sqlite_patch_log(
         root,
         &repo_roots,

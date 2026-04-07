@@ -868,6 +868,11 @@ not as the only live truth.
 
 ## 16. Migration Plan
 
+The concrete backend-removal contract and responsibility map for this migration are locked in
+[PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md](./PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md).
+That document is the implementation reference for what stays on shared refs, what stays local, what
+moves to peer or archive enrichment, and what must be deleted outright.
+
 ### Phase 1: shared coordination refs
 
 Implement the shared coordination ref model first.

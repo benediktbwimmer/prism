@@ -10,7 +10,10 @@ use prism_ir::{
     sortable_token_timestamp, ClaimStatus, CoordinationEventKind, CoordinationTaskId,
     CoordinationTaskStatus,
 };
-use prism_ir::{PlanId, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus, PlanScope, PlanStatus, TaskId};
+use prism_ir::{
+    PlanId, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus, PlanScope,
+    PlanStatus, TaskId,
+};
 use prism_memory::OutcomeRecallQuery;
 use prism_query::PlanActivity;
 
@@ -572,10 +575,9 @@ impl QueryHostUiReadModelsExt for QueryHost {
                 .plan_node_blockers(&plan_id, &node.id)
                 .into_iter()
                 .map(|blocker| PrismUiTaskBlockerEntryView {
-                    related_task: blocker
-                        .related_node_id
-                        .as_ref()
-                        .and_then(|related_id| native_or_coordination_related_task_view(&prism, related_id)),
+                    related_task: blocker.related_node_id.as_ref().and_then(|related_id| {
+                        native_or_coordination_related_task_view(&prism, related_id)
+                    }),
                     blocker: plan_node_blocker_view_for_ui(blocker),
                 })
                 .collect::<Vec<_>>();
@@ -755,9 +757,10 @@ impl QueryHostUiReadModelsExt for QueryHost {
 
 fn find_native_plan_node(prism: &prism_query::Prism, task_id: &str) -> Option<(PlanId, PlanNode)> {
     prism.plan_graphs().into_iter().find_map(|graph| {
-        graph.nodes.into_iter().find_map(|node| {
-            (node.id.0 == task_id).then(|| (graph.id.clone(), node))
-        })
+        graph
+            .nodes
+            .into_iter()
+            .find_map(|node| (node.id.0 == task_id).then(|| (graph.id.clone(), node)))
     })
 }
 
@@ -769,9 +772,8 @@ fn native_or_coordination_related_task_view(
         .coordination_task(&CoordinationTaskId::new(node_id.0.clone()))
         .map(coordination_task_view)
         .or_else(|| {
-            find_native_plan_node(prism, &node_id.0).map(|(_, node)| {
-                task_shaped_view_for_native_plan_node(node)
-            })
+            find_native_plan_node(prism, &node_id.0)
+                .map(|(_, node)| task_shaped_view_for_native_plan_node(node))
         })
 }
 

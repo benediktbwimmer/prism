@@ -739,7 +739,10 @@ impl NativePlanRuntimeState {
         let plan_key = task.plan.0.to_string();
         let node_id = plan_node_id_from_task_id(task.id.clone());
         let overlays = self.execution_overlays.entry(plan_key).or_default();
-        let existing_overlay = overlays.iter().find(|overlay| overlay.node_id == node_id).cloned();
+        let existing_overlay = overlays
+            .iter()
+            .find(|overlay| overlay.node_id == node_id)
+            .cloned();
         overlays.retain(|overlay| overlay.node_id != node_id);
         let preserve_authored_execution = self
             .graphs
@@ -764,27 +767,47 @@ impl NativePlanRuntimeState {
             })
             .or_else(|| {
                 preserve_authored_execution
-                    .then(|| existing_overlay.as_ref().and_then(|overlay| overlay.git_execution.clone()))
+                    .then(|| {
+                        existing_overlay
+                            .as_ref()
+                            .and_then(|overlay| overlay.git_execution.clone())
+                    })
                     .flatten()
             });
         let pending_handoff_to = task.pending_handoff_to.clone().or_else(|| {
             preserve_authored_execution
-                .then(|| existing_overlay.as_ref().and_then(|overlay| overlay.pending_handoff_to.clone()))
+                .then(|| {
+                    existing_overlay
+                        .as_ref()
+                        .and_then(|overlay| overlay.pending_handoff_to.clone())
+                })
                 .flatten()
         });
         let session = task.session.clone().or_else(|| {
             preserve_authored_execution
-                .then(|| existing_overlay.as_ref().and_then(|overlay| overlay.session.clone()))
+                .then(|| {
+                    existing_overlay
+                        .as_ref()
+                        .and_then(|overlay| overlay.session.clone())
+                })
                 .flatten()
         });
         let worktree_id = task.worktree_id.clone().or_else(|| {
             preserve_authored_execution
-                .then(|| existing_overlay.as_ref().and_then(|overlay| overlay.worktree_id.clone()))
+                .then(|| {
+                    existing_overlay
+                        .as_ref()
+                        .and_then(|overlay| overlay.worktree_id.clone())
+                })
                 .flatten()
         });
         let branch_ref = task.branch_ref.clone().or_else(|| {
             preserve_authored_execution
-                .then(|| existing_overlay.as_ref().and_then(|overlay| overlay.branch_ref.clone()))
+                .then(|| {
+                    existing_overlay
+                        .as_ref()
+                        .and_then(|overlay| overlay.branch_ref.clone())
+                })
                 .flatten()
         });
         if pending_handoff_to.is_some()
@@ -1535,7 +1558,7 @@ fn effective_coordination_task_status(task: &CoordinationTask) -> prism_ir::Coor
     if task.pending_handoff_to.is_some() {
         prism_ir::CoordinationTaskStatus::Blocked
     } else {
-        task.published_task_status.unwrap_or(task.status)
+        task.status
     }
 }
 

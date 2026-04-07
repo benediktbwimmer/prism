@@ -3,14 +3,16 @@ use std::path::Path;
 
 use anyhow::Result;
 use prism_coordination::{
-    migrate_legacy_hybrid_snapshot_to_canonical_v2, CoordinationSnapshot, CoordinationSnapshotV2,
+    migrate_legacy_hybrid_snapshot_to_canonical_v2, snapshot_plan_graphs, CoordinationSnapshot,
+    CoordinationSnapshotV2,
 };
-use prism_ir::{PlanExecutionOverlay, PlanGraph};
+use prism_ir::{PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanNodeId};
 use prism_store::{
     CoordinationCheckpointStore, CoordinationJournal, CoordinationStartupCheckpoint,
     CoordinationStartupCheckpointAuthority,
 };
 
+use crate::coordination_snapshot_sanitization::sanitize_persisted_coordination_snapshot;
 use crate::published_plans::{
     execution_overlays_by_plan, merge_shared_coordination_into_snapshot,
     merge_snapshot_bootstrap_into_plan_state, HydratedCoordinationPlanState,
@@ -31,15 +33,17 @@ where
     };
     Ok(match snapshot {
         Some(snapshot) => {
-            let mut plan_graphs = checkpoint.plan_graphs;
-            let mut execution_overlays = checkpoint.execution_overlays;
-            let runtime_descriptors = checkpoint.runtime_descriptors;
+            let (mut plan_graphs, mut execution_overlays) = compatibility_plan_state(
+                &checkpoint.plan_graphs,
+                &checkpoint.execution_overlays,
+                &checkpoint.snapshot,
+            );
+            let snapshot = merge_shared_coordination_into_snapshot(checkpoint.snapshot, snapshot);
             merge_snapshot_bootstrap_into_plan_state(
                 &snapshot,
                 &mut plan_graphs,
                 &mut execution_overlays,
             );
-            let snapshot = merge_shared_coordination_into_snapshot(checkpoint.snapshot, snapshot);
             Some(HydratedCoordinationPlanState {
                 canonical_snapshot_v2: migrate_legacy_hybrid_snapshot_to_canonical_v2(
                     &snapshot,
@@ -49,23 +53,30 @@ where
                 snapshot,
                 plan_graphs,
                 execution_overlays,
-                runtime_descriptors,
+                // Runtime descriptors must come from live shared-coordination refs,
+                // never from a local startup checkpoint payload.
+                runtime_descriptors: Vec::new(),
             })
         }
         None => {
+            let (plan_graphs, execution_overlays) = compatibility_plan_state(
+                &checkpoint.plan_graphs,
+                &checkpoint.execution_overlays,
+                &checkpoint.snapshot,
+            );
             let snapshot = checkpoint.snapshot;
             Some(HydratedCoordinationPlanState {
                 canonical_snapshot_v2: checkpoint.canonical_snapshot_v2.unwrap_or(
                     migrate_legacy_hybrid_snapshot_to_canonical_v2(
                         &snapshot,
-                        &checkpoint.plan_graphs,
-                        &checkpoint.execution_overlays,
+                        &plan_graphs,
+                        &execution_overlays,
                     )?,
                 ),
                 snapshot,
-                plan_graphs: checkpoint.plan_graphs,
-                execution_overlays: checkpoint.execution_overlays,
-                runtime_descriptors: checkpoint.runtime_descriptors,
+                plan_graphs,
+                execution_overlays,
+                runtime_descriptors: Vec::new(),
             })
         }
     })
@@ -104,20 +115,32 @@ where
     };
     Ok(match snapshot {
         Some(snapshot) => {
+            let (plan_graphs, execution_overlays) = compatibility_plan_state(
+                &checkpoint.plan_graphs,
+                &checkpoint.execution_overlays,
+                &checkpoint.snapshot,
+            );
             let snapshot = merge_shared_coordination_into_snapshot(checkpoint.snapshot, snapshot);
             Some(migrate_legacy_hybrid_snapshot_to_canonical_v2(
                 &snapshot,
-                &checkpoint.plan_graphs,
-                &checkpoint.execution_overlays,
+                &plan_graphs,
+                &execution_overlays,
             )?)
         }
-        None => Some(checkpoint.canonical_snapshot_v2.unwrap_or(
-            migrate_legacy_hybrid_snapshot_to_canonical_v2(
-                &checkpoint.snapshot,
+        None => {
+            let (plan_graphs, execution_overlays) = compatibility_plan_state(
                 &checkpoint.plan_graphs,
                 &checkpoint.execution_overlays,
-            )?,
-        )),
+                &checkpoint.snapshot,
+            );
+            Some(checkpoint.canonical_snapshot_v2.unwrap_or(
+                migrate_legacy_hybrid_snapshot_to_canonical_v2(
+                    &checkpoint.snapshot,
+                    &plan_graphs,
+                    &execution_overlays,
+                )?,
+            ))
+        }
     })
 }
 
@@ -127,13 +150,14 @@ pub(crate) fn save_shared_coordination_startup_checkpoint<S>(
     snapshot: &CoordinationSnapshot,
     plan_graphs: &[PlanGraph],
     execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
-    runtime_descriptors: &[prism_coordination::RuntimeDescriptor],
 ) -> Result<()>
 where
     S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
 {
     let authority = coordination_startup_authority(root)?;
-    let mut checkpoint_snapshot = snapshot.clone();
+    let mut checkpoint_snapshot = sanitize_persisted_coordination_snapshot(
+        snapshot_with_compat_authored_plan_graph_state(snapshot.clone(), plan_graphs),
+    );
     checkpoint_snapshot.events.clear();
     store.save_coordination_startup_checkpoint(&CoordinationStartupCheckpoint {
         version: CoordinationStartupCheckpoint::VERSION,
@@ -146,10 +170,72 @@ where
             plan_graphs,
             execution_overlays,
         )?),
-        plan_graphs: plan_graphs.to_vec(),
-        execution_overlays: execution_overlays.clone(),
-        runtime_descriptors: runtime_descriptors.to_vec(),
+        plan_graphs: Vec::new(),
+        execution_overlays: BTreeMap::new(),
+        runtime_descriptors: Vec::new(),
     })
+}
+
+fn snapshot_with_compat_authored_plan_graph_state(
+    mut snapshot: CoordinationSnapshot,
+    plan_graphs: &[PlanGraph],
+) -> CoordinationSnapshot {
+    let graphs_by_plan = plan_graphs
+        .iter()
+        .map(|graph| (graph.id.0.to_string(), graph))
+        .collect::<BTreeMap<_, _>>();
+    for plan in &mut snapshot.plans {
+        let Some(graph) = graphs_by_plan.get(plan.id.0.as_str()) else {
+            continue;
+        };
+        plan.authored_nodes = graph
+            .nodes
+            .iter()
+            .filter(|node| !is_task_backed_plan_node_id(&node.id))
+            .cloned()
+            .collect();
+        plan.authored_edges = graph
+            .edges
+            .iter()
+            .filter(|edge| {
+                edge.kind != PlanEdgeKind::DependsOn
+                    || !is_task_backed_plan_node_id(&edge.from)
+                    || !is_task_backed_plan_node_id(&edge.to)
+            })
+            .cloned()
+            .collect();
+        plan.root_tasks = graph
+            .root_nodes
+            .iter()
+            .filter(|node_id| is_task_backed_plan_node_id(node_id))
+            .cloned()
+            .map(coordination_task_id_from_plan_node_id)
+            .collect();
+    }
+    snapshot
+}
+
+fn is_task_backed_plan_node_id(node_id: &PlanNodeId) -> bool {
+    node_id.0.starts_with("coord-task:")
+}
+
+fn coordination_task_id_from_plan_node_id(node_id: PlanNodeId) -> prism_ir::CoordinationTaskId {
+    prism_ir::CoordinationTaskId::new(node_id.0)
+}
+
+fn compatibility_plan_state(
+    plan_graphs: &[PlanGraph],
+    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    snapshot: &CoordinationSnapshot,
+) -> (Vec<PlanGraph>, BTreeMap<String, Vec<PlanExecutionOverlay>>) {
+    if plan_graphs.is_empty() && execution_overlays.is_empty() {
+        (
+            snapshot_plan_graphs(snapshot),
+            execution_overlays_by_plan(&snapshot.tasks),
+        )
+    } else {
+        (plan_graphs.to_vec(), execution_overlays.clone())
+    }
 }
 
 fn load_matching_coordination_startup_checkpoint<S>(
@@ -162,7 +248,6 @@ where
     let Some(checkpoint) = store.load_coordination_startup_checkpoint()? else {
         return Ok(None);
     };
-    let checkpoint = normalize_coordination_startup_checkpoint(checkpoint);
     if store.coordination_revision()? > checkpoint.coordination_revision {
         return Ok(None);
     }
@@ -184,18 +269,6 @@ where
     Ok(Some(checkpoint))
 }
 
-fn normalize_coordination_startup_checkpoint(
-    mut checkpoint: CoordinationStartupCheckpoint,
-) -> CoordinationStartupCheckpoint {
-    if checkpoint.plan_graphs.is_empty() {
-        checkpoint.plan_graphs = prism_coordination::snapshot_plan_graphs(&checkpoint.snapshot);
-    }
-    if checkpoint.execution_overlays.is_empty() {
-        checkpoint.execution_overlays = execution_overlays_by_plan(&checkpoint.snapshot.tasks);
-    }
-    checkpoint
-}
-
 pub(crate) fn coordination_startup_authority(
     root: &Path,
 ) -> Result<CoordinationStartupCheckpointAuthority> {
@@ -208,104 +281,4 @@ pub(crate) fn coordination_startup_authority(
             }
         }),
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::normalize_coordination_startup_checkpoint;
-    use crate::published_plans::execution_overlays_by_plan;
-    use prism_coordination::{CoordinationPolicy, CoordinationSnapshot, Plan, PlanScheduling};
-    use prism_ir::{
-        CoordinationTaskId, CoordinationTaskStatus, PlanId, PlanKind, PlanScope, PlanStatus,
-        SessionId, WorkspaceRevision,
-    };
-    use prism_store::{CoordinationStartupCheckpoint, CoordinationStartupCheckpointAuthority};
-
-    #[test]
-    fn legacy_checkpoint_without_plan_graphs_rebuilds_derived_plan_state() {
-        let plan_id = PlanId::new("plan:legacy-checkpoint");
-        let task_id = CoordinationTaskId::new("coord-task:legacy-checkpoint");
-        let snapshot = CoordinationSnapshot {
-            plans: vec![Plan {
-                id: plan_id.clone(),
-                goal: "ship".to_string(),
-                title: "ship".to_string(),
-                status: PlanStatus::Active,
-                policy: CoordinationPolicy::default(),
-                scope: PlanScope::Repo,
-                kind: PlanKind::TaskExecution,
-                revision: 1,
-                scheduling: PlanScheduling::default(),
-                tags: Vec::new(),
-                created_from: None,
-                metadata: serde_json::Value::Null,
-                authored_nodes: Vec::new(),
-                authored_edges: Vec::new(),
-                root_tasks: vec![task_id.clone()],
-            }],
-            tasks: vec![prism_coordination::CoordinationTask {
-                id: task_id,
-                plan: plan_id.clone(),
-                kind: prism_ir::PlanNodeKind::Edit,
-                title: "ship it".to_string(),
-                summary: None,
-                status: CoordinationTaskStatus::InProgress,
-                published_task_status: None,
-                assignee: None,
-                pending_handoff_to: None,
-                session: Some(SessionId::new("session:test".to_string())),
-                lease_holder: None,
-                lease_started_at: None,
-                lease_refreshed_at: None,
-                lease_stale_at: None,
-                lease_expires_at: None,
-                worktree_id: None,
-                branch_ref: None,
-                anchors: Vec::new(),
-                bindings: prism_ir::PlanBinding::default(),
-                depends_on: Vec::new(),
-                coordination_depends_on: Vec::new(),
-                integrated_depends_on: Vec::new(),
-                acceptance: Vec::new(),
-                validation_refs: Vec::new(),
-                is_abstract: false,
-                base_revision: WorkspaceRevision::default(),
-                priority: None,
-                tags: Vec::new(),
-                metadata: serde_json::Value::Null,
-                git_execution: prism_coordination::TaskGitExecution::default(),
-            }],
-            claims: Vec::new(),
-            artifacts: Vec::new(),
-            reviews: Vec::new(),
-            events: Vec::new(),
-            next_plan: 1,
-            next_task: 1,
-            next_claim: 0,
-            next_artifact: 0,
-            next_review: 0,
-        };
-        let expected_graph = prism_coordination::snapshot_plan_graphs(&snapshot);
-        let expected_overlays = execution_overlays_by_plan(&snapshot.tasks);
-        let checkpoint = CoordinationStartupCheckpoint {
-            version: CoordinationStartupCheckpoint::VERSION,
-            materialized_at: 1,
-            coordination_revision: 1,
-            authority: CoordinationStartupCheckpointAuthority {
-                ref_name: "local-worktree".to_string(),
-                head_commit: None,
-                manifest_digest: None,
-            },
-            snapshot,
-            canonical_snapshot_v2: None,
-            plan_graphs: Vec::new(),
-            execution_overlays: Default::default(),
-            runtime_descriptors: Vec::new(),
-        };
-
-        let normalized = normalize_coordination_startup_checkpoint(checkpoint);
-
-        assert_eq!(normalized.plan_graphs, expected_graph);
-        assert_eq!(normalized.execution_overlays, expected_overlays);
-    }
 }

@@ -29,7 +29,7 @@ pub(crate) fn load_auth_registry_context(root: &Path) -> Result<AuthRegistryCont
     let paths = PrismPaths::for_workspace_root(root)?;
     let credentials_path = paths.credentials_path()?;
     let human_session_path = paths.human_session_path()?;
-    let mut store = SqliteStore::open(paths.shared_runtime_db_path()?)?;
+    let mut store = SqliteStore::open(paths.worktree_cache_db_path()?)?;
     let _ = ensure_local_principal_registry_snapshot(root, &mut store)?;
     Ok(AuthRegistryContext {
         store,

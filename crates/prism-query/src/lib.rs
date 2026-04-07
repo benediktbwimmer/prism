@@ -71,9 +71,10 @@ pub use crate::types::{
     ContractGuaranteeStrength, ContractHealth, ContractHealthSignals, ContractHealthStatus,
     ContractKind, ContractPacket, ContractProvenance, ContractPublication,
     ContractPublicationStatus, ContractResolution, ContractScope, ContractStability,
-    ContractStatus, ContractTarget, ContractValidation, DriftCandidate, PlanActivity,
-    PlanListEntry, PlanNodeRecommendation, PlanNodeStatusCounts, PlanSummary, QueryLimits,
-    TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ContractStatus, ContractTarget, ContractValidation, CoordinationPlanV2, CoordinationTaskV2,
+    DriftCandidate, PlanActivity, PlanListEntry, PlanNodeRecommendation, PlanNodeStatusCounts,
+    PlanSummary, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck,
+    ValidationRecipe,
 };
 
 pub struct Prism {
@@ -184,21 +185,14 @@ pub trait HistoryReadBackend: Send + Sync {
 
 impl Prism {
     fn validate_native_plan_binding(&self, binding: &prism_ir::PlanBinding) -> Result<()> {
-        let runtime_capabilities = self.runtime_capabilities();
         validate_authored_plan_binding(
             binding,
-            |handle| {
-                !runtime_capabilities.knowledge_storage_enabled()
-                    || self.concept_by_handle(handle).is_some()
-            },
+            |handle| self.concept_by_handle(handle).is_some(),
             |artifact_ref| {
                 self.coordination_artifact(&ArtifactId::new(artifact_ref))
                     .is_some()
             },
-            |outcome_ref| {
-                !runtime_capabilities.knowledge_storage_enabled()
-                    || self.outcome_event(&EventId::new(outcome_ref)).is_some()
-            },
+            |outcome_ref| self.outcome_event(&EventId::new(outcome_ref)).is_some(),
         )
     }
 
@@ -256,6 +250,7 @@ impl Prism {
             projections,
             MaterializedCoordinationRuntime::from_snapshot(coordination),
             None,
+            false,
         )
     }
 
@@ -288,7 +283,7 @@ impl Prism {
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) -> Self {
-        Self::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_intent(
+        Self::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_query_state(
             graph,
             history,
             outcomes,
@@ -298,6 +293,7 @@ impl Prism {
             execution_overlays,
             Vec::new(),
             None,
+            false,
         )
     }
 
@@ -312,6 +308,32 @@ impl Prism {
         runtime_descriptors: Vec<RuntimeDescriptor>,
         intent_override: Option<IntentIndex>,
     ) -> Self {
+        Self::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_query_state(
+            graph,
+            history,
+            outcomes,
+            coordination,
+            projections,
+            plan_graphs,
+            execution_overlays,
+            runtime_descriptors,
+            intent_override,
+            false,
+        )
+    }
+
+    pub fn with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_query_state(
+        graph: Arc<Graph>,
+        history: Arc<HistoryStore>,
+        outcomes: Arc<OutcomeMemory>,
+        coordination: CoordinationSnapshot,
+        projections: ProjectionIndex,
+        plan_graphs: Vec<PlanGraph>,
+        execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
+        intent_override: Option<IntentIndex>,
+        trust_cached_projections: bool,
+    ) -> Self {
         Self::with_shared_history_outcomes_coordination_projections_and_native_plans(
             graph,
             history,
@@ -324,6 +346,7 @@ impl Prism {
                 runtime_descriptors,
             ),
             intent_override,
+            trust_cached_projections,
         )
     }
 
@@ -334,8 +357,15 @@ impl Prism {
         mut projections: ProjectionIndex,
         materialized_runtime: MaterializedCoordinationRuntime,
         intent_override: Option<IntentIndex>,
+        trust_cached_projections: bool,
     ) -> Self {
-        projections.reseed_from_history(&history.snapshot());
+        let graph_version = if trust_cached_projections {
+            history.event_count() as u64
+        } else {
+            let history_snapshot = history.snapshot();
+            projections.reseed_from_history(&history_snapshot);
+            history_snapshot.events.len() as u64
+        };
         let started = Instant::now();
         let node_count = graph.node_count();
         let edge_count = graph.edge_count();
@@ -355,7 +385,7 @@ impl Prism {
         );
         let derive_intent_ms = intent_started.elapsed().as_millis();
         let default_workspace_revision = WorkspaceRevision {
-            graph_version: history.snapshot().events.len() as u64,
+            graph_version,
             git_commit: None,
         };
         info!(
@@ -364,6 +394,7 @@ impl Prism {
             file_count,
             derive_intent_ms,
             reused_intent,
+            trust_cached_projections,
             total_ms = started.elapsed().as_millis(),
             "built prism query state"
         );
@@ -384,6 +415,10 @@ impl Prism {
         }
     }
 
+    pub fn graph(&self) -> &Graph {
+        self.graph.as_ref()
+    }
+
     pub fn runtime_capabilities(&self) -> PrismRuntimeCapabilities {
         *self
             .runtime_capabilities
@@ -396,10 +431,6 @@ impl Prism {
             .runtime_capabilities
             .write()
             .expect("runtime capabilities lock poisoned") = capabilities;
-    }
-
-    pub fn graph(&self) -> &Graph {
-        self.graph.as_ref()
     }
 
     pub fn set_outcome_backend(&self, backend: Option<Arc<dyn OutcomeReadBackend>>) {
@@ -939,10 +970,6 @@ impl Prism {
         }
     }
 
-    pub fn create_task(&self, meta: EventMeta, input: TaskCreateInput) -> Result<CoordinationTask> {
-        self.create_native_task(meta, input)
-    }
-
     pub fn update_native_task(
         &self,
         meta: EventMeta,
@@ -1054,15 +1081,6 @@ impl Prism {
                 Err(error)
             }
         }
-    }
-
-    pub fn request_handoff(
-        &self,
-        meta: EventMeta,
-        input: HandoffInput,
-        current_revision: WorkspaceRevision,
-    ) -> Result<CoordinationTask> {
-        self.request_native_handoff(meta, input, current_revision)
     }
 
     pub fn accept_native_handoff(
@@ -1313,17 +1331,6 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
     ) -> Result<PlanId> {
         self.create_native_plan_with_scheduling(meta, title, goal, status, policy, None)
-    }
-
-    pub fn create_plan(
-        &self,
-        meta: EventMeta,
-        title: String,
-        goal: String,
-        status: Option<prism_ir::PlanStatus>,
-        policy: Option<prism_coordination::CoordinationPolicy>,
-    ) -> Result<PlanId> {
-        self.create_native_plan(meta, title, goal, status, policy)
     }
 
     pub fn create_native_plan_with_scheduling(
@@ -1639,18 +1646,6 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
     ) -> Result<()> {
         self.update_native_plan_with_scheduling(meta, plan_id, title, status, goal, policy, None)
-    }
-
-    pub fn update_plan(
-        &self,
-        meta: EventMeta,
-        plan_id: &PlanId,
-        title: Option<String>,
-        status: Option<prism_ir::PlanStatus>,
-        goal: Option<String>,
-        policy: Option<prism_coordination::CoordinationPolicy>,
-    ) -> Result<()> {
-        self.update_native_plan(meta, plan_id, title, status, goal, policy)
     }
 
     pub fn update_native_plan_with_scheduling(

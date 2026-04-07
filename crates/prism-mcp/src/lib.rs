@@ -269,8 +269,6 @@ pub struct PrismMcpCli {
     pub disable_query_view: Vec<QueryViewFeatureFlag>,
     #[arg(long = "daemon-log")]
     pub daemon_log: Option<PathBuf>,
-    #[arg(long = "shared-runtime-sqlite")]
-    pub shared_runtime_sqlite: Option<PathBuf>,
     #[arg(long = "shared-runtime-uri")]
     pub shared_runtime_uri: Option<String>,
     #[arg(long = "restart-nonce", hide = true)]
@@ -315,13 +313,9 @@ impl From<PrismRuntimeModeArg> for PrismRuntimeMode {
 
 impl PrismMcpCli {
     pub fn shared_runtime_backend(&self, root: &Path) -> Result<SharedRuntimeBackend> {
-        match (&self.shared_runtime_sqlite, &self.shared_runtime_uri) {
-            (Some(_), Some(_)) => Err(anyhow!(
-                "shared runtime backend must be configured with either --shared-runtime-sqlite or --shared-runtime-uri, not both"
-            )),
-            (Some(path), None) => Ok(SharedRuntimeBackend::Sqlite { path: path.clone() }),
-            (None, Some(uri)) => Ok(SharedRuntimeBackend::Remote { uri: uri.clone() }),
-            (None, None) => default_workspace_shared_runtime(root),
+        match &self.shared_runtime_uri {
+            Some(uri) => Ok(SharedRuntimeBackend::Remote { uri: uri.clone() }),
+            None => default_workspace_shared_runtime(root),
         }
     }
 
@@ -426,10 +420,6 @@ impl PrismMcpCli {
         args.push(self.http_uri_file_path(root)?.display().to_string());
         args.push("--daemon-log".to_string());
         args.push(self.log_path(root)?.display().to_string());
-        if let Some(path) = &self.shared_runtime_sqlite {
-            args.push("--shared-runtime-sqlite".to_string());
-            args.push(path.display().to_string());
-        }
         if let Some(uri) = &self.shared_runtime_uri {
             args.push("--shared-runtime-uri".to_string());
             args.push(uri.clone());

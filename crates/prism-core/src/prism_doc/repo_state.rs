@@ -16,7 +16,8 @@ use sha2::{Digest, Sha256};
 
 use crate::memory_events::load_repo_memory_events;
 use crate::published_plans::{
-    execution_overlays_by_plan, load_hydrated_coordination_plan_state, HydratedCoordinationPlanState,
+    execution_overlays_by_plan, load_hydrated_coordination_plan_state,
+    HydratedCoordinationPlanState,
 };
 
 use super::{anchor_label, write_generated_file, PrismDocFileSync};

@@ -2,8 +2,9 @@ use std::collections::BTreeMap;
 
 use prism_coordination::CoordinationTask;
 use prism_ir::{
-    AnchorRef, ArtifactId, ArtifactStatus, CoordinationTaskId, LineageId, NodeId, Timestamp,
+    AnchorRef, ArtifactId, ArtifactStatus, CoordinationTaskId, LineageId, NodeId, TaskId, Timestamp,
 };
+use prism_memory::{OutcomeEvidence, OutcomeRecallQuery, OutcomeResult};
 use prism_projections::CoChangeRecord;
 
 use crate::common::{dedupe_node_ids, dedupe_strings, sort_node_ids};
@@ -77,6 +78,25 @@ impl Prism {
         }
     }
 
+    pub fn validated_checks_for_task(&self, task_id: &CoordinationTaskId) -> Vec<String> {
+        let Some(task) = self.coordination_task(task_id) else {
+            return Vec::new();
+        };
+        let mut validated_checks = self
+            .artifacts(task_id)
+            .into_iter()
+            .filter(|artifact| {
+                matches!(
+                    artifact.status,
+                    ArtifactStatus::Approved | ArtifactStatus::Merged
+                )
+            })
+            .flat_map(|artifact| artifact.validated_checks.into_iter())
+            .collect::<Vec<_>>();
+        validated_checks.extend(self.successful_validation_checks_for_task(task_id, &task));
+        dedupe_strings(validated_checks)
+    }
+
     pub fn task_risk_for_anchors(
         &self,
         task_id: &CoordinationTaskId,
@@ -127,12 +147,7 @@ impl Prism {
                 )
             })
             .collect::<Vec<_>>();
-        let validated_checks = dedupe_strings(
-            approved_artifacts
-                .iter()
-                .flat_map(|artifact| artifact.validated_checks.iter().cloned())
-                .collect(),
-        );
+        let validated_checks = self.validated_checks_for_task(task_id);
         let missing_validations = likely_validations
             .iter()
             .filter(|check| !validated_checks.iter().any(|value| value == *check))
@@ -202,6 +217,38 @@ impl Prism {
         let mut checks = checks;
         Self::merge_task_validation_checks(&mut checks, task);
         checks
+    }
+
+    fn successful_validation_checks_for_task(
+        &self,
+        task_id: &CoordinationTaskId,
+        task: &CoordinationTask,
+    ) -> Vec<String> {
+        let anchors = Self::task_anchor_refs(task);
+        let mut events = if anchors.is_empty() {
+            Vec::new()
+        } else {
+            self.query_outcomes(&OutcomeRecallQuery {
+                anchors,
+                result: Some(OutcomeResult::Success),
+                limit: 0,
+                ..OutcomeRecallQuery::default()
+            })
+        };
+        events.extend(self.query_outcomes(&OutcomeRecallQuery {
+            task: Some(TaskId::new(task_id.0.clone())),
+            result: Some(OutcomeResult::Success),
+            limit: 0,
+            ..OutcomeRecallQuery::default()
+        }));
+        events.sort_by(|left, right| left.meta.id.0.cmp(&right.meta.id.0));
+        events.dedup_by(|left, right| left.meta.id == right.meta.id);
+        dedupe_strings(
+            events
+                .into_iter()
+                .flat_map(|event| outcome_validation_labels(&event.evidence))
+                .collect(),
+        )
     }
 
     pub fn artifact_risk(&self, artifact_id: &ArtifactId, now: Timestamp) -> Option<ArtifactRisk> {
@@ -443,6 +490,44 @@ impl Prism {
                 }
             })
             .collect()
+    }
+}
+
+fn outcome_validation_labels(evidence: &[OutcomeEvidence]) -> Vec<String> {
+    let mut labels = evidence
+        .iter()
+        .filter_map(|evidence| match evidence {
+            OutcomeEvidence::Test { name, .. } => Some(normalize_validation_label(name, "test:")),
+            OutcomeEvidence::Build { target, .. } => {
+                Some(normalize_validation_label(target, "build:"))
+            }
+            OutcomeEvidence::Command { argv, passed } if *passed => match argv.as_slice() {
+                [tool, subcommand, ..] if tool == "cargo" && subcommand == "test" => {
+                    Some(format!("test:{}", argv.join(" ")))
+                }
+                [tool, subcommand, ..] if tool == "cargo" && subcommand == "build" => {
+                    Some(format!("build:{}", argv.join(" ")))
+                }
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    labels.sort();
+    labels.dedup();
+    labels
+}
+
+fn normalize_validation_label(value: &str, default_prefix: &str) -> String {
+    let value = value.trim();
+    if value.starts_with("test:")
+        || value.starts_with("build:")
+        || value.starts_with("validation:")
+        || value.starts_with("command:")
+    {
+        value.to_string()
+    } else {
+        format!("{default_prefix}{value}")
     }
 }
 

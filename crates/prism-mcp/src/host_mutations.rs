@@ -268,6 +268,10 @@ fn completion_context_for_task_update(
     let inferred_risk = status
         .filter(|status| *status == prism_ir::CoordinationTaskStatus::Completed)
         .and_then(|_| prism.task_risk(task_id, meta.ts));
+    let inferred_validated_checks = status
+        .filter(|status| *status == prism_ir::CoordinationTaskStatus::Completed)
+        .map(|_| prism.validated_checks_for_task(task_id))
+        .unwrap_or_default();
 
     match convert_completion_context(payload) {
         Some(context) => Some(TaskCompletionContext {
@@ -282,6 +286,11 @@ fn completion_context_for_task_update(
             } else {
                 context.required_validations
             },
+            validated_checks: if context.validated_checks.is_empty() {
+                inferred_validated_checks
+            } else {
+                context.validated_checks
+            },
             review_artifact_ref: context.review_artifact_ref,
             integration_commit: context.integration_commit,
             integration_evidence: context.integration_evidence,
@@ -289,6 +298,7 @@ fn completion_context_for_task_update(
         None => inferred_risk.map(|risk| TaskCompletionContext {
             risk_score: Some(risk.risk_score),
             required_validations: risk.likely_validations,
+            validated_checks: prism.validated_checks_for_task(task_id),
             ..TaskCompletionContext::default()
         }),
     }
@@ -1534,6 +1544,21 @@ fn plan_edge_kind_slug(kind: PlanEdgeKind) -> &'static str {
         PlanEdgeKind::ChildOf => "child-of",
         PlanEdgeKind::RelatedTo => "related-to",
     }
+}
+
+fn ensure_legacy_plan_edge_create_kind_supported(kind: prism_ir::PlanEdgeKind) -> Result<()> {
+    if matches!(
+        kind,
+        prism_ir::PlanEdgeKind::DependsOn
+            | prism_ir::PlanEdgeKind::Blocks
+            | prism_ir::PlanEdgeKind::ChildOf
+    ) {
+        return Ok(());
+    }
+
+    Err(anyhow!(
+        "legacy `plan_edge_create` compatibility alias only supports `depends_on`, `blocks`, and `child_of`; use task metadata or explicit review/handoff state instead"
+    ))
 }
 
 fn resolve_native_plan_node(prism: &Prism, node_id: &str) -> Option<(PlanId, prism_ir::PlanNode)> {
@@ -5405,6 +5430,7 @@ impl QueryHost {
             CoordinationMutationKindInput::PlanEdgeCreate => {
                 let payload: PlanEdgeCreatePayload = serde_json::from_value(args.payload)?;
                 let kind = convert_plan_edge_kind(payload.kind);
+                ensure_legacy_plan_edge_create_kind_supported(kind)?;
                 let plan_id = PlanId::new(payload.plan_id.clone());
                 prism.create_native_plan_edge(
                     &plan_id,

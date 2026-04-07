@@ -7934,6 +7934,36 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
     assert!(blockers
         .iter()
         .any(|blocker| blocker.kind == prism_coordination::BlockerKind::ValidationRequired));
+
+    prism
+        .outcome_memory()
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:coordination-validation:test"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new(task_id.0.clone())),
+                causation: None,
+                execution_context: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            kind: OutcomeKind::TestRan,
+            result: OutcomeResult::Success,
+            summary: "alpha integration passed".into(),
+            evidence: vec![OutcomeEvidence::Test {
+                name: "test:alpha_integration".into(),
+                passed: true,
+            }],
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+
+    let task_risk = prism.task_risk(&task_id, 5).unwrap();
+    assert!(task_risk.missing_validations.is_empty());
+    let blockers = prism.blockers(&task_id, 5);
+    assert!(!blockers
+        .iter()
+        .any(|blocker| blocker.kind == prism_coordination::BlockerKind::ValidationRequired));
 }
 
 #[test]

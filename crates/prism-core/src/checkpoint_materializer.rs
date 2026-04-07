@@ -502,7 +502,6 @@ where
             &repo_semantic_snapshot,
             plan_graphs,
             &repo_semantic_execution_overlays,
-            &[],
         )?;
     }
     Ok(())

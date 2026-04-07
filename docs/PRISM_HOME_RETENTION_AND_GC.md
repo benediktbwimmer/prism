@@ -66,18 +66,20 @@ The policy should follow these rules:
 PRISM home state should be retained by class rather than by one directory-wide
 rule.
 
-### Repo-scoped shared runtime state
+### Repo-scoped shared coordination and feedback state
 
 Examples:
 
-- `~/.prism/repos/<repo_id>/shared/runtime/state.db*`
+- `~/.prism/repos/<repo_id>/shared/backups/shared-runtime-state-db-*.db*`
 - `~/.prism/repos/<repo_id>/feedback/validation_feedback.jsonl`
+- `~/.prism/repos/<repo_id>/shared/coordination/**`
 
 Properties:
 
 - highest rebuild value
 - shared across worktrees
-- often the best source for warm restart and continuity
+- publishes the repo-visible continuity story
+- may include legacy migration artifacts that are no longer part of the live hot path
 
 Policy:
 

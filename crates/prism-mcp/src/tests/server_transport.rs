@@ -455,7 +455,6 @@ async fn bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state() {
         enable_query_view: Vec::new(),
         disable_query_view: Vec::new(),
         daemon_log: None,
-        shared_runtime_sqlite: None,
         shared_runtime_uri: None,
         restart_nonce: None,
         daemon_start_timeout_ms: Some(500),
@@ -806,15 +805,11 @@ async fn stdio_proxy_can_attach_registered_agent_worktree_and_mutate_without_exp
 #[tokio::test]
 async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
     let root = temp_workspace();
-    let shared_runtime_root = temp_workspace();
-    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
     let workspace = prism_core::index_workspace_session_with_options(
         &root,
         prism_core::WorkspaceSessionOptions {
-            runtime_mode: prism_core::PrismRuntimeMode::Full,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite.clone(),
-            },
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
+            shared_runtime: SharedRuntimeBackend::Disabled,
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
         },
@@ -892,10 +887,8 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
     let _reloaded = prism_core::hydrate_workspace_session_with_options(
         &root,
         prism_core::WorkspaceSessionOptions {
-            runtime_mode: prism_core::PrismRuntimeMode::Full,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: shared_runtime_sqlite.clone(),
-            },
+            runtime_mode: prism_ir::PrismRuntimeMode::Full,
+            shared_runtime: SharedRuntimeBackend::Disabled,
             hydrate_persisted_projections: false,
             hydrate_persisted_co_change: false,
         },
@@ -914,9 +907,7 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
     let second_upstream = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
         &root,
         PrismMcpFeatures::full(),
-        SharedRuntimeBackend::Sqlite {
-            path: shared_runtime_sqlite.clone(),
-        },
+        SharedRuntimeBackend::Disabled,
     )
     .expect("replacement workspace-backed server should build");
     let (second_uri, second_upstream_task) = spawn_http_upstream(second_upstream).await;
@@ -968,7 +959,6 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
     let _ = proxy_task.await;
     second_upstream_task.abort();
     let _ = second_upstream_task.await;
-    let _ = fs::remove_dir_all(shared_runtime_root);
 }
 
 #[tokio::test]

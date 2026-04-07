@@ -1817,6 +1817,93 @@ fn validation_policy_requires_approved_artifact_checks() {
 }
 
 #[test]
+fn validation_policy_accepts_completion_context_validated_checks_without_approved_artifact() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                title: "Validate risky change".to_string(),
+                goal: "Validate risky change".to_string(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    require_validation_for_completion: true,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id,
+                title: "Edit main".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        store
+            .update_task(
+                meta("event:3", 3),
+                TaskUpdateInput {
+                    task_id,
+                    kind: None,
+                    status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                    published_task_status: None,
+                    git_execution: None,
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    title: None,
+                    summary: None,
+                    anchors: None,
+                    bindings: None,
+                    depends_on: None,
+                    coordination_depends_on: None,
+                    integrated_depends_on: None,
+                    acceptance: None,
+                    validation_refs: None,
+                    is_abstract: None,
+                    base_revision: None,
+                    priority: None,
+                    tags: None,
+                    completion_context: Some(TaskCompletionContext {
+                        risk_score: Some(0.4),
+                        required_validations: vec!["test:main_integration".to_string()],
+                        validated_checks: vec!["test:main_integration".to_string()],
+                        ..TaskCompletionContext::default()
+                    }),
+                },
+                prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                3,
+            )
+            .unwrap()
+            .status,
+        prism_ir::CoordinationTaskStatus::Completed
+    );
+}
+
+#[test]
 fn risk_threshold_requires_review_before_completion() {
     let store = CoordinationStore::new();
     let (plan_id, _) = store

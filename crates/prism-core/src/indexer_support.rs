@@ -14,7 +14,7 @@ use prism_history::HistoryStore;
 use prism_ir::{EdgeKind, PlanExecutionOverlay, PlanGraph, PrismRuntimeCapabilities};
 use prism_memory::OutcomeMemory;
 use prism_parser::LanguageAdapter;
-use prism_projections::ProjectionIndex;
+use prism_projections::{IntentIndex, ProjectionIndex};
 use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::info;
 
@@ -27,9 +27,7 @@ use crate::protected_state::runtime_sync::sync_repo_protected_state;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
 use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession};
 use crate::shared_coordination_ref::initialize_shared_coordination_ref_live_sync;
-use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
-use crate::shared_runtime_store::SharedRuntimeStore;
 use crate::util::{persisted_file_hash, workspace_walk};
 use crate::watch::{
     spawn_fs_watch, spawn_protected_state_watch, spawn_shared_coordination_ref_watch,
@@ -44,7 +42,6 @@ pub(crate) fn build_workspace_session(
     shared_runtime: SharedRuntimeBackend,
     hydrate_persisted_projections: bool,
     hydrate_persisted_co_change: bool,
-    mut shared_runtime_store: Option<SharedRuntimeStore>,
     layout: crate::layout::WorkspaceLayout,
     graph: Graph,
     history: HistoryStore,
@@ -56,27 +53,17 @@ pub(crate) fn build_workspace_session(
     projections: ProjectionIndex,
     initial_refresh: Option<WorkspaceRefreshSeed>,
     coordination_enabled: bool,
+    startup_intent: Option<IntentIndex>,
+    trust_cached_query_state: bool,
     runtime_capabilities: PrismRuntimeCapabilities,
     backend: Option<Arc<dyn CuratorBackend>>,
 ) -> Result<WorkspaceSession> {
     let started = Instant::now();
     let sync_protected_started = Instant::now();
-    if runtime_capabilities.knowledge_storage_enabled() {
-        if let Some(shared_store) = shared_runtime_store.as_mut() {
-            sync_repo_protected_state(&root, shared_store)?;
-        } else {
-            sync_repo_protected_state(&root, &mut store)?;
-        }
-    }
+    sync_repo_protected_state(&root, &mut store)?;
     let sync_repo_protected_state_ms = sync_protected_started.elapsed().as_millis();
     let workspace_revision_started = Instant::now();
-    let workspace_revision = composite_workspace_revision(
-        store.workspace_revision()?,
-        shared_runtime_store
-            .as_ref()
-            .map(SharedRuntimeStore::workspace_revision)
-            .transpose()?,
-    );
+    let workspace_revision = store.workspace_revision()?;
     let workspace_revision_ms = workspace_revision_started.elapsed().as_millis();
     let reopen_stores_started = Instant::now();
     let cold_query_store = store.reopen_runtime_reader()?;
@@ -86,21 +73,12 @@ pub(crate) fn build_workspace_session(
     let coordination_runtime_revision = Arc::new(AtomicU64::new(0));
     let store = Arc::new(Mutex::new(store));
     let cold_query_store = Arc::new(Mutex::new(cold_query_store));
-    let shared_runtime_store = shared_runtime_store.map(|store| Arc::new(Mutex::new(store)));
     let load_principal_registry_started = Instant::now();
-    let principal_registry = if let Some(shared_runtime_store) = shared_runtime_store.as_ref() {
-        let mut store = shared_runtime_store
-            .lock()
-            .expect("shared runtime store lock poisoned");
-        ensure_local_principal_registry_snapshot(&root, &mut *store)?.unwrap_or_default()
-    } else {
+    let principal_registry = {
         let mut store = store.lock().expect("workspace store lock poisoned");
         ensure_local_principal_registry_snapshot(&root, &mut *store)?.unwrap_or_default()
     };
     let load_principal_registry_ms = load_principal_registry_started.elapsed().as_millis();
-    let shared_runtime_materializer = shared_runtime_store
-        .as_ref()
-        .map(|store| CheckpointMaterializerHandle::new(root.clone(), Arc::clone(store)));
     let runtime_state_started = Instant::now();
     let runtime_state = Arc::new(Mutex::new(WorkspaceRuntimeState::new(
         layout,
@@ -120,7 +98,7 @@ pub(crate) fn build_workspace_session(
         runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned")
-            .publish_generation(
+            .publish_generation_with_intent(
                 prism_ir::WorkspaceRevision {
                     graph_version: store
                         .lock()
@@ -129,8 +107,10 @@ pub(crate) fn build_workspace_session(
                     git_commit: None,
                 },
                 Some(coordination_persist_context_for_root(&root, None)),
+                startup_intent,
             ),
     ));
+    let _ = trust_cached_query_state;
     let publish_generation_ms = publish_generation_started.elapsed().as_millis();
     let attach_cold_backends_started = Instant::now();
     WorkspaceSession::attach_cold_query_backends(
@@ -140,7 +120,6 @@ pub(crate) fn build_workspace_session(
             .prism_arc()
             .as_ref(),
         &cold_query_store,
-        shared_runtime_store.as_ref(),
     );
     let attach_cold_query_backends_ms = attach_cold_backends_started.elapsed().as_millis();
     let refresh_lock = Arc::new(Mutex::new(()));
@@ -177,14 +156,11 @@ pub(crate) fn build_workspace_session(
             Arc::clone(&runtime_state),
             Arc::clone(&store),
             Arc::clone(&cold_query_store),
-            shared_runtime_store.as_ref().map(Arc::clone),
-            shared_runtime.sqlite_path().map(Path::to_path_buf),
             Arc::clone(&refresh_lock),
             Arc::clone(&refresh_state),
             Arc::clone(&loaded_workspace_revision),
             Arc::clone(&fs_snapshot),
             Some(checkpoint_materializer.clone()),
-            shared_runtime_materializer.clone(),
             coordination_enabled,
             Some(CuratorHandleRef::from(&curator)),
             Arc::clone(&observed_change_tracker),
@@ -196,8 +172,6 @@ pub(crate) fn build_workspace_session(
             Arc::clone(&runtime_state),
             Arc::clone(&store),
             Arc::clone(&cold_query_store),
-            shared_runtime_store.as_ref().map(Arc::clone),
-            shared_runtime.sqlite_path().map(Path::to_path_buf),
             Arc::clone(&refresh_lock),
             Arc::clone(&loaded_workspace_revision),
             coordination_enabled,
@@ -209,7 +183,6 @@ pub(crate) fn build_workspace_session(
             Arc::clone(&runtime_state),
             Arc::clone(&store),
             Arc::clone(&cold_query_store),
-            shared_runtime_store.as_ref().map(Arc::clone),
             Arc::clone(&refresh_lock),
             Arc::clone(&loaded_workspace_revision),
             Arc::clone(&coordination_runtime_revision),
@@ -256,7 +229,6 @@ pub(crate) fn build_workspace_session(
         shared_runtime,
         hydrate_persisted_projections,
         hydrate_persisted_co_change,
-        shared_runtime_store,
         principal_registry: Arc::new(RwLock::new(principal_registry)),
         repo_projection_sync_pending: Arc::new(AtomicBool::new(false)),
         repo_patch_provenance_sync_pending: Arc::new(AtomicBool::new(false)),
@@ -270,7 +242,6 @@ pub(crate) fn build_workspace_session(
         shared_coordination_ref_watch,
         curator: Some(curator),
         checkpoint_materializer: Some(checkpoint_materializer),
-        shared_runtime_materializer,
         coordination_enabled,
         worktree_mutator_slot,
         worktree_principal_binding,
