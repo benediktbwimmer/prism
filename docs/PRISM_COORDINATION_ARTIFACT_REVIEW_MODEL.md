@@ -12,7 +12,8 @@ creation contracts for required artifacts and reviews
 In coordination v2:
 
 - `Task` remains the only claimable workflow unit
-- `Artifact` is durable evidence produced by work, ideally as a pointer to git or external evidence
+- `Artifact` is a concrete coordination record emitted by a task to satisfy one artifact
+  requirement, ideally as a pointer to git or external evidence
 - `Review` is a verdict record attached to exactly one artifact
 - review work is modeled as ordinary tasks with an explicit `reviewScope`
 - plan completion remains graph-derived from plan and task state only
@@ -29,7 +30,8 @@ The system must preserve these rules:
 3. Artifacts and reviews are not graph nodes.
 4. A primitive review record always targets exactly one artifact.
 5. A review task may aggregate many review records into one review pass.
-6. Artifact and review requirements must be declared up front on task creation.
+6. Artifact and review requirements that affect normative completion or review-gate behavior must
+   be declared up front or added through an explicit future-compatible retrofit path.
 7. Shared refs remain the authoritative coordination substrate.
 8. Local SQLite is a materialization and restart accelerator only.
 9. Every review outcome that changes coordination state must do so atomically.
@@ -56,10 +58,38 @@ The v2 model keeps both:
 
 Artifacts are task-scoped evidence records.
 
-### 4.1 Artifact Requirements
+### 4.1 Artifact Identity
+
+An artifact is a concrete coordination record emitted by a task against exactly one artifact
+requirement.
+
+It is:
+
+- a named evidence object with its own lifecycle
+- a pointer bundle to evidence, not a duplicate storage plane for large diffs
+- the unit that review records attach to
+
+This is the intended identity model:
+
+- a task may emit multiple artifacts over time against the same requirement
+- each such artifact belongs to one requirement lineage
+- the active artifact in that lineage is the latest non-superseded artifact
+
+An artifact-requirement lineage is the ordered sequence of artifacts emitted by one source task
+against one declared artifact requirement. At most one lineage head is active at a time unless a
+future extension explicitly allows concurrent active heads.
+
+### 4.2 Artifact Requirements
 
 Tasks may declare one or more required artifacts up front. A task that requires an artifact cannot
 complete until that artifact requirement is satisfied.
+
+This document intentionally chooses the stricter rule:
+
+- if evidence is required for a task's own definition of done, the task itself cannot complete
+  without that artifact
+- if evidence is only needed by downstream review or integration work, model that requirement on
+  the downstream task instead of weakening the implementation task's completion semantics
 
 Artifact requirements should be pointer-oriented rather than payload-oriented.
 
@@ -73,7 +103,7 @@ Preferred evidence targets:
 
 Artifacts should not duplicate full code diffs that already live in git.
 
-### 4.2 Artifact Requirement Shape
+### 4.3 Artifact Requirement Shape
 
 Conceptual task-create fields:
 
@@ -96,6 +126,68 @@ Example:
   "requiredValidations": ["cargo test -p prism-mcp ssr_console::"]
 }
 ```
+
+`staleAfterGraphChange` should be read narrowly, not magically.
+
+In this contract it means the artifact may become stale when the task-scoped revision inputs it
+claims to satisfy have changed, such as:
+
+- the task base revision
+- the task dependency set
+- the acceptance anchors or bound workspace scope relevant to the artifact
+
+It does not mean arbitrary unrelated sibling or portfolio structure changes.
+
+For the normative v2 contract, `minCount` should normally be `1`.
+
+If a workflow appears to need multiple concurrently active artifacts, prefer multiple named artifact
+requirements with distinct client ids over using one requirement with `minCount > 1`.
+
+Future extensions may define valid multi-artifact requirement groups, but this document treats one
+requirement as one active lineage head.
+
+### 4.4 Artifact Lifecycle And Supersession
+
+The artifact lifecycle must be explicit.
+
+Rules:
+
+1. A task may emit multiple artifacts against the same requirement over time.
+2. Each emitted artifact belongs to one artifact-requirement lineage.
+3. A newer artifact may supersede an older artifact in the same lineage.
+4. Review selection such as `latest_non_superseded` operates over that lineage.
+5. Reviews attached to superseded artifacts remain durable history, but they do not satisfy the
+   current review requirement for the active lineage head.
+
+The intended query meaning of `latest_non_superseded` is:
+
+- find the artifact lineage for the requirement
+- ignore superseded artifacts in that lineage
+- choose the newest remaining artifact
+
+If a workflow truly needs multiple concurrently active evidence objects, prefer multiple named
+artifact requirements with distinct client ids over hiding that multiplicity inside one vague
+requirement.
+
+### 4.5 Artifact State And Review Verdict
+
+Artifact lifecycle state and review verdict are related but not identical.
+
+At the behavioral level, the model needs to distinguish:
+
+- artifact lifecycle
+  - emitted
+  - superseded
+  - active
+- review posture over the active artifact
+  - approved
+  - changes requested
+  - rejected
+
+Implementations may choose exact enum names, but they must preserve that conceptual split:
+
+- supersession answers which artifact in a lineage is active
+- review verdict answers the latest judgment over that active artifact
 
 ## 5. Review Model
 
@@ -124,6 +216,16 @@ Example:
 }
 ```
 
+Review requirement satisfaction is evaluated against the active artifact selected by the referenced
+artifact-requirement lineage. Reviews on superseded artifacts do not count toward satisfying the
+active requirement.
+
+For the normative v2 contract, `minReviewCount` should normally be `1`.
+
+If a workflow eventually needs multiple reviews on the same active artifact, implementations should
+define that policy explicitly, including whether reviewers must be distinct. This document does not
+assume reviewer diversity implicitly.
+
 ### 5.2 Primitive Review Records
 
 A primitive review record is attached to exactly one artifact.
@@ -145,6 +247,16 @@ Allowed verdicts:
 
 The verdict is always allowed to be any of those values. Review policy does not predeclare a
 required verdict. The verdict determines the next workflow transition.
+
+### 5.3 Review Pass Aggregation
+
+A review pass may involve many primitive review records, but the primitive layer stays narrow:
+
+- one primitive review record targets one artifact
+- a review task aggregates many primitive reviews into one review pass
+- the pass result is derived from the set of primitive review records in scope
+
+There is no separate multi-artifact primitive review record.
 
 ## 6. Review Tasks
 
@@ -267,6 +379,17 @@ When the pass resolves:
 This enables chunked review passes and prevents premature resolution after only one target has been
 judged.
 
+If the current pass is voluntarily interrupted before all required targets were reviewed, the review
+task may use `yield_task` and later resume another chunked pass against the same declared scope.
+
+When this document says a review task is "blocked on" a reopened task or follow-up task set, it
+means:
+
+- the review task is not actionable
+- the blocker points to the identified owner task or task set
+- the review task becomes actionable again only when that task or task set reaches the completion
+  and evidence posture required by the review scope
+
 ## 9. Atomic Review Outcome Rules
 
 Review outcomes must drive the next graph transition atomically.
@@ -291,6 +414,11 @@ Atomic effects:
 
 This path is for small or moderate corrections to the same implementation intent.
 
+`changes_requested` is valid only when one existing task is clearly the correction owner.
+
+If the necessary correction spans multiple completed source tasks, or requires a broader new
+remediation graph rather than reopening one owner task, the reviewer must use `rejected` instead.
+
 ### 9.3 `rejected`
 
 Atomic effects:
@@ -307,6 +435,9 @@ This path is for cases where the current implementation should not simply contin
 `rejected` must require the follow-up tasks and wiring in the review payload. If the graph update
 cannot be expressed completely, the mutation must fail and the review task must remain claimable
 later.
+
+This is a deliberate product choice. PRISM prefers explicit graph repair at rejection time over
+recording a vague negative verdict that leaves the workflow underspecified.
 
 ## 10. Reopen And Yield
 
@@ -344,8 +475,9 @@ A valid checkpoint may be:
 - a new outcome or validation record
 - a structured yield summary or handoff note
 
-If the runtime can prove that meaningful edits or review work happened, the yield mutation should
-enforce stronger checkpoint requirements rather than relying only on instructions.
+If the runtime observed file modifications, emitted MCP operations, or review records in the active
+lease interval, `yield_task` must include a non-empty structured checkpoint and may be rejected if
+no durable checkpoint evidence is supplied.
 
 ## 11. Query Surface Requirements
 
@@ -356,9 +488,19 @@ Minimum useful queries:
 - `taskArtifacts(taskId)`
 - `taskReviews(taskId)`
 - `taskCheckpointSummary(taskId)`
+- `taskEvidenceStatus(taskId)`
 - `taskReviewScope(taskId)`
 - `taskReviewTargets(taskId)`
 - `taskReviewStatus(taskId)`
+
+`taskEvidenceStatus(taskId)` should be the composite answer most callers use first. It should
+summarize, in one payload:
+
+- required artifact requirements and whether they are satisfied
+- required review requirements and whether they are satisfied
+- latest non-superseded artifacts by requirement
+- latest verdicts by artifact
+- blockers caused by changes requested, rejection, or stale evidence
 
 The task brief and task detail surfaces should immediately surface:
 
@@ -424,8 +566,8 @@ One transaction should be able to create all of this upfront:
 Then later:
 
 - implementation produces an artifact satisfying `impl_patch`
-- review task resolves `impl_patch_review` to that artifact
-- reviewer records one review record over that artifact
+- review task resolves `impl_patch_review` to the active artifact in the `impl_patch` lineage
+- reviewer records one review record over that active artifact
 - if approved, the review task completes
 - if changes are requested, the implementation task is reopened atomically
 - if rejected, follow-up tasks are created atomically and the review task blocks on them

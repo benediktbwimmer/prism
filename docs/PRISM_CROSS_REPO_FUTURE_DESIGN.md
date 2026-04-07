@@ -2,7 +2,7 @@
 
 Status: forward-looking design note  
 Audience: PRISM core, coordination, runtime, storage, MCP, and query maintainers  
-Scope: project-scoped published knowledge, cross-repo coordination, shared runtime truth, and the path from local SQLite to remote shared backends
+Scope: project-scoped published knowledge, cross-repo coordination, shared-ref authority, and local materialization and binding strategy
 
 ---
 
@@ -14,7 +14,7 @@ The central design decision is:
 
 - **repo-local published truth** continues to live in each code repo's `.prism/`
 - **project-level published cross-repo truth** should live in a dedicated **project git repo**
-- **shared runtime state** continues to live in the shared runtime backend (`SQLite` locally first, `Postgres` later)
+- **cross-repo coordination authority** should live in the project repo's shared coordination refs
 - **worktree-local hot acceleration** remains local and rebuildable
 
 This means PRISM grows by **adding a project scope**, not by collapsing all truth into a mutable database or inventing a vague global mode.
@@ -22,18 +22,18 @@ This means PRISM grows by **adding a project scope**, not by collapsing all trut
 This should read as a direct architecture extension of PRISM's current model, not as a parallel side system:
 
 - published truth stays explicit and git-backed
-- mutable coordination and working knowledge stay in the runtime/backend
+- coordination authority stays explicit and git-backed
 - rebuildable acceleration stays disposable
 
-The shared runtime database is still important, but its role is different:
+Local SQLite and runtime-local state are still important, but their role is different:
 
-- live mutable coordination state
-- unpublished working graph state
+- local materialized coordination snapshots
+- local checkout and worktree bindings
+- startup checkpoints
 - draft cross-repo relations and concepts before promotion
-- claims, leases, handoffs, reviews, and execution overlays
 - runtime projections and query acceleration
 
-The database should **not** become the only home of durable published system knowledge.
+They must **not** become the only home of durable published system knowledge or authoritative coordination state.
 
 The long-term architecture is therefore:
 
@@ -42,7 +42,7 @@ The long-term architecture is therefore:
 3. **Project scope** for published cross-repo truth
 4. **Global import / external scope** for non-canonical imported evidence
 
-With that scope model in place, the shared runtime backend serves as the mutable operational plane across repo and project work rather than becoming a fifth published scope.
+With that scope model in place, local runtime state remains an accelerator and binding layer rather than becoming a fifth published scope.
 
 ---
 
@@ -86,16 +86,16 @@ That enables workflows such as:
 - Preserve the current strength of repo-local published truth.
 - Add first-class cross-repo plans, concepts, contracts, and memories.
 - Keep published knowledge explicit and reviewable.
-- Keep mutable working state in the shared runtime backend.
-- Make local SQLite and future remote Postgres fit the same scope model.
+- Keep coordination authority in shared refs.
+- Keep local SQLite and runtime state in a non-authoritative materialization role.
 - Support one machine-level daemon managing many repos and worktrees.
 - Support future multi-machine coordination without redefining the data model.
-- Avoid blurring repo-local truth, project truth, runtime overlays, and rebuildable caches.
+- Avoid blurring repo-local truth, project truth, shared-ref authority, local bindings, and rebuildable caches.
 
 ### 3.2 Non-goals
 
 - Do not move repo-local published truth out of code repos.
-- Do not make the shared runtime database the sole home of durable cross-repo truth.
+- Do not make local SQLite or any future backend the sole home of durable cross-repo truth.
 - Do not duplicate all repo-local concepts and contracts into the project repo.
 - Do not require one database per worktree.
 - Do not require a remote backend in the first implementation.
@@ -118,8 +118,6 @@ A project may include:
 - cross-repo contracts
 - cross-repo plans
 - promoted cross-repo memories
-- runtime coordination state spanning those repos
-
 A repo may participate in zero or one project in the simple initial model.
 
 ### 4.2 Use a project git repo for published cross-repo knowledge
@@ -142,30 +140,28 @@ It also lets published cross-repo truth inherit naturally through normal git wor
 
 The project repo is the cross-repo equivalent of a code repo's local `.prism/`.
 
-### 4.3 Keep the shared runtime backend for mutable cross-repo truth
+### 4.3 Use project shared refs as the authoritative coordination plane
 
-The shared runtime backend should hold:
+For cross-repo coordination, the project repo should also own the authoritative coordination refs.
 
-- cross-repo execution overlays
-- claims, leases, handoffs, reviews, and blockers
-- unpublished draft concepts and relations
-- runtime-discovered cross-repo dependencies
-- mutable plan execution state
-- imported evidence and temporary working state
-- denormalized projections and query accelerators
+That means:
 
-This remains true whether the backend is:
+- project-scoped plans, tasks, claims, artifacts, and reviews are published under the project
+  repo's shared coordination ref set
+- compare-and-swap, replay, and semantic merge follow the same coordination conflict contract that
+  repo-local coordination already uses
+- local SQLite and runtime state materialize those refs for fast reads and restart acceleration
+- machine-local checkout bindings remain local and non-authoritative
 
-- local SQLite on one machine
-- future Postgres shared across machines
+Cross-repo coordination should therefore extend the existing shared-ref-authoritative model rather
+than introducing a second mutable authority plane.
 
 ### 4.4 Preserve worktree-scoped hot runtime engines
 
 Even with project scope, the live serving model remains:
 
 - one `WorkspaceRuntimeEngine` per worktree/workspace context
-- one shared runtime backend per logical repo on the machine today
-- optional project-scoped coordination state above repo scope
+- optional project-scoped coordination state materialized above repo scope
 - one machine-level daemon as the normal operating shape
 
 The project scope does **not** replace repo-scoped runtime state or worktree-scoped hot state.
@@ -207,7 +203,7 @@ This is the scope of:
 
 - one logical repository
 - published repo truth in the repo's `.prism/`
-- repo-scoped shared runtime truth on the local machine
+- repo-scoped local materialization and runtime bindings on the local machine
 - repo-scoped concepts, contracts, plans, and memories
 
 This remains the foundational PRISM unit.
@@ -237,14 +233,15 @@ This scope should remain clearly separate from both repo truth and project truth
 
 ---
 
-## 6. Published truth vs mutable runtime truth
+## 6. Published truth vs coordination authority vs local acceleration
 
 The most important architectural rule is to keep these separate.
 
 In compact form:
 
 - published truth is durable and git-backed
-- mutable runtime truth is operational and provisional
+- coordination authority is durable and git-backed
+- local runtime state is operational and provisional
 - derived acceleration is disposable
 
 ### 6.1 Published truth
@@ -263,20 +260,32 @@ Published truth should live in git-backed artifacts:
 - repo-local published truth in code repos
 - project-level published truth in the project repo
 
-### 6.2 Mutable runtime truth
+### 6.2 Coordination authority
 
-Mutable runtime truth is:
+Authoritative coordination truth is:
+
+- durable
+- explicit
+- git-backed
+- subject to compare-and-swap, replay, and semantic merge
+- the correctness plane for claims, leases, tasks, artifacts, and reviews
+
+For cross-repo coordination, this belongs in the project repo shared coordination refs.
+
+### 6.3 Local runtime state and materialization
+
+Local runtime state is:
 
 - operational
 - provisional
-- often unpublished
-- coordination-heavy
-- subject to contention and leases
-- not necessarily ready to publish
+- path-sensitive
+- machine-local
+- non-authoritative
+- allowed to lag and recover
 
-Mutable runtime truth belongs in the shared runtime backend.
+This belongs in worktree-local runtime state and SQLite materialization.
 
-### 6.3 Derived acceleration
+### 6.4 Derived acceleration
 
 Derived acceleration is:
 
@@ -285,7 +294,7 @@ Derived acceleration is:
 - non-authoritative
 - safe to delete
 
-This belongs in worktree-local or backend-generated materializations, not in the published artifact plane.
+This belongs in worktree-local materializations, not in the published artifact plane.
 
 ---
 
@@ -334,18 +343,16 @@ A first approximation of the project repo can mirror the same artifact layout PR
 
 The project repo may later gain additional project-specific manifests, but the base pattern should stay familiar.
 
-### 7.3 In the shared runtime backend
+### 7.3 In local runtime state and SQLite
 
-The shared runtime backend should hold:
+Local runtime state and SQLite should hold:
 
+- materialized project coordination snapshots loaded from shared refs
 - unpublished cross-repo relations
 - draft project concepts and contracts before promotion
-- active plan execution overlays
-- claims, leases, handoffs, blockers, reviews
-- mutable coordination state
-- project/repo/worktree membership records
-- replayable mutation events and journals
-- cross-repo projections and query indexes
+- local projections and query indexes
+- machine-local project and repo binding state
+- restart checkpoints and read-optimized indexes
 
 ### 7.4 In worktree-local acceleration
 
@@ -409,7 +416,7 @@ These plans should be able to bind to:
 - project-scoped concepts and contracts
 - repo-scoped symbols and validations
 - repo-scoped or project-scoped artifacts
-- coordination state in the runtime backend
+- authoritative coordination state in the project repo shared refs, with local materialized views
 
 The important implementation rule is that a cross-repo plan node should not pretend to be one
 global repo-less task. It should be a project-scoped execution object that can:
@@ -464,7 +471,7 @@ These should be modeled as project-scoped entities, not forced into one repo.
 
 Cross-repo relations should be able to exist as:
 
-1. **runtime working relations** in the shared backend
+1. **runtime working relations** in local unpublished state
 2. **published curated relations** in the project repo
 
 That lets PRISM support the normal lifecycle:
@@ -580,20 +587,20 @@ A future project-aware query should be able to join:
 
 - project-published concepts and contracts
 - repo-published concepts and contracts from member repos
-- shared runtime overlays and coordination state
+- local materialized coordination and overlays
 - worktree-local freshness and branch-sensitive hot state
 
 Conceptually, the read stack becomes:
 
 1. **project-published truth**
 2. **repo-published truth**
-3. **shared runtime overlays**
+3. **local materialized coordination overlays**
 4. **worktree-local freshness and acceleration**
 
 The ordering of those layers matters:
 
 - published truth remains the stable base
-- runtime state provides current working overlays
+- local runtime state provides current working overlays
 - worktree-local state provides immediacy and speed
 
 This is the same pattern PRISM already uses locally, extended upward to project scope.
@@ -604,7 +611,7 @@ This is the same pattern PRISM already uses locally, extended upward to project 
 
 Cross-repo coordination should follow the same principles PRISM already uses inside one repo.
 
-The shared runtime backend should support:
+The project repo shared refs plus local materialization should support:
 
 - project-scoped execution leases
 - cross-repo handoffs
@@ -643,25 +650,24 @@ The project layer then answers questions such as:
 - whether the project node can advance
 - whether stale repo-local bindings should trigger reclaim or replan behavior
 
-The project repo is not the place for high-churn live lease state.
-
 The project repo is the place for:
 
 - published plans
 - published concepts
 - published contracts
 - promoted memories
+- authoritative cross-repo coordination refs
 
-The backend is the place for:
+Local runtime state is the place for:
 
-- active work ownership
-- stale/reclaimable work
-- draft execution state
-- mutable coordination records
+- active machine-local materialization
+- stale or partial checkout bindings
+- draft execution projections
+- read-optimized indexes and checkpoints
 
 ---
 
-## 12. Relationship to the shared runtime backend
+## 12. Relationship to local materialization
 
 ### 12.1 Local-first shape
 
@@ -669,36 +675,34 @@ The first useful shape is:
 
 - one PRISM daemon per machine as the normal operating form
 - worktree-local SQLite stores for hot runtime state
-- shared coordination refs plus runtime descriptors for repo-shared continuity
-- optional project-scoped coordination storage above repo scope
+- shared coordination refs plus runtime descriptors for continuity
+- optional project-scoped coordination materialization above repo scope
 - one `WorkspaceRuntimeEngine` per worktree/workspace internally
 
 ### 12.2 Future remote shape
 
-The future remote shape should preserve the same semantics while swapping the backend implementation.
+The future remote shape should preserve the same semantics while swapping only acceleration or replication details.
 
 That means:
 
 - SQLite locally first
-- Postgres later
 - same scope model
 - same identities
 - same event and mutation model
-- same distinction between published truth and runtime overlays
+- same distinction between shared-ref authority and local overlays
 
-The remote backend should not redefine the architecture. It should only change where shared mutable truth is persisted and synchronized.
+Any future remote layer should not redefine the architecture. It should only change how acceleration, replication, or discovery is provided.
 
-### 12.3 What the remote backend is for
+### 12.3 What any future remote layer is for
 
-The future remote backend is the right home for:
+A future remote layer is a candidate place for:
 
-- cross-machine coordination
-- shared project execution overlays
-- live claims and leases
-- working cross-repo graph state
-- mutable coordination and provenance records
+- cross-machine replication or fetch acceleration
+- project membership discovery
+- remote cache distribution
+- shared query acceleration
 
-It is **not** the only home of published project truth.
+It is **not** the authority plane for published project truth or authoritative coordination state.
 
 That remains the project repo.
 
@@ -870,7 +874,7 @@ A project repo could publish:
 - a multi-repo plan for deprecating `search_v1` and adopting `search_v2`
 - a memory recording that the last versioned rollout failed because docs and SDK examples lagged the service release
 
-During active execution, the shared runtime backend would hold:
+During active execution, local runtime state would hold:
 
 - who currently owns each step
 - which repos are blocked
@@ -882,12 +886,93 @@ During active execution, the shared runtime backend would hold:
 That is the exact split PRISM should aim for:
 
 - published system truth in the project repo
-- live mutable coordination in the backend
+- authoritative coordination state in the project repo shared refs
+- local materialized coordination and checkout bindings on each machine
 - repo-local implementation truth in each code repo
 
 ---
 
-## 16. Migration strategy
+## 16. Coordination-only v1 release
+
+Cross-repo coordination-only support is a plausible PRISM v1 feature if it is scoped tightly.
+
+The goal of this slice is:
+
+- support cross-repo plans, tasks, claims, artifacts, and reviews
+- keep authority entirely in the project repo shared refs
+- keep local SQLite and runtime state purely as materialization and binding layers
+- defer project-scoped concepts, contracts, and memories to a later release
+
+### 16.1 v1 release stance
+
+For v1:
+
+- one umbrella or project repo is the coordination root
+- the project repo owns the authoritative cross-repo coordination refs
+- every cross-repo coordination record is explicitly scope-qualified
+- artifacts are repo-qualified evidence pointers
+- repo-local claims remain repo-qualified rather than becoming one giant global lock space
+- local runtime state knows both:
+  - the coordination root
+  - the local execution repo or worktree currently being worked in
+
+This is intentionally narrower than the full project-knowledge future. It is coordination first.
+
+### 16.2 Concrete implementation steps for coordination-only v1
+
+The minimum viable implementation should do these things explicitly:
+
+1. Add `project_id` and stable logical `repo_id` support to the coordination model where scope matters.
+2. Introduce a project or umbrella repo as the explicit coordination root for cross-repo sessions.
+3. Publish a small project membership manifest in the project repo:
+   - project id
+   - member repos
+   - stable repo descriptors
+   - stable `repo_id` values
+4. Add machine-local bindings from published `repo_id` values to checkout and worktree paths.
+5. Extend artifacts so code and validation evidence can carry repo-qualified pointers such as:
+   - `repo_id`
+   - commit sha
+   - commit range
+   - ref
+   - optional path or module hints
+6. Make project-scoped tasks able to point to repo-qualified work ownership and repo-local follow-up work.
+7. Keep concrete edit claims repo-qualified, even when the owning project task is cross-repo.
+8. Materialize the project coordination refs into local SQLite for fast reads and restart, without making SQLite authoritative.
+9. Make MCP and query surfaces expose both:
+   - the coordination root
+   - the local execution repo binding
+10. Reuse the existing shared-coordination conflict contract for project-scoped coordination writes.
+
+### 16.3 What v1 deliberately does not need
+
+Coordination-only v1 does not need:
+
+- project-scoped concepts
+- project-scoped contracts
+- project-scoped memories
+- full cross-repo cognition
+- a remote shared database
+- globally scoped edit claims
+
+### 16.4 Why this is low-risk
+
+This slice is relatively low-risk because the current architecture already aligns with it:
+
+- coordination authority already lives in shared refs
+- local SQLite is already non-authoritative
+- the graph is already small and execution-focused
+- claims, artifacts, reviews, and blockers are already explicit coordination records
+
+The main risk is not transport or storage. It is identity sloppiness.
+
+So the v1 rule should be:
+
+- do not ship cross-repo coordination without stable `project_id`, stable `repo_id`, a published membership manifest, and machine-local repo bindings
+
+---
+
+## 17. Longer-term migration strategy
 
 PRISM should reach this future in phases.
 
@@ -911,17 +996,17 @@ Concrete outcomes for this phase:
 - define the initial `repo_id` stability policy before cross-repo truth is published
 - keep all cross-repo behavior runtime-only until the identity model is stable
 
-### Phase 2 — runtime-only cross-repo coordination
+### Phase 2 — coordination-only cross-repo release
 
-Support project-scoped runtime coordination in the shared backend:
+Support project-scoped cross-repo coordination through the project repo shared refs plus local materialization:
 
-- cross-repo plans in runtime form
-- project-scoped execution leases, handoffs, and overlays
-- discovered cross-repo relations in unpublished state
+- project-scoped plans, tasks, claims, artifacts, and reviews
+- project-scoped execution leases, handoffs, and overlays materialized locally from shared refs
 - repo-local claims attached under project execution nodes
 - cross-repo anchor resolution with explicit resolution states
+- project membership manifest plus machine-local checkout bindings
 
-This proves the behavior before published project truth exists.
+This proves the behavior before project-scoped knowledge is added.
 
 ### Phase 3 — project repo as published cross-repo plane
 
@@ -951,39 +1036,39 @@ At this point, PRISM should be able to:
 - promote runtime-discovered relations into published project artifacts
 - degrade gracefully when only part of the project is checked out locally
 
-### Phase 5 — remote shared backend
+### Phase 5 — optional remote acceleration
 
-Swap or add a Postgres backend for the shared runtime plane without changing the scope model.
+Add remote acceleration or replication only if needed, without changing the authority model.
 
 ---
 
-## 17. Rules to protect
+## 18. Rules to protect
 
 The following rules should remain strict.
 
-### 17.1 Do not put all cross-repo truth only in the database
+### 18.1 Do not put all cross-repo truth only in local SQLite or any backend
 
-The database is the right home for mutable working state, not the only home of durable published system knowledge.
+Local SQLite and any future backend are the right home for acceleration and materialization, not the only home of durable published system knowledge or authoritative coordination state.
 
-### 17.2 Do not copy every repo-local fact into the project repo
+### 18.2 Do not copy every repo-local fact into the project repo
 
 The project repo should hold system-level truths, not a giant duplication of member repos.
 
-### 17.3 Keep promotion explicit
+### 18.3 Keep promotion explicit
 
 Published project knowledge should be reviewed and promoted intentionally.
 
-### 17.4 Keep runtime overlays mutable and operational
+### 18.4 Keep local overlays mutable and operational
 
-Leases, claims, blockers, and execution overlays belong in runtime state, not in the project repo.
+Leases, claims, blockers, and execution overlays may be materialized locally for speed, but the authoritative coordination facts for the project belong in the project repo shared refs.
 
-### 17.5 Keep scope explicit in the data model
+### 18.5 Keep scope explicit in the data model
 
 Filesystem placement is helpful, but `project_id`, `repo_id`, and `worktree_id` must remain first-class semantic scope fields.
 
 ---
 
-## 18. Open design questions
+## 19. Open design questions
 
 These questions do not block the direction, but they should be answered before implementation hardens.
 
@@ -1009,25 +1094,25 @@ Questions with a recommended default answer now:
 
 ---
 
-## 19. Recommended architectural stance
+## 20. Recommended architectural stance
 
 The recommended stance is:
 
 - **code repos** own local published truth
 - the **project repo** owns published cross-repo truth
-- the **shared runtime backend** owns mutable coordination and unpublished working graph state
-- **worktree-local state** owns rebuildable hot acceleration
+- the **project repo shared refs** own authoritative cross-repo coordination state
+- **worktree-local state and SQLite** own rebuildable hot acceleration, materialization, and checkout bindings
 
 This gives PRISM the best of both worlds:
 
 - durable, reviewable, portable knowledge in git
-- strong live coordination and execution state in the backend
-- a clean path from local SQLite to remote Postgres
+- one clear authority plane for coordination
+- fast local reads without authority confusion
 - a real future for cross-repo plans, concepts, contracts, and memories
 
 ---
 
-## 20. End-state vision
+## 21. End-state vision
 
 The long-term win is not merely "PRISM works across more files."
 
@@ -1039,7 +1124,8 @@ In that world:
 
 - each repo keeps its own grounded local truth
 - the project repo captures durable system truth above repo boundaries
-- the shared runtime backend manages live multi-actor execution and coordination
+- the project repo shared refs carry authoritative cross-repo coordination truth
+- local runtimes materialize that truth and bind it to machine-local checkouts
 - agents can navigate the system by concepts first, repo symbols second, and raw text search third
 
 That is the cross-repo future worth building.
