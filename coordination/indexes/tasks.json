@@ -12,6 +12,12 @@
     "path": "tasks/coord-task-01kn8n9x2vm8c683vpx5642f3j-46109fe60e3c80ec.json"
   },
   {
+    "id": "coord-task:01knmj91y99z17mxx802rg4kxp",
+    "title": "Trace the restart, status, and health command paths through CLI, daemon, and runtime coordination layers",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knmj91y99z17mxx802rg4kxp-ea738e9a91a40b42.json"
+  },
+  {
     "id": "coord-task:2",
     "title": "Make native plan and coordination writes authoritative via incremental DB-native persistence",
     "status": "Completed",

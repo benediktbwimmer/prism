@@ -1,0 +1,79 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Identify the concrete code paths and runtime interactions responsible for the broken behavior and slow restart path."
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-b",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 13
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knmj91y4a1a0zjzegekzgzj5"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knmj91y99z17mxx802rg4kxp",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775592694,
+    "lease_holder": {
+      "agent_id": "codex-b",
+      "principal": {
+        "authority_id": "worktree_executor",
+        "kind": "agent",
+        "name": "codex-b",
+        "principal_id": "worktree:01knhcah0q0qny1c4fwcjecvkq"
+      },
+      "session_id": "session:01knmj447m1e67zghb0c5h7mev",
+      "worktree_id": "worktree:01knhcah0q0qny1c4fwcjecvkq"
+    },
+    "lease_refreshed_at": 1775585494,
+    "lease_stale_at": 1775587294,
+    "lease_started_at": 1775585494,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knmj91y31zdkz0jjpja8t2tx",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01knmj447m1e67zghb0c5h7mev",
+    "status": "Ready",
+    "summary": null,
+    "tags": [],
+    "title": "Trace the restart, status, and health command paths through CLI, daemon, and runtime coordination layers",
+    "validation_refs": [],
+    "worktree_id": "worktree:01knhcah0q0qny1c4fwcjecvkq"
+  },
+  "schema_version": 1
+}
