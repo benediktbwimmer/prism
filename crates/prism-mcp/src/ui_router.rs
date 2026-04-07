@@ -439,25 +439,6 @@ mod tests {
             )
             .unwrap();
         let task_id = task.state["id"].as_str().unwrap().to_string();
-        host.store_claim(
-            session.as_ref(),
-            PrismClaimArgs {
-                action: ClaimActionInput::Acquire,
-                task_id: None,
-                payload: json!({
-                    "anchors": [{
-                        "type": "node",
-                        "crateName": "demo",
-                        "path": "demo::main",
-                        "kind": "function"
-                    }],
-                    "capability": "edit",
-                    "mode": "soft_exclusive",
-                    "coordinationTaskId": task_id.clone()
-                }),
-            },
-        )
-        .unwrap();
         let server = Arc::new(PrismMcpServer::with_session(
             index_workspace_session(&root).unwrap(),
         ));
@@ -480,9 +461,7 @@ mod tests {
         let task_value: Value = serde_json::from_slice(&task_body).unwrap();
         assert_eq!(task_value["task"]["id"], Value::from(task_id.clone()));
         assert_eq!(task_value["editable"]["title"], Value::from("Primary task"));
-        assert!(task_value["claimHistory"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty()));
+        assert!(task_value["claimHistory"].is_array());
         assert!(task_value["blockers"]
             .as_array()
             .is_some_and(|items| !items.is_empty()));

@@ -232,6 +232,7 @@ That descriptor should advertise:
 
 - service identity
 - reachable endpoint or endpoints
+- supported transport modes for follower and runtime connections
 - trust metadata
 - capabilities
 - hosted runtime identities
@@ -245,6 +246,9 @@ This allows:
 - multiple runtimes on one machine behind one reachable service endpoint
 - local-network and fixed-IP deployments to publish one stable address
 - leader and follower service fanout without forcing every runtime to be directly reachable
+- follower services to connect outward to one elected leader over a long-lived stream such as
+  WebSocket without requiring inbound reachability on every machine
+- follower services to keep their local git refs current so local historical queries keep working
 
 ### 5.5 Local runtime services
 
@@ -315,6 +319,19 @@ Every authoritative shared-ref publish must be:
 - digest-verified
 
 This makes state changes tamper evident and explicitly attributable.
+
+### 6.5 Effective repo configuration in shared refs
+
+PRISM should keep the effective repo configuration in shared refs.
+
+That effective config should be:
+
+- signed automatically by PRISM during publication
+- attributable to an unlocked human credential
+- the authoritative source of repo-scoped service and coordination policy
+
+Branch-local config files may still exist as optional templates or proposals, but they must not
+become runtime authority automatically.
 
 ---
 
@@ -403,6 +420,12 @@ It must not mean:
 
 - newly fetched but unverified data
 
+The same rule applies to effective repo configuration:
+
+- current config must come from verified shared refs
+- previously verified config may be retained as stale-but-trusted fallback
+- unverified config must never be applied
+
 ---
 
 ## 8. Keeping Local Materializations in Sync
@@ -466,6 +489,14 @@ At larger scale, PRISM may use an org-level PRISM Service that:
 - fans out verified updates
 
 The service is an optimization, not authority.
+
+This optimization must remain useful across all network topologies:
+
+- with zero publicly reachable services, PRISM still works through direct git polling and direct
+  verified shared-ref operations
+- with a few reachable services, private followers can attach to a reachable upstream
+- as more services become publicly reachable, the network can become more efficient without changing
+  correctness
 
 If it disappears, runtimes must fall back to direct git polling.
 
@@ -647,6 +678,15 @@ It should:
 - perform the authoritative CAS publish
 - retry on conflict by replaying intents
 
+Hot-path write volume should still remain bounded by policy where possible.
+
+For example:
+
+- lease renewals should be low-frequency by design
+- write coalescing should operate on the resulting sparse mutation stream
+
+That means the larger scaling problem is usually follower refresh and fanout, not raw write count.
+
 If absent, runtimes must still be able to publish directly.
 
 ---
@@ -660,7 +700,145 @@ PRISM should use the same PRISM Service shape for:
 - one machine with many local runtimes
 - many machines across an organization
 
-### 13.2 Mostly stateless service
+### 13.2 Repo-scoped leader selection
+
+PRISM should support an elected leader per repository for optimization purposes.
+
+That leader must be selected through shared-ref authority, not through hidden in-memory
+coordination or an external database.
+
+The recommended mechanism is:
+
+- a repo-scoped PRISM Service leadership lease in shared refs
+- explicit holder identity and published service descriptor
+- a short TTL with renewable ownership
+- visible expiry so another service can safely take over
+
+Leader selection must remain an optimization, not a correctness dependency.
+
+If no leader exists, or if followers cannot reach it, PRISM must still work through direct git
+polling and direct verified shared-ref reads and writes.
+
+PRISM should also allow multiple leader candidates per repository.
+
+But the default active model should still be:
+
+- one preferred write/event leader
+- zero or more standby candidates
+- ordered failover when the preferred leader is unavailable
+
+Multiple simultaneously active leaders should be reserved for a future explicitly partitioned mode,
+not the default topology.
+
+### 13.3 Leader and follower transport
+
+The elected leader should expose a reachable endpoint through the existing bring-your-own-transport
+model.
+
+Follower services should normally connect outward to the leader rather than requiring the leader to
+discover arbitrary follower endpoints.
+
+The preferred connection shape is:
+
+- long-lived follower-initiated streams such as WebSocket
+- ref-update and leadership-change notifications from leader to followers over that stream
+- local runtime fanout handled by each follower service on its own machine
+
+This keeps the global fanout problem manageable:
+
+- leader service fans out to connected follower services
+- follower services fan out to their local runtimes
+- local runtimes do not need to be globally reachable
+
+In practice, PRISM should distinguish:
+
+- publicly reachable PRISM Services, which may act as leaders or relays
+- private/local PRISM Services, which act as edge followers
+
+Edge followers connect outward but do not need to expose themselves as public relays.
+
+### 13.4 Follower-side git fetch, verification, and parsing
+
+Followers should not blindly trust parsed JSON materialized by the leader.
+
+The default leader-to-follower update path should be:
+
+1. the leader notices authoritative shared-ref head changes
+2. the leader sends a fanout notification containing the changed refs and new heads
+3. the follower fetches the updated coordination namespace from the leader's git endpoint
+4. the follower updates its own local `.git` state
+5. the follower verifies manifests and signatures locally
+6. the follower reparses and rematerializes its local SQLite read model locally
+
+This preserves two important properties:
+
+- follower correctness does not depend on trusting the leader's parse
+- local git history remains current enough for historical and audit-style local queries
+
+The leader may still compute and cache verified snapshots for its own use, but follower trust should
+be rooted in local git fetch plus local verification.
+
+### 13.5 Leader as git source for the coordination namespace
+
+The preferred scaling model is for followers to fetch shared coordination refs from the elected
+leader instead of fetching them directly from the upstream git host.
+
+That means the leader should maintain a fetchable bare or mirrored copy of the shared coordination
+namespace, even when it has no checked-out worktree and no local runtimes attached.
+
+This gives PRISM the right shape:
+
+- the upstream git host remains the ultimate authority boundary
+- the leader acts as an internal fetch source and fanout accelerator
+- follower local repos stay current without creating a thundering herd against the upstream host
+
+This is the preferred default over having followers fetch directly from the upstream git host.
+
+### 13.6 Optional packfile or bundle optimization
+
+As an optimization, the leader may also push a compact git delta to followers over the long-lived
+stream.
+
+Possible forms include:
+
+- a small packfile
+- a git bundle representing the delta between old and new coordination heads
+
+Followers may ingest that delta into local git and then run the same local verification and parsing
+flow.
+
+This is an optimization, not the primary architecture.
+
+The default design should remain:
+
+- WebSocket (or equivalent) for notifications
+- git fetch from the leader for local repo freshness
+- local verification and local materialization on the follower
+
+### 13.7 Leader preference and follower routing
+
+Followers should not choose an upstream purely by whatever service self-assigns the highest
+preference.
+
+Instead, follower routing should combine:
+
+- self-published service descriptors
+- effective repo policy from shared refs
+- local reachability checks
+
+The intended flow is:
+
+1. follower loads verified effective repo config
+2. follower loads visible service descriptors
+3. follower orders candidates according to repo policy
+4. follower connects to the highest-priority reachable candidate
+5. follower falls back to the next candidate if the preferred one is unavailable
+6. follower ultimately falls back to direct git/shared-ref mode if no candidate is reachable
+
+Followers should switch upstreams when verified policy changes or when their current upstream
+becomes unavailable.
+
+### 13.8 Mostly stateless service
 
 The PRISM Service should be stateless or near-stateless.
 
@@ -671,6 +849,7 @@ It may keep:
 - in-flight strong-read batches
 - in-flight write batches
 - short-lived fanout state
+- a rebuildable bare or mirrored coordination-ref cache for follower fetches
 
 It should not hold correctness-critical durable state.
 
@@ -680,7 +859,7 @@ If it restarts, it should simply:
 2. fetch and verify shared refs
 3. resume fanout
 
-### 13.3 Fallback
+### 13.9 Fallback
 
 If the PRISM Service is unavailable, runtimes must fall back to direct polling and
 direct verified shared-ref reads and writes.
@@ -767,6 +946,47 @@ still preserves the verification and publication contract.
 If such mutation breaks verification, PRISM should surface diagnostics and fail closed.
 
 This is preferable to introducing a synthetic freshness shortcut that hides drift.
+
+### 15.4 Repo-scoped authority policy
+
+The effective repo configuration should be the source of truth for who is allowed to do what in a
+repository.
+
+That includes policy such as:
+
+- which principals are repo admins
+- which principals may publish or update effective repo config
+- which principals may publish service policy
+- which principals may become leader candidates
+- which principals may publish public service descriptors
+
+These permissions should be expressed through the same PRISM identity and trust model already used
+everywhere else.
+
+Ordinary services may self-publish their own descriptors, but they must not be able to unilaterally
+change repo-wide routing policy or leader preference unless the effective repo config grants that
+authority.
+
+### 15.5 Config publication flow
+
+Effective repo config should be published through explicit PRISM commands, not by implicitly reading
+branch-local files as authority.
+
+The intended flow is:
+
+- `prism config init`
+  - generate a local editable draft config
+- `prism config publish`
+  - validate the draft
+  - sign it with the current unlocked human credential
+  - publish it into shared refs as the new effective repo config
+- `prism config show`
+  - display the current effective repo config from shared refs
+- `prism config pull`
+  - materialize the current effective repo config into a local draft file for inspection or editing
+
+Repo files may still contain human-friendly templates or examples, but the authoritative runtime
+config should live in shared refs only.
 
 ---
 

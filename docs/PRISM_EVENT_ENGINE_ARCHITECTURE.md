@@ -173,6 +173,9 @@ PRISM must assume that multiple PRISM Services may be running simultaneously:
 
 Therefore, PRISM cannot rely on service singleton assumptions for correctness.
 
+One of those services may hold the repo-scoped leader lease, but event correctness must continue to
+hold even while leadership changes or when no reachable leader exists.
+
 ### 6.2 Preferred execution plane vs correctness plane
 
 The PRISM Service is the preferred execution plane because it is efficient.
@@ -274,7 +277,33 @@ This service should own:
 - write coalescing and CAS publication
 - event engine execution
 
-### 7.2 Why one service is better
+When a leader is present, it should be the preferred execution plane for these responsibilities.
+
+### 7.2 Leader selection and follower transport
+
+PRISM should use a repo-scoped leader lease in shared refs to elect the preferred PRISM Service
+leader.
+
+That leader should publish its service descriptor and reachable endpoint through the federated
+bring-your-own-transport model.
+
+Follower services should normally connect outward to the elected leader over a long-lived stream,
+preferably WebSocket or an equivalent bidirectional transport.
+
+That stream should carry:
+
+- verified snapshot update fanout
+- event-trigger notifications
+- write outcome notifications
+- leadership change notifications
+
+This keeps the event engine decentralized but efficient:
+
+- one leader is the preferred execution plane
+- followers can stay hot and informed
+- shared-ref CAS execution records remain the correctness fence
+
+### 7.3 Why one service is better
 
 These capabilities all depend on the same shared prerequisites:
 
@@ -287,7 +316,7 @@ These capabilities all depend on the same shared prerequisites:
 Splitting them into separate long-lived services would duplicate logic and introduce more internal
 state boundaries without improving correctness.
 
-### 7.3 Statelessness
+### 7.4 Statelessness
 
 The PRISM Service should remain stateless or near-stateless.
 

@@ -5172,13 +5172,18 @@ mod tests {
             "coordination/{}",
             super::task_snapshot_relative_path(&changed_task_b.id.0)
         );
+        let expected_plan_path = format!(
+            "coordination/{}",
+            super::plan_snapshot_relative_path(&plan.id.0)
+        );
         assert_eq!(
             patch.upserts,
             BTreeSet::from([
+                expected_plan_path,
                 "coordination/v2/snapshot.json".to_string(),
                 expected_task_path.clone(),
             ]),
-            "summary-only task edits should touch the changed task payload and canonical v2 snapshot, but not unrelated summary records"
+            "summary-only task edits should touch the changed task payload, the canonical v2 snapshot, and the authored plan summary record that embeds the plan graph"
         );
         assert!(patch.deletes.is_empty());
 

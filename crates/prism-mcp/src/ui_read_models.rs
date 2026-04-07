@@ -10,7 +10,7 @@ use prism_ir::{
     sortable_token_timestamp, ClaimStatus, CoordinationEventKind, CoordinationTaskId,
     CoordinationTaskStatus,
 };
-use prism_ir::{PlanId, PlanNodeStatus, PlanScope, PlanStatus, TaskId};
+use prism_ir::{PlanId, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus, PlanScope, PlanStatus, TaskId};
 use prism_memory::OutcomeRecallQuery;
 use prism_query::PlanActivity;
 
@@ -30,7 +30,8 @@ use crate::views::{
     artifact_view, blocker_view, concept_packet_view, git_execution_policy_view,
     plan_activity_view, plan_execution_overlay_view, plan_graph_view, plan_list_entry_view,
     plan_node_recommendation_view, plan_node_status_counts_view, plan_scheduling_view,
-    plan_summary_view, policy_violation_record_view, ConceptVerbosity,
+    plan_summary_view, policy_violation_record_view, task_shaped_view_for_native_plan_node,
+    ConceptVerbosity,
 };
 use crate::{claim_view, coordination_task_view, current_timestamp, QueryHost, SessionState};
 use crate::{host_resources::session_task_view, runtime_views::runtime_status};
@@ -547,27 +548,41 @@ impl QueryHostUiReadModelsExt for QueryHost {
 
     fn ui_task_detail_view(&self, task_id: &str) -> Result<Option<PrismUiTaskDetailView>> {
         let prism = self.current_prism();
+        let now = crate::current_timestamp();
         let task_id = prism_ir::CoordinationTaskId::new(task_id.to_string());
-        let Some(task) = prism.coordination_task(&task_id) else {
+        let (task_view, blockers) = if let Some(task) = prism.coordination_task(&task_id) {
+            let blockers = prism
+                .blockers(&task_id, now)
+                .into_iter()
+                .map(|blocker| {
+                    let related_task = blocker
+                        .related_task_id
+                        .as_ref()
+                        .and_then(|id| prism.coordination_task(id))
+                        .map(coordination_task_view);
+                    PrismUiTaskBlockerEntryView {
+                        blocker: blocker_view(blocker),
+                        related_task,
+                    }
+                })
+                .collect::<Vec<_>>();
+            (coordination_task_view(task.clone()), blockers)
+        } else if let Some((plan_id, node)) = find_native_plan_node(&prism, &task_id.0) {
+            let blockers = prism
+                .plan_node_blockers(&plan_id, &node.id)
+                .into_iter()
+                .map(|blocker| PrismUiTaskBlockerEntryView {
+                    related_task: blocker
+                        .related_node_id
+                        .as_ref()
+                        .and_then(|related_id| native_or_coordination_related_task_view(&prism, related_id)),
+                    blocker: plan_node_blocker_view_for_ui(blocker),
+                })
+                .collect::<Vec<_>>();
+            (task_shaped_view_for_native_plan_node(node), blockers)
+        } else {
             return Ok(None);
         };
-        let task_view = coordination_task_view(task.clone());
-        let now = crate::current_timestamp();
-        let blockers = prism
-            .blockers(&task_id, now)
-            .into_iter()
-            .map(|blocker| {
-                let related_task = blocker
-                    .related_task_id
-                    .as_ref()
-                    .and_then(|id| prism.coordination_task(id))
-                    .map(coordination_task_view);
-                PrismUiTaskBlockerEntryView {
-                    blocker: blocker_view(blocker),
-                    related_task,
-                }
-            })
-            .collect::<Vec<_>>();
         let claim_history = prism
             .task_claim_history(&task_id, now)
             .into_iter()
@@ -593,10 +608,11 @@ impl QueryHostUiReadModelsExt for QueryHost {
             .into_iter()
             .map(artifact_view)
             .collect::<Vec<_>>();
-        let validation_guidance = prism
-            .task_validation_recipe(&task_id)
-            .map(|recipe| recipe.checks)
-            .unwrap_or_default();
+        let validation_guidance = if let Some(recipe) = prism.task_validation_recipe(&task_id) {
+            recipe.checks
+        } else {
+            native_plan_validation_guidance(&prism, &task_view.id)
+        };
 
         Ok(Some(PrismUiTaskDetailView {
             editable: PrismUiTaskEditableMetadataView {
@@ -734,6 +750,98 @@ impl QueryHostUiReadModelsExt for QueryHost {
             status: "not_implemented".to_string(),
             message: message.to_string(),
         }
+    }
+}
+
+fn find_native_plan_node(prism: &prism_query::Prism, task_id: &str) -> Option<(PlanId, PlanNode)> {
+    prism.plan_graphs().into_iter().find_map(|graph| {
+        graph.nodes.into_iter().find_map(|node| {
+            (node.id.0 == task_id).then(|| (graph.id.clone(), node))
+        })
+    })
+}
+
+fn native_or_coordination_related_task_view(
+    prism: &prism_query::Prism,
+    node_id: &PlanNodeId,
+) -> Option<prism_js::CoordinationTaskView> {
+    prism
+        .coordination_task(&CoordinationTaskId::new(node_id.0.clone()))
+        .map(coordination_task_view)
+        .or_else(|| {
+            find_native_plan_node(prism, &node_id.0).map(|(_, node)| {
+                task_shaped_view_for_native_plan_node(node)
+            })
+        })
+}
+
+fn native_plan_validation_guidance(prism: &prism_query::Prism, task_id: &str) -> Vec<String> {
+    let Some((plan_id, node)) = find_native_plan_node(prism, task_id) else {
+        return Vec::new();
+    };
+    let mut checks = Vec::new();
+    for validation in &node.validation_refs {
+        push_unique_task_check(&mut checks, validation.id.clone());
+    }
+    for criterion in &node.acceptance {
+        for validation in &criterion.required_checks {
+            push_unique_task_check(&mut checks, validation.id.clone());
+        }
+    }
+    for blocker in prism.plan_node_blockers(&plan_id, &node.id) {
+        if matches!(
+            blocker.kind,
+            PlanNodeBlockerKind::ValidationGate | PlanNodeBlockerKind::ValidationRequired
+        ) {
+            for validation in blocker.validation_checks {
+                push_unique_task_check(&mut checks, validation);
+            }
+        }
+    }
+    checks
+}
+
+fn push_unique_task_check(target: &mut Vec<String>, value: String) {
+    if !target.iter().any(|existing| existing == &value) {
+        target.push(value);
+    }
+}
+
+fn plan_node_blocker_view_for_ui(blocker: PlanNodeBlocker) -> prism_js::BlockerView {
+    prism_js::BlockerView {
+        kind: match blocker.kind {
+            PlanNodeBlockerKind::Dependency
+            | PlanNodeBlockerKind::BlockingNode
+            | PlanNodeBlockerKind::ChildIncomplete
+            | PlanNodeBlockerKind::Handoff => prism_coordination::BlockerKind::Dependency,
+            PlanNodeBlockerKind::ClaimConflict => prism_coordination::BlockerKind::ClaimConflict,
+            PlanNodeBlockerKind::ReviewRequired => prism_coordination::BlockerKind::ReviewRequired,
+            PlanNodeBlockerKind::RiskReviewRequired => {
+                prism_coordination::BlockerKind::RiskReviewRequired
+            }
+            PlanNodeBlockerKind::ValidationGate | PlanNodeBlockerKind::ValidationRequired => {
+                prism_coordination::BlockerKind::ValidationRequired
+            }
+            PlanNodeBlockerKind::StaleRevision => prism_coordination::BlockerKind::StaleRevision,
+            PlanNodeBlockerKind::ArtifactStale => prism_coordination::BlockerKind::ArtifactStale,
+        },
+        summary: blocker.summary,
+        related_task_id: blocker.related_node_id.map(|id| id.0.to_string()),
+        related_artifact_id: blocker.related_artifact_id.map(|id| id.0.to_string()),
+        risk_score: blocker.risk_score,
+        validation_checks: blocker.validation_checks,
+        causes: blocker
+            .causes
+            .into_iter()
+            .map(|cause| prism_js::BlockerCauseView {
+                source: cause.source,
+                code: cause.code,
+                acceptance_label: cause.acceptance_label,
+                threshold_metric: cause.threshold_metric,
+                threshold_value: cause.threshold_value,
+                observed_value: cause.observed_value,
+            })
+            .collect(),
     }
 }
 

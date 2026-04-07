@@ -1784,6 +1784,43 @@ pub(crate) fn coordination_task_view(
     }
 }
 
+pub(crate) fn task_shaped_view_for_native_plan_node(
+    value: prism_ir::PlanNode,
+) -> CoordinationTaskView {
+    coordination_task_view(prism_coordination::CoordinationTask {
+        id: prism_ir::CoordinationTaskId::new(value.id.0.clone()),
+        plan: value.plan_id,
+        kind: value.kind,
+        title: value.title,
+        summary: value.summary,
+        status: native_plan_node_status_as_coordination_status(value.status),
+        published_task_status: None,
+        assignee: value.assignee,
+        pending_handoff_to: None,
+        session: None,
+        lease_holder: None,
+        lease_started_at: None,
+        lease_refreshed_at: None,
+        lease_stale_at: None,
+        lease_expires_at: None,
+        worktree_id: None,
+        branch_ref: None,
+        anchors: Vec::new(),
+        bindings: value.bindings,
+        depends_on: Vec::new(),
+        coordination_depends_on: Vec::new(),
+        integrated_depends_on: Vec::new(),
+        acceptance: Vec::new(),
+        validation_refs: value.validation_refs,
+        is_abstract: value.is_abstract,
+        base_revision: value.base_revision,
+        priority: value.priority,
+        tags: value.tags,
+        metadata: value.metadata,
+        git_execution: prism_coordination::TaskGitExecution::default(),
+    })
+}
+
 fn coordination_task_lifecycle_view(
     status: prism_ir::CoordinationTaskStatus,
     git_execution: &prism_coordination::TaskGitExecution,
@@ -1802,6 +1839,23 @@ fn coordination_task_lifecycle_view(
             == prism_ir::GitExecutionStatus::CoordinationPublished,
         integrated_to_target: git_execution.integration_status
             == prism_ir::GitIntegrationStatus::IntegratedToTarget,
+    }
+}
+
+fn native_plan_node_status_as_coordination_status(
+    status: prism_ir::PlanNodeStatus,
+) -> prism_ir::CoordinationTaskStatus {
+    match status {
+        prism_ir::PlanNodeStatus::Proposed => prism_ir::CoordinationTaskStatus::Proposed,
+        prism_ir::PlanNodeStatus::Ready => prism_ir::CoordinationTaskStatus::Ready,
+        prism_ir::PlanNodeStatus::InProgress => prism_ir::CoordinationTaskStatus::InProgress,
+        prism_ir::PlanNodeStatus::Blocked | prism_ir::PlanNodeStatus::Waiting => {
+            prism_ir::CoordinationTaskStatus::Blocked
+        }
+        prism_ir::PlanNodeStatus::InReview => prism_ir::CoordinationTaskStatus::InReview,
+        prism_ir::PlanNodeStatus::Validating => prism_ir::CoordinationTaskStatus::Validating,
+        prism_ir::PlanNodeStatus::Completed => prism_ir::CoordinationTaskStatus::Completed,
+        prism_ir::PlanNodeStatus::Abandoned => prism_ir::CoordinationTaskStatus::Abandoned,
     }
 }
 
