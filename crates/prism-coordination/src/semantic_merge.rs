@@ -286,23 +286,6 @@ fn merge_plan(base: Option<&Plan>, local: &Plan, remote: &Plan) -> Result<Plan> 
             &local.metadata,
             &remote.metadata,
         ),
-        authored_nodes: merge_plan_nodes(
-            base.map(|plan| plan.authored_nodes.as_slice()),
-            &local.authored_nodes,
-            &remote.authored_nodes,
-            id,
-        )?,
-        authored_edges: merge_plan_edges(
-            base.map(|plan| plan.authored_edges.as_slice()),
-            &local.authored_edges,
-            &remote.authored_edges,
-            id,
-        )?,
-        root_tasks: merge_union_vec(
-            base.map(|plan| plan.root_tasks.as_slice()),
-            &local.root_tasks,
-            &remote.root_tasks,
-        ),
     })
 }
 
@@ -355,13 +338,6 @@ fn merge_task(
             local.status,
             remote.status,
             id,
-        )?,
-        published_task_status: merge_optional_task_status(
-            base.and_then(|task| task.published_task_status),
-            local.published_task_status,
-            remote.published_task_status,
-            id,
-            "published_task_status",
         )?,
         assignee: merge_optional_scalar(
             base.and_then(|task| task.assignee.as_ref()),
@@ -1905,7 +1881,6 @@ mod tests {
             title: "Semantic merge".into(),
             summary: Some("base".into()),
             status: CoordinationTaskStatus::InProgress,
-            published_task_status: None,
             assignee: Some(AgentId::new("agent:base")),
             pending_handoff_to: None,
             session: Some(SessionId::new("session:base")),

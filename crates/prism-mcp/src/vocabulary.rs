@@ -151,23 +151,7 @@ const COORDINATION_MUTATION_KINDS: &[VocabularyValueSpec] = &[
     VocabularyValueSpec {
         value: "update",
         aliases: &[],
-        description: "Update a coordination task or first-class plan node by id.",
-    },
-    VocabularyValueSpec {
-        value: "plan_node_create",
-        aliases: &[],
-        description: "Legacy compatibility alias that creates a v2 task or child plan.",
-    },
-    VocabularyValueSpec {
-        value: "plan_edge_create",
-        aliases: &[],
-        description:
-            "Legacy compatibility alias for `depends_on`, `blocks`, and `child_of` mutations.",
-    },
-    VocabularyValueSpec {
-        value: "plan_edge_delete",
-        aliases: &[],
-        description: "Delete a first-class plan edge.",
+        description: "Update a coordination task by id.",
     },
     VocabularyValueSpec {
         value: "handoff",

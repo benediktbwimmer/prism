@@ -412,7 +412,7 @@ mod tests {
             .store_coordination(
                 session.as_ref(),
                 PrismCoordinationArgs {
-                    kind: CoordinationMutationKindInput::PlanNodeCreate,
+                    kind: CoordinationMutationKindInput::TaskCreate,
                     payload: json!({
                         "planId": plan_id,
                         "title": "Upstream blocker",
@@ -427,7 +427,7 @@ mod tests {
             .store_coordination(
                 session.as_ref(),
                 PrismCoordinationArgs {
-                    kind: CoordinationMutationKindInput::PlanNodeCreate,
+                    kind: CoordinationMutationKindInput::TaskCreate,
                     payload: json!({
                         "planId": plan_id,
                         "title": "Primary task",
@@ -453,7 +453,7 @@ mod tests {
                     }],
                     "capability": "edit",
                     "mode": "soft_exclusive",
-                    "coordinationTaskId": task_id.clone()
+                    "taskId": task_id.clone()
                 }),
             },
         )
@@ -544,7 +544,7 @@ mod tests {
             .store_coordination(
                 session.as_ref(),
                 PrismCoordinationArgs {
-                    kind: CoordinationMutationKindInput::PlanNodeCreate,
+                    kind: CoordinationMutationKindInput::TaskCreate,
                     payload: json!({
                         "planId": alpha_plan_id,
                         "title": "Implement alpha graph",

@@ -1,6 +1,5 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{anyhow, Result};
 use prism_coordination::{Artifact, BlockerKind, CoordinationPolicy, TaskBlocker};
 use prism_ir::{
     AnchorRef, ArtifactId, ArtifactStatus, BlockerCause, BlockerCauseSource, ConflictSeverity,
@@ -26,28 +25,6 @@ impl Prism {
         self.plan_node_blockers_for_runtime(&runtime, plan_id, node_id, current_timestamp())
     }
 
-    pub(crate) fn validate_native_plan_node_completion_preview(
-        &self,
-        runtime: &NativePlanRuntimeState,
-        plan_id: &PlanId,
-        node_id: &PlanNodeId,
-    ) -> Result<()> {
-        let blockers =
-            self.plan_node_blockers_for_runtime(runtime, plan_id, node_id, current_timestamp());
-        if blockers.is_empty() {
-            return Ok(());
-        }
-        Err(anyhow!(
-            "plan node `{}` cannot complete: {}",
-            node_id.0,
-            blockers
-                .into_iter()
-                .map(|blocker| blocker.summary)
-                .collect::<Vec<_>>()
-                .join("; ")
-        ))
-    }
-
     pub(crate) fn plan_node_blockers_for_runtime(
         &self,
         runtime: &NativePlanRuntimeState,
@@ -55,14 +32,20 @@ impl Prism {
         node_id: &PlanNodeId,
         now: Timestamp,
     ) -> Vec<PlanNodeBlocker> {
-        let Some(graph) = self.hydrated_plan_graph_for_runtime(runtime, plan_id) else {
+        let Some(projection) = self.hydrated_plan_projection_for_runtime(runtime, plan_id) else {
             return Vec::new();
         };
+        let graph = projection.graph;
         let Some(node) = graph.nodes.iter().find(|node| node.id == *node_id) else {
             return Vec::new();
         };
-        let overlays = runtime.plan_execution(plan_id);
-        self.plan_node_blockers_for_hydrated_graph(runtime, &graph, &overlays, node, now)
+        self.plan_node_blockers_for_hydrated_graph(
+            runtime,
+            &graph,
+            &projection.execution_overlays,
+            node,
+            now,
+        )
     }
 
     pub(crate) fn plan_node_blockers_for_hydrated_graph(
@@ -97,8 +80,8 @@ impl Prism {
         now: Timestamp,
     ) -> Option<Vec<PlanNodeBlocker>> {
         let task_id = CoordinationTaskId::new(node_id.0.clone());
-        let task = self.coordination_task(&task_id)?;
-        if task.plan != *plan_id {
+        let task = self.task(&TaskId::new(task_id.0.clone()))?;
+        if task.task.parent_plan_id != *plan_id {
             return None;
         }
         Some(
@@ -306,8 +289,8 @@ impl Prism {
         let mut artifacts = Vec::new();
         let task_id = CoordinationTaskId::new(node.id.0.clone());
         if self
-            .coordination_task(&task_id)
-            .is_some_and(|task| task.plan == *plan_id)
+            .task(&TaskId::new(task_id.0.clone()))
+            .is_some_and(|task| task.task.parent_plan_id == *plan_id)
         {
             artifacts.extend(self.artifacts(&task_id));
         }
@@ -340,9 +323,8 @@ impl Prism {
         };
 
         let task_id = TaskId::new(node.id.0.clone());
-        let coordination_task_id = CoordinationTaskId::new(node.id.0.clone());
-        let allow_task_correlated_events = match self.coordination_task(&coordination_task_id) {
-            Some(task) => task.plan == *plan_id,
+        let allow_task_correlated_events = match self.task(&task_id) {
+            Some(task) => task.task.parent_plan_id == *plan_id,
             None => true,
         };
         if allow_task_correlated_events {

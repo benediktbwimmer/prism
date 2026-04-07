@@ -2,9 +2,9 @@ use std::collections::BTreeSet;
 
 use anyhow::Result;
 use prism_ir::{
-    AgentId, AnchorRef, CoordinationTaskId, NodeRef, PlanBinding, PlanId, PlanKind,
-    PlanOperatorState, PlanScope, TaskExecutorPolicy, TaskId, TaskLifecycleStatus, Timestamp,
-    ValidationRef, WorkspaceRevision,
+    AgentId, AnchorRef, CoordinationTaskId, CoordinationTaskStatus, NodeRef, PlanBinding, PlanId,
+    PlanKind, PlanNodeKind, PlanOperatorState, PlanScope, TaskExecutorPolicy, TaskId,
+    TaskLifecycleStatus, Timestamp, ValidationRef, WorkspaceRevision,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -29,6 +29,14 @@ fn default_plan_scope() -> PlanScope {
 
 fn default_plan_kind() -> PlanKind {
     PlanKind::TaskExecution
+}
+
+fn default_task_kind() -> PlanNodeKind {
+    PlanNodeKind::Edit
+}
+
+fn default_task_status() -> CoordinationTaskStatus {
+    CoordinationTaskStatus::Proposed
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -65,6 +73,10 @@ pub struct CanonicalTaskRecord {
     pub title: String,
     #[serde(default)]
     pub summary: Option<String>,
+    #[serde(default = "default_task_kind")]
+    pub kind: PlanNodeKind,
+    #[serde(default = "default_task_status")]
+    pub status: CoordinationTaskStatus,
     #[serde(default)]
     pub lifecycle_status: TaskLifecycleStatus,
     #[serde(default)]
@@ -73,6 +85,8 @@ pub struct CanonicalTaskRecord {
     pub executor: TaskExecutorPolicy,
     #[serde(default)]
     pub assignee: Option<AgentId>,
+    #[serde(default)]
+    pub pending_handoff_to: Option<AgentId>,
     #[serde(default)]
     pub session: Option<prism_ir::SessionId>,
     #[serde(default)]
@@ -97,6 +111,8 @@ pub struct CanonicalTaskRecord {
     pub acceptance: Vec<AcceptanceCriterion>,
     #[serde(default)]
     pub validation_refs: Vec<ValidationRef>,
+    #[serde(default)]
+    pub is_abstract: bool,
     #[serde(default)]
     pub base_revision: WorkspaceRevision,
     #[serde(default)]
@@ -255,10 +271,13 @@ impl CanonicalTaskRecord {
             parent_plan_id: task.plan.clone(),
             title: task.title.clone(),
             summary: task.summary.clone(),
+            kind: task.kind,
+            status: task.status,
             lifecycle_status: legacy_task_status_to_lifecycle(task.status),
             estimated_minutes: legacy_estimated_minutes(task),
             executor: task_executor_policy(task),
             assignee: task.assignee.clone(),
+            pending_handoff_to: task.pending_handoff_to.clone(),
             session: task.session.clone(),
             lease_holder: task.lease_holder.clone(),
             lease_started_at: task.lease_started_at,
@@ -271,10 +290,11 @@ impl CanonicalTaskRecord {
             bindings: task.bindings.clone(),
             acceptance: task.acceptance.clone(),
             validation_refs: task.validation_refs.clone(),
+            is_abstract: task.is_abstract,
             base_revision: task.base_revision.clone(),
             priority: task.priority,
             tags: task.tags.clone(),
-            metadata: canonical_task_metadata(task),
+            metadata: task.metadata.clone(),
             git_execution: task.git_execution.clone(),
         }
     }
@@ -318,56 +338,6 @@ fn legacy_estimated_minutes(task: &CoordinationTask) -> u32 {
         .unwrap_or(0)
 }
 
-fn canonical_task_metadata(task: &CoordinationTask) -> Value {
-    let mut metadata = task.metadata.clone();
-    if let Some(object) = metadata.as_object_mut() {
-        object
-            .entry("legacy_kind".to_string())
-            .or_insert_with(|| Value::String(format!("{:?}", task.kind).to_ascii_lowercase()));
-        if let Some(phase) = legacy_phase(task.status) {
-            object
-                .entry("legacy_phase".to_string())
-                .or_insert_with(|| Value::String(phase.to_string()));
-        }
-        if let Some(status) = task.published_task_status {
-            object
-                .entry("legacy_published_task_status".to_string())
-                .or_insert_with(|| Value::String(format!("{:?}", status).to_ascii_lowercase()));
-        }
-        if let Some(agent) = &task.pending_handoff_to {
-            object
-                .entry("legacy_pending_handoff_to".to_string())
-                .or_insert_with(|| Value::String(agent.0.to_string()));
-        }
-        if task.is_abstract {
-            object
-                .entry("legacy_is_abstract".to_string())
-                .or_insert(Value::Bool(true));
-        }
-    } else {
-        metadata = serde_json::json!({
-            "legacy_kind": format!("{:?}", task.kind).to_ascii_lowercase(),
-            "legacy_phase": legacy_phase(task.status),
-            "legacy_published_task_status": task.published_task_status.map(|status| format!("{:?}", status).to_ascii_lowercase()),
-            "legacy_pending_handoff_to": task.pending_handoff_to.as_ref().map(|agent| agent.0.to_string()),
-            "legacy_is_abstract": task.is_abstract,
-        });
-    }
-    metadata
-}
-
-fn legacy_phase(status: prism_ir::CoordinationTaskStatus) -> Option<&'static str> {
-    match status {
-        prism_ir::CoordinationTaskStatus::Blocked => Some("blocked"),
-        prism_ir::CoordinationTaskStatus::InReview => Some("in_review"),
-        prism_ir::CoordinationTaskStatus::Validating => Some("validating"),
-        prism_ir::CoordinationTaskStatus::Proposed
-        | prism_ir::CoordinationTaskStatus::Ready
-        | prism_ir::CoordinationTaskStatus::InProgress
-        | prism_ir::CoordinationTaskStatus::Completed
-        | prism_ir::CoordinationTaskStatus::Abandoned => None,
-    }
-}
 
 fn legacy_dependency_records(tasks: &[CoordinationTask]) -> Vec<CoordinationDependencyRecord> {
     let mut dependencies = Vec::new();
@@ -462,10 +432,13 @@ mod tests {
             parent_plan_id: PlanId::new("plan:beta"),
             title: "task".to_string(),
             summary: None,
+            kind: PlanNodeKind::Edit,
+            status: CoordinationTaskStatus::Proposed,
             lifecycle_status: TaskLifecycleStatus::Pending,
             estimated_minutes: 0,
             executor: TaskExecutorPolicy::default(),
             assignee: None,
+            pending_handoff_to: None,
             session: None,
             lease_holder: None,
             lease_started_at: None,
@@ -478,6 +451,7 @@ mod tests {
             bindings: PlanBinding::default(),
             acceptance: Vec::new(),
             validation_refs: Vec::new(),
+            is_abstract: false,
             base_revision: WorkspaceRevision::default(),
             priority: None,
             tags: Vec::new(),
@@ -507,9 +481,6 @@ mod tests {
                 tags: vec!["rewrite".into()],
                 created_from: Some("spec".into()),
                 metadata: json!({"source": "legacy"}),
-                authored_nodes: Vec::new(),
-                authored_edges: Vec::new(),
-                root_tasks: vec![CoordinationTaskId::new("coord-task:demo")],
             }],
             tasks: vec![CoordinationTask {
                 id: CoordinationTaskId::new("coord-task:demo"),
@@ -518,7 +489,6 @@ mod tests {
                 title: "task".into(),
                 summary: Some("summary".into()),
                 status: CoordinationTaskStatus::InReview,
-                published_task_status: Some(CoordinationTaskStatus::Ready),
                 assignee: Some(AgentId::new("agent:demo")),
                 pending_handoff_to: None,
                 session: Some(SessionId::new("session:demo")),
@@ -541,7 +511,10 @@ mod tests {
                 priority: Some(3),
                 tags: vec!["v2".into()],
                 metadata: json!({"estimatedMinutes": 25}),
-                git_execution: TaskGitExecution::default(),
+                git_execution: TaskGitExecution {
+                    pending_task_status: Some(CoordinationTaskStatus::Ready),
+                    ..TaskGitExecution::default()
+                },
             }],
             claims: Vec::new(),
             artifacts: Vec::new(),
@@ -559,6 +532,8 @@ mod tests {
         assert_eq!(v2.plans[0].operator_state, PlanOperatorState::Archived);
         assert_eq!(v2.tasks[0].id, TaskId::new("coord-task:demo"));
         assert_eq!(v2.tasks[0].parent_plan_id, PlanId::new("plan:demo"));
+        assert_eq!(v2.tasks[0].kind, PlanNodeKind::Edit);
+        assert_eq!(v2.tasks[0].status, CoordinationTaskStatus::InReview);
         assert_eq!(v2.tasks[0].lifecycle_status, TaskLifecycleStatus::Active);
         assert_eq!(v2.tasks[0].estimated_minutes, 25);
         assert_eq!(v2.dependencies.len(), 3);
@@ -582,9 +557,6 @@ mod tests {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: Value::Null,
-                authored_nodes: Vec::new(),
-                authored_edges: Vec::new(),
-                root_tasks: vec![CoordinationTaskId::new("coord-task:demo")],
             }],
             tasks: vec![CoordinationTask {
                 id: CoordinationTaskId::new("coord-task:demo"),
@@ -593,7 +565,6 @@ mod tests {
                 title: "task".into(),
                 summary: None,
                 status: CoordinationTaskStatus::Ready,
-                published_task_status: None,
                 assignee: None,
                 pending_handoff_to: None,
                 session: None,

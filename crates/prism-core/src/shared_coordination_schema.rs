@@ -122,7 +122,6 @@ mod tests {
             title: "Sample".into(),
             summary: None,
             status: prism_ir::CoordinationTaskStatus::Ready,
-            published_task_status: None,
             assignee: None,
             pending_handoff_to: None,
             session: None,

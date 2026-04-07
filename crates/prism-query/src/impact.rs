@@ -1,15 +1,16 @@
 use std::collections::BTreeMap;
 
-use prism_coordination::CoordinationTask;
+use prism_coordination::CanonicalTaskRecord;
 use prism_ir::{
-    AnchorRef, ArtifactId, ArtifactStatus, CoordinationTaskId, LineageId, NodeId, Timestamp,
+    AnchorRef, ArtifactId, ArtifactStatus, CoordinationTaskId, LineageId, NodeId, TaskId,
+    Timestamp,
 };
 use prism_projections::CoChangeRecord;
 
 use crate::common::{dedupe_node_ids, dedupe_strings, sort_node_ids};
 use crate::types::{
-    ArtifactRisk, ChangeImpact, CoChange, ContractHealthStatus, ContractPacket, TaskRisk,
-    TaskValidationRecipe, ValidationRecipe,
+    ArtifactRisk, ChangeImpact, CoChange, ContractHealthStatus, ContractPacket, CoordinationTaskV2,
+    TaskRisk, TaskValidationRecipe, ValidationRecipe,
 };
 use crate::Prism;
 
@@ -44,8 +45,8 @@ impl Prism {
     }
 
     pub fn task_blast_radius(&self, task_id: &CoordinationTaskId) -> Option<ChangeImpact> {
-        let task = self.coordination_task(task_id)?;
-        let mut impact = self.task_blast_radius_for_anchors(&Self::task_anchor_refs(&task));
+        let task = self.task(&TaskId::new(task_id.0.clone()))?;
+        let mut impact = self.task_blast_radius_for_anchors(&Self::task_anchor_refs(&task.task));
         Self::merge_task_validation_checks(&mut impact.likely_validations, &task);
         Some(impact)
     }
@@ -54,9 +55,9 @@ impl Prism {
         &self,
         task_id: &CoordinationTaskId,
     ) -> Option<TaskValidationRecipe> {
-        let task = self.coordination_task(task_id)?;
+        let task = self.task(&TaskId::new(task_id.0.clone()))?;
         let mut recipe =
-            self.task_validation_recipe_for_anchors(task_id, &Self::task_anchor_refs(&task));
+            self.task_validation_recipe_for_anchors(task_id, &Self::task_anchor_refs(&task.task));
         Self::merge_task_validation_checks(&mut recipe.checks, &task);
         Some(recipe)
     }
@@ -111,8 +112,8 @@ impl Prism {
     }
 
     pub fn task_risk(&self, task_id: &CoordinationTaskId, _now: Timestamp) -> Option<TaskRisk> {
-        let task = self.coordination_task(task_id)?;
-        let anchors = Self::task_anchor_refs(&task);
+        let task = self.task(&TaskId::new(task_id.0.clone()))?;
+        let anchors = Self::task_anchor_refs(&task.task);
         let impact = self.impact_for_anchors(&anchors);
         let (contracts, contract_review_notes) = review_contract_context(self, &anchors);
         let likely_validations =
@@ -149,12 +150,12 @@ impl Prism {
             })
             .map(|artifact| artifact.id.clone())
             .collect::<Vec<_>>();
-        let stale_task = task_is_workspace_bound(&task)
-            && task.base_revision.graph_version < self.workspace_revision().graph_version;
+        let stale_task = task_is_workspace_bound(&task.task)
+            && task.task.base_revision.graph_version < self.workspace_revision().graph_version;
         let risk_score = score_change_impact(&impact, stale_task || !stale_artifact_ids.is_empty());
         let review_required = self
-            .coordination_plan(&task.plan)
-            .and_then(|plan| plan.policy.review_required_above_risk_score)
+            .plan(&task.task.parent_plan_id)
+            .and_then(|plan| plan.plan.policy.review_required_above_risk_score)
             .map(|threshold| risk_score >= threshold)
             .unwrap_or(false);
         let risk_events = impact.risk_events.clone();
@@ -177,28 +178,32 @@ impl Prism {
         })
     }
 
-    fn task_anchor_refs(task: &CoordinationTask) -> Vec<AnchorRef> {
+    fn task_anchor_refs(task: &CanonicalTaskRecord) -> Vec<AnchorRef> {
         if task.bindings.anchors.is_empty() {
             return task.anchors.clone();
         }
         task.bindings.anchors.clone()
     }
 
-    fn task_validation_checks(task: &CoordinationTask) -> Vec<String> {
+    fn task_validation_checks(task: &CoordinationTaskV2) -> Vec<String> {
         dedupe_strings(
-            task.validation_refs
+            task.task
+                .validation_refs
                 .iter()
                 .map(|validation| validation.id.clone())
                 .collect(),
         )
     }
 
-    fn merge_task_validation_checks(target: &mut Vec<String>, task: &CoordinationTask) {
+    fn merge_task_validation_checks(target: &mut Vec<String>, task: &CoordinationTaskV2) {
         target.extend(Self::task_validation_checks(task));
         *target = dedupe_strings(std::mem::take(target));
     }
 
-    fn merged_task_validation_checks(checks: Vec<String>, task: &CoordinationTask) -> Vec<String> {
+    fn merged_task_validation_checks(
+        checks: Vec<String>,
+        task: &CoordinationTaskV2,
+    ) -> Vec<String> {
         let mut checks = checks;
         Self::merge_task_validation_checks(&mut checks, task);
         checks
@@ -214,8 +219,8 @@ impl Prism {
             )
         } else {
             let mut anchors = artifact.anchors.clone();
-            let task = self.coordination_task(&artifact.task)?;
-            anchors.extend(task.anchors);
+            let task = self.task(&TaskId::new(artifact.task.0.clone()))?;
+            anchors.extend(task.task.anchors);
             review_contract_context(self, &anchors)
         };
         let required_validations = if artifact.required_validations.is_empty() {
@@ -415,7 +420,7 @@ impl Prism {
     }
 }
 
-fn task_is_workspace_bound(task: &prism_coordination::CoordinationTask) -> bool {
+fn task_is_workspace_bound(task: &CanonicalTaskRecord) -> bool {
     !task.anchors.is_empty()
         || task
             .acceptance

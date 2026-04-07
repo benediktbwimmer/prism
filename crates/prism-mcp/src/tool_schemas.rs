@@ -21,11 +21,10 @@ use crate::{
     ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload, ClaimReleasePayload,
     ClaimRenewPayload, HandoffAcceptPayload, HandoffPayload, MemoryRetirePayload,
     MemoryStorePayload, PlanArchivePayload, PlanBootstrapPayload, PlanCreatePayload,
-    PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanUpdatePayload,
-    PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs,
-    PrismOpenArgs, PrismQueryArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView,
-    TaskCreatePayload, TaskReclaimPayload, TaskResumePayload, WorkflowUpdatePayload,
-    TOOL_SCHEMAS_URI,
+    PlanUpdatePayload, PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs,
+    PrismMutationArgs, PrismOpenArgs, PrismQueryArgs, PrismTaskBriefArgs, PrismWorksetArgs,
+    ResourceLinkView, TaskCreatePayload, TaskReclaimPayload, TaskResumePayload,
+    WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -729,24 +728,6 @@ fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
                     "update",
                     described_schema::<WorkflowUpdatePayload>(
                         "Payload when `input.kind` is `update`.",
-                    ),
-                ),
-                (
-                    "plan_node_create",
-                    described_schema::<PlanNodeCreatePayload>(
-                        "Payload when `input.kind` is the legacy compatibility alias `plan_node_create`.",
-                    ),
-                ),
-                (
-                    "plan_edge_create",
-                    described_schema::<PlanEdgeCreatePayload>(
-                        "Payload when `input.kind` is the legacy compatibility alias `plan_edge_create`.",
-                    ),
-                ),
-                (
-                    "plan_edge_delete",
-                    described_schema::<PlanEdgeDeletePayload>(
-                        "Payload when `input.kind` is `plan_edge_delete`.",
                     ),
                 ),
                 (

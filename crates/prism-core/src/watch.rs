@@ -630,8 +630,6 @@ fn refresh_prism_snapshot_with_guard(
                     HistoryStore::from_snapshot(current_prism.history_snapshot()),
                     OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
                     current_prism.coordination_snapshot(),
-                    current_prism.authored_plan_graphs(),
-                    current_prism.plan_execution_overlays_by_plan(),
                     current_prism.runtime_descriptors(),
                     ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
                 );
@@ -682,10 +680,9 @@ fn refresh_prism_snapshot_with_guard(
         ) {
             Ok(true) => {
                 let prism = next.prism_arc();
+                let snapshot = prism.coordination_snapshot();
                 next_state.replace_coordination_runtime(
-                    prism.coordination_snapshot(),
-                    prism.authored_plan_graphs(),
-                    prism.plan_execution_overlays_by_plan(),
+                    snapshot.clone(),
                     prism.runtime_descriptors(),
                 );
                 let republish_started = Instant::now();
@@ -962,14 +959,14 @@ fn assisted_task_target(
     }
     let holder = task.lease_holder.clone()?;
     let principal = holder.principal.clone()?;
-    let plan = prism.coordination_plan(&task.plan)?;
-    if plan.policy.lease_renewal_mode != LeaseRenewalMode::Assisted {
+    let plan = prism.plan(&task.plan)?;
+    if plan.plan.policy.lease_renewal_mode != LeaseRenewalMode::Assisted {
         return None;
     }
     Some(AssistedLeaseTarget::Task {
         task,
         principal,
-        policy: plan.policy,
+        policy: plan.plan.policy,
     })
 }
 
@@ -991,18 +988,18 @@ fn assisted_claim_target(
     let holder = claim.lease_holder.as_ref()?;
     let principal = holder.principal.clone()?;
     let task_id = claim.task.as_ref()?;
-    let task = prism.coordination_task(task_id)?;
-    if task.pending_handoff_to.is_some() {
+    let task = prism.task(&TaskId::new(task_id.0.clone()))?;
+    if task.task.pending_handoff_to.is_some() {
         return None;
     }
-    let plan = prism.coordination_plan(&task.plan)?;
-    if plan.policy.lease_renewal_mode != LeaseRenewalMode::Assisted {
+    let plan = prism.plan(&task.task.parent_plan_id)?;
+    if plan.plan.policy.lease_renewal_mode != LeaseRenewalMode::Assisted {
         return None;
     }
     Some(AssistedLeaseTarget::Claim {
         claim,
         principal,
-        policy: plan.policy,
+        policy: plan.plan.policy,
     })
 }
 
@@ -1268,14 +1265,6 @@ pub(crate) fn sync_protected_state_watch_update(
                 .unwrap_or_default(),
             plan_state
                 .as_ref()
-                .map(|state| state.plan_graphs.clone())
-                .unwrap_or_default(),
-            plan_state
-                .as_ref()
-                .map(|state| state.execution_overlays.clone())
-                .unwrap_or_default(),
-            plan_state
-                .as_ref()
                 .map(|state| state.runtime_descriptors.clone())
                 .unwrap_or_default(),
         );
@@ -1367,14 +1356,10 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
         root,
         &mut *store.lock().expect("workspace store lock poisoned"),
         &shared.snapshot,
-        &shared.plan_graphs,
-        &shared.execution_overlays,
         &shared.runtime_descriptors,
     )?;
     next_state.replace_coordination_runtime(
         shared.snapshot.clone(),
-        shared.plan_graphs.clone(),
-        shared.execution_overlays.clone(),
         shared.runtime_descriptors.clone(),
     );
     let next = next_state.publish_generation(
@@ -1461,7 +1446,7 @@ mod tests {
     use prism_coordination::{
         CoordinationPolicy, CoordinationStore, PlanCreateInput, TaskCreateInput,
     };
-    use prism_ir::{AgentId, EventActor, EventExecutionContext, EventId, EventMeta, SessionId};
+    use prism_ir::{AgentId, EventActor, EventExecutionContext, EventId, EventMeta, SessionId, TaskId};
     use prism_query::Prism;
     use prism_store::{CoordinationJournal, Graph, MemoryStore};
     use std::path::PathBuf;
@@ -1719,7 +1704,7 @@ mod tests {
         ));
         assert!(super::last_explicit_authenticated_target_event_ts(&prism, &target).is_some());
         let initial_task = prism
-            .coordination_task(&task_id)
+            .task(&TaskId::new(task_id.0.clone()))
             .expect("task should exist before assisted renewal");
         let changed =
             maybe_auto_heartbeat_assisted_leases_in_store(root.as_path(), &prism, &mut store)
@@ -1732,11 +1717,17 @@ mod tests {
                 && event.metadata["renewalProvenance"] == "watcher_auto"
         }));
         let task = prism
-            .coordination_task(&task_id)
+            .task(&TaskId::new(task_id.0.clone()))
             .expect("task should remain present");
-        assert_eq!(task.lease_refreshed_at, initial_task.lease_refreshed_at);
-        assert_eq!(task.lease_expires_at, initial_task.lease_expires_at);
-        assert!(prism.task_has_active_local_assisted_lease(&task, current_timestamp()));
+        assert_eq!(
+            task.task.lease_refreshed_at,
+            initial_task.task.lease_refreshed_at
+        );
+        assert_eq!(task.task.lease_expires_at, initial_task.task.lease_expires_at);
+        assert!(prism.task_has_active_local_assisted_lease_v2(
+            &task.task,
+            current_timestamp()
+        ));
         assert_eq!(store.coordination_revision().unwrap(), 0);
         unsafe { std::env::remove_var(super::ASSISTED_LEASE_RENEWAL_ENV) };
         let _ = std::fs::remove_dir_all(root);

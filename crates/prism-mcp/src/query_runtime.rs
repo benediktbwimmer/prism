@@ -5,22 +5,21 @@ use std::time::Instant;
 use anyhow::{anyhow, Context, Result};
 use prism_coordination::TaskExecutorCaller;
 use prism_ir::{
-    AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId, PlanNode,
-    PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId, TaskId,
+    AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId, PlanNodeId,
+    TaskId,
 };
 use prism_js::{
-    AdHocPlanProjectionDiffView, AdHocPlanProjectionView, ChangedFileView, ChangedSymbolView,
-    ConceptDecodeView, ConceptPacketView, ConnectionInfoView, ContractPacketView, DiffHunkView,
-    DiscoveryBundleView, EditContextView, FocusedBlockView, MemoryEventView, PatchEventView,
-    QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView, RuntimeLogEventView,
-    RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView, SubgraphView,
-    SymbolView, TextSearchMatchView, ToolCatalogEntryView, ToolInputValidationView, ToolSchemaView,
-    ValidationContextView, ValidationFeedbackView,
+    ChangedFileView, ChangedSymbolView, ConceptDecodeView, ConceptPacketView, ConnectionInfoView,
+    ContractPacketView, DiffHunkView, DiscoveryBundleView, EditContextView, FocusedBlockView,
+    MemoryEventView, PatchEventView, QueryDiagnostic, QueryEnvelope, ReadContextView,
+    RecentChangeContextView, RuntimeLogEventView, RuntimeStatusView, ScoredMemoryView,
+    SourceExcerptView, SourceSliceView, SubgraphView, SymbolView, TextSearchMatchView,
+    ToolCatalogEntryView, ToolInputValidationView, ToolSchemaView, ValidationContextView,
+    ValidationFeedbackView,
 };
 use prism_memory::{MemoryEventQuery, MemoryModule, OutcomeKind, OutcomeRecallQuery, RecallQuery};
 use prism_query::{
-    ChangeImpact, ConceptDecodeLens, EditSliceOptions, Prism, SourceExcerptOptions, Symbol,
-    TaskRisk, TaskValidationRecipe,
+    ConceptDecodeLens, EditSliceOptions, Prism, SourceExcerptOptions, Symbol,
 };
 use serde_json::{json, Value};
 
@@ -34,15 +33,14 @@ use crate::query_typecheck::StaticCheckMode;
 use crate::runtime_views::{connection_info, runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
 use crate::{
-    ad_hoc_plan_projection_diff_view, ad_hoc_plan_projection_view,
     ambiguity::is_broad_identifier_query, ambiguity_diagnostic_data, apply_module_filter,
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
     changed_files, changed_symbols, changed_symbols_from_events, claim_view, co_change_view,
     combined_parse_typescript_error, concept_decode_lens_view, concept_packet_view,
     concept_relation_view, concept_resolution_is_ambiguous, conflict_view, contract_packet_view,
     convert_anchors, convert_capability, convert_claim_mode, convert_node_id,
-    coordination_plan_v2_view, coordination_task_v2_view, coordination_task_view,
-    coordination_task_view_from_v2, current_timestamp, diff_for, diff_for_from_events,
+    coordination_plan_v2_view, coordination_task_v2_view, current_timestamp, diff_for,
+    diff_for_from_events,
     drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol, entrypoints_for,
     focused_block_for_symbol, invalid_query_argument_error, is_query_parse_error, js_runtime,
     lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint,
@@ -50,8 +48,7 @@ use crate::{
     owner_views_for_target, parse_event_actor, parse_memory_event_action, parse_memory_kind,
     parse_memory_scope, parse_node_kind, parse_outcome_kind, parse_outcome_result,
     parse_plan_scope, parse_plan_status, parse_typescript_error, plan_children_v2_view,
-    plan_execution_overlay_view, plan_graph_view, plan_node_blocker_view,
-    plan_node_recommendation_view, plan_node_view, plan_summary_view, plan_view, plan_view_from_v2,
+    plan_node_blocker_view, plan_node_recommendation_view, plan_summary_view,
     policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
     promoted_validation_checks, query_diagnostic, query_feature_disabled_error, query_method_specs,
     rank_search_results, read_context_view_cached, recent_change_context_view_cached,
@@ -68,16 +65,15 @@ use crate::{
     DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs,
     FileReadArgs, ImplementationTargetArgs, LimitArgs, McpLogArgs, McpTraceArgs, MemoryEventArgs,
     MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, NodeRefArgs, OwnerLookupArgs,
-    PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanProjectionAtArgs,
-    PlanProjectionDiffArgs, PlanTargetArgs, PlansQueryArgs, PolicyViolationQueryArgs, QueryHost,
-    QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs,
-    RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache,
-    SessionState, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs,
-    TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs,
-    ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
-    DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
-    INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER,
-    USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
+    PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanTargetArgs, PlansQueryArgs,
+    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
+    RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs,
+    SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs, SourceExcerptArgs,
+    SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode,
+    TaskTargetArgs, ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
+    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -202,163 +198,20 @@ fn parse_contract_kind_filter(value: &str) -> Result<&'static str> {
     }
 }
 
-struct NativePlanTaskQuerySubject {
-    task_id: CoordinationTaskId,
-    plan_id: PlanId,
-    node: PlanNode,
-    blockers: Vec<PlanNodeBlocker>,
-}
-
 struct TaskQuerySubject {
-    coordination_task_id: Option<CoordinationTaskId>,
-    native_plan: Option<NativePlanTaskQuerySubject>,
+    coordination_task_id: CoordinationTaskId,
 }
 
 fn resolve_task_query_subject(prism: &Prism, task_id: &str) -> Option<TaskQuerySubject> {
-    let coordination_task_id = CoordinationTaskId::new(task_id.to_string());
-    let coordination_task_id = prism
-        .coordination_task(&coordination_task_id)
-        .map(|_| coordination_task_id);
-    let native_plan = coordination_task_id.as_ref().is_none().then(|| {
-        prism.plan_graphs().into_iter().find_map(|graph| {
-            graph.nodes.into_iter().find_map(|node| {
-                (node.id.0 == task_id).then(|| {
-                    let blockers = prism.plan_node_blockers(&graph.id, &node.id);
-                    NativePlanTaskQuerySubject {
-                        task_id: CoordinationTaskId::new(node.id.0.clone()),
-                        plan_id: graph.id.clone(),
-                        node,
-                        blockers,
-                    }
-                })
-            })
-        })
-    });
-    let native_plan = native_plan.flatten();
-    (coordination_task_id.is_some() || native_plan.is_some()).then_some(TaskQuerySubject {
-        coordination_task_id,
-        native_plan,
+    prism.task(&TaskId::new(task_id.to_string())).map(|task| TaskQuerySubject {
+        coordination_task_id: CoordinationTaskId::new(task.task.id.0.to_string()),
     })
 }
 
-fn native_plan_task_checks(node: &PlanNode, blockers: &[PlanNodeBlocker]) -> Vec<String> {
-    let mut checks = Vec::new();
-    for validation in &node.validation_refs {
-        push_unique_task_check(&mut checks, validation.id.clone());
-    }
-    for criterion in &node.acceptance {
-        for validation in &criterion.required_checks {
-            push_unique_task_check(&mut checks, validation.id.clone());
-        }
-    }
-    for blocker in blockers {
-        if matches!(
-            blocker.kind,
-            PlanNodeBlockerKind::ValidationGate | PlanNodeBlockerKind::ValidationRequired
-        ) {
-            for validation in &blocker.validation_checks {
-                push_unique_task_check(&mut checks, validation.clone());
-            }
-        }
-    }
-    checks
-}
-
-fn native_plan_missing_checks(node: &PlanNode, blockers: &[PlanNodeBlocker]) -> Vec<String> {
-    let mut checks = native_plan_task_checks(node, blockers);
-    for blocker in blockers {
-        if matches!(
-            blocker.kind,
-            PlanNodeBlockerKind::ValidationGate | PlanNodeBlockerKind::ValidationRequired
-        ) {
-            merge_task_checks(&mut checks, blocker.validation_checks.clone());
-        }
-    }
-    checks
-}
-
-fn push_unique_task_check(target: &mut Vec<String>, value: String) {
-    if !target.iter().any(|existing| existing == &value) {
-        target.push(value);
-    }
-}
-
-fn merge_task_checks(target: &mut Vec<String>, values: impl IntoIterator<Item = String>) {
-    for value in values {
-        push_unique_task_check(target, value);
-    }
-}
-
-fn native_plan_task_blast_radius(
-    prism: &Prism,
-    subject: &NativePlanTaskQuerySubject,
-) -> ChangeImpact {
-    let mut impact = prism.task_blast_radius_for_anchors(&subject.node.bindings.anchors);
-    merge_task_checks(
-        &mut impact.likely_validations,
-        native_plan_task_checks(&subject.node, &subject.blockers),
-    );
-    impact
-}
-
-fn native_plan_task_validation_recipe(
-    prism: &Prism,
-    subject: &NativePlanTaskQuerySubject,
-) -> TaskValidationRecipe {
-    let mut recipe =
-        prism.task_validation_recipe_for_anchors(&subject.task_id, &subject.node.bindings.anchors);
-    merge_task_checks(
-        &mut recipe.checks,
-        native_plan_task_checks(&subject.node, &subject.blockers),
-    );
-    recipe
-}
-
-fn native_plan_task_risk(prism: &Prism, subject: &NativePlanTaskQuerySubject) -> TaskRisk {
-    let stale_task = subject.blockers.iter().any(|blocker| {
-        matches!(
-            blocker.kind,
-            PlanNodeBlockerKind::StaleRevision | PlanNodeBlockerKind::ArtifactStale
-        )
-    });
-    let review_required_above_risk_score = prism
-        .coordination_plan(&subject.plan_id)
-        .and_then(|plan| plan.policy.review_required_above_risk_score);
-    let mut risk = prism.task_risk_for_anchors(
-        &subject.task_id,
-        &subject.node.bindings.anchors,
-        review_required_above_risk_score,
-        stale_task,
-    );
-    merge_task_checks(
-        &mut risk.likely_validations,
-        native_plan_task_checks(&subject.node, &subject.blockers),
-    );
-    risk.missing_validations = risk.likely_validations.clone();
-    risk.review_required = risk.review_required
-        || subject.blockers.iter().any(|blocker| {
-            matches!(
-                blocker.kind,
-                PlanNodeBlockerKind::ReviewRequired | PlanNodeBlockerKind::RiskReviewRequired
-            )
-        });
-    risk
-}
-
 fn task_query_subject_anchors(prism: &Prism, subject: &TaskQuerySubject) -> Vec<AnchorRef> {
-    let coordination_anchors = subject
-        .coordination_task_id
-        .as_ref()
-        .and_then(|task_id| prism.coordination_task(task_id))
-        .map(|task| task.anchors)
-        .unwrap_or_default();
-    if !coordination_anchors.is_empty() || subject.native_plan.is_none() {
-        return coordination_anchors;
-    }
-    subject
-        .native_plan
-        .as_ref()
-        .map(|native| native.node.bindings.anchors.clone())
+    prism
+        .task(&TaskId::new(subject.coordination_task_id.0.to_string()))
+        .map(|task| task.task.anchors)
         .unwrap_or_default()
 }
 
@@ -1228,79 +1081,8 @@ impl QueryExecution {
                     let plan_id = PlanId::new(args.plan_id);
                     Ok(serde_json::to_value(
                         self.prism
-                            .coordination_plan_v2(&plan_id)
-                            .map(|plan| {
-                                plan_view_from_v2(
-                                    plan,
-                                    self.prism.coordination_plan(&plan_id),
-                                    self.prism.plan_activity(&plan_id),
-                                )
-                            })
-                            .or_else(|| {
-                                self.prism.coordination_plan(&plan_id).map(|plan| {
-                                    let root_node_ids = self
-                                        .prism
-                                        .plan_graph(&plan_id)
-                                        .map(|graph| graph.root_nodes)
-                                        .unwrap_or_else(|| {
-                                            plan.root_tasks
-                                                .iter()
-                                                .map(|task_id| {
-                                                    prism_ir::PlanNodeId::new(task_id.0.clone())
-                                                })
-                                                .collect()
-                                        });
-                                    plan_view(
-                                        plan,
-                                        root_node_ids,
-                                        self.prism.plan_activity(&plan_id),
-                                    )
-                                })
-                            }),
-                    )?)
-                }
-                "planV2" => {
-                    let args: PlanTargetArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .coordination_plan_v2(&PlanId::new(args.plan_id))
+                            .plan(&plan_id)
                             .map(coordination_plan_v2_view),
-                    )?)
-                }
-                "planGraph" => {
-                    let args: PlanTargetArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .plan_graph(&PlanId::new(args.plan_id))
-                            .map(plan_graph_view),
-                    )?)
-                }
-                "planProjectionAt" => {
-                    let args: PlanProjectionAtArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(self.plan_projection_at(args)?)?)
-                }
-                "planProjectionDiff" => {
-                    let args: PlanProjectionDiffArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(self.plan_projection_diff(args)?)?)
-                }
-                "planExecution" => {
-                    let args: PlanTargetArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .plan_execution(&PlanId::new(args.plan_id))
-                            .into_iter()
-                            .map(plan_execution_overlay_view)
-                            .collect::<Vec<_>>(),
-                    )?)
-                }
-                "planReadyNodes" => {
-                    let args: PlanTargetArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .plan_ready_nodes(&PlanId::new(args.plan_id))
-                            .into_iter()
-                            .map(plan_node_view)
-                            .collect::<Vec<_>>(),
                     )?)
                 }
                 "planNodeBlockers" => {
@@ -1348,7 +1130,7 @@ impl QueryExecution {
                 "children" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     let plan_id = PlanId::new(args.plan_id);
-                    let children = self.prism.plan_children_v2(&plan_id);
+                    let children = self.prism.children(&plan_id);
                     Ok(serde_json::to_value(Some(plan_children_v2_view(
                         &plan_id, children,
                     )))?)
@@ -1357,7 +1139,7 @@ impl QueryExecution {
                     let args: NodeRefArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(
                         self.prism
-                            .node_dependencies_v2(&prism_ir::NodeRef {
+                            .dependencies(&prism_ir::NodeRef {
                                 kind: args.kind,
                                 id: args.id,
                             })
@@ -1370,7 +1152,7 @@ impl QueryExecution {
                     let args: NodeRefArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(
                         self.prism
-                            .node_dependents_v2(&prism_ir::NodeRef {
+                            .dependents(&prism_ir::NodeRef {
                                 kind: args.kind,
                                 id: args.id,
                             })
@@ -1381,7 +1163,7 @@ impl QueryExecution {
                 }
                 "portfolio" => Ok(serde_json::to_value(
                     self.prism
-                        .root_plans_v2()
+                        .portfolio()
                         .into_iter()
                         .map(coordination_plan_v2_view)
                         .collect::<Vec<_>>(),
@@ -1400,38 +1182,17 @@ impl QueryExecution {
                             .collect::<Vec<_>>(),
                     )?)
                 }
-                "coordinationTask" => {
-                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                    let task_id = args.task_id;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .coordination_task_v2(&TaskId::new(task_id.clone()))
-                            .map(|task| {
-                                coordination_task_view_from_v2(
-                                    task,
-                                    self.prism.coordination_task(&CoordinationTaskId::new(
-                                        task_id.clone(),
-                                    )),
-                                )
-                            })
-                            .or_else(|| {
-                                self.prism
-                                    .coordination_task(&CoordinationTaskId::new(task_id))
-                                    .map(coordination_task_view)
-                            }),
-                    )?)
-                }
-                "taskV2" => {
+                "task" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(
                         self.prism
-                            .coordination_task_v2(&TaskId::new(args.task_id))
+                            .task(&TaskId::new(args.task_id))
                             .map(coordination_task_v2_view),
                     )?)
                 }
                 "graphActionableTasks" => Ok(serde_json::to_value(
                     self.prism
-                        .graph_actionable_tasks_v2()
+                        .graph_actionable_tasks()
                         .into_iter()
                         .map(coordination_task_v2_view)
                         .collect::<Vec<_>>(),
@@ -1440,7 +1201,7 @@ impl QueryExecution {
                     let args: ActionableTasksArgs = serde_json::from_value(args)?;
                     let tasks = if let Some(principal) = args.principal {
                         self.prism
-                            .actionable_tasks_for_executor_v2(&TaskExecutorCaller::new(
+                            .actionable_tasks_for_executor(&TaskExecutorCaller::new(
                                 prism_ir::ExecutorClass::WorktreeExecutor,
                                 None,
                                 Some(prism_ir::PrincipalId::new(principal)),
@@ -1448,9 +1209,9 @@ impl QueryExecution {
                     } else if let Some(caller) =
                         current_executor_caller(self.workspace_root(), Some(self.session()))
                     {
-                        self.prism.actionable_tasks_for_executor_v2(&caller)
+                        self.prism.actionable_tasks_for_executor(&caller)
                     } else {
-                        self.prism.graph_actionable_tasks_v2()
+                        self.prism.graph_actionable_tasks()
                     };
                     Ok(serde_json::to_value(
                         tasks
@@ -1473,7 +1234,7 @@ impl QueryExecution {
                     Ok(serde_json::to_value(
                         tasks
                             .into_iter()
-                            .map(coordination_task_view)
+                            .map(coordination_task_v2_view)
                             .collect::<Vec<_>>(),
                     )?)
                 }
@@ -1611,24 +1372,7 @@ impl QueryExecution {
                     Ok(serde_json::to_value(
                         resolve_task_query_subject(self.prism.as_ref(), &args.task_id).and_then(
                             |subject| {
-                                let mut impact = subject
-                                    .coordination_task_id
-                                    .as_ref()
-                                    .and_then(|task_id| self.prism.task_blast_radius(task_id))
-                                    .or_else(|| {
-                                        subject.native_plan.as_ref().map(|native| {
-                                            native_plan_task_blast_radius(
-                                                self.prism.as_ref(),
-                                                native,
-                                            )
-                                        })
-                                    })?;
-                                if let Some(native) = subject.native_plan.as_ref() {
-                                    merge_task_checks(
-                                        &mut impact.likely_validations,
-                                        native_plan_task_checks(&native.node, &native.blockers),
-                                    );
-                                }
+                                let impact = self.prism.task_blast_radius(&subject.coordination_task_id)?;
                                 let anchors =
                                     task_query_subject_anchors(self.prism.as_ref(), &subject);
                                 let mut view = change_impact_view(impact);
@@ -1647,24 +1391,8 @@ impl QueryExecution {
                     Ok(serde_json::to_value(
                         resolve_task_query_subject(self.prism.as_ref(), &args.task_id).and_then(
                             |subject| {
-                                let mut recipe = subject
-                                    .coordination_task_id
-                                    .as_ref()
-                                    .and_then(|task_id| self.prism.task_validation_recipe(task_id))
-                                    .or_else(|| {
-                                        subject.native_plan.as_ref().map(|native| {
-                                            native_plan_task_validation_recipe(
-                                                self.prism.as_ref(),
-                                                native,
-                                            )
-                                        })
-                                    })?;
-                                if let Some(native) = subject.native_plan.as_ref() {
-                                    merge_task_checks(
-                                        &mut recipe.checks,
-                                        native_plan_task_checks(&native.node, &native.blockers),
-                                    );
-                                }
+                                let mut recipe =
+                                    self.prism.task_validation_recipe(&subject.coordination_task_id)?;
                                 let anchors =
                                     task_query_subject_anchors(self.prism.as_ref(), &subject);
                                 merge_promoted_checks(
@@ -1690,49 +1418,14 @@ impl QueryExecution {
                     Ok(serde_json::to_value(
                         resolve_task_query_subject(self.prism.as_ref(), &args.task_id).and_then(
                             |subject| {
-                                let task = subject
-                                    .coordination_task_id
-                                    .as_ref()
-                                    .and_then(|task_id| self.prism.coordination_task(task_id));
+                                let task = self
+                                    .prism
+                                    .task(&TaskId::new(subject.coordination_task_id.0.clone()));
                                 let anchors =
                                     task_query_subject_anchors(self.prism.as_ref(), &subject);
-                                let mut risk = subject
-                                    .coordination_task_id
-                                    .as_ref()
-                                    .and_then(|task_id| {
-                                        self.prism.task_risk(task_id, current_timestamp())
-                                    })
-                                    .or_else(|| {
-                                        subject.native_plan.as_ref().map(|native| {
-                                            native_plan_task_risk(self.prism.as_ref(), native)
-                                        })
-                                    })?;
-                                if let Some(native) = subject.native_plan.as_ref() {
-                                    merge_task_checks(
-                                        &mut risk.likely_validations,
-                                        native_plan_task_checks(&native.node, &native.blockers),
-                                    );
-                                    merge_task_checks(
-                                        &mut risk.missing_validations,
-                                        native_plan_missing_checks(&native.node, &native.blockers),
-                                    );
-                                    risk.review_required = risk.review_required
-                                        || native.blockers.iter().any(|blocker| {
-                                            matches!(
-                                                blocker.kind,
-                                                PlanNodeBlockerKind::ReviewRequired
-                                                    | PlanNodeBlockerKind::RiskReviewRequired
-                                            )
-                                        });
-                                    risk.stale_task = risk.stale_task
-                                        || native.blockers.iter().any(|blocker| {
-                                            matches!(
-                                                blocker.kind,
-                                                PlanNodeBlockerKind::StaleRevision
-                                                    | PlanNodeBlockerKind::ArtifactStale
-                                            )
-                                        });
-                                }
+                                let mut risk = self
+                                    .prism
+                                    .task_risk(&subject.coordination_task_id, current_timestamp())?;
                                 let promoted_summaries = promoted_summary_texts(
                                     self.session.as_ref(),
                                     self.prism.as_ref(),
@@ -1765,9 +1458,11 @@ impl QueryExecution {
                                 risk.review_required = risk.review_required
                                     || task
                                         .as_ref()
-                                        .and_then(|task| self.prism.coordination_plan(&task.plan))
+                                        .and_then(|task| {
+                                            self.prism.plan(&task.task.parent_plan_id)
+                                        })
                                         .and_then(|plan| {
-                                            plan.policy.review_required_above_risk_score
+                                            plan.plan.policy.review_required_above_risk_score
                                         })
                                         .map(|threshold| boosted_risk_score >= threshold)
                                         .unwrap_or(false);
@@ -2368,26 +2063,6 @@ return prism.file(__prismFileAroundArgs.path).around({
             );
         }
         Ok(results)
-    }
-
-    fn plan_projection_at(
-        &self,
-        args: PlanProjectionAtArgs,
-    ) -> Result<Option<AdHocPlanProjectionView>> {
-        Ok(self
-            .prism
-            .plan_projection_at(&PlanId::new(args.plan_id), args.at)
-            .map(ad_hoc_plan_projection_view))
-    }
-
-    fn plan_projection_diff(
-        &self,
-        args: PlanProjectionDiffArgs,
-    ) -> Result<AdHocPlanProjectionDiffView> {
-        Ok(ad_hoc_plan_projection_diff_view(
-            self.prism
-                .plan_projection_diff(&PlanId::new(args.plan_id), args.from, args.to),
-        ))
     }
 
     pub(crate) fn search(&self, args: SearchArgs) -> Result<Vec<SymbolView>> {

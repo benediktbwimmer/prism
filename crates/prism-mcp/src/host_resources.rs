@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Result};
 use prism_agent::EdgeId;
-use prism_coordination::CoordinationTask;
 use prism_core::diagnose_protected_state;
 use prism_ir::{AnchorRef, CoordinationTaskId, EventId, LineageId, NodeId, PlanId, TaskId};
 use prism_memory::{MemoryEventQuery, MemoryId};
+use prism_query::CoordinationTaskV2;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Instant;
@@ -21,7 +21,7 @@ use crate::{
     lineage_event_view, lineage_resource_view_link, lineage_status, memory_entry_view,
     memory_event_view, memory_resource_uri, memory_resource_view_link, owner_views_for_query,
     paginate_items, parse_resource_page, parse_resource_query_param, plan_resource_uri,
-    plan_resource_view_link, plan_summary_view, plan_view, plan_view_from_v2,
+    coordination_plan_v2_view, plan_resource_view_link, plan_summary_view,
     plans_resource_view_link, plans_resource_view_link_with_options,
     protected_state_resource_view_link, resource_link_view, resource_schema_catalog_entries,
     schema_resource_uri, schema_resource_view_link, schemas_resource_uri,
@@ -467,28 +467,8 @@ impl QueryHost {
             let schema_uri = schema_resource_uri("plan");
             let prism = self.current_prism();
             let plan = prism
-                .coordination_plan_v2(plan_id)
-                .map(|plan| {
-                    plan_view_from_v2(
-                        plan,
-                        prism.coordination_plan(plan_id),
-                        prism.plan_activity(plan_id),
-                    )
-                })
-                .or_else(|| {
-                    prism.coordination_plan(plan_id).map(|plan| {
-                        let root_node_ids = prism
-                            .plan_graph(plan_id)
-                            .map(|graph| graph.root_nodes)
-                            .unwrap_or_else(|| {
-                                plan.root_tasks
-                                    .iter()
-                                    .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
-                                    .collect()
-                            });
-                        plan_view(plan, root_node_ids, prism.plan_activity(plan_id))
-                    })
-                })
+                .plan(plan_id)
+                .map(coordination_plan_v2_view)
                 .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
             let summary = prism.plan_summary(plan_id).map(plan_summary_view);
             let related_resources = vec![
@@ -1201,7 +1181,7 @@ pub(crate) fn session_task_view(
     });
     let coordination_task = coordination_task_id
         .as_ref()
-        .and_then(|task_id| prism.coordination_task(&CoordinationTaskId::new(task_id.clone())));
+        .and_then(|task_id| prism.task(&TaskId::new(task_id.clone())));
     let blockers = coordination_task_id
         .as_ref()
         .map(|task_id| prism.blockers(&CoordinationTaskId::new(task_id.clone()), now))
@@ -1256,7 +1236,7 @@ struct SessionTaskContextSummary {
 fn session_task_context_summary(
     coordination_task_id: Option<&str>,
     replay_event_count: usize,
-    coordination_task: Option<&CoordinationTask>,
+    coordination_task: Option<&CoordinationTaskV2>,
     blockers: &[prism_coordination::TaskBlocker],
     heartbeat_advice: Option<&TaskHeartbeatAdvice>,
 ) -> SessionTaskContextSummary {
@@ -1297,22 +1277,23 @@ fn session_task_context_summary(
     }
     if let Some(task) = coordination_task {
         if matches!(
-            task.git_execution.status,
+            task.task.git_execution.status,
             prism_ir::GitExecutionStatus::PublishFailed
                 | prism_ir::GitExecutionStatus::PublishPending
         ) {
             let failure = task
+                .task
                 .git_execution
                 .last_publish
                 .as_ref()
                 .and_then(|publish| publish.failure.as_deref())
                 .unwrap_or("shared coordination publication is still pending");
-            let status = match task.git_execution.status {
+            let status = match task.task.git_execution.status {
                 prism_ir::GitExecutionStatus::PublishFailed => "publish_failed",
                 prism_ir::GitExecutionStatus::PublishPending => "publish_pending",
                 _ => unreachable!(),
             };
-            let next_action = if task.git_execution.status
+            let next_action = if task.task.git_execution.status
                 == prism_ir::GitExecutionStatus::PublishFailed
             {
                 "Retry authoritative completion publication for this task so the shared coordination ref records the completed state.".to_string()

@@ -315,7 +315,7 @@ fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
                     }],
                     "capability": "Edit",
                     "mode": "SoftExclusive",
-                    "coordinationTaskId": task_id.clone()
+                    "taskId": task_id.clone()
                 }),
                 task_id: None,
             },
@@ -382,8 +382,7 @@ return {{
         assert_eq!(task["id"], Value::String(task_id.clone()));
     }
     assert_eq!(result.result["inbox"]["plan"]["id"], plan_id);
-    assert_eq!(result.result["inbox"]["planV2"]["id"], plan_id);
-    assert_eq!(result.result["inbox"]["planGraph"]["id"], plan_id);
+    assert_eq!(result.result["inbox"]["plan"]["id"], plan_id);
     assert_eq!(result.result["inbox"]["children"]["planId"], plan_id);
     assert!(result.result["inbox"]["graphActionableTasks"]
         .as_array()
@@ -395,13 +394,6 @@ return {{
         .is_some_and(|tasks| tasks
             .iter()
             .any(|task| task["id"] == Value::String(task_id.clone()))));
-    assert_eq!(
-        result.result["inbox"]["planExecution"]
-            .as_array()
-            .unwrap()
-            .len(),
-        0
-    );
     assert_eq!(
         result.result["inbox"]["pendingReviews"]
             .as_array()
@@ -415,15 +407,12 @@ return {{
         Value::String(task_id.clone())
     );
     assert_eq!(result.result["context"]["task"]["id"], task_id);
-    assert_eq!(result.result["context"]["taskNode"]["id"], task_id);
-    assert!(result.result["context"]["taskExecution"].is_null());
-    assert_eq!(result.result["context"]["planGraph"]["id"], plan_id);
     assert_eq!(result.result["context"]["planSummary"]["planId"], plan_id);
     assert_eq!(
         result.result["context"]["planNext"][0]["node"]["id"],
         Value::String(task_id.clone())
     );
-    assert_eq!(result.result["context"]["taskV2"]["id"], task_id);
+    assert_eq!(result.result["context"]["task"]["id"], task_id);
     assert!(result.result["context"]["dependencies"]
         .as_array()
         .is_some_and(|deps| deps.is_empty()));
@@ -531,7 +520,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                     }],
                     "capability": "Edit",
                     "mode": "SoftExclusive",
-                    "coordinationTaskId": task_id.clone()
+                    "taskId": task_id.clone()
                 }),
                 task_id: None,
             },
@@ -609,7 +598,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         .expect("handoff state");
     assert_eq!(handed_off.result["assignee"], Value::Null);
     assert_eq!(handed_off.result["pendingHandoffTo"], "agent-b");
-    assert_eq!(handed_off.result["status"], "Blocked");
+    assert_eq!(handed_off.result["status"], "pending");
 
     let blocked_update = retry_on_runtime_sync_busy(|| {
         host_b.store_coordination(
@@ -704,7 +693,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     .unwrap();
     assert_eq!(accepted.state["assignee"], "agent-b");
     assert_eq!(accepted.state["pendingHandoffTo"], Value::Null);
-    assert_eq!(accepted.state["status"], "Ready");
+    assert_eq!(accepted.state["status"], "pending");
     if let Some(workspace) = host_b.workspace_session() {
         host_b.sync_workspace_revision(workspace).unwrap();
     }
@@ -723,7 +712,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                     }],
                     "capability": "Edit",
                     "mode": "SoftExclusive",
-                    "coordinationTaskId": task_id.clone()
+                    "taskId": task_id.clone()
                 }),
                 task_id: None,
             },
@@ -800,7 +789,7 @@ return {{
         !resumed.rejected,
         "resume unexpectedly rejected after approval: {resumed:#?}"
     );
-    assert_eq!(resumed.state["status"], "Ready");
+    assert_eq!(resumed.state["status"], "pending");
 
     let completed = retry_on_runtime_sync_busy(|| {
         host_b.store_coordination(
@@ -820,7 +809,7 @@ return {{
         !completed.rejected,
         "completion unexpectedly rejected: {completed:#?}"
     );
-    assert_eq!(completed.state["status"], "Completed");
+    assert_eq!(completed.state["status"], "completed");
 
     let final_state = (0..120)
         .find_map(|attempt| {
@@ -858,7 +847,7 @@ return {{
             }
         })
         .expect("final coordination state");
-    assert_eq!(final_state.result["task"]["status"], "Completed");
+    assert_eq!(final_state.result["task"]["status"], "completed");
     assert_eq!(
         final_state.result["inbox"]["pendingReviews"]
             .as_array()
@@ -893,14 +882,6 @@ async fn mcp_server_exposes_canonical_v2_coordination_query_views() {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
-                authored_nodes: Vec::new(),
-                authored_edges: Vec::new(),
-                root_tasks: vec![
-                    worktree_task_id.clone(),
-                    human_task_id.clone(),
-                    blocked_task_id.clone(),
-                    dependency_task_id.clone(),
-                ],
             }],
             tasks: vec![
                 CoordinationTask {
@@ -910,7 +891,6 @@ async fn mcp_server_exposes_canonical_v2_coordination_query_views() {
                     title: "Worktree task".into(),
                     summary: None,
                     status: prism_ir::CoordinationTaskStatus::Ready,
-                    published_task_status: None,
                     assignee: None,
                     pending_handoff_to: None,
                     session: None,
@@ -942,7 +922,6 @@ async fn mcp_server_exposes_canonical_v2_coordination_query_views() {
                     title: "Human task".into(),
                     summary: None,
                     status: prism_ir::CoordinationTaskStatus::Ready,
-                    published_task_status: None,
                     assignee: None,
                     pending_handoff_to: None,
                     session: None,
@@ -978,7 +957,6 @@ async fn mcp_server_exposes_canonical_v2_coordination_query_views() {
                     title: "Blocked task".into(),
                     summary: None,
                     status: prism_ir::CoordinationTaskStatus::Ready,
-                    published_task_status: None,
                     assignee: None,
                     pending_handoff_to: None,
                     session: None,
@@ -1010,7 +988,6 @@ async fn mcp_server_exposes_canonical_v2_coordination_query_views() {
                     title: "Dependency".into(),
                     summary: None,
                     status: prism_ir::CoordinationTaskStatus::Completed,
-                    published_task_status: None,
                     assignee: None,
                     pending_handoff_to: None,
                     session: None,
@@ -1067,11 +1044,10 @@ async fn mcp_server_exposes_canonical_v2_coordination_query_views() {
             json!({
                 "code": format!(
                     r#"
-const blocked = prism.taskV2("{blocked_task_id}");
+const blocked = prism.task("{blocked_task_id}");
 return {{
-  compatPlan: prism.plan("{plan_id}"),
-  plan: prism.planV2("{plan_id}"),
-  compatTask: prism.task("{blocked_task_id}"),
+  plan: prism.plan("{plan_id}"),
+  taskView: prism.task("{blocked_task_id}"),
   blocked,
   children: prism.children("{plan_id}"),
   dependencies: blocked ? prism.dependencies({{ kind: blocked.dependencies[0]?.kind, id: blocked.id }}) : [],
@@ -1093,16 +1069,8 @@ return {{
         .await
         .unwrap();
     let envelope = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(envelope["result"]["compatPlan"]["id"], plan_id.0.as_str());
-    assert_eq!(envelope["result"]["compatPlan"]["status"], "Active");
-    assert_eq!(
-        envelope["result"]["compatPlan"]["rootNodeIds"]
-            .as_array()
-            .expect("compat plan roots should be an array")
-            .len(),
-        4
-    );
     assert_eq!(envelope["result"]["plan"]["id"], plan_id.0.as_str());
+    assert_eq!(envelope["result"]["plan"]["status"], "active");
     assert_eq!(
         envelope["result"]["plan"]["children"]
             .as_array()
@@ -1116,16 +1084,16 @@ return {{
     );
     assert_eq!(envelope["result"]["blocked"]["status"], "pending");
     assert_eq!(
-        envelope["result"]["compatTask"]["id"],
+        envelope["result"]["taskView"]["id"],
         blocked_task_id.0.as_str()
     );
     assert_eq!(
-        envelope["result"]["compatTask"]["planId"],
+        envelope["result"]["taskView"]["parentPlanId"],
         plan_id.0.as_str()
     );
-    assert_eq!(envelope["result"]["compatTask"]["status"], "Ready");
+    assert_eq!(envelope["result"]["taskView"]["status"], "pending");
     assert_eq!(
-        envelope["result"]["compatTask"]["dependsOn"][0],
+        envelope["result"]["taskView"]["dependencies"][0]["id"],
         dependency_task_id.0.as_str()
     );
     assert_eq!(

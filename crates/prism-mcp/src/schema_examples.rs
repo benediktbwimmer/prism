@@ -345,7 +345,7 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
                     "capability": "edit",
                     "mode": "soft_exclusive",
                     "ttlSeconds": 1800,
-                    "coordinationTaskId": "coord-task:1"
+                    "taskId": "coord-task:1"
                 },
                 "taskId": "task:demo-main"
             }
@@ -514,38 +514,11 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
         json!({
             "action": "coordination",
             "input": {
-                "kind": "plan_node_create",
-                "payload": {
-                    "planId": "plan:demo-main",
-                    "kind": "note",
-                    "title": "Nested follow-up group",
-                    "isAbstract": true,
-                    "summary": "Legacy compatibility alias that maps to a child plan in v2."
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
                 "kind": "update",
                 "payload": {
                     "id": "coord-task:1",
                     "status": "in_progress",
                     "title": "Validate compact mutate examples"
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "plan_edge_create",
-                "payload": {
-                    "planId": "plan:demo-main",
-                    "fromNodeId": "coord-task:1",
-                    "toNodeId": "plan-node:legacy-parent",
-                    "kind": "child_of"
                 },
                 "taskId": "task:demo-main"
             }
@@ -561,19 +534,6 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
                         "importance": 80,
                         "urgency": 70
                     }
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "plan_edge_delete",
-                "payload": {
-                    "planId": "plan:demo-main",
-                    "fromNodeId": "coord-task:1",
-                    "toNodeId": "coord-task:2",
-                    "kind": "depends_on"
                 },
                 "taskId": "task:demo-main"
             }
@@ -1001,10 +961,6 @@ fn vocab_payload_example() -> Value {
                 "value": "task_create",
                 "aliases": [],
                 "description": "Create a coordination task."
-            }, {
-                "value": "plan_node_create",
-                "aliases": [],
-                "description": "Create a first-class plan node."
             }]
         }],
         "relatedResources": sample_related_resources(),

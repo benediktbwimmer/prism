@@ -118,7 +118,6 @@ fn task_lease_state_extends_from_matching_runtime_descriptor() {
         title: "Lease runtime join".into(),
         summary: None,
         status: prism_ir::CoordinationTaskStatus::InProgress,
-        published_task_status: None,
         assignee: None,
         pending_handoff_to: None,
         session: Some(prism_ir::SessionId::new("session:lease-runtime")),
@@ -169,7 +168,6 @@ fn task_lease_state_rejects_newer_runtime_instance_for_same_worktree() {
         title: "Lease restart join".into(),
         summary: None,
         status: prism_ir::CoordinationTaskStatus::InProgress,
-        published_task_status: None,
         assignee: None,
         pending_handoff_to: None,
         session: Some(prism_ir::SessionId::new("session:lease-restart")),
@@ -460,7 +458,6 @@ fn blockers_distinguish_coordination_and_integration_dependency_thresholds() {
                 task_id: provider_task_id.clone(),
                 kind: None,
                 status: None,
-                published_task_status: None,
                 git_execution: Some(TaskGitExecution {
                     status: prism_ir::GitExecutionStatus::CoordinationPublished,
                     integration_status: prism_ir::GitIntegrationStatus::PublishedToBranch,
@@ -511,7 +508,6 @@ fn blockers_distinguish_coordination_and_integration_dependency_thresholds() {
                 task_id: provider_task_id,
                 kind: None,
                 status: None,
-                published_task_status: None,
                 git_execution: Some(TaskGitExecution {
                     status: prism_ir::GitExecutionStatus::CoordinationPublished,
                     integration_status: prism_ir::GitIntegrationStatus::IntegratedToTarget,
@@ -591,7 +587,6 @@ fn expired_task_requires_resume_for_same_principal() {
                 task_id: task_id.clone(),
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -648,7 +643,6 @@ fn expired_task_requires_resume_for_same_principal() {
                 task_id,
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -718,7 +712,6 @@ fn stale_task_requires_reclaim_for_different_principal() {
                 task_id: task_id.clone(),
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -1111,7 +1104,6 @@ fn review_policy_gates_completion_but_not_ready_work() {
                 task_id: task_id.clone(),
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Completed),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -1189,7 +1181,6 @@ fn review_policy_gates_completion_but_not_ready_work() {
                     task_id,
                     kind: None,
                     status: Some(prism_ir::CoordinationTaskStatus::Completed),
-                    published_task_status: None,
                     git_execution: None,
                     assignee: None,
                     session: None,
@@ -1270,7 +1261,6 @@ fn incremental_coordination_read_model_matches_snapshot_rebuild() {
                 task_id: task_id.clone(),
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::InReview),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -1338,7 +1328,6 @@ fn incremental_coordination_read_model_matches_snapshot_rebuild() {
                 task_id: task_id.clone(),
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Completed),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -1779,7 +1768,6 @@ fn validation_policy_requires_approved_artifact_checks() {
                     task_id,
                     kind: None,
                     status: Some(prism_ir::CoordinationTaskStatus::Completed),
-                    published_task_status: None,
                     git_execution: None,
                     assignee: None,
                     session: None,
@@ -1864,7 +1852,6 @@ fn risk_threshold_requires_review_before_completion() {
                 task_id: task_id.clone(),
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Completed),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -2144,31 +2131,25 @@ fn coordination_snapshot_round_trips_authored_plan_edges_and_child_roots() {
         &[graph.clone()],
         &std::collections::BTreeMap::new(),
     );
-    assert_eq!(
-        snapshot.plans[0].root_tasks,
-        vec![
-            prism_ir::CoordinationTaskId::new(parent.0.clone()),
-            prism_ir::CoordinationTaskId::new(validate.0.clone()),
-        ]
-    );
-    assert_eq!(
-        snapshot.plans[0].authored_edges,
-        vec![child_edge.clone(), validate_edge.clone()]
-    );
-
     let round_tripped = snapshot_plan_graphs(&snapshot);
     assert_eq!(round_tripped.len(), 1);
-    assert_eq!(round_tripped[0].root_nodes, graph.root_nodes);
-    assert_eq!(round_tripped[0].edges, graph.edges);
+    assert_eq!(
+        round_tripped[0].root_nodes,
+        vec![child.clone(), parent.clone(), validate.clone()]
+    );
+    assert!(round_tripped[0].edges.is_empty());
 }
 
 #[test]
-fn coordination_snapshot_round_trips_native_nodes_and_mixed_dependency_edges() {
+fn coordination_snapshot_drops_legacy_native_nodes_and_mixed_dependency_edges() {
     let plan_id = prism_ir::PlanId::new("plan:graph-native-roundtrip");
     let work = prism_ir::PlanNodeId::new("coord-task:work");
     let validate = prism_ir::PlanNodeId::new("plan-node:validate");
     let dependency_edge = prism_ir::PlanEdge {
-        id: prism_ir::PlanEdgeId::new(format!("plan-edge:{}:depends-on:{}", validate.0, work.0)),
+        id: prism_ir::PlanEdgeId::new(format!(
+            "plan-edge:{}:depends-on:{}",
+            validate.0, work.0
+        )),
         plan_id: plan_id.clone(),
         from: validate.clone(),
         to: work.clone(),
@@ -2177,7 +2158,10 @@ fn coordination_snapshot_round_trips_native_nodes_and_mixed_dependency_edges() {
         metadata: serde_json::json!({ "dependencyLifecycle": "completed" }),
     };
     let validate_edge = prism_ir::PlanEdge {
-        id: prism_ir::PlanEdgeId::new(format!("plan-edge:{}:validates:{}", work.0, validate.0)),
+        id: prism_ir::PlanEdgeId::new(format!(
+            "plan-edge:{}:validates:{}",
+            work.0, validate.0
+        )),
         plan_id: plan_id.clone(),
         from: work.clone(),
         to: validate.clone(),
@@ -2244,21 +2228,11 @@ fn coordination_snapshot_round_trips_native_nodes_and_mixed_dependency_edges() {
     );
     assert_eq!(snapshot.tasks.len(), 1);
     assert_eq!(snapshot.tasks[0].id.0, work.0);
-    assert_eq!(
-        snapshot.plans[0].authored_nodes,
-        vec![graph.nodes[1].clone()]
-    );
-    assert_eq!(
-        snapshot.plans[0].authored_edges,
-        vec![dependency_edge.clone(), validate_edge.clone()]
-    );
-
-    let mut expected = graph;
-    expected
-        .edges
-        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
     let round_tripped = snapshot_plan_graphs(&snapshot);
-    assert_eq!(round_tripped, vec![expected]);
+    assert_eq!(round_tripped.len(), 1);
+    assert_eq!(round_tripped[0].nodes.len(), 1);
+    assert_eq!(round_tripped[0].nodes[0].id, work);
+    assert!(round_tripped[0].edges.is_empty());
 }
 
 #[test]
@@ -2306,7 +2280,6 @@ fn invalid_task_transition_is_rejected() {
                 task_id,
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Completed),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -2547,7 +2520,6 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
                 task_id,
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Completed),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -2635,7 +2607,6 @@ fn completing_last_task_auto_completes_task_execution_plan() {
                 task_id,
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Completed),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -2736,7 +2707,6 @@ fn completing_one_of_multiple_tasks_keeps_plan_active() {
                 task_id: first_task_id,
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Completed),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -2834,7 +2804,6 @@ fn releasing_last_active_claim_auto_completes_plan() {
                 task_id,
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Completed),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -3205,7 +3174,6 @@ fn task_update_events_record_sparse_patch_metadata() {
                 task_id,
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::InProgress),
-                published_task_status: None,
                 git_execution: None,
                 assignee: Some(None),
                 session: Some(None),
@@ -3328,7 +3296,6 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
                 task_id: task_id.clone(),
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::InProgress),
-                published_task_status: None,
                 git_execution: None,
                 assignee: Some(None),
                 session: Some(None),
@@ -3368,7 +3335,6 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
         .expect("plan should be present");
     plan.goal = "stale goal".to_string();
     plan.status = prism_ir::PlanStatus::Draft;
-    plan.root_tasks = vec![task_id.clone()];
     let task = snapshot
         .tasks
         .iter_mut()
@@ -3384,7 +3350,6 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
     let plan = reloaded.plan(&plan_id).expect("plan should reload");
     assert_eq!(plan.goal, "Refined goal");
     assert_eq!(plan.status, prism_ir::PlanStatus::Active);
-    assert_eq!(plan.root_tasks, vec![dependency_id]);
     let task = reloaded.task(&task_id).expect("task should reload");
     assert_eq!(task.title, "Investigate deeply");
     assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
@@ -3448,7 +3413,6 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
                 task_id: task_id.clone(),
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::InProgress),
-                published_task_status: None,
                 git_execution: None,
                 assignee: Some(None),
                 session: Some(None),
@@ -3531,9 +3495,6 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
         tags: vec!["persistence".to_string(), "ux".to_string()],
         created_from: Some("concept://persistence_runtime".to_string()),
         metadata: serde_json::json!({ "source": "native-plan" }),
-        authored_nodes: Vec::new(),
-        authored_edges: Vec::new(),
-        root_tasks: vec![task_id.clone()],
     })
     .unwrap();
     let task_create = snapshot
@@ -3548,7 +3509,6 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
         title: "Investigate".to_string(),
         summary: Some("Keep authored summary".to_string()),
         status: prism_ir::CoordinationTaskStatus::Ready,
-        published_task_status: None,
         assignee: Some(prism_ir::AgentId::new("agent:a")),
         pending_handoff_to: None,
         session: Some(prism_ir::SessionId::new("session:a")),
@@ -3892,7 +3852,6 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
                 task_id: task_id.clone(),
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::InProgress),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -4502,7 +4461,6 @@ fn task_start_rejects_executor_mismatch() {
                 task_id: task_id.clone(),
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::InProgress),
-                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,

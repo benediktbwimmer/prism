@@ -1,4 +1,4 @@
-use prism_ir::{CoordinationTaskId, NodeId, NodeKind};
+use prism_ir::{CoordinationTaskId, NodeId, NodeKind, TaskId};
 
 use crate::common::dedupe_node_ids;
 use crate::types::{DriftCandidate, TaskIntent};
@@ -29,9 +29,9 @@ impl Prism {
     }
 
     pub fn task_intent(&self, task_id: &CoordinationTaskId) -> Option<TaskIntent> {
-        let task = self.coordination_task(task_id)?;
+        let task = self.task(&TaskId::new(task_id.0.clone()))?;
         let intent = self.intent.read().expect("intent lock poisoned");
-        let task_nodes = self.resolve_anchor_nodes(&task.anchors);
+        let task_nodes = self.resolve_anchor_nodes(&task.task.anchors);
         let mut specs = task_nodes
             .iter()
             .flat_map(|node| intent.specs_for(node))

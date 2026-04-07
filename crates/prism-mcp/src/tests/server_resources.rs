@@ -936,12 +936,12 @@ async fn mcp_server_lists_and_reads_plan_detail_resources() {
         .store_coordination(
             test_session(&server.host).as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                kind: CoordinationMutationKindInput::TaskCreate,
                 payload: json!({ "planId": plan_id, "title": "Classify authoritative tables" }),
                 task_id: None,
             },
         )
-        .expect("plan node create should succeed");
+        .expect("task create should succeed");
 
     let (server_transport, client_transport) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move { server.serve(server_transport).await });

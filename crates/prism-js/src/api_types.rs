@@ -785,9 +785,6 @@ pub struct RuntimeSharedCoordinationRefView {
     pub compaction_previous_head_commit: Option<String>,
     pub compaction_previous_history_depth: Option<u64>,
     pub archive_boundary_manifest_digest: Option<String>,
-    pub archive_boundary_ref: Option<String>,
-    pub archive_boundary_head_commit: Option<String>,
-    pub archive_summary: Option<RuntimeSharedCoordinationArchiveSummaryView>,
     pub summary_published_at: Option<u64>,
     pub summary_freshness_status: String,
     pub authoritative_fallback_required: bool,
@@ -799,18 +796,6 @@ pub struct RuntimeSharedCoordinationRefView {
     pub runtime_descriptor_count: usize,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub runtime_descriptors: Vec<RuntimeSharedCoordinationRuntimeDescriptorView>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeSharedCoordinationArchiveSummaryView {
-    pub archived_plan_count: usize,
-    pub archived_task_count: usize,
-    pub archived_claim_count: usize,
-    pub archived_artifact_count: usize,
-    pub archived_review_count: usize,
-    pub archived_event_count: usize,
-    pub archived_runtime_descriptor_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1636,24 +1621,6 @@ pub struct WorkspaceRevisionView {
     pub git_commit: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanView {
-    pub id: String,
-    pub title: String,
-    pub goal: String,
-    pub status: PlanStatus,
-    pub scope: PlanScope,
-    pub kind: PlanKind,
-    pub revision: u64,
-    pub scheduling: PlanSchedulingView,
-    pub git_execution_policy: GitExecutionPolicyView,
-    pub tags: Vec<String>,
-    pub created_from: Option<String>,
-    pub root_node_ids: Vec<String>,
-    pub activity: Option<PlanActivityView>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeRefView {
@@ -1673,6 +1640,7 @@ pub struct CoordinationPlanV2View {
     pub operator_state: PlanOperatorState,
     pub status: DerivedPlanStatus,
     pub scheduling: PlanSchedulingView,
+    pub git_execution_policy: GitExecutionPolicyView,
     pub tags: Vec<String>,
     pub created_from: Option<String>,
     pub metadata: Value,
@@ -1704,6 +1672,7 @@ pub struct CoordinationTaskV2View {
     pub estimated_minutes: u32,
     pub executor: TaskExecutorPolicyView,
     pub assignee: Option<String>,
+    pub pending_handoff_to: Option<String>,
     pub session: Option<String>,
     pub worktree_id: Option<String>,
     pub branch_ref: Option<String>,
@@ -1954,58 +1923,6 @@ pub struct TaskGitExecutionView {
     pub last_publish: Option<GitPublishReportView>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct AdHocPlanProjectionSummaryView {
-    pub total_nodes: usize,
-    pub abstract_nodes: usize,
-    pub proposed_nodes: usize,
-    pub ready_nodes: usize,
-    pub waiting_nodes: usize,
-    pub in_progress_nodes: usize,
-    pub in_review_nodes: usize,
-    pub validating_nodes: usize,
-    pub blocked_nodes: usize,
-    pub completed_nodes: usize,
-    pub abandoned_nodes: usize,
-    pub total_edges: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct AdHocPlanProjectionView {
-    pub projection_class: ProjectionClassView,
-    pub authority_planes: Vec<ProjectionAuthorityPlaneView>,
-    pub history_source: String,
-    pub plan_id: String,
-    pub as_of: u64,
-    pub replayed_event_count: usize,
-    pub graph: PlanGraphView,
-    pub execution_overlays: Vec<PlanExecutionOverlayView>,
-    pub summary: AdHocPlanProjectionSummaryView,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct AdHocPlanProjectionDiffView {
-    pub projection_class: ProjectionClassView,
-    pub authority_planes: Vec<ProjectionAuthorityPlaneView>,
-    pub history_source: String,
-    pub plan_id: String,
-    pub from: u64,
-    pub to: u64,
-    pub before: Option<AdHocPlanProjectionView>,
-    pub after: Option<AdHocPlanProjectionView>,
-    pub plan_metadata_changed: bool,
-    pub added_nodes: Vec<String>,
-    pub removed_nodes: Vec<String>,
-    pub changed_nodes: Vec<String>,
-    pub added_edges: Vec<String>,
-    pub removed_edges: Vec<String>,
-    pub changed_edges: Vec<String>,
-    pub changed_execution_nodes: Vec<String>,
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockerCauseView {
@@ -2061,32 +1978,6 @@ pub struct PlanNodeRecommendationView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct CoordinationTaskView {
-    pub id: String,
-    pub plan_id: String,
-    pub kind: PlanNodeKind,
-    pub title: String,
-    pub summary: Option<String>,
-    pub status: CoordinationTaskStatus,
-    pub published_task_status: Option<CoordinationTaskStatus>,
-    pub assignee: Option<String>,
-    pub pending_handoff_to: Option<String>,
-    pub anchors: Vec<AnchorRef>,
-    pub bindings: PlanBindingView,
-    pub depends_on: Vec<String>,
-    pub coordination_depends_on: Vec<String>,
-    pub integrated_depends_on: Vec<String>,
-    pub lifecycle: CoordinationTaskLifecycleView,
-    pub validation_refs: Vec<ValidationRefView>,
-    pub is_abstract: bool,
-    pub base_revision: WorkspaceRevisionView,
-    pub priority: Option<u8>,
-    pub tags: Vec<String>,
-    pub git_execution: TaskGitExecutionView,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct ClaimView {
     pub id: String,
     pub holder: String,
@@ -2114,8 +2005,7 @@ pub struct ConflictView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CoordinationInboxView {
-    pub plan: Option<PlanView>,
-    pub plan_v2: Option<CoordinationPlanV2View>,
+    pub plan: Option<CoordinationPlanV2View>,
     pub plan_graph: Option<PlanGraphView>,
     pub plan_execution: Vec<PlanExecutionOverlayView>,
     pub plan_summary: Option<PlanSummaryView>,
@@ -2123,15 +2013,14 @@ pub struct CoordinationInboxView {
     pub children: Option<PlanChildrenV2View>,
     pub graph_actionable_tasks: Vec<CoordinationTaskV2View>,
     pub actionable_tasks: Vec<CoordinationTaskV2View>,
-    pub ready_tasks: Vec<CoordinationTaskView>,
+    pub ready_tasks: Vec<CoordinationTaskV2View>,
     pub pending_reviews: Vec<ArtifactView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskContextView {
-    pub task: Option<CoordinationTaskView>,
-    pub task_v2: Option<CoordinationTaskV2View>,
+    pub task: Option<CoordinationTaskV2View>,
     pub task_node: Option<PlanNodeView>,
     pub task_execution: Option<PlanExecutionOverlayView>,
     pub plan_graph: Option<PlanGraphView>,

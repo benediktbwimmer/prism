@@ -1472,20 +1472,15 @@ type ArtifactRiskView = {
 };
 
 type CoordinationInboxView = {
-  plan: PlanView | null;
-  planGraph: PlanGraphView | null;
-  planExecution: PlanExecutionOverlayView[];
+  plan: CoordinationPlanV2View | null;
   planSummary: PlanSummaryView | null;
   planNext: PlanNodeRecommendationView[];
-  readyTasks: CoordinationTaskView[];
+  readyTasks: CoordinationTaskV2View[];
   pendingReviews: ArtifactView[];
 };
 
 type TaskContextView = {
-  task: CoordinationTaskView | null;
-  taskNode: PlanNodeView | null;
-  taskExecution: PlanExecutionOverlayView | null;
-  planGraph: PlanGraphView | null;
+  task: CoordinationTaskV2View | null;
   planSummary: PlanSummaryView | null;
   planNext: PlanNodeRecommendationView[];
   blockers: BlockerView[];
@@ -1577,22 +1572,6 @@ type TaskReplay = {
 type WorkspaceRevisionView = {
   graphVersion: number;
   gitCommit?: string;
-};
-
-type PlanView = {
-  id: string;
-  title: string;
-  goal: string;
-  status: string;
-  scope: string;
-  kind: string;
-  revision: number;
-  scheduling: PlanSchedulingView;
-  gitExecutionPolicy: GitExecutionPolicyView;
-  tags: string[];
-  createdFrom?: string;
-  rootNodeIds: string[];
-  activity?: PlanActivityView;
 };
 
 type PlanListEntryView = {
@@ -1712,52 +1691,6 @@ type PlanExecutionOverlayView = {
   awaitingHandoffFrom?: string;
 };
 
-type AdHocPlanProjectionSummaryView = {
-  totalNodes: number;
-  abstractNodes: number;
-  proposedNodes: number;
-  readyNodes: number;
-  waitingNodes: number;
-  inProgressNodes: number;
-  inReviewNodes: number;
-  validatingNodes: number;
-  blockedNodes: number;
-  completedNodes: number;
-  abandonedNodes: number;
-  totalEdges: number;
-};
-
-type AdHocPlanProjectionView = {
-  projectionClass: string;
-  authorityPlanes: string[];
-  historySource: string;
-  planId: string;
-  asOf: number;
-  replayedEventCount: number;
-  graph: PlanGraphView;
-  executionOverlays: PlanExecutionOverlayView[];
-  summary: AdHocPlanProjectionSummaryView;
-};
-
-type AdHocPlanProjectionDiffView = {
-  projectionClass: string;
-  authorityPlanes: string[];
-  historySource: string;
-  planId: string;
-  from: number;
-  to: number;
-  before?: AdHocPlanProjectionView;
-  after?: AdHocPlanProjectionView;
-  planMetadataChanged: boolean;
-  addedNodes: string[];
-  removedNodes: string[];
-  changedNodes: string[];
-  addedEdges: string[];
-  removedEdges: string[];
-  changedEdges: string[];
-  changedExecutionNodes: string[];
-};
-
 type PlanNodeBlockerView = {
   kind: string;
   summary: string;
@@ -1791,18 +1724,6 @@ type PlanNodeRecommendationView = {
   reasons: string[];
   blockers: PlanNodeBlockerView[];
   unblocks: string[];
-};
-
-type CoordinationTaskView = {
-  id: string;
-  planId: string;
-  title: string;
-  status: string;
-  assignee?: string;
-  pendingHandoffTo?: string;
-  anchors: AnchorRef[];
-  dependsOn: string[];
-  baseRevision: WorkspaceRevisionView;
 };
 
 type ClaimView = {

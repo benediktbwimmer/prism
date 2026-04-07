@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -45,7 +45,6 @@ use prism_curator::CuratorBackend;
 use prism_history::HistoryStore;
 use prism_ir::{
     ChangeTrigger, Edge, EdgeKind, EdgeOrigin, EventMeta, LineageEvent, ObservedChangeSet,
-    PlanExecutionOverlay, PlanGraph,
 };
 use prism_memory::OutcomeMemory;
 use prism_parser::{LanguageAdapter, ParseDepth, ParseResult};
@@ -92,8 +91,6 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) history: HistoryStore,
     pub(crate) outcomes: OutcomeMemory,
     pub(crate) coordination_snapshot: CoordinationSnapshot,
-    pub(crate) plan_graphs: Vec<PlanGraph>,
-    pub(crate) plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     pub(crate) projections: ProjectionIndex,
     pub(crate) had_prior_snapshot: bool,
     pub(crate) had_projection_snapshot: bool,
@@ -160,13 +157,6 @@ impl WorkspaceIndexer<SqliteStore> {
                 indexer.coordination_snapshot = plan_state
                     .as_ref()
                     .map(|state| state.snapshot.clone())
-                    .unwrap_or_default();
-                indexer.plan_graphs = plan_state
-                    .as_ref()
-                    .map(|state| state.plan_graphs.clone())
-                    .unwrap_or_default();
-                indexer.plan_execution_overlays = plan_state
-                    .map(|state| state.execution_overlays)
                     .unwrap_or_default();
                 load_shared_plan_state_ms = load_shared_plan_state_started.elapsed().as_millis();
             }
@@ -355,8 +345,6 @@ impl WorkspaceIndexer<SqliteStore> {
             self.history,
             self.outcomes,
             self.coordination_snapshot,
-            self.plan_graphs,
-            self.plan_execution_overlays,
             Vec::new(),
             self.projections,
             self.startup_refresh,
@@ -412,14 +400,11 @@ impl<S: Store> WorkspaceIndexer<S> {
             &history_snapshot,
             &outcomes.snapshot(),
         );
-        let (coordination_snapshot, plan_graphs, plan_execution_overlays) = if coordination {
-            (
-                prism.coordination_snapshot(),
-                prism.authored_plan_graphs(),
-                prism.plan_execution_overlays_by_plan(),
-            )
+        let coordination_snapshot = if coordination {
+            let coordination_snapshot = prism.coordination_snapshot();
+            coordination_snapshot.clone()
         } else {
-            (CoordinationSnapshot::default(), Vec::new(), BTreeMap::new())
+            CoordinationSnapshot::default()
         };
         let restore_runtime_ms = restore_runtime_started.elapsed().as_millis();
 
@@ -442,8 +427,6 @@ impl<S: Store> WorkspaceIndexer<S> {
             history,
             outcomes,
             coordination_snapshot,
-            plan_graphs,
-            plan_execution_overlays,
             projections,
             had_prior_snapshot: true,
             had_projection_snapshot: true,
@@ -488,8 +471,6 @@ impl<S: Store> WorkspaceIndexer<S> {
             mut history,
             outcomes,
             coordination_snapshot,
-            plan_graphs,
-            plan_execution_overlays,
             runtime_descriptors: _,
             projections,
         } = runtime_state;
@@ -529,16 +510,6 @@ impl<S: Store> WorkspaceIndexer<S> {
                 coordination_snapshot
             } else {
                 CoordinationSnapshot::default()
-            },
-            plan_graphs: if coordination {
-                plan_graphs
-            } else {
-                Vec::new()
-            },
-            plan_execution_overlays: if coordination {
-                plan_execution_overlays
-            } else {
-                BTreeMap::new()
             },
             projections,
             had_prior_snapshot: true,
@@ -658,14 +629,6 @@ impl<S: Store> WorkspaceIndexer<S> {
                     &outcomes,
                     protected_knowledge_work,
                     &coordination_snapshot,
-                    &plan_state
-                        .as_ref()
-                        .map(|state| state.plan_graphs.clone())
-                        .unwrap_or_default(),
-                    &plan_state
-                        .as_ref()
-                        .map(|state| state.execution_overlays.clone())
-                        .unwrap_or_default(),
                 )?
                 .with_workspace_reloaded(true),
             })
@@ -700,13 +663,6 @@ impl<S: Store> WorkspaceIndexer<S> {
             history,
             outcomes,
             coordination_snapshot,
-            plan_graphs: plan_state
-                .as_ref()
-                .map(|state| state.plan_graphs.clone())
-                .unwrap_or_default(),
-            plan_execution_overlays: plan_state
-                .map(|state| state.execution_overlays)
-                .unwrap_or_default(),
             projections,
             had_prior_snapshot,
             had_projection_snapshot,
@@ -1572,14 +1528,12 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn into_prism(self) -> Prism {
-        Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        Prism::with_history_outcomes_coordination_and_projections(
             self.graph,
             self.history,
             self.outcomes,
             self.coordination_snapshot,
             self.projections,
-            self.plan_graphs,
-            self.plan_execution_overlays,
         )
     }
 
@@ -1590,8 +1544,6 @@ impl<S: Store> WorkspaceIndexer<S> {
             self.history,
             self.outcomes,
             self.coordination_snapshot,
-            self.plan_graphs,
-            self.plan_execution_overlays,
             Vec::new(),
             self.projections,
         )
@@ -1758,18 +1710,12 @@ pub(crate) fn workspace_recovery_work(
     outcomes: &OutcomeMemory,
     protected_knowledge_work: WorkspaceRefreshWork,
     coordination_snapshot: &CoordinationSnapshot,
-    plan_graphs: &[PlanGraph],
-    plan_execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
 ) -> Result<WorkspaceRefreshWork> {
     Ok(graph_recovery_work(graph)?
         .saturating_add(history_recovery_work(history)?)
         .saturating_add(outcomes_recovery_work(outcomes)?)
         .saturating_add(protected_knowledge_work)
-        .saturating_add(coordination_recovery_work(
-            coordination_snapshot,
-            plan_graphs,
-            plan_execution_overlays,
-        )?))
+        .saturating_add(coordination_recovery_work(coordination_snapshot)?))
 }
 
 pub(crate) fn protected_knowledge_recovery_work(
@@ -1828,11 +1774,10 @@ fn outcomes_recovery_work(outcomes: &OutcomeMemory) -> Result<WorkspaceRefreshWo
     })
 }
 
-fn coordination_recovery_work(
-    coordination_snapshot: &CoordinationSnapshot,
-    plan_graphs: &[PlanGraph],
-    plan_execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
-) -> Result<WorkspaceRefreshWork> {
+fn coordination_recovery_work(coordination_snapshot: &CoordinationSnapshot) -> Result<WorkspaceRefreshWork> {
+    let plan_graphs = prism_coordination::snapshot_plan_graphs(coordination_snapshot);
+    let plan_execution_overlays =
+        crate::published_plans::execution_overlays_by_plan(&coordination_snapshot.tasks);
     let overlay_count = plan_execution_overlays
         .values()
         .map(|overlays| overlays.len())
@@ -1843,8 +1788,8 @@ fn coordination_recovery_work(
         .sum::<usize>();
     Ok(WorkspaceRefreshWork {
         loaded_bytes: serialized_size(coordination_snapshot)?
-            .saturating_add(serialized_size(plan_graphs)?)
-            .saturating_add(serialized_size(plan_execution_overlays)?),
+            .saturating_add(serialized_size(&plan_graphs)?)
+            .saturating_add(serialized_size(&plan_execution_overlays)?),
         replay_volume: u64::try_from(
             coordination_snapshot
                 .plans

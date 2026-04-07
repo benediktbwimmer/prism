@@ -1,5 +1,4 @@
 use prism_coordination::{CoordinationSnapshot, Plan};
-use prism_ir::PlanEdgeKind;
 
 pub(crate) fn sanitize_persisted_coordination_snapshot(
     mut snapshot: CoordinationSnapshot,
@@ -8,9 +7,6 @@ pub(crate) fn sanitize_persisted_coordination_snapshot(
     snapshot
 }
 
-pub(crate) fn sanitize_plan(mut plan: Plan) -> Plan {
-    plan.root_tasks.clear();
-    plan.authored_edges
-        .retain(|edge| edge.kind == PlanEdgeKind::DependsOn);
+pub(crate) fn sanitize_plan(plan: Plan) -> Plan {
     plan
 }

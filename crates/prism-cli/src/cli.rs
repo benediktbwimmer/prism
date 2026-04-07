@@ -35,13 +35,6 @@ pub enum Command {
         #[command(subcommand)]
         command: DocsCommand,
     },
-    Project {
-        target: String,
-        #[arg(long)]
-        at: Option<String>,
-        #[arg(long)]
-        diff: Option<String>,
-    },
     Entrypoints,
     Symbol {
         name: String,

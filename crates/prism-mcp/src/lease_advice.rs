@@ -1,10 +1,10 @@
-use prism_coordination::{CoordinationTask, LeaseHeartbeatDueState};
-use prism_ir::{CoordinationTaskId, LeaseRenewalMode};
+use prism_coordination::{CanonicalTaskRecord, LeaseHeartbeatDueState};
+use prism_ir::{CoordinationTaskId, LeaseRenewalMode, TaskId};
 use prism_query::Prism;
 
 #[derive(Debug, Clone)]
 pub(crate) struct TaskHeartbeatAdvice {
-    pub(crate) task: CoordinationTask,
+    pub(crate) task: CanonicalTaskRecord,
     pub(crate) due_state: LeaseHeartbeatDueState,
     pub(crate) renewal_mode: LeaseRenewalMode,
 }
@@ -14,18 +14,18 @@ pub(crate) fn task_heartbeat_advice(
     task_id: &CoordinationTaskId,
     now: u64,
 ) -> Option<TaskHeartbeatAdvice> {
-    let task = prism.coordination_task(task_id)?;
-    let plan = prism.coordination_plan(&task.plan)?;
-    let due_state = prism.effective_task_heartbeat_due_state(&task, &plan.policy, now);
+    let task = prism.task(&TaskId::new(task_id.0.clone()))?;
+    let plan = prism.plan(&task.task.parent_plan_id)?;
+    let due_state = prism.effective_task_heartbeat_due_state_v2(&task.task, &plan.plan.policy, now);
     if !matches!(due_state, LeaseHeartbeatDueState::NotDue)
-        && prism.task_has_active_local_assisted_lease(&task, now)
+        && prism.task_has_active_local_assisted_lease_v2(&task.task, now)
     {
         return None;
     }
     (!matches!(due_state, LeaseHeartbeatDueState::NotDue)).then_some(TaskHeartbeatAdvice {
-        task,
+        task: task.task,
         due_state,
-        renewal_mode: plan.policy.lease_renewal_mode,
+        renewal_mode: plan.plan.policy.lease_renewal_mode,
     })
 }
 

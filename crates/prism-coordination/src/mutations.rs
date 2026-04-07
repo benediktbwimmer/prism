@@ -1272,9 +1272,6 @@ pub(crate) fn create_plan_mutation(
         tags: Vec::new(),
         created_from: None,
         metadata: Value::Null,
-        authored_nodes: Vec::new(),
-        authored_edges: Vec::new(),
-        root_tasks: Vec::new(),
     };
     state.plans.insert(id.clone(), plan.clone());
     state.events.push(CoordinationEvent {
@@ -1602,9 +1599,6 @@ pub(crate) fn create_task_mutation(
     }
     state.next_task += 1;
     let id = CoordinationTaskId::new(new_prefixed_id("coord-task"));
-    let is_root = input.depends_on.is_empty()
-        && input.coordination_depends_on.is_empty()
-        && input.integrated_depends_on.is_empty();
     let anchors = dedupe_anchors(input.anchors);
     let mut task = CoordinationTask {
         id: id.clone(),
@@ -1613,7 +1607,6 @@ pub(crate) fn create_task_mutation(
         title: input.title.clone(),
         summary: None,
         status: input.status.unwrap_or(CoordinationTaskStatus::Ready),
-        published_task_status: None,
         assignee: input.assignee,
         pending_handoff_to: None,
         session: input.session,
@@ -1643,14 +1636,6 @@ pub(crate) fn create_task_mutation(
     };
     if !matches!(task.status, CoordinationTaskStatus::Proposed) {
         refresh_task_lease(&mut task, &meta, meta.ts, &plan.policy);
-    }
-    if is_root {
-        let plan = state
-            .plans
-            .get_mut(&input.plan_id)
-            .expect("plan validated above");
-        plan.root_tasks.push(id.clone());
-        plan.root_tasks = dedupe_ids(plan.root_tasks.clone());
     }
     state.tasks.insert(id.clone(), task.clone());
     state.events.push(CoordinationEvent {
@@ -1706,11 +1691,9 @@ pub(crate) fn update_task_mutation_with_options(
     let update_base_revision = input.base_revision.is_some();
     let update_priority = input.priority.is_some();
     let update_tags = input.tags.is_some();
-    let update_published_task_status = input.published_task_status.is_some();
     let git_execution_only_update = input.git_execution.is_some()
         && input.kind.is_none()
         && input.status.is_none()
-        && input.published_task_status.is_none()
         && input.assignee.is_none()
         && input.session.is_none()
         && input.worktree_id.is_none()
@@ -1734,17 +1717,6 @@ pub(crate) fn update_task_mutation_with_options(
     }
     if input.status.is_some() {
         push_patch_op(&mut patch, "status", "set");
-    }
-    if let Some(published_task_status) = input.published_task_status.as_ref() {
-        push_patch_op(
-            &mut patch,
-            "publishedTaskStatus",
-            if published_task_status.is_some() {
-                "set"
-            } else {
-                "clear"
-            },
-        );
     }
     if input.git_execution.is_some() {
         push_patch_op(&mut patch, "gitExecution", "set");
@@ -1901,7 +1873,6 @@ pub(crate) fn update_task_mutation_with_options(
     }
     let task_snapshot;
     let status_changed;
-    let mut root_membership_change = None;
     {
         let task = state
             .tasks
@@ -2097,9 +2068,6 @@ pub(crate) fn update_task_mutation_with_options(
         if let Some(status) = input.status {
             task.status = status;
         }
-        if let Some(published_task_status) = input.published_task_status {
-            task.published_task_status = published_task_status;
-        }
         if let Some(git_execution) = input.git_execution.clone() {
             task.git_execution = git_execution;
         }
@@ -2123,28 +2091,13 @@ pub(crate) fn update_task_mutation_with_options(
             task.bindings = bindings;
         }
         if let Some(depends_on) = next_dependencies.clone() {
-            let previous_root = task_is_root(task);
             task.depends_on = depends_on;
-            let next_root = task_is_root(task);
-            if previous_root != next_root {
-                root_membership_change = Some(next_root);
-            }
         }
         if let Some(depends_on) = next_coordination_dependencies.clone() {
-            let previous_root = task_is_root(task);
             task.coordination_depends_on = depends_on;
-            let next_root = task_is_root(task);
-            if previous_root != next_root {
-                root_membership_change = Some(next_root);
-            }
         }
         if let Some(depends_on) = next_integrated_dependencies.clone() {
-            let previous_root = task_is_root(task);
             task.integrated_depends_on = depends_on;
-            let next_root = task_is_root(task);
-            if previous_root != next_root {
-                root_membership_change = Some(next_root);
-            }
         }
         if let Some(acceptance) = next_acceptance.clone() {
             task.acceptance = acceptance;
@@ -2185,20 +2138,9 @@ pub(crate) fn update_task_mutation_with_options(
         }
         task_snapshot = task.clone();
     }
-    if let Some(next_root) = root_membership_change {
-        let plan = state
-            .plans
-            .get_mut(&previous.plan)
-            .expect("task plan validated above");
-        if next_root {
-            plan.root_tasks.push(previous.id.clone());
-            plan.root_tasks = dedupe_ids(plan.root_tasks.clone());
-        } else {
-            plan.root_tasks.retain(|task_id| task_id != &previous.id);
-        }
-    }
     let completion_candidate_status = task_snapshot
-        .published_task_status
+        .git_execution
+        .pending_task_status
         .unwrap_or(task_snapshot.status);
     let completion_candidate = if completion_candidate_status == task_snapshot.status {
         task_snapshot.clone()
@@ -2339,13 +2281,6 @@ pub(crate) fn update_task_mutation_with_options(
     }
     if update_status {
         insert_serialized(&mut patch_values, "status", task.status);
-    }
-    if update_published_task_status {
-        insert_serialized(
-            &mut patch_values,
-            "publishedTaskStatus",
-            task.published_task_status,
-        );
     }
     if input.git_execution.is_some() {
         insert_serialized(
@@ -3575,10 +3510,4 @@ where
         return Err(error);
     }
     Ok(result)
-}
-
-fn task_is_root(task: &CoordinationTask) -> bool {
-    task.depends_on.is_empty()
-        && task.coordination_depends_on.is_empty()
-        && task.integrated_depends_on.is_empty()
 }

@@ -3,8 +3,8 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use anyhow::{anyhow, Result};
 use prism_coordination::{
     coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
-    ready_task_count_for_active_plans, CoordinationQueueReadModel, CoordinationReadModel,
-    WorkClaim,
+    execution_overlays_from_tasks, ready_task_count_for_active_plans, snapshot_plan_graphs,
+    CoordinationQueueReadModel, CoordinationReadModel, WorkClaim,
 };
 use prism_ir::{
     ClaimStatus, CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus, NodeRef,
@@ -33,7 +33,7 @@ use crate::views::{
     plan_node_recommendation_view, plan_summary_view, policy_violation_record_view,
     ConceptVerbosity,
 };
-use crate::{claim_view, coordination_task_view, current_timestamp, QueryHost, SessionState};
+use crate::{claim_view, current_timestamp, QueryHost, SessionState};
 use crate::{host_resources::session_task_view, runtime_views::runtime_status};
 
 const OVERVIEW_PLAN_LIMIT: usize = 3;
@@ -265,6 +265,26 @@ pub(crate) trait QueryHostUiReadModelsExt {
     fn ui_ssr_task_detail_view(&self, task_id: &str) -> Result<Option<PrismSsrTaskDetailView>>;
     fn ui_fleet_view(&self) -> Result<PrismUiFleetView>;
     fn ui_placeholder_view(&self, endpoint: &str, message: &str) -> PrismUiApiPlaceholderView;
+}
+
+pub(crate) fn plan_graph_and_overlays(
+    prism: &prism_query::Prism,
+    plan_id: &PlanId,
+) -> Option<(prism_ir::PlanGraph, Vec<prism_ir::PlanExecutionOverlay>)> {
+    let snapshot = prism.coordination_snapshot();
+    let graph = snapshot_plan_graphs(&snapshot)
+        .into_iter()
+        .find(|graph| graph.id == *plan_id)?;
+    let node_ids = graph
+        .nodes
+        .iter()
+        .map(|node| node.id.clone())
+        .collect::<HashSet<_>>();
+    let overlays = execution_overlays_from_tasks(&snapshot.tasks)
+        .into_iter()
+        .filter(|overlay| node_ids.contains(&overlay.node_id))
+        .collect::<Vec<_>>();
+    Some((graph, overlays))
 }
 
 impl QueryHostUiReadModelsExt for QueryHost {
@@ -554,21 +574,22 @@ impl QueryHostUiReadModelsExt for QueryHost {
 
     fn ui_task_detail_view(&self, task_id: &str) -> Result<Option<PrismUiTaskDetailView>> {
         let prism = self.current_prism();
-        let task_id = prism_ir::CoordinationTaskId::new(task_id.to_string());
-        let Some(task) = prism.coordination_task(&task_id) else {
+        let canonical_task_id = prism_ir::TaskId::new(task_id.to_string());
+        let coordination_task_id = prism_ir::CoordinationTaskId::new(task_id.to_string());
+        let Some(task) = prism.task(&canonical_task_id) else {
             return Ok(None);
         };
-        let task_view = coordination_task_view(task.clone());
+        let task_view = coordination_task_v2_view(task.clone());
         let now = crate::current_timestamp();
         let blockers = prism
-            .blockers(&task_id, now)
+            .blockers(&coordination_task_id, now)
             .into_iter()
             .map(|blocker| {
                 let related_task = blocker
                     .related_task_id
                     .as_ref()
-                    .and_then(|id| prism.coordination_task(id))
-                    .map(coordination_task_view);
+                    .and_then(|id| prism.task(&TaskId::new(id.0.to_string())))
+                    .map(coordination_task_v2_view);
                 PrismUiTaskBlockerEntryView {
                     blocker: blocker_view(blocker),
                     related_task,
@@ -576,7 +597,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
             })
             .collect::<Vec<_>>();
         let claim_history = prism
-            .task_claim_history(&task_id, now)
+            .task_claim_history(&coordination_task_id, now)
             .into_iter()
             .map(task_claim_history_entry_view)
             .collect::<Vec<_>>();
@@ -596,12 +617,12 @@ impl QueryHostUiReadModelsExt for QueryHost {
             .collect::<Vec<_>>();
         let recent_commits = task_recent_commits(&task_view);
         let artifacts = prism
-            .artifacts(&task_id)
+            .artifacts(&coordination_task_id)
             .into_iter()
             .map(artifact_view)
             .collect::<Vec<_>>();
         let validation_guidance = prism
-            .task_validation_recipe(&task_id)
+            .task_validation_recipe(&coordination_task_id)
             .map(|recipe| recipe.checks)
             .unwrap_or_default();
 
@@ -1035,41 +1056,25 @@ fn plan_matches_agent(
 ) -> bool {
     let query = query.to_ascii_lowercase();
     let plan_id = PlanId::new(plan.plan_id.clone());
-    let graph_match = prism
-        .plan_graph(&plan_id)
-        .map(|graph| {
-            graph.nodes.iter().any(|node| {
-                node.assignee
-                    .as_ref()
-                    .map(|value| value.0.as_str().to_ascii_lowercase().contains(&query))
-                    .unwrap_or(false)
-            })
-        })
-        .unwrap_or(false);
-    if graph_match {
-        return true;
-    }
-
-    prism.plan_execution(&plan_id).into_iter().any(|overlay| {
-        [
-            overlay
-                .effective_assignee
-                .as_ref()
-                .map(|value| value.0.as_str()),
-            overlay
-                .pending_handoff_to
-                .as_ref()
-                .map(|value| value.0.as_str()),
-            overlay
-                .awaiting_handoff_from
-                .as_ref()
-                .map(|value| value.0.as_str()),
-            overlay.session.as_ref().map(|value| value.0.as_str()),
-        ]
+    prism
+        .children(&plan_id)
         .into_iter()
-        .flatten()
-        .any(|value| value.to_ascii_lowercase().contains(&query))
-    })
+        .filter(|child| child.kind == NodeRefKind::Task)
+        .filter_map(|child| prism.task(&TaskId::new(child.id)))
+        .any(|task| {
+            [
+                task.task.assignee.as_ref().map(|value| value.0.as_str()),
+                task.task.pending_handoff_to.as_ref().map(|value| value.0.as_str()),
+                task.task
+                    .lease_holder
+                    .as_ref()
+                    .and_then(|holder| holder.agent_id.as_ref().map(|value| value.0.as_str())),
+                task.task.session.as_ref().map(|value| value.0.as_str()),
+            ]
+            .into_iter()
+            .flatten()
+            .any(|value| value.to_ascii_lowercase().contains(&query))
+        })
 }
 
 pub(crate) fn filtered_plan_entries_from_prism(
@@ -1306,15 +1311,15 @@ fn build_plan_detail_view(
     };
 
     let plan_id = PlanId::new(plan.plan_id.clone());
-    let Some(graph) = prism.plan_graph(&plan_id).map(plan_graph_view) else {
+    let Some((graph, execution_overlays)) = plan_graph_and_overlays(prism, &plan_id) else {
         return Ok(None);
     };
+    let graph = plan_graph_view(graph);
     let Some(summary) = prism.plan_summary(&plan_id).map(plan_summary_view) else {
         return Ok(None);
     };
 
-    let execution = prism
-        .plan_execution(&plan_id)
+    let execution = execution_overlays
         .into_iter()
         .map(plan_execution_overlay_view)
         .collect::<Vec<_>>();
@@ -1330,7 +1335,7 @@ fn build_plan_detail_view(
     }
     .into_iter()
     .take(PLAN_DETAIL_READY_LIMIT)
-    .map(crate::coordination_task_view)
+    .map(coordination_task_v2_view)
     .collect::<Vec<_>>();
     let pending_reviews = prism
         .pending_reviews(Some(&plan_id))
@@ -1342,7 +1347,7 @@ fn build_plan_detail_view(
         .ui_coordination_queues()?
         .pending_handoffs
         .into_iter()
-        .filter(|task| task.plan_id == plan.plan_id)
+        .filter(|task| task.parent_plan_id == plan.plan_id)
         .take(PLAN_DETAIL_HANDOFF_LIMIT)
         .collect::<Vec<_>>();
     let recent_violations = prism
@@ -1372,11 +1377,11 @@ fn build_ssr_plan_detail_view(
     selected_plan_id: &str,
 ) -> Result<Option<PrismSsrPlanDetailView>> {
     let plan_id = PlanId::new(selected_plan_id.to_string());
-    let Some(plan) = prism.coordination_plan_v2(&plan_id) else {
+    let Some(plan) = prism.plan(&plan_id) else {
         return Ok(None);
     };
 
-    let child_refs = prism.plan_children_v2(&plan_id);
+    let child_refs = prism.children(&plan_id);
     let mut child_plans = Vec::new();
     let mut child_tasks = Vec::new();
     let mut direct_task_ids = Vec::new();
@@ -1384,7 +1389,7 @@ fn build_ssr_plan_detail_view(
         match child_ref.kind {
             NodeRefKind::Plan => {
                 let Some(child_plan) =
-                    prism.coordination_plan_v2(&PlanId::new(child_ref.id.clone()))
+                    prism.plan(&PlanId::new(child_ref.id.clone()))
                 else {
                     continue;
                 };
@@ -1408,7 +1413,7 @@ fn build_ssr_plan_detail_view(
             }
             NodeRefKind::Task => {
                 let Some(child_task) =
-                    prism.coordination_task_v2(&TaskId::new(child_ref.id.clone()))
+                    prism.task(&TaskId::new(child_ref.id.clone()))
                 else {
                     continue;
                 };
@@ -1442,7 +1447,7 @@ fn build_ssr_task_detail_view(
     task_id: &str,
 ) -> Result<Option<PrismSsrTaskDetailView>> {
     let task_id = TaskId::new(task_id.to_string());
-    let Some(task) = prism.coordination_task_v2(&task_id) else {
+    let Some(task) = prism.task(&task_id) else {
         return Ok(None);
     };
     let task_view = coordination_task_v2_view(task.clone());
@@ -1455,7 +1460,7 @@ fn build_ssr_task_detail_view(
             let related_task = blocker
                 .related_task_id
                 .as_ref()
-                .and_then(|id| prism.coordination_task_v2(&TaskId::new(id.0.to_string())))
+                .and_then(|id| prism.task(&TaskId::new(id.0.to_string())))
                 .map(coordination_task_v2_view);
             PrismSsrTaskBlockerEntryView {
                 blocker: blocker_view(blocker),
@@ -1536,7 +1541,7 @@ fn build_ssr_external_dependency_stubs(
     let mut stubs = BTreeMap::<String, PrismSsrExternalStubView>::new();
 
     for owner in owner_refs {
-        for dependency in prism.node_dependencies_v2(&owner) {
+        for dependency in prism.dependencies(&owner) {
             if internal_refs.contains(&node_ref_key(&dependency)) {
                 continue;
             }
@@ -1548,7 +1553,7 @@ fn build_ssr_external_dependency_stubs(
                 .entry(node_ref_key(&dependency))
                 .or_insert_with(|| ssr_external_stub_view(prism, dependency));
         }
-        for dependent in prism.node_dependents_v2(&owner) {
+        for dependent in prism.dependents(&owner) {
             if internal_refs.contains(&node_ref_key(&dependent)) {
                 continue;
             }
@@ -1583,7 +1588,7 @@ fn ssr_external_stub_view(
 ) -> PrismSsrExternalStubView {
     match node_ref.kind {
         NodeRefKind::Plan => {
-            if let Some(plan) = prism.coordination_plan_v2(&PlanId::new(node_ref.id.clone())) {
+            if let Some(plan) = prism.plan(&PlanId::new(node_ref.id.clone())) {
                 let title = plan.plan.title.clone();
                 let summary = format!(
                     "plan · {} direct children · {}m remaining",
@@ -1603,7 +1608,7 @@ fn ssr_external_stub_view(
             }
         }
         NodeRefKind::Task => {
-            if let Some(task) = prism.coordination_task_v2(&TaskId::new(node_ref.id.clone())) {
+            if let Some(task) = prism.task(&TaskId::new(node_ref.id.clone())) {
                 let title = task.task.title.clone();
                 let executor = format!("{:?}", task.task.executor.executor_class);
                 let target = task
@@ -1794,8 +1799,8 @@ fn ui_overview_coordination_queues(
             .pending_handoff_tasks
             .iter()
             .take(OVERVIEW_COORDINATION_HANDOFF_LIMIT)
-            .cloned()
-            .map(coordination_task_view)
+            .filter_map(|task| prism.task(&TaskId::new(task.id.0.to_string())))
+            .map(coordination_task_v2_view)
             .collect(),
         active_claims: queue_model
             .active_claims
@@ -1888,8 +1893,8 @@ fn current_task_journal(
 
 fn plan_recent_outcomes(
     prism: &prism_query::Prism,
-    ready_tasks: &[prism_js::CoordinationTaskView],
-    pending_handoffs: &[prism_js::CoordinationTaskView],
+    ready_tasks: &[prism_js::CoordinationTaskV2View],
+    pending_handoffs: &[prism_js::CoordinationTaskV2View],
     pending_reviews: &[prism_js::ArtifactView],
 ) -> Vec<prism_js::AgentOutcomeSummaryView> {
     let task_ids = ready_tasks
@@ -2003,7 +2008,7 @@ fn task_claim_history_entry_view(claim: WorkClaim) -> PrismUiTaskClaimHistoryEnt
     }
 }
 
-fn task_recent_commits(task: &prism_js::CoordinationTaskView) -> Vec<PrismUiTaskCommitView> {
+fn task_recent_commits(task: &prism_js::CoordinationTaskV2View) -> Vec<PrismUiTaskCommitView> {
     task_recent_commits_from_git_execution(&task.git_execution)
 }
 
@@ -2115,7 +2120,7 @@ fn graph_plan_touchpoints(
         .into_iter()
         .filter_map(|plan| {
             let plan_id = plan.plan_id.clone();
-            let graph = prism.plan_graph(&plan_id)?;
+            let graph = plan_graph_and_overlays(prism, &plan_id)?.0;
             let touched_nodes = graph
                 .nodes
                 .into_iter()

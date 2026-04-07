@@ -1,22 +1,14 @@
-use std::collections::BTreeMap;
 use std::path::Path;
 
 use anyhow::Result;
-use prism_coordination::{
-    migrate_legacy_hybrid_snapshot_to_canonical_v2, snapshot_plan_graphs, CoordinationSnapshot,
-    CoordinationSnapshotV2,
-};
-use prism_ir::{PlanExecutionOverlay, PlanGraph};
+use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
 use prism_store::{
     CoordinationCheckpointStore, CoordinationJournal, CoordinationStartupCheckpoint,
     CoordinationStartupCheckpointAuthority,
 };
 
 use crate::coordination_snapshot_sanitization::sanitize_persisted_coordination_snapshot;
-use crate::published_plans::{
-    execution_overlays_by_plan, merge_shared_coordination_into_snapshot,
-    merge_snapshot_bootstrap_into_plan_state, HydratedCoordinationPlanState,
-};
+use crate::published_plans::{merge_shared_coordination_into_snapshot, HydratedCoordinationPlanState};
 use crate::shared_coordination_ref::shared_coordination_startup_authority;
 use crate::util::current_timestamp;
 
@@ -33,48 +25,25 @@ where
     };
     Ok(match snapshot {
         Some(snapshot) => {
-            let (mut plan_graphs, mut execution_overlays) = compatibility_plan_state(
-                &checkpoint.plan_graphs,
-                &checkpoint.execution_overlays,
-                &checkpoint.snapshot,
-            );
             let snapshot = merge_shared_coordination_into_snapshot(checkpoint.snapshot, snapshot);
-            let runtime_descriptors = checkpoint.runtime_descriptors;
-            merge_snapshot_bootstrap_into_plan_state(
-                &snapshot,
-                &mut plan_graphs,
-                &mut execution_overlays,
-            );
             Some(HydratedCoordinationPlanState {
-                canonical_snapshot_v2: migrate_legacy_hybrid_snapshot_to_canonical_v2(
-                    &snapshot,
-                    &plan_graphs,
-                    &execution_overlays,
-                )?,
+                canonical_snapshot_v2: checkpoint
+                    .canonical_snapshot_v2
+                    .unwrap_or_else(|| {
+                        canonical_snapshot_v2_from_snapshot(&snapshot)
+                            .expect("checkpoint snapshot should project into canonical v2")
+                    }),
                 snapshot,
-                plan_graphs,
-                execution_overlays,
-                runtime_descriptors,
+                runtime_descriptors: checkpoint.runtime_descriptors,
             })
         }
         None => {
-            let (plan_graphs, execution_overlays) = compatibility_plan_state(
-                &checkpoint.plan_graphs,
-                &checkpoint.execution_overlays,
-                &checkpoint.snapshot,
-            );
             let snapshot = checkpoint.snapshot;
             Some(HydratedCoordinationPlanState {
-                canonical_snapshot_v2: checkpoint.canonical_snapshot_v2.unwrap_or(
-                    migrate_legacy_hybrid_snapshot_to_canonical_v2(
-                        &snapshot,
-                        &plan_graphs,
-                        &execution_overlays,
-                    )?,
-                ),
+                canonical_snapshot_v2: checkpoint
+                    .canonical_snapshot_v2
+                    .unwrap_or_else(|| canonical_snapshot_v2_from_snapshot(&snapshot).expect("checkpoint snapshot should project into canonical v2")),
                 snapshot,
-                plan_graphs,
-                execution_overlays,
                 runtime_descriptors: checkpoint.runtime_descriptors,
             })
         }
@@ -114,32 +83,21 @@ where
     };
     Ok(match snapshot {
         Some(snapshot) => {
-            let (plan_graphs, execution_overlays) = compatibility_plan_state(
-                &checkpoint.plan_graphs,
-                &checkpoint.execution_overlays,
-                &checkpoint.snapshot,
-            );
             let snapshot = merge_shared_coordination_into_snapshot(checkpoint.snapshot, snapshot);
-            Some(migrate_legacy_hybrid_snapshot_to_canonical_v2(
-                &snapshot,
-                &plan_graphs,
-                &execution_overlays,
-            )?)
+            Some(
+                checkpoint
+                    .canonical_snapshot_v2
+                    .unwrap_or_else(|| {
+                        canonical_snapshot_v2_from_snapshot(&snapshot)
+                            .expect("checkpoint snapshot should project into canonical v2")
+                    }),
+            )
         }
-        None => {
-            let (plan_graphs, execution_overlays) = compatibility_plan_state(
-                &checkpoint.plan_graphs,
-                &checkpoint.execution_overlays,
-                &checkpoint.snapshot,
-            );
-            Some(checkpoint.canonical_snapshot_v2.unwrap_or(
-                migrate_legacy_hybrid_snapshot_to_canonical_v2(
-                    &checkpoint.snapshot,
-                    &plan_graphs,
-                    &execution_overlays,
-                )?,
-            ))
-        }
+        None => Some(
+            checkpoint
+                .canonical_snapshot_v2
+                .unwrap_or_else(|| canonical_snapshot_v2_from_snapshot(&checkpoint.snapshot).expect("checkpoint snapshot should project into canonical v2")),
+        ),
     })
 }
 
@@ -147,8 +105,6 @@ pub(crate) fn save_shared_coordination_startup_checkpoint<S>(
     root: &Path,
     store: &mut S,
     snapshot: &CoordinationSnapshot,
-    plan_graphs: &[PlanGraph],
-    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
     runtime_descriptors: &[prism_coordination::RuntimeDescriptor],
 ) -> Result<()>
 where
@@ -163,30 +119,15 @@ where
         coordination_revision: store.coordination_revision()?,
         authority,
         snapshot: checkpoint_snapshot.clone(),
-        canonical_snapshot_v2: Some(migrate_legacy_hybrid_snapshot_to_canonical_v2(
-            &checkpoint_snapshot,
-            plan_graphs,
-            execution_overlays,
-        )?),
-        plan_graphs: plan_graphs.to_vec(),
-        execution_overlays: execution_overlays.clone(),
+        canonical_snapshot_v2: Some(canonical_snapshot_v2_from_snapshot(&checkpoint_snapshot)?),
         runtime_descriptors: runtime_descriptors.to_vec(),
     })
 }
 
-fn compatibility_plan_state(
-    plan_graphs: &[PlanGraph],
-    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
+fn canonical_snapshot_v2_from_snapshot(
     snapshot: &CoordinationSnapshot,
-) -> (Vec<PlanGraph>, BTreeMap<String, Vec<PlanExecutionOverlay>>) {
-    if plan_graphs.is_empty() && execution_overlays.is_empty() {
-        (
-            snapshot_plan_graphs(snapshot),
-            execution_overlays_by_plan(&snapshot.tasks),
-        )
-    } else {
-        (plan_graphs.to_vec(), execution_overlays.clone())
-    }
+) -> Result<CoordinationSnapshotV2> {
+    Ok(snapshot.to_canonical_snapshot_v2())
 }
 
 fn load_matching_coordination_startup_checkpoint<S>(

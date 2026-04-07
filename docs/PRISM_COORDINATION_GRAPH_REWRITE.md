@@ -1186,28 +1186,17 @@ Migration rules:
 - handoff annotations attach to task metadata
 - none of these constructs create new executable graph entities
 
-### 12.4 Mutation Compatibility
+### 12.4 Canonical Mutation Surface
 
-During the compatibility window:
+The compatibility window is closed.
 
-- `task_create` continues to work and creates v2 tasks
-- `plan_create` continues to work and creates v2 plans
-- old `plan_node_create` is accepted only as a compatibility alias that creates a v2 task or child
-  plan according to:
-  - `is_abstract = true` => child plan
-  - otherwise => task
-- old `plan_edge_create` is accepted only for:
-  - `depends_on`
-  - `blocks`
-  - `child_of`
+- `task_create` creates canonical v2 tasks
+- `plan_create` creates canonical v2 plans
+- containment is expressed through parent plan ids
+- dependencies are expressed through canonical task dependency fields
 
-Compatibility mapping:
-
-- `depends_on` or `blocks` => dependency create
-- `child_of` => containment reassignment mutation
-
-All other old edge kinds are rejected with a migration error telling the caller to use task
-metadata or explicit review/handoff state instead.
+There is no separate `plan_node_create`, `plan_edge_create`, or `plan_edge_delete` mutation
+surface anymore.
 
 This compatibility surface is temporary and must be removed after the migration window.
 
@@ -1350,12 +1339,9 @@ The rewrite is not complete until all of the following pass.
 - successful transactions emit exactly one authoritative publish
 - `plan_bootstrap` and other graph macros execute through the same transaction engine
 
-### 14.7 Compatibility and Routing
+### 14.7 Canonical Routing
 
-- legacy `plan_node_create` compatibility alias maps abstract nodes to child plans and leaf nodes to
-  tasks exactly as specified
-- legacy `plan_edge_create` compatibility alias rejects unsupported edge kinds with migration
-  guidance
+- canonical task and plan mutations are the only supported structural mutation surface
 - human review migrates and executes as a human-routed task, not as a dedicated node kind
 - service automation migrates and executes as a service-routed task, not as a dedicated node kind
 

@@ -809,9 +809,6 @@ The JS/query runtime should expose richer programmatic access:
 ```ts
 prism.plans(options?)
 prism.plan(planId)
-prism.planGraph(planId)
-prism.planExecution(planId)
-prism.planReadyNodes(planId)
 prism.planNodeBlockers(planId, nodeId)
 prism.planSummary(planId)
 prism.planNext(planId, limit?)

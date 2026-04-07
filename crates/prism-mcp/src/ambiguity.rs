@@ -1,5 +1,5 @@
 use anyhow::Result;
-use prism_ir::{AnchorRef, CoordinationTaskId, NodeKind};
+use prism_ir::{AnchorRef, CoordinationTaskId, NodeKind, TaskId};
 use prism_js::{QueryDiagnostic, SuggestedQueryView, SymbolView};
 use prism_query::Prism;
 use rmcp::schemars::JsonSchema;
@@ -1093,8 +1093,9 @@ pub(crate) fn build_task_scope(prism: &Prism, task_id: &str) -> Option<TaskScope
         return None;
     }
     let coord_task_id = CoordinationTaskId::new(task_id.to_string());
-    let task = prism.coordination_task(&coord_task_id)?;
+    let task = prism.task(&TaskId::new(coord_task_id.0.clone()))?;
     let mut nodes = task
+        .task
         .anchors
         .iter()
         .filter_map(|anchor| match anchor {

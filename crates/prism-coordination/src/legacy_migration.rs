@@ -299,10 +299,13 @@ impl<'a> MigrationState<'a> {
             parent_plan_id: self.resolve_parent_plan_id(graph, parent_node_id)?,
             title: node.title.clone(),
             summary: node.summary.clone(),
+            kind: node.kind,
+            status: migrated_task_status(node.status),
             lifecycle_status: migrated_task_lifecycle(node.status),
             estimated_minutes: 0,
             executor: migrated_task_executor_policy(&node.metadata),
             assignee: node.assignee.clone(),
+            pending_handoff_to: overlay.and_then(|overlay| overlay.pending_handoff_to.clone()),
             session: overlay.and_then(|overlay| overlay.session.clone()),
             lease_holder: None,
             lease_started_at: None,
@@ -319,6 +322,7 @@ impl<'a> MigrationState<'a> {
                 .map(migrate_acceptance)
                 .collect::<Vec<_>>(),
             validation_refs: node.validation_refs.clone(),
+            is_abstract: node.is_abstract,
             base_revision: node.base_revision.clone(),
             priority: node.priority,
             tags: node.tags.clone(),
@@ -341,6 +345,8 @@ impl<'a> MigrationState<'a> {
             parent_plan_id: migrated_child_plan_id(&node.id),
             title: "Fill migrated empty child plan".to_string(),
             summary: None,
+            kind: prism_ir::PlanNodeKind::Edit,
+            status: prism_ir::CoordinationTaskStatus::Proposed,
             lifecycle_status: TaskLifecycleStatus::Pending,
             estimated_minutes: 0,
             executor: TaskExecutorPolicy {
@@ -349,6 +355,7 @@ impl<'a> MigrationState<'a> {
                 allowed_principals: Vec::new(),
             },
             assignee: None,
+            pending_handoff_to: None,
             session: None,
             lease_holder: None,
             lease_started_at: None,
@@ -361,6 +368,7 @@ impl<'a> MigrationState<'a> {
             bindings: PlanBinding::default(),
             acceptance: Vec::new(),
             validation_refs: Vec::<ValidationRef>::new(),
+            is_abstract: false,
             base_revision: WorkspaceRevision::default(),
             priority: None,
             tags: Vec::new(),
@@ -538,6 +546,21 @@ fn migrated_task_lifecycle(status: prism_ir::PlanNodeStatus) -> TaskLifecycleSta
         | prism_ir::PlanNodeStatus::Validating => TaskLifecycleStatus::Active,
         prism_ir::PlanNodeStatus::Completed => TaskLifecycleStatus::Completed,
         prism_ir::PlanNodeStatus::Abandoned => TaskLifecycleStatus::Abandoned,
+    }
+}
+
+fn migrated_task_status(status: prism_ir::PlanNodeStatus) -> prism_ir::CoordinationTaskStatus {
+    match status {
+        prism_ir::PlanNodeStatus::Proposed => prism_ir::CoordinationTaskStatus::Proposed,
+        prism_ir::PlanNodeStatus::Ready => prism_ir::CoordinationTaskStatus::Ready,
+        prism_ir::PlanNodeStatus::InProgress => prism_ir::CoordinationTaskStatus::InProgress,
+        prism_ir::PlanNodeStatus::Blocked | prism_ir::PlanNodeStatus::Waiting => {
+            prism_ir::CoordinationTaskStatus::Blocked
+        }
+        prism_ir::PlanNodeStatus::InReview => prism_ir::CoordinationTaskStatus::InReview,
+        prism_ir::PlanNodeStatus::Validating => prism_ir::CoordinationTaskStatus::Validating,
+        prism_ir::PlanNodeStatus::Completed => prism_ir::CoordinationTaskStatus::Completed,
+        prism_ir::PlanNodeStatus::Abandoned => prism_ir::CoordinationTaskStatus::Abandoned,
     }
 }
 
@@ -738,9 +761,6 @@ mod tests {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: Value::Null,
-                authored_nodes: Vec::new(),
-                authored_edges: Vec::new(),
-                root_tasks: vec![prism_ir::CoordinationTaskId::new("coord-task:existing")],
             }],
             tasks: vec![crate::CoordinationTask {
                 id: prism_ir::CoordinationTaskId::new("coord-task:existing"),
@@ -749,7 +769,6 @@ mod tests {
                 title: "Existing".into(),
                 summary: None,
                 status: CoordinationTaskStatus::InReview,
-                published_task_status: None,
                 assignee: Some(AgentId::new("agent:demo")),
                 pending_handoff_to: None,
                 session: Some(SessionId::new("session:demo")),
@@ -861,7 +880,7 @@ mod tests {
         }));
         assert!(migrated.tasks.iter().any(|task| {
             task.id.0 == "coord-task:existing"
-                && task.metadata.get("legacy_phase").and_then(Value::as_str) == Some("in_review")
+                && task.status == CoordinationTaskStatus::InReview
         }));
         assert!(migrated.dependencies.iter().any(|edge| {
             edge.source == NodeRef::task(TaskId::new("coord-task:existing"))
@@ -899,9 +918,6 @@ mod tests {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: Value::Null,
-                authored_nodes: Vec::new(),
-                authored_edges: Vec::new(),
-                root_tasks: Vec::new(),
             }],
             ..CoordinationSnapshot::default()
         };
@@ -948,9 +964,6 @@ mod tests {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: Value::Null,
-                authored_nodes: Vec::new(),
-                authored_edges: Vec::new(),
-                root_tasks: Vec::new(),
             }],
             ..CoordinationSnapshot::default()
         };

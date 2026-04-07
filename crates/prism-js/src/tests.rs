@@ -109,17 +109,14 @@ fn api_reference_mentions_primary_tool() {
         .contains("taskChanges(taskId: string, options?: ChangedFilesOptions): PatchEventView[];"));
     assert!(docs.contains("connectionInfo(): ConnectionInfoView;"));
     assert!(docs.contains("runtimeStatus(): RuntimeStatusView;"));
-    assert!(docs.contains("planV2(planId: string): CoordinationPlanV2View | null;"));
-    assert!(docs
-        .contains("planProjectionAt(planId: string, at: number): AdHocPlanProjectionView | null;"));
-    assert!(docs.contains(
-        "planProjectionDiff(planId: string, from: number, to: number): AdHocPlanProjectionDiffView;"
-    ));
+    assert!(docs.contains("plan(planId: string): CoordinationPlanV2View | null;"));
+    assert!(!docs.contains("planProjectionAt("));
+    assert!(!docs.contains("planProjectionDiff("));
     assert!(docs.contains("children(planId: string): PlanChildrenV2View | null;"));
     assert!(docs.contains("dependencies(nodeRef: NodeRefView): NodeRefView[];"));
     assert!(docs.contains("dependents(nodeRef: NodeRefView): NodeRefView[];"));
     assert!(docs.contains("portfolio(): CoordinationPlanV2View[];"));
-    assert!(docs.contains("taskV2(taskId: string): CoordinationTaskV2View | null;"));
+    assert!(docs.contains("task(taskId: string): CoordinationTaskV2View | null;"));
     assert!(docs.contains("graphActionableTasks(): CoordinationTaskV2View[];"));
     assert!(docs.contains("actionableTasks(principal?: string): CoordinationTaskV2View[];"));
     assert!(docs.contains("runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];"));
@@ -183,8 +180,8 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("type TextSearchBundleView = {"));
     assert!(docs.contains("type TargetBundleView = {"));
     assert!(docs.contains("type RuntimeStatusView = {"));
-    assert!(docs.contains("type AdHocPlanProjectionView = {"));
-    assert!(docs.contains("type AdHocPlanProjectionDiffView = {"));
+    assert!(!docs.contains("type AdHocPlanProjectionView = {"));
+    assert!(!docs.contains("type AdHocPlanProjectionDiffView = {"));
     assert!(docs.contains("mcpCallLogPath?: string;"));
     assert!(docs.contains("mcpCallLogBytes?: number;"));
     assert!(docs.contains("type ConnectionInfoView = {"));
@@ -338,16 +335,16 @@ fn prelude_exposes_global_prism() {
 #[test]
 fn canonical_coordination_v2_methods_are_registered_in_query_surface() {
     assert_eq!(
-        prism_method_spec("prism.planV2")
+        prism_method_spec("prism.plan")
             .and_then(|spec| spec.declaration)
-            .expect("planV2 spec should exist"),
-        "planV2(planId: string): CoordinationPlanV2View | null;"
+            .expect("plan spec should exist"),
+        "plan(planId: string): CoordinationPlanV2View | null;"
     );
     assert_eq!(
-        prism_method_spec("prism.taskV2")
+        prism_method_spec("prism.task")
             .and_then(|spec| spec.declaration)
-            .expect("taskV2 spec should exist"),
-        "taskV2(taskId: string): CoordinationTaskV2View | null;"
+            .expect("task spec should exist"),
+        "task(taskId: string): CoordinationTaskV2View | null;"
     );
     assert_eq!(
         prism_method_spec("prism.children")

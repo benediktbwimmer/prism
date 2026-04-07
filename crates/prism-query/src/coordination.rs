@@ -1,16 +1,14 @@
 use prism_coordination::{
     Artifact, CanonicalTaskRecord, CoordinationConflict, CoordinationDerivations,
-    CoordinationEvent, CoordinationTask, Plan, TaskBlocker, TaskExecutorCaller, WorkClaim,
+    CoordinationEvent, TaskBlocker, TaskExecutorCaller, WorkClaim,
 };
 use prism_ir::{
     AnchorRef, ArtifactId, BlockerCause, BlockerCauseSource, Capability, ClaimMode,
-    CoordinationTaskId, NodeRef, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PrincipalId,
-    SessionId, TaskId, Timestamp, WorkspaceRevision,
+    CoordinationTaskId, NodeRef, PlanId, PrincipalId, SessionId, TaskId, Timestamp,
+    WorkspaceRevision,
 };
-use std::collections::BTreeMap;
 
 use crate::common::{anchor_sort_key, sort_node_ids};
-use crate::plan_completion::current_timestamp;
 use crate::{CoordinationPlanV2, CoordinationTaskV2, Prism};
 
 impl Prism {
@@ -26,15 +24,7 @@ impl Prism {
             .clone()
     }
 
-    pub fn coordination_plan(&self, plan_id: &PlanId) -> Option<Plan> {
-        self.with_coordination_runtime(|runtime| runtime.plan(plan_id))
-    }
-
-    pub fn coordination_task(&self, task_id: &CoordinationTaskId) -> Option<CoordinationTask> {
-        self.with_coordination_runtime(|runtime| runtime.task(task_id))
-    }
-
-    pub fn coordination_plan_v2(&self, plan_id: &PlanId) -> Option<CoordinationPlanV2> {
+    pub fn plan(&self, plan_id: &PlanId) -> Option<CoordinationPlanV2> {
         let snapshot = self.coordination_snapshot_v2();
         let derivations = snapshot.derive_statuses().ok()?;
         let graph = snapshot.graph().ok()?;
@@ -55,7 +45,7 @@ impl Prism {
         })
     }
 
-    pub fn coordination_task_v2(&self, task_id: &TaskId) -> Option<CoordinationTaskV2> {
+    pub fn task(&self, task_id: &TaskId) -> Option<CoordinationTaskV2> {
         let snapshot = self.coordination_snapshot_v2();
         let derivations = snapshot.derive_statuses().ok()?;
         let graph = snapshot.graph().ok()?;
@@ -75,7 +65,7 @@ impl Prism {
         })
     }
 
-    pub fn plan_children_v2(&self, plan_id: &PlanId) -> Vec<NodeRef> {
+    pub fn children(&self, plan_id: &PlanId) -> Vec<NodeRef> {
         let snapshot = self.coordination_snapshot_v2();
         let Ok(graph) = snapshot.graph() else {
             return Vec::new();
@@ -83,7 +73,7 @@ impl Prism {
         graph.children_of_plan(plan_id)
     }
 
-    pub fn node_dependencies_v2(&self, node_ref: &NodeRef) -> Vec<NodeRef> {
+    pub fn dependencies(&self, node_ref: &NodeRef) -> Vec<NodeRef> {
         let snapshot = self.coordination_snapshot_v2();
         let Ok(graph) = snapshot.graph() else {
             return Vec::new();
@@ -91,7 +81,7 @@ impl Prism {
         graph.dependency_targets(node_ref)
     }
 
-    pub fn node_dependents_v2(&self, node_ref: &NodeRef) -> Vec<NodeRef> {
+    pub fn dependents(&self, node_ref: &NodeRef) -> Vec<NodeRef> {
         let snapshot = self.coordination_snapshot_v2();
         let Ok(graph) = snapshot.graph() else {
             return Vec::new();
@@ -99,12 +89,12 @@ impl Prism {
         graph.dependency_sources(node_ref)
     }
 
-    pub fn graph_actionable_tasks_v2(&self) -> Vec<CoordinationTaskV2> {
+    pub fn graph_actionable_tasks(&self) -> Vec<CoordinationTaskV2> {
         let snapshot = self.coordination_snapshot_v2();
         actionable_task_views_from_snapshot(&snapshot, snapshot.derive_statuses().ok(), None)
     }
 
-    pub fn actionable_tasks_for_executor_v2(
+    pub fn actionable_tasks_for_executor(
         &self,
         caller: &TaskExecutorCaller,
     ) -> Vec<CoordinationTaskV2> {
@@ -116,7 +106,7 @@ impl Prism {
         )
     }
 
-    pub fn root_plans_v2(&self) -> Vec<CoordinationPlanV2> {
+    pub fn portfolio(&self) -> Vec<CoordinationPlanV2> {
         let snapshot = self.coordination_snapshot_v2();
         let Some(derivations) = snapshot.derive_statuses().ok() else {
             return Vec::new();
@@ -156,35 +146,7 @@ impl Prism {
         self.with_coordination_runtime(|runtime| runtime.events())
     }
 
-    pub fn plan_graph(&self, plan_id: &PlanId) -> Option<PlanGraph> {
-        let runtime = self.plan_runtime_state();
-        self.hydrated_plan_graph_for_runtime(&runtime, plan_id)
-    }
-
-    pub fn plan_execution(&self, plan_id: &PlanId) -> Vec<PlanExecutionOverlay> {
-        self.plan_runtime_state().plan_execution(plan_id)
-    }
-
-    pub fn plan_graphs(&self) -> Vec<PlanGraph> {
-        let runtime = self.plan_runtime_state();
-        self.hydrated_plan_graphs_for_runtime(&runtime)
-    }
-
-    pub fn authored_plan_graphs(&self) -> Vec<PlanGraph> {
-        let runtime = self.plan_runtime_state();
-        self.stabilized_plan_graphs_for_persist(&runtime)
-    }
-
-    pub fn plan_execution_overlays_by_plan(&self) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {
-        self.plan_runtime_state().execution_overlays_by_plan()
-    }
-
-    pub fn plan_ready_nodes(&self, plan_id: &PlanId) -> Vec<PlanNode> {
-        let runtime = self.plan_runtime_state();
-        self.actionable_plan_nodes_for_runtime(&runtime, plan_id, current_timestamp())
-    }
-
-    pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTask> {
+    pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTaskV2> {
         let worktree_id = self.coordination_worktree_scope();
         self.with_coordination_runtime(|runtime| {
             runtime.ready_tasks_in_scope(
@@ -194,6 +156,9 @@ impl Prism {
                 worktree_id.as_deref(),
             )
         })
+        .into_iter()
+        .filter_map(|task| self.task(&TaskId::new(task.id.0)))
+        .collect()
     }
 
     pub fn ready_tasks_for_executor(
@@ -201,7 +166,7 @@ impl Prism {
         plan_id: &PlanId,
         now: Timestamp,
         caller: &TaskExecutorCaller,
-    ) -> Vec<CoordinationTask> {
+    ) -> Vec<CoordinationTaskV2> {
         let worktree_id = self.coordination_worktree_scope();
         self.with_coordination_runtime(|runtime| {
             runtime.ready_tasks_for_executor_in_scope(
@@ -212,6 +177,9 @@ impl Prism {
                 caller,
             )
         })
+        .into_iter()
+        .filter_map(|task| self.task(&TaskId::new(task.id.0)))
+        .collect()
     }
 
     pub fn claims(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<WorkClaim> {
@@ -269,9 +237,9 @@ impl Prism {
             }
             if risk.review_required && !risk.has_approved_artifact {
                 let threshold = self
-                    .coordination_task(task_id)
-                    .and_then(|task| self.coordination_plan(&task.plan))
-                    .and_then(|plan| plan.policy.review_required_above_risk_score);
+                    .task(&TaskId::new(task_id.0.clone()))
+                    .and_then(|task| self.plan(&task.task.parent_plan_id))
+                    .and_then(|plan| plan.plan.policy.review_required_above_risk_score);
                 blockers.push(TaskBlocker {
                     kind: prism_coordination::BlockerKind::RiskReviewRequired,
                     summary: format!(

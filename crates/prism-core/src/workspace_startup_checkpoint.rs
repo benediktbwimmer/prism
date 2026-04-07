@@ -9,8 +9,8 @@ use bincode::Options;
 use prism_history::{HistorySnapshot, HistoryStore, LineageTombstone};
 use prism_ir::{
     CredentialId, EventActor, EventExecutionContext, EventId, LineageEvent, LineageEventKind,
-    LineageEvidence, LineageId, NodeId, PlanExecutionOverlay, PrincipalActor, TaskId,
-    WorkContextKind, WorkContextSnapshot,
+    LineageEvidence, LineageId, NodeId, PrincipalActor, TaskId, WorkContextKind,
+    WorkContextSnapshot,
 };
 use prism_memory::{OutcomeMemory, OutcomeMemorySnapshot};
 use prism_projections::{IntentIndex, ProjectionIndex, ProjectionSnapshot};
@@ -41,7 +41,7 @@ use crate::workspace_runtime_state::WorkspaceRuntimeState;
 use crate::{WorkspaceSession, WorkspaceSessionOptions};
 
 const WORKSPACE_RUNTIME_STARTUP_CHECKPOINT_MAGIC: &[u8; 8] = b"PRWSCP01";
-const WORKSPACE_RUNTIME_STARTUP_CHECKPOINT_VERSION: u32 = 8;
+const WORKSPACE_RUNTIME_STARTUP_CHECKPOINT_VERSION: u32 = 9;
 const MAX_STARTUP_CHECKPOINT_SEGMENT_BYTES: u64 = 1 << 30;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -507,8 +507,6 @@ pub(crate) fn build_workspace_indexer_with_startup_checkpoint(
             &indexer.outcomes,
             crate::session::WorkspaceRefreshWork::default(),
             &indexer.coordination_snapshot,
-            &indexer.plan_graphs,
-            &indexer.plan_execution_overlays,
         )?;
         recovery_work.workspace_reloaded = true;
         indexer.startup_refresh = Some(WorkspaceRefreshSeed {
@@ -549,8 +547,6 @@ pub(crate) fn persist_workspace_runtime_startup_checkpoint(
         intent_index,
         outcome_snapshot,
         coordination_snapshot,
-        plan_graphs,
-        plan_execution_overlays,
         projection_snapshot,
     ) = {
         let runtime_state = session
@@ -567,8 +563,6 @@ pub(crate) fn persist_workspace_runtime_startup_checkpoint(
             ),
             runtime_state.outcomes.snapshot(),
             runtime_state.coordination_snapshot.clone(),
-            runtime_state.plan_graphs.clone(),
-            runtime_state.plan_execution_overlays.clone(),
             runtime_state.projections.snapshot(),
         )
     };
@@ -620,12 +614,6 @@ pub(crate) fn persist_workspace_runtime_startup_checkpoint(
         &mut writer,
         &encode_json(&coordination_snapshot)?,
         "coordination snapshot json",
-    )?;
-    write_bytes_segment(&mut writer, &encode_json(&plan_graphs)?, "plan graphs json")?;
-    write_bytes_segment(
-        &mut writer,
-        &encode_json(&plan_execution_overlays)?,
-        "plan execution overlays json",
     )?;
     write_bytes_segment(
         &mut writer,
@@ -832,14 +820,6 @@ fn load_workspace_runtime_startup_checkpoint(
             &read_bytes_segment(&mut reader, "coordination snapshot json")?,
             "coordination snapshot",
         )?;
-        let plan_graphs: Vec<prism_ir::PlanGraph> = decode_json(
-            &read_bytes_segment(&mut reader, "plan graphs json")?,
-            "plan graphs",
-        )?;
-        let plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>> = decode_json(
-            &read_bytes_segment(&mut reader, "plan execution overlays json")?,
-            "plan execution overlays",
-        )?;
         let projection_snapshot: ProjectionSnapshot = decode_json(
             &read_bytes_segment(&mut reader, "projection snapshot json")?,
             "projection snapshot",
@@ -850,8 +830,6 @@ fn load_workspace_runtime_startup_checkpoint(
             HistoryStore::from_snapshot(history_snapshot.clone()),
             OutcomeMemory::from_snapshot(outcome_snapshot),
             coordination_snapshot,
-            plan_graphs,
-            plan_execution_overlays,
             Vec::new(),
             ProjectionIndex::from_snapshot_with_history(
                 projection_snapshot,

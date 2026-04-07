@@ -1571,21 +1571,18 @@ fn serialized_size<T: Serialize>(value: &T) -> Result<u64> {
 fn coordination_reload_materialization(
     state: &prism_core::CoordinationPlanState,
 ) -> Result<ReloadMaterialization> {
-    let overlay_count = state
-        .execution_overlays
-        .values()
-        .map(|overlays| overlays.len())
-        .sum::<usize>();
-    let plan_graph_node_count = state
-        .plan_graphs
+    let execution_overlays = prism_coordination::execution_overlays_from_tasks(&state.snapshot.tasks);
+    let plan_graphs = prism_coordination::snapshot_plan_graphs(&state.snapshot);
+    let overlay_count = execution_overlays.len();
+    let plan_graph_node_count = plan_graphs
         .iter()
         .map(|graph| graph.nodes.len().saturating_add(graph.edges.len()))
         .sum::<usize>();
     let snapshot = &state.snapshot;
     Ok(ReloadMaterialization {
         loaded_bytes: serialized_size(snapshot)?
-            .saturating_add(serialized_size(&state.plan_graphs)?)
-            .saturating_add(serialized_size(&state.execution_overlays)?),
+            .saturating_add(serialized_size(&plan_graphs)?)
+            .saturating_add(serialized_size(&execution_overlays)?),
         replay_volume: u64::try_from(
             snapshot
                 .plans
@@ -2512,9 +2509,6 @@ mod tests {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: Value::Null,
-                authored_nodes: Vec::new(),
-                authored_edges: Vec::new(),
-                root_tasks: vec![live_task_id.clone()],
             }],
             tasks: vec![CoordinationTask {
                 id: live_task_id.clone(),
@@ -2523,7 +2517,6 @@ mod tests {
                 title: "live task".to_string(),
                 summary: None,
                 status: CoordinationTaskStatus::Completed,
-                published_task_status: None,
                 assignee: None,
                 pending_handoff_to: None,
                 session: None,
@@ -2560,10 +2553,8 @@ mod tests {
         };
         workspace
             .prism()
-            .replace_coordination_snapshot_and_plan_graphs(
+            .replace_coordination_snapshot_with_runtime_descriptors(
                 live_snapshot.clone(),
-                Vec::new(),
-                std::collections::BTreeMap::new(),
                 Vec::new(),
             );
 

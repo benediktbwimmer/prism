@@ -53,31 +53,31 @@ impl Prism {
 
         let activity_by_plan = self.plan_activity_index();
         let mut plans: Vec<(PlanListEntry, Option<f32>, bool)> = self
-            .hydrated_plan_graphs_for_runtime(runtime)
+            .hydrated_plan_projections_for_runtime(runtime)
             .into_iter()
-            .filter_map(|graph| {
-                let summary = self.plan_summary_for_runtime(runtime, &graph.id)?;
-                let node_status_counts = plan_node_status_counts(&graph);
+            .filter_map(|projection| {
+                let summary = self.plan_summary_for_runtime(runtime, &projection.graph.id)?;
+                let node_status_counts = plan_node_status_counts(&projection.graph);
                 let top_recommendation = self
-                    .plan_next_for_runtime(runtime, &graph.id, 1)
+                    .plan_next_for_runtime(runtime, &projection.graph.id, 1)
                     .into_iter()
                     .next();
                 Some((
                     PlanListEntry {
-                        plan_id: graph.id.clone(),
-                        title: graph.title,
-                        goal: graph.goal,
-                        status: graph.status,
-                        scope: graph.scope,
-                        kind: graph.kind,
-                        policy: runtime.policy(&graph.id).unwrap_or_default(),
-                        scheduling: runtime.scheduling(&graph.id).unwrap_or_default(),
-                        root_node_ids: graph.root_nodes,
+                        plan_id: projection.graph.id.clone(),
+                        title: projection.graph.title,
+                        goal: projection.graph.goal,
+                        status: projection.graph.status,
+                        scope: projection.graph.scope,
+                        kind: projection.graph.kind,
+                        policy: runtime.policy(&projection.graph.id).unwrap_or_default(),
+                        scheduling: runtime.scheduling(&projection.graph.id).unwrap_or_default(),
+                        root_node_ids: projection.graph.root_nodes,
                         summary: plan_discovery_summary(&summary),
                         plan_summary: summary,
                         node_status_counts,
                         activity: activity_by_plan
-                            .get(graph.id.0.as_str())
+                            .get(projection.graph.id.0.as_str())
                             .cloned()
                             .unwrap_or_default(),
                     },
@@ -91,7 +91,7 @@ impl Prism {
             })
             .collect::<Vec<_>>();
 
-        plans.sort_by(|left, right| {
+        plans.sort_by(|left: &(PlanListEntry, Option<f32>, bool), right: &(PlanListEntry, Option<f32>, bool)| {
             let (left_entry, left_score, left_actionable) = left;
             let (right_entry, right_score, right_actionable) = right;
             plan_status_rank(left_entry.status)

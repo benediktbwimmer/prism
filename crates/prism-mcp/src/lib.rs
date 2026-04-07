@@ -1190,7 +1190,8 @@ impl QueryHost {
             return false;
         }
         let prism = self.current_prism();
-        prism.coordination_snapshot().plans.is_empty() && !prism.authored_plan_graphs().is_empty()
+        let snapshot = prism.coordination_snapshot();
+        snapshot.plans.is_empty() && !prism_coordination::snapshot_plan_graphs(&snapshot).is_empty()
     }
 
     fn sync_workspace_revision_value(&self, revision: u64) {

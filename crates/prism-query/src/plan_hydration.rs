@@ -2,51 +2,38 @@ use prism_ir::{AnchorRef, NodeId, PlanBinding, PlanGraph, PlanId, PlanNode};
 
 use crate::common::{anchor_sort_key, sort_node_ids};
 use crate::plan_runtime::NativePlanRuntimeState;
+use crate::types::PlanProjection;
 use crate::Prism;
 
 impl Prism {
-    pub(crate) fn hydrated_plan_graph_for_runtime(
+    pub(crate) fn hydrated_plan_projection_for_runtime(
         &self,
         runtime: &NativePlanRuntimeState,
         plan_id: &PlanId,
-    ) -> Option<PlanGraph> {
-        runtime
-            .plan_graph(plan_id)
-            .map(|graph| self.hydrate_plan_graph(graph))
+    ) -> Option<PlanProjection> {
+        runtime.plan_projection(plan_id).map(|projection| PlanProjection {
+            graph: self.hydrate_plan_graph(projection.graph),
+            execution_overlays: projection.execution_overlays,
+        })
     }
 
-    pub(crate) fn hydrated_plan_graphs_for_runtime(
+    pub(crate) fn hydrated_plan_projections_for_runtime(
         &self,
         runtime: &NativePlanRuntimeState,
-    ) -> Vec<PlanGraph> {
+    ) -> Vec<PlanProjection> {
         runtime
-            .plan_graphs()
+            .plan_projections()
             .into_iter()
-            .map(|graph| self.hydrate_plan_graph(graph))
-            .collect()
-    }
-
-    pub(crate) fn stabilized_plan_graphs_for_persist(
-        &self,
-        runtime: &NativePlanRuntimeState,
-    ) -> Vec<PlanGraph> {
-        runtime
-            .plan_graphs()
-            .into_iter()
-            .map(|graph| self.stabilize_plan_graph_for_persist(graph))
+            .map(|projection| PlanProjection {
+                graph: self.hydrate_plan_graph(projection.graph),
+                execution_overlays: projection.execution_overlays,
+            })
             .collect()
     }
 
     fn hydrate_plan_graph(&self, mut graph: PlanGraph) -> PlanGraph {
         for node in &mut graph.nodes {
             self.hydrate_plan_node(node);
-        }
-        graph
-    }
-
-    fn stabilize_plan_graph_for_persist(&self, mut graph: PlanGraph) -> PlanGraph {
-        for node in &mut graph.nodes {
-            node.bindings.anchors = self.stabilize_binding_anchors_for_persist(&node.bindings);
         }
         graph
     }
@@ -98,20 +85,6 @@ impl Prism {
         hydrated.sort_by(anchor_sort_key);
         hydrated.dedup();
         hydrated
-    }
-
-    fn stabilize_binding_anchors_for_persist(&self, binding: &PlanBinding) -> Vec<AnchorRef> {
-        let mut anchors = binding.anchors.clone();
-        for anchor in &binding.anchors {
-            if let AnchorRef::Node(node) = anchor {
-                if let Some(lineage) = self.recover_lineage_for_node(node) {
-                    anchors.push(AnchorRef::Lineage(lineage));
-                }
-            }
-        }
-        anchors.sort_by(anchor_sort_key);
-        anchors.dedup();
-        anchors
     }
 
     fn recover_lineage_for_node(&self, node: &NodeId) -> Option<prism_ir::LineageId> {

@@ -8,7 +8,6 @@ mod github_attestation;
 mod mcp;
 mod operator_auth;
 mod parsing;
-mod projection_commands;
 mod protected_state_commands;
 mod runtime;
 mod workspace_root;

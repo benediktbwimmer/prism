@@ -10,34 +10,6 @@ use crate::plan_runtime::NativePlanRuntimeState;
 use crate::{PlanNodeRecommendation, PlanSummary, Prism};
 
 impl Prism {
-    pub(crate) fn actionable_plan_nodes_for_runtime(
-        &self,
-        runtime: &NativePlanRuntimeState,
-        plan_id: &PlanId,
-        now: Timestamp,
-    ) -> Vec<PlanNode> {
-        let Some(graph) = self.hydrated_plan_graph_for_runtime(runtime, plan_id) else {
-            return Vec::new();
-        };
-        if graph.status != PlanStatus::Active {
-            return Vec::new();
-        }
-        let overlays = runtime.plan_execution(&graph.id);
-
-        let mut nodes = graph
-            .nodes
-            .iter()
-            .filter(|node| is_actionable_candidate(node))
-            .filter(|node| {
-                self.plan_node_blockers_for_hydrated_graph(runtime, &graph, &overlays, node, now)
-                    .is_empty()
-            })
-            .cloned()
-            .collect::<Vec<_>>();
-        nodes.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-        nodes
-    }
-
     pub fn plan_summary(&self, plan_id: &PlanId) -> Option<PlanSummary> {
         let runtime = self.plan_runtime_state();
         self.plan_summary_for_runtime(&runtime, plan_id)
@@ -58,17 +30,21 @@ impl Prism {
         runtime: &NativePlanRuntimeState,
         plan_id: &PlanId,
     ) -> Option<PlanSummary> {
-        let graph = self.hydrated_plan_graph_for_runtime(runtime, plan_id)?;
-        Some(self.plan_summary_for_hydrated_graph(runtime, &graph))
+        let projection = self.hydrated_plan_projection_for_runtime(runtime, plan_id)?;
+        Some(self.plan_summary_for_hydrated_graph(
+            runtime,
+            &projection.graph,
+            &projection.execution_overlays,
+        ))
     }
 
     pub(crate) fn plan_summary_for_hydrated_graph(
         &self,
         runtime: &NativePlanRuntimeState,
         graph: &PlanGraph,
+        overlays: &[prism_ir::PlanExecutionOverlay],
     ) -> PlanSummary {
         let now = current_timestamp();
-        let overlays = runtime.plan_execution(&graph.id);
 
         let mut summary = PlanSummary {
             plan_id: graph.id.clone(),
@@ -147,14 +123,16 @@ impl Prism {
         plan_id: &PlanId,
         limit: usize,
     ) -> Vec<PlanNodeRecommendation> {
-        let Some(graph) = self.hydrated_plan_graph_for_runtime(runtime, plan_id) else {
+        let Some(projection) = self.hydrated_plan_projection_for_runtime(runtime, plan_id) else {
             return Vec::new();
         };
+        let graph = projection.graph;
         if graph.status != PlanStatus::Active {
             return Vec::new();
         }
         let now = current_timestamp();
-        let mut recommendations = self.plan_recommendations_for_graph(runtime, &graph, now);
+        let mut recommendations =
+            self.plan_recommendations_for_graph(runtime, &graph, &projection.execution_overlays, now);
         sort_plan_recommendations(&mut recommendations);
         recommendations.truncate(limit.max(1));
         recommendations
@@ -167,10 +145,17 @@ impl Prism {
     ) -> Vec<PlanNodeRecommendation> {
         let now = current_timestamp();
         let mut recommendations = self
-            .hydrated_plan_graphs_for_runtime(runtime)
+            .hydrated_plan_projections_for_runtime(runtime)
             .into_iter()
-            .filter(|graph| graph.status == PlanStatus::Active)
-            .flat_map(|graph| self.plan_recommendations_for_graph(runtime, &graph, now))
+            .filter(|projection| projection.graph.status == PlanStatus::Active)
+            .flat_map(|projection| {
+                self.plan_recommendations_for_graph(
+                    runtime,
+                    &projection.graph,
+                    &projection.execution_overlays,
+                    now,
+                )
+            })
             .collect::<Vec<_>>();
         sort_plan_recommendations(&mut recommendations);
         recommendations.truncate(limit.max(1));
@@ -181,9 +166,9 @@ impl Prism {
         &self,
         runtime: &NativePlanRuntimeState,
         graph: &prism_ir::PlanGraph,
+        execution: &[prism_ir::PlanExecutionOverlay],
         now: Timestamp,
     ) -> Vec<PlanNodeRecommendation> {
-        let execution = runtime.plan_execution(&graph.id);
         let scheduling = runtime.scheduling(&graph.id).unwrap_or_default();
         graph
             .nodes

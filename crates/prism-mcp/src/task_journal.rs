@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 use prism_core::WorkspaceSession;
-use prism_ir::{AnchorRef, CoordinationTaskId, TaskId};
+use prism_ir::{AnchorRef, TaskId};
 use prism_js::{QueryDiagnostic, TaskJournalView, TaskLifecycleSummaryView};
 use prism_memory::{MemoryModule, OutcomeEvent, OutcomeKind, RecallQuery, TaskReplay};
 use prism_query::Prism;
@@ -193,13 +193,8 @@ fn coordination_task_fallback(prism: &Prism, task_id: &TaskId) -> Option<(String
         return None;
     }
     prism
-        .coordination_task_v2(&TaskId::new(task_id.clone()))
-        .map(|task| (task_id.clone(), task.task.title))
-        .or_else(|| {
-            prism
-                .coordination_task(&CoordinationTaskId::new(task_id.clone()))
-                .map(|task| (task_id, task.title))
-        })
+        .task(&TaskId::new(task_id.clone()))
+        .map(|task| (task_id, task.task.title))
 }
 
 fn task_focus(prism: &Prism, events: &[OutcomeEvent]) -> Vec<AnchorRef> {

@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use anyhow::Result;
-use prism_ir::{AnchorRef, NodeId, PlanNode};
+use prism_ir::{CoordinationTaskId, NodeId};
 use prism_js::{
     NodeIdView, QueryEvidenceView, ValidationPlanCheckView, ValidationPlanSubjectView,
     ValidationPlanView,
@@ -16,8 +16,6 @@ use crate::{
     invalid_query_argument_error, node_id_view, validation_recipe_view_with, QueryExecution,
     SymbolTargetArgs,
 };
-use prism_ir::CoordinationTaskId;
-
 const FAST_CHECK_LIMIT: usize = 3;
 const BROADER_CHECK_LIMIT: usize = 4;
 const PATH_TARGET_LIMIT: usize = 16;
@@ -62,7 +60,6 @@ pub(crate) fn validation_plan_view(execution: &QueryExecution, input: Value) -> 
 
     let subject = if let Some(task_id) = input.task_id {
         let coordination_task_id = CoordinationTaskId::new(task_id.clone());
-        let mut used_native_plan_fallback = false;
         if let Some(recipe) = execution
             .prism()
             .task_validation_recipe(&coordination_task_id)
@@ -105,21 +102,6 @@ pub(crate) fn validation_plan_view(execution: &QueryExecution, input: Value) -> 
         }
         if let Some(impact) = execution.prism().task_blast_radius(&coordination_task_id) {
             related_targets.extend(impact.direct_nodes);
-        }
-        if let Some(node) = native_plan_node_for_task(execution.prism(), &task_id) {
-            add_native_plan_validation_guidance(
-                execution,
-                &node,
-                &mut related_targets,
-                &mut scored,
-                &mut broader,
-            );
-            used_native_plan_fallback = true;
-        }
-        if used_native_plan_fallback {
-            notes.push(format!(
-                "Task-shaped validation guidance for `{task_id}` also incorporated native plan node requirements."
-            ));
         }
         ValidationPlanSubjectView {
             kind: "task".to_string(),
@@ -305,112 +287,6 @@ pub(crate) fn validation_plan_view(execution: &QueryExecution, input: Value) -> 
         related_targets: related_target_views,
         notes,
     })?)
-}
-
-fn native_plan_node_for_task(prism: &prism_query::Prism, task_id: &str) -> Option<PlanNode> {
-    if prism
-        .coordination_task(&CoordinationTaskId::new(task_id.to_string()))
-        .is_some()
-    {
-        return None;
-    }
-    prism
-        .plan_graphs()
-        .into_iter()
-        .find_map(|graph| graph.nodes.into_iter().find(|node| node.id.0 == task_id))
-}
-
-fn add_native_plan_validation_guidance(
-    execution: &QueryExecution,
-    node: &PlanNode,
-    related_targets: &mut Vec<NodeId>,
-    scored: &mut Vec<CheckSeed>,
-    broader: &mut Vec<CheckSeed>,
-) {
-    for validation in node
-        .validation_refs
-        .iter()
-        .map(|validation| validation.id.clone())
-        .chain(node.acceptance.iter().flat_map(|criterion| {
-            criterion
-                .required_checks
-                .iter()
-                .map(|check| check.id.clone())
-        }))
-    {
-        scored.push(CheckSeed {
-            label: validation.clone(),
-            why: format!(
-                "Required directly by native plan node `{}` acceptance or validation refs.",
-                node.title
-            ),
-            provenance: vec![QueryEvidenceView {
-                kind: "native_plan_validation".to_string(),
-                detail: format!(
-                    "Native plan node `{}` recorded `{validation}` as required validation evidence.",
-                    node.id.0
-                ),
-                path: None,
-                line: None,
-                target: None,
-            }],
-            score: Some(0.99),
-            last_seen: None,
-        });
-    }
-
-    let anchor_nodes = node
-        .bindings
-        .anchors
-        .iter()
-        .filter_map(|anchor| match anchor {
-            AnchorRef::Node(id) => Some(id.clone()),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    related_targets.extend(anchor_nodes.iter().cloned());
-    for id in anchor_nodes {
-        let recipe = validation_recipe_view_with(execution.prism(), execution.session(), &id);
-        scored.extend(recipe.scored_checks.iter().map(|check| CheckSeed {
-            label: check.label.clone(),
-            why: format!(
-                "High-confidence validation for native plan node `{}` from anchor `{}`.",
-                node.title, id.path
-            ),
-            provenance: vec![QueryEvidenceView {
-                kind: "native_plan_anchor_validation".to_string(),
-                detail: format!(
-                    "Semantic validation recipe for anchor `{}` on native plan node `{}`.",
-                    id.path, node.id.0
-                ),
-                path: None,
-                line: None,
-                target: Some(node_id_view(id.clone())),
-            }],
-            score: Some(check.score),
-            last_seen: Some(check.last_seen),
-        }));
-        broader.extend(recipe.checks.iter().map(|check| CheckSeed {
-            label: check.clone(),
-            why: format!(
-                "Additional validation for native plan node `{}` from anchor `{}`.",
-                node.title, id.path
-            ),
-            provenance: vec![QueryEvidenceView {
-                kind: "native_plan_anchor_validation".to_string(),
-                detail: format!(
-                    "Semantic validation recipe for anchor `{}` on native plan node `{}`.",
-                    id.path, node.id.0
-                ),
-                path: None,
-                line: None,
-                target: Some(node_id_view(id.clone())),
-            }],
-            score: None,
-            last_seen: None,
-        }));
-        related_targets.extend(recipe.related_nodes.into_iter().map(node_id_from_view));
-    }
 }
 
 fn collect_ranked_checks(seeds: Vec<CheckSeed>, limit: usize) -> Vec<ValidationPlanCheckView> {

@@ -2051,7 +2051,7 @@ prism_mutate { action: "outcome", input: { kind: OutcomeKind, anchors: AnchorRef
 prism_mutate { action: "memory", input: { action: "store", payload: { anchors: AnchorRef[], kind: MemoryKind, scope?: MemoryScope, content: string, trust?: float, source?: MemorySource, metadata?: object, promoted_from?: MemoryId[], supersedes?: MemoryId[] }, work_id?: string } } -> MemoryMutationResult
 prism_mutate { action: "infer_edge", input: { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, work_id?: string } } -> EdgeMutationResult
 prism_mutate { action: "session_repair", input: { operation: "clear_current_task" } } -> SessionRepairMutationResult
-prism_mutate { action: "coordination", input: { kind: "plan_create" | "plan_update" | "task_create" | "update" | "plan_node_create" | "plan_edge_create" | "plan_edge_delete" | "handoff" | "handoff_accept", payload: object, work_id?: string } } -> CoordinationMutationResult
+prism_mutate { action: "coordination", input: { kind: "plan_bootstrap" | "plan_create" | "plan_update" | "plan_archive" | "task_create" | "update" | "handoff" | "resume" | "reclaim" | "handoff_accept", payload: object, work_id?: string } } -> CoordinationMutationResult
 prism_mutate { action: "claim", input: { action: "acquire" | "renew" | "release", payload: object, work_id?: string } } -> ClaimMutationResult
 prism_mutate { action: "artifact", input: { action: "propose" | "supersede" | "review", payload: object, work_id?: string } } -> ArtifactMutationResult
 prism_mutate { action: "test_ran" | "failure_observed" | "fix_validated", input: { ... } } -> EventMutationResult

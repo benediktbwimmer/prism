@@ -29,7 +29,7 @@ use super::html::{
 use super::mermaid::{concept_graph_mermaid, plan_detail_mermaid};
 use crate::ui_assets::prism_ui_favicon_asset;
 use crate::ui_mutations::{map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest};
-use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
+use crate::ui_read_models::{plan_graph_and_overlays, QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_router::PrismUiState;
 use crate::ui_types::{PrismPlansView, PrismSsrPlanDetailView, PrismUiFleetView};
 use crate::{PrismMcpServer, QueryHost};
@@ -580,7 +580,7 @@ fn render_plans_workspace(host: &QueryHost, query: PlansQuery) -> Result<String>
     })?;
     let root_plan_ids = host
         .current_prism()
-        .root_plans_v2()
+        .portfolio()
         .into_iter()
         .map(|plan| plan.plan.id.0.to_string())
         .collect::<BTreeSet<_>>();
@@ -1190,7 +1190,7 @@ fn plans_fragment_url(query: &PlansQuery, selected_plan_id: Option<&str>) -> Str
 fn plan_markdown_payload(host: &QueryHost, plan_id: &str) -> Result<Option<(String, String)>> {
     let prism = host.current_prism();
     let plan_id = PlanId::new(plan_id.to_string());
-    let Some(graph) = prism.plan_graph(&plan_id) else {
+    let Some((graph, execution_overlays)) = plan_graph_and_overlays(prism.as_ref(), &plan_id) else {
         return Ok(None);
     };
     let policy = prism
@@ -1200,9 +1200,13 @@ fn plan_markdown_payload(host: &QueryHost, plan_id: &str) -> Result<Option<(Stri
         .find(|plan| plan.id == plan_id)
         .map(|plan| plan.policy)
         .unwrap_or_else(CoordinationPolicy::default);
-    let markdown =
-        render_repo_published_plan_markdown(&graph, &policy, &prism.plan_execution(&plan_id));
-    Ok(Some((graph.title, markdown)))
+    let title = graph.title.clone();
+    let markdown = render_repo_published_plan_markdown(
+        &graph,
+        &policy,
+        &execution_overlays,
+    );
+    Ok(Some((title, markdown)))
 }
 
 fn sanitize_download_basename(value: &str) -> String {
@@ -1298,7 +1302,7 @@ mod tests {
         let plan_id = state
             .host
             .current_prism()
-            .create_native_plan(
+            .create_plan(
                 EventMeta {
                     id: EventId::new("coordination:console-plan-markdown"),
                     ts: 1,
@@ -1321,7 +1325,7 @@ mod tests {
         let task_id = state
             .host
             .current_prism()
-            .create_native_task(
+            .create_task(
                 EventMeta {
                     id: EventId::new("coordination:console-task-detail"),
                     ts: 2,

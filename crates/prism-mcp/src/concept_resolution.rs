@@ -1,4 +1,4 @@
-use prism_ir::{CoordinationTaskId, TaskId};
+use prism_ir::TaskId;
 use prism_query::{ConceptResolution, Prism};
 
 use crate::{session_state::SessionTaskState, SessionState};
@@ -115,10 +115,11 @@ fn task_context_for_resolution(
         .then(|| task_id.to_string());
     let description = coordination_task_id.as_ref().and_then(|coord_task_id| {
         prism
-            .coordination_task(&CoordinationTaskId::new(coord_task_id.clone()))
+            .task(&TaskId::new(coord_task_id.clone()))
             .map(|task| {
-                let mut description = task.title;
+                let mut description = task.task.title;
                 if let Some(summary) = task
+                    .task
                     .summary
                     .as_deref()
                     .filter(|summary| !summary.is_empty())
@@ -126,7 +127,7 @@ fn task_context_for_resolution(
                     description.push(' ');
                     description.push_str(summary);
                 }
-                (description, task.tags)
+                (description, task.task.tags)
             })
     });
     let (description, tags) = description

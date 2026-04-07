@@ -13,7 +13,6 @@ use prism_coordination::{
 };
 use prism_curator::CuratorSnapshot;
 use prism_ir::LineageEvent;
-use prism_ir::{PlanExecutionOverlay, PlanGraph};
 use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
 use prism_projections::{CoChangeDelta, ProjectionIndex, ProjectionSnapshot, ValidationDelta};
 use prism_store::WorkspaceTreeSnapshot;
@@ -36,8 +35,6 @@ const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
 pub(crate) struct CoordinationMaterialization {
     pub(crate) authoritative_revision: u64,
     pub(crate) snapshot: CoordinationSnapshot,
-    pub(crate) plan_graphs: Option<Vec<PlanGraph>>,
-    pub(crate) execution_overlays: Option<BTreeMap<String, Vec<PlanExecutionOverlay>>>,
     pub(crate) publish_context: Option<TrackedSnapshotPublishContext>,
 }
 
@@ -480,31 +477,24 @@ where
     {
         store.save_coordination_compaction(&materialization.snapshot)?;
     }
-    if let (Some(plan_graphs), Some(_execution_overlays)) = (
-        materialization.plan_graphs.as_ref(),
-        materialization.execution_overlays.as_ref(),
-    ) {
-        let repo_semantic_snapshot =
-            repo_semantic_coordination_snapshot(materialization.snapshot.clone());
-        let repo_semantic_execution_overlays =
-            execution_overlays_by_plan(&repo_semantic_snapshot.tasks);
-        sync_coordination_snapshot_state(
-            root,
-            &repo_semantic_snapshot,
-            plan_graphs,
-            &repo_semantic_execution_overlays,
-            materialization.publish_context.as_ref(),
-            Some(materialization.authoritative_revision),
-        )?;
-        save_shared_coordination_startup_checkpoint(
-            root,
-            store,
-            &repo_semantic_snapshot,
-            plan_graphs,
-            &repo_semantic_execution_overlays,
-            &[],
-        )?;
-    }
+    let repo_semantic_snapshot = repo_semantic_coordination_snapshot(materialization.snapshot.clone());
+    let plan_graphs = prism_coordination::snapshot_plan_graphs(&repo_semantic_snapshot);
+    let repo_semantic_execution_overlays =
+        execution_overlays_by_plan(&repo_semantic_snapshot.tasks);
+    sync_coordination_snapshot_state(
+        root,
+        &repo_semantic_snapshot,
+        &plan_graphs,
+        &repo_semantic_execution_overlays,
+        materialization.publish_context.as_ref(),
+        Some(materialization.authoritative_revision),
+    )?;
+    save_shared_coordination_startup_checkpoint(
+        root,
+        store,
+        &repo_semantic_snapshot,
+        &[],
+    )?;
     Ok(())
 }
 
