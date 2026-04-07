@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "kind": "coordination_manifest",
+  "publishedAt": 1775585723,
+  "publisher": {
+    "principalAuthorityId": "legacy",
+    "principalId": "legacy_agent_fallback",
+    "credentialId": "credential:implicit:principal:legacy:legacy_agent_fallback"
+  },
+  "workContext": {
+    "workId": "work:shared_coordination_ref_publication",
+    "kind": "undeclared",
+    "title": "Shared coordination ref publication",
+    "summary": "Fallback publish context for shared coordination ref authority when no explicit declared work is available."
+  },
+  "files": {
+    "coordination/runtimes/instance-97241-worktree-84a3f98283a83dd5-1775585713866-21749b3ba3d5b683.json": {
+      "path": "coordination/runtimes/instance-97241-worktree-84a3f98283a83dd5-1775585713866-21749b3ba3d5b683.json",
+      "sha256": "sha256:5e2585beb621e7bf3f6935928534772fa85577c62e5d2f856a8bbe716f9d75bb"
+    },
+    "indexes/runtimes.json": {
+      "path": "indexes/runtimes.json",
+      "sha256": "sha256:ef80c234dfd71a759aced8ac1209690b7b6cd4e55a99d9a52d6ef0d38ce10cc5"
+    }
+  },
+  "publishDiagnostics": {
+    "retryCount": 0,
+    "retryBudget": 3
+  },
+  "signature": {
+    "algorithm": "ed25519",
+    "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
+    "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
+    "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
+    "value": "base64:0vOySPYRz5wNlh+B7J+3EzaMAh15APmwa7LjPrwl8l6251AcEMuVEOzogoJbKPxny8B1ZuV0rvpiV2l0qqT0DA=="
+  }
+}
