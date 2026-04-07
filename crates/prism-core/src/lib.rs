@@ -39,6 +39,7 @@ mod resolution;
 pub mod runtime_engine;
 mod session;
 mod session_bootstrap;
+mod shared_coordination_archive;
 mod shared_coordination_ref;
 mod shared_coordination_schema;
 mod shared_runtime;
@@ -122,6 +123,7 @@ pub use session::{
     WorkspaceFsRefreshOutcome, WorkspaceRefreshBreakdown, WorkspaceRefreshWork, WorkspaceSession,
     WorkspaceSnapshotRevisions,
 };
+pub use shared_coordination_archive::SharedCoordinationArchiveSummary;
 pub use shared_coordination_ref::{
     shared_coordination_ref_diagnostics, shared_coordination_ref_status_summary,
     sync_live_runtime_descriptor, SharedCoordinationRefDiagnostics,

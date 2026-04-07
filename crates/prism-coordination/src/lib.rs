@@ -14,6 +14,7 @@ mod queries;
 mod queue_read_model;
 mod read_model;
 mod runtime;
+mod semantic_merge;
 mod state;
 mod types;
 
@@ -67,3 +68,7 @@ pub use read_model::{
     ready_task_count_for_active_plans, CoordinationReadModel,
 };
 pub use runtime::CoordinationRuntimeState;
+pub use semantic_merge::{
+    reconcile_artifact_records, reconcile_claim_records, reconcile_plan_records,
+    reconcile_review_records, reconcile_runtime_descriptor_records, reconcile_task_records,
+};
