@@ -29,9 +29,9 @@ use crate::ui_types::{
 };
 use crate::views::{
     artifact_view, blocker_view, concept_packet_view, coordination_plan_v2_view,
-    coordination_task_v2_view, plan_execution_overlay_view, plan_graph_view,
-    plan_list_entry_view, plan_node_recommendation_view, plan_summary_view,
-    policy_violation_record_view, ConceptVerbosity,
+    coordination_task_v2_view, plan_execution_overlay_view, plan_graph_view, plan_list_entry_view,
+    plan_node_recommendation_view, plan_summary_view, policy_violation_record_view,
+    ConceptVerbosity,
 };
 use crate::{claim_view, coordination_task_view, current_timestamp, QueryHost, SessionState};
 use crate::{host_resources::session_task_view, runtime_views::runtime_status};
@@ -2162,9 +2162,7 @@ fn graph_plan_touchpoints(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        sort_plan_entries, sort_plan_entries_for_resource, PlansResourceSort, UiPlanSort,
-    };
+    use super::{sort_plan_entries, sort_plan_entries_for_resource, PlansResourceSort, UiPlanSort};
     use prism_ir::{PlanKind, PlanScope, PlanStatus};
     use prism_js::{
         GitExecutionPolicyView, PlanListEntryView, PlanNodeStatusCountsView, PlanSchedulingView,

@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::{anyhow, Result};
 use prism_ir::{
     ArtifactStatus, ClaimStatus, CoordinationTaskStatus, GitExecutionStatus, GitIntegrationStatus,
-    PlanStatus, ValidationRef, WorkspaceRevision,
+    PlanNodeStatus, PlanStatus, ValidationRef, WorkspaceRevision,
 };
 use serde_json::{Map, Value};
 
@@ -286,6 +286,12 @@ fn merge_plan(base: Option<&Plan>, local: &Plan, remote: &Plan) -> Result<Plan> 
             &local.metadata,
             &remote.metadata,
         ),
+        authored_nodes: merge_plan_nodes(
+            base.map(|plan| plan.authored_nodes.as_slice()),
+            &local.authored_nodes,
+            &remote.authored_nodes,
+            id,
+        )?,
         authored_edges: merge_plan_edges(
             base.map(|plan| plan.authored_edges.as_slice()),
             &local.authored_edges,
@@ -891,6 +897,118 @@ fn merge_plan_edges(
     .map_err(|error| anyhow!("shared coordination plan `{record_id}` edge merge failed: {error}"))
 }
 
+fn merge_plan_nodes(
+    base: Option<&[prism_ir::PlanNode]>,
+    local: &[prism_ir::PlanNode],
+    remote: &[prism_ir::PlanNode],
+    record_id: &str,
+) -> Result<Vec<prism_ir::PlanNode>> {
+    reconcile_records(
+        base.unwrap_or_default(),
+        local,
+        remote,
+        |node| node.id.0.as_str(),
+        "plan node",
+        |base, local, remote| {
+            let node_id = local.id.0.as_str();
+            ensure_same_identity("plan node", node_id, &local.id.0, &remote.id.0, "id")?;
+            ensure_same_identity(
+                "plan node",
+                node_id,
+                &local.plan_id.0,
+                &remote.plan_id.0,
+                "plan_id",
+            )?;
+            Ok(prism_ir::PlanNode {
+                id: local.id.clone(),
+                plan_id: local.plan_id.clone(),
+                kind: merge_required_scalar(
+                    base.map(|node| &node.kind),
+                    &local.kind,
+                    &remote.kind,
+                    "plan node",
+                    node_id,
+                    "kind",
+                )?,
+                title: merge_required_scalar(
+                    base.map(|node| &node.title),
+                    &local.title,
+                    &remote.title,
+                    "plan node",
+                    node_id,
+                    "title",
+                )?,
+                summary: merge_optional_scalar(
+                    base.and_then(|node| node.summary.as_ref()),
+                    local.summary.as_ref(),
+                    remote.summary.as_ref(),
+                    "plan node",
+                    node_id,
+                    "summary",
+                )?,
+                status: merge_plan_node_status(
+                    base.map(|node| node.status),
+                    local.status,
+                    remote.status,
+                    node_id,
+                )?,
+                bindings: merge_plan_binding(
+                    base.map(|node| &node.bindings),
+                    &local.bindings,
+                    &remote.bindings,
+                ),
+                acceptance: merge_union_vec(
+                    base.map(|node| node.acceptance.as_slice()),
+                    &local.acceptance,
+                    &remote.acceptance,
+                ),
+                validation_refs: merge_validation_refs(
+                    base.map(|node| node.validation_refs.as_slice()),
+                    &local.validation_refs,
+                    &remote.validation_refs,
+                ),
+                is_abstract: merge_bool_scalar(
+                    base.map(|node| node.is_abstract),
+                    local.is_abstract,
+                    remote.is_abstract,
+                ),
+                assignee: merge_optional_scalar(
+                    base.and_then(|node| node.assignee.as_ref()),
+                    local.assignee.as_ref(),
+                    remote.assignee.as_ref(),
+                    "plan node",
+                    node_id,
+                    "assignee",
+                )?,
+                base_revision: merge_workspace_revision(
+                    base.map(|node| &node.base_revision),
+                    &local.base_revision,
+                    &remote.base_revision,
+                ),
+                priority: merge_optional_copy(
+                    base.and_then(|node| node.priority),
+                    local.priority,
+                    remote.priority,
+                    "plan node",
+                    node_id,
+                    "priority",
+                )?,
+                tags: merge_union_vec(
+                    base.map(|node| node.tags.as_slice()),
+                    &local.tags,
+                    &remote.tags,
+                ),
+                metadata: merge_json_value(
+                    base.map(|node| &node.metadata),
+                    &local.metadata,
+                    &remote.metadata,
+                ),
+            })
+        },
+    )
+    .map_err(|error| anyhow!("shared coordination plan `{record_id}` node merge failed: {error}"))
+}
+
 fn merge_task_git_execution(
     base: Option<&TaskGitExecution>,
     local: &TaskGitExecution,
@@ -1369,6 +1487,24 @@ fn merge_plan_status(
     )
 }
 
+fn merge_plan_node_status(
+    base: Option<PlanNodeStatus>,
+    local: PlanNodeStatus,
+    remote: PlanNodeStatus,
+    id: &str,
+) -> Result<PlanNodeStatus> {
+    merge_precedence_status(
+        "plan node",
+        id,
+        "status",
+        base,
+        local,
+        remote,
+        plan_node_status_rank,
+        |left, right| plan_node_status_rank(left) <= plan_node_status_rank(right),
+    )
+}
+
 fn merge_task_status(
     base: Option<CoordinationTaskStatus>,
     local: CoordinationTaskStatus,
@@ -1669,6 +1805,20 @@ fn plan_status_rank(status: PlanStatus) -> u8 {
         PlanStatus::Completed => 3,
         PlanStatus::Abandoned => 3,
         PlanStatus::Archived => 4,
+    }
+}
+
+fn plan_node_status_rank(status: PlanNodeStatus) -> u8 {
+    match status {
+        PlanNodeStatus::Proposed => 0,
+        PlanNodeStatus::Ready => 1,
+        PlanNodeStatus::InProgress => 2,
+        PlanNodeStatus::Blocked => 3,
+        PlanNodeStatus::Waiting => 3,
+        PlanNodeStatus::InReview => 4,
+        PlanNodeStatus::Validating => 5,
+        PlanNodeStatus::Completed => 6,
+        PlanNodeStatus::Abandoned => 6,
     }
 }
 

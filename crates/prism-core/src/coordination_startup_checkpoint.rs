@@ -168,8 +168,8 @@ where
             plan_graphs,
             execution_overlays,
         )?),
-        plan_graphs: Vec::new(),
-        execution_overlays: BTreeMap::new(),
+        plan_graphs: plan_graphs.to_vec(),
+        execution_overlays: execution_overlays.clone(),
         runtime_descriptors: runtime_descriptors.to_vec(),
     })
 }

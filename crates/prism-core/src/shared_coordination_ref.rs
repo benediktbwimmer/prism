@@ -13,9 +13,9 @@ use prism_coordination::{
     execution_overlays_from_tasks, migrate_legacy_hybrid_snapshot_to_canonical_v2,
     plan_graph_from_coordination, reconcile_artifact_records, reconcile_claim_records,
     reconcile_plan_records, reconcile_review_records, reconcile_runtime_descriptor_records,
-    reconcile_task_records, snapshot_plan_graphs, Artifact, ArtifactReview,
-    CoordinationSnapshot, CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor,
-    RuntimeDescriptorCapability, WorkClaim, COORDINATION_SCHEMA_V2,
+    reconcile_task_records, snapshot_plan_graphs, Artifact, ArtifactReview, CoordinationSnapshot,
+    CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor, RuntimeDescriptorCapability,
+    WorkClaim, COORDINATION_SCHEMA_V2,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkContextKind, WorkContextSnapshot};
 use prism_store::CoordinationStartupCheckpointAuthority;
@@ -2005,6 +2005,30 @@ fn parse_shared_coordination_ref_state_contents(
         .iter()
         .map(|record| record.plan.clone())
         .collect::<Vec<_>>();
+    let mut execution_overlays = plan_records
+        .iter()
+        .map(|record| {
+            (
+                record.plan.id.0.to_string(),
+                record.execution_overlays.clone(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    if !tasks.is_empty() {
+        execution_overlays = execution_overlays_by_plan(&CoordinationSnapshot {
+            plans: plans.clone(),
+            tasks: tasks.clone(),
+            claims: claims.clone(),
+            artifacts: artifacts.clone(),
+            reviews: reviews.clone(),
+            events: Vec::new(),
+            next_plan: 0,
+            next_task: 0,
+            next_claim: 0,
+            next_artifact: 0,
+            next_review: 0,
+        });
+    }
     plans.sort_by(|left, right| left.id.0.cmp(&right.id.0));
 
     let mut snapshot = CoordinationSnapshot {
@@ -2037,8 +2061,30 @@ fn parse_shared_coordination_ref_state_contents(
             .cmp(&right.worktree_id)
             .then_with(|| left.runtime_id.cmp(&right.runtime_id))
     });
-    let plan_graphs = authored_summary_plan_graphs(&snapshot);
-    let mut execution_overlays = execution_overlays_by_plan(&snapshot);
+    let tasks_by_plan = snapshot
+        .tasks
+        .iter()
+        .cloned()
+        .fold(BTreeMap::<String, Vec<CoordinationTask>>::new(), |mut map, task| {
+            map.entry(task.plan.0.to_string()).or_default().push(task);
+            map
+        });
+    let mut plan_graphs = plan_records
+        .iter()
+        .map(|record| {
+            merge_plan_record_graph(
+                &record.plan,
+                tasks_by_plan
+                    .get(record.plan.id.0.as_str())
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[]),
+                record.graph.as_ref(),
+            )
+        })
+        .collect::<Vec<_>>();
+    if plan_graphs.is_empty() {
+        plan_graphs = authored_summary_plan_graphs(&snapshot);
+    }
     for task in &snapshot.tasks {
         execution_overlays
             .entry(task.plan.0.to_string())
@@ -2147,11 +2193,7 @@ fn reconcile_shared_coordination_ref_state(
         .iter()
         .map(summary_plan_record)
         .collect::<Vec<_>>();
-    let plans = reconcile_plan_records(
-        &baseline_plans,
-        &desired_plans,
-        &latest_plans,
-    )?;
+    let plans = reconcile_plan_records(&baseline_plans, &desired_plans, &latest_plans)?;
     let artifacts = reconcile_artifact_records(
         &baseline.snapshot.artifacts,
         &desired_snapshot.artifacts,
@@ -2238,6 +2280,87 @@ fn authored_summary_plan_graphs(snapshot: &CoordinationSnapshot) -> Vec<PlanGrap
     let mut plan_graphs = snapshot_plan_graphs(snapshot);
     plan_graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
     plan_graphs
+}
+
+fn merge_plan_record_graph(
+    plan: &Plan,
+    tasks: &[CoordinationTask],
+    graph: Option<&PlanGraph>,
+) -> PlanGraph {
+    let mut merged = plan_graph_from_coordination(plan.clone(), tasks.to_vec());
+    let Some(graph) = graph else {
+        return merged;
+    };
+    merged.scope = graph.scope;
+    merged.kind = graph.kind;
+    merged.title = graph.title.clone();
+    merged.goal = graph.goal.clone();
+    merged.status = graph.status;
+    merged.revision = graph.revision;
+    merged.tags = graph.tags.clone();
+    merged.created_from = graph.created_from.clone();
+    merged.metadata = graph.metadata.clone();
+    merged.root_nodes = graph.root_nodes.clone();
+    let mut nodes = merged
+        .nodes
+        .into_iter()
+        .map(|node| (node.id.0.to_string(), node))
+        .collect::<BTreeMap<_, _>>();
+    for node in &graph.nodes {
+        nodes.insert(node.id.0.to_string(), node.clone());
+    }
+    merged.nodes = nodes.into_values().collect();
+    let mut edges = merged
+        .edges
+        .into_iter()
+        .map(|edge| (edge.id.0.to_string(), edge))
+        .collect::<BTreeMap<_, _>>();
+    for edge in &graph.edges {
+        edges.insert(edge.id.0.to_string(), edge.clone());
+    }
+    merged.edges = edges.into_values().collect();
+    merged
+}
+
+fn plan_record_graph(graph: &PlanGraph) -> Option<PlanGraph> {
+    let nodes = graph
+        .nodes
+        .iter()
+        .filter(|node| !is_task_backed_plan_node_id(node.id.0.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    let edges = graph
+        .edges
+        .iter()
+        .filter(|edge| {
+            edge.kind != prism_ir::PlanEdgeKind::DependsOn
+                || !is_task_backed_plan_node_id(edge.from.0.as_str())
+                || !is_task_backed_plan_node_id(edge.to.0.as_str())
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    if nodes.is_empty() && edges.is_empty() {
+        return None;
+    }
+    Some(PlanGraph {
+        id: graph.id.clone(),
+        scope: graph.scope,
+        kind: graph.kind,
+        title: graph.title.clone(),
+        goal: graph.goal.clone(),
+        status: graph.status,
+        revision: graph.revision,
+        root_nodes: Vec::new(),
+        tags: graph.tags.clone(),
+        created_from: graph.created_from.clone(),
+        metadata: graph.metadata.clone(),
+        nodes,
+        edges,
+    })
+}
+
+fn is_task_backed_plan_node_id(id: &str) -> bool {
+    id.starts_with("coord-task:")
 }
 
 fn merge_by_id<T, F>(hot: &[T], archive: &[T], id_for: F) -> Vec<T>
@@ -2490,16 +2613,19 @@ pub fn shared_coordination_ref_status_summary(
 fn sync_plan_objects(
     stage_dir: &Path,
     snapshot: &CoordinationSnapshot,
-    _plan_graphs: &[PlanGraph],
+    plan_graphs: &[PlanGraph],
     _execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
 ) -> Result<()> {
     let mut expected = BTreeSet::new();
     for plan in &snapshot.plans {
+        let Some(graph) = plan_graphs.iter().find(|graph| graph.id == plan.id) else {
+            continue;
+        };
         let path = plan_snapshot_path(stage_dir, &plan.id.0);
         expected.insert(path.clone());
         let record = SharedCoordinationPlanRecord {
             plan: summary_plan_record(plan),
-            graph: None,
+            graph: plan_record_graph(graph),
             execution_overlays: Vec::new(),
         };
         write_json_file(
@@ -4505,6 +4631,7 @@ mod tests {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
+                authored_nodes: Vec::new(),
                 authored_edges: Vec::new(),
                 root_tasks: vec![task_id.clone()],
             });
@@ -4901,14 +5028,8 @@ mod tests {
         let graphs = super::authored_summary_plan_graphs(&snapshot);
         assert_eq!(graphs.len(), 1);
         let graph = &graphs[0];
-        assert!(graph
-            .nodes
-            .iter()
-            .any(|node| node.id.0 == task_id.0));
-        assert!(graph
-            .nodes
-            .iter()
-            .any(|node| node.id == native_node_id));
+        assert!(graph.nodes.iter().any(|node| node.id.0 == task_id.0));
+        assert!(graph.nodes.iter().any(|node| node.id == native_node_id));
         assert!(graph.edges.iter().any(|edge| {
             edge.kind == prism_ir::PlanEdgeKind::DependsOn
                 && edge.from == native_node_id
@@ -5094,7 +5215,7 @@ mod tests {
     }
 
     #[test]
-    fn startup_checkpoint_omits_durable_legacy_plan_graph_state() {
+    fn startup_checkpoint_preserves_plan_graph_compatibility_state() {
         let root = temp_git_repo();
         let (snapshot, graph, execution_overlays) =
             sample_snapshot_for("plan:checkpoint-save", "coord-task:checkpoint-save");
@@ -5104,7 +5225,7 @@ mod tests {
             &root,
             &mut store,
             &snapshot,
-            &[graph],
+            &[graph.clone()],
             &execution_overlays,
             &[],
         )
@@ -5114,8 +5235,8 @@ mod tests {
             .load_coordination_startup_checkpoint()
             .unwrap()
             .expect("coordination startup checkpoint");
-        assert!(checkpoint.plan_graphs.is_empty());
-        assert!(checkpoint.execution_overlays.is_empty());
+        assert_eq!(checkpoint.plan_graphs, vec![graph.clone()]);
+        assert_eq!(checkpoint.execution_overlays, execution_overlays);
         let checkpoint_plans = checkpoint.snapshot.plans.clone();
         assert_eq!(
             checkpoint_plans

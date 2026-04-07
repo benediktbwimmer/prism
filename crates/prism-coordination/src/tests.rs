@@ -2168,10 +2168,7 @@ fn coordination_snapshot_round_trips_native_nodes_and_mixed_dependency_edges() {
     let work = prism_ir::PlanNodeId::new("coord-task:work");
     let validate = prism_ir::PlanNodeId::new("plan-node:validate");
     let dependency_edge = prism_ir::PlanEdge {
-        id: prism_ir::PlanEdgeId::new(format!(
-            "plan-edge:{}:depends-on:{}",
-            validate.0, work.0
-        )),
+        id: prism_ir::PlanEdgeId::new(format!("plan-edge:{}:depends-on:{}", validate.0, work.0)),
         plan_id: plan_id.clone(),
         from: validate.clone(),
         to: work.clone(),
@@ -2180,10 +2177,7 @@ fn coordination_snapshot_round_trips_native_nodes_and_mixed_dependency_edges() {
         metadata: serde_json::json!({ "dependencyLifecycle": "completed" }),
     };
     let validate_edge = prism_ir::PlanEdge {
-        id: prism_ir::PlanEdgeId::new(format!(
-            "plan-edge:{}:validates:{}",
-            work.0, validate.0
-        )),
+        id: prism_ir::PlanEdgeId::new(format!("plan-edge:{}:validates:{}", work.0, validate.0)),
         plan_id: plan_id.clone(),
         from: work.clone(),
         to: validate.clone(),
@@ -2250,7 +2244,10 @@ fn coordination_snapshot_round_trips_native_nodes_and_mixed_dependency_edges() {
     );
     assert_eq!(snapshot.tasks.len(), 1);
     assert_eq!(snapshot.tasks[0].id.0, work.0);
-    assert_eq!(snapshot.plans[0].authored_nodes, vec![graph.nodes[1].clone()]);
+    assert_eq!(
+        snapshot.plans[0].authored_nodes,
+        vec![graph.nodes[1].clone()]
+    );
     assert_eq!(
         snapshot.plans[0].authored_edges,
         vec![dependency_edge.clone(), validate_edge.clone()]

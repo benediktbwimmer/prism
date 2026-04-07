@@ -1282,9 +1282,8 @@ mod tests {
 
     use super::{
         build_workspace_indexer_with_startup_checkpoint, coordination_restore_stale,
-        local_restore_revisions_match, local_restore_revisions_recoverable,
-        read_bincode_segment, write_bincode_segment, HistorySnapshotCheckpoint,
-        WorkspaceTreeSnapshotCheckpoint,
+        local_restore_revisions_match, local_restore_revisions_recoverable, read_bincode_segment,
+        write_bincode_segment, HistorySnapshotCheckpoint, WorkspaceTreeSnapshotCheckpoint,
     };
     use crate::{index_workspace_session_with_options, WorkspaceSessionOptions};
 
@@ -1390,9 +1389,11 @@ mod tests {
             .expect("startup checkpoint should persist");
         drop(session);
 
-        let restored =
-            build_workspace_indexer_with_startup_checkpoint(&root, WorkspaceSessionOptions::default())
-                .expect("startup checkpoint restore should succeed");
+        let restored = build_workspace_indexer_with_startup_checkpoint(
+            &root,
+            WorkspaceSessionOptions::default(),
+        )
+        .expect("startup checkpoint restore should succeed");
         let startup_refresh = restored
             .startup_refresh
             .expect("restored indexer should record startup recovery");

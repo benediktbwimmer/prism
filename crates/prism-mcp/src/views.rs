@@ -1469,10 +1469,7 @@ pub(crate) fn coordination_task_view_from_v2(
                 .map(|agent| agent.0.to_string())
         })
         .or_else(|| metadata_string(&value.task.metadata, "legacy_pending_handoff_to"));
-    let status = compatibility_coordination_task_status(
-        &value,
-        pending_handoff_to.as_deref(),
-    );
+    let status = compatibility_coordination_task_status(&value, pending_handoff_to.as_deref());
     let lifecycle = coordination_task_lifecycle_view(status, &value.task.git_execution);
     let depends_on = task_dependency_ids(&value.dependencies);
     CoordinationTaskView {

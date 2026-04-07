@@ -6,9 +6,9 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use prism_coordination::{
-    execution_overlays_from_tasks, migrate_legacy_hybrid_snapshot_to_canonical_v2,
-    snapshot_plan_graphs, CoordinationSnapshot, CoordinationSnapshotV2, CoordinationTask, Plan,
-    RuntimeDescriptor,
+    coordination_snapshot_from_plan_graphs, execution_overlays_from_tasks,
+    migrate_legacy_hybrid_snapshot_to_canonical_v2, snapshot_plan_graphs, CoordinationSnapshot,
+    CoordinationSnapshotV2, CoordinationTask, Plan, RuntimeDescriptor,
 };
 use prism_ir::{
     CoordinationTaskId, PlanEdge, PlanEdgeId, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode,
@@ -399,7 +399,10 @@ pub(crate) fn load_hydrated_coordination_snapshot(
             None => Some(shared.snapshot),
         });
     }
-    Ok(snapshot)
+    if let Some(snapshot) = snapshot {
+        return Ok(Some(snapshot));
+    }
+    Ok(load_published_plan_state_from_repo_artifacts(root)?.map(|state| state.snapshot))
 }
 
 pub(crate) fn load_hydrated_coordination_snapshot_v2(
@@ -465,7 +468,7 @@ pub(crate) fn load_hydrated_coordination_plan_state(
                 runtime_descriptors: Vec::new(),
             }))
         }
-        None => Ok(None),
+        None => load_published_plan_state_from_repo_artifacts(root),
     }
 }
 
@@ -475,6 +478,38 @@ fn canonical_snapshot_v2_from_plan_state(
     execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
 ) -> Result<CoordinationSnapshotV2> {
     migrate_legacy_hybrid_snapshot_to_canonical_v2(snapshot, plan_graphs, execution_overlays)
+}
+
+fn load_published_plan_state_from_repo_artifacts(
+    root: &Path,
+) -> Result<Option<HydratedCoordinationPlanState>> {
+    let records = load_repo_published_plan_records(root)?;
+    if records.is_empty() {
+        return Ok(None);
+    }
+    let plan_graphs = records
+        .iter()
+        .map(|(record, _)| record.graph.clone())
+        .collect::<Vec<_>>();
+    let execution_overlays = records
+        .into_iter()
+        .map(|(record, overlays)| {
+            (
+                record.header.id.0.to_string(),
+                repo_published_execution_overlays(overlays),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let snapshot = coordination_snapshot_from_plan_graphs(&plan_graphs, &execution_overlays);
+    let canonical_snapshot_v2 =
+        canonical_snapshot_v2_from_plan_state(&snapshot, &plan_graphs, &execution_overlays)?;
+    Ok(Some(HydratedCoordinationPlanState {
+        snapshot,
+        canonical_snapshot_v2,
+        plan_graphs,
+        execution_overlays,
+        runtime_descriptors: Vec::new(),
+    }))
 }
 
 pub(crate) fn merge_snapshot_bootstrap_into_plan_state(
@@ -1070,6 +1105,49 @@ fn load_authoritative_published_plan_records(
         records.push(record);
     }
     records.sort_by(|left, right| left.header.id.0.cmp(&right.header.id.0));
+    Ok(records)
+}
+
+fn load_repo_published_plan_records(
+    root: &Path,
+) -> Result<Vec<(PublishedPlanRecord, Vec<PlanExecutionOverlay>)>> {
+    let streams_dir = repo_plans_dir(root).join("streams");
+    if streams_dir.exists() {
+        let mut records = Vec::new();
+        for entry in fs::read_dir(&streams_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()) != Some("jsonl") {
+                continue;
+            }
+            let Ok(relative) = path.strip_prefix(root) else {
+                continue;
+            };
+            let Some(stream) = classify_protected_repo_relative_path(relative) else {
+                continue;
+            };
+            if stream.stream() != "repo_plan_events" {
+                continue;
+            }
+            let events = load_stored_plan_events(root, &path)?;
+            records.push(project_plan_log(&path, &events)?);
+        }
+        records.sort_by(|left, right| left.0.header.id.0.cmp(&right.0.header.id.0));
+        return Ok(records);
+    }
+
+    let index_path = repo_plan_index_path(root);
+    if !index_path.exists() {
+        return Ok(Vec::new());
+    }
+    let mut records = Vec::new();
+    for entry in load_jsonl_file::<PublishedPlanIndexEntry>(&index_path)? {
+        let log_path = root.join(&entry.log_path);
+        let events = load_stored_plan_events(root, &log_path)
+            .with_context(|| format!("legacy published plan `{}`", entry.plan_id.0))?;
+        records.push(project_plan_log(&log_path, &events)?);
+    }
+    records.sort_by(|left, right| left.0.header.id.0.cmp(&right.0.header.id.0));
     Ok(records)
 }
 

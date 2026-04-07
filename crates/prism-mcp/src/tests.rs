@@ -7498,8 +7498,7 @@ fn coordination_inbox_and_task_brief_share_authoritative_task_backed_status() {
                     inbox: prism.coordinationInbox("{}"),
                     task: prism.task("{}"),
                 }};"#,
-                plan_id.0,
-                task_id.0
+                plan_id.0, task_id.0
             ),
             QueryLanguage::Ts,
         )
@@ -25688,15 +25687,16 @@ fn plans_resource_and_ui_use_hydrated_plan_summaries() {
     );
     assert_eq!(resource_plan.node_status_counts.ready, 1);
 
-    let ui_view = <crate::QueryHost as crate::ui_read_models::QueryHostUiReadModelsExt>::ui_plans_view(
-        &host,
-        crate::ui_read_models::UiPlansQueryOptions {
-            selected_plan_id: Some(plan_id.clone()),
-            status: Some("active".to_string()),
-            ..Default::default()
-        },
-    )
-    .expect("plans view should succeed");
+    let ui_view =
+        <crate::QueryHost as crate::ui_read_models::QueryHostUiReadModelsExt>::ui_plans_view(
+            &host,
+            crate::ui_read_models::UiPlansQueryOptions {
+                selected_plan_id: Some(plan_id.clone()),
+                status: Some("active".to_string()),
+                ..Default::default()
+            },
+        )
+        .expect("plans view should succeed");
     let ui_plan = ui_view
         .plans
         .iter()
