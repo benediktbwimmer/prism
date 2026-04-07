@@ -1,0 +1,845 @@
+# PRISM Coordination Target Architecture
+
+Status: proposed target architecture
+Audience: PRISM coordination, runtime, MCP, bridge, SQLite, and shared-ref maintainers
+Scope: the long-term authority, runtime, read, write, and scaling model for PRISM coordination
+
+---
+
+## 1. Summary
+
+PRISM coordination should be built around one hard rule:
+
+- shared refs are the only authoritative coordination substrate
+
+Everything else exists to make that authority usable at speed and at scale:
+
+- local SQLite materializations
+- startup checkpoints
+- the PRISM Service
+- local activity timelines and flight recorder data
+
+Those layers matter operationally, but they must remain optimizations. Removing them must make the
+system slower or less observable, not less correct.
+
+This document freezes the target architecture implied by that rule.
+
+---
+
+## 2. Architectural Thesis
+
+PRISM should treat coordination as a self-sufficient kernel with optional runtime services around
+it.
+
+The model is:
+
+1. shared refs hold current authoritative coordination state
+2. git history of those refs is the retained authoritative history
+3. the coordination kernel is sufficient for coordination correctness
+4. the PRISM Service makes reads, writes, and event execution practical without
+   becoming authority
+5. the local runtime provides liveness sensing, local caching, and observability
+6. cognition and graph-backed understanding are optional enrichers, never a requirement for
+   coordination correctness
+
+This lets PRISM remain:
+
+- correct without a central database
+- portable across worktrees and machines
+- restart-safe
+- compatible with offline or degraded operation
+- scalable through optimization layers that do not become hidden authority
+
+---
+
+## 3. Goals
+
+Required goals:
+
+- keep authoritative coordination truth in shared refs
+- make the coordination kernel self-sufficient for correctness
+- make all local runtime state disposable
+- allow high-quality operation without requiring cognition
+- preserve tamper evidence and explicit identity attribution for every authoritative state change
+- support fast local reads through derived materializations
+- support scale through poll/read/write coalescing and the optional PRISM Service
+- avoid introducing consistency traps through hidden cache shortcuts
+
+Required non-goals:
+
+- no mandatory PostgreSQL or central database for coordination correctness
+- no second authoritative store besides shared refs
+- no unverified shared-coordination reads
+- no separate explicit append-only coordination event log embedded in git payloads
+- no dependence on cognition for lease, claim, plan, task, or artifact correctness
+
+---
+
+## 4. Core Rules
+
+### 4.1 Authority rule
+
+Shared refs are the sole source of authoritative coordination truth.
+
+That includes:
+
+- plans
+- tasks
+- claims
+- leases
+- artifacts
+- reviews
+- runtime descriptors that must be visible across runtimes
+- compact shared activity summaries that are meant to be authoritative
+
+SQLite, startup checkpoints, and local runtime memory are never authoritative.
+
+### 4.2 History rule
+
+PRISM should not build a second explicit append log inside git.
+
+Instead:
+
+- shared refs store current authoritative state
+- git commit history of those refs is the effective retained event trail
+- compaction or pruning may later reduce retained history depth
+
+This keeps shared-ref state compact and avoids bloating git with both current state and a duplicate
+embedded event journal.
+
+### 4.3 Verification rule
+
+PRISM should never serve newly fetched shared-coordination data unless that data has been verified.
+
+Verification means:
+
+- signed manifest validation
+- manifest file digest validation
+- identity attribution through the signing authority metadata
+
+There should be no lenient path that treats unverified shared data as usable authority.
+
+### 4.4 Disposable runtime-state rule
+
+The worktree-local SQLite database is disposable.
+
+Deleting it or restarting the daemon must not weaken coordination correctness.
+
+What may be lost:
+
+- local read acceleration
+- startup speed
+- lease activity detail
+- local flight-recorder detail
+- detailed runtime diagnostics
+
+What must not be lost:
+
+- authoritative coordination truth
+- ability to rehydrate current coordination state
+- ability to perform correct future coordination mutations
+
+### 4.5 Optimization rule
+
+The PRISM Service, caches, checkpoints, and materialized read models must remain
+optimization layers.
+
+If an optimization disappears, PRISM must degrade safely to direct shared-ref behavior.
+
+---
+
+## 5. System Layers
+
+### 5.1 Coordination kernel
+
+The coordination kernel owns correctness.
+
+It includes:
+
+- coordination state model
+- policy evaluation
+- mutation semantics
+- lease/claim/task/artifact/review state transitions
+- authoritative shared-ref encoding and decoding
+- current-state materialization rules
+
+The coordination kernel should not require:
+
+- cognition
+- graph indexing
+- symbol resolution
+- concept or contract enrichment
+- semantic filesystem understanding
+- local SQLite
+
+### 5.2 Git authority adapter
+
+The git authority adapter is the bridge from kernel semantics to the shared-ref substrate.
+
+It owns:
+
+- ref-head discovery
+- fetch
+- compare-and-swap push
+- manifest verification
+- identity and signature verification
+- history reconstruction from git
+
+The coordination kernel may depend on this adapter for authoritative IO without embedding git
+details into policy logic.
+
+### 5.3 PRISM Service
+
+PRISM should use one stateless service shape:
+
+- the PRISM Service
+
+This service is operational, not authoritative.
+
+It should own:
+
+- namespace-wide shared-ref polling
+- fetch and manifest verification
+- verified snapshot caching and fanout
+- strong-read coalescing
+- write coalescing and CAS publication
+- event-engine execution
+- local runtime notifications and cache delivery
+
+These responsibilities share the same prerequisites:
+
+- fresh verified shared-ref state
+- current materialized coordination view
+- CAS publication machinery
+- conflict retry
+
+Splitting them into separate long-lived services would duplicate logic and introduce more internal
+state boundaries without improving correctness.
+
+The service must remain stateless or near-stateless. If it disappears, PRISM must fall back to
+direct shared-ref behavior.
+
+### 5.4 Service descriptors and hosted runtimes
+
+Federated transport should be published through one service descriptor, not one public endpoint per
+runtime.
+
+The top-level published object should be:
+
+- a PRISM Service descriptor
+
+That descriptor should advertise:
+
+- service identity
+- reachable endpoint or endpoints
+- trust metadata
+- capabilities
+- hosted runtime identities
+- leadership role when applicable
+
+Hosted runtimes should be modeled as logical children behind the service endpoint, not as
+independent top-level public endpoints.
+
+This allows:
+
+- multiple runtimes on one machine behind one reachable service endpoint
+- local-network and fixed-IP deployments to publish one stable address
+- leader and follower service fanout without forcing every runtime to be directly reachable
+
+### 5.5 Local runtime services
+
+Local runtime services are operational and non-authoritative.
+
+They include:
+
+- bridge liveness sensing
+- file-write sensing
+- `prism run` command sensing
+- lease renewal scheduling
+- local read materialization
+- local diagnostics and observability
+
+### 5.6 Cognition enrichers
+
+Cognition enrichers are optional.
+
+They include:
+
+- graph indexing
+- lineage and rebinding
+- semantic impact
+- concept and contract enrichment
+- graph-backed query expansion
+
+Coordination correctness must not depend on them.
+
+---
+
+## 6. Shared-Ref Model
+
+### 6.1 Current-state orientation
+
+Shared refs should store current authoritative coordination state, not a forever-growing embedded
+event log.
+
+This keeps blob reads bounded and works well with the fact that git reads whole blobs, not selected
+JSON fields.
+
+### 6.2 Ref families
+
+The coordination namespace may contain multiple ref families such as:
+
+- one live summary ref
+- task shard refs
+- claim shard refs
+- runtime refs
+
+Hot mutable state should be sharded across refs instead of forcing every mutation through one hot
+summary head.
+
+### 6.3 Compactness requirement
+
+Because shared-ref reads load whole blobs, shared-ref payloads must stay compact and intentionally
+bounded.
+
+Large or high-frequency telemetry belongs in local runtime state or optional exported bundles, not
+in the shared refs.
+
+### 6.4 Identity and tamper evidence
+
+Every authoritative shared-ref publish must be:
+
+- attributable to an identity
+- signed
+- manifest-verified
+- digest-verified
+
+This makes state changes tamper evident and explicitly attributable.
+
+---
+
+## 7. Read Model
+
+### 7.1 Eventual and strong reads
+
+PRISM should expose two consistency modes for coordination reads.
+
+#### Eventual reads
+
+Eventual reads return the latest verified local materialization.
+
+They do not perform a fresh remote check first.
+
+They are appropriate for:
+
+- dashboards
+- plan and task browsing
+- operator views
+- polling UI
+- non-critical status inspection
+
+#### Strong reads
+
+Strong reads must:
+
+1. determine the relevant shared-ref set
+2. route through the PRISM Service when available
+3. perform a fresh remote head check for that ref set
+4. fetch changed refs if needed
+5. verify manifests and digests
+6. rematerialize the local verified state
+7. answer from that verified materialization
+
+Strong reads are appropriate for:
+
+- pre-mutation arbitration
+- correctness-sensitive lease or claim checks
+- reads that must reflect current shared truth before the caller acts
+
+### 7.2 No fake freshness shortcut
+
+PRISM should not introduce a synthetic single freshness token that becomes a consistency trap.
+
+If a shortcut can be bypassed by direct shared-ref mutation, then strong reads would need to ignore
+it, which means the shortcut does not belong on the correctness path.
+
+Instead:
+
+- poll the real relevant ref heads
+- keep strong reads honest
+- optimize by reducing remote round trips, not by weakening consistency semantics
+
+### 7.3 Strong-read coalescing
+
+The PRISM Service should coalesce strong reads that target the same relevant ref set.
+
+Because remote git roundtrips are already on the order of hundreds of milliseconds, the service may
+use a short bounded batching window such as:
+
+- `100-200ms`
+
+This window should be configurable.
+
+The semantics remain strong:
+
+- the service still performs a fresh remote head check
+- the service still fetches and verifies changed refs
+- the service still answers from verified refreshed state
+
+### 7.4 Verified state classes
+
+PRISM should think about shared-coordination read state in three classes:
+
+- `VerifiedCurrent`
+- `VerifiedStale`
+- `Unavailable`
+
+`VerifiedStale` means:
+
+- the runtime still has a previously verified local materialization
+- a current refresh has not succeeded yet
+
+It must not mean:
+
+- newly fetched but unverified data
+
+---
+
+## 8. Keeping Local Materializations in Sync
+
+### 8.1 Polling is fundamental
+
+If shared refs are authoritative and remote git may change independently, then polling is the base
+sync-discovery mechanism.
+
+There is no general push-based git-host primitive that notifies PRISM whenever a ref namespace
+changes.
+
+### 8.2 Poll heads, not blobs
+
+The poller should check ref heads, not read shared-ref blobs on every cycle.
+
+The cheap steady-state loop is:
+
+1. ask the remote for relevant ref heads
+2. compare with locally observed heads
+3. if unchanged, stop
+4. if changed, fetch and rematerialize
+
+### 8.3 Poll the whole coordination namespace in one remote call
+
+The runtime should prefer one namespace-wide remote head query such as:
+
+- `refs/prism/coordination/<repo-id>/*`
+
+and then partition the returned ref heads locally.
+
+This is better than making multiple sequential remote calls for:
+
+- `live`
+- `tasks/*`
+- `claims/*`
+- future families
+
+The main cost of polling is remote roundtrip and repeated command overhead, not per-ref blob
+inspection.
+
+### 8.4 Machine-local coalescing
+
+On one machine, multiple runtimes for the same logical repo should not all poll independently.
+
+PRISM should support one per-repo machine-local PRISM Service instance that:
+
+- polls the coordination namespace once
+- fetches and verifies once
+- fans out change notifications or verified payloads to local runtimes
+
+Each worktree runtime can still keep its own disposable SQLite materialization.
+
+### 8.5 Optional org-level PRISM Service deployment
+
+At larger scale, PRISM may use an org-level PRISM Service that:
+
+- polls the coordination namespace
+- fetches changed refs
+- verifies manifests and digests
+- fans out verified updates
+
+The service is an optimization, not authority.
+
+If it disappears, runtimes must fall back to direct git polling.
+
+---
+
+## 9. Local SQLite Materialization
+
+### 9.1 Purpose
+
+SQLite exists to make coordination practical, not to hold authority.
+
+It should be used for:
+
+- fast current-state read models
+- indexed query support
+- startup acceleration
+- local lease activity state
+- flight-recorder detail
+- diagnostics
+
+### 9.2 Recovery
+
+After SQLite loss, PRISM should recover by:
+
+1. polling or fetching shared refs
+2. verifying shared-ref contents
+3. rebuilding current coordination state
+4. rebuilding derived read models
+
+This may lose:
+
+- detailed local activity timelines
+- exact local heartbeat buckets
+- detailed command-run history
+
+but should not lose correctness.
+
+### 9.3 Coarse fallback after SQLite loss
+
+For operational features such as lease activity, PRISM may reconstruct coarse current facts from:
+
+- current git diff
+- current worktree state
+- current shared coordination state
+
+This is a safe fallback for coarse changed-files and changed-lines context.
+
+PRISM must not fabricate lost detailed command or timeline history.
+
+---
+
+## 10. Git Facts and Repo Facts
+
+Git facts do not need to be stored authoritatively in SQLite.
+
+Facts such as:
+
+- current branch
+- HEAD commit
+- commit ancestry
+- current diff
+- worktree dirty state
+
+should be read from git directly when needed.
+
+SQLite may cache or index such facts for convenience, but the authoritative source is git itself.
+
+---
+
+## 11. Lease Heartbeats and Activity
+
+### 11.1 Heartbeats do not require cognition
+
+Lease continuity should depend on:
+
+- bridge liveness
+- file-write activity
+- explicit `prism run` command activity
+- runtime policy
+
+It should not depend on:
+
+- graph indexing
+- cognition
+- PRISM tool-call reminders from the model
+
+### 11.2 Heartbeats do not fundamentally require SQLite
+
+SQLite improves fidelity and observability, but the heartbeat model can still function without it.
+
+Without SQLite:
+
+- the runtime still has live bridge activity
+- the runtime can still use fresh file activity
+- the runtime can fall back to coarse git diff facts for changed files or lines
+
+SQLite mainly improves:
+
+- continuity across restart
+- detailed activity history
+- exact bucketization
+- inspection and diagnostics
+
+### 11.3 Shared summaries stay compact
+
+Authoritative heartbeat-related shared-ref updates should remain compact.
+
+Detailed flight-recorder timelines belong in local runtime state or optional federated runtime
+query, not in shared refs.
+
+---
+
+## 12. Write Path and Scaling
+
+### 12.1 Compare-and-swap stays at the authority boundary
+
+Authoritative writes to shared refs must remain compare-and-swap publishes.
+
+That preserves:
+
+- explicit concurrency control
+- deterministic retry behavior
+- git-backed authority
+
+### 12.2 Coalescing is still possible
+
+CAS does not prevent write coalescing.
+
+PRISM may coalesce multiple logical mutations before the final CAS publish, for example in a short
+window such as:
+
+- `100-200ms`
+
+This window should be configurable.
+
+The correct flow is:
+
+1. gather pending mutation intents
+2. read current authoritative heads
+3. materialize next state
+4. publish with CAS
+5. retry by replaying intents if the head advanced
+
+### 12.3 Coalesce intents, not blind state overwrites
+
+Write brokers should batch mutation intents such as:
+
+- acquire claim
+- renew lease
+- update task status
+- attach review
+
+They should not accept blind full-state replacement as the scaling primitive.
+
+Intent replay is what makes CAS retry safe and composable.
+
+### 12.4 Acknowledge only after publish
+
+An optimization service must not acknowledge a mutation before the authoritative shared-ref write
+has succeeded.
+
+Otherwise the service becomes hidden authority.
+
+### 12.5 Shard hot writes
+
+High-frequency coordination writes should be distributed across ref families.
+
+The summary/live ref should not be the hot write path for every operation.
+
+### 12.6 PRISM Service write coalescing
+
+At scale, the PRISM Service should accept mutation intents, batch them briefly, and
+perform authoritative CAS publication.
+
+It should:
+
+- accept mutation intents
+- coalesce writes within the configured batching window
+- perform the authoritative CAS publish
+- retry on conflict by replaying intents
+
+If absent, runtimes must still be able to publish directly.
+
+---
+
+## 13. PRISM Service Model
+
+### 13.1 One service shape for local and distributed scale
+
+PRISM should use the same PRISM Service shape for:
+
+- one machine with many local runtimes
+- many machines across an organization
+
+### 13.2 Mostly stateless service
+
+The PRISM Service should be stateless or near-stateless.
+
+It may keep:
+
+- in-memory caches
+- ephemeral verified snapshots
+- in-flight strong-read batches
+- in-flight write batches
+- short-lived fanout state
+
+It should not hold correctness-critical durable state.
+
+If it restarts, it should simply:
+
+1. poll git again
+2. fetch and verify shared refs
+3. resume fanout
+
+### 13.3 Fallback
+
+If the PRISM Service is unavailable, runtimes must fall back to direct polling and
+direct verified shared-ref reads and writes.
+
+---
+
+## 14. Event Engine
+
+PRISM should add an event engine above the coordination graph.
+
+That event engine should:
+
+- support recurring execution through continue-as-new at the plan boundary
+- support a repository-local TypeScript hook SDK
+- run against verified coordination state
+- acquire execution ownership through shared-ref CAS
+
+The preferred execution plane is the PRISM Service.
+
+However, correctness must not depend on a singleton service assumption. Multiple PRISM Services may
+exist:
+
+- one per developer machine
+- one per CI machine
+- multiple org-level replicas
+
+Therefore event execution ownership must still be protected by authoritative shared-ref CAS.
+
+Event execution records should:
+
+- live in a separate authoritative event execution ref family
+- use lifecycle states such as `claimed`, `running`, `succeeded`, `failed`, `expired`, or
+  `abandoned`
+- support retry and crash visibility
+
+PRISM can provide:
+
+- exactly-once execution ownership
+
+PRISM cannot universally guarantee:
+
+- exactly-once external side effects
+
+unless the external sink itself supports idempotency or durable acknowledgement semantics.
+
+The detailed event-engine design is captured in:
+
+- `docs/PRISM_EVENT_ENGINE_ARCHITECTURE.md`
+
+---
+
+## 15. Verification and Trust Model
+
+### 15.1 When verification happens
+
+Verification should happen when PRISM loads shared-ref contents, not when it merely polls heads.
+
+Head polling answers:
+
+- did something change?
+
+Verification answers:
+
+- is the changed content authentic?
+- is it signed by a trusted identity?
+- do the file digests match the manifest?
+
+### 15.2 Strong-read trust rule
+
+Strong reads must use verified shared-ref state only.
+
+If verification fails:
+
+- the read should fail closed
+- or fall back to a previously verified stale materialization where appropriate
+
+PRISM must not silently import unverified authority.
+
+### 15.3 Manual mutation stance
+
+Direct manual mutation of shared refs outside PRISM should be treated as unsupported unless it
+still preserves the verification and publication contract.
+
+If such mutation breaks verification, PRISM should surface diagnostics and fail closed.
+
+This is preferable to introducing a synthetic freshness shortcut that hides drift.
+
+---
+
+## 16. Consequences for API Design
+
+### 15.1 Coordination queries
+
+Coordination query APIs should expose freshness metadata clearly.
+
+They should be able to say:
+
+- this answer is eventual or strong
+- this answer is based on verified current or verified stale materialization
+- the current authoritative refresh failed verification or is unavailable
+
+### 15.2 Local runtime queries
+
+Local runtime query surfaces may expose:
+
+- lease activity timelines
+- command-run detail
+- renewal diagnostics
+- local file activity detail
+
+Those queries are useful, but they are not authority queries.
+
+### 15.3 Shared history queries
+
+History queries should reconstruct retained authoritative history from local git state, not from an
+explicit second event log in SQLite.
+
+---
+
+## 17. Anti-Patterns to Avoid
+
+PRISM should avoid:
+
+- treating SQLite as hidden authority
+- splitting sync, strong-read coalescing, write coalescing, and event execution into separate
+  correctness-significant services
+- publishing one public endpoint per runtime instead of one service descriptor with hosted runtimes
+- serving newly fetched but unverified shared-ref contents
+- adding a synthetic freshness token that strong reads cannot trust
+- forcing all hot writes through one live summary ref
+- embedding a second explicit append-only event log inside shared-ref payloads
+- making cognition a prerequisite for coordination correctness
+- requiring a central database for correctness
+
+---
+
+## 18. Recommended Implementation Direction
+
+From this target architecture, the most important implementation direction is:
+
+1. keep removing correctness dependencies from local runtime state
+2. remove lenient shared-coordination import behavior
+3. collapse polling into one namespace-wide remote head check
+4. introduce the PRISM Service as the single stateless optimization service
+5. coalesce polling and strong reads per logical repo
+6. shard hot write paths cleanly
+7. add configurable write coalescing over CAS publishes
+8. implement the event engine on top of the PRISM Service and shared-ref CAS execution
+   records
+
+These changes improve scale without changing authority.
+
+---
+
+## 19. Final Rule
+
+The final architecture should be understood in one sentence:
+
+- shared refs are truth; git is the authoritative transport and retained history; the PRISM
+  Service and local SQLite are optimization layers that must remain disposable
+
+That is the target PRISM should implement against.
