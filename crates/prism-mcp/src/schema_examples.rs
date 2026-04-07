@@ -455,6 +455,60 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
         json!({
             "action": "coordination",
             "input": {
+                "kind": "coordination_transaction",
+                "payload": {
+                    "mutations": [{
+                        "action": "plan_create",
+                        "input": {
+                            "clientPlanId": "plan_root",
+                            "title": "Investigate refresh path latency",
+                            "goal": "Investigate refresh path latency"
+                        }
+                    }, {
+                        "action": "task_create",
+                        "input": {
+                            "clientTaskId": "t0",
+                            "plan": {
+                                "clientPlanId": "plan_root"
+                            },
+                            "title": "Capture baseline timings"
+                        }
+                    }, {
+                        "action": "task_create",
+                        "input": {
+                            "clientTaskId": "t1",
+                            "plan": {
+                                "clientPlanId": "plan_root"
+                            },
+                            "title": "Compare the slow phases"
+                        }
+                    }, {
+                        "action": "dependency_create",
+                        "input": {
+                            "task": {
+                                "clientTaskId": "t1"
+                            },
+                            "dependsOn": {
+                                "clientTaskId": "t0"
+                            }
+                        }
+                    }, {
+                        "action": "task_update",
+                        "input": {
+                            "task": {
+                                "taskId": "coord-task:1"
+                            },
+                            "status": "in_progress",
+                            "title": "Compare the slow phases under tracing"
+                        }
+                    }]
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "coordination",
+            "input": {
                 "kind": "plan_bootstrap",
                 "payload": {
                     "plan": {
@@ -682,26 +736,34 @@ pub(crate) fn resource_payload_example(resource_kind: &str) -> Option<Value> {
 
 fn tool_example_payload_example() -> Value {
     json!({
-        "uri": tool_variant_example_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+        "uri": tool_variant_example_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
         "schemaUri": schema_resource_uri("tool-example"),
         "toolName": "prism_mutate",
         "action": "coordination",
-        "variant": "plan_bootstrap",
+        "variant": "coordination_transaction",
         "discriminator": "kind",
-        "targetSchemaUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
-        "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
-        "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+        "targetSchemaUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+        "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+        "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
         "example": {
-            "plan": {
-                "title": "Improve self-description",
-                "goal": "Make PRISM MCP self-describing under truncation"
-            }
+            "mutations": [{
+                "action": "plan_create",
+                "input": {
+                    "clientPlanId": "plan_root",
+                    "title": "Improve self-description",
+                    "goal": "Make PRISM MCP self-describing under truncation"
+                }
+            }]
         },
         "examples": [{
-            "plan": {
-                "title": "Improve self-description",
-                "goal": "Make PRISM MCP self-describing under truncation"
-            }
+            "mutations": [{
+                "action": "plan_create",
+                "input": {
+                    "clientPlanId": "plan_root",
+                    "title": "Improve self-description",
+                    "goal": "Make PRISM MCP self-describing under truncation"
+                }
+            }]
         }],
         "relatedResources": sample_related_resources(),
     })
@@ -744,14 +806,14 @@ fn tool_shape_payload_example() -> Value {
             }],
             "payloadDiscriminator": "kind",
             "variants": [{
-                "tag": "plan_bootstrap",
+                "tag": "coordination_transaction",
                 "discriminator": "kind",
-                "schemaUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
-                "exampleUri": tool_variant_example_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
-                "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
-                "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
-                "requiredFields": ["plan", "tasks"],
-                "optionalFields": [],
+                "schemaUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+                "exampleUri": tool_variant_example_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+                "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+                "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+                "requiredFields": ["mutations"],
+                "optionalFields": ["intentMetadata", "optimisticPreconditions"],
                 "fields": []
             }]
         }],
@@ -819,6 +881,10 @@ fn vocab_entry_payload_example() -> Value {
             "title": "Coordination Mutation Kinds",
             "description": "Nested kind values accepted by prism_mutate action coordination.",
             "values": [{
+                "value": "coordination_transaction",
+                "aliases": ["transaction"],
+                "description": "Apply one ordered coordination transaction over the canonical plan/task model."
+            }, {
                 "value": "plan_bootstrap",
                 "aliases": [],
                 "description": "Create a plan and its initial tasks in one authoritative write."
@@ -838,12 +904,12 @@ fn self_description_audit_payload_example() -> Value {
         "missingCompanionEntries": 0,
         "entries": [{
             "surfaceKind": "tool_variant",
-            "name": "prism_mutate.coordination.plan_bootstrap",
-            "fullUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
-            "schemaUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
-            "exampleUri": tool_variant_example_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
-            "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
-            "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+            "name": "prism_mutate.coordination.coordination_transaction",
+            "fullUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+            "schemaUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+            "exampleUri": tool_variant_example_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+            "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+            "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
             "fullBytes": 4096,
             "schemaBytes": 4096,
             "exampleBytes": 1024,
@@ -942,6 +1008,10 @@ fn vocab_payload_example() -> Value {
             "title": "Coordination Mutation Kinds",
             "description": "Nested kind values accepted by prism_mutate action coordination.",
             "values": [{
+                "value": "coordination_transaction",
+                "aliases": ["transaction"],
+                "description": "Apply one ordered coordination transaction."
+            }, {
                 "value": "plan_bootstrap",
                 "aliases": [],
                 "description": "Create a plan and its initial tasks in one authoritative write."

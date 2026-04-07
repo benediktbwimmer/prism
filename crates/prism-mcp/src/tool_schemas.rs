@@ -19,12 +19,12 @@ use crate::{
     tool_variant_recipe_resource_uri, tool_variant_schema_resource_uri,
     tool_variant_shape_resource_uri, vocab_resource_view_link, ArtifactProposePayload,
     ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload, ClaimReleasePayload,
-    ClaimRenewPayload, HandoffAcceptPayload, HandoffPayload, MemoryRetirePayload,
-    MemoryStorePayload, PlanArchivePayload, PlanBootstrapPayload, PlanCreatePayload,
-    PlanUpdatePayload, PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs,
-    PrismMcpFeatures, PrismMutationArgs, PrismOpenArgs, PrismQueryArgs, PrismTaskBriefArgs,
-    PrismWorksetArgs, ResourceLinkView, TaskCreatePayload, TaskReclaimPayload,
-    TaskResumePayload, WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
+    ClaimRenewPayload, CoordinationTransactionPayload, HandoffAcceptPayload, HandoffPayload,
+    MemoryRetirePayload, MemoryStorePayload, PlanArchivePayload, PlanBootstrapPayload,
+    PlanCreatePayload, PlanUpdatePayload, PrismConceptArgs, PrismExpandArgs, PrismGatherArgs,
+    PrismLocateArgs, PrismMcpFeatures, PrismMutationArgs, PrismOpenArgs, PrismQueryArgs,
+    PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView, TaskCreatePayload,
+    TaskReclaimPayload, TaskResumePayload, WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -908,6 +908,12 @@ fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
             "Payload for `prism_mutate` action `coordination`. Match this shape to `input.kind`.",
             "kind",
             vec![
+                (
+                    "coordination_transaction",
+                    described_schema::<CoordinationTransactionPayload>(
+                        "Payload when `input.kind` is `coordination_transaction`.",
+                    ),
+                ),
                 (
                     "plan_bootstrap",
                     described_schema::<PlanBootstrapPayload>(

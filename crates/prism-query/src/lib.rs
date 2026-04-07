@@ -51,6 +51,13 @@ pub use crate::source::{
     SourceLocation,
 };
 pub use crate::symbol::{Relations, Symbol};
+pub use coordination_transaction::{
+    CoordinationDependencyKind, CoordinationTransactionGitExecutionPolicyPatch,
+    CoordinationTransactionInput, CoordinationTransactionMutation, CoordinationTransactionPlanRef,
+    CoordinationTransactionPlanSchedulingPatch, CoordinationTransactionPolicyPatch,
+    CoordinationTransactionResult,
+    CoordinationTransactionTaskRef,
+};
 pub use crate::types::{
     canonical_concept_handle, canonical_contract_handle, ArtifactRisk, ChangeImpact, CoChange,
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptHealth,
@@ -1008,25 +1015,25 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
         scheduling: Option<prism_coordination::PlanScheduling>,
     ) -> Result<PlanId> {
-        self.coordination_transaction(|coordination_runtime| {
-            let (plan_id, _plan) = coordination_runtime.create_plan(
-                meta.clone(),
-                prism_coordination::PlanCreateInput {
+        let result = self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::PlanCreate {
+                    client_plan_id: Some("created_plan".to_string()),
                     title,
                     goal,
                     status,
                     policy,
-                },
-            )?;
-            if let Some(scheduling) = scheduling {
-                coordination_runtime.set_plan_scheduling(
-                    derived_coordination_meta(&meta, "plan-scheduling"),
-                    plan_id.clone(),
                     scheduling,
-                )?;
-            }
-            Ok(plan_id)
-        })
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?;
+        result
+            .plan_ids_by_client_id
+            .get("created_plan")
+            .cloned()
+            .ok_or_else(|| anyhow!("coordination transaction did not create a plan"))
     }
 
     pub fn bootstrap_native_plan(
@@ -1034,15 +1041,6 @@ impl Prism {
         meta: EventMeta,
         input: NativePlanBootstrapInput,
     ) -> Result<NativePlanBootstrapResult> {
-        struct CreatedTaskSpec {
-            client_id: String,
-            task_id: CoordinationTaskId,
-            base_revision: WorkspaceRevision,
-            depends_on: Vec<String>,
-            coordination_depends_on: Vec<String>,
-            integrated_depends_on: Vec<String>,
-        }
-
         let NativePlanBootstrapInput {
             title,
             goal,
@@ -1052,133 +1050,74 @@ impl Prism {
             tasks,
         } = input;
 
-        let mut seen_client_ids = BTreeSet::new();
-        for client_id in tasks.iter().map(|task| task.client_id.as_str()) {
-            ensure_unique_bootstrap_client_id(&mut seen_client_ids, client_id)?;
+        let mut mutations = Vec::with_capacity(1 + tasks.len() * 2);
+        let bootstrap_plan_client_id = "bootstrap_plan".to_string();
+        mutations.push(CoordinationTransactionMutation::PlanCreate {
+            client_plan_id: Some(bootstrap_plan_client_id.clone()),
+            title,
+            goal,
+            status,
+            policy,
+            scheduling,
+        });
+        for task in &tasks {
+            mutations.push(CoordinationTransactionMutation::TaskCreate {
+                client_task_id: Some(task.client_id.clone()),
+                plan: CoordinationTransactionPlanRef::ClientId(bootstrap_plan_client_id.clone()),
+                title: task.title.clone(),
+                status: task.status,
+                assignee: task.assignee.clone(),
+                session: task.session.clone(),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: task.anchors.clone(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: task.acceptance.clone(),
+                base_revision: task.base_revision.clone(),
+            });
         }
-
-        let coordination_context = self.coordination_context();
-        let now = meta.ts;
-        self.coordination_transaction(|coordination_runtime| {
-            let (plan_id, _) = coordination_runtime.create_plan(
-                meta.clone(),
-                prism_coordination::PlanCreateInput {
-                    title,
-                    goal,
-                    status,
-                    policy,
-                },
-            )?;
-            if let Some(scheduling) = scheduling {
-                coordination_runtime.set_plan_scheduling(
-                    derived_coordination_meta(&meta, "plan-scheduling"),
-                    plan_id.clone(),
-                    scheduling,
-                )?;
-            }
-
-            let mut created_tasks = Vec::with_capacity(tasks.len());
-            let mut task_ids_by_client_id = BTreeMap::new();
-            for task in tasks {
-                let worktree_id = coordination_context
-                    .as_ref()
-                    .and_then(|context| task.session.as_ref().map(|_| context.worktree_id.clone()));
-                let branch_ref = coordination_context
-                    .as_ref()
-                    .and_then(|context| task.session.as_ref().and(context.branch_ref.clone()));
-                let (task_id, _) = coordination_runtime.create_task(
-                    derived_coordination_meta(
-                        &meta,
-                        &format!("bootstrap-task-create:{}", task.client_id),
-                    ),
-                    TaskCreateInput {
-                        plan_id: plan_id.clone(),
-                        title: task.title,
-                        status: task.status,
-                        assignee: task.assignee,
-                        session: task.session,
-                        worktree_id,
-                        branch_ref,
-                        anchors: task.anchors,
-                        depends_on: Vec::new(),
-                        coordination_depends_on: Vec::new(),
-                        integrated_depends_on: Vec::new(),
-                        acceptance: task.acceptance,
-                        base_revision: task.base_revision.clone(),
-                    },
-                )?;
-                task_ids_by_client_id.insert(task.client_id.clone(), task_id.clone());
-                created_tasks.push(CreatedTaskSpec {
-                    client_id: task.client_id,
-                    task_id,
-                    base_revision: task.base_revision,
-                    depends_on: task.depends_on,
-                    coordination_depends_on: task.coordination_depends_on,
-                    integrated_depends_on: task.integrated_depends_on,
+        for task in tasks {
+            for depends_on in task.depends_on {
+                mutations.push(CoordinationTransactionMutation::DependencyCreate {
+                    task: CoordinationTransactionTaskRef::ClientId(task.client_id.clone()),
+                    depends_on: CoordinationTransactionTaskRef::ClientId(depends_on),
+                    kind: CoordinationDependencyKind::DependsOn,
+                    base_revision: task.base_revision.clone(),
                 });
             }
-
-            for task in &created_tasks {
-                if task.depends_on.is_empty()
-                    && task.coordination_depends_on.is_empty()
-                    && task.integrated_depends_on.is_empty()
-                {
-                    continue;
-                }
-                coordination_runtime.update_task(
-                    derived_coordination_meta(
-                        &meta,
-                        &format!("bootstrap-task-deps:{}", task.client_id),
-                    ),
-                    TaskUpdateInput {
-                        task_id: task.task_id.clone(),
-                        kind: None,
-                        status: None,
-                        published_task_status: None,
-                        git_execution: None,
-                        assignee: None,
-                        session: None,
-                        worktree_id: None,
-                        branch_ref: None,
-                        title: None,
-                        summary: None,
-                        anchors: None,
-                        bindings: None,
-                        depends_on: Some(resolve_bootstrap_task_dependencies(
-                            &task_ids_by_client_id,
-                            &task.client_id,
-                            "dependsOn",
-                            &task.depends_on,
-                        )?),
-                        coordination_depends_on: Some(resolve_bootstrap_task_dependencies(
-                            &task_ids_by_client_id,
-                            &task.client_id,
-                            "coordinationDependsOn",
-                            &task.coordination_depends_on,
-                        )?),
-                        integrated_depends_on: Some(resolve_bootstrap_task_dependencies(
-                            &task_ids_by_client_id,
-                            &task.client_id,
-                            "integratedDependsOn",
-                            &task.integrated_depends_on,
-                        )?),
-                        acceptance: None,
-                        validation_refs: None,
-                        is_abstract: None,
-                        base_revision: Some(task.base_revision.clone()),
-                        priority: None,
-                        tags: None,
-                        completion_context: None,
-                    },
-                    task.base_revision.clone(),
-                    now,
-                )?;
+            for depends_on in task.coordination_depends_on {
+                mutations.push(CoordinationTransactionMutation::DependencyCreate {
+                    task: CoordinationTransactionTaskRef::ClientId(task.client_id.clone()),
+                    depends_on: CoordinationTransactionTaskRef::ClientId(depends_on),
+                    kind: CoordinationDependencyKind::CoordinationDependsOn,
+                    base_revision: task.base_revision.clone(),
+                });
             }
-
-            Ok(NativePlanBootstrapResult {
-                plan_id,
-                task_ids_by_client_id,
-            })
+            for depends_on in task.integrated_depends_on {
+                mutations.push(CoordinationTransactionMutation::DependencyCreate {
+                    task: CoordinationTransactionTaskRef::ClientId(task.client_id.clone()),
+                    depends_on: CoordinationTransactionTaskRef::ClientId(depends_on),
+                    kind: CoordinationDependencyKind::IntegratedDependsOn,
+                    base_revision: task.base_revision.clone(),
+                });
+            }
+        }
+        let result = self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations,
+                ..CoordinationTransactionInput::default()
+            },
+        )?;
+        Ok(NativePlanBootstrapResult {
+            plan_id: result
+                .plan_ids_by_client_id
+                .get(&bootstrap_plan_client_id)
+                .cloned()
+                .ok_or_else(|| anyhow!("coordination transaction did not create bootstrap plan"))?,
+            task_ids_by_client_id: result.task_ids_by_client_id,
         })
     }
 
@@ -1204,29 +1143,58 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
         scheduling: Option<prism_coordination::PlanScheduling>,
     ) -> Result<()> {
-        let plan_id = plan_id.clone();
-        self.coordination_transaction(|coordination_runtime| {
-            if title.is_some() || status.is_some() || goal.is_some() || policy.is_some() {
-                coordination_runtime.update_plan(
-                    meta.clone(),
-                    prism_coordination::PlanUpdateInput {
-                        plan_id: plan_id.clone(),
-                        title,
-                        goal,
-                        status,
-                        policy,
-                    },
-                )?;
-            }
-            if let Some(scheduling) = scheduling {
-                coordination_runtime.set_plan_scheduling(
-                    derived_coordination_meta(&meta, "plan-scheduling"),
-                    plan_id.clone(),
-                    scheduling,
-                )?;
-            }
-            Ok(())
-        })
+        self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::PlanUpdate {
+                    plan: CoordinationTransactionPlanRef::Id(plan_id.clone()),
+                    title,
+                    goal,
+                    status,
+                    policy: policy.map(|policy| CoordinationTransactionPolicyPatch {
+                        default_claim_mode: Some(policy.default_claim_mode),
+                        max_parallel_editors_per_anchor: Some(
+                            policy.max_parallel_editors_per_anchor,
+                        ),
+                        require_review_for_completion: Some(
+                            policy.require_review_for_completion,
+                        ),
+                        require_validation_for_completion: Some(
+                            policy.require_validation_for_completion,
+                        ),
+                        stale_after_graph_change: Some(policy.stale_after_graph_change),
+                        review_required_above_risk_score: policy.review_required_above_risk_score,
+                        lease_stale_after_seconds: Some(policy.lease_stale_after_seconds),
+                        lease_expires_after_seconds: Some(policy.lease_expires_after_seconds),
+                        lease_renewal_mode: Some(policy.lease_renewal_mode),
+                        git_execution: Some(CoordinationTransactionGitExecutionPolicyPatch {
+                            start_mode: Some(policy.git_execution.start_mode),
+                            completion_mode: Some(policy.git_execution.completion_mode),
+                            integration_mode: Some(policy.git_execution.integration_mode),
+                            target_ref: policy.git_execution.target_ref,
+                            target_branch: Some(policy.git_execution.target_branch),
+                            require_task_branch: Some(policy.git_execution.require_task_branch),
+                            max_commits_behind_target: Some(
+                                policy.git_execution.max_commits_behind_target,
+                            ),
+                            max_fetch_age_seconds: policy
+                                .git_execution
+                                .max_fetch_age_seconds,
+                        }),
+                    }),
+                    scheduling: scheduling.map(|scheduling| {
+                        CoordinationTransactionPlanSchedulingPatch {
+                            importance: Some(scheduling.importance),
+                            urgency: Some(scheduling.urgency),
+                            manual_boost: Some(scheduling.manual_boost),
+                            due_at: scheduling.due_at,
+                        }
+                    }),
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?;
+        Ok(())
     }
 
     pub fn projection_snapshot(&self) -> ProjectionSnapshot {
@@ -1531,41 +1499,6 @@ fn derived_coordination_meta(meta: &EventMeta, suffix: &str) -> EventMeta {
     let mut derived = meta.clone();
     derived.id = prism_ir::EventId::new(format!("{}:{suffix}", meta.id.0));
     derived
-}
-
-fn ensure_unique_bootstrap_client_id(
-    seen_client_ids: &mut BTreeSet<String>,
-    client_id: &str,
-) -> Result<()> {
-    if client_id.is_empty() {
-        return Err(anyhow!("plan bootstrap client ids must be non-empty"));
-    }
-    if !seen_client_ids.insert(client_id.to_string()) {
-        return Err(anyhow!(
-            "plan bootstrap client id `{client_id}` is duplicated"
-        ));
-    }
-    Ok(())
-}
-
-fn resolve_bootstrap_task_dependencies(
-    task_ids_by_client_id: &BTreeMap<String, CoordinationTaskId>,
-    owner_client_id: &str,
-    field: &str,
-    refs: &[String],
-) -> Result<Vec<CoordinationTaskId>> {
-    refs.iter()
-        .map(|client_id| {
-            task_ids_by_client_id
-                .get(client_id)
-                .cloned()
-                .ok_or_else(|| {
-                    anyhow!(
-                        "plan bootstrap task `{owner_client_id}` references unknown task client id `{client_id}` in `{field}`"
-                    )
-                })
-        })
-        .collect()
 }
 
 fn affected_intent_specs(observed_changes: &[ObservedChangeSet]) -> HashSet<NodeId> {

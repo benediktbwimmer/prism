@@ -658,7 +658,7 @@ return {{
         envelope["result"]["children"]["children"][0]["id"],
         task_id
     );
-    assert_eq!(envelope["result"]["ready"].as_array().unwrap().len(), 1);
+    assert_eq!(envelope["result"]["ready"].as_array().unwrap().len(), 0);
     assert_eq!(envelope["result"]["claims"].as_array().unwrap().len(), 0);
     assert_eq!(envelope["result"]["artifacts"].as_array().unwrap().len(), 1);
     assert!(envelope["result"]["taskBlastRadius"]["lineages"]

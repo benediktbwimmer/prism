@@ -234,6 +234,7 @@ impl PrismMcpServer {
             return true;
         }
         match args.kind {
+            CoordinationMutationKindInput::CoordinationTransaction => false,
             CoordinationMutationKindInput::PlanBootstrap
             | CoordinationMutationKindInput::PlanCreate => false,
             CoordinationMutationKindInput::PlanUpdate

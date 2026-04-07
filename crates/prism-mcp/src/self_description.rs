@@ -2149,11 +2149,14 @@ fn build_tool_recipe_markdown(
         "# PRISM Recipe: {tool_name}.{action}\n\nUse the compact path first:\n1. Read the shape resource.\n2. Read the example resource.\n3. Draft the payload.\n4. Call `validateToolInput` or the target tool.\n"
     );
     match (tool_name, action, variant) {
+        ("prism_mutate", "coordination", Some("coordination_transaction")) => Some(format!(
+            "{common}\nUse `coordination_transaction` as the canonical structural write surface.\n\nMinimum flow:\n- order primitive mutations in the exact sequence they should apply\n- give created plans and tasks stable client ids when later mutations need to reference them\n- use `task_update` for task status and metadata changes inside the same authoritative transaction\n- prefer `dependency_create` for post-create ordering edges\n- use `plan_bootstrap` only as convenience sugar over this transaction engine\n"
+        )),
         ("prism_mutate", "coordination", Some("plan_bootstrap")) => Some(format!(
             "{common}\nUse `plan_bootstrap` when creating a plan from scratch in one authoritative mutation.\n\nMinimum flow:\n- set `plan.title` and `plan.goal`\n- add stable client ids for every task and node\n- express ordering with `dependsOn`\n- use a validation node only for terminal validation work\n- prefer the variant schema and shape resources over the full coordination union schema\n"
         )),
         ("prism_mutate", "coordination", Some("update")) => Some(format!(
-            "{common}\nUse `update` to change one existing coordination task or plan node by durable id.\n\nPrefer this path for status transitions, title/summary updates, and graph-safe follow-up edits after bootstrap.\n"
+            "{common}\nUse `update` as convenience sugar for a single-task `coordination_transaction` update.\n\nPrefer this path for status transitions, title/summary updates, and graph-safe follow-up edits after bootstrap.\n"
         )),
         ("prism_mutate", "claim", Some("acquire")) => Some(format!(
             "{common}\nAcquire a claim only after identifying the exact anchors you need. Prefer the narrowest capability and shortest reasonable lease.\n"

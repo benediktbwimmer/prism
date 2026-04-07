@@ -469,6 +469,14 @@ fn validate_coordination_payload(
     let tag = coordination_kind_tag(&args.kind);
     let required_fields = payload_required_fields("prism_mutate", "coordination", tag);
     match args.kind {
+        CoordinationMutationKindInput::CoordinationTransaction => {
+            deserialize_or_issue::<CoordinationTransactionPayload>(
+                args.payload,
+                Some("input.payload"),
+                &required_fields,
+            )
+            .map(|_| ())
+        }
         CoordinationMutationKindInput::PlanBootstrap => {
             deserialize_or_issue::<PlanBootstrapPayload>(
                 args.payload,
@@ -685,6 +693,7 @@ fn payload_required_fields(tool_name: &str, action: &str, tag: &str) -> Vec<Stri
 
 fn coordination_kind_tag(kind: &CoordinationMutationKindInput) -> &'static str {
     match kind {
+        CoordinationMutationKindInput::CoordinationTransaction => "coordination_transaction",
         CoordinationMutationKindInput::PlanBootstrap => "plan_bootstrap",
         CoordinationMutationKindInput::PlanCreate => "plan_create",
         CoordinationMutationKindInput::PlanUpdate => "plan_update",
@@ -2093,6 +2102,7 @@ pub(crate) struct PrismFixValidatedArgs {
 #[derive(Debug, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum CoordinationMutationKindInput {
+    CoordinationTransaction,
     PlanBootstrap,
     PlanCreate,
     PlanUpdate,
@@ -2111,6 +2121,8 @@ impl_vocab_deserialize!(
     "coordination mutation kind",
     r#"{"kind":"task_create"}"#,
     {
+        "coordinationtransaction" => CoordinationTransaction,
+        "transaction" => CoordinationTransaction,
         "planbootstrap" => PlanBootstrap,
         "plancreate" => PlanCreate,
         "planupdate" => PlanUpdate,
@@ -2168,6 +2180,7 @@ impl_vocab_deserialize!(
 #[serde(rename_all = "snake_case", tag = "kind", content = "payload")]
 #[allow(dead_code)]
 enum PrismCoordinationArgsWirePayload {
+    CoordinationTransaction(CoordinationTransactionPayload),
     PlanBootstrap(PlanBootstrapPayload),
     PlanCreate(PlanCreatePayload),
     PlanUpdate(PlanUpdatePayload),
@@ -2215,6 +2228,9 @@ impl<'de> Deserialize<'de> for PrismCoordinationArgs {
             .cloned()
             .ok_or_else(|| de::Error::custom("missing field `payload`"))?;
         let kind = match wire.mutation {
+            PrismCoordinationArgsWirePayload::CoordinationTransaction(_) => {
+                CoordinationMutationKindInput::CoordinationTransaction
+            }
             PrismCoordinationArgsWirePayload::PlanBootstrap(_) => {
                 CoordinationMutationKindInput::PlanBootstrap
             }
@@ -2702,6 +2718,72 @@ pub(crate) struct PlanBootstrapPayload {
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationPlanRefPayload {
+    pub(crate) plan_id: Option<String>,
+    pub(crate) client_plan_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTaskRefPayload {
+    pub(crate) task_id: Option<String>,
+    pub(crate) client_task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum CoordinationDependencyKindInput {
+    DependsOn,
+    CoordinationDependsOn,
+    IntegratedDependsOn,
+}
+
+impl_vocab_deserialize!(
+    CoordinationDependencyKindInput,
+    "coordinationDependencyKind",
+    "coordination dependency kind",
+    r#"{"kind":"depends_on"}"#,
+    {
+        "dependson" => DependsOn,
+        "coordinationdependson" => CoordinationDependsOn,
+        "integrateddependson" => IntegratedDependsOn
+    }
+);
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case", tag = "action", content = "input")]
+pub(crate) enum CoordinationTransactionMutationPayload {
+    PlanCreate(CoordinationTransactionPlanCreatePayload),
+    PlanUpdate(CoordinationTransactionPlanUpdatePayload),
+    PlanArchive(CoordinationTransactionPlanArchivePayload),
+    TaskCreate(CoordinationTransactionTaskCreatePayload),
+    TaskUpdate(CoordinationTransactionTaskUpdatePayload),
+    DependencyCreate(CoordinationTransactionDependencyCreatePayload),
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionPayload {
+    #[serde(default)]
+    pub(crate) mutations: Vec<CoordinationTransactionMutationPayload>,
+    pub(crate) intent_metadata: Option<Value>,
+    pub(crate) optimistic_preconditions: Option<Value>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionPlanCreatePayload {
+    pub(crate) client_plan_id: Option<String>,
+    pub(crate) title: String,
+    pub(crate) goal: String,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) status: Option<PlanStatusInput>,
+    pub(crate) policy: Option<CoordinationPolicyPayload>,
+    pub(crate) scheduling: Option<PlanSchedulingPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PlanBootstrapTaskPayload {
     pub(crate) client_id: String,
     pub(crate) title: String,
@@ -2712,6 +2794,44 @@ pub(crate) struct PlanBootstrapTaskPayload {
     #[serde(default)]
     pub(crate) depends_on: Vec<String>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionTaskCreatePayload {
+    pub(crate) client_task_id: Option<String>,
+    pub(crate) plan: CoordinationPlanRefPayload,
+    pub(crate) title: String,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) status: Option<CoordinationTaskStatusInput>,
+    pub(crate) assignee: Option<String>,
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    #[serde(default)]
+    pub(crate) depends_on: Vec<CoordinationTaskRefPayload>,
+    #[serde(default)]
+    pub(crate) coordination_depends_on: Vec<CoordinationTaskRefPayload>,
+    #[serde(default)]
+    pub(crate) integrated_depends_on: Vec<CoordinationTaskRefPayload>,
+    pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionTaskUpdatePayload {
+    pub(crate) task: CoordinationTaskRefPayload,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) status: Option<WorkflowStatusInput>,
+    pub(crate) assignee: Option<SparsePatchInput<String>>,
+    pub(crate) title: Option<String>,
+    pub(crate) summary: Option<SparsePatchInput<String>>,
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) bindings: Option<PlanBindingPayload>,
+    pub(crate) depends_on: Option<Vec<CoordinationTaskRefPayload>>,
+    pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+    pub(crate) validation_refs: Option<Vec<ValidationRefPayload>>,
+    pub(crate) priority: Option<SparsePatchInput<u8>>,
+    pub(crate) tags: Option<Vec<String>>,
+    pub(crate) completion_context: Option<TaskCompletionContextPayload>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -2728,8 +2848,35 @@ pub(crate) struct PlanUpdatePayload {
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionPlanUpdatePayload {
+    pub(crate) plan: CoordinationPlanRefPayload,
+    pub(crate) title: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) status: Option<PlanStatusInput>,
+    pub(crate) goal: Option<String>,
+    pub(crate) policy: Option<CoordinationPolicyPayload>,
+    pub(crate) scheduling: Option<PlanSchedulingPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PlanArchivePayload {
     pub(crate) plan_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionPlanArchivePayload {
+    pub(crate) plan: CoordinationPlanRefPayload,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionDependencyCreatePayload {
+    pub(crate) task: CoordinationTaskRefPayload,
+    pub(crate) depends_on: CoordinationTaskRefPayload,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) kind: Option<CoordinationDependencyKindInput>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -2816,10 +2963,7 @@ pub(crate) struct TaskCreatePayload {
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct WorkflowUpdatePayload {
-    #[serde(
-        alias = "taskId",
-        alias = "task_id",
-    )]
+    #[serde(alias = "taskId", alias = "task_id")]
     pub(crate) id: String,
     #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) status: Option<WorkflowStatusInput>,
@@ -3064,7 +3208,7 @@ pub(crate) struct PrismCuratorPromoteMemoryArgs {
 
 #[cfg(test)]
 mod tests {
-    use super::WorkflowUpdatePayload;
+    use super::{validate_tool_input_value, WorkflowUpdatePayload};
 
     #[test]
     fn workflow_update_payload_deserializes_completion_context() {
@@ -3093,5 +3237,16 @@ mod tests {
             Some("artifact:review/demo")
         );
         assert_eq!(evidence.record_ref.as_deref(), Some("git:refs/heads/main"));
+    }
+
+    #[test]
+    fn coordination_transaction_example_validates() {
+        let example = crate::schema_examples::tool_action_examples("prism_mutate", "coordination")
+            .into_iter()
+            .find(|example| example["input"]["kind"].as_str() == Some("coordination_transaction"))
+            .expect("coordination transaction example should exist");
+
+        let validation = validate_tool_input_value("prism_mutate", example);
+        assert!(validation.valid, "{:#?}", validation.issues);
     }
 }

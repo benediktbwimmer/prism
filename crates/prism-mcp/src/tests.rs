@@ -5804,7 +5804,7 @@ return {
     let payload_variants = coordination["payloadVariants"]
         .as_array()
         .expect("payload variants");
-    assert_eq!(payload_variants.len(), 10);
+    assert_eq!(payload_variants.len(), 11);
     let task_create_variant = payload_variants
         .iter()
         .find(|variant| variant["tag"] == "task_create")
@@ -6170,7 +6170,7 @@ fn prism_mutate_schema_expands_payload_shapes_for_structured_actions() {
         coordination_payload.schema["oneOf"]
             .as_array()
             .map(|variants| variants.len()),
-        Some(10)
+        Some(11)
     );
     let coordination_nested = coordination_payload
         .nested_fields
@@ -20907,7 +20907,7 @@ pub fn runtime_status() {}
         .expect("session overlay scope should exist");
     assert_eq!(repo_overlay.plan_count, 1);
     assert!(repo_overlay.plan_node_count > 0);
-    assert_eq!(worktree_overlay.overlay_count, 1);
+    assert_eq!(worktree_overlay.overlay_count, 0);
     assert_eq!(session_overlay.overlay_count, 1);
 }
 
