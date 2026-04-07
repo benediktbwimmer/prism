@@ -13,7 +13,9 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context, Result};
-use prism_core::{shared_coordination_ref_diagnostics, sync_live_runtime_descriptor, PrismPaths};
+use prism_core::{
+    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor, PrismPaths, PrismRuntimeMode,
+};
 
 use crate::cli::McpCommand;
 use crate::daemon_log;
@@ -162,6 +164,8 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
         McpCommand::Bridge {
             no_coordination,
             internal_developer,
+            runtime_mode,
+            ui,
             shared_runtime_uri,
             bootstrap_build_worktree_release,
             bridge_daemon_binary,
@@ -169,6 +173,8 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             &root,
             no_coordination,
             internal_developer,
+            runtime_mode.into(),
+            ui,
             shared_runtime_uri,
             bootstrap_build_worktree_release,
             bridge_daemon_binary,
@@ -176,6 +182,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
         McpCommand::Start {
             no_coordination,
             internal_developer,
+            runtime_mode,
             ui,
             http_bind,
             shared_runtime_uri,
@@ -183,6 +190,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             &root,
             no_coordination,
             internal_developer,
+            runtime_mode.into(),
             ui,
             http_bind,
             shared_runtime_uri,
@@ -195,6 +203,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             kill_bridges,
             no_coordination,
             internal_developer,
+            runtime_mode,
             ui,
             http_bind,
             shared_runtime_uri,
@@ -217,6 +226,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
                 &root,
                 no_coordination,
                 internal_developer,
+                runtime_mode.into(),
                 ui,
                 http_bind,
                 shared_runtime_uri,
@@ -234,6 +244,8 @@ fn bridge(
     root: &Path,
     no_coordination: bool,
     internal_developer: bool,
+    runtime_mode: PrismRuntimeMode,
+    ui: bool,
     shared_runtime_uri: Option<String>,
     bootstrap_build_worktree_release: bool,
     bridge_daemon_binary: Option<PathBuf>,
@@ -245,6 +257,8 @@ fn bridge(
         &paths,
         no_coordination,
         internal_developer,
+        runtime_mode,
+        ui,
         shared_runtime_uri.as_deref(),
         bootstrap_build_worktree_release,
         bridge_daemon_binary.as_deref(),
@@ -413,6 +427,7 @@ fn start(
     root: &Path,
     no_coordination: bool,
     internal_developer: bool,
+    runtime_mode: PrismRuntimeMode,
     ui: bool,
     http_bind: Option<String>,
     shared_runtime_uri: Option<String>,
@@ -468,6 +483,7 @@ fn start(
         &http_bind,
         no_coordination,
         internal_developer,
+        runtime_mode,
         ui,
         shared_runtime_uri.as_deref(),
         restart_nonce,
@@ -710,6 +726,8 @@ fn bridge_exec_args(
     paths: &McpPaths,
     no_coordination: bool,
     internal_developer: bool,
+    runtime_mode: PrismRuntimeMode,
+    ui: bool,
     shared_runtime_uri: Option<&str>,
     bootstrap_build_worktree_release: bool,
     bridge_daemon_binary: Option<&Path>,
@@ -727,6 +745,13 @@ fn bridge_exec_args(
     }
     if internal_developer {
         args.push(OsString::from("--internal-developer"));
+    }
+    if runtime_mode != PrismRuntimeMode::Full {
+        args.push(OsString::from("--runtime-mode"));
+        args.push(OsString::from(runtime_mode_cli_value(runtime_mode)));
+    }
+    if ui {
+        args.push(OsString::from("--ui"));
     }
     if let Some(shared_runtime_uri) = shared_runtime_uri {
         args.push(OsString::from("--shared-runtime-uri"));
@@ -790,6 +815,7 @@ fn spawn_daemon(
     http_bind: &str,
     no_coordination: bool,
     internal_developer: bool,
+    runtime_mode: PrismRuntimeMode,
     ui: bool,
     shared_runtime_uri: Option<&str>,
     restart_nonce: Option<&str>,
@@ -816,6 +842,10 @@ fn spawn_daemon(
     }
     if internal_developer {
         args.push("--internal-developer".to_string());
+    }
+    if runtime_mode != PrismRuntimeMode::Full {
+        args.push("--runtime-mode".to_string());
+        args.push(runtime_mode_cli_value(runtime_mode).to_string());
     }
     if ui {
         args.push("--ui".to_string());
@@ -848,6 +878,15 @@ fn spawn_daemon(
     )
     .ok();
     Ok(())
+}
+
+fn runtime_mode_cli_value(runtime_mode: PrismRuntimeMode) -> &'static str {
+    match runtime_mode {
+        PrismRuntimeMode::Full => "full",
+        PrismRuntimeMode::CoordinationOnly => "coordination_only",
+        PrismRuntimeMode::KnowledgeStorage => "knowledge_storage",
+        PrismRuntimeMode::CoreLegacy => "full",
+    }
 }
 
 fn chrono_like_timestamp() -> String {
@@ -2161,10 +2200,20 @@ mod tests {
     fn bridge_exec_args_include_required_bridge_flags() {
         let root = temp_root("bridge-exec-args");
         let paths = McpPaths::for_root(&root).unwrap();
-        let args = bridge_exec_args(&root, &paths, false, true, None, false, None)
-            .into_iter()
-            .map(|arg| arg.to_string_lossy().to_string())
-            .collect::<Vec<_>>();
+        let args = bridge_exec_args(
+            &root,
+            &paths,
+            false,
+            true,
+            PrismRuntimeMode::Full,
+            false,
+            None,
+            false,
+            None,
+        )
+        .into_iter()
+        .map(|arg| arg.to_string_lossy().to_string())
+        .collect::<Vec<_>>();
 
         assert_eq!(
             args,
@@ -2185,13 +2234,53 @@ mod tests {
     fn bridge_exec_args_omit_shared_runtime_uri_when_unset() {
         let root = temp_root("bridge-exec-shared-runtime");
         let paths = McpPaths::for_root(&root).unwrap();
-        let args = bridge_exec_args(&root, &paths, true, false, None, false, None)
-            .into_iter()
-            .map(|arg| arg.to_string_lossy().to_string())
-            .collect::<Vec<_>>();
+        let args = bridge_exec_args(
+            &root,
+            &paths,
+            true,
+            false,
+            PrismRuntimeMode::Full,
+            false,
+            None,
+            false,
+            None,
+        )
+        .into_iter()
+        .map(|arg| arg.to_string_lossy().to_string())
+        .collect::<Vec<_>>();
 
         assert!(!args.contains(&"--shared-runtime-uri".to_string()));
         assert!(args.contains(&"--no-coordination".to_string()));
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn bridge_exec_args_forward_runtime_mode_and_ui() {
+        let root = temp_root("bridge-exec-runtime-mode");
+        let paths = McpPaths::for_root(&root).unwrap();
+        let args = bridge_exec_args(
+            &root,
+            &paths,
+            false,
+            false,
+            PrismRuntimeMode::CoordinationOnly,
+            true,
+            None,
+            false,
+            None,
+        )
+        .into_iter()
+        .map(|arg| arg.to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+
+        assert!(args.windows(2).any(|window| {
+            window
+                == [
+                    "--runtime-mode".to_string(),
+                    "coordination_only".to_string(),
+                ]
+        }));
+        assert!(args.contains(&"--ui".to_string()));
         fs::remove_dir_all(root).ok();
     }
 

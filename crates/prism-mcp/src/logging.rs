@@ -111,7 +111,8 @@ pub fn log_process_start(cli: &PrismMcpCli, root: &Path) {
     info!(
         mode = %mode_name(cli.mode),
         root = %root.display(),
-        coordination = %cli.features().mode_label(),
+        runtime_mode = %cli.features().runtime_mode_label(),
+        coordination_surface = %cli.features().mode_label(),
         http_bind = %cli.http_bind,
         http_path = %cli.http_path,
         health_path = %cli.health_path,

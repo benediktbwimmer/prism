@@ -85,7 +85,11 @@ LOCAL_MCP="$ROOT/target/release/prism-mcp"
 CLI_EXEC="${PRISM_CODEX_LAUNCHER_CLI_OVERRIDE:-}"
 
 if [[ -z "$CLI_EXEC" && -x "$LOCAL_CLI" && -x "$LOCAL_MCP" ]]; then
-  exec "$LOCAL_CLI" --root "$ROOT" mcp bridge --internal-developer "$@"
+  exec "$LOCAL_CLI" --root "$ROOT" mcp bridge \
+    --internal-developer \
+    --runtime-mode coordination_only \
+    --ui \
+    "$@"
 fi
 
 BOOTSTRAP_CLI="$BOOTSTRAP_ROOT/target/release/prism-cli"
@@ -99,6 +103,8 @@ CLI_EXEC="${CLI_EXEC:-$BOOTSTRAP_CLI}"
 
 exec "$CLI_EXEC" --root "$ROOT" mcp bridge \
   --internal-developer \
+  --runtime-mode coordination_only \
+  --ui \
   --bootstrap-build-worktree-release \
   --bridge-daemon-binary "$LOCAL_MCP" \
   "$@"

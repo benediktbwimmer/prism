@@ -22,6 +22,8 @@ const FAMILIARIZATION_BLOCK: &str =
     include_str!("../../../docs/prism/instructions/blocks/familiarization.md");
 const DEFAULT_PATH_BLOCK: &str =
     include_str!("../../../docs/prism/instructions/blocks/default-path.md");
+const DEFAULT_PATH_COORDINATION_ONLY_BLOCK: &str =
+    include_str!("../../../docs/prism/instructions/blocks/default-path-coordination-only.md");
 const QUERY_VIEWS_BLOCK: &str =
     include_str!("../../../docs/prism/instructions/blocks/query-views.md");
 const READ_STRATEGY_BLOCK: &str =
@@ -94,7 +96,7 @@ const COORDINATION_BLOCKS: &[&str] = &[
 
 const COORDINATION_ONLY_BLOCKS: &[&str] = &[
     FAMILIARIZATION_BLOCK,
-    DEFAULT_PATH_BLOCK,
+    DEFAULT_PATH_COORDINATION_ONLY_BLOCK,
     PLANS_BLOCK,
     MUTATIONS_BLOCK,
 ];

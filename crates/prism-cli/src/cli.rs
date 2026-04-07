@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
+use prism_core::PrismRuntimeMode;
 
 use crate::worktree_commands::WorktreeModeArg;
 
@@ -172,6 +173,24 @@ pub enum AuthAssuranceArg {
     Legacy,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "snake_case")]
+pub enum PrismRuntimeModeArg {
+    Full,
+    CoordinationOnly,
+    KnowledgeStorage,
+}
+
+impl From<PrismRuntimeModeArg> for PrismRuntimeMode {
+    fn from(value: PrismRuntimeModeArg) -> Self {
+        match value {
+            PrismRuntimeModeArg::Full => PrismRuntimeMode::Full,
+            PrismRuntimeModeArg::CoordinationOnly => PrismRuntimeMode::CoordinationOnly,
+            PrismRuntimeModeArg::KnowledgeStorage => PrismRuntimeMode::KnowledgeStorage,
+        }
+    }
+}
+
 #[derive(Subcommand)]
 pub enum McpCommand {
     Status,
@@ -187,6 +206,10 @@ pub enum McpCommand {
         no_coordination: bool,
         #[arg(long, default_value_t = false)]
         internal_developer: bool,
+        #[arg(long = "runtime-mode", value_enum, default_value_t = PrismRuntimeModeArg::Full)]
+        runtime_mode: PrismRuntimeModeArg,
+        #[arg(long, default_value_t = false)]
+        ui: bool,
         #[arg(long = "shared-runtime-uri")]
         shared_runtime_uri: Option<String>,
         #[arg(long, hide = true, default_value_t = false)]
@@ -199,6 +222,8 @@ pub enum McpCommand {
         no_coordination: bool,
         #[arg(long, default_value_t = false)]
         internal_developer: bool,
+        #[arg(long = "runtime-mode", value_enum, default_value_t = PrismRuntimeModeArg::Full)]
+        runtime_mode: PrismRuntimeModeArg,
         #[arg(long, default_value_t = false)]
         ui: bool,
         #[arg(long = "http-bind")]
@@ -219,6 +244,8 @@ pub enum McpCommand {
         no_coordination: bool,
         #[arg(long, default_value_t = false)]
         internal_developer: bool,
+        #[arg(long = "runtime-mode", value_enum, default_value_t = PrismRuntimeModeArg::Full)]
+        runtime_mode: PrismRuntimeModeArg,
         #[arg(long, default_value_t = false)]
         ui: bool,
         #[arg(long = "http-bind")]
@@ -456,7 +483,8 @@ mod tests {
 
     use super::{
         AuthAssuranceArg, AuthCommand, Cli, Command, DocsBundleArg, DocsCommand, McpCommand,
-        PrincipalCommand, ProtectedStateCommand, ProtectedStateTrustCommand, WorktreeCommand,
+        PrincipalCommand, PrismRuntimeModeArg, ProtectedStateCommand, ProtectedStateTrustCommand,
+        WorktreeCommand,
     };
     use crate::worktree_commands::WorktreeModeArg;
 
@@ -471,6 +499,7 @@ mod tests {
                         kill_bridges,
                         no_coordination,
                         internal_developer,
+                        runtime_mode,
                         ui,
                         http_bind,
                         shared_runtime_uri,
@@ -479,6 +508,7 @@ mod tests {
                 assert!(!kill_bridges);
                 assert!(!no_coordination);
                 assert!(!internal_developer);
+                assert_eq!(runtime_mode, PrismRuntimeModeArg::Full);
                 assert!(!ui);
                 assert!(http_bind.is_none());
                 assert!(shared_runtime_uri.is_none());
@@ -613,6 +643,47 @@ mod tests {
                 assert_eq!(output_dir, PathBuf::from("out/prism"));
                 assert_eq!(bundle, None);
             }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mcp_bridge_runtime_mode_and_ui_flags_parse() {
+        let cli = Cli::parse_from([
+            "prism",
+            "mcp",
+            "bridge",
+            "--runtime-mode",
+            "coordination_only",
+            "--ui",
+        ]);
+        match cli.command {
+            Command::Mcp {
+                command:
+                    McpCommand::Bridge {
+                        runtime_mode, ui, ..
+                    },
+            } => {
+                assert_eq!(runtime_mode, PrismRuntimeModeArg::CoordinationOnly);
+                assert!(ui);
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mcp_restart_runtime_mode_flag_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "mcp",
+            "restart",
+            "--runtime-mode",
+            "coordination_only",
+        ]);
+        match cli.command {
+            Command::Mcp {
+                command: McpCommand::Restart { runtime_mode, .. },
+            } => assert_eq!(runtime_mode, PrismRuntimeModeArg::CoordinationOnly),
             _ => panic!("unexpected command"),
         }
     }
