@@ -6,7 +6,6 @@ use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
-use prism_coordination::{execution_overlays_from_tasks, snapshot_plan_graphs};
 use prism_core::runtime_engine::{
     RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspacePublishedGeneration,
     WorkspaceRuntimeQueueSnapshot,
@@ -794,31 +793,32 @@ fn projection_scope_view(scope: ProjectionScopeReadModel) -> RuntimeProjectionSc
 fn overlay_scope_views(
     snapshot: &prism_coordination::CoordinationSnapshot,
 ) -> Vec<RuntimeOverlayScopeView> {
-    let plan_graphs = snapshot_plan_graphs(snapshot);
-    let overlays = execution_overlays_from_tasks(&snapshot.tasks);
+    let canonical_snapshot = snapshot.to_canonical_snapshot_v2();
     vec![
         RuntimeOverlayScopeView {
             scope: "repo".to_string(),
-            plan_count: plan_graphs.len(),
-            plan_node_count: plan_graphs.iter().map(|graph| graph.nodes.len()).sum(),
+            plan_count: canonical_snapshot.plans.len(),
+            plan_node_count: canonical_snapshot.tasks.len(),
             overlay_count: 0,
         },
         RuntimeOverlayScopeView {
             scope: "worktree".to_string(),
             plan_count: 0,
             plan_node_count: 0,
-            overlay_count: overlays
+            overlay_count: snapshot
+                .tasks
                 .iter()
-                .filter(|overlay| overlay.worktree_id.is_some() || overlay.branch_ref.is_some())
+                .filter(|task| task.worktree_id.is_some() || task.branch_ref.is_some())
                 .count(),
         },
         RuntimeOverlayScopeView {
             scope: "session".to_string(),
             plan_count: 0,
             plan_node_count: 0,
-            overlay_count: overlays
+            overlay_count: snapshot
+                .tasks
                 .iter()
-                .filter(|overlay| overlay.session.is_some())
+                .filter(|task| task.session.is_some())
                 .count(),
         },
     ]

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -11,7 +11,7 @@ use anyhow::Result;
 use prism_coordination::{CoordinationSnapshot, RuntimeDescriptor};
 use prism_curator::CuratorBackend;
 use prism_history::HistoryStore;
-use prism_ir::{EdgeKind, PlanExecutionOverlay, PlanGraph, PrismRuntimeCapabilities};
+use prism_ir::{EdgeKind, PrismRuntimeCapabilities};
 use prism_memory::OutcomeMemory;
 use prism_parser::LanguageAdapter;
 use prism_projections::{IntentIndex, ProjectionIndex};
@@ -47,8 +47,6 @@ pub(crate) fn build_workspace_session(
     history: HistoryStore,
     outcomes: OutcomeMemory,
     coordination_snapshot: CoordinationSnapshot,
-    plan_graphs: Vec<PlanGraph>,
-    plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     runtime_descriptors: Vec<RuntimeDescriptor>,
     projections: ProjectionIndex,
     initial_refresh: Option<WorkspaceRefreshSeed>,
@@ -86,8 +84,6 @@ pub(crate) fn build_workspace_session(
         history,
         outcomes,
         coordination_snapshot,
-        plan_graphs,
-        plan_execution_overlays,
         runtime_descriptors,
         projections,
         runtime_capabilities,

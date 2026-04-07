@@ -10,8 +10,9 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
 use prism_coordination::{
-    assisted_heartbeat_window, CoordinationPolicy, CoordinationTask, LeaseHeartbeatDueState,
-    LeaseState, WorkClaim,
+    assisted_heartbeat_window, coordination_queue_read_model_from_snapshot,
+    coordination_read_model_from_snapshot, CoordinationPolicy, CoordinationTask,
+    LeaseHeartbeatDueState, LeaseState, WorkClaim,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
@@ -22,7 +23,7 @@ use prism_ir::{
 use prism_memory::OutcomeMemory;
 use prism_projections::ProjectionIndex;
 use prism_query::Prism;
-use prism_store::CoordinationJournal;
+use prism_store::{CoordinationCheckpointStore, CoordinationJournal};
 use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, info, warn};
 
@@ -593,8 +594,6 @@ fn refresh_prism_snapshot_with_guard(
                     HistoryStore::from_snapshot(current_prism.history_snapshot()),
                     OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
                     current_prism.coordination_snapshot(),
-                    current_prism.authored_plan_graphs(),
-                    current_prism.plan_execution_overlays_by_plan(),
                     current_prism.runtime_descriptors(),
                     ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
                     current_prism.runtime_capabilities(),
@@ -636,8 +635,6 @@ fn refresh_prism_snapshot_with_guard(
                 let prism = next.prism_arc();
                 next_state.replace_coordination_runtime(
                     prism.coordination_snapshot(),
-                    prism.authored_plan_graphs(),
-                    prism.plan_execution_overlays_by_plan(),
                     prism.runtime_descriptors(),
                 );
                 let republish_started = Instant::now();
@@ -1098,10 +1095,6 @@ fn relevant_protected_state_streams(root: &Path, event: &Event) -> Vec<Protected
             "contracts:events".to_string(),
             ProtectedRepoStream::contract_events(),
         );
-        streams.insert(
-            "plan:protected-watch".to_string(),
-            ProtectedRepoStream::plan_stream(&prism_ir::PlanId::new("plan:protected-watch")),
-        );
     }
     streams.into_values().collect()
 }
@@ -1169,14 +1162,6 @@ pub(crate) fn sync_protected_state_watch_update(
             plan_state
                 .as_ref()
                 .map(|state| state.snapshot.clone())
-                .unwrap_or_default(),
-            plan_state
-                .as_ref()
-                .map(|state| state.plan_graphs.clone())
-                .unwrap_or_default(),
-            plan_state
-                .as_ref()
-                .map(|state| state.execution_overlays.clone())
                 .unwrap_or_default(),
             plan_state
                 .as_ref()
@@ -1279,13 +1264,11 @@ fn apply_shared_coordination_ref_watch_state(
         root,
         &mut *store.lock().expect("workspace store lock poisoned"),
         &shared.snapshot,
-        &shared.plan_graphs,
-        &shared.execution_overlays,
+        &shared.canonical_snapshot_v2,
+        Some(&shared.runtime_descriptors),
     )?;
     next_state.replace_coordination_runtime(
         shared.snapshot.clone(),
-        shared.plan_graphs.clone(),
-        shared.execution_overlays.clone(),
         shared.runtime_descriptors.clone(),
     );
     let next = next_state.publish_generation(
@@ -1307,6 +1290,15 @@ fn apply_shared_coordination_ref_watch_state(
         .load(Ordering::Relaxed)
         .max(persisted_coordination_revision)
         .saturating_add(1);
+    {
+        let mut store = store.lock().expect("workspace store lock poisoned");
+        let mut read_model = coordination_read_model_from_snapshot(&shared.snapshot);
+        read_model.revision = next_coordination_revision;
+        store.save_coordination_read_model(&read_model)?;
+        let mut queue_read_model = coordination_queue_read_model_from_snapshot(&shared.snapshot);
+        queue_read_model.revision = next_coordination_revision;
+        store.save_coordination_queue_read_model(&queue_read_model)?;
+    }
     coordination_runtime_revision.store(next_coordination_revision, Ordering::Relaxed);
     info!(
         root = %root.display(),
@@ -1373,7 +1365,6 @@ mod tests {
     use prism_store::{
         CoordinationJournal, Graph, IndexPersistBatch, MaterializationStore, MemoryStore,
     };
-    use std::collections::BTreeMap;
     use std::path::PathBuf;
     use std::sync::atomic::Ordering;
     use std::sync::{Mutex, OnceLock};
@@ -1430,7 +1421,7 @@ mod tests {
             PathBuf::from("node_modules/pkg/index.json").as_path()
         ));
         assert!(is_ignored_watch_relative_path(
-            PathBuf::from(".prism/plans/streams/plan:1.jsonl").as_path()
+            PathBuf::from(".prism/plans/active/plan:1.jsonl").as_path()
         ));
         assert!(!is_ignored_watch_relative_path(
             PathBuf::from("crates/prism-core/src/watch.rs").as_path()
@@ -1445,7 +1436,7 @@ mod tests {
             paths: vec![
                 root.join("PRISM.md"),
                 root.join("docs/prism/plans/index.md"),
-                root.join(".prism/plans/streams/plan:1.jsonl"),
+                root.join(".prism/plans/active/plan:1.jsonl"),
                 root.join("benchmarks/results/local/prism/workspaces/demo/repo/src/lib.rs"),
                 root.join("crates/prism-core/src/watch.rs"),
             ],
@@ -1500,9 +1491,6 @@ mod tests {
         assert!(streams
             .iter()
             .any(|stream| stream.stream_id() == "concepts:events"));
-        assert!(streams
-            .iter()
-            .any(|stream| stream.stream().starts_with("repo_plan")));
     }
 
     #[test]
@@ -1593,8 +1581,6 @@ mod tests {
             &SharedCoordinationRefState {
                 snapshot: Default::default(),
                 canonical_snapshot_v2: Default::default(),
-                plan_graphs: Vec::new(),
-                execution_overlays: BTreeMap::new(),
                 runtime_descriptors: Vec::new(),
             },
         )

@@ -11,7 +11,6 @@ use axum::http::{
 use axum::response::{Html, IntoResponse};
 use axum::routing::{get, post};
 use axum::Router;
-use prism_coordination::CoordinationPolicy;
 use prism_core::render_repo_published_plan_markdown;
 use prism_ir::PlanId;
 use serde::Deserialize;
@@ -25,7 +24,7 @@ use super::html::{
     duration_label, escape_html, json_script_escape, markdown_to_html, page_shell, percent,
     status_badge, status_slug, truncate,
 };
-use super::mermaid::{concept_graph_mermaid, plan_graph_mermaid};
+use super::mermaid::concept_graph_mermaid;
 use crate::ui_assets::prism_ui_favicon_asset;
 use crate::ui_mutations::{map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest};
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
@@ -241,7 +240,7 @@ async fn console_plan_fragment(
 ) -> std::result::Result<Html<String>, (StatusCode, String)> {
     let view = state
         .host
-        .ui_plan_graph_view(&plan_id)
+        .ui_plan_detail_view(&plan_id)
         .map_err(internal_error)?
         .ok_or_else(|| (StatusCode::NOT_FOUND, format!("plan not found: {plan_id}")))?;
     Ok(Html(render_plan_detail(&view)))
@@ -667,11 +666,37 @@ fn render_plan_sidebar(view: &PrismPlansView) -> String {
 }
 
 fn render_plan_detail(view: &PrismPlanDetailView) -> String {
-    let graph_src = plan_graph_mermaid(&view.graph);
     let markdown_url = format!(
         "/console/plans/{}/markdown",
         escape_html(&view.plan.plan_id)
     );
+    let child_plan_rows = view
+        .child_plans
+        .iter()
+        .map(|plan| {
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
+                escape_html(&plan.title),
+                status_badge(&format!("{:?}", plan.status)),
+                escape_html(&plan.id)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    let child_task_rows = view
+        .child_tasks
+        .iter()
+        .map(|task| {
+            format!(
+                "<tr><td><a href=\"/console/tasks/{}\">{}</a></td><td>{}</td><td>{}</td></tr>",
+                escape_html(&task.id),
+                escape_html(&task.title),
+                status_badge(&format!("{:?}", task.status)),
+                escape_html(task.assignee.as_deref().unwrap_or("unassigned"))
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
     let ready_rows = view
         .ready_tasks
         .iter()
@@ -707,8 +732,12 @@ fn render_plan_detail(view: &PrismPlanDetailView) -> String {
          <div class=\"console-copy-action\"><button class=\"console-button console-button--ghost\" type=\"button\" data-copy-markdown-url=\"{}\"><span class=\"console-action-label\">Copy markdown</span><span class=\"console-action-spinner\" aria-hidden=\"true\"></span></button><span class=\"console-action-feedback console-small\" data-copy-markdown-feedback aria-live=\"polite\"></span></div>\
          <form class=\"console-action-form\" hx-post=\"/console/plans/{}/archive\" hx-swap=\"none\" hx-indicator=\"closest .console-action-form\"><button class=\"console-button console-button--warn\" type=\"submit\"><span class=\"console-action-label\">Archive plan</span><span class=\"console-action-spinner\" aria-hidden=\"true\"></span></button></form></div>\
          </div>\
-         <div class=\"console-inline-list\">{}<span class=\"console-pill\">{} total nodes</span><span class=\"console-pill\">{} actionable</span></div>\
-         <section class=\"console-card console-graph-card\"><div class=\"console-card-header\"><div><h3>Dependency graph</h3><p class=\"console-subtitle\">Click task nodes to open task detail. Drag to pan, wheel to zoom.</p></div><span class=\"console-sync\">Live via polling</span></div><div class=\"console-graph-shell\" data-console-graph><div class=\"console-graph-controls\"><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-zoom-out>-</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-reset>Reset</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-zoom-in>+</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-fullscreen>Full page</button></div><div class=\"console-graph-viewport\" data-graph-viewport><pre class=\"console-mermaid prism-mermaid mermaid\">{}</pre></div></div></section>\
+         <div class=\"console-inline-list\">{}<span class=\"console-pill\">{} total nodes</span><span class=\"console-pill\">{} actionable</span><span class=\"console-pill\">{} direct children</span></div>\
+         <section class=\"console-card\"><div class=\"console-card-header\"><div><h3>Plan structure</h3><p class=\"console-subtitle\">Canonical child plans and child tasks for this plan.</p></div><span class=\"console-sync\">Live via polling</span></div>\
+         <div class=\"console-grid console-grid--two\">\
+         <div><h4>Child plans</h4><table class=\"console-data-table\"><thead><tr><th>Plan</th><th>Status</th><th>Id</th></tr></thead><tbody>{}</tbody></table></div>\
+         <div><h4>Child tasks</h4><table class=\"console-data-table\"><thead><tr><th>Task</th><th>Status</th><th>Assignee</th></tr></thead><tbody>{}</tbody></table></div>\
+         </div></section>\
          <section class=\"console-card\"><div class=\"console-card-header\"><h3>Ready tasks</h3><span class=\"console-muted console-small\">{}</span></div>\
          <table class=\"console-data-table\"><thead><tr><th>Task</th><th>Status</th><th>Assignee</th></tr></thead><tbody>{}</tbody></table></section>\
          <section class=\"console-card\"><div class=\"console-card-header\"><h3>Recent outcomes</h3></div><ul class=\"console-list\">{}</ul></section>\
@@ -721,7 +750,19 @@ fn render_plan_detail(view: &PrismPlanDetailView) -> String {
         status_badge(&format!("{:?}", view.plan.status)),
         view.summary.total_nodes,
         view.summary.actionable_nodes,
-        escape_html(&graph_src),
+        view.children.len(),
+        if child_plan_rows.is_empty() {
+            "<tr><td colspan=\"3\"><div class=\"console-empty\">No child plans.</div></td></tr>"
+                .to_string()
+        } else {
+            child_plan_rows
+        },
+        if child_task_rows.is_empty() {
+            "<tr><td colspan=\"3\"><div class=\"console-empty\">No direct child tasks.</div></td></tr>"
+                .to_string()
+        } else {
+            child_task_rows
+        },
         view.ready_tasks.len(),
         if ready_rows.is_empty() {
             "<tr><td colspan=\"3\"><div class=\"console-empty\">No ready tasks right now.</div></td></tr>".to_string()
@@ -1098,19 +1139,22 @@ fn plans_fragment_url(query: &PlansQuery, selected_plan_id: Option<&str>) -> Str
 fn plan_markdown_payload(host: &QueryHost, plan_id: &str) -> Result<Option<(String, String)>> {
     let prism = host.current_prism();
     let plan_id = PlanId::new(plan_id.to_string());
-    let Some(graph) = prism.plan_graph(&plan_id) else {
+    let Some(plan) = prism.coordination_plan_v2(&plan_id) else {
         return Ok(None);
     };
-    let policy = prism
+    let status = prism
         .coordination_snapshot()
         .plans
         .into_iter()
         .find(|plan| plan.id == plan_id)
-        .map(|plan| plan.policy)
-        .unwrap_or_else(CoordinationPolicy::default);
-    let markdown =
-        render_repo_published_plan_markdown(&graph, &policy, &prism.plan_execution(&plan_id));
-    Ok(Some((graph.title, markdown)))
+        .map(|plan| plan.status);
+    let markdown = render_repo_published_plan_markdown(
+        &prism.coordination_snapshot_v2(),
+        &plan_id,
+        status,
+    )
+    .ok_or_else(|| anyhow!("plan markdown should be renderable for {}", plan_id.0))?;
+    Ok(Some((plan.plan.title, markdown)))
 }
 
 fn sanitize_download_basename(value: &str) -> String {
@@ -1179,6 +1223,7 @@ mod tests {
     use super::*;
     use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
+    use prism_coordination::CoordinationPolicy;
     use prism_ir::{EventActor, EventId, EventMeta, TaskId};
     use tower::util::ServiceExt;
 

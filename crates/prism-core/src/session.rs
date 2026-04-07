@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
@@ -9,8 +9,7 @@ use anyhow::{anyhow, Result};
 use prism_agent::{InferenceSnapshot, InferredEdgeRecord};
 use prism_coordination::{
     coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
-    snapshot_plan_graphs, CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
-    CoordinationSnapshotV2,
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
 };
 use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
@@ -20,8 +19,8 @@ use prism_ir::{
     new_prefixed_id, AnchorRef, ChangeTrigger, CredentialId, EventActor, EventExecutionContext,
     EventId, EventMeta, LineageEvent, LineageId, ObservedChangeCheckpoint,
     ObservedChangeCheckpointEntry, ObservedChangeCheckpointTrigger, ObservedChangeSet,
-    PlanExecutionOverlay, PlanGraph, PrincipalActor, PrincipalAuthorityId, PrincipalId,
-    PrincipalRegistrySnapshot, SessionId, TaskId, WorkContextSnapshot,
+    PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalRegistrySnapshot, SessionId,
+    TaskId, WorkContextSnapshot,
 };
 use prism_memory::OutcomeMemory;
 use prism_memory::{
@@ -34,7 +33,10 @@ use prism_projections::{
     ConceptRelationEvent, ConceptRelationEventAction, ConceptScope, ContractEvent, ProjectionIndex,
 };
 use prism_query::Prism;
-use prism_store::{AuxiliaryPersistBatch, Graph, SqliteStore, Store, WorkspaceTreeSnapshot};
+use prism_store::{
+    AuxiliaryPersistBatch, CoordinationCheckpointStore, Graph, SqliteStore, Store,
+    WorkspaceTreeSnapshot,
+};
 use prism_store::{PatchEventSummary, PatchFileSummary};
 use serde_json::{json, Value};
 use tracing::{info, warn};
@@ -55,6 +57,8 @@ use crate::contract_events::append_repo_contract_event;
 use crate::coordination_persistence::{
     coordination_event_delta, CoordinationDerivedPersistenceMode, CoordinationPersistenceBackend,
 };
+use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadResult};
+use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
 use crate::history_backend::StoreHistoryReadBackend;
 use crate::indexer::{
@@ -98,6 +102,7 @@ use crate::validation_feedback::{
     append_validation_feedback, load_validation_feedback, ValidationFeedbackEntry,
     ValidationFeedbackRecord,
 };
+use crate::watch::sync_shared_coordination_ref_watch_update;
 use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle, WatchMessage};
 use crate::workspace_identity::coordination_persist_context_for_root;
 use crate::workspace_runtime_state::{WorkspacePublishedGeneration, WorkspaceRuntimeState};
@@ -191,9 +196,17 @@ pub(crate) struct WorkspaceRefreshSeed {
 pub struct CoordinationPlanState {
     pub snapshot: CoordinationSnapshot,
     pub canonical_snapshot_v2: CoordinationSnapshotV2,
-    pub plan_graphs: Vec<PlanGraph>,
-    pub execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     pub runtime_descriptors: Vec<prism_coordination::RuntimeDescriptor>,
+}
+
+impl From<HydratedCoordinationPlanState> for CoordinationPlanState {
+    fn from(value: HydratedCoordinationPlanState) -> Self {
+        Self {
+            snapshot: value.snapshot,
+            canonical_snapshot_v2: value.canonical_snapshot_v2,
+            runtime_descriptors: value.runtime_descriptors,
+        }
+    }
 }
 
 pub(crate) struct WorkspaceRefreshState {
@@ -955,8 +968,6 @@ impl WorkspaceSession {
             .then(|| HydratedCoordinationPlanState {
                 canonical_snapshot_v2: prism.coordination_snapshot_v2(),
                 snapshot: prism.coordination_snapshot(),
-                plan_graphs: prism.authored_plan_graphs(),
-                execution_overlays: prism.plan_execution_overlays_by_plan(),
                 runtime_descriptors: prism.runtime_descriptors(),
             });
         let sync = export_repo_prism_doc_with_plan_state(
@@ -1234,8 +1245,6 @@ impl WorkspaceSession {
                 HistoryStore::from_snapshot(current_prism.history_snapshot()),
                 OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
                 current_prism.coordination_snapshot(),
-                current_prism.authored_plan_graphs(),
-                current_prism.plan_execution_overlays_by_plan(),
                 current_prism.runtime_descriptors(),
                 ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
                 current_prism.runtime_capabilities(),
@@ -1440,14 +1449,6 @@ impl WorkspaceSession {
             &outcomes,
             protected_knowledge_work,
             &coordination_snapshot,
-            &plan_state
-                .as_ref()
-                .map(|state| state.plan_graphs.clone())
-                .unwrap_or_default(),
-            &plan_state
-                .as_ref()
-                .map(|state| state.execution_overlays.clone())
-                .unwrap_or_default(),
         )?;
         drop(store);
 
@@ -1457,14 +1458,6 @@ impl WorkspaceSession {
             history,
             outcomes,
             coordination_snapshot,
-            plan_state
-                .as_ref()
-                .map(|state| state.plan_graphs.clone())
-                .unwrap_or_default(),
-            plan_state
-                .as_ref()
-                .map(|state| state.execution_overlays.clone())
-                .unwrap_or_default(),
             plan_state
                 .as_ref()
                 .map(|state| state.runtime_descriptors.clone())
@@ -1949,44 +1942,59 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        let hot_snapshot = self.prism_arc().coordination_snapshot();
-        if !hot_snapshot.events.is_empty()
-            || !hot_snapshot.plans.is_empty()
-            || !hot_snapshot.tasks.is_empty()
-        {
-            return Ok(Some(hot_snapshot));
-        }
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .load_hydrated_coordination_snapshot_for_root(&self.root)
+        Ok(self
+            .read_coordination_snapshot_with_consistency(CoordinationReadConsistency::Eventual)?
+            .into_value())
     }
 
     pub fn load_coordination_snapshot_v2(&self) -> Result<Option<CoordinationSnapshotV2>> {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .load_hydrated_coordination_snapshot_v2_for_root(&self.root)
+        Ok(self
+            .read_coordination_snapshot_v2_with_consistency(
+                CoordinationReadConsistency::Eventual,
+            )?
+            .into_value())
+    }
+
+    pub fn read_coordination_snapshot_with_consistency(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadResult<CoordinationSnapshot>> {
+        self.read_coordination_with_consistency(
+            consistency,
+            |store| store.load_eventual_coordination_snapshot_for_root(&self.root),
+            |store| store.load_authoritative_coordination_snapshot_for_root(&self.root),
+        )
+    }
+
+    pub fn read_coordination_snapshot_v2_with_consistency(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadResult<CoordinationSnapshotV2>> {
+        self.read_coordination_with_consistency(
+            consistency,
+            |store| store.load_eventual_coordination_snapshot_v2_for_root(&self.root),
+            |store| store.load_authoritative_coordination_snapshot_v2_for_root(&self.root),
+        )
     }
 
     pub fn load_coordination_read_model(&self) -> Result<Option<CoordinationReadModel>> {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        let current_revision = self.coordination_runtime_revision()?;
-        let persisted = prism_store::CoordinationCheckpointStore::load_coordination_read_model(
-            &mut *self.store.lock().expect("workspace store lock poisoned"),
-        )?;
-        if let Some(model) = persisted {
-            if model.revision >= current_revision {
-                return Ok(Some(model));
-            }
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        if let Some(persisted) =
+            prism_store::CoordinationCheckpointStore::load_coordination_read_model(&mut *store)?
+        {
+            return Ok(Some(persisted));
         }
-        let mut model =
-            coordination_read_model_from_snapshot(&self.prism_arc().coordination_snapshot());
+        let Some(snapshot) = store.load_eventual_coordination_snapshot_for_root(&self.root)? else {
+            return Ok(None);
+        };
+        let current_revision = store.coordination_revision()?;
+        let mut model = coordination_read_model_from_snapshot(&snapshot);
         model.revision = current_revision;
         Ok(Some(model))
     }
@@ -1995,18 +2003,19 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        let current_revision = self.coordination_runtime_revision()?;
-        let persisted =
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        if let Some(persisted) =
             prism_store::CoordinationCheckpointStore::load_coordination_queue_read_model(
-                &mut *self.store.lock().expect("workspace store lock poisoned"),
-            )?;
-        if let Some(model) = persisted {
-            if model.revision >= current_revision {
-                return Ok(Some(model));
-            }
+                &mut *store,
+            )?
+        {
+            return Ok(Some(persisted));
         }
-        let mut model =
-            coordination_queue_read_model_from_snapshot(&self.prism_arc().coordination_snapshot());
+        let Some(snapshot) = store.load_eventual_coordination_snapshot_for_root(&self.root)? else {
+            return Ok(None);
+        };
+        let current_revision = store.coordination_revision()?;
+        let mut model = coordination_queue_read_model_from_snapshot(&snapshot);
         model.revision = current_revision;
         Ok(Some(model))
     }
@@ -2037,65 +2046,164 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        let state = {
+        Ok(self
+            .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Eventual)?
+            .into_value())
+    }
+
+    pub fn read_coordination_plan_state_with_consistency(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadResult<CoordinationPlanState>> {
+        self.read_coordination_with_consistency(
+            consistency,
+            |store| {
+                Ok(store
+                    .load_eventual_coordination_plan_state_for_root(&self.root)?
+                    .map(CoordinationPlanState::from))
+            },
+            |store| {
+                Ok(store
+                    .load_authoritative_coordination_plan_state_for_root(&self.root)?
+                    .map(CoordinationPlanState::from))
+            },
+        )
+    }
+
+    fn read_coordination_with_consistency<T, E, S>(
+        &self,
+        consistency: CoordinationReadConsistency,
+        eventual_load: E,
+        strong_load: S,
+    ) -> Result<CoordinationReadResult<T>>
+    where
+        E: Fn(&mut SqliteStore) -> Result<Option<T>>,
+        S: Fn(&mut SqliteStore) -> Result<Option<T>>,
+    {
+        if !self.coordination_enabled {
+            return Ok(CoordinationReadResult::unavailable(consistency, None));
+        }
+        match consistency {
+            CoordinationReadConsistency::Eventual => {
+                let value = {
+                    let mut store = self.store.lock().expect("workspace store lock poisoned");
+                    eventual_load(&mut *store)?
+                };
+                Ok(match value {
+                    Some(value) => CoordinationReadResult::verified_stale(consistency, value, None),
+                    None => CoordinationReadResult::unavailable(consistency, None),
+                })
+            }
+            CoordinationReadConsistency::Strong => {
+                match self.refresh_coordination_materialization_for_strong_read() {
+                    Ok(()) => {
+                        let value = {
+                            let mut store =
+                                self.store.lock().expect("workspace store lock poisoned");
+                            strong_load(&mut *store)
+                        };
+                        match value {
+                            Ok(Some(value)) => {
+                                Ok(CoordinationReadResult::verified_current(consistency, value))
+                            }
+                            Ok(None) => Ok(CoordinationReadResult::unavailable(consistency, None)),
+                            Err(error) => self.stale_coordination_read_fallback(
+                                consistency,
+                                eventual_load,
+                                error,
+                            ),
+                        }
+                    }
+                    Err(error) => {
+                        self.stale_coordination_read_fallback(consistency, eventual_load, error)
+                    }
+                }
+            }
+        }
+    }
+
+    fn stale_coordination_read_fallback<T, E>(
+        &self,
+        consistency: CoordinationReadConsistency,
+        eventual_load: E,
+        error: anyhow::Error,
+    ) -> Result<CoordinationReadResult<T>>
+    where
+        E: Fn(&mut SqliteStore) -> Result<Option<T>>,
+    {
+        let refresh_error = Some(error.to_string());
+        let value = {
             let mut store = self.store.lock().expect("workspace store lock poisoned");
-            load_repo_protected_plan_state(&self.root, &mut *store)?
+            eventual_load(&mut *store)?
         };
-        Ok(state.map(|state| CoordinationPlanState {
-            snapshot: state.snapshot,
-            canonical_snapshot_v2: state.canonical_snapshot_v2,
-            plan_graphs: state.plan_graphs,
-            execution_overlays: state.execution_overlays,
-            runtime_descriptors: state.runtime_descriptors,
-        }))
+        Ok(match value {
+            Some(value) => {
+                CoordinationReadResult::verified_stale(consistency, value, refresh_error)
+            }
+            None => CoordinationReadResult::unavailable(consistency, refresh_error),
+        })
+    }
+
+    fn refresh_coordination_materialization_for_strong_read(&self) -> Result<()> {
+        sync_shared_coordination_ref_watch_update(
+            &self.root,
+            &self.published_generation,
+            &self.runtime_state,
+            &self.store,
+            &self.cold_query_store,
+            &self.refresh_lock,
+            &self.loaded_workspace_revision,
+            &self.coordination_runtime_revision,
+            self.coordination_enabled,
+        )?;
+
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        let Some(authoritative) =
+            store.load_authoritative_coordination_plan_state_for_root(&self.root)?
+        else {
+            return Ok(());
+        };
+        save_shared_coordination_startup_checkpoint(
+            &self.root,
+            &mut *store,
+            &authoritative.snapshot,
+            &authoritative.canonical_snapshot_v2,
+            Some(&authoritative.runtime_descriptors),
+        )?;
+        let current_revision =
+            self.coordination_runtime_revision_value(store.coordination_revision()?);
+        let mut read_model = coordination_read_model_from_snapshot(&authoritative.snapshot);
+        read_model.revision = current_revision;
+        CoordinationCheckpointStore::save_coordination_read_model(&mut *store, &read_model)?;
+        let mut queue_read_model =
+            coordination_queue_read_model_from_snapshot(&authoritative.snapshot);
+        queue_read_model.revision = current_revision;
+        CoordinationCheckpointStore::save_coordination_queue_read_model(
+            &mut *store,
+            &queue_read_model,
+        )?;
+        Ok(())
     }
 
     pub fn hydrate_coordination_runtime(&self) -> Result<Option<CoordinationPlanState>> {
-        let state = self.load_coordination_plan_state()?;
-        let snapshot = state
-            .as_ref()
-            .map(|state| state.snapshot.clone())
-            .unwrap_or_default();
-        let plan_graphs = state
-            .as_ref()
-            .map(|state| state.plan_graphs.clone())
-            .unwrap_or_default();
-        let execution_overlays = state
-            .as_ref()
-            .map(|state| state.execution_overlays.clone())
-            .unwrap_or_default();
+        let state = self
+            .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Strong)?
+            .into_value();
+        let Some(state) = state else {
+            return Ok(None);
+        };
+        let snapshot = state.snapshot.clone();
+        let runtime_descriptors = state.runtime_descriptors.clone();
         self.prism_arc()
-            .replace_coordination_snapshot_and_plan_graphs(
-                snapshot,
-                plan_graphs,
-                execution_overlays,
-                state
-                    .as_ref()
-                    .map(|state| state.runtime_descriptors.clone())
-                    .unwrap_or_default(),
-            );
+            .replace_coordination_runtime(snapshot, runtime_descriptors.clone());
         self.runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned")
             .replace_coordination_runtime(
-                state
-                    .as_ref()
-                    .map(|state| state.snapshot.clone())
-                    .unwrap_or_default(),
-                state
-                    .as_ref()
-                    .map(|state| state.plan_graphs.clone())
-                    .unwrap_or_default(),
-                state
-                    .as_ref()
-                    .map(|state| state.execution_overlays.clone())
-                    .unwrap_or_default(),
-                state
-                    .as_ref()
-                    .map(|state| state.runtime_descriptors.clone())
-                    .unwrap_or_default(),
+                state.snapshot.clone(),
+                state.runtime_descriptors.clone(),
             );
-        Ok(state)
+        Ok(Some(state))
     }
 
     pub fn persist_coordination(&self, snapshot: &CoordinationSnapshot) -> Result<()> {
@@ -2122,16 +2230,13 @@ impl WorkspaceSession {
             .expect("workspace refresh lock poisoned");
         let prism = self.prism_arc();
         let snapshot = prism.coordination_snapshot();
-        let plan_graphs = prism.authored_plan_graphs();
-        let execution_overlays = prism.plan_execution_overlays_by_plan();
+        let canonical_snapshot_v2 = prism.coordination_snapshot_v2();
         let runtime_descriptors = prism.runtime_descriptors();
         self.runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned")
             .replace_coordination_runtime(
                 snapshot.clone(),
-                plan_graphs.clone(),
-                execution_overlays.clone(),
                 runtime_descriptors,
             );
         let authoritative_revision = self
@@ -2141,15 +2246,14 @@ impl WorkspaceSession {
             .persist_coordination_authoritative_state_for_root(
                 &self.root,
                 &snapshot,
-                Some(&plan_graphs),
-                Some(&execution_overlays),
+                &canonical_snapshot_v2,
             )?
             .revision;
         let materialization = CoordinationMaterialization {
             authoritative_revision,
             snapshot: snapshot.clone(),
-            plan_graphs: Some(plan_graphs.clone()),
-            execution_overlays: Some(execution_overlays.clone()),
+            canonical_snapshot_v2: Some(canonical_snapshot_v2.clone()),
+            runtime_descriptors: Some(prism.runtime_descriptors()),
             publish_context: None,
         };
         let materialize_started = Instant::now();
@@ -2250,7 +2354,6 @@ impl WorkspaceSession {
         };
         let prism = self.prism_arc();
         let before = prism.coordination_snapshot();
-        let before_plan_graphs = snapshot_plan_graphs(&before);
         let mutate_started = Instant::now();
         let result = mutate(prism.as_ref());
         observe_phase(
@@ -2273,8 +2376,7 @@ impl WorkspaceSession {
             result.is_ok(),
             result.as_ref().err().map(|error| error.to_string()),
         );
-        let plan_graphs = prism.authored_plan_graphs();
-        let execution_overlays = prism.plan_execution_overlays_by_plan();
+        let canonical_snapshot_v2 = prism.coordination_snapshot_v2();
         let runtime_descriptors = prism.runtime_descriptors();
         let publish_context = publish_context_from_coordination_events(&appended_events);
         self.runtime_state
@@ -2282,8 +2384,6 @@ impl WorkspaceSession {
             .expect("workspace runtime state lock poisoned")
             .replace_coordination_runtime(
                 snapshot.clone(),
-                plan_graphs.clone(),
-                execution_overlays.clone(),
                 runtime_descriptors,
             );
         let should_persist = !appended_events.is_empty() || snapshot != before;
@@ -2298,9 +2398,7 @@ impl WorkspaceSession {
                     &appended_events,
                     session_id,
                     Some(&before),
-                    Some(&before_plan_graphs),
-                    Some(&plan_graphs),
-                    Some(&execution_overlays),
+                    &canonical_snapshot_v2,
                     CoordinationDerivedPersistenceMode::Deferred,
                     &mut observe_phase,
                 )
@@ -2310,7 +2408,7 @@ impl WorkspaceSession {
                 persist_started.elapsed(),
                 json!({
                     "appendedEventCount": appended_events.len(),
-                    "planCount": plan_graphs.len(),
+                    "planCount": snapshot.plans.len(),
                 }),
                 persist_result.is_ok(),
                 persist_result.as_ref().err().map(|error| error.to_string()),
@@ -2320,8 +2418,8 @@ impl WorkspaceSession {
                 let materialization = CoordinationMaterialization {
                     authoritative_revision,
                     snapshot: snapshot.clone(),
-                    plan_graphs: Some(plan_graphs.clone()),
-                    execution_overlays: Some(execution_overlays.clone()),
+                    canonical_snapshot_v2: Some(canonical_snapshot_v2.clone()),
+                    runtime_descriptors: Some(prism.runtime_descriptors()),
                     publish_context: publish_context.clone(),
                 };
                 let materialize_started = Instant::now();

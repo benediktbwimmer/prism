@@ -552,7 +552,6 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .filter_map(|method| method["name"].as_str())
         .collect::<std::collections::BTreeSet<_>>();
     assert!(query_methods.contains("plans"));
-    assert!(query_methods.contains("planGraph"));
     assert!(query_methods.contains("blockers"));
     assert!(query_methods.contains("tool"));
     assert!(!query_methods.contains("symbol"));
@@ -954,7 +953,7 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
         action_schema_payload["properties"]["payload"]["oneOf"]
             .as_array()
             .map(|variants| variants.len()),
-        Some(13)
+        Some(10)
     );
     assert!(action_schema_payload["examples"]
         .as_array()
@@ -1308,7 +1307,7 @@ async fn mcp_server_lists_and_reads_plan_detail_resources() {
         .store_coordination(
             test_session(&server.host).as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                kind: CoordinationMutationKindInput::TaskCreate,
                 payload: json!({ "planId": plan_id, "title": "Classify authoritative tables" }),
                 task_id: None,
             },

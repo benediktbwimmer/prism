@@ -425,7 +425,6 @@ export type PlanListEntryView = {
   }
   summary: string
   planSummary: PlanSummaryView
-  rootNodeIds: string[]
 }
 
 export type ValidationRefView = {
@@ -447,75 +446,80 @@ export type PlanAcceptanceCriterionView = {
   evidencePolicy: string
 }
 
-export type PlanNodeView = {
+export type NodeRefView = {
+  kind: string
   id: string
-  planId: string
-  kind?: string
-  title: string
-  summary?: string | null
-  status: string
-  bindings: PlanBindingView
-  acceptance?: PlanAcceptanceCriterionView[]
-  validationRefs?: ValidationRefView[]
-  isAbstract?: boolean
-  assignee?: string | null
-  baseRevision?: WorkspaceRevisionView
-  priority?: number | null
-  tags?: string[]
-  metadata?: unknown
 }
 
-export type PlanEdgeView = {
-  id: string
-  planId: string
-  from: string
-  to: string
-  kind: string
-  summary?: string | null
-  metadata?: unknown
+export type BlockerCauseView = {
+  source: string
+  code?: string | null
+  acceptanceLabel?: string | null
+  thresholdMetric?: string | null
+  thresholdValue?: number | null
+  observedValue?: number | null
 }
 
-export type PlanGraphView = {
+export type CoordinationPlanV2View = {
   id: string
-  scope: string
-  kind: string
+  parentPlanId?: string | null
   title: string
   goal: string
+  scope: string
+  kind: string
+  operatorState: string
   status: string
-  revision: number
-  rootNodeIds: string[]
+  scheduling: PlanListEntryView['scheduling']
   tags: string[]
   createdFrom?: string | null
   metadata?: unknown
-  nodes: PlanNodeView[]
-  edges: PlanEdgeView[]
+  children: NodeRefView[]
+  dependencies: NodeRefView[]
+  dependents: NodeRefView[]
+  estimatedMinutesTotal: number
+  remainingEstimatedMinutes: number
 }
 
-export type PlanExecutionOverlayView = {
-  nodeId: string
-  pendingHandoffTo?: string | null
+export type TaskExecutorPolicyView = {
+  executorClass: string
+  targetLabel?: string | null
+  allowedPrincipals: string[]
+}
+
+export type TaskGitExecutionView = {
+  status: string
+  pendingTaskStatus?: string | null
+  sourceRef?: string | null
+  targetRef?: string | null
+  publishRef?: string | null
+  targetBranch?: string | null
+}
+
+export type CoordinationTaskV2View = {
+  id: string
+  parentPlanId: string
+  title: string
+  summary?: string | null
+  lifecycleStatus: string
+  status: string
+  graphActionable: boolean
+  estimatedMinutes: number
+  executor: TaskExecutorPolicyView
+  assignee?: string | null
   session?: string | null
-  effectiveAssignee?: string | null
-  awaitingHandoffFrom?: string | null
-}
-
-export type PlanNodeBlockerView = {
-  kind: string
-  summary: string
-  relatedNodeId?: string | null
-  relatedArtifactId?: string | null
-  riskScore?: number | null
-  validationChecks: string[]
-}
-
-export type PlanNodeRecommendationView = {
-  node: PlanNodeView
-  actionable: boolean
-  effectiveAssignee?: string | null
-  score?: number
-  reasons: string[]
-  blockers?: PlanNodeBlockerView[]
-  unblocks?: string[]
+  worktreeId?: string | null
+  branchRef?: string | null
+  anchors: AnchorRef[]
+  bindings: PlanBindingView
+  validationRefs: ValidationRefView[]
+  baseRevision: WorkspaceRevisionView
+  priority?: number | null
+  tags: string[]
+  metadata?: unknown
+  gitExecution: TaskGitExecutionView
+  blockerCauses: BlockerCauseView[]
+  dependencies: NodeRefView[]
+  dependents: NodeRefView[]
 }
 
 export type OutcomeSummaryView = {
@@ -528,9 +532,9 @@ export type OutcomeSummaryView = {
 export type PrismPlanDetailView = {
   plan: PlanListEntryView
   summary: PlanSummaryView
-  graph: PlanGraphView
-  execution: PlanExecutionOverlayView[]
-  nextNodes: PlanNodeRecommendationView[]
+  children: NodeRefView[]
+  childPlans: CoordinationPlanV2View[]
+  childTasks: CoordinationTaskV2View[]
   readyTasks: CoordinationTaskView[]
   pendingReviews: ArtifactView[]
   pendingHandoffs: CoordinationTaskView[]

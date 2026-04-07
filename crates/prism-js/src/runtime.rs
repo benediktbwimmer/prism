@@ -1107,29 +1107,8 @@ const __prismBase = Object.freeze({
   planV2(planId) {
     return __prismHost("planV2", { planId });
   },
-  planGraph(planId) {
-    return __prismHost("planGraph", { planId });
-  },
-  planProjectionAt(planId, at) {
-    return __prismHost("planProjectionAt", { planId, at });
-  },
-  planProjectionDiff(planId, from, to) {
-    return __prismHost("planProjectionDiff", { planId, from, to });
-  },
-  planExecution(planId) {
-    return __prismHost("planExecution", { planId });
-  },
-  planReadyNodes(planId) {
-    return __prismHost("planReadyNodes", { planId });
-  },
-  planNodeBlockers(planId, nodeId) {
-    return __prismHost("planNodeBlockers", { planId, nodeId });
-  },
   planSummary(planId) {
     return __prismHost("planSummary", { planId });
-  },
-  planNext(planId, limit) {
-    return __prismHost("planNext", limit == null ? { planId } : { planId, limit });
   },
   children(planId) {
     return __prismHost("children", { planId });
@@ -1160,9 +1139,6 @@ const __prismBase = Object.freeze({
   },
   portfolio() {
     return __prismHost("portfolio", {});
-  },
-  portfolioNext(limit) {
-    return __prismHost("portfolioNext", limit == null ? {} : { limit });
   },
   task(taskId) {
     return __prismHost("coordinationTask", { taskId });
@@ -1239,14 +1215,9 @@ const __prismBase = Object.freeze({
   coordinationInbox(planId) {
     const plan = prism.plan(planId);
     const planV2 = prism.planV2(planId);
-    const planGraph = prism.planGraph(planId);
     return {
       plan,
       planV2,
-      planGraph,
-      planExecution: prism._workflowExecution(prism.planExecution(planId)),
-      planSummary: prism.planSummary(planId),
-      planNext: prism.planNext(planId),
       children: prism.children(planId),
       graphActionableTasks: prism.graphActionableTasks(),
       actionableTasks: prism.actionableTasks(),
@@ -1257,29 +1228,12 @@ const __prismBase = Object.freeze({
   taskContext(taskId) {
     const task = prism.task(taskId);
     const taskV2 = prism.taskV2(taskId);
-    const planId = task?.planId ?? taskV2?.parentPlanId ?? null;
-    const planGraph = planId ? prism.planGraph(planId) : null;
-    const planExecution = task
-      ? prism._workflowExecution(prism.planExecution(task.planId))
-      : planId
-        ? prism._workflowExecution(prism.planExecution(planId))
-      : [];
-    const taskNode = planGraph?.nodes.find((node) => node.id === taskId) ?? null;
-    const taskExecution =
-      task && planGraph
-        ? planExecution.find((overlay) => overlay.nodeId === taskId) ?? null
-        : null;
     const target = task?.anchors ?? taskV2?.anchors ?? [];
     const dependencies = Array.isArray(taskV2?.dependencies) ? taskV2.dependencies : [];
     const dependents = Array.isArray(taskV2?.dependents) ? taskV2.dependents : [];
     return {
       task,
       taskV2,
-      taskNode,
-      taskExecution,
-      planGraph,
-      planSummary: planId ? prism.planSummary(planId) : null,
-      planNext: planId ? prism.planNext(planId) : [],
       dependencies,
       dependents,
       blockers: prism.blockers(taskId),

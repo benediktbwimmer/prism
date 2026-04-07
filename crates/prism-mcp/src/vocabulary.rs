@@ -73,7 +73,7 @@ const PRISM_MUTATE_ACTIONS: &[VocabularyValueSpec] = &[
     VocabularyValueSpec {
         value: "coordination",
         aliases: &[],
-        description: "Mutate coordination plans, tasks, nodes, edges, and handoffs.",
+        description: "Mutate coordination plans, tasks, dependencies, and handoffs.",
     },
     VocabularyValueSpec {
         value: "claim",
@@ -151,22 +151,7 @@ const COORDINATION_MUTATION_KINDS: &[VocabularyValueSpec] = &[
     VocabularyValueSpec {
         value: "update",
         aliases: &[],
-        description: "Update a coordination task or first-class plan node by id.",
-    },
-    VocabularyValueSpec {
-        value: "plan_node_create",
-        aliases: &[],
-        description: "Create a first-class plan node.",
-    },
-    VocabularyValueSpec {
-        value: "plan_edge_create",
-        aliases: &[],
-        description: "Create a first-class plan edge.",
-    },
-    VocabularyValueSpec {
-        value: "plan_edge_delete",
-        aliases: &[],
-        description: "Delete a first-class plan edge.",
+        description: "Update a coordination task by id.",
     },
     VocabularyValueSpec {
         value: "handoff",
@@ -373,140 +358,6 @@ const PLAN_SCOPES: &[VocabularyValueSpec] = &[
         value: "repo",
         aliases: &[],
         description: "Published repo-wide state.",
-    },
-];
-
-const PLAN_NODE_STATUSES: &[VocabularyValueSpec] = &[
-    VocabularyValueSpec {
-        value: "proposed",
-        aliases: &[],
-        description: "Draft node not yet ready.",
-    },
-    VocabularyValueSpec {
-        value: "ready",
-        aliases: &["todo"],
-        description: "Actionable node waiting to be worked.",
-    },
-    VocabularyValueSpec {
-        value: "in_progress",
-        aliases: &["in-progress", "inprogress"],
-        description: "Node actively being worked.",
-    },
-    VocabularyValueSpec {
-        value: "blocked",
-        aliases: &[],
-        description: "Node is blocked.",
-    },
-    VocabularyValueSpec {
-        value: "waiting",
-        aliases: &[],
-        description: "Node is waiting on some external condition.",
-    },
-    VocabularyValueSpec {
-        value: "in_review",
-        aliases: &["in-review", "inreview"],
-        description: "Node is in review.",
-    },
-    VocabularyValueSpec {
-        value: "validating",
-        aliases: &[],
-        description: "Node is validating.",
-    },
-    VocabularyValueSpec {
-        value: "completed",
-        aliases: &[],
-        description: "Node is complete.",
-    },
-    VocabularyValueSpec {
-        value: "abandoned",
-        aliases: &[],
-        description: "Node was abandoned.",
-    },
-];
-
-const PLAN_NODE_KINDS: &[VocabularyValueSpec] = &[
-    VocabularyValueSpec {
-        value: "investigate",
-        aliases: &[],
-        description: "Investigate or gather evidence.",
-    },
-    VocabularyValueSpec {
-        value: "decide",
-        aliases: &[],
-        description: "Make a decision or choose a direction.",
-    },
-    VocabularyValueSpec {
-        value: "edit",
-        aliases: &[],
-        description: "Implement code or content changes.",
-    },
-    VocabularyValueSpec {
-        value: "validate",
-        aliases: &[],
-        description: "Validate or verify work.",
-    },
-    VocabularyValueSpec {
-        value: "review",
-        aliases: &[],
-        description: "Perform review work.",
-    },
-    VocabularyValueSpec {
-        value: "handoff",
-        aliases: &[],
-        description: "Transfer responsibility or context.",
-    },
-    VocabularyValueSpec {
-        value: "merge",
-        aliases: &[],
-        description: "Merge or finalize work.",
-    },
-    VocabularyValueSpec {
-        value: "release",
-        aliases: &[],
-        description: "Release or publish work.",
-    },
-    VocabularyValueSpec {
-        value: "note",
-        aliases: &[],
-        description: "Record a note or structural marker.",
-    },
-];
-
-const PLAN_EDGE_KINDS: &[VocabularyValueSpec] = &[
-    VocabularyValueSpec {
-        value: "depends_on",
-        aliases: &["depends-on", "dependson"],
-        description: "Execution dependency edge.",
-    },
-    VocabularyValueSpec {
-        value: "blocks",
-        aliases: &[],
-        description: "Durable authored blocking edge.",
-    },
-    VocabularyValueSpec {
-        value: "informs",
-        aliases: &[],
-        description: "Informational edge.",
-    },
-    VocabularyValueSpec {
-        value: "validates",
-        aliases: &[],
-        description: "Validation relationship edge.",
-    },
-    VocabularyValueSpec {
-        value: "handoff_to",
-        aliases: &["handoff-to", "handoffto"],
-        description: "Handoff relationship edge.",
-    },
-    VocabularyValueSpec {
-        value: "child_of",
-        aliases: &["child-of", "childof"],
-        description: "Hierarchical grouping edge.",
-    },
-    VocabularyValueSpec {
-        value: "related_to",
-        aliases: &["related-to", "relatedto"],
-        description: "Loose semantic relation edge.",
     },
 ];
 
@@ -727,24 +578,6 @@ const VOCABULARY_CATEGORIES: &[VocabularyCategorySpec] = &[
         title: "Plan Scopes",
         description: "Canonical plan scope values.",
         values: PLAN_SCOPES,
-    },
-    VocabularyCategorySpec {
-        key: "planNodeStatus",
-        title: "Plan Node Statuses",
-        description: "Canonical first-class plan node status values.",
-        values: PLAN_NODE_STATUSES,
-    },
-    VocabularyCategorySpec {
-        key: "planNodeKind",
-        title: "Plan Node Kinds",
-        description: "Canonical first-class plan node kind values.",
-        values: PLAN_NODE_KINDS,
-    },
-    VocabularyCategorySpec {
-        key: "planEdgeKind",
-        title: "Plan Edge Kinds",
-        description: "Canonical first-class plan edge kind values.",
-        values: PLAN_EDGE_KINDS,
     },
     VocabularyCategorySpec {
         key: "reviewVerdict",

@@ -24,7 +24,6 @@ const MANAGED_GITATTRIBUTES_BLOCK: &str = "\
 .prism/contracts/events.jsonl merge=prism-protected-stream
 .prism/changes/events.jsonl merge=prism-protected-stream
 .prism/memory/*.jsonl merge=prism-protected-stream
-.prism/plans/streams/*.jsonl merge=prism-protected-stream
 .prism/plans/index.jsonl merge=prism-derived-prism
 .prism/plans/active/*.jsonl merge=prism-derived-prism
 .prism/plans/archived/*.jsonl merge=prism-derived-prism
@@ -516,9 +515,6 @@ mod tests {
         )));
         assert!(is_authoritative_protected_stream_path(Path::new(
             ".prism/memory/events.jsonl"
-        )));
-        assert!(is_authoritative_protected_stream_path(Path::new(
-            ".prism/plans/streams/plan:1.jsonl"
         )));
         assert!(!is_authoritative_protected_stream_path(Path::new(
             ".prism/plans/index.jsonl"

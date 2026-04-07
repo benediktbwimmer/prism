@@ -1,11 +1,10 @@
 use prism_coordination::{CoordinationSnapshot, RuntimeDescriptor};
 use prism_history::HistoryStore;
-use prism_ir::{PlanExecutionOverlay, PlanGraph, PrismRuntimeCapabilities, WorkspaceRevision};
+use prism_ir::{PrismRuntimeCapabilities, WorkspaceRevision};
 use prism_memory::OutcomeMemory;
 use prism_projections::{IntentIndex, ProjectionIndex};
 use prism_query::Prism;
 use prism_store::{CoordinationPersistContext, Graph};
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use crate::layout::WorkspaceLayout;
@@ -53,8 +52,6 @@ pub(crate) struct WorkspaceRuntimeState {
     pub(crate) history: Arc<HistoryStore>,
     pub(crate) outcomes: Arc<OutcomeMemory>,
     pub(crate) coordination_snapshot: CoordinationSnapshot,
-    pub(crate) plan_graphs: Vec<PlanGraph>,
-    pub(crate) plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     pub(crate) runtime_descriptors: Vec<RuntimeDescriptor>,
     pub(crate) projections: ProjectionIndex,
     pub(crate) runtime_capabilities: PrismRuntimeCapabilities,
@@ -67,8 +64,6 @@ impl WorkspaceRuntimeState {
         history: HistoryStore,
         outcomes: OutcomeMemory,
         coordination_snapshot: CoordinationSnapshot,
-        plan_graphs: Vec<PlanGraph>,
-        plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
         runtime_descriptors: Vec<RuntimeDescriptor>,
         projections: ProjectionIndex,
         runtime_capabilities: PrismRuntimeCapabilities,
@@ -79,8 +74,6 @@ impl WorkspaceRuntimeState {
             history: Arc::new(history),
             outcomes: Arc::new(outcomes),
             coordination_snapshot,
-            plan_graphs,
-            plan_execution_overlays,
             runtime_descriptors,
             projections,
             runtime_capabilities,
@@ -102,8 +95,6 @@ impl WorkspaceRuntimeState {
             OutcomeMemory::default(),
             CoordinationSnapshot::default(),
             Vec::new(),
-            BTreeMap::new(),
-            Vec::new(),
             ProjectionIndex::default(),
             runtime_capabilities,
         )
@@ -123,18 +114,15 @@ impl WorkspaceRuntimeState {
         coordination_context: Option<CoordinationPersistContext>,
         intent_override: Option<IntentIndex>,
     ) -> WorkspacePublishedGeneration {
-        let prism =
-            Prism::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_intent(
-                Arc::clone(&self.graph),
-                Arc::clone(&self.history),
-                Arc::clone(&self.outcomes),
-                self.coordination_snapshot.clone(),
-                self.projections.clone(),
-                self.plan_graphs.clone(),
-                self.plan_execution_overlays.clone(),
-                self.runtime_descriptors.clone(),
-                intent_override,
-            );
+        let prism = Prism::with_shared_history_outcomes_coordination_projections_and_intent(
+            Arc::clone(&self.graph),
+            Arc::clone(&self.history),
+            Arc::clone(&self.outcomes),
+            self.coordination_snapshot.clone(),
+            self.projections.clone(),
+            self.runtime_descriptors.clone(),
+            intent_override,
+        );
         prism.set_runtime_capabilities(self.runtime_capabilities);
         prism.set_workspace_revision(workspace_revision.clone());
         prism.set_coordination_context(coordination_context.clone());
@@ -152,13 +140,9 @@ impl WorkspaceRuntimeState {
     pub(crate) fn replace_coordination_runtime(
         &mut self,
         snapshot: CoordinationSnapshot,
-        plan_graphs: Vec<PlanGraph>,
-        plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
         runtime_descriptors: Vec<RuntimeDescriptor>,
     ) {
         self.coordination_snapshot = snapshot;
-        self.plan_graphs = plan_graphs;
-        self.plan_execution_overlays = plan_execution_overlays;
         self.runtime_descriptors = runtime_descriptors;
     }
 

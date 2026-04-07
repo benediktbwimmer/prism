@@ -3,9 +3,8 @@ use prism_ir::{
     AnchorRef, ArtifactStatus, BlockerCauseSource, Capability, ClaimMode, ClaimStatus,
     ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, DerivedPlanStatus, EdgeKind,
     EdgeOrigin, EffectiveTaskStatus, ExecutorClass, GitExecutionStatus, GitIntegrationEvidence,
-    GitIntegrationMode, GitIntegrationStatus, Language, NodeKind, NodeRefKind, PlanEdgeKind,
-    PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanOperatorState, PlanScope,
-    PlanStatus, Span, TaskLifecycleStatus,
+    GitIntegrationMode, GitIntegrationStatus, Language, NodeKind, NodeRefKind, PlanKind,
+    PlanNodeKind, PlanOperatorState, PlanScope, PlanStatus, Span, TaskLifecycleStatus,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;
@@ -1635,7 +1634,6 @@ pub struct PlanView {
     pub git_execution_policy: GitExecutionPolicyView,
     pub tags: Vec<String>,
     pub created_from: Option<String>,
-    pub root_node_ids: Vec<String>,
     pub activity: Option<PlanActivityView>,
 }
 
@@ -1723,7 +1721,6 @@ pub struct PlanListEntryView {
     pub kind: PlanKind,
     pub scheduling: PlanSchedulingView,
     pub git_execution_policy: GitExecutionPolicyView,
-    pub root_node_ids: Vec<String>,
     pub created_at: Option<u64>,
     pub last_updated_at: Option<u64>,
     pub node_status_counts: PlanNodeStatusCountsView,
@@ -1797,95 +1794,6 @@ pub struct PlanBindingView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct PlanAcceptanceCriterionView {
-    pub label: String,
-    pub anchors: Vec<AnchorRef>,
-    pub required_checks: Vec<ValidationRefView>,
-    pub evidence_policy: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanNodeView {
-    pub id: String,
-    pub plan_id: String,
-    pub kind: PlanNodeKind,
-    pub title: String,
-    pub summary: Option<String>,
-    pub status: PlanNodeStatus,
-    pub bindings: PlanBindingView,
-    pub acceptance: Vec<PlanAcceptanceCriterionView>,
-    pub validation_refs: Vec<ValidationRefView>,
-    pub is_abstract: bool,
-    pub assignee: Option<String>,
-    pub base_revision: WorkspaceRevisionView,
-    pub priority: Option<u8>,
-    pub tags: Vec<String>,
-    pub metadata: Value,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanEdgeView {
-    pub id: String,
-    pub plan_id: String,
-    pub from: String,
-    pub to: String,
-    pub kind: PlanEdgeKind,
-    pub summary: Option<String>,
-    pub metadata: Value,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanGraphView {
-    pub id: String,
-    pub scope: PlanScope,
-    pub kind: PlanKind,
-    pub title: String,
-    pub goal: String,
-    pub status: PlanStatus,
-    pub revision: u64,
-    pub root_node_ids: Vec<String>,
-    pub tags: Vec<String>,
-    pub created_from: Option<String>,
-    pub metadata: Value,
-    pub nodes: Vec<PlanNodeView>,
-    pub edges: Vec<PlanEdgeView>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanExecutionOverlayView {
-    pub node_id: String,
-    pub pending_handoff_to: Option<String>,
-    pub session: Option<String>,
-    pub effective_assignee: Option<String>,
-    pub awaiting_handoff_from: Option<String>,
-    pub git_execution: Option<GitExecutionOverlayView>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct GitExecutionOverlayView {
-    pub status: GitExecutionStatus,
-    pub pending_task_status: Option<CoordinationTaskStatus>,
-    pub source_ref: Option<String>,
-    pub target_ref: Option<String>,
-    pub publish_ref: Option<String>,
-    pub target_branch: Option<String>,
-    pub source_commit: Option<String>,
-    pub publish_commit: Option<String>,
-    pub target_commit_at_publish: Option<String>,
-    pub review_artifact_ref: Option<String>,
-    pub integration_commit: Option<String>,
-    pub integration_evidence: Option<GitIntegrationEvidence>,
-    pub integration_mode: GitIntegrationMode,
-    pub integration_status: GitIntegrationStatus,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct GitPreflightReportView {
     pub source_ref: Option<String>,
     pub target_ref: Option<String>,
@@ -1939,58 +1847,6 @@ pub struct TaskGitExecutionView {
     pub last_publish: Option<GitPublishReportView>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct AdHocPlanProjectionSummaryView {
-    pub total_nodes: usize,
-    pub abstract_nodes: usize,
-    pub proposed_nodes: usize,
-    pub ready_nodes: usize,
-    pub waiting_nodes: usize,
-    pub in_progress_nodes: usize,
-    pub in_review_nodes: usize,
-    pub validating_nodes: usize,
-    pub blocked_nodes: usize,
-    pub completed_nodes: usize,
-    pub abandoned_nodes: usize,
-    pub total_edges: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct AdHocPlanProjectionView {
-    pub projection_class: ProjectionClassView,
-    pub authority_planes: Vec<ProjectionAuthorityPlaneView>,
-    pub history_source: String,
-    pub plan_id: String,
-    pub as_of: u64,
-    pub replayed_event_count: usize,
-    pub graph: PlanGraphView,
-    pub execution_overlays: Vec<PlanExecutionOverlayView>,
-    pub summary: AdHocPlanProjectionSummaryView,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct AdHocPlanProjectionDiffView {
-    pub projection_class: ProjectionClassView,
-    pub authority_planes: Vec<ProjectionAuthorityPlaneView>,
-    pub history_source: String,
-    pub plan_id: String,
-    pub from: u64,
-    pub to: u64,
-    pub before: Option<AdHocPlanProjectionView>,
-    pub after: Option<AdHocPlanProjectionView>,
-    pub plan_metadata_changed: bool,
-    pub added_nodes: Vec<String>,
-    pub removed_nodes: Vec<String>,
-    pub changed_nodes: Vec<String>,
-    pub added_edges: Vec<String>,
-    pub removed_edges: Vec<String>,
-    pub changed_edges: Vec<String>,
-    pub changed_execution_nodes: Vec<String>,
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockerCauseView {
@@ -2000,18 +1856,6 @@ pub struct BlockerCauseView {
     pub threshold_metric: Option<String>,
     pub threshold_value: Option<f32>,
     pub observed_value: Option<f32>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanNodeBlockerView {
-    pub kind: PlanNodeBlockerKind,
-    pub summary: String,
-    pub related_node_id: Option<String>,
-    pub related_artifact_id: Option<String>,
-    pub risk_score: Option<f32>,
-    pub validation_checks: Vec<String>,
-    pub causes: Vec<BlockerCauseView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -2030,18 +1874,6 @@ pub struct PlanSummaryView {
     pub validation_gated_nodes: usize,
     pub stale_nodes: usize,
     pub claim_conflicted_nodes: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanNodeRecommendationView {
-    pub node: PlanNodeView,
-    pub actionable: bool,
-    pub effective_assignee: Option<String>,
-    pub score: f32,
-    pub reasons: Vec<String>,
-    pub blockers: Vec<PlanNodeBlockerView>,
-    pub unblocks: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -2101,10 +1933,6 @@ pub struct ConflictView {
 pub struct CoordinationInboxView {
     pub plan: Option<PlanView>,
     pub plan_v2: Option<CoordinationPlanV2View>,
-    pub plan_graph: Option<PlanGraphView>,
-    pub plan_execution: Vec<PlanExecutionOverlayView>,
-    pub plan_summary: Option<PlanSummaryView>,
-    pub plan_next: Vec<PlanNodeRecommendationView>,
     pub children: Option<PlanChildrenV2View>,
     pub graph_actionable_tasks: Vec<CoordinationTaskV2View>,
     pub actionable_tasks: Vec<CoordinationTaskV2View>,
@@ -2117,11 +1945,6 @@ pub struct CoordinationInboxView {
 pub struct TaskContextView {
     pub task: Option<CoordinationTaskView>,
     pub task_v2: Option<CoordinationTaskV2View>,
-    pub task_node: Option<PlanNodeView>,
-    pub task_execution: Option<PlanExecutionOverlayView>,
-    pub plan_graph: Option<PlanGraphView>,
-    pub plan_summary: Option<PlanSummaryView>,
-    pub plan_next: Vec<PlanNodeRecommendationView>,
     pub dependencies: Vec<NodeRefView>,
     pub dependents: Vec<NodeRefView>,
     pub blockers: Vec<BlockerView>,

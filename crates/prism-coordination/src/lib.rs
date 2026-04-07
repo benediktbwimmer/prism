@@ -1,14 +1,12 @@
 mod blockers;
 mod canonical_graph;
 mod canonical_graph_traversal;
-mod compat;
 mod derived_status;
 mod event_replay;
 mod executor_routing;
 mod git_execution;
 mod helpers;
 mod lease;
-mod legacy_migration;
 mod mutations;
 mod queries;
 mod queue_read_model;
@@ -36,10 +34,6 @@ pub use canonical_graph::{
     COORDINATION_SCHEMA_V2,
 };
 pub use canonical_graph_traversal::{CanonicalCoordinationGraph, CanonicalNodeRecord};
-pub use compat::{
-    coordination_snapshot_from_plan_graphs, execution_overlays_from_tasks,
-    plan_graph_from_coordination, snapshot_plan_graphs,
-};
 pub use derived_status::{CoordinationDerivations, DerivedPlanState, DerivedTaskState};
 pub use event_replay::coordination_snapshot_from_events;
 pub use executor_routing::{
@@ -57,7 +51,6 @@ pub use lease::{
     task_heartbeat_due_state, task_heartbeat_due_state_with_runtime_descriptors, task_lease_state,
     task_lease_state_with_runtime_descriptors, LeaseHeartbeatDueState, LeaseState,
 };
-pub use legacy_migration::migrate_legacy_hybrid_snapshot_to_canonical_v2;
 pub use queue_read_model::{
     coordination_queue_read_model_from_seed, coordination_queue_read_model_from_snapshot,
     CoordinationQueueReadModel,

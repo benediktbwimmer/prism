@@ -35,7 +35,7 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
         .route("/api/graph", get(prism_ui_graph))
         .route("/api/v1/session", get(prism_ui_session))
         .route("/api/v1/plans", get(prism_ui_plans))
-        .route("/api/v1/plans/{plan_id}/graph", get(prism_ui_plan_graph))
+        .route("/api/v1/plans/{plan_id}/detail", get(prism_ui_plan_detail))
         .route("/api/v1/tasks/{task_id}", get(prism_ui_task_detail))
         .route("/api/v1/fleet", get(prism_ui_fleet))
         .route("/api/v1/mutate", post(prism_ui_mutate))
@@ -114,19 +114,19 @@ async fn prism_ui_plans(
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
 
-async fn prism_ui_plan_graph(
+async fn prism_ui_plan_detail(
     State(state): State<PrismUiState>,
     Path(plan_id): Path<String>,
 ) -> std::result::Result<Json<PrismPlanDetailView>, (StatusCode, String)> {
     let detail = state
         .host
-        .ui_plan_graph_view(&plan_id)
+        .ui_plan_detail_view(&plan_id)
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     match detail {
         Some(detail) => Ok(Json(detail)),
         None => Err((
             StatusCode::NOT_FOUND,
-            format!("plan graph not found: {plan_id}"),
+            format!("plan detail not found: {plan_id}"),
         )),
     }
 }
@@ -229,9 +229,7 @@ mod tests {
         credentials_test_lock, demo_node, host_with_node, temp_workspace, test_session,
         workspace_session_with_owner_credential,
     };
-    use crate::{
-        ClaimActionInput, CoordinationMutationKindInput, PrismClaimArgs, PrismCoordinationArgs,
-    };
+    use crate::{CoordinationMutationKindInput, PrismCoordinationArgs};
     use prism_core::{index_workspace_session, CredentialProfile, CredentialsFile, PrismPaths};
 
     fn ui_state_from_root(root: &std::path::Path) -> PrismUiState {
@@ -417,7 +415,7 @@ mod tests {
             .store_coordination(
                 session.as_ref(),
                 PrismCoordinationArgs {
-                    kind: CoordinationMutationKindInput::PlanNodeCreate,
+                    kind: CoordinationMutationKindInput::TaskCreate,
                     payload: json!({
                         "planId": plan_id,
                         "title": "Upstream blocker",
@@ -432,7 +430,7 @@ mod tests {
             .store_coordination(
                 session.as_ref(),
                 PrismCoordinationArgs {
-                    kind: CoordinationMutationKindInput::PlanNodeCreate,
+                    kind: CoordinationMutationKindInput::TaskCreate,
                     payload: json!({
                         "planId": plan_id,
                         "title": "Primary task",
@@ -495,7 +493,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ui_v1_plans_support_filters_and_plan_graph_detail() {
+    async fn ui_v1_plans_support_filters_and_plan_detail() {
         let _guard = credentials_test_lock();
         let root = temp_workspace();
         let host = Arc::new(host_with_node(demo_node()));
@@ -524,7 +522,7 @@ mod tests {
             .store_coordination(
                 session.as_ref(),
                 PrismCoordinationArgs {
-                    kind: CoordinationMutationKindInput::PlanNodeCreate,
+                    kind: CoordinationMutationKindInput::TaskCreate,
                     payload: json!({
                         "planId": alpha_plan_id,
                         "title": "Implement alpha graph",
@@ -605,25 +603,25 @@ mod tests {
             Value::from("Alpha execution plan")
         );
 
-        let graph_response = router
+        let detail_response = router
             .oneshot(
                 Request::builder()
-                    .uri(format!("/api/v1/plans/{alpha_plan_id}/graph"))
+                    .uri(format!("/api/v1/plans/{alpha_plan_id}/detail"))
                     .body(Body::empty())
                     .unwrap(),
             )
             .await
             .unwrap();
-        assert_eq!(graph_response.status(), StatusCode::OK);
-        let graph_body = to_bytes(graph_response.into_body(), usize::MAX)
+        assert_eq!(detail_response.status(), StatusCode::OK);
+        let detail_body = to_bytes(detail_response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let graph_value: Value = serde_json::from_slice(&graph_body).unwrap();
-        assert_eq!(graph_value["plan"]["planId"], Value::from(alpha_plan_id));
-        assert!(graph_value["graph"]["nodes"]
+        let detail_value: Value = serde_json::from_slice(&detail_body).unwrap();
+        assert_eq!(detail_value["plan"]["planId"], Value::from(alpha_plan_id));
+        assert!(detail_value["childTasks"]
             .as_array()
-            .is_some_and(|nodes| !nodes.is_empty()));
-        assert!(graph_value["execution"].as_array().is_some());
+            .is_some_and(|tasks| !tasks.is_empty()));
+        assert!(detail_value["children"].as_array().is_some());
     }
 
     #[tokio::test]

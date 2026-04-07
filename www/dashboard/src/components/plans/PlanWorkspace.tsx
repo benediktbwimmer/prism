@@ -1,145 +1,120 @@
 import type { ReactNode } from 'react'
 
-import { PrismFlowCanvas } from '../graph/PrismFlowCanvas'
-import { buildPlanFlow } from '../../graph/planFlowModel'
 import type {
+  ArtifactView,
+  CoordinationPlanV2View,
+  CoordinationTaskV2View,
   CoordinationTaskView,
   OutcomeSummaryView,
-  PlanEdgeView,
-  PlanExecutionOverlayView,
-  PlanNodeRecommendationView,
-  PlanNodeView,
   PrismPlanDetailView,
 } from '../../types'
 
 type PlanWorkspaceProps = {
-  hoveredEdgeId: string | null
-  hoveredNodeId: string | null
   plan: PrismPlanDetailView
-  selectedEdgeId: string | null
-  selectedNodeId: string | null
   selectedTaskId: string | null
-  onClearSelection: () => void
-  onEdgeHoverChange: (edgeId: string | null) => void
-  onEdgeSelect: (edgeId: string) => void
-  onNodeHoverChange: (nodeId: string | null) => void
-  onNodeSelect: (nodeId: string) => void
+  onTaskSelect: (taskId: string) => void
 }
 
 export function PlanWorkspace({
-  hoveredEdgeId,
-  hoveredNodeId,
   plan,
-  selectedEdgeId,
-  selectedNodeId,
   selectedTaskId,
-  onClearSelection,
-  onEdgeHoverChange,
-  onEdgeSelect,
-  onNodeHoverChange,
-  onNodeSelect,
+  onTaskSelect,
 }: PlanWorkspaceProps) {
-  const nodeById = new Map(plan.graph.nodes.map((node) => [node.id, node]))
-  const edgeById = new Map(plan.graph.edges.map((edge) => [edge.id, edge]))
-  const recommendationById = new Map(plan.nextNodes.map((item) => [item.node.id, item]))
-  const overlayById = new Map(plan.execution.map((item) => [item.nodeId, item]))
-  const selectedNode = selectedNodeId ? nodeById.get(selectedNodeId) ?? null : null
-  const selectedEdge = selectedEdgeId ? edgeById.get(selectedEdgeId) ?? null : null
-  const hoveredNode = hoveredNodeId ? nodeById.get(hoveredNodeId) ?? null : null
-  const hoveredEdge = hoveredEdgeId ? edgeById.get(hoveredEdgeId) ?? null : null
-
-  const flow = buildPlanFlow(plan.graph, plan.nextNodes, plan.execution, {
-    selectedNodeId,
-    hoveredNodeId,
-    selectedEdgeId,
-    hoveredEdgeId,
-  })
+  const selectedTask =
+    plan.childTasks.find((task) => task.id === selectedTaskId)
+    ?? plan.readyTasks.find((task) => task.id === selectedTaskId)
+    ?? plan.pendingHandoffs.find((task) => task.id === selectedTaskId)
+    ?? null
 
   return (
     <section className="plans-workspace">
       <section className="hero-bar panel operator-hero strategic-hero">
         <div>
-          <p className="eyebrow">Dependency Graph</p>
+          <p className="eyebrow">Plan Workspace</p>
           <h2>{plan.plan.title}</h2>
           <p className="lede">{plan.plan.summary}</p>
         </div>
         <div className="hero-actions">
           <span className="connection-pill">{plan.summary.actionableNodes} ready</span>
-          <span className="connection-pill">{plan.summary.inProgressNodes} active</span>
-          <span className="connection-pill">{plan.summary.executionBlockedNodes} blocked</span>
-          {selectedTaskId ? <span className="connection-pill">Drawer open</span> : null}
+          <span className="connection-pill">{plan.childTasks.length} child tasks</span>
+          <span className="connection-pill">{plan.childPlans.length} child plans</span>
+          {selectedTaskId ? <span className="connection-pill">Task selected</span> : null}
         </div>
       </section>
 
       <section className="status-grid strategic-status-grid">
         <article className="panel stat-card">
-          <p className="stat-label">Review Pressure</p>
+          <p className="stat-label">Contained Work</p>
+          <h3>{plan.children.length}</h3>
+          <p>Direct child plans and tasks linked to this plan in the canonical coordination graph.</p>
+        </article>
+        <article className="panel stat-card">
+          <p className="stat-label">Ready Tasks</p>
+          <h3>{plan.readyTasks.length}</h3>
+          <p>Tasks currently actionable for the current executor view.</p>
+        </article>
+        <article className="panel stat-card">
+          <p className="stat-label">Pending Reviews</p>
           <h3>{plan.pendingReviews.length}</h3>
-          <p>Pending review artifacts waiting on a human or another runtime.</p>
+          <p>Artifacts still waiting for review before work can close cleanly.</p>
         </article>
         <article className="panel stat-card">
           <p className="stat-label">Pending Handoffs</p>
           <h3>{plan.pendingHandoffs.length}</h3>
-          <p>Nodes where execution context is waiting to change hands.</p>
-        </article>
-        <article className="panel stat-card">
-          <p className="stat-label">Validation Gates</p>
-          <h3>{plan.summary.validationGatedNodes}</h3>
-          <p>Nodes whose next move is blocked by a required validation signal.</p>
-        </article>
-        <article className="panel stat-card">
-          <p className="stat-label">Stale Nodes</p>
-          <h3>{plan.summary.staleNodes}</h3>
-          <p>Nodes that may need human judgment because the active work looks stalled.</p>
+          <p>Tasks where execution context is waiting to move to another operator or runtime.</p>
         </article>
       </section>
 
       <section className="strategic-workspace-grid">
         <section className="panel flow-stage-panel strategic-graph-panel">
           <div className="panel-header">
-            <h3>Execution Graph</h3>
-            <span>{plan.graph.nodes.length} nodes / {plan.graph.edges.length} edges</span>
+            <h3>Contained Work</h3>
+            <span>{plan.children.length} children</span>
           </div>
           <div className="flow-stage-meta">
-            <span>{plan.summary.reviewGatedNodes} review-gated</span>
-            <span>{plan.summary.validationGatedNodes} validation-gated</span>
-            <span>{plan.summary.completionGatedNodes} completion-gated</span>
+            <span>{plan.childTasks.length} tasks</span>
+            <span>{plan.childPlans.length} plans</span>
+            <span>{plan.summary.executionBlockedNodes} blocked</span>
           </div>
-          <div className="flow-stage strategic-flow-stage">
-            <PrismFlowCanvas
-              nodes={flow.nodes}
-              edges={flow.edges}
-              onNodeActivate={(node) => onNodeSelect(node.id)}
-              onEdgeActivate={(edge) => onEdgeSelect(edge.id)}
-              onNodeHoverChange={onNodeHoverChange}
-              onEdgeHoverChange={onEdgeHoverChange}
-              onPaneActivate={onClearSelection}
+          <div className="panel-body compact-panel-body">
+            <CompactListPanel
+              title="Child Tasks"
+              count={plan.childTasks.length}
+              emptyMessage="No direct child tasks are attached to this plan."
+              items={plan.childTasks.map((task) => (
+                <button
+                  key={task.id}
+                  type="button"
+                  className={`compact-item ${selectedTaskId === task.id ? 'compact-item-active' : ''}`}
+                  onClick={() => onTaskSelect(task.id)}
+                >
+                  <strong>{task.title}</strong>
+                  <p>{task.summary ?? task.id}</p>
+                  <span className="compact-meta">
+                    {formatLabel(task.status)} · {formatLabel(task.executor.executorClass)}
+                  </span>
+                </button>
+              ))}
+            />
+            <CompactListPanel
+              title="Child Plans"
+              count={plan.childPlans.length}
+              emptyMessage="No direct child plans are attached to this plan."
+              items={plan.childPlans.map((child) => (
+                <ChildPlanCard key={child.id} plan={child} />
+              ))}
             />
           </div>
         </section>
 
         <aside className="panel flow-inspector strategic-inspector">
           <div className="panel-header">
-            <h3>Task Focus</h3>
-            <span>{selectedEdge ? 'edge' : selectedNode ? 'node' : 'plan'}</span>
+            <h3>Focus</h3>
+            <span>{selectedTask ? 'task' : 'plan'}</span>
           </div>
           <div className="panel-body flow-inspector-body">
-            {selectedEdge ? (
-              <PlanEdgeInspector edge={selectedEdge} nodeById={nodeById} />
-            ) : selectedNode ? (
-              <PlanNodeInspector
-                node={selectedNode}
-                recommendation={recommendationById.get(selectedNode.id)}
-                overlay={overlayById.get(selectedNode.id)}
-              />
-            ) : hoveredEdge ? (
-              <PlanEdgeInspector edge={hoveredEdge} nodeById={nodeById} />
-            ) : hoveredNode ? (
-              <PlanNodeInspector
-                node={hoveredNode}
-                recommendation={recommendationById.get(hoveredNode.id)}
-                overlay={overlayById.get(hoveredNode.id)}
-              />
+            {selectedTask ? (
+              <TaskFocusInspector task={selectedTask} />
             ) : (
               <PlanSummaryInspector plan={plan} />
             )}
@@ -149,27 +124,28 @@ export function PlanWorkspace({
 
       <section className="flow-support-grid strategic-support-grid">
         <CompactListPanel
-          title="Ready Now"
-          count={plan.nextNodes.length}
-          emptyMessage="No next-node recommendations are available."
-          items={plan.nextNodes.slice(0, 4).map((recommendation) => (
-            <button
-              key={recommendation.node.id}
-              type="button"
-              className="compact-item"
-              onClick={() => onNodeSelect(recommendation.node.id)}
-            >
-              <strong>{recommendation.node.title}</strong>
-              <p>{recommendation.reasons[0] ?? recommendation.node.summary ?? 'Actionable now.'}</p>
-            </button>
-          ))}
-        />
-        <CompactListPanel
           title="Ready Tasks"
           count={plan.readyTasks.length}
           emptyMessage="No ready coordination tasks are exposed right now."
           items={plan.readyTasks.slice(0, 4).map((task) => (
-            <CompactTaskCard key={task.id} task={task} />
+            <button
+              key={task.id}
+              type="button"
+              className={`compact-item ${selectedTaskId === task.id ? 'compact-item-active' : ''}`}
+              onClick={() => onTaskSelect(task.id)}
+            >
+              <strong>{task.title}</strong>
+              <p>{task.summary ?? task.id}</p>
+              <span className="compact-meta">{formatLabel(task.status)}</span>
+            </button>
+          ))}
+        />
+        <CompactListPanel
+          title="Pending Reviews"
+          count={plan.pendingReviews.length}
+          emptyMessage="No pending review artifacts are tied to this plan."
+          items={plan.pendingReviews.slice(0, 4).map((artifact) => (
+            <CompactArtifactCard key={artifact.id} artifact={artifact} />
           ))}
         />
         <CompactListPanel
@@ -199,9 +175,6 @@ function PlanSummaryInspector({ plan }: { plan: PrismPlanDetailView }) {
         <StatPill label="In Progress" value={plan.summary.inProgressNodes} />
         <StatPill label="Stale" value={plan.summary.staleNodes} />
       </div>
-      <InspectorSection title="How to use this view">
-        <p>Select a concrete task node to open the drawer, inspect blockers, and decide whether the current plan ordering still makes sense.</p>
-      </InspectorSection>
       <InspectorSection title="Current pressure">
         <ul className="inspector-list">
           <li>{plan.pendingHandoffs.length} pending handoffs</li>
@@ -209,90 +182,89 @@ function PlanSummaryInspector({ plan }: { plan: PrismPlanDetailView }) {
           <li>{plan.recentViolations.length} recent policy violations</li>
         </ul>
       </InspectorSection>
+      <InspectorSection title="Containment">
+        <ul className="inspector-list">
+          <li>{plan.childTasks.length} direct child tasks</li>
+          <li>{plan.childPlans.length} direct child plans</li>
+          <li>{plan.children.length} total direct children</li>
+        </ul>
+      </InspectorSection>
     </div>
   )
 }
 
-function PlanNodeInspector({
-  node,
-  recommendation,
-  overlay,
+function TaskFocusInspector({
+  task,
 }: {
-  node: PlanNodeView
-  recommendation?: PlanNodeRecommendationView
-  overlay?: PlanExecutionOverlayView
+  task: CoordinationTaskV2View | CoordinationTaskView
 }) {
-  const blockers = recommendation?.blockers ?? []
+  const dependencies = 'dependencies' in task ? task.dependencies.length : task.dependsOn.length
+  const dependents = 'dependents' in task ? task.dependents.length : 0
+  const validationCount = 'validationRefs' in task ? (task.validationRefs?.length ?? 0) : 0
+  const assignee = task.assignee ?? ('session' in task ? task.session : undefined) ?? 'Unassigned'
+
   return (
     <div className="inspector-stack">
       <section className="inspector-hero">
-        <p className="eyebrow">{formatLabel(node.kind ?? 'node')}</p>
-        <h3>{node.title}</h3>
-        <p>{node.summary ?? recommendation?.reasons[0] ?? 'No authored summary is attached to this node yet.'}</p>
+        <p className="eyebrow">{formatLabel('kind' in task ? (task.kind ?? 'task') : 'task')}</p>
+        <h3>{task.title}</h3>
+        <p>{task.summary ?? 'No summary is attached to this task yet.'}</p>
       </section>
       <div className="inspector-stat-grid">
-        <StatPill label="Status" value={formatLabel(node.status)} />
-        <StatPill label="Blockers" value={blockers.length} />
-        <StatPill label="Checks" value={node.validationRefs?.length ?? 0} />
-        <StatPill label="Concepts" value={node.bindings.conceptHandles.length} />
+        <StatPill label="Status" value={formatLabel(task.status)} />
+        <StatPill label="Dependencies" value={dependencies} />
+        <StatPill label="Dependents" value={dependents} />
+        <StatPill label="Checks" value={validationCount} />
       </div>
       <InspectorSection title="Runtime">
         <ul className="inspector-list">
-          <li>Owner: {overlay?.effectiveAssignee ?? node.assignee ?? 'Unassigned'}</li>
-          <li>Pending handoff: {overlay?.pendingHandoffTo ?? 'None'}</li>
-          <li>Awaiting handoff from: {overlay?.awaitingHandoffFrom ?? 'None'}</li>
+          <li>Owner: {assignee}</li>
+          {'executor' in task ? <li>Executor: {formatLabel(task.executor.executorClass)}</li> : null}
+          {'worktreeId' in task && task.worktreeId ? <li>Worktree: {task.worktreeId}</li> : null}
+          {'branchRef' in task && task.branchRef ? <li>Branch: {task.branchRef}</li> : null}
         </ul>
       </InspectorSection>
-      <InspectorSection title="Acceptance">
-        {node.acceptance && node.acceptance.length > 0 ? (
-          <ul className="inspector-list">
-            {node.acceptance.map((criterion) => (
-              <li key={criterion.label}>{criterion.label}</li>
-            ))}
-          </ul>
-        ) : (
-          <p>No explicit acceptance criteria are attached to this node.</p>
-        )}
-      </InspectorSection>
-      <InspectorSection title="Blockers">
-        {blockers.length > 0 ? (
-          <ul className="inspector-list">
-            {blockers.map((blocker) => (
-              <li key={`${blocker.kind}-${blocker.summary}`}>{blocker.summary}</li>
-            ))}
-          </ul>
-        ) : (
-          <p>No blockers are currently attached to this node.</p>
-        )}
-      </InspectorSection>
+      {'blockerCauses' in task ? (
+        <InspectorSection title="Blocker Causes">
+          {task.blockerCauses.length > 0 ? (
+            <ul className="inspector-list">
+              {task.blockerCauses.map((cause, index) => (
+                <li key={`${cause.source}-${cause.code ?? index}`}>
+                  {formatLabel(cause.source)}
+                  {cause.code ? ` · ${cause.code}` : ''}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No blocker causes are attached to this task.</p>
+          )}
+        </InspectorSection>
+      ) : null}
     </div>
   )
 }
 
-function PlanEdgeInspector({
-  edge,
-  nodeById,
-}: {
-  edge: PlanEdgeView
-  nodeById: Map<string, PlanNodeView>
-}) {
-  const from = nodeById.get(edge.from)
-  const to = nodeById.get(edge.to)
-
+function ChildPlanCard({ plan }: { plan: CoordinationPlanV2View }) {
   return (
-    <div className="inspector-stack">
-      <section className="inspector-hero">
-        <p className="eyebrow">Plan Edge</p>
-        <h3>{formatLabel(edge.kind)}</h3>
-        <p>{edge.summary ?? 'This authored edge defines how execution flows between two plan nodes.'}</p>
-      </section>
-      <InspectorSection title="Path">
-        <ul className="inspector-list">
-          <li>From: {from?.title ?? edge.from}</li>
-          <li>To: {to?.title ?? edge.to}</li>
-        </ul>
-      </InspectorSection>
-    </div>
+    <article className="compact-item">
+      <strong>{plan.title}</strong>
+      <p>{plan.goal}</p>
+      <span className="compact-meta">
+        {formatLabel(plan.status)} · {plan.remainingEstimatedMinutes} min remaining
+      </span>
+    </article>
+  )
+}
+
+function CompactArtifactCard({ artifact }: { artifact: ArtifactView }) {
+  return (
+    <article className="compact-item">
+      <strong>{artifact.id}</strong>
+      <p>{formatLabel(artifact.status)}</p>
+      <span className="compact-meta">
+        {artifact.validatedChecks.length} checks · {artifact.requiredValidations.length} required
+      </span>
+    </article>
   )
 }
 
@@ -316,16 +288,6 @@ function CompactListPanel({
       <div className="panel-body compact-panel-body">
         {items.length > 0 ? items : <p className="empty-state">{emptyMessage}</p>}
       </div>
-    </article>
-  )
-}
-
-function CompactTaskCard({ task }: { task: CoordinationTaskView }) {
-  return (
-    <article className="compact-item">
-      <strong>{task.title}</strong>
-      <p>{task.id}</p>
-      <span className="compact-meta">{formatLabel(task.status)}</span>
     </article>
   )
 }

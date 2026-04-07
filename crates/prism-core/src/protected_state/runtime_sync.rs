@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use anyhow::Result;
-use prism_coordination::coordination_snapshot_from_events;
 use prism_ir::PrismRuntimeCapabilities;
 use prism_projections::{ConceptPacket, ConceptRelation, ContractPacket};
 use prism_store::{CoordinationCheckpointStore, CoordinationJournal};
@@ -9,12 +8,10 @@ use prism_store::{CoordinationCheckpointStore, CoordinationJournal};
 use crate::concept_events::load_repo_curated_concepts;
 use crate::concept_relation_events::load_repo_concept_relations;
 use crate::contract_events::load_repo_curated_contracts;
-use crate::coordination_startup_checkpoint::load_materialized_coordination_plan_state;
+use crate::coordination_reads::load_eventual_coordination_plan_state_for_root;
 use crate::memory_events::load_repo_memory_events;
 use crate::protected_state::streams::ProtectedRepoStream;
-use crate::published_plans::{
-    load_hydrated_coordination_plan_state, HydratedCoordinationPlanState,
-};
+use crate::published_plans::HydratedCoordinationPlanState;
 use crate::repo_patch_events::load_repo_patch_events;
 use crate::tracked_snapshot::{
     load_concept_snapshots, load_contract_snapshots, load_memory_snapshot_events,
@@ -41,7 +38,6 @@ pub(crate) struct ProtectedStateImportSelection {
     pub(crate) concepts: bool,
     pub(crate) concept_relations: bool,
     pub(crate) contracts: bool,
-    pub(crate) plans: bool,
 }
 
 impl ProtectedStateImportSelection {
@@ -56,7 +52,6 @@ impl ProtectedStateImportSelection {
                 "repo_concept_events" => selection.concepts = true,
                 "repo_concept_relations" => selection.concept_relations = true,
                 "repo_contract_events" => selection.contracts = true,
-                "repo_plan_events" => selection.plans = true,
                 _ => {}
             }
         }
@@ -68,7 +63,7 @@ impl ProtectedStateImportSelection {
     }
 
     pub(crate) fn reloads_coordination(self) -> bool {
-        self.plans
+        false
     }
 
     pub(crate) fn is_empty(self) -> bool {
@@ -77,7 +72,6 @@ impl ProtectedStateImportSelection {
             && !self.concepts
             && !self.concept_relations
             && !self.contracts
-            && !self.plans
     }
 
     pub(crate) fn filtered_for_runtime(self, runtime: PrismRuntimeCapabilities) -> Self {
@@ -87,7 +81,6 @@ impl ProtectedStateImportSelection {
             concepts: self.concepts && runtime.knowledge_storage_enabled(),
             concept_relations: self.concept_relations && runtime.knowledge_storage_enabled(),
             contracts: self.contracts && runtime.knowledge_storage_enabled(),
-            plans: self.plans && runtime.coordination_enabled(),
         }
     }
 }
@@ -166,15 +159,7 @@ pub(crate) fn load_repo_protected_plan_state<S>(
 where
     S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
 {
-    let stream = store.load_coordination_event_stream()?;
-    let snapshot =
-        coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot);
-    if let Some(plan_state) =
-        load_materialized_coordination_plan_state(root, store, snapshot.clone())?
-    {
-        return Ok(Some(plan_state));
-    }
-    load_hydrated_coordination_plan_state(root, snapshot)
+    load_eventual_coordination_plan_state_for_root(root, store)
 }
 
 fn sync_repo_memory_stream<S: prism_store::EventJournalStore>(

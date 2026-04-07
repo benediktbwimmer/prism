@@ -468,18 +468,6 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
                         "clientId": "t1",
                         "title": "Compare the slow phases",
                         "dependsOn": ["t0"]
-                    }],
-                    "nodes": [{
-                        "clientId": "n0",
-                        "kind": "validate",
-                        "title": "Verify the fix",
-                        "validationRefs": [{ "id": "bench:refresh-hot-path" }],
-                        "dependsOn": ["t1"]
-                    }],
-                    "edges": [{
-                        "fromClientId": "t1",
-                        "toClientId": "n0",
-                        "kind": "validates"
                     }]
                 },
                 "taskId": "task:demo-main"
@@ -514,42 +502,11 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
         json!({
             "action": "coordination",
             "input": {
-                "kind": "plan_node_create",
-                "payload": {
-                    "planId": "plan:demo-main",
-                    "kind": "investigate",
-                    "title": "Break down refresh latency",
-                    "status": "ready",
-                    "validationRefs": [{ "id": "bench:refresh-hot-path" }],
-                    "acceptance": [{
-                        "label": "Captures no-op and one-file timings",
-                        "evidencePolicy": "any"
-                    }]
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
                 "kind": "update",
                 "payload": {
                     "id": "coord-task:1",
                     "status": "in_progress",
                     "title": "Validate compact mutate examples"
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "plan_edge_create",
-                "payload": {
-                    "planId": "plan:demo-main",
-                    "fromNodeId": "coord-task:1",
-                    "toNodeId": "coord-task:2",
-                    "kind": "depends_on"
                 },
                 "taskId": "task:demo-main"
             }
@@ -565,19 +522,6 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
                         "importance": 80,
                         "urgency": 70
                     }
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "plan_edge_delete",
-                "payload": {
-                    "planId": "plan:demo-main",
-                    "fromNodeId": "coord-task:1",
-                    "toNodeId": "coord-task:2",
-                    "kind": "depends_on"
                 },
                 "taskId": "task:demo-main"
             }
@@ -807,7 +751,7 @@ fn tool_shape_payload_example() -> Value {
                 "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
                 "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
                 "requiredFields": ["plan", "tasks"],
-                "optionalFields": ["nodes", "edges"],
+                "optionalFields": [],
                 "fields": []
             }]
         }],
@@ -877,7 +821,7 @@ fn vocab_entry_payload_example() -> Value {
             "values": [{
                 "value": "plan_bootstrap",
                 "aliases": [],
-                "description": "Create a plan and its initial graph in one authoritative write."
+                "description": "Create a plan and its initial tasks in one authoritative write."
             }]
         },
         "relatedResources": sample_related_resources(),
@@ -1000,15 +944,11 @@ fn vocab_payload_example() -> Value {
             "values": [{
                 "value": "plan_bootstrap",
                 "aliases": [],
-                "description": "Create a plan and its initial graph in one authoritative write."
+                "description": "Create a plan and its initial tasks in one authoritative write."
             }, {
                 "value": "task_create",
                 "aliases": [],
                 "description": "Create a coordination task."
-            }, {
-                "value": "plan_node_create",
-                "aliases": [],
-                "description": "Create a first-class plan node."
             }]
         }],
         "relatedResources": sample_related_resources(),
@@ -1142,7 +1082,6 @@ fn plans_payload_example() -> Value {
                 "maxCommitsBehindTarget": 0,
                 "maxFetchAgeSeconds": null
             },
-            "rootNodeIds": ["coord-task:1"],
             "createdAt": 1712304000u64,
             "lastUpdatedAt": 1712307600u64,
             "nodeStatusCounts": {
@@ -1213,8 +1152,7 @@ fn plan_payload_example() -> Value {
             "kind": "migration",
             "revision": 3,
             "tags": ["persistence", "storage"],
-            "createdFrom": "manual",
-            "rootNodeIds": ["coord-task:1"]
+            "createdFrom": "manual"
         },
         "summary": {
             "planId": "plan:1",

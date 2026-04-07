@@ -4,13 +4,11 @@ use prism_coordination::{
 };
 use prism_ir::{
     AnchorRef, ArtifactId, BlockerCause, BlockerCauseSource, Capability, ClaimMode,
-    CoordinationTaskId, NodeRef, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PrincipalId,
-    SessionId, TaskId, Timestamp, WorkspaceRevision,
+    CoordinationTaskId, NodeRef, PlanId, PrincipalId, SessionId, TaskId, Timestamp,
+    WorkspaceRevision,
 };
-use std::collections::BTreeMap;
 
 use crate::common::{anchor_sort_key, sort_node_ids};
-use crate::plan_completion::current_timestamp;
 use crate::{CoordinationPlanV2, CoordinationTaskV2, Prism};
 
 impl Prism {
@@ -154,34 +152,6 @@ impl Prism {
 
     pub fn coordination_events(&self) -> Vec<CoordinationEvent> {
         self.with_coordination_runtime(|runtime| runtime.events())
-    }
-
-    pub fn plan_graph(&self, plan_id: &PlanId) -> Option<PlanGraph> {
-        let runtime = self.plan_runtime_state();
-        self.hydrated_plan_graph_for_runtime(&runtime, plan_id)
-    }
-
-    pub fn plan_execution(&self, plan_id: &PlanId) -> Vec<PlanExecutionOverlay> {
-        self.plan_runtime_state().plan_execution(plan_id)
-    }
-
-    pub fn plan_graphs(&self) -> Vec<PlanGraph> {
-        let runtime = self.plan_runtime_state();
-        self.hydrated_plan_graphs_for_runtime(&runtime)
-    }
-
-    pub fn authored_plan_graphs(&self) -> Vec<PlanGraph> {
-        let runtime = self.plan_runtime_state();
-        self.stabilized_plan_graphs_for_persist(&runtime)
-    }
-
-    pub fn plan_execution_overlays_by_plan(&self) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {
-        self.plan_runtime_state().execution_overlays_by_plan()
-    }
-
-    pub fn plan_ready_nodes(&self, plan_id: &PlanId) -> Vec<PlanNode> {
-        let runtime = self.plan_runtime_state();
-        self.actionable_plan_nodes_for_runtime(&runtime, plan_id, current_timestamp())
     }
 
     pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTask> {

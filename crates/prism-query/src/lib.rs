@@ -1,4 +1,3 @@
-mod ad_hoc_projections;
 mod common;
 mod contracts;
 mod coordination;
@@ -8,12 +7,8 @@ mod intent;
 mod materialized_runtime;
 mod outcomes;
 mod plan_activity;
-mod plan_bindings;
-mod plan_completion;
 mod plan_discovery;
-mod plan_hydration;
 mod plan_insights;
-mod plan_runtime;
 mod source;
 mod symbol;
 mod types;
@@ -27,19 +22,17 @@ use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    migrate_legacy_hybrid_snapshot_to_canonical_v2, Artifact, ArtifactProposeInput, ArtifactReview,
-    ArtifactReviewInput, ArtifactSupersedeInput, CoordinationConflict, CoordinationRuntimeState,
-    CoordinationSnapshot, CoordinationSnapshotV2, CoordinationTask, HandoffAcceptInput,
-    HandoffInput, LeaseHeartbeatDueState, LeaseState, PlanScheduling, RuntimeDescriptor,
-    TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
+    Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
+    CoordinationConflict, CoordinationRuntimeState, CoordinationSnapshot, CoordinationSnapshotV2,
+    CoordinationTask, HandoffAcceptInput, HandoffInput, LeaseHeartbeatDueState, LeaseState,
+    PlanScheduling, RuntimeDescriptor, TaskCreateInput, TaskReclaimInput, TaskResumeInput,
+    TaskUpdateInput, WorkClaim,
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, EdgeKind, EventId, EventMeta,
-    LineageEvent, LineageId, NodeId, NodeKind, ObservedChangeSet, PlanEdgeKind,
-    PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanStatus,
-    PrismRuntimeCapabilities, PrismRuntimeMode, ReviewId, SessionId, TaskId, ValidationRef,
-    WorkspaceRevision,
+    LineageEvent, LineageId, NodeId, NodeKind, ObservedChangeSet, PlanId, PlanStatus,
+    PrismRuntimeCapabilities, PrismRuntimeMode, ReviewId, SessionId, TaskId, WorkspaceRevision,
 };
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
 use prism_memory::{OutcomeRecallQuery, TaskReplay};
@@ -50,9 +43,7 @@ use tracing::info;
 
 use crate::common::{anchor_sort_key, dedupe_node_ids, sort_node_ids};
 use crate::materialized_runtime::MaterializedCoordinationRuntime;
-use crate::plan_bindings::validate_authored_plan_binding;
 use crate::plan_discovery::PlanDiscoveryCache;
-use crate::plan_runtime::NativePlanRuntimeState;
 
 pub use crate::source::{
     source_excerpt_for_line_range, source_excerpt_for_span, source_location_for_span,
@@ -61,8 +52,7 @@ pub use crate::source::{
 };
 pub use crate::symbol::{Relations, Symbol};
 pub use crate::types::{
-    canonical_concept_handle, canonical_contract_handle, AdHocPlanProjection,
-    AdHocPlanProjectionDiff, AdHocPlanProjectionSummary, ArtifactRisk, ChangeImpact, CoChange,
+    canonical_concept_handle, canonical_contract_handle, ArtifactRisk, ChangeImpact, CoChange,
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptHealth,
     ConceptHealthSignals, ConceptHealthStatus, ConceptPacket, ConceptProvenance,
     ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent,
@@ -72,9 +62,8 @@ pub use crate::types::{
     ContractKind, ContractPacket, ContractProvenance, ContractPublication,
     ContractPublicationStatus, ContractResolution, ContractScope, ContractStability,
     ContractStatus, ContractTarget, ContractValidation, CoordinationPlanV2, CoordinationTaskV2,
-    DriftCandidate, PlanActivity, PlanListEntry, PlanNodeRecommendation, PlanNodeStatusCounts,
-    PlanSummary, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck,
-    ValidationRecipe,
+    DriftCandidate, PlanActivity, PlanListEntry, PlanNodeStatusCounts, PlanSummary, QueryLimits,
+    TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 
 pub struct Prism {
@@ -113,8 +102,6 @@ pub struct NativePlanBootstrapInput {
     pub policy: Option<prism_coordination::CoordinationPolicy>,
     pub scheduling: Option<PlanScheduling>,
     pub tasks: Vec<NativePlanBootstrapTaskInput>,
-    pub nodes: Vec<NativePlanBootstrapNodeInput>,
-    pub edges: Vec<NativePlanBootstrapEdgeInput>,
 }
 
 #[derive(Debug, Clone)]
@@ -133,43 +120,9 @@ pub struct NativePlanBootstrapTaskInput {
 }
 
 #[derive(Debug, Clone)]
-pub struct NativePlanBootstrapNodeInput {
-    pub client_id: String,
-    pub kind: PlanNodeKind,
-    pub title: String,
-    pub summary: Option<String>,
-    pub status: Option<PlanNodeStatus>,
-    pub assignee: Option<AgentId>,
-    pub is_abstract: bool,
-    pub bindings: prism_ir::PlanBinding,
-    pub depends_on: Vec<String>,
-    pub acceptance: Vec<prism_ir::PlanAcceptanceCriterion>,
-    pub validation_refs: Vec<ValidationRef>,
-    pub base_revision: WorkspaceRevision,
-    pub priority: Option<u8>,
-    pub tags: Vec<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct NativePlanBootstrapEdgeInput {
-    pub from_client_id: String,
-    pub to_client_id: String,
-    pub kind: PlanEdgeKind,
-}
-
-#[derive(Debug, Clone)]
-pub struct NativePlanBootstrapEdgeResult {
-    pub from_node_id: PlanNodeId,
-    pub to_node_id: PlanNodeId,
-    pub kind: PlanEdgeKind,
-}
-
-#[derive(Debug, Clone)]
 pub struct NativePlanBootstrapResult {
     pub plan_id: PlanId,
     pub task_ids_by_client_id: BTreeMap<String, CoordinationTaskId>,
-    pub node_ids_by_client_id: BTreeMap<String, PlanNodeId>,
-    pub edges: Vec<NativePlanBootstrapEdgeResult>,
 }
 
 pub trait OutcomeReadBackend: Send + Sync {
@@ -184,18 +137,6 @@ pub trait HistoryReadBackend: Send + Sync {
 }
 
 impl Prism {
-    fn validate_native_plan_binding(&self, binding: &prism_ir::PlanBinding) -> Result<()> {
-        validate_authored_plan_binding(
-            binding,
-            |handle| self.concept_by_handle(handle).is_some(),
-            |artifact_ref| {
-                self.coordination_artifact(&ArtifactId::new(artifact_ref))
-                    .is_some()
-            },
-            |outcome_ref| self.outcome_event(&EventId::new(outcome_ref)).is_some(),
-        )
-    }
-
     pub fn new(graph: Graph) -> Self {
         let mut history = HistoryStore::new();
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
@@ -254,82 +195,33 @@ impl Prism {
         )
     }
 
-    pub fn with_history_outcomes_coordination_projections_and_plan_graphs(
-        graph: Graph,
-        history: HistoryStore,
-        outcomes: OutcomeMemory,
-        coordination: CoordinationSnapshot,
-        projections: ProjectionIndex,
-        plan_graphs: Vec<PlanGraph>,
-        execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
-    ) -> Self {
-        Self::with_shared_history_outcomes_coordination_projections_and_plan_graphs(
-            Arc::new(graph),
-            Arc::new(history),
-            Arc::new(outcomes),
-            coordination,
-            projections,
-            plan_graphs,
-            execution_overlays,
-        )
-    }
-
-    pub fn with_shared_history_outcomes_coordination_projections_and_plan_graphs(
+    pub fn with_shared_history_outcomes_coordination_projections_and_intent(
         graph: Arc<Graph>,
         history: Arc<HistoryStore>,
         outcomes: Arc<OutcomeMemory>,
         coordination: CoordinationSnapshot,
         projections: ProjectionIndex,
-        plan_graphs: Vec<PlanGraph>,
-        execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
-    ) -> Self {
-        Self::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_query_state(
-            graph,
-            history,
-            outcomes,
-            coordination,
-            projections,
-            plan_graphs,
-            execution_overlays,
-            Vec::new(),
-            None,
-            false,
-        )
-    }
-
-    pub fn with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_intent(
-        graph: Arc<Graph>,
-        history: Arc<HistoryStore>,
-        outcomes: Arc<OutcomeMemory>,
-        coordination: CoordinationSnapshot,
-        projections: ProjectionIndex,
-        plan_graphs: Vec<PlanGraph>,
-        execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
         runtime_descriptors: Vec<RuntimeDescriptor>,
         intent_override: Option<IntentIndex>,
     ) -> Self {
-        Self::with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_query_state(
+        Self::with_shared_history_outcomes_coordination_projections_and_query_state(
             graph,
             history,
             outcomes,
             coordination,
             projections,
-            plan_graphs,
-            execution_overlays,
             runtime_descriptors,
             intent_override,
             false,
         )
     }
 
-    pub fn with_shared_history_outcomes_coordination_projections_and_plan_graphs_and_query_state(
+    pub fn with_shared_history_outcomes_coordination_projections_and_query_state(
         graph: Arc<Graph>,
         history: Arc<HistoryStore>,
         outcomes: Arc<OutcomeMemory>,
         coordination: CoordinationSnapshot,
         projections: ProjectionIndex,
-        plan_graphs: Vec<PlanGraph>,
-        execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
         runtime_descriptors: Vec<RuntimeDescriptor>,
         intent_override: Option<IntentIndex>,
         trust_cached_projections: bool,
@@ -339,10 +231,8 @@ impl Prism {
             history,
             outcomes,
             projections,
-            MaterializedCoordinationRuntime::from_snapshot_with_graphs_overlays_and_runtime_descriptors(
+            MaterializedCoordinationRuntime::from_snapshot_with_runtime_descriptors(
                 coordination,
-                plan_graphs,
-                execution_overlays,
                 runtime_descriptors,
             ),
             intent_override,
@@ -581,14 +471,6 @@ impl Prism {
         self.outcomes.snapshot()
     }
 
-    pub(crate) fn plan_runtime_state(&self) -> NativePlanRuntimeState {
-        self.materialized_runtime
-            .read()
-            .expect("materialized runtime lock poisoned")
-            .plan_runtime()
-            .clone()
-    }
-
     pub(crate) fn with_coordination_runtime<T>(
         &self,
         read: impl FnOnce(&CoordinationRuntimeState) -> T,
@@ -627,14 +509,7 @@ impl Prism {
             .materialized_runtime
             .read()
             .expect("materialized runtime lock poisoned");
-        let snapshot = runtime.snapshot();
-        let plan_runtime = runtime.plan_runtime().clone();
-        migrate_legacy_hybrid_snapshot_to_canonical_v2(
-            &snapshot,
-            &plan_runtime.plan_graphs(),
-            &plan_runtime.execution_overlays_by_plan(),
-        )
-        .expect("live coordination state should project into canonical v2")
+        runtime.snapshot().to_canonical_snapshot_v2()
     }
 
     pub fn replace_coordination_snapshot(&self, snapshot: CoordinationSnapshot) {
@@ -646,11 +521,9 @@ impl Prism {
         self.invalidate_plan_discovery_cache();
     }
 
-    pub fn replace_coordination_snapshot_and_plan_graphs(
+    pub fn replace_coordination_runtime(
         &self,
         snapshot: CoordinationSnapshot,
-        plan_graphs: Vec<PlanGraph>,
-        execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
         runtime_descriptors: Vec<RuntimeDescriptor>,
     ) {
         let prune_snapshot = snapshot.clone();
@@ -658,11 +531,7 @@ impl Prism {
             .materialized_runtime
             .write()
             .expect("materialized runtime lock poisoned");
-        runtime.replace_from_snapshot_with_graphs_and_overlays(
-            snapshot,
-            plan_graphs,
-            execution_overlays,
-        );
+        runtime.replace_from_snapshot(snapshot);
         runtime.replace_runtime_descriptors(runtime_descriptors);
         self.prune_local_assisted_leases(&prune_snapshot);
         self.invalidate_plan_discovery_cache();
@@ -795,10 +664,6 @@ impl Prism {
     }
 
     pub fn refresh_plan_runtime_from_coordination(&self) {
-        self.materialized_runtime
-            .write()
-            .expect("materialized runtime lock poisoned")
-            .refresh_plan_runtime_from_coordination();
         self.invalidate_plan_discovery_cache();
     }
 
@@ -845,55 +710,6 @@ impl Prism {
             claim_ids.contains(claim_id)
                 && claim_refreshed.get(claim_id).copied().unwrap_or_default() < state.observed_at
         });
-    }
-
-    fn mutate_native_plan_runtime<T, F>(&self, mutate: F) -> Result<T>
-    where
-        F: FnOnce(&mut NativePlanRuntimeState) -> Result<T>,
-    {
-        let result = {
-            let mut runtime = self
-                .materialized_runtime
-                .write()
-                .expect("materialized runtime lock poisoned");
-            let result = mutate(runtime.plan_runtime_mut())?;
-            runtime.apply_plan_runtime_to_current_snapshot();
-            result
-        };
-        self.invalidate_plan_discovery_cache();
-        Ok(result)
-    }
-
-    fn apply_coordination_snapshot_with_native_runtime<T, F>(
-        &self,
-        snapshot: CoordinationSnapshot,
-        mutate: F,
-    ) -> Result<T>
-    where
-        F: FnOnce(&mut NativePlanRuntimeState) -> Result<T>,
-    {
-        let result = {
-            let mut runtime = self
-                .materialized_runtime
-                .write()
-                .expect("materialized runtime lock poisoned");
-            let result = mutate(runtime.plan_runtime_mut())?;
-            let snapshot = runtime
-                .plan_runtime()
-                .apply_to_coordination_snapshot(snapshot);
-            runtime.replace_continuity_snapshot(snapshot);
-            result
-        };
-        self.invalidate_plan_discovery_cache();
-        Ok(result)
-    }
-
-    fn replace_continuity_snapshot(&self, snapshot: CoordinationSnapshot) {
-        self.materialized_runtime
-            .write()
-            .expect("materialized runtime lock poisoned")
-            .replace_continuity_snapshot(snapshot);
-        self.invalidate_plan_discovery_cache();
     }
 
     fn persist_coordination_snapshot(&self, snapshot: CoordinationSnapshot) -> Result<()> {
@@ -943,6 +759,23 @@ impl Prism {
         (before_snapshot, after_snapshot, result)
     }
 
+    fn finalize_live_coordination_mutation<T>(
+        &self,
+        snapshot: CoordinationSnapshot,
+        result: Result<T>,
+    ) -> Result<T> {
+        match result {
+            Ok(value) => {
+                self.refresh_plan_runtime_from_coordination();
+                Ok(value)
+            }
+            Err(error) => {
+                self.persist_coordination_snapshot(snapshot)?;
+                Err(error)
+            }
+        }
+    }
+
     pub fn create_native_task(
         &self,
         meta: EventMeta,
@@ -956,18 +789,8 @@ impl Prism {
         }
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| runtime.create_task(meta, input));
-        match result {
-            Ok((_, task)) => self
-                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.create_task_from_coordination(&task)?;
-                    Ok(task.clone())
-                })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
-            Err(error) => {
-                self.persist_coordination_snapshot(snapshot)?;
-                Err(error)
-            }
-        }
+        let _ = before_snapshot;
+        self.finalize_live_coordination_mutation(snapshot, result.map(|(_, task)| task))
     }
 
     pub fn update_native_task(
@@ -990,25 +813,8 @@ impl Prism {
             self.mutate_live_coordination_runtime(|runtime| {
                 runtime.update_task(meta, input, current_revision, now)
             });
-        match result {
-            Ok(task) => {
-                let plan = snapshot
-                    .plans
-                    .iter()
-                    .find(|plan| plan.id == task.plan)
-                    .cloned()
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
-                    Ok(task.clone())
-                })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
-            }
-            Err(error) => {
-                self.persist_coordination_snapshot(snapshot)?;
-                Err(error)
-            }
-        }
+        let _ = before_snapshot;
+        self.finalize_live_coordination_mutation(snapshot, result)
     }
 
     pub fn update_native_task_authoritative_only(
@@ -1031,25 +837,8 @@ impl Prism {
             self.mutate_live_coordination_runtime(|runtime| {
                 runtime.update_task_authoritative_only(meta, input, current_revision, now)
             });
-        match result {
-            Ok(task) => {
-                let plan = snapshot
-                    .plans
-                    .iter()
-                    .find(|plan| plan.id == task.plan)
-                    .cloned()
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
-                    Ok(task.clone())
-                })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
-            }
-            Err(error) => {
-                self.persist_coordination_snapshot(snapshot)?;
-                Err(error)
-            }
-        }
+        let _ = before_snapshot;
+        self.finalize_live_coordination_mutation(snapshot, result)
     }
 
     pub fn request_native_handoff(
@@ -1062,25 +851,8 @@ impl Prism {
             self.mutate_live_coordination_runtime(|runtime| {
                 runtime.handoff(meta, input, current_revision)
             });
-        match result {
-            Ok(task) => {
-                let plan = snapshot
-                    .plans
-                    .iter()
-                    .find(|plan| plan.id == task.plan)
-                    .cloned()
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
-                    Ok(task.clone())
-                })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
-            }
-            Err(error) => {
-                self.persist_coordination_snapshot(snapshot)?;
-                Err(error)
-            }
-        }
+        let _ = before_snapshot;
+        self.finalize_live_coordination_mutation(snapshot, result)
     }
 
     pub fn accept_native_handoff(
@@ -1094,25 +866,8 @@ impl Prism {
         }
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| runtime.accept_handoff(meta, input));
-        match result {
-            Ok(task) => {
-                let plan = snapshot
-                    .plans
-                    .iter()
-                    .find(|plan| plan.id == task.plan)
-                    .cloned()
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
-                    Ok(task.clone())
-                })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
-            }
-            Err(error) => {
-                self.persist_coordination_snapshot(snapshot)?;
-                Err(error)
-            }
-        }
+        let _ = before_snapshot;
+        self.finalize_live_coordination_mutation(snapshot, result)
     }
 
     pub fn resume_native_task(
@@ -1126,25 +881,8 @@ impl Prism {
         }
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| runtime.resume_task(meta, input));
-        match result {
-            Ok(task) => {
-                let plan = snapshot
-                    .plans
-                    .iter()
-                    .find(|plan| plan.id == task.plan)
-                    .cloned()
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
-                    Ok(task.clone())
-                })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
-            }
-            Err(error) => {
-                self.persist_coordination_snapshot(snapshot)?;
-                Err(error)
-            }
-        }
+        let _ = before_snapshot;
+        self.finalize_live_coordination_mutation(snapshot, result)
     }
 
     pub fn reclaim_native_task(
@@ -1158,25 +896,8 @@ impl Prism {
         }
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| runtime.reclaim_task(meta, input));
-        match result {
-            Ok(task) => {
-                let plan = snapshot
-                    .plans
-                    .iter()
-                    .find(|plan| plan.id == task.plan)
-                    .cloned()
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
-                    Ok(task.clone())
-                })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
-            }
-            Err(error) => {
-                self.persist_coordination_snapshot(snapshot)?;
-                Err(error)
-            }
-        }
+        let _ = before_snapshot;
+        self.finalize_live_coordination_mutation(snapshot, result)
     }
 
     pub fn heartbeat_native_task(
@@ -1189,25 +910,8 @@ impl Prism {
             self.mutate_live_coordination_runtime(|runtime| {
                 runtime.heartbeat_task(meta, task_id, renewal_provenance)
             });
-        match result {
-            Ok(task) => {
-                let plan = snapshot
-                    .plans
-                    .iter()
-                    .find(|plan| plan.id == task.plan)
-                    .cloned()
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
-                    Ok(task.clone())
-                })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
-            }
-            Err(error) => {
-                self.persist_coordination_snapshot(snapshot)?;
-                Err(error)
-            }
-        }
+        let _ = before_snapshot;
+        self.finalize_live_coordination_mutation(snapshot, result)
     }
 
     pub fn acquire_native_claim(
@@ -1284,44 +988,6 @@ impl Prism {
         })
     }
 
-    pub fn create_native_plan_node(
-        &self,
-        plan_id: &PlanId,
-        kind: PlanNodeKind,
-        title: String,
-        summary: Option<String>,
-        status: Option<PlanNodeStatus>,
-        assignee: Option<AgentId>,
-        is_abstract: bool,
-        bindings: prism_ir::PlanBinding,
-        depends_on: Vec<String>,
-        acceptance: Vec<prism_ir::PlanAcceptanceCriterion>,
-        validation_refs: Vec<prism_ir::ValidationRef>,
-        base_revision: WorkspaceRevision,
-        priority: Option<u8>,
-        tags: Vec<String>,
-    ) -> Result<PlanNodeId> {
-        self.validate_native_plan_binding(&bindings)?;
-        self.mutate_native_plan_runtime(|runtime| {
-            runtime.create_node(
-                plan_id,
-                kind,
-                title,
-                summary,
-                status,
-                assignee,
-                is_abstract,
-                bindings,
-                depends_on,
-                acceptance,
-                validation_refs,
-                base_revision,
-                priority,
-                tags,
-            )
-        })
-    }
-
     pub fn create_native_plan(
         &self,
         meta: EventMeta,
@@ -1342,7 +1008,7 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
         scheduling: Option<prism_coordination::PlanScheduling>,
     ) -> Result<PlanId> {
-        self.coordination_transaction(|coordination_runtime, plan_runtime| {
+        self.coordination_transaction(|coordination_runtime| {
             let (plan_id, _plan) = coordination_runtime.create_plan(
                 meta.clone(),
                 prism_coordination::PlanCreateInput {
@@ -1359,10 +1025,6 @@ impl Prism {
                     scheduling,
                 )?;
             }
-            let plan = coordination_runtime
-                .plan(&plan_id)
-                .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-            plan_runtime.create_plan_from_coordination(&plan)?;
             Ok(plan_id)
         })
     }
@@ -1381,12 +1043,6 @@ impl Prism {
             integrated_depends_on: Vec<String>,
         }
 
-        struct CreatedNodeSpec {
-            client_id: String,
-            node_id: PlanNodeId,
-            depends_on: Vec<String>,
-        }
-
         let NativePlanBootstrapInput {
             title,
             goal,
@@ -1394,26 +1050,16 @@ impl Prism {
             policy,
             scheduling,
             tasks,
-            nodes,
-            edges,
         } = input;
 
         let mut seen_client_ids = BTreeSet::new();
-        for client_id in tasks
-            .iter()
-            .map(|task| task.client_id.as_str())
-            .chain(nodes.iter().map(|node| node.client_id.as_str()))
-        {
+        for client_id in tasks.iter().map(|task| task.client_id.as_str()) {
             ensure_unique_bootstrap_client_id(&mut seen_client_ids, client_id)?;
-        }
-
-        for node in &nodes {
-            self.validate_native_plan_binding(&node.bindings)?;
         }
 
         let coordination_context = self.coordination_context();
         let now = meta.ts;
-        self.coordination_transaction(|coordination_runtime, plan_runtime| {
+        self.coordination_transaction(|coordination_runtime| {
             let (plan_id, _) = coordination_runtime.create_plan(
                 meta.clone(),
                 prism_coordination::PlanCreateInput {
@@ -1529,109 +1175,9 @@ impl Prism {
                 )?;
             }
 
-            let plan = coordination_runtime
-                .plan(&plan_id)
-                .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-            let tasks_in_order = created_tasks
-                .iter()
-                .map(|task| {
-                    coordination_runtime
-                        .task(&task.task_id)
-                        .ok_or_else(|| anyhow!("unknown task `{}`", task.task_id.0))
-                        .map(|state| (task.client_id.clone(), state))
-                })
-                .collect::<Result<Vec<_>>>()?;
-
-            plan_runtime.create_plan_from_coordination(&plan)?;
-            for (_, task) in &tasks_in_order {
-                plan_runtime.create_task_from_coordination(task)?;
-            }
-
-            let mut node_ids_by_client_id = task_ids_by_client_id
-                .iter()
-                .map(|(client_id, task_id)| (client_id.clone(), PlanNodeId::new(task_id.0.clone())))
-                .collect::<BTreeMap<_, _>>();
-
-            let mut created_nodes = Vec::with_capacity(nodes.len());
-            for node in nodes {
-                let node_id = plan_runtime.create_node(
-                    &plan_id,
-                    node.kind,
-                    node.title,
-                    node.summary,
-                    node.status,
-                    node.assignee,
-                    node.is_abstract,
-                    node.bindings,
-                    Vec::new(),
-                    node.acceptance,
-                    node.validation_refs,
-                    node.base_revision,
-                    node.priority,
-                    node.tags,
-                )?;
-                node_ids_by_client_id.insert(node.client_id.clone(), node_id.clone());
-                created_nodes.push(CreatedNodeSpec {
-                    client_id: node.client_id,
-                    node_id,
-                    depends_on: node.depends_on,
-                });
-            }
-
-            for node in &created_nodes {
-                if node.depends_on.is_empty() {
-                    continue;
-                }
-                plan_runtime.update_node(
-                    &node.node_id,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    None,
-                    Some(resolve_bootstrap_node_dependencies(
-                        &node_ids_by_client_id,
-                        &node.client_id,
-                        "dependsOn",
-                        &node.depends_on,
-                    )?),
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                    None,
-                )?;
-            }
-
-            let mut created_edges = Vec::with_capacity(edges.len());
-            for edge in edges {
-                let from_node_id = resolve_bootstrap_node_reference(
-                    &node_ids_by_client_id,
-                    &edge.from_client_id,
-                    "fromClientId",
-                )?;
-                let to_node_id = resolve_bootstrap_node_reference(
-                    &node_ids_by_client_id,
-                    &edge.to_client_id,
-                    "toClientId",
-                )?;
-                plan_runtime.create_edge(&plan_id, &from_node_id, &to_node_id, edge.kind)?;
-                created_edges.push(NativePlanBootstrapEdgeResult {
-                    from_node_id,
-                    to_node_id,
-                    kind: edge.kind,
-                });
-            }
-
             Ok(NativePlanBootstrapResult {
                 plan_id,
                 task_ids_by_client_id,
-                node_ids_by_client_id,
-                edges: created_edges,
             })
         })
     }
@@ -1659,7 +1205,7 @@ impl Prism {
         scheduling: Option<prism_coordination::PlanScheduling>,
     ) -> Result<()> {
         let plan_id = plan_id.clone();
-        self.coordination_transaction(|coordination_runtime, plan_runtime| {
+        self.coordination_transaction(|coordination_runtime| {
             if title.is_some() || status.is_some() || goal.is_some() || policy.is_some() {
                 coordination_runtime.update_plan(
                     meta.clone(),
@@ -1679,109 +1225,7 @@ impl Prism {
                     scheduling,
                 )?;
             }
-            let plan = coordination_runtime
-                .plan(&plan_id)
-                .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-            plan_runtime.update_plan_from_coordination(&plan)
-        })
-    }
-
-    pub fn update_native_plan_node(
-        &self,
-        node_id: &PlanNodeId,
-        kind: Option<PlanNodeKind>,
-        status: Option<PlanNodeStatus>,
-        assignee: Option<Option<AgentId>>,
-        is_abstract: Option<bool>,
-        title: Option<String>,
-        summary: Option<String>,
-        clear_summary: bool,
-        bindings: Option<prism_ir::PlanBinding>,
-        depends_on: Option<Vec<String>>,
-        acceptance: Option<Vec<prism_ir::PlanAcceptanceCriterion>>,
-        validation_refs: Option<Vec<prism_ir::ValidationRef>>,
-        base_revision: Option<WorkspaceRevision>,
-        priority: Option<u8>,
-        clear_priority: bool,
-        tags: Option<Vec<String>>,
-    ) -> Result<PlanId> {
-        if self
-            .coordination_task(&prism_ir::CoordinationTaskId::new(node_id.0.clone()))
-            .is_some()
-        {
-            return Err(anyhow!(
-                "plan node `{}` is task-backed; update the coordination task instead",
-                node_id.0
-            ));
-        }
-        if let Some(bindings) = bindings.as_ref() {
-            self.validate_native_plan_binding(bindings)?;
-        }
-        if matches!(status, Some(PlanNodeStatus::Completed)) {
-            let mut preview = self.plan_runtime_state();
-            let plan_id = preview.update_node(
-                node_id,
-                kind,
-                status,
-                assignee.clone(),
-                is_abstract,
-                title.clone(),
-                summary.clone(),
-                clear_summary,
-                bindings.clone(),
-                depends_on.clone(),
-                acceptance.clone(),
-                validation_refs.clone(),
-                base_revision.clone(),
-                priority,
-                clear_priority,
-                tags.clone(),
-            )?;
-            self.validate_native_plan_node_completion_preview(&preview, &plan_id, node_id)?;
-        }
-        self.mutate_native_plan_runtime(|runtime| {
-            runtime.update_node(
-                node_id,
-                kind,
-                status,
-                assignee,
-                is_abstract,
-                title,
-                summary,
-                clear_summary,
-                bindings,
-                depends_on,
-                acceptance,
-                validation_refs,
-                base_revision,
-                priority,
-                clear_priority,
-                tags,
-            )
-        })
-    }
-
-    pub fn create_native_plan_edge(
-        &self,
-        plan_id: &PlanId,
-        from_node_id: &PlanNodeId,
-        to_node_id: &PlanNodeId,
-        kind: PlanEdgeKind,
-    ) -> Result<()> {
-        self.mutate_native_plan_runtime(|runtime| {
-            runtime.create_edge(plan_id, from_node_id, to_node_id, kind)
-        })
-    }
-
-    pub fn delete_native_plan_edge(
-        &self,
-        plan_id: &PlanId,
-        from_node_id: &PlanNodeId,
-        to_node_id: &PlanNodeId,
-        kind: PlanEdgeKind,
-    ) -> Result<()> {
-        self.mutate_native_plan_runtime(|runtime| {
-            runtime.delete_edge(plan_id, from_node_id, to_node_id, kind)
+            Ok(())
         })
     }
 
@@ -2122,39 +1566,6 @@ fn resolve_bootstrap_task_dependencies(
                 })
         })
         .collect()
-}
-
-fn resolve_bootstrap_node_dependencies(
-    node_ids_by_client_id: &BTreeMap<String, PlanNodeId>,
-    owner_client_id: &str,
-    field: &str,
-    refs: &[String],
-) -> Result<Vec<String>> {
-    refs.iter()
-        .map(|client_id| {
-            node_ids_by_client_id
-                .get(client_id)
-                .map(|node_id| node_id.0.to_string())
-                .ok_or_else(|| {
-                    anyhow!(
-                        "plan bootstrap node `{owner_client_id}` references unknown client id `{client_id}` in `{field}`"
-                    )
-                })
-        })
-        .collect()
-}
-
-fn resolve_bootstrap_node_reference(
-    node_ids_by_client_id: &BTreeMap<String, PlanNodeId>,
-    client_id: &str,
-    field: &str,
-) -> Result<PlanNodeId> {
-    node_ids_by_client_id
-        .get(client_id)
-        .cloned()
-        .ok_or_else(|| {
-            anyhow!("plan bootstrap references unknown client id `{client_id}` in `{field}`")
-        })
 }
 
 fn affected_intent_specs(observed_changes: &[ObservedChangeSet]) -> HashSet<NodeId> {

@@ -6,9 +6,8 @@ use prism_coordination::{
 };
 use prism_core::WorkspaceSession;
 use prism_ir::{
-    AcceptanceEvidencePolicy, AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind,
-    EventActor, LeaseRenewalMode, NodeId, NodeKind, PlanAcceptanceCriterion, PlanBinding,
-    PlanEdgeKind, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, ReviewVerdict,
+    AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind, EventActor,
+    LeaseRenewalMode, NodeId, NodeKind, PlanBinding, PlanScope, PlanStatus, ReviewVerdict,
     ValidationRef,
 };
 use prism_memory::{
@@ -21,13 +20,12 @@ use std::path::{Path, PathBuf};
 use crate::log_scope::LogScope;
 use crate::tool_args::ValidationRefPayload;
 use crate::{
-    vocabulary_error, AcceptanceCriterionPayload, AcceptanceEvidencePolicyInput, AnchorRefInput,
-    CapabilityInput, ClaimModeInput, CoordinationPolicyPayload, CoordinationTaskStatusInput,
+    vocabulary_error, AcceptanceCriterionPayload, AnchorRefInput, CapabilityInput,
+    ClaimModeInput, CoordinationPolicyPayload, CoordinationTaskStatusInput,
     GitExecutionCompletionModeInput, GitExecutionStartModeInput, GitIntegrationModeInput,
     InferredEdgeScopeInput, LeaseRenewalModeInput, MemoryKindInput, MemorySourceInput, NodeIdInput,
     OutcomeEvidenceInput, OutcomeKindInput, OutcomeResultInput, PlanBindingPayload,
-    PlanEdgeKindInput, PlanNodeKindInput, PlanNodeStatusInput, PlanSchedulingPayload,
-    PlanStatusInput, ReviewVerdictInput, TaskCompletionContextPayload,
+    PlanSchedulingPayload, PlanStatusInput, ReviewVerdictInput, TaskCompletionContextPayload,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -815,46 +813,6 @@ pub(crate) fn parse_plan_scope(value: &str) -> Result<PlanScope> {
     }
 }
 
-pub(crate) fn convert_plan_node_status(value: PlanNodeStatusInput) -> PlanNodeStatus {
-    match value {
-        PlanNodeStatusInput::Proposed => PlanNodeStatus::Proposed,
-        PlanNodeStatusInput::Ready => PlanNodeStatus::Ready,
-        PlanNodeStatusInput::InProgress => PlanNodeStatus::InProgress,
-        PlanNodeStatusInput::Blocked => PlanNodeStatus::Blocked,
-        PlanNodeStatusInput::Waiting => PlanNodeStatus::Waiting,
-        PlanNodeStatusInput::InReview => PlanNodeStatus::InReview,
-        PlanNodeStatusInput::Validating => PlanNodeStatus::Validating,
-        PlanNodeStatusInput::Completed => PlanNodeStatus::Completed,
-        PlanNodeStatusInput::Abandoned => PlanNodeStatus::Abandoned,
-    }
-}
-
-pub(crate) fn convert_plan_node_kind(value: PlanNodeKindInput) -> PlanNodeKind {
-    match value {
-        PlanNodeKindInput::Investigate => PlanNodeKind::Investigate,
-        PlanNodeKindInput::Decide => PlanNodeKind::Decide,
-        PlanNodeKindInput::Edit => PlanNodeKind::Edit,
-        PlanNodeKindInput::Validate => PlanNodeKind::Validate,
-        PlanNodeKindInput::Review => PlanNodeKind::Review,
-        PlanNodeKindInput::Handoff => PlanNodeKind::Handoff,
-        PlanNodeKindInput::Merge => PlanNodeKind::Merge,
-        PlanNodeKindInput::Release => PlanNodeKind::Release,
-        PlanNodeKindInput::Note => PlanNodeKind::Note,
-    }
-}
-
-pub(crate) fn convert_plan_edge_kind(value: PlanEdgeKindInput) -> PlanEdgeKind {
-    match value {
-        PlanEdgeKindInput::DependsOn => PlanEdgeKind::DependsOn,
-        PlanEdgeKindInput::Blocks => PlanEdgeKind::Blocks,
-        PlanEdgeKindInput::Informs => PlanEdgeKind::Informs,
-        PlanEdgeKindInput::Validates => PlanEdgeKind::Validates,
-        PlanEdgeKindInput::HandoffTo => PlanEdgeKind::HandoffTo,
-        PlanEdgeKindInput::ChildOf => PlanEdgeKind::ChildOf,
-        PlanEdgeKindInput::RelatedTo => PlanEdgeKind::RelatedTo,
-    }
-}
-
 pub(crate) fn convert_review_verdict(value: ReviewVerdictInput) -> ReviewVerdict {
     match value {
         ReviewVerdictInput::Approved => ReviewVerdict::Approved,
@@ -1005,39 +963,6 @@ pub(crate) fn convert_acceptance(
         .collect()
 }
 
-pub(crate) fn convert_plan_acceptance(
-    prism: &Prism,
-    workspace: Option<&WorkspaceSession>,
-    workspace_root: Option<&Path>,
-    payload: Option<Vec<AcceptanceCriterionPayload>>,
-) -> Result<Vec<PlanAcceptanceCriterion>> {
-    payload
-        .unwrap_or_default()
-        .into_iter()
-        .map(|criterion| {
-            Ok(PlanAcceptanceCriterion {
-                label: criterion.label,
-                anchors: convert_anchors(
-                    prism,
-                    workspace,
-                    workspace_root,
-                    criterion.anchors.unwrap_or_default(),
-                )?,
-                required_checks: criterion
-                    .required_checks
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|check| ValidationRef { id: check.id })
-                    .collect(),
-                evidence_policy: criterion
-                    .evidence_policy
-                    .map(convert_acceptance_evidence_policy)
-                    .unwrap_or(AcceptanceEvidencePolicy::Any),
-            })
-        })
-        .collect()
-}
-
 pub(crate) fn convert_validation_refs(
     payload: Option<Vec<ValidationRefPayload>>,
 ) -> Vec<ValidationRef> {
@@ -1135,20 +1060,6 @@ pub(crate) fn edge_kind_label(kind: EdgeKind) -> &'static str {
         EdgeKind::Specifies => "specifies",
         EdgeKind::Validates => "validates",
         EdgeKind::RelatedTo => "related-to",
-    }
-}
-
-pub(crate) fn convert_acceptance_evidence_policy(
-    value: AcceptanceEvidencePolicyInput,
-) -> AcceptanceEvidencePolicy {
-    match value {
-        AcceptanceEvidencePolicyInput::Any => AcceptanceEvidencePolicy::Any,
-        AcceptanceEvidencePolicyInput::All => AcceptanceEvidencePolicy::All,
-        AcceptanceEvidencePolicyInput::ReviewOnly => AcceptanceEvidencePolicy::ReviewOnly,
-        AcceptanceEvidencePolicyInput::ValidationOnly => AcceptanceEvidencePolicy::ValidationOnly,
-        AcceptanceEvidencePolicyInput::ReviewAndValidation => {
-            AcceptanceEvidencePolicy::ReviewAndValidation
-        }
     }
 }
 

@@ -26,8 +26,6 @@ string_id!(PrincipalAuthorityId);
 string_id!(PrincipalId);
 string_id!(CredentialId);
 string_id!(PlanId);
-string_id!(PlanNodeId);
-string_id!(PlanEdgeId);
 string_id!(CoordinationTaskId);
 string_id!(ClaimId);
 string_id!(ArtifactId);

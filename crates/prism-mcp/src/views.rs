@@ -4,41 +4,37 @@ use prism_curator::{
 };
 use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
-    AdHocPlanProjectionDiffView, AdHocPlanProjectionSummaryView, AdHocPlanProjectionView,
-    AnchorRefView, ArtifactRiskView, ArtifactView, BlockerCauseView, BlockerView, ChangeImpactView,
-    ClaimView, CoChangeView, ConceptBindingMetadataView, ConceptCurationHintsView,
-    ConceptDecodeLensView, ConceptPacketTruncationView, ConceptPacketVerbosityView,
-    ConceptPacketView, ConceptProvenanceView, ConceptPublicationStatusView, ConceptPublicationView,
-    ConceptRelationDirectionView, ConceptRelationKindView, ConceptRelationView,
-    ConceptResolutionView, ConceptScopeView, ConflictView, ContractCompatibilityView,
-    ContractGuaranteeStrengthView, ContractGuaranteeView, ContractHealthSignalsView,
-    ContractHealthStatusView, ContractHealthView, ContractKindView, ContractPacketView,
-    ContractResolutionView, ContractStabilityView, ContractStatusView, ContractTargetView,
-    ContractValidationView, CoordinationPlanV2View, CoordinationTaskLifecycleView,
-    CoordinationTaskV2View, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
-    CuratorProposalView, DriftCandidateView, EdgeView, GitExecutionOverlayView,
-    GitExecutionPolicyView, GitPreflightReportView, GitPublishReportView, MemoryEntryView,
-    MemoryEventView, NodeIdView, NodeRefView, PlanAcceptanceCriterionView, PlanActivityView,
-    PlanBindingView, PlanChildrenV2View, PlanEdgeView, PlanExecutionOverlayView, PlanGraphView,
-    PlanListEntryView, PlanNodeBlockerView, PlanNodeRecommendationView, PlanNodeStatusCountsView,
-    PlanNodeView, PlanSchedulingView, PlanSummaryView, PlanView, PolicyViolationRecordView,
-    PolicyViolationView, ProjectionAuthorityPlaneView, ProjectionClassView, QueryDiagnostic,
-    ScoredMemoryView, TaskExecutorPolicyView, TaskGitExecutionView, TaskIntentView, TaskRiskView,
-    TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, ValidationRefView,
-    WorkspaceRevisionView,
+    AnchorRefView, ArtifactRiskView, ArtifactView, BlockerCauseView, BlockerView,
+    ChangeImpactView, ClaimView, CoChangeView, ConceptBindingMetadataView,
+    ConceptCurationHintsView, ConceptDecodeLensView, ConceptPacketTruncationView,
+    ConceptPacketVerbosityView, ConceptPacketView, ConceptProvenanceView,
+    ConceptPublicationStatusView, ConceptPublicationView, ConceptRelationDirectionView,
+    ConceptRelationKindView, ConceptRelationView, ConceptResolutionView, ConceptScopeView,
+    ConflictView, ContractCompatibilityView, ContractGuaranteeStrengthView,
+    ContractGuaranteeView, ContractHealthSignalsView, ContractHealthStatusView,
+    ContractHealthView, ContractKindView, ContractPacketView, ContractResolutionView,
+    ContractStabilityView, ContractStatusView, ContractTargetView, ContractValidationView,
+    CoordinationPlanV2View, CoordinationTaskLifecycleView, CoordinationTaskV2View,
+    CoordinationTaskView, CuratorJobView, CuratorProposalRecordView, CuratorProposalView,
+    DriftCandidateView, EdgeView, GitExecutionPolicyView, GitPreflightReportView,
+    GitPublishReportView, MemoryEntryView, MemoryEventView, NodeIdView, NodeRefView,
+    PlanActivityView, PlanBindingView, PlanChildrenV2View, PlanListEntryView,
+    PlanNodeStatusCountsView, PlanSchedulingView, PlanSummaryView, PlanView,
+    PolicyViolationRecordView, PolicyViolationView,
+    QueryDiagnostic, ScoredMemoryView, TaskExecutorPolicyView, TaskGitExecutionView,
+    TaskIntentView, TaskRiskView, TaskValidationRecipeView, ValidationCheckView,
+    ValidationRecipeView, ValidationRefView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
-use prism_projections::{ProjectionAuthorityPlane, ProjectionClass};
 use prism_query::{
-    AdHocPlanProjection, AdHocPlanProjectionDiff, AdHocPlanProjectionSummary, ArtifactRisk,
-    ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, ConceptProvenance,
+    ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, ConceptProvenance,
     ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationKind,
     ConceptResolution, ConceptScope, ContractCompatibility, ContractGuarantee,
     ContractGuaranteeStrength, ContractHealth, ContractHealthSignals, ContractHealthStatus,
     ContractKind, ContractPacket, ContractResolution, ContractStability, ContractStatus,
     ContractTarget, ContractValidation, CoordinationPlanV2, CoordinationTaskV2, DriftCandidate,
-    PlanActivity, PlanListEntry, PlanNodeRecommendation, PlanNodeStatusCounts, PlanSummary, Prism,
-    TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    PlanActivity, PlanListEntry, PlanNodeStatusCounts, PlanSummary, Prism, TaskIntent, TaskRisk,
+    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
 use std::path::Path;
@@ -1285,31 +1281,6 @@ pub(crate) fn workspace_revision_view(value: WorkspaceRevision) -> WorkspaceRevi
     }
 }
 
-pub(crate) fn plan_view(
-    value: prism_coordination::Plan,
-    root_node_ids: Vec<prism_ir::PlanNodeId>,
-    activity: Option<PlanActivity>,
-) -> PlanView {
-    PlanView {
-        id: value.id.0.to_string(),
-        title: value.title,
-        goal: value.goal,
-        status: value.status,
-        scope: value.scope,
-        kind: value.kind,
-        revision: value.revision,
-        scheduling: plan_scheduling_view(value.scheduling),
-        git_execution_policy: git_execution_policy_view(value.policy.git_execution),
-        tags: value.tags,
-        created_from: value.created_from,
-        root_node_ids: root_node_ids
-            .into_iter()
-            .map(|node_id| node_id.0.to_string())
-            .collect(),
-        activity: activity.map(plan_activity_view),
-    }
-}
-
 pub(crate) fn plan_view_from_v2(
     value: CoordinationPlanV2,
     legacy: Option<prism_coordination::Plan>,
@@ -1327,7 +1298,6 @@ pub(crate) fn plan_view_from_v2(
         git_execution_policy: git_execution_policy_view(value.plan.policy.git_execution),
         tags: value.plan.tags,
         created_from: value.plan.created_from,
-        root_node_ids: value.children.into_iter().map(|child| child.id).collect(),
         activity: activity.map(plan_activity_view),
     }
 }
@@ -1561,11 +1531,6 @@ pub(crate) fn plan_list_entry_view(value: PlanListEntry) -> PlanListEntryView {
         kind: value.kind,
         scheduling: plan_scheduling_view(value.scheduling),
         git_execution_policy: git_execution_policy_view(value.policy.git_execution),
-        root_node_ids: value
-            .root_node_ids
-            .into_iter()
-            .map(|node_id| node_id.0.to_string())
-            .collect(),
         created_at: activity.created_at,
         last_updated_at: activity.last_updated_at,
         node_status_counts: plan_node_status_counts_view(value.node_status_counts),
@@ -1630,60 +1595,6 @@ pub(crate) fn git_execution_policy_view(
     }
 }
 
-pub(crate) fn plan_graph_view(value: prism_ir::PlanGraph) -> PlanGraphView {
-    PlanGraphView {
-        id: value.id.0.to_string(),
-        scope: value.scope,
-        kind: value.kind,
-        title: value.title,
-        goal: value.goal,
-        status: value.status,
-        revision: value.revision,
-        root_node_ids: value
-            .root_nodes
-            .into_iter()
-            .map(|node_id| node_id.0.to_string())
-            .collect(),
-        tags: value.tags,
-        created_from: value.created_from,
-        metadata: value.metadata,
-        nodes: value.nodes.into_iter().map(plan_node_view).collect(),
-        edges: value.edges.into_iter().map(plan_edge_view).collect(),
-    }
-}
-
-pub(crate) fn plan_execution_overlay_view(
-    value: prism_ir::PlanExecutionOverlay,
-) -> PlanExecutionOverlayView {
-    PlanExecutionOverlayView {
-        node_id: value.node_id.0.to_string(),
-        pending_handoff_to: value.pending_handoff_to.map(|agent| agent.0.to_string()),
-        session: value.session.map(|session| session.0.to_string()),
-        effective_assignee: value.effective_assignee.map(|agent| agent.0.to_string()),
-        awaiting_handoff_from: value.awaiting_handoff_from.map(|node| node.0.to_string()),
-        git_execution: value.git_execution.map(git_execution_overlay_view),
-    }
-}
-
-fn git_execution_overlay_view(value: prism_ir::GitExecutionOverlay) -> GitExecutionOverlayView {
-    GitExecutionOverlayView {
-        status: value.status,
-        pending_task_status: value.pending_task_status,
-        source_ref: value.source_ref,
-        target_ref: value.target_ref,
-        publish_ref: value.publish_ref,
-        target_branch: value.target_branch,
-        source_commit: value.source_commit,
-        publish_commit: value.publish_commit,
-        target_commit_at_publish: value.target_commit_at_publish,
-        review_artifact_ref: value.review_artifact_ref,
-        integration_commit: value.integration_commit,
-        integration_evidence: value.integration_evidence,
-        integration_mode: value.integration_mode,
-        integration_status: value.integration_status,
-    }
-}
-
 fn git_preflight_report_view(
     value: prism_coordination::GitPreflightReport,
 ) -> GitPreflightReportView {
@@ -1720,138 +1631,6 @@ fn git_publish_report_view(value: prism_coordination::GitPublishReport) -> GitPu
     }
 }
 
-pub(crate) fn ad_hoc_plan_projection_summary_view(
-    value: AdHocPlanProjectionSummary,
-) -> AdHocPlanProjectionSummaryView {
-    AdHocPlanProjectionSummaryView {
-        total_nodes: value.total_nodes,
-        abstract_nodes: value.abstract_nodes,
-        proposed_nodes: value.proposed_nodes,
-        ready_nodes: value.ready_nodes,
-        waiting_nodes: value.waiting_nodes,
-        in_progress_nodes: value.in_progress_nodes,
-        in_review_nodes: value.in_review_nodes,
-        validating_nodes: value.validating_nodes,
-        blocked_nodes: value.blocked_nodes,
-        completed_nodes: value.completed_nodes,
-        abandoned_nodes: value.abandoned_nodes,
-        total_edges: value.total_edges,
-    }
-}
-
-pub(crate) fn ad_hoc_plan_projection_view(value: AdHocPlanProjection) -> AdHocPlanProjectionView {
-    AdHocPlanProjectionView {
-        projection_class: match value.projection_class {
-            ProjectionClass::Published => ProjectionClassView::Published,
-            ProjectionClass::Serving => ProjectionClassView::Serving,
-            ProjectionClass::AdHoc => ProjectionClassView::AdHoc,
-        },
-        authority_planes: value
-            .authority_planes
-            .into_iter()
-            .map(|plane| match plane {
-                ProjectionAuthorityPlane::PublishedRepo => {
-                    ProjectionAuthorityPlaneView::PublishedRepo
-                }
-                ProjectionAuthorityPlane::SharedRuntime => {
-                    ProjectionAuthorityPlaneView::SharedRuntime
-                }
-            })
-            .collect(),
-        history_source: value.history_source,
-        plan_id: value.plan_id.0.to_string(),
-        as_of: value.as_of,
-        replayed_event_count: value.replayed_event_count,
-        graph: plan_graph_view(value.graph),
-        execution_overlays: value
-            .execution_overlays
-            .into_iter()
-            .map(plan_execution_overlay_view)
-            .collect(),
-        summary: ad_hoc_plan_projection_summary_view(value.summary),
-    }
-}
-
-pub(crate) fn ad_hoc_plan_projection_diff_view(
-    value: AdHocPlanProjectionDiff,
-) -> AdHocPlanProjectionDiffView {
-    AdHocPlanProjectionDiffView {
-        projection_class: match value.projection_class {
-            ProjectionClass::Published => ProjectionClassView::Published,
-            ProjectionClass::Serving => ProjectionClassView::Serving,
-            ProjectionClass::AdHoc => ProjectionClassView::AdHoc,
-        },
-        authority_planes: value
-            .authority_planes
-            .into_iter()
-            .map(|plane| match plane {
-                ProjectionAuthorityPlane::PublishedRepo => {
-                    ProjectionAuthorityPlaneView::PublishedRepo
-                }
-                ProjectionAuthorityPlane::SharedRuntime => {
-                    ProjectionAuthorityPlaneView::SharedRuntime
-                }
-            })
-            .collect(),
-        history_source: value.history_source,
-        plan_id: value.plan_id.0.to_string(),
-        from: value.from,
-        to: value.to,
-        before: value.before.map(ad_hoc_plan_projection_view),
-        after: value.after.map(ad_hoc_plan_projection_view),
-        plan_metadata_changed: value.plan_metadata_changed,
-        added_nodes: value
-            .added_nodes
-            .into_iter()
-            .map(|id| id.0.to_string())
-            .collect(),
-        removed_nodes: value
-            .removed_nodes
-            .into_iter()
-            .map(|id| id.0.to_string())
-            .collect(),
-        changed_nodes: value
-            .changed_nodes
-            .into_iter()
-            .map(|id| id.0.to_string())
-            .collect(),
-        added_edges: value
-            .added_edges
-            .into_iter()
-            .map(|id| id.0.to_string())
-            .collect(),
-        removed_edges: value
-            .removed_edges
-            .into_iter()
-            .map(|id| id.0.to_string())
-            .collect(),
-        changed_edges: value
-            .changed_edges
-            .into_iter()
-            .map(|id| id.0.to_string())
-            .collect(),
-        changed_execution_nodes: value
-            .changed_execution_nodes
-            .into_iter()
-            .map(|id| id.0.to_string())
-            .collect(),
-    }
-}
-
-pub(crate) fn plan_node_blocker_view(value: prism_ir::PlanNodeBlocker) -> PlanNodeBlockerView {
-    PlanNodeBlockerView {
-        kind: value.kind,
-        summary: value.summary,
-        related_node_id: value.related_node_id.map(|node_id| node_id.0.to_string()),
-        related_artifact_id: value
-            .related_artifact_id
-            .map(|artifact_id| artifact_id.0.to_string()),
-        risk_score: value.risk_score,
-        validation_checks: value.validation_checks,
-        causes: value.causes.into_iter().map(blocker_cause_view).collect(),
-    }
-}
-
 pub(crate) fn plan_summary_view(value: PlanSummary) -> PlanSummaryView {
     PlanSummaryView {
         plan_id: value.plan_id.0.to_string(),
@@ -1870,119 +1649,6 @@ pub(crate) fn plan_summary_view(value: PlanSummary) -> PlanSummaryView {
     }
 }
 
-pub(crate) fn plan_node_recommendation_view(
-    value: PlanNodeRecommendation,
-) -> PlanNodeRecommendationView {
-    PlanNodeRecommendationView {
-        node: plan_node_view(value.node),
-        actionable: value.actionable,
-        effective_assignee: value.effective_assignee.map(|agent| agent.0.to_string()),
-        score: value.score,
-        reasons: value.reasons,
-        blockers: value
-            .blockers
-            .into_iter()
-            .map(plan_node_blocker_view)
-            .collect(),
-        unblocks: value
-            .unblocks
-            .into_iter()
-            .map(|id| id.0.to_string())
-            .collect(),
-    }
-}
-
-pub(crate) fn plan_node_view(value: prism_ir::PlanNode) -> PlanNodeView {
-    PlanNodeView {
-        id: value.id.0.to_string(),
-        plan_id: value.plan_id.0.to_string(),
-        kind: value.kind,
-        title: value.title,
-        summary: value.summary,
-        status: value.status,
-        bindings: plan_binding_view(value.bindings),
-        acceptance: value
-            .acceptance
-            .into_iter()
-            .map(plan_acceptance_criterion_view)
-            .collect(),
-        validation_refs: value
-            .validation_refs
-            .into_iter()
-            .map(|check| ValidationRefView { id: check.id })
-            .collect(),
-        is_abstract: value.is_abstract,
-        assignee: value.assignee.map(|agent| agent.0.to_string()),
-        base_revision: workspace_revision_view(value.base_revision),
-        priority: value.priority,
-        tags: value.tags,
-        metadata: value.metadata,
-    }
-}
-
-pub(crate) fn task_shaped_view_for_native_plan_node(
-    value: prism_ir::PlanNode,
-) -> CoordinationTaskView {
-    let status = match value.status {
-        prism_ir::PlanNodeStatus::Proposed => prism_ir::CoordinationTaskStatus::Proposed,
-        prism_ir::PlanNodeStatus::Ready => prism_ir::CoordinationTaskStatus::Ready,
-        prism_ir::PlanNodeStatus::InProgress => prism_ir::CoordinationTaskStatus::InProgress,
-        prism_ir::PlanNodeStatus::Blocked | prism_ir::PlanNodeStatus::Waiting => {
-            prism_ir::CoordinationTaskStatus::Blocked
-        }
-        prism_ir::PlanNodeStatus::InReview => prism_ir::CoordinationTaskStatus::InReview,
-        prism_ir::PlanNodeStatus::Validating => prism_ir::CoordinationTaskStatus::Validating,
-        prism_ir::PlanNodeStatus::Completed => prism_ir::CoordinationTaskStatus::Completed,
-        prism_ir::PlanNodeStatus::Abandoned => prism_ir::CoordinationTaskStatus::Abandoned,
-    };
-    let git_execution = prism_coordination::TaskGitExecution::default();
-    let lifecycle = coordination_task_lifecycle_view(status, &git_execution);
-    CoordinationTaskView {
-        id: value.id.0.to_string(),
-        plan_id: value.plan_id.0.to_string(),
-        kind: value.kind,
-        title: value.title,
-        summary: value.summary,
-        status,
-        published_task_status: None,
-        assignee: value.assignee.map(|agent| agent.0.to_string()),
-        pending_handoff_to: None,
-        anchors: value.bindings.anchors.clone(),
-        bindings: plan_binding_view(value.bindings),
-        depends_on: Vec::new(),
-        coordination_depends_on: Vec::new(),
-        integrated_depends_on: Vec::new(),
-        lifecycle,
-        validation_refs: value
-            .validation_refs
-            .into_iter()
-            .map(|check| ValidationRefView { id: check.id })
-            .collect(),
-        is_abstract: value.is_abstract,
-        base_revision: workspace_revision_view(value.base_revision),
-        priority: value.priority,
-        tags: value.tags,
-        git_execution: TaskGitExecutionView {
-            status: git_execution.status,
-            pending_task_status: git_execution.pending_task_status,
-            source_ref: git_execution.source_ref,
-            target_ref: git_execution.target_ref,
-            publish_ref: git_execution.publish_ref,
-            target_branch: git_execution.target_branch,
-            source_commit: git_execution.source_commit,
-            publish_commit: git_execution.publish_commit,
-            target_commit_at_publish: git_execution.target_commit_at_publish,
-            review_artifact_ref: git_execution.review_artifact_ref,
-            integration_commit: git_execution.integration_commit,
-            integration_evidence: git_execution.integration_evidence,
-            integration_mode: git_execution.integration_mode,
-            integration_status: git_execution.integration_status,
-            last_preflight: git_execution.last_preflight.map(git_preflight_report_view),
-            last_publish: git_execution.last_publish.map(git_publish_report_view),
-        },
-    }
-}
-
 fn plan_binding_view(value: prism_ir::PlanBinding) -> PlanBindingView {
     PlanBindingView {
         anchors: value.anchors,
@@ -1990,33 +1656,6 @@ fn plan_binding_view(value: prism_ir::PlanBinding) -> PlanBindingView {
         artifact_refs: value.artifact_refs,
         memory_refs: value.memory_refs,
         outcome_refs: value.outcome_refs,
-    }
-}
-
-fn plan_acceptance_criterion_view(
-    value: prism_ir::PlanAcceptanceCriterion,
-) -> PlanAcceptanceCriterionView {
-    PlanAcceptanceCriterionView {
-        label: value.label,
-        anchors: value.anchors,
-        required_checks: value
-            .required_checks
-            .into_iter()
-            .map(|check| ValidationRefView { id: check.id })
-            .collect(),
-        evidence_policy: format!("{:?}", value.evidence_policy),
-    }
-}
-
-pub(crate) fn plan_edge_view(value: prism_ir::PlanEdge) -> PlanEdgeView {
-    PlanEdgeView {
-        id: value.id.0.to_string(),
-        plan_id: value.plan_id.0.to_string(),
-        from: value.from.0.to_string(),
-        to: value.to.0.to_string(),
-        kind: value.kind,
-        summary: value.summary,
-        metadata: value.metadata,
     }
 }
 

@@ -507,9 +507,6 @@ mod tests {
                 tags: vec!["rewrite".into()],
                 created_from: Some("spec".into()),
                 metadata: json!({"source": "legacy"}),
-                authored_nodes: Vec::new(),
-                authored_edges: Vec::new(),
-                root_tasks: vec![CoordinationTaskId::new("coord-task:demo")],
             }],
             tasks: vec![CoordinationTask {
                 id: CoordinationTaskId::new("coord-task:demo"),
@@ -582,9 +579,6 @@ mod tests {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: Value::Null,
-                authored_nodes: Vec::new(),
-                authored_edges: Vec::new(),
-                root_tasks: vec![CoordinationTaskId::new("coord-task:demo")],
             }],
             tasks: vec![CoordinationTask {
                 id: CoordinationTaskId::new("coord-task:demo"),

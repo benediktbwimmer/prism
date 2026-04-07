@@ -32,9 +32,8 @@ pub use events::{
 pub use graph::{Edge, EdgeKind, EdgeOrigin, Node, NodeId, NodeKind, Skeleton, Subgraph};
 pub use history::{LineageEvent, LineageEventKind, LineageEvidence};
 pub use identity::{
-    AgentId, ArtifactId, ClaimId, CoordinationTaskId, CredentialId, EventId, LineageId, PlanEdgeId,
-    PlanId, PlanNodeId, PrincipalAuthorityId, PrincipalId, ReviewId, SessionId, TaskId,
-    WorkspaceRevision,
+    AgentId, ArtifactId, ClaimId, CoordinationTaskId, CredentialId, EventId, LineageId, PlanId,
+    PrincipalAuthorityId, PrincipalId, ReviewId, SessionId, TaskId, WorkspaceRevision,
 };
 pub use parse::{
     SymbolFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport, UnresolvedIntent,
@@ -43,8 +42,7 @@ pub use plans::{
     AcceptanceEvidencePolicy, BlockerCause, BlockerCauseSource, GitExecutionOverlay,
     GitExecutionStatus, GitIntegrationEvidence, GitIntegrationEvidenceKind, GitIntegrationMode,
     GitIntegrationStatus, HydratedPlanBindingOverlay, PlanAcceptanceCriterion, PlanBinding,
-    PlanEdge, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode, PlanNodeBlocker,
-    PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope, ValidationRef,
+    PlanKind, PlanNodeKind, PlanScope, ValidationRef,
 };
 pub use primitives::{EdgeIndex, FileId, Language, Span, Timestamp};
 pub use principal::{

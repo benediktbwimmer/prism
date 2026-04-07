@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::env;
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -6,25 +6,26 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use prism_coordination::{
     coordination_queue_read_model_from_seed, coordination_read_model_from_seed,
-    coordination_snapshot_from_events, snapshot_plan_graphs, CoordinationEvent,
-    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    CoordinationEvent, CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
     CoordinationSnapshotV2, TaskGitExecution,
 };
-use prism_ir::{PlanExecutionOverlay, PlanGraph, SessionId};
+use prism_ir::SessionId;
 use prism_store::{
     CoordinationCheckpointStore, CoordinationJournal, CoordinationPersistBatch,
     CoordinationPersistResult,
 };
 use serde_json::{json, Value};
 
-use crate::coordination_startup_checkpoint::{
-    load_materialized_coordination_plan_state, load_materialized_coordination_snapshot,
-    load_materialized_coordination_snapshot_v2, save_shared_coordination_startup_checkpoint,
+use crate::coordination_reads::{
+    load_eventual_coordination_plan_state_for_root as load_eventual_plan_state_for_root,
+    load_eventual_coordination_snapshot_for_root as load_eventual_snapshot_for_root,
+    load_eventual_coordination_snapshot_v2_for_root as load_eventual_snapshot_v2_for_root,
 };
+use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::published_plans::{
-    execution_overlays_by_plan, load_hydrated_coordination_plan_state,
-    load_hydrated_coordination_snapshot, load_hydrated_coordination_snapshot_v2,
-    sync_repo_published_plan_state, sync_repo_published_plans, HydratedCoordinationPlanState,
+    load_authoritative_coordination_plan_state, load_authoritative_coordination_snapshot,
+    load_authoritative_coordination_snapshot_v2, sync_repo_published_plans,
+    HydratedCoordinationPlanState,
 };
 use crate::shared_coordination_ref::sync_shared_coordination_ref_state;
 use crate::tracked_snapshot::{
@@ -60,8 +61,7 @@ pub(crate) enum CoordinationDerivedPersistenceMode {
 
 #[derive(Clone)]
 struct CoordinationDerivedSyncInputs {
-    plan_graphs: Vec<PlanGraph>,
-    execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    canonical_snapshot_v2: CoordinationSnapshotV2,
 }
 
 fn observe_coordination_step<T, E, O, F, A>(
@@ -119,8 +119,7 @@ where
             sync_shared_coordination_ref_state(
                 root,
                 snapshot,
-                &derived.plan_graphs,
-                &derived.execution_overlays,
+                &derived.canonical_snapshot_v2,
                 publish_context,
             )
         },
@@ -141,8 +140,6 @@ where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
     let repo_semantic_snapshot = repo_semantic_coordination_snapshot(snapshot.clone());
-    let repo_semantic_execution_overlays =
-        execution_overlays_by_plan(&repo_semantic_snapshot.tasks);
     observe_coordination_step(
         observe_phase,
         "mutation.coordination.publishedPlans.syncTrackedSnapshot",
@@ -151,8 +148,6 @@ where
             sync_coordination_snapshot_state(
                 root,
                 &repo_semantic_snapshot,
-                &derived.plan_graphs,
-                &repo_semantic_execution_overlays,
                 publish_context,
                 Some(authoritative_revision),
             )
@@ -167,8 +162,8 @@ where
                 root,
                 store,
                 &repo_semantic_snapshot,
-                &derived.plan_graphs,
-                &repo_semantic_execution_overlays,
+                &derived.canonical_snapshot_v2,
+                None,
             )
         },
     )?;
@@ -265,8 +260,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         &mut self,
         root: &Path,
         snapshot: &CoordinationSnapshot,
-        plan_graphs: Option<&[PlanGraph]>,
-        execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
+        canonical_snapshot_v2: &CoordinationSnapshotV2,
     ) -> Result<CoordinationPersistResult> {
         let existing_events = self.load_coordination_events()?;
         let appended_events = coordination_event_delta(&existing_events, &snapshot.events);
@@ -275,87 +269,57 @@ pub(crate) trait CoordinationPersistenceBackend:
             expected_revision: None,
             appended_events,
         })?;
-        match (plan_graphs, execution_overlays) {
-            (Some(plan_graphs), Some(execution_overlays)) => {
-                sync_repo_published_plan_state(
-                    root,
-                    snapshot,
-                    None,
-                    None,
-                    plan_graphs.to_vec(),
-                    execution_overlays.clone(),
-                    None,
-                )?;
-                save_shared_coordination_startup_checkpoint(
-                    root,
-                    self,
-                    snapshot,
-                    plan_graphs,
-                    execution_overlays,
-                )?;
-            }
-            _ => {
-                sync_repo_published_plans(root, snapshot, None)?;
-                let plan_graphs = snapshot_plan_graphs(snapshot);
-                let execution_overlays = execution_overlays_by_plan(&snapshot.tasks);
-                save_shared_coordination_startup_checkpoint(
-                    root,
-                    self,
-                    snapshot,
-                    &plan_graphs,
-                    &execution_overlays,
-                )?;
-            }
-        }
+        sync_repo_published_plans(root, snapshot, canonical_snapshot_v2, None)?;
+        save_shared_coordination_startup_checkpoint(
+            root,
+            self,
+            snapshot,
+            canonical_snapshot_v2,
+            None,
+        )?;
         Ok(result)
     }
 
-    fn load_hydrated_coordination_snapshot_for_root(
+    fn load_eventual_coordination_snapshot_for_root(
         &mut self,
         root: &Path,
     ) -> Result<Option<CoordinationSnapshot>> {
-        let stream = self.load_coordination_event_stream()?;
-        let snapshot =
-            coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot)
-                .map(repo_semantic_coordination_snapshot);
-        if let Some(snapshot) =
-            load_materialized_coordination_snapshot(root, self, snapshot.clone())?
-        {
-            return Ok(Some(snapshot));
-        }
-        load_hydrated_coordination_snapshot(root, snapshot)
+        load_eventual_snapshot_for_root(root, self)
     }
 
-    fn load_hydrated_coordination_snapshot_v2_for_root(
+    fn load_eventual_coordination_snapshot_v2_for_root(
         &mut self,
         root: &Path,
     ) -> Result<Option<CoordinationSnapshotV2>> {
-        let stream = self.load_coordination_event_stream()?;
-        let snapshot =
-            coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot)
-                .map(repo_semantic_coordination_snapshot);
-        if let Some(snapshot_v2) =
-            load_materialized_coordination_snapshot_v2(root, self, snapshot.clone())?
-        {
-            return Ok(Some(snapshot_v2));
-        }
-        load_hydrated_coordination_snapshot_v2(root, snapshot)
+        load_eventual_snapshot_v2_for_root(root, self)
     }
 
-    fn load_hydrated_coordination_plan_state_for_root(
+    fn load_eventual_coordination_plan_state_for_root(
         &mut self,
         root: &Path,
     ) -> Result<Option<HydratedCoordinationPlanState>> {
-        let stream = self.load_coordination_event_stream()?;
-        let snapshot =
-            coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot)
-                .map(repo_semantic_coordination_snapshot);
-        if let Some(plan_state) =
-            load_materialized_coordination_plan_state(root, self, snapshot.clone())?
-        {
-            return Ok(Some(plan_state));
-        }
-        load_hydrated_coordination_plan_state(root, snapshot)
+        load_eventual_plan_state_for_root(root, self)
+    }
+
+    fn load_authoritative_coordination_snapshot_for_root(
+        &mut self,
+        root: &Path,
+    ) -> Result<Option<CoordinationSnapshot>> {
+        load_authoritative_coordination_snapshot(root)
+    }
+
+    fn load_authoritative_coordination_snapshot_v2_for_root(
+        &mut self,
+        root: &Path,
+    ) -> Result<Option<CoordinationSnapshotV2>> {
+        load_authoritative_coordination_snapshot_v2(root)
+    }
+
+    fn load_authoritative_coordination_plan_state_for_root(
+        &mut self,
+        root: &Path,
+    ) -> Result<Option<HydratedCoordinationPlanState>> {
+        load_authoritative_coordination_plan_state(root)
     }
 
     fn persist_coordination_snapshot_for_root(
@@ -363,15 +327,14 @@ pub(crate) trait CoordinationPersistenceBackend:
         root: &Path,
         snapshot: &CoordinationSnapshot,
     ) -> Result<()> {
-        self.persist_coordination_state_for_root(root, snapshot, None, None)
+        self.persist_coordination_state_for_root(root, snapshot, &snapshot.to_canonical_snapshot_v2())
     }
 
     fn persist_coordination_state_for_root(
         &mut self,
         root: &Path,
         snapshot: &CoordinationSnapshot,
-        plan_graphs: Option<&[PlanGraph]>,
-        execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
+        canonical_snapshot_v2: &CoordinationSnapshotV2,
     ) -> Result<()> {
         let existing_read_model = self.load_coordination_read_model()?;
         let existing_queue_read_model = self.load_coordination_queue_read_model()?;
@@ -380,8 +343,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         let _ = self.persist_coordination_authoritative_state_for_root(
             root,
             snapshot,
-            plan_graphs,
-            execution_overlays,
+            canonical_snapshot_v2,
         )?;
         let read_model = coordination_read_model_from_seed(
             snapshot,
@@ -407,9 +369,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         appended_events: &[CoordinationEvent],
         session_id: Option<&SessionId>,
         _previous_snapshot: Option<&CoordinationSnapshot>,
-        _previous_plan_graphs: Option<&[PlanGraph]>,
-        plan_graphs: Option<&[PlanGraph]>,
-        execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
+        canonical_snapshot_v2: &CoordinationSnapshotV2,
         derived_persistence_mode: CoordinationDerivedPersistenceMode,
         mut observe_phase: O,
     ) -> Result<CoordinationPersistResult>
@@ -493,12 +453,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         }
         let publish_context = publish_context_from_coordination_events(appended_events);
         let derived = CoordinationDerivedSyncInputs {
-            plan_graphs: plan_graphs
-                .map(|graphs| graphs.to_vec())
-                .unwrap_or_else(|| snapshot_plan_graphs(snapshot)),
-            execution_overlays: execution_overlays
-                .cloned()
-                .unwrap_or_else(|| execution_overlays_by_plan(&snapshot.tasks)),
+            canonical_snapshot_v2: canonical_snapshot_v2.clone(),
         };
         if shared_coordination_ref_publish_enabled(root) {
             sync_authoritative_shared_coordination_ref_observed(
@@ -568,9 +523,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         appended_events: &[CoordinationEvent],
         session_id: Option<&SessionId>,
         previous_snapshot: Option<&CoordinationSnapshot>,
-        previous_plan_graphs: Option<&[PlanGraph]>,
-        plan_graphs: Option<&[PlanGraph]>,
-        execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
+        canonical_snapshot_v2: &CoordinationSnapshotV2,
     ) -> Result<CoordinationPersistResult> {
         self.persist_coordination_mutation_state_for_root_with_session_observed(
             root,
@@ -579,9 +532,7 @@ pub(crate) trait CoordinationPersistenceBackend:
             appended_events,
             session_id,
             previous_snapshot,
-            previous_plan_graphs,
-            plan_graphs,
-            execution_overlays,
+            canonical_snapshot_v2,
             CoordinationDerivedPersistenceMode::Inline,
             |_operation, _duration, _args, _success, _error| {},
         )
@@ -595,9 +546,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         appended_events: &[CoordinationEvent],
         session_id: Option<&SessionId>,
         previous_snapshot: Option<&CoordinationSnapshot>,
-        previous_plan_graphs: Option<&[PlanGraph]>,
-        plan_graphs: Option<&[PlanGraph]>,
-        execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
+        canonical_snapshot_v2: &CoordinationSnapshotV2,
         derived_persistence_mode: CoordinationDerivedPersistenceMode,
         mut observe_phase: O,
     ) -> Result<CoordinationPersistResult>
@@ -624,9 +573,7 @@ pub(crate) trait CoordinationPersistenceBackend:
                 appended_events,
                 session_id,
                 previous_snapshot,
-                previous_plan_graphs,
-                plan_graphs,
-                execution_overlays,
+                canonical_snapshot_v2,
                 derived_persistence_mode,
                 &mut observe_phase,
             )?;

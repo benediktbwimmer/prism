@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
-use prism_ir::PlanId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -298,13 +297,6 @@ fn discover_protected_streams(root: &Path) -> Result<Vec<ProtectedRepoStream>> {
     }
 
     discover_streams_in_dir(root, Path::new(".prism/memory"), &mut ordered, &mut seen)?;
-    discover_streams_in_dir(
-        root,
-        Path::new(".prism/plans/streams"),
-        &mut ordered,
-        &mut seen,
-    )?;
-
     Ok(ordered)
 }
 
@@ -351,10 +343,6 @@ fn resolve_stream(root: &Path, selector: &str) -> Result<ProtectedRepoStream> {
         {
             return Ok(stream);
         }
-    }
-
-    if selector.starts_with("plan:") {
-        return Ok(ProtectedRepoStream::plan_stream(&PlanId::new(selector)));
     }
 
     if let Some(stream) = classify_protected_repo_relative_path(Path::new(selector)) {

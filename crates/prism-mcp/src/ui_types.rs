@@ -1,7 +1,7 @@
 use prism_js::{
     AgentOutcomeSummaryView, ArtifactView, BlockerView, ClaimView, ConceptPacketView,
-    CoordinationTaskView, PlanExecutionOverlayView, PlanGraphView, PlanListEntryView,
-    PlanNodeRecommendationView, PlanSummaryView, PolicyViolationRecordView, RuntimeLogEventView,
+    CoordinationPlanV2View, CoordinationTaskV2View, CoordinationTaskView, NodeRefView,
+    PlanListEntryView, PlanSummaryView, PolicyViolationRecordView, RuntimeLogEventView,
     RuntimeStatusView, TaskJournalView, ValidationRefView,
 };
 use serde::Serialize;
@@ -96,7 +96,7 @@ pub(crate) struct OverviewPlanSpotlightView {
     pub(crate) title: String,
     pub(crate) goal: String,
     pub(crate) summary: PlanSummaryView,
-    pub(crate) next_nodes: Vec<PlanNodeRecommendationView>,
+    pub(crate) ready_tasks: Vec<CoordinationTaskV2View>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -141,9 +141,9 @@ pub(crate) struct PrismUiPlansStatsView {
 pub(crate) struct PrismPlanDetailView {
     pub(crate) plan: PlanListEntryView,
     pub(crate) summary: PlanSummaryView,
-    pub(crate) graph: PlanGraphView,
-    pub(crate) execution: Vec<PlanExecutionOverlayView>,
-    pub(crate) next_nodes: Vec<PlanNodeRecommendationView>,
+    pub(crate) children: Vec<NodeRefView>,
+    pub(crate) child_plans: Vec<CoordinationPlanV2View>,
+    pub(crate) child_tasks: Vec<CoordinationTaskV2View>,
     pub(crate) ready_tasks: Vec<CoordinationTaskView>,
     pub(crate) pending_reviews: Vec<ArtifactView>,
     pub(crate) pending_handoffs: Vec<CoordinationTaskView>,

@@ -1,4 +1,5 @@
 use prism_ir::{AnchorRef, NodeId};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) fn dedupe_strings(mut values: Vec<String>) -> Vec<String> {
     values.sort();
@@ -24,6 +25,13 @@ pub(crate) fn sort_node_ids(nodes: &mut Vec<NodeId>) {
 
 pub(crate) fn anchor_sort_key(left: &AnchorRef, right: &AnchorRef) -> std::cmp::Ordering {
     anchor_label(left).cmp(&anchor_label(right))
+}
+
+pub(crate) fn current_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
 }
 
 fn anchor_label(anchor: &AnchorRef) -> String {

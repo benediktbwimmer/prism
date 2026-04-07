@@ -240,10 +240,7 @@ impl PrismMcpServer {
             | CoordinationMutationKindInput::PlanArchive => {
                 Self::payload_has_nonempty_string(&args.payload, &["planId", "plan_id"])
             }
-            CoordinationMutationKindInput::TaskCreate
-            | CoordinationMutationKindInput::PlanNodeCreate
-            | CoordinationMutationKindInput::PlanEdgeCreate
-            | CoordinationMutationKindInput::PlanEdgeDelete => {
+            CoordinationMutationKindInput::TaskCreate => {
                 Self::payload_has_nonempty_string(&args.payload, &["planId", "plan_id"])
             }
             CoordinationMutationKindInput::Update => {

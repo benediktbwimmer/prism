@@ -235,10 +235,11 @@ fn register_test_worktree(
     mode: WorktreeMode,
 ) -> WorktreeRegistrationRecord {
     let label = format!(
-        "{prefix}-{}",
+        "{prefix}-{}-{}",
         root.file_name()
             .and_then(|name| name.to_str())
-            .unwrap_or("test-root")
+            .unwrap_or("test-root"),
+        new_sortable_token()
     );
     PrismPaths::for_workspace_root(root)
         .expect("paths should resolve")

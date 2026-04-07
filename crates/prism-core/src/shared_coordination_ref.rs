@@ -10,15 +10,12 @@ use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use ed25519_dalek::{Signer, Verifier};
 use prism_coordination::{
-    execution_overlays_from_tasks, migrate_legacy_hybrid_snapshot_to_canonical_v2,
-    snapshot_plan_graphs, Artifact, ArtifactReview, CoordinationSnapshot, CoordinationSnapshotV2,
-    CoordinationTask, Plan, RuntimeDescriptor, RuntimeDescriptorCapability, WorkClaim,
-    COORDINATION_SCHEMA_V2,
+    Artifact, ArtifactReview, CoordinationSnapshot, CoordinationSnapshotV2, CoordinationTask,
+    Plan, RuntimeDescriptor, RuntimeDescriptorCapability, WorkClaim, COORDINATION_SCHEMA_V2,
 };
-use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkContextKind, WorkContextSnapshot};
+use prism_ir::{WorkContextKind, WorkContextSnapshot};
 use prism_store::CoordinationStartupCheckpointAuthority;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 
 use crate::coordination_snapshot_sanitization::sanitize_plan;
 use crate::peer_runtime::{
@@ -234,18 +231,12 @@ struct SharedCoordinationIndexEntry {
 #[serde(rename_all = "camelCase")]
 struct SharedCoordinationPlanRecord {
     plan: Plan,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    graph: Option<PlanGraph>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    execution_overlays: Vec<PlanExecutionOverlay>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct SharedCoordinationRefState {
     pub(crate) snapshot: CoordinationSnapshot,
     pub(crate) canonical_snapshot_v2: CoordinationSnapshotV2,
-    pub(crate) plan_graphs: Vec<PlanGraph>,
-    pub(crate) execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     pub(crate) runtime_descriptors: Vec<RuntimeDescriptor>,
 }
 
@@ -933,8 +924,7 @@ fn runtime_descriptor_snapshot_path(stage_root: &Path, runtime_id: &str) -> Path
 pub(crate) fn sync_shared_coordination_ref_state(
     root: &Path,
     snapshot: &CoordinationSnapshot,
-    plan_graphs: &[PlanGraph],
-    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    canonical_snapshot_v2: &CoordinationSnapshotV2,
     publish: Option<&TrackedSnapshotPublishContext>,
 ) -> Result<()> {
     if !git_repo_available(root) {
@@ -945,8 +935,7 @@ pub(crate) fn sync_shared_coordination_ref_state(
     sync_shared_coordination_summary_ref_state(
         root,
         snapshot,
-        plan_graphs,
-        execution_overlays,
+        canonical_snapshot_v2,
         publish,
     )?;
     record_observed_shared_coordination_head(
@@ -959,8 +948,7 @@ pub(crate) fn sync_shared_coordination_ref_state(
 fn sync_shared_coordination_summary_ref_state(
     root: &Path,
     snapshot: &CoordinationSnapshot,
-    _plan_graphs: &[PlanGraph],
-    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    canonical_snapshot_v2: &CoordinationSnapshotV2,
     publish: Option<&TrackedSnapshotPublishContext>,
 ) -> Result<()> {
     if !git_repo_available(root) {
@@ -968,9 +956,7 @@ fn sync_shared_coordination_summary_ref_state(
     }
     let ref_name = shared_coordination_ref_name(root);
     let expected_remote_head = resolve_ref_commit(root, &ref_name).ok().flatten();
-    let baseline_state =
-        load_shared_coordination_ref_state_from_current_ref_lenient(root, &ref_name)?;
-    let summary_plan_graphs = authored_summary_plan_graphs(snapshot);
+    let baseline_state = load_shared_coordination_ref_state_from_current_ref(root, &ref_name)?;
     let paths = PrismPaths::for_workspace_root(root)?;
     let stage_parent = stage_root(&paths);
     fs::create_dir_all(&stage_parent)?;
@@ -985,8 +971,7 @@ fn sync_shared_coordination_summary_ref_state(
         &paths,
         &stage_dir,
         snapshot,
-        &summary_plan_graphs,
-        execution_overlays,
+        canonical_snapshot_v2,
         publish,
         &ref_name,
         expected_remote_head.as_deref(),
@@ -1000,7 +985,7 @@ pub fn sync_live_runtime_descriptor(root: &Path) -> Result<()> {
     if !git_repo_available(root) {
         return Ok(());
     }
-    let existing = load_shared_coordination_ref_state(root)?
+    let existing = load_shared_coordination_ref_state_authoritative(root)?
         .map(|state| state.runtime_descriptors)
         .unwrap_or_default();
     let local = local_runtime_descriptor(root, None, Some(&existing))?;
@@ -1017,43 +1002,26 @@ fn sync_shared_coordination_ref_state_inner(
     paths: &PrismPaths,
     stage_dir: &Path,
     snapshot: &CoordinationSnapshot,
-    plan_graphs: &[PlanGraph],
-    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    canonical_snapshot_v2: &CoordinationSnapshotV2,
     publish: Option<&TrackedSnapshotPublishContext>,
     ref_name: &str,
     expected_remote_head: Option<&str>,
     baseline_state: Option<&SharedCoordinationRefState>,
 ) -> Result<()> {
     let desired_snapshot = snapshot.clone();
-    let desired_plan_graphs = plan_graphs.to_vec();
-    let desired_execution_overlays = execution_overlays.clone();
     let force_manifest_republish = baseline_state.is_none() && expected_remote_head.is_some();
     let mut current_snapshot = desired_snapshot.clone();
-    let mut current_plan_graphs = desired_plan_graphs.clone();
-    let mut current_execution_overlays = baseline_state
-        .map(|state| state.execution_overlays.clone())
-        .unwrap_or_else(|| desired_execution_overlays.clone());
+    let mut current_canonical_snapshot_v2 = canonical_snapshot_v2.clone();
     let mut current_expected_head = expected_remote_head.map(str::to_string);
-    let mut current_previous_manifest =
-        load_shared_coordination_manifest_from_ref_lenient(root, ref_name)?;
+    let mut current_previous_manifest = load_shared_coordination_manifest_from_ref(root, ref_name)?;
 
     for attempt in 0..=SHARED_COORDINATION_PUSH_MAX_RETRIES {
         current_snapshot.tasks = load_shared_coordination_task_shards(root)?;
         current_snapshot.claims = load_shared_coordination_claim_shards(root)?;
         let current_runtime_descriptors = load_shared_coordination_runtime_refs(root)?;
         let summary_sources = current_shared_coordination_summary_source_heads(root)?;
-        sync_plan_objects(
-            stage_dir,
-            &current_snapshot,
-            &current_plan_graphs,
-            &current_execution_overlays,
-        )?;
-        sync_v2_snapshot(
-            stage_dir,
-            &current_snapshot,
-            &current_plan_graphs,
-            &current_execution_overlays,
-        )?;
+        sync_plan_objects(stage_dir, &current_snapshot)?;
+        sync_v2_snapshot(stage_dir, &current_canonical_snapshot_v2)?;
         sync_task_objects(stage_dir, &current_snapshot.tasks)?;
         sync_artifact_objects(stage_dir, &current_snapshot.artifacts)?;
         sync_claim_objects(stage_dir, &current_snapshot.claims)?;
@@ -1112,13 +1080,7 @@ fn sync_shared_coordination_ref_state_inner(
                         final_head,
                         &SharedCoordinationRefState {
                             snapshot: cached_snapshot.clone(),
-                            canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
-                                &current_snapshot,
-                                &current_plan_graphs,
-                                &current_execution_overlays,
-                            )?,
-                            plan_graphs: authored_summary_plan_graphs(&cached_snapshot),
-                            execution_overlays: current_execution_overlays.clone(),
+                            canonical_snapshot_v2: current_canonical_snapshot_v2.clone(),
                             runtime_descriptors: current_runtime_descriptors.clone(),
                         },
                     );
@@ -1135,17 +1097,16 @@ fn sync_shared_coordination_ref_state_inner(
                     ref_name,
                 )?;
                 current_previous_manifest =
-                    load_shared_coordination_manifest_from_ref_lenient(root, ref_name)?;
+                    load_shared_coordination_manifest_from_ref(root, ref_name)?;
                 let latest_state =
-                    load_shared_coordination_ref_state_from_current_ref_lenient(root, ref_name)?;
+                    load_shared_coordination_ref_state_from_current_ref(root, ref_name)?;
                 let reconciled = reconcile_shared_coordination_ref_state(
                     baseline_state,
                     &desired_snapshot,
                     latest_state.as_ref(),
                 )?;
                 current_snapshot = reconciled.snapshot;
-                current_plan_graphs = reconciled.plan_graphs;
-                current_execution_overlays = reconciled.execution_overlays;
+                current_canonical_snapshot_v2 = reconciled.canonical_snapshot_v2;
             }
             Err(error) => return Err(error),
         }
@@ -1181,7 +1142,7 @@ fn sync_task_shard_refs(
         "task-shard",
         sync_task_objects,
         rebuild_task_index,
-        load_task_records_from_ref_lenient,
+        load_task_records_from_ref,
         |baseline, desired, latest| {
             reconcile_collection(baseline, desired, latest, |task| task.id.0.as_str(), "task")
         },
@@ -1213,7 +1174,7 @@ fn sync_claim_shard_refs(
         "claim-shard",
         sync_claim_objects,
         rebuild_claim_index,
-        load_claim_records_from_ref_lenient,
+        load_claim_records_from_ref,
         |baseline, desired, latest| {
             reconcile_collection(
                 baseline,
@@ -1236,7 +1197,7 @@ fn sync_runtime_descriptor_ref(
     }
     let ref_name = shared_coordination_runtime_ref_name(root, &descriptor.runtime_id);
     let expected_remote_head = resolve_ref_commit(root, &ref_name).ok().flatten();
-    let baseline_records = load_runtime_descriptor_records_from_ref_lenient(root, &ref_name)?;
+    let baseline_records = load_runtime_descriptor_records_from_ref(root, &ref_name)?;
     let paths = PrismPaths::for_workspace_root(root)?;
     let stage_parent = stage_root(&paths);
     fs::create_dir_all(&stage_parent)?;
@@ -1258,7 +1219,7 @@ fn sync_runtime_descriptor_ref(
         |descriptor| descriptor.runtime_id.as_str(),
         sync_runtime_descriptor_objects,
         rebuild_runtime_descriptor_index,
-        load_runtime_descriptor_records_from_ref_lenient,
+        load_runtime_descriptor_records_from_ref,
         |baseline, desired, latest| {
             reconcile_collection(
                 baseline,
@@ -1291,7 +1252,7 @@ fn sync_sharded_coordination_records<
     stage_label: &str,
     sync_records: SyncFn,
     rebuild_index: RebuildIndexFn,
-    load_records_from_ref_lenient: LoadFn,
+    load_records_from_ref: LoadFn,
     reconcile_records: ReconcileFn,
 ) -> Result<()>
 where
@@ -1320,7 +1281,7 @@ where
     for shard in shards {
         let ref_name = ref_name_for(&shard);
         let expected_remote_head = resolve_ref_commit(root, &ref_name).ok().flatten();
-        let baseline_records = load_records_from_ref_lenient(root, &ref_name)?;
+        let baseline_records = load_records_from_ref(root, &ref_name)?;
         let stage_dir = stage_parent.join(format!(
             "{stage_label}-{shard}-{}-{}",
             std::process::id(),
@@ -1338,7 +1299,7 @@ where
             key_for,
             sync_records,
             rebuild_index,
-            load_records_from_ref_lenient,
+            load_records_from_ref,
             reconcile_records,
         );
         let _ = fs::remove_dir_all(&stage_dir);
@@ -1358,7 +1319,7 @@ fn sync_sharded_coordination_records_inner<T, KeyFn, SyncFn, RebuildIndexFn, Loa
     key_for: KeyFn,
     sync_records: SyncFn,
     rebuild_index: RebuildIndexFn,
-    load_records_from_ref_lenient: LoadFn,
+    load_records_from_ref: LoadFn,
     reconcile_records: ReconcileFn,
 ) -> Result<()>
 where
@@ -1372,8 +1333,7 @@ where
     let paths = PrismPaths::for_workspace_root(root)?;
     let mut current_records = overlay_records(baseline_records, &desired_records, key_for);
     let mut current_expected_head = expected_remote_head.map(str::to_string);
-    let mut current_previous_manifest =
-        load_shared_coordination_manifest_from_ref_lenient(root, ref_name)?;
+    let mut current_previous_manifest = load_shared_coordination_manifest_from_ref(root, ref_name)?;
     for attempt in 0..=SHARED_COORDINATION_PUSH_MAX_RETRIES {
         sync_records(stage_dir, &current_records)?;
         rebuild_index(stage_dir, &current_records)?;
@@ -1424,8 +1384,8 @@ where
                     ref_name,
                 )?;
                 current_previous_manifest =
-                    load_shared_coordination_manifest_from_ref_lenient(root, ref_name)?;
-                let latest_records = load_records_from_ref_lenient(root, ref_name)?;
+                    load_shared_coordination_manifest_from_ref(root, ref_name)?;
+                let latest_records = load_records_from_ref(root, ref_name)?;
                 current_records =
                     reconcile_records(baseline_records, &current_records, &latest_records)?;
             }
@@ -1438,11 +1398,8 @@ where
     ))
 }
 
-fn load_task_records_from_ref_lenient(
-    root: &Path,
-    ref_name: &str,
-) -> Result<Vec<CoordinationTask>> {
-    load_records_from_ref_lenient(root, ref_name, |contents| {
+fn load_task_records_from_ref(root: &Path, ref_name: &str) -> Result<Vec<CoordinationTask>> {
+    load_records_from_ref(root, ref_name, |contents| {
         contents.parse_authoritative_records::<CoordinationTask, _>(
             |path| path.starts_with("coordination/tasks/"),
             SHARED_COORDINATION_KIND_TASK,
@@ -1450,8 +1407,8 @@ fn load_task_records_from_ref_lenient(
     })
 }
 
-fn load_claim_records_from_ref_lenient(root: &Path, ref_name: &str) -> Result<Vec<WorkClaim>> {
-    load_records_from_ref_lenient(root, ref_name, |contents| {
+fn load_claim_records_from_ref(root: &Path, ref_name: &str) -> Result<Vec<WorkClaim>> {
+    load_records_from_ref(root, ref_name, |contents| {
         contents.parse_authoritative_records::<WorkClaim, _>(
             |path| path.starts_with("coordination/claims/"),
             SHARED_COORDINATION_KIND_CLAIM,
@@ -1459,36 +1416,16 @@ fn load_claim_records_from_ref_lenient(root: &Path, ref_name: &str) -> Result<Ve
     })
 }
 
-fn load_runtime_descriptor_records_from_ref_lenient(
+fn load_runtime_descriptor_records_from_ref(
     root: &Path,
     ref_name: &str,
 ) -> Result<Vec<RuntimeDescriptor>> {
-    load_records_from_ref_lenient(root, ref_name, |contents| {
+    load_records_from_ref(root, ref_name, |contents| {
         contents.parse_authoritative_records::<RuntimeDescriptor, _>(
             |path| path.starts_with("coordination/runtimes/"),
             SHARED_COORDINATION_KIND_RUNTIME_DESCRIPTOR,
         )
     })
-}
-
-fn load_records_from_ref_lenient<T, F>(root: &Path, ref_name: &str, parse: F) -> Result<Vec<T>>
-where
-    T: Clone,
-    F: Fn(&SharedCoordinationRefContents) -> Result<Vec<(String, T)>>,
-{
-    match load_records_from_ref(root, ref_name, parse) {
-        Ok(records) => Ok(records),
-        Err(error) if is_shared_coordination_ref_integrity_error(&error) => {
-            warn!(
-                root = %root.display(),
-                ref_name,
-                error = %error,
-                "ignoring invalid shared coordination shard ref state"
-            );
-            Ok(Vec::new())
-        }
-        Err(error) => Err(error),
-    }
 }
 
 fn load_records_from_ref<T, F>(root: &Path, ref_name: &str, parse: F) -> Result<Vec<T>>
@@ -1510,41 +1447,7 @@ where
 pub(crate) fn load_shared_coordination_ref_state(
     root: &Path,
 ) -> Result<Option<SharedCoordinationRefState>> {
-    if !git_repo_available(root) {
-        return Ok(None);
-    }
-    let Some(current_head) = authoritative_shared_coordination_state_key(root)? else {
-        return Ok(None);
-    };
-    if let Some(cached) = shared_coordination_state_cache()
-        .lock()
-        .expect("shared coordination state cache lock poisoned")
-        .get(root)
-        .filter(|entry| entry.head == current_head)
-        .cloned()
-    {
-        return Ok(Some(cached.state));
-    }
-    let ref_name = shared_coordination_ref_name(root);
-    let summary_manifest = load_shared_coordination_manifest_from_ref_lenient(root, &ref_name)?;
-    let summary_state =
-        load_shared_coordination_ref_state_from_current_ref_lenient(root, &ref_name)?;
-    let authoritative_heads = current_shared_coordination_authoritative_heads(root)?;
-    let freshness = inspect_shared_coordination_summary_freshness(
-        summary_manifest.as_ref(),
-        summary_state.as_ref(),
-        &authoritative_heads,
-    );
-    let state = if freshness.authoritative_fallback_required {
-        overlay_shared_coordination_authoritative_fallback(root, summary_state, &freshness)?
-    } else {
-        summary_state
-    };
-    let Some(state) = state else {
-        return Ok(None);
-    };
-    cache_shared_coordination_state(root, current_head, &state);
-    Ok(Some(state))
+    load_shared_coordination_ref_state_authoritative(root)
 }
 
 pub(crate) fn load_shared_coordination_ref_state_authoritative(
@@ -1565,7 +1468,7 @@ pub(crate) fn load_shared_coordination_ref_state_authoritative(
     {
         return Ok(Some(cached.state));
     }
-    let Some(state) = load_authoritative_shared_coordination_ref_state(root, true)? else {
+    let Some(state) = load_authoritative_shared_coordination_ref_state(root)? else {
         return Ok(None);
     };
     cache_shared_coordination_state(root, current_head, &state);
@@ -1574,14 +1477,9 @@ pub(crate) fn load_shared_coordination_ref_state_authoritative(
 
 fn load_authoritative_shared_coordination_ref_state(
     root: &Path,
-    strict_summary: bool,
 ) -> Result<Option<SharedCoordinationRefState>> {
     let ref_name = shared_coordination_ref_name(root);
-    let summary_state = if strict_summary {
-        load_shared_coordination_ref_state_from_current_ref(root, &ref_name)?
-    } else {
-        load_shared_coordination_ref_state_from_current_ref_lenient(root, &ref_name)?
-    };
+    let summary_state = load_shared_coordination_ref_state_from_current_ref(root, &ref_name)?;
     let runtime_refs = load_shared_coordination_runtime_refs(root)?;
     let task_shards = load_shared_coordination_task_shards(root)?;
     let claim_shards = load_shared_coordination_claim_shards(root)?;
@@ -1592,7 +1490,6 @@ fn load_authoritative_shared_coordination_ref_state(
     {
         return Ok(None);
     }
-    let had_summary = summary_state.is_some();
     let mut state = summary_state.unwrap_or_else(empty_shared_coordination_ref_state);
     let runtime_refs_present = !runtime_refs.is_empty();
     let task_shards_present = !task_shards.is_empty();
@@ -1614,62 +1511,9 @@ fn load_authoritative_shared_coordination_ref_state(
         .snapshot
         .claims
         .sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    if !had_summary && !state.snapshot.plans.is_empty() {
-        state.plan_graphs = authored_summary_plan_graphs(&state.snapshot);
-    }
-    if task_shards_present || !had_summary {
-        state.execution_overlays = execution_overlays_by_plan(&state.snapshot);
-    }
     Ok(Some(state))
 }
 
-fn overlay_shared_coordination_authoritative_fallback(
-    root: &Path,
-    summary_state: Option<SharedCoordinationRefState>,
-    freshness: &SharedCoordinationSummaryFreshness,
-) -> Result<Option<SharedCoordinationRefState>> {
-    if !freshness.authoritative_fallback_required {
-        return Ok(summary_state);
-    }
-
-    let had_summary = summary_state.is_some();
-    let mut state = summary_state.unwrap_or_else(empty_shared_coordination_ref_state);
-    if freshness.task_fallback_required {
-        state.snapshot.tasks = load_shared_coordination_task_shards(root)?;
-    }
-    if freshness.claim_fallback_required {
-        state.snapshot.claims = load_shared_coordination_claim_shards(root)?;
-    }
-    if freshness.runtime_fallback_required {
-        state.runtime_descriptors = load_shared_coordination_runtime_refs(root)?;
-    }
-    state
-        .snapshot
-        .tasks
-        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    state
-        .snapshot
-        .claims
-        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    if !had_summary && !state.snapshot.plans.is_empty() {
-        state.plan_graphs = authored_summary_plan_graphs(&state.snapshot);
-    }
-    if freshness.task_fallback_required || !had_summary {
-        state.execution_overlays = execution_overlays_by_plan(&state.snapshot);
-    }
-    if had_summary
-        || !state.snapshot.plans.is_empty()
-        || !state.snapshot.tasks.is_empty()
-        || !state.snapshot.claims.is_empty()
-        || !state.snapshot.artifacts.is_empty()
-        || !state.snapshot.reviews.is_empty()
-        || !state.runtime_descriptors.is_empty()
-    {
-        Ok(Some(state))
-    } else {
-        Ok(None)
-    }
-}
 
 fn load_shared_coordination_runtime_refs(root: &Path) -> Result<Vec<RuntimeDescriptor>> {
     let mut runtime_descriptors = load_shared_coordination_sharded_records(
@@ -1751,7 +1595,7 @@ pub(crate) fn shared_coordination_startup_authority(
     let Some(head_commit) = resolve_ref_commit(root, &ref_name)? else {
         return Ok(None);
     };
-    let manifest_digest = load_shared_coordination_manifest_from_ref_lenient(root, &ref_name)?
+    let manifest_digest = load_shared_coordination_manifest_from_ref(root, &ref_name)?
         .as_ref()
         .map(canonical_manifest_digest)
         .transpose()?;
@@ -1878,31 +1722,6 @@ fn load_shared_coordination_ref_state_from_current_ref(
             .cmp(&right.worktree_id)
             .then_with(|| left.runtime_id.cmp(&right.runtime_id))
     });
-    let record_graphs = plan_records
-        .iter()
-        .filter_map(|record| record.graph.clone())
-        .collect::<Vec<_>>();
-    let plan_graphs = if record_graphs.is_empty() {
-        authored_summary_plan_graphs(&snapshot)
-    } else {
-        let mut graphs = record_graphs;
-        graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-        graphs
-    };
-    let mut execution_overlays = execution_overlays_by_plan(&snapshot);
-    for record in &plan_records {
-        if !record.execution_overlays.is_empty() {
-            execution_overlays.insert(
-                record.plan.id.0.to_string(),
-                record.execution_overlays.clone(),
-            );
-        }
-    }
-    for task in &snapshot.tasks {
-        execution_overlays
-            .entry(task.plan.0.to_string())
-            .or_default();
-    }
     let canonical_snapshot_v2 = match contents.coordination_bytes("v2/snapshot.json") {
         Some(bytes) => {
             let snapshot_v2 = serde_json::from_slice::<CoordinationSnapshotV2>(&bytes)
@@ -1917,14 +1736,15 @@ fn load_shared_coordination_ref_state_from_current_ref(
             snapshot_v2
         }
         None => {
-            canonical_snapshot_v2_from_plan_state(&snapshot, &plan_graphs, &execution_overlays)?
+            return Err(anyhow!(
+                "shared coordination ref `{}` is missing canonical coordination snapshot `v2/snapshot.json`",
+                ref_name
+            ))
         }
     };
     let state = SharedCoordinationRefState {
         snapshot,
         canonical_snapshot_v2,
-        plan_graphs,
-        execution_overlays,
         runtime_descriptors,
     };
     shared_coordination_state_cache()
@@ -1938,25 +1758,6 @@ fn load_shared_coordination_ref_state_from_current_ref(
             },
         );
     Ok(Some(state))
-}
-
-fn load_shared_coordination_ref_state_from_current_ref_lenient(
-    root: &Path,
-    ref_name: &str,
-) -> Result<Option<SharedCoordinationRefState>> {
-    match load_shared_coordination_ref_state_from_current_ref(root, ref_name) {
-        Ok(state) => Ok(state),
-        Err(error) if is_shared_coordination_ref_integrity_error(&error) => {
-            warn!(
-                root = %root.display(),
-                ref_name,
-                error = %error,
-                "ignoring invalid shared coordination ref state and falling back to local materialized state"
-            );
-            Ok(None)
-        }
-        Err(error) => Err(error),
-    }
 }
 
 fn empty_shared_coordination_ref_state() -> SharedCoordinationRefState {
@@ -1974,15 +1775,8 @@ fn empty_shared_coordination_ref_state() -> SharedCoordinationRefState {
         next_review: 0,
     };
     SharedCoordinationRefState {
-        canonical_snapshot_v2: canonical_snapshot_v2_from_plan_state(
-            &snapshot,
-            &Vec::new(),
-            &BTreeMap::new(),
-        )
-        .expect("empty shared coordination state should project into canonical v2"),
+        canonical_snapshot_v2: snapshot.to_canonical_snapshot_v2(),
         snapshot,
-        plan_graphs: Vec::new(),
-        execution_overlays: BTreeMap::new(),
         runtime_descriptors: Vec::new(),
     }
 }
@@ -2066,37 +1860,12 @@ fn reconcile_shared_coordination_ref_state(
         reviews,
         events: Vec::new(),
     };
-    let plan_graphs = authored_summary_plan_graphs(&snapshot);
-    let execution_overlays = execution_overlays_by_plan(&snapshot);
-    let canonical_snapshot_v2 =
-        canonical_snapshot_v2_from_plan_state(&snapshot, &plan_graphs, &execution_overlays)?;
+    let canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
     Ok(SharedCoordinationRefState {
         snapshot,
         canonical_snapshot_v2,
-        plan_graphs,
-        execution_overlays,
         runtime_descriptors: latest.runtime_descriptors,
     })
-}
-
-fn execution_overlays_by_plan(
-    snapshot: &CoordinationSnapshot,
-) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {
-    let task_plan_ids = snapshot
-        .tasks
-        .iter()
-        .map(|task| (task.id.0.to_string(), task.plan.0.to_string()))
-        .collect::<BTreeMap<_, _>>();
-    let mut by_plan = BTreeMap::<String, Vec<PlanExecutionOverlay>>::new();
-    for overlay in execution_overlays_from_tasks(&snapshot.tasks) {
-        if let Some(plan_id) = task_plan_ids.get(overlay.node_id.0.as_str()) {
-            by_plan.entry(plan_id.clone()).or_default().push(overlay);
-        }
-    }
-    for plan in &snapshot.plans {
-        by_plan.entry(plan.id.0.to_string()).or_default();
-    }
-    by_plan
 }
 
 fn summary_plan_record(plan: &Plan) -> Plan {
@@ -2107,12 +1876,6 @@ fn summary_snapshot(snapshot: &CoordinationSnapshot) -> CoordinationSnapshot {
     let mut snapshot = snapshot.clone();
     snapshot.plans = snapshot.plans.iter().map(summary_plan_record).collect();
     snapshot
-}
-
-fn authored_summary_plan_graphs(snapshot: &CoordinationSnapshot) -> Vec<PlanGraph> {
-    let mut plan_graphs = snapshot_plan_graphs(snapshot);
-    plan_graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    plan_graphs
 }
 
 fn reconcile_collection<T, F>(
@@ -2257,8 +2020,7 @@ pub fn shared_coordination_ref_diagnostics(
     } else {
         None
     };
-    let summary_read_state =
-        load_shared_coordination_ref_state_from_current_ref_lenient(root, &ref_name)?;
+    let summary_read_state = verified_state.clone();
     let authoritative_heads = current_shared_coordination_authoritative_heads(root)?;
     let freshness = inspect_shared_coordination_summary_freshness(
         manifest.as_ref(),
@@ -2404,18 +2166,12 @@ pub fn shared_coordination_ref_status_summary(
 fn sync_plan_objects(
     stage_dir: &Path,
     snapshot: &CoordinationSnapshot,
-    _plan_graphs: &[PlanGraph],
-    _execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
 ) -> Result<()> {
     let mut expected = BTreeSet::new();
     for plan in &snapshot.plans {
         let path = plan_snapshot_path(stage_dir, &plan.id.0);
         expected.insert(path.clone());
-        let record = SharedCoordinationPlanRecord {
-            plan: summary_plan_record(plan),
-            graph: None,
-            execution_overlays: Vec::new(),
-        };
+        let record = SharedCoordinationPlanRecord { plan: summary_plan_record(plan) };
         write_json_file(
             &path,
             &wrap_authoritative_payload(&record, SHARED_COORDINATION_KIND_PLAN_RECORD)?,
@@ -2437,27 +2193,11 @@ fn sync_task_objects(stage_dir: &Path, tasks: &[CoordinationTask]) -> Result<()>
     cleanup_directory_json_files(&stage_tasks_dir(stage_dir), &expected)
 }
 
-fn sync_v2_snapshot(
-    stage_dir: &Path,
-    snapshot: &CoordinationSnapshot,
-    plan_graphs: &[PlanGraph],
-    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
-) -> Result<()> {
+fn sync_v2_snapshot(stage_dir: &Path, snapshot: &CoordinationSnapshotV2) -> Result<()> {
     let path = v2_snapshot_path(stage_dir);
     let expected = BTreeSet::from([path.clone()]);
-    write_json_file(
-        &path,
-        &canonical_snapshot_v2_from_plan_state(snapshot, plan_graphs, execution_overlays)?,
-    )?;
+    write_json_file(&path, snapshot)?;
     cleanup_directory_json_files(&stage_v2_dir(stage_dir), &expected)
-}
-
-fn canonical_snapshot_v2_from_plan_state(
-    snapshot: &CoordinationSnapshot,
-    plan_graphs: &[PlanGraph],
-    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
-) -> Result<CoordinationSnapshotV2> {
-    migrate_legacy_hybrid_snapshot_to_canonical_v2(snapshot, plan_graphs, execution_overlays)
 }
 
 fn sync_artifact_objects(stage_dir: &Path, artifacts: &[Artifact]) -> Result<()> {
@@ -2798,25 +2538,6 @@ fn load_shared_coordination_manifest_from_ref(
                 Err(error)
             }
         }
-    }
-}
-
-fn load_shared_coordination_manifest_from_ref_lenient(
-    root: &Path,
-    ref_name: &str,
-) -> Result<Option<SharedCoordinationManifest>> {
-    match load_shared_coordination_manifest_from_ref(root, ref_name) {
-        Ok(manifest) => Ok(manifest),
-        Err(error) if is_shared_coordination_ref_integrity_error(&error) => {
-            warn!(
-                root = %root.display(),
-                ref_name,
-                error = %error,
-                "ignoring invalid shared coordination manifest and falling back to local materialized state"
-            );
-            Ok(None)
-        }
-        Err(error) => Err(error),
     }
 }
 
@@ -3272,18 +2993,8 @@ fn build_shared_coordination_publish_patch(
 ) -> Result<SharedCoordinationPublishPatch> {
     let _ = fs::remove_dir_all(stage_dir);
     fs::create_dir_all(stage_dir)?;
-    sync_plan_objects(
-        stage_dir,
-        &desired_state.snapshot,
-        &authored_summary_plan_graphs(&desired_state.snapshot),
-        &desired_state.execution_overlays,
-    )?;
-    sync_v2_snapshot(
-        stage_dir,
-        &desired_state.snapshot,
-        &desired_state.plan_graphs,
-        &desired_state.execution_overlays,
-    )?;
+    sync_plan_objects(stage_dir, &desired_state.snapshot)?;
+    sync_v2_snapshot(stage_dir, &desired_state.canonical_snapshot_v2)?;
     sync_task_objects(stage_dir, &desired_state.snapshot.tasks)?;
     sync_artifact_objects(stage_dir, &desired_state.snapshot.artifacts)?;
     sync_claim_objects(stage_dir, &desired_state.snapshot.claims)?;
@@ -3781,19 +3492,10 @@ fn decode_signature(value: &str) -> Result<ed25519_dalek::Signature> {
     })
 }
 
-fn is_shared_coordination_ref_integrity_error(error: &anyhow::Error) -> bool {
-    let message = error.to_string();
-    message.contains("failed to parse shared coordination manifest from git ref")
-        || message.contains("shared coordination manifest signature")
-        || message.contains("shared coordination manifest digest mismatch")
-        || message.contains("shared coordination manifest is missing `")
-        || message.contains("failed to parse shared coordination manifest")
-}
-
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::BTreeSet;
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -3808,8 +3510,8 @@ mod tests {
     };
     use prism_ir::{
         ClaimId, ClaimMode, ClaimStatus, CoordinationTaskId, CoordinationTaskStatus, EventActor,
-        EventId, EventMeta, PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanScope,
-        PlanStatus, SessionId, TaskId, WorkspaceRevision,
+        EventId, EventMeta, PlanId, PlanKind, PlanScope, PlanStatus, SessionId, TaskId,
+        WorkspaceRevision,
     };
     use prism_store::{CoordinationCheckpointStore, CoordinationStartupCheckpoint, MemoryStore};
 
@@ -3817,17 +3519,15 @@ mod tests {
         implicit_principal_identity, initialize_shared_coordination_ref_live_sync,
         load_shared_coordination_ref_state, poll_shared_coordination_ref_live_sync,
         shared_coordination_ref_diagnostics, shared_coordination_ref_exists,
-        sync_live_runtime_descriptor, sync_shared_coordination_ref_state,
-        SharedCoordinationRefLiveSync,
+        sync_live_runtime_descriptor, SharedCoordinationRefLiveSync,
     };
-    use crate::coordination_startup_checkpoint::{
-        load_materialized_coordination_plan_state, save_shared_coordination_startup_checkpoint,
-    };
+    use crate::coordination_startup_checkpoint::load_persisted_coordination_plan_state;
     use crate::index_workspace_session;
-    use crate::published_plans::load_hydrated_coordination_plan_state;
+    use crate::published_plans::load_authoritative_coordination_plan_state;
     use crate::tracked_snapshot::TrackedSnapshotPublishContext;
     use crate::util::current_timestamp;
     use crate::workspace_identity::workspace_identity_for_root;
+    use crate::{CoordinationReadConsistency, CoordinationReadFreshness};
 
     static NEXT_TEMP_REPO: AtomicU64 = AtomicU64::new(0);
     static SHARED_COORDINATION_GIT_TEMPLATE: OnceLock<PathBuf> = OnceLock::new();
@@ -4012,6 +3712,37 @@ mod tests {
         }
     }
 
+    fn sync_shared_coordination_ref_state(
+        root: &Path,
+        snapshot: &CoordinationSnapshot,
+        publish: Option<&TrackedSnapshotPublishContext>,
+    ) -> anyhow::Result<()> {
+        super::sync_shared_coordination_ref_state(
+            root,
+            snapshot,
+            &snapshot.to_canonical_snapshot_v2(),
+            publish,
+        )
+    }
+
+    fn save_shared_coordination_startup_checkpoint<S>(
+        root: &Path,
+        store: &mut S,
+        snapshot: &CoordinationSnapshot,
+        runtime_descriptors: Option<&[RuntimeDescriptor]>,
+    ) -> anyhow::Result<()>
+    where
+        S: CoordinationCheckpointStore + prism_store::CoordinationJournal + ?Sized,
+    {
+        crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint(
+            root,
+            store,
+            snapshot,
+            &snapshot.to_canonical_snapshot_v2(),
+            runtime_descriptors,
+        )
+    }
+
     fn tamper_shared_coordination_manifest_signature(root: &Path) {
         let ref_name = super::shared_coordination_ref_name(root);
         let contents = super::load_shared_coordination_ref_contents(root, &ref_name)
@@ -4089,11 +3820,7 @@ mod tests {
     fn sample_snapshot_for(
         plan_id: &str,
         task_id: &str,
-    ) -> (
-        CoordinationSnapshot,
-        PlanGraph,
-        BTreeMap<String, Vec<PlanExecutionOverlay>>,
-    ) {
+    ) -> CoordinationSnapshot {
         let plan_id = PlanId::new(plan_id.to_string());
         let task_id = CoordinationTaskId::new(task_id.to_string());
         let plan = Plan {
@@ -4109,9 +3836,6 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
-            authored_nodes: Vec::new(),
-            authored_edges: Vec::new(),
-            root_tasks: vec![task_id.clone()],
         };
         let task = CoordinationTask {
             id: task_id,
@@ -4145,7 +3869,7 @@ mod tests {
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
-        let snapshot = CoordinationSnapshot {
+        CoordinationSnapshot {
             plans: vec![plan.clone()],
             tasks: vec![task.clone()],
             claims: Vec::new(),
@@ -4157,16 +3881,7 @@ mod tests {
             next_claim: 0,
             next_artifact: 0,
             next_review: 0,
-        };
-        let graph = prism_coordination::snapshot_plan_graphs(&snapshot)
-            .into_iter()
-            .next()
-            .unwrap();
-        let execution_map = BTreeMap::from([(
-            plan.id.0.to_string(),
-            prism_coordination::execution_overlays_from_tasks(&snapshot.tasks),
-        )]);
-        (snapshot, graph, execution_map)
+        }
     }
 
     #[test]
@@ -4188,9 +3903,6 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
-            authored_nodes: Vec::new(),
-            authored_edges: Vec::new(),
-            root_tasks: vec![task_id.clone()],
         };
         let task = CoordinationTask {
             id: task_id.clone(),
@@ -4271,20 +3983,8 @@ mod tests {
             next_artifact: 0,
             next_review: 0,
         };
-        let graph = prism_coordination::snapshot_plan_graphs(&snapshot)
-            .into_iter()
-            .next()
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&sample_publish_context()))
             .unwrap();
-        let execution_overlays = prism_coordination::execution_overlays_from_tasks(&snapshot.tasks);
-        let execution_map = BTreeMap::from([(plan.id.0.to_string(), execution_overlays.clone())]);
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            &[graph.clone()],
-            &execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
         assert!(shared_coordination_ref_exists(&root).unwrap());
         let ref_name = super::shared_coordination_ref_name(&root);
         let contents = super::load_shared_coordination_ref_contents(&root, &ref_name)
@@ -4304,10 +4004,7 @@ mod tests {
             .expect("wrapped plan payload");
         assert!(!payload.contains_key("graph"));
         assert!(!payload.contains_key("executionOverlays"));
-        assert!(
-            payload.get("root_tasks").is_none()
-                || payload.get("root_tasks") == Some(&serde_json::json!([]))
-        );
+        assert!(payload.get("root_tasks").is_none());
         let loaded = load_shared_coordination_ref_state(&root)
             .unwrap()
             .expect("shared ref state should load");
@@ -4321,150 +4018,6 @@ mod tests {
             loaded.canonical_snapshot_v2,
             snapshot.to_canonical_snapshot_v2()
         );
-        let mut expected_summary_snapshot = snapshot.clone();
-        expected_summary_snapshot.plans = expected_summary_snapshot
-            .plans
-            .iter()
-            .map(super::summary_plan_record)
-            .collect();
-        assert_eq!(
-            loaded.plan_graphs,
-            super::authored_summary_plan_graphs(&expected_summary_snapshot)
-        );
-        assert_eq!(
-            loaded
-                .execution_overlays
-                .get(plan_id.0.as_str())
-                .cloned()
-                .unwrap_or_default(),
-            execution_overlays
-        );
-    }
-
-    #[test]
-    fn authored_summary_plan_graphs_preserve_task_backed_nodes_for_mixed_authored_edges() {
-        let plan_id = PlanId::new("plan:summary-mixed".to_string());
-        let task_id = CoordinationTaskId::new("coord-task:summary-mixed".to_string());
-        let native_node_id = prism_ir::PlanNodeId::new("plan-node:summary-validate");
-        let snapshot = CoordinationSnapshot {
-            plans: vec![Plan {
-                id: plan_id.clone(),
-                goal: "Preserve mixed authored edges".to_string(),
-                title: "Preserve mixed authored edges".to_string(),
-                status: PlanStatus::Active,
-                policy: CoordinationPolicy::default(),
-                scope: PlanScope::Repo,
-                kind: PlanKind::TaskExecution,
-                revision: 1,
-                scheduling: PlanScheduling::default(),
-                tags: Vec::new(),
-                created_from: None,
-                metadata: serde_json::Value::Null,
-                authored_nodes: vec![prism_ir::PlanNode {
-                    id: native_node_id.clone(),
-                    plan_id: plan_id.clone(),
-                    kind: prism_ir::PlanNodeKind::Validate,
-                    title: "Validate".to_string(),
-                    summary: None,
-                    status: prism_ir::PlanNodeStatus::Ready,
-                    bindings: prism_ir::PlanBinding::default(),
-                    acceptance: Vec::new(),
-                    validation_refs: vec![prism_ir::ValidationRef {
-                        id: "test:shared-summary".to_string(),
-                    }],
-                    is_abstract: false,
-                    assignee: None,
-                    base_revision: WorkspaceRevision::default(),
-                    priority: None,
-                    tags: Vec::new(),
-                    metadata: serde_json::Value::Null,
-                }],
-                authored_edges: vec![
-                    prism_ir::PlanEdge {
-                        id: prism_ir::PlanEdgeId::new(format!(
-                            "plan-edge:{}:depends-on:{}",
-                            native_node_id.0, task_id.0
-                        )),
-                        plan_id: plan_id.clone(),
-                        from: native_node_id.clone(),
-                        to: prism_ir::PlanNodeId::new(task_id.0.clone()),
-                        kind: prism_ir::PlanEdgeKind::DependsOn,
-                        summary: None,
-                        metadata: serde_json::json!({ "dependencyLifecycle": "completed" }),
-                    },
-                    prism_ir::PlanEdge {
-                        id: prism_ir::PlanEdgeId::new(format!(
-                            "plan-edge:{}:validates:{}",
-                            task_id.0, native_node_id.0
-                        )),
-                        plan_id: plan_id.clone(),
-                        from: prism_ir::PlanNodeId::new(task_id.0.clone()),
-                        to: native_node_id.clone(),
-                        kind: prism_ir::PlanEdgeKind::Validates,
-                        summary: None,
-                        metadata: serde_json::Value::Null,
-                    },
-                ],
-                root_tasks: vec![task_id.clone()],
-            }],
-            tasks: vec![CoordinationTask {
-                id: task_id.clone(),
-                plan: plan_id.clone(),
-                kind: prism_ir::PlanNodeKind::Edit,
-                title: "Implement".to_string(),
-                summary: None,
-                status: CoordinationTaskStatus::Ready,
-                published_task_status: None,
-                assignee: None,
-                pending_handoff_to: None,
-                session: None,
-                lease_holder: None,
-                lease_started_at: None,
-                lease_refreshed_at: None,
-                lease_stale_at: None,
-                lease_expires_at: None,
-                worktree_id: None,
-                branch_ref: None,
-                anchors: Vec::new(),
-                bindings: prism_ir::PlanBinding::default(),
-                depends_on: Vec::new(),
-                coordination_depends_on: Vec::new(),
-                integrated_depends_on: Vec::new(),
-                acceptance: Vec::new(),
-                validation_refs: Vec::new(),
-                is_abstract: false,
-                base_revision: WorkspaceRevision::default(),
-                priority: None,
-                tags: Vec::new(),
-                metadata: serde_json::Value::Null,
-                git_execution: TaskGitExecution::default(),
-            }],
-            claims: Vec::new(),
-            artifacts: Vec::new(),
-            reviews: Vec::new(),
-            events: Vec::new(),
-            next_plan: 1,
-            next_task: 1,
-            next_claim: 0,
-            next_artifact: 0,
-            next_review: 0,
-        };
-
-        let graphs = super::authored_summary_plan_graphs(&snapshot);
-        assert_eq!(graphs.len(), 1);
-        let graph = &graphs[0];
-        assert!(graph.nodes.iter().any(|node| node.id.0 == task_id.0));
-        assert!(graph.nodes.iter().any(|node| node.id == native_node_id));
-        assert!(graph.edges.iter().any(|edge| {
-            edge.kind == prism_ir::PlanEdgeKind::DependsOn
-                && edge.from == native_node_id
-                && edge.to.0 == task_id.0
-        }));
-        assert!(graph.edges.iter().any(|edge| {
-            edge.kind == prism_ir::PlanEdgeKind::Validates
-                && edge.from.0 == task_id.0
-                && edge.to == native_node_id
-        }));
     }
 
     #[test]
@@ -4485,9 +4038,6 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
-            authored_nodes: Vec::new(),
-            authored_edges: Vec::new(),
-            root_tasks: vec![task_id.clone()],
         };
         let mut task = CoordinationTask {
             id: task_id.clone(),
@@ -4544,31 +4094,14 @@ mod tests {
             next_artifact: 0,
             next_review: 0,
         };
-        let graph = prism_coordination::snapshot_plan_graphs(&shared_snapshot)
-            .into_iter()
-            .next()
+        sync_shared_coordination_ref_state(&root, &shared_snapshot, Some(&sample_publish_context()))
             .unwrap();
-        let execution_overlays =
-            prism_coordination::execution_overlays_from_tasks(&shared_snapshot.tasks);
-        let execution_map = BTreeMap::from([(plan.id.0.to_string(), execution_overlays.clone())]);
-        sync_shared_coordination_ref_state(
-            &root,
-            &shared_snapshot,
-            &[graph],
-            &execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
 
         task.git_execution = TaskGitExecution::default();
         task.session = None;
         task.worktree_id = None;
         task.branch_ref = None;
-        let branch_snapshot = CoordinationSnapshot {
-            tasks: vec![task.clone()],
-            ..shared_snapshot.clone()
-        };
-        let loaded = load_hydrated_coordination_plan_state(&root, Some(branch_snapshot))
+        let loaded = load_authoritative_coordination_plan_state(&root)
             .unwrap()
             .expect("hydrated state");
         let loaded_task = loaded
@@ -4598,8 +4131,7 @@ mod tests {
         let head = super::run_git(&root, &["rev-parse", "HEAD"]).unwrap();
         super::run_git(&root, &["update-ref", &ref_name, &head]).unwrap();
 
-        let (snapshot, graph, execution_overlays) =
-            sample_snapshot_for("plan:checkpoint", "coord-task:checkpoint");
+        let snapshot = sample_snapshot_for("plan:checkpoint", "coord-task:checkpoint");
         let mut canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
         canonical_snapshot_v2.next_plan = canonical_snapshot_v2.next_plan + 7;
         let authority = super::shared_coordination_startup_authority(&root)
@@ -4614,21 +4146,16 @@ mod tests {
                 authority,
                 snapshot: snapshot.clone(),
                 canonical_snapshot_v2: Some(canonical_snapshot_v2.clone()),
-                plan_graphs: vec![graph.clone()],
-                execution_overlays: execution_overlays.clone(),
                 runtime_descriptors: Vec::new(),
             })
             .unwrap();
 
-        let loaded =
-            crate::protected_state::runtime_sync::load_repo_protected_plan_state(&root, &mut store)
-                .unwrap()
-                .expect("startup checkpoint should hydrate plan state");
+        let loaded = load_persisted_coordination_plan_state(&mut store)
+            .unwrap()
+            .expect("startup checkpoint should hydrate cached plan state");
 
         assert_eq!(loaded.snapshot, snapshot);
         assert_eq!(loaded.canonical_snapshot_v2, canonical_snapshot_v2);
-        assert_eq!(loaded.plan_graphs, vec![graph]);
-        assert_eq!(loaded.execution_overlays, execution_overlays);
         let checkpoint = store
             .load_coordination_startup_checkpoint()
             .unwrap()
@@ -4642,16 +4169,14 @@ mod tests {
     #[test]
     fn startup_checkpoint_omits_durable_legacy_plan_graph_state() {
         let root = temp_git_repo();
-        let (snapshot, graph, execution_overlays) =
-            sample_snapshot_for("plan:checkpoint-save", "coord-task:checkpoint-save");
+        let snapshot = sample_snapshot_for("plan:checkpoint-save", "coord-task:checkpoint-save");
         let mut store = MemoryStore::default();
 
         save_shared_coordination_startup_checkpoint(
             &root,
             &mut store,
             &snapshot,
-            &[graph],
-            &execution_overlays,
+            None,
         )
         .unwrap();
 
@@ -4659,8 +4184,6 @@ mod tests {
             .load_coordination_startup_checkpoint()
             .unwrap()
             .expect("coordination startup checkpoint");
-        assert!(checkpoint.plan_graphs.is_empty());
-        assert!(checkpoint.execution_overlays.is_empty());
         let checkpoint_plans = checkpoint.snapshot.plans.clone();
         assert_eq!(
             checkpoint_plans
@@ -4677,17 +4200,16 @@ mod tests {
     }
 
     #[test]
-    fn startup_checkpoint_load_ignores_persisted_runtime_descriptors() {
+    fn startup_checkpoint_load_preserves_persisted_runtime_descriptors() {
         let root = temp_git_repo();
-        let (snapshot, graph, execution_overlays) = sample_snapshot_for(
+        let snapshot = sample_snapshot_for(
             "plan:checkpoint-runtime-descriptors",
             "coord-task:checkpoint-runtime-descriptors",
         );
+        let canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
         sync_shared_coordination_ref_state(
             &root,
             &snapshot,
-            std::slice::from_ref(&graph),
-            &execution_overlays,
             Some(&sample_publish_context()),
         )
         .unwrap();
@@ -4702,9 +4224,7 @@ mod tests {
                 coordination_revision: 0,
                 authority,
                 snapshot,
-                canonical_snapshot_v2: None,
-                plan_graphs: vec![graph],
-                execution_overlays,
+                canonical_snapshot_v2: Some(canonical_snapshot_v2),
                 runtime_descriptors: vec![RuntimeDescriptor {
                     runtime_id: "runtime:stale-checkpoint".to_string(),
                     repo_id: "repo:stale-checkpoint".to_string(),
@@ -4725,13 +4245,14 @@ mod tests {
             })
             .unwrap();
 
-        let loaded = load_materialized_coordination_plan_state(&root, &mut store, None)
+        let loaded = load_persisted_coordination_plan_state(&mut store)
             .unwrap()
             .expect("startup checkpoint should hydrate plan state");
 
-        assert!(
-            loaded.runtime_descriptors.is_empty(),
-            "runtime descriptors must not hydrate from local startup checkpoint payloads"
+        assert_eq!(loaded.runtime_descriptors.len(), 1);
+        assert_eq!(
+            loaded.runtime_descriptors[0].runtime_id,
+            "runtime:stale-checkpoint"
         );
     }
 
@@ -4753,9 +4274,6 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
-            authored_nodes: Vec::new(),
-            authored_edges: Vec::new(),
-            root_tasks: vec![task_id.clone()],
         };
         let task = CoordinationTask {
             id: task_id.clone(),
@@ -4812,20 +4330,8 @@ mod tests {
             next_artifact: 0,
             next_review: 0,
         };
-        let graph = prism_coordination::snapshot_plan_graphs(&snapshot)
-            .into_iter()
-            .next()
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&sample_publish_context()))
             .unwrap();
-        let execution_overlays = prism_coordination::execution_overlays_from_tasks(&snapshot.tasks);
-        let execution_map = BTreeMap::from([(plan.id.0.to_string(), execution_overlays.clone())]);
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            &[graph],
-            &execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
 
         let ref_name = super::shared_coordination_ref_name(&root);
         let remote_head =
@@ -4855,53 +4361,19 @@ mod tests {
     }
 
     #[test]
-    fn invalid_shared_coordination_manifest_is_ignored_and_repaired_on_next_publish() {
+    fn invalid_shared_coordination_manifest_blocks_next_publish_until_repaired() {
         let (root, _remote) = temp_git_repo_with_origin();
-        let (snapshot, graph, execution_map) = sample_snapshot_for(
+        let snapshot = sample_snapshot_for(
             "plan:shared-invalid-manifest",
             "coord-task:shared-invalid-manifest",
         );
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            std::slice::from_ref(&graph),
-            &execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&sample_publish_context()))
+            .unwrap();
 
         tamper_shared_coordination_manifest_signature(&root);
-        let degraded = load_shared_coordination_ref_state(&root)
-            .unwrap()
-            .expect("invalid summaries should fall back to authoritative shard state");
-        assert!(degraded.snapshot.plans.is_empty());
-        assert_eq!(degraded.snapshot.tasks, snapshot.tasks);
-
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            std::slice::from_ref(&graph),
-            &execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
-
-        let ref_name = super::shared_coordination_ref_name(&root);
-        let repaired_summary =
-            super::load_shared_coordination_ref_state_from_current_ref(&root, &ref_name)
-                .unwrap()
-                .expect("summary ref should be repaired by the next publish");
-        let repaired = load_shared_coordination_ref_state(&root)
-            .unwrap()
-            .expect("shared ref state should be repaired by the next publish");
-        let expected_plans = snapshot
-            .plans
-            .iter()
-            .map(super::summary_plan_record)
-            .collect::<Vec<_>>();
-        assert_eq!(repaired_summary.snapshot.plans, expected_plans);
-        assert_eq!(repaired.snapshot.plans, expected_plans);
-        assert_eq!(repaired.snapshot.tasks, snapshot.tasks);
+        let error = sync_shared_coordination_ref_state(&root, &snapshot, Some(&sample_publish_context()))
+            .expect_err("authoritative publish should fail while the shared manifest is invalid");
+        assert!(error.to_string().contains("base64"));
     }
 
     #[test]
@@ -4923,9 +4395,6 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
-            authored_nodes: Vec::new(),
-            authored_edges: Vec::new(),
-            root_tasks: vec![task_id.clone()],
         };
         let task = CoordinationTask {
             id: task_id.clone(),
@@ -4972,22 +4441,8 @@ mod tests {
             next_artifact: 0,
             next_review: 0,
         };
-        let base_graph = prism_coordination::snapshot_plan_graphs(&base_snapshot)
-            .into_iter()
-            .next()
+        sync_shared_coordination_ref_state(&root_a, &base_snapshot, Some(&sample_publish_context()))
             .unwrap();
-        let base_execution_map = BTreeMap::from([(
-            plan.id.0.to_string(),
-            prism_coordination::execution_overlays_from_tasks(&base_snapshot.tasks),
-        )]);
-        sync_shared_coordination_ref_state(
-            &root_a,
-            &base_snapshot,
-            &[base_graph],
-            &base_execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
 
         let ref_name = super::shared_coordination_ref_name(&root_b);
         let expected_head = super::refresh_local_shared_coordination_ref(
@@ -5039,22 +4494,8 @@ mod tests {
             next_artifact: 1,
             ..base_snapshot.clone()
         };
-        let graph_a = prism_coordination::snapshot_plan_graphs(&snapshot_a)
-            .into_iter()
-            .next()
+        sync_shared_coordination_ref_state(&root_a, &snapshot_a, Some(&sample_publish_context()))
             .unwrap();
-        let execution_map_a = BTreeMap::from([(
-            plan.id.0.to_string(),
-            prism_coordination::execution_overlays_from_tasks(&snapshot_a.tasks),
-        )]);
-        sync_shared_coordination_ref_state(
-            &root_a,
-            &snapshot_a,
-            &[graph_a],
-            &execution_map_a,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
 
         let claim_b = WorkClaim {
             id: ClaimId::new("claim:b".to_string()),
@@ -5096,14 +4537,6 @@ mod tests {
             next_artifact: 1,
             ..base_snapshot.clone()
         };
-        let graph_b = prism_coordination::snapshot_plan_graphs(&snapshot_b)
-            .into_iter()
-            .next()
-            .unwrap();
-        let execution_map_b = BTreeMap::from([(
-            plan.id.0.to_string(),
-            prism_coordination::execution_overlays_from_tasks(&snapshot_b.tasks),
-        )]);
         let paths_b = crate::PrismPaths::for_workspace_root(&root_b).unwrap();
         let stage_parent = super::stage_root(&paths_b);
         fs::create_dir_all(&stage_parent).unwrap();
@@ -5115,8 +4548,7 @@ mod tests {
             &paths_b,
             &stage_dir,
             &snapshot_b,
-            &[graph_b],
-            &execution_map_b,
+            &snapshot_b.to_canonical_snapshot_v2(),
             Some(&sample_publish_context()),
             &ref_name,
             expected_head.as_deref(),
@@ -5181,9 +4613,6 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
-            authored_nodes: Vec::new(),
-            authored_edges: Vec::new(),
-            root_tasks: vec![task_a_id.clone(), task_b_id.clone()],
         };
         let task_a = CoordinationTask {
             id: task_a_id.clone(),
@@ -5235,22 +4664,8 @@ mod tests {
             next_artifact: 0,
             next_review: 0,
         };
-        let graph = prism_coordination::snapshot_plan_graphs(&snapshot)
-            .into_iter()
-            .next()
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&sample_publish_context()))
             .unwrap();
-        let execution_map = BTreeMap::from([(
-            plan.id.0.to_string(),
-            prism_coordination::execution_overlays_from_tasks(&snapshot.tasks),
-        )]);
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            &[graph],
-            &execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
 
         let ref_name = super::shared_coordination_ref_name(&root);
         let baseline_state =
@@ -5266,19 +4681,9 @@ mod tests {
             tasks: vec![task_a.clone(), changed_task_b.clone()],
             ..snapshot.clone()
         };
-        let changed_graph = prism_coordination::snapshot_plan_graphs(&changed_snapshot)
-            .into_iter()
-            .next()
-            .unwrap();
-        let changed_execution_map = BTreeMap::from([(
-            plan.id.0.to_string(),
-            prism_coordination::execution_overlays_from_tasks(&changed_snapshot.tasks),
-        )]);
         let changed_state = super::SharedCoordinationRefState {
             snapshot: changed_snapshot.clone(),
             canonical_snapshot_v2: changed_snapshot.to_canonical_snapshot_v2(),
-            plan_graphs: vec![changed_graph.clone()],
-            execution_overlays: changed_execution_map.clone(),
             runtime_descriptors: baseline_state.runtime_descriptors.clone(),
         };
         let stage_dir = root.join(".prism").join("publish-patch-test");
@@ -5314,14 +4719,8 @@ mod tests {
         );
         let task_shard_head_before =
             super::run_git(&root, &["rev-parse", &task_shard_ref]).unwrap();
-        sync_shared_coordination_ref_state(
-            &root,
-            &changed_snapshot,
-            &[changed_graph],
-            &changed_execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
+        sync_shared_coordination_ref_state(&root, &changed_snapshot, Some(&sample_publish_context()))
+            .unwrap();
         let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
         let task_shard_head_after = super::run_git(&root, &["rev-parse", &task_shard_ref]).unwrap();
         assert_ne!(
@@ -5408,9 +4807,6 @@ mod tests {
             tags: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
-            authored_nodes: Vec::new(),
-            authored_edges: Vec::new(),
-            root_tasks: vec![task_id.clone()],
         };
         let task = CoordinationTask {
             id: task_id.clone(),
@@ -5457,23 +4853,8 @@ mod tests {
             next_artifact: 0,
             next_review: 0,
         };
-        let graph = prism_coordination::snapshot_plan_graphs(&snapshot)
-            .into_iter()
-            .next()
+        sync_shared_coordination_ref_state(&root_a, &snapshot, Some(&sample_publish_context()))
             .unwrap();
-        let execution_map = BTreeMap::from([(
-            plan.id.0.to_string(),
-            prism_coordination::execution_overlays_from_tasks(&snapshot.tasks),
-        )]);
-
-        sync_shared_coordination_ref_state(
-            &root_a,
-            &snapshot,
-            &[graph],
-            &execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
         assert!(matches!(
             poll_shared_coordination_ref_live_sync(&root_a).unwrap(),
             SharedCoordinationRefLiveSync::Unchanged
@@ -5533,22 +4914,8 @@ mod tests {
             next_artifact: 0,
             next_review: 0,
         };
-        let changed_graph = prism_coordination::snapshot_plan_graphs(&changed_snapshot)
-            .into_iter()
-            .next()
+        sync_shared_coordination_ref_state(&root_b, &changed_snapshot, Some(&sample_publish_context()))
             .unwrap();
-        let changed_execution_map = BTreeMap::from([(
-            plan.id.0.to_string(),
-            prism_coordination::execution_overlays_from_tasks(&changed_snapshot.tasks),
-        )]);
-        sync_shared_coordination_ref_state(
-            &root_b,
-            &changed_snapshot,
-            &[changed_graph],
-            &changed_execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
 
         crate::watch::sync_shared_coordination_ref_watch_update(
             &root_a,
@@ -5568,14 +4935,74 @@ mod tests {
             .claims
             .iter()
             .any(|claim| claim.id.0 == "claim:shared-live-sync"));
+        let eventual = session
+            .read_coordination_snapshot_with_consistency(
+                crate::coordination_reads::CoordinationReadConsistency::Eventual,
+            )
+            .unwrap()
+            .into_value()
+            .expect("eventual coordination snapshot should exist after live sync");
         assert_eq!(
-            session.prism().coordination_snapshot().tasks[0].status,
+            eventual.tasks[0].status,
             CoordinationTaskStatus::Completed
         );
         assert!(matches!(
             poll_shared_coordination_ref_live_sync(&root_a).unwrap(),
             SharedCoordinationRefLiveSync::Unchanged
         ));
+    }
+
+    #[test]
+    fn session_coordination_reads_split_eventual_and_strong_consistency() {
+        let (root_a, _remote) = temp_git_repo_with_origin();
+        seed_workspace_project(&root_a);
+
+        let snapshot =
+            sample_snapshot_for("plan:coord-read-modes", "coord-task:coord-read-modes");
+        sync_shared_coordination_ref_state(&root_a, &snapshot, Some(&sample_publish_context()))
+            .unwrap();
+
+        let session = index_workspace_session(&root_a).unwrap();
+        let eventual_before = session
+            .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Eventual)
+            .unwrap();
+        assert_eq!(
+            eventual_before.freshness,
+            CoordinationReadFreshness::Unavailable
+        );
+        assert!(eventual_before.value.is_none());
+
+        let strong_initial = session
+            .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Strong)
+            .unwrap();
+        assert_eq!(
+            strong_initial.freshness,
+            CoordinationReadFreshness::VerifiedCurrent
+        );
+        let initial_title = strong_initial
+            .value
+            .as_ref()
+            .and_then(|state| state.snapshot.tasks.first())
+            .map(|task| task.title.as_str())
+            .unwrap();
+        assert_eq!(initial_title, "ship it");
+
+        let eventual_after_initial = session
+            .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Eventual)
+            .unwrap();
+        assert_eq!(
+            eventual_after_initial.freshness,
+            CoordinationReadFreshness::VerifiedStale
+        );
+        assert_eq!(
+            eventual_after_initial
+                .value
+                .as_ref()
+                .and_then(|state| state.snapshot.tasks.first())
+                .map(|task| task.title.as_str())
+                .unwrap(),
+            "ship it"
+        );
     }
 
     #[test]
@@ -5769,7 +5196,7 @@ mod tests {
     #[test]
     fn shared_coordination_ref_compacts_history_after_threshold() {
         let (root, _remote) = temp_git_repo_with_origin();
-        let (base_snapshot, graph, execution_map) =
+        let base_snapshot =
             sample_snapshot_for("plan:shared-compaction", "coord-task:shared-compaction");
         let publish = sample_publish_context();
         let task_id = base_snapshot.tasks[0].id.clone();
@@ -5795,14 +5222,7 @@ mod tests {
                 next_artifact: iteration + 1,
                 ..base_snapshot.clone()
             };
-            sync_shared_coordination_ref_state(
-                &root,
-                &snapshot,
-                std::slice::from_ref(&graph),
-                &execution_map,
-                Some(&publish),
-            )
-            .unwrap();
+            sync_shared_coordination_ref_state(&root, &snapshot, Some(&publish)).unwrap();
         }
 
         let diagnostics = shared_coordination_ref_diagnostics(&root)
@@ -5844,17 +5264,10 @@ mod tests {
     #[test]
     fn shared_coordination_ref_diagnostics_report_manifest_and_history() {
         let (root, _remote) = temp_git_repo_with_origin();
-        let (snapshot, graph, execution_map) =
+        let snapshot =
             sample_snapshot_for("plan:shared-diagnostics", "coord-task:shared-diagnostics");
         let publish = sample_publish_context();
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            &[graph],
-            &execution_map,
-            Some(&publish),
-        )
-        .unwrap();
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&publish)).unwrap();
         sync_live_runtime_descriptor(&root).unwrap();
 
         let diagnostics = shared_coordination_ref_diagnostics(&root)
@@ -5989,17 +5402,9 @@ mod tests {
     #[test]
     fn shared_coordination_ref_status_summary_matches_displayed_diagnostics_fields() {
         let (root, _remote) = temp_git_repo_with_origin();
-        let (snapshot, graph, execution_map) =
-            sample_snapshot_for("plan:shared-status", "coord-task:shared-status");
+        let snapshot = sample_snapshot_for("plan:shared-status", "coord-task:shared-status");
         let publish = sample_publish_context();
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            &[graph],
-            &execution_map,
-            Some(&publish),
-        )
-        .unwrap();
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&publish)).unwrap();
 
         let diagnostics = shared_coordination_ref_diagnostics(&root)
             .unwrap()
@@ -6019,18 +5424,12 @@ mod tests {
     #[test]
     fn shared_coordination_summary_materializes_current_task_snapshots() {
         let (root, _remote) = temp_git_repo_with_origin();
-        let (snapshot, graph, execution_map) = sample_snapshot_for(
+        let snapshot = sample_snapshot_for(
             "plan:summary-materialized",
             "coord-task:summary-materialized",
         );
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            &[graph],
-            &execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&sample_publish_context()))
+            .unwrap();
 
         let diagnostics = shared_coordination_ref_diagnostics(&root)
             .unwrap()
@@ -6076,17 +5475,9 @@ mod tests {
     fn shared_coordination_ref_diagnostics_accept_legacy_signed_manifest_shape() {
         let (root, _remote) = temp_git_repo_with_origin();
         let task_id = "coord-task:shared-legacy-manifest";
-        let (snapshot, graph, execution_map) =
-            sample_snapshot_for("plan:shared-legacy-manifest", task_id);
+        let snapshot = sample_snapshot_for("plan:shared-legacy-manifest", task_id);
         let publish = sample_publish_context();
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            &[graph],
-            &execution_map,
-            Some(&publish),
-        )
-        .unwrap();
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&publish)).unwrap();
         rewrite_shared_coordination_manifest_as_legacy_signed_payload(&root);
 
         let diagnostics = shared_coordination_ref_diagnostics(&root)
@@ -6107,7 +5498,7 @@ mod tests {
         assert_eq!(diagnostics.verification_status, "verified");
         assert!(!diagnostics.degraded);
         assert!(diagnostics.authoritative_hydration_allowed);
-        let hydrated = load_hydrated_coordination_plan_state(&root, None)
+        let hydrated = load_authoritative_coordination_plan_state(&root)
             .unwrap()
             .expect("hydrated state");
         assert!(hydrated
@@ -6120,17 +5511,10 @@ mod tests {
     #[test]
     fn shared_coordination_ref_diagnostics_surface_degraded_verification_state() {
         let (root, _remote) = temp_git_repo_with_origin();
-        let (snapshot, graph, execution_map) =
+        let snapshot =
             sample_snapshot_for("plan:shared-degraded", "coord-task:shared-degraded");
         let publish = sample_publish_context();
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            &[graph],
-            &execution_map,
-            Some(&publish),
-        )
-        .unwrap();
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&publish)).unwrap();
 
         tamper_shared_coordination_manifest(&root, |manifest| {
             manifest.published_at += 1;
@@ -6157,23 +5541,15 @@ mod tests {
     #[test]
     fn invalid_shared_coordination_ref_blocks_authoritative_hydration_without_fallback() {
         let (root, _remote) = temp_git_repo_with_origin();
-        let (shared_snapshot, shared_graph, shared_execution_map) =
+        let shared_snapshot =
             sample_snapshot_for("plan:shared-blocked", "coord-task:shared-blocked");
-        sync_shared_coordination_ref_state(
-            &root,
-            &shared_snapshot,
-            &[shared_graph],
-            &shared_execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
+        sync_shared_coordination_ref_state(&root, &shared_snapshot, Some(&sample_publish_context()))
+            .unwrap();
         tamper_shared_coordination_manifest(&root, |manifest| {
             manifest.published_at += 1;
         });
 
-        let (fallback_snapshot, _, _) =
-            sample_snapshot_for("plan:fallback-local", "coord-task:fallback-local");
-        let error = load_hydrated_coordination_plan_state(&root, Some(fallback_snapshot))
+        let error = load_authoritative_coordination_plan_state(&root)
             .expect_err("invalid shared coordination ref should block authoritative hydration");
         assert!(error.to_string().contains("verification failed"));
     }
@@ -6181,16 +5557,9 @@ mod tests {
     #[test]
     fn sync_live_runtime_descriptor_publishes_descriptor_without_coordination_objects() {
         let (root, _remote) = temp_git_repo_with_origin();
-        let (snapshot, graph, execution_map) =
-            sample_snapshot_for("plan:runtime-publish", "coord-task:runtime-publish");
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            &[graph],
-            &execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
+        let snapshot = sample_snapshot_for("plan:runtime-publish", "coord-task:runtime-publish");
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&sample_publish_context()))
+            .unwrap();
         let summary_ref = super::shared_coordination_ref_name(&root);
         let summary_head_before = super::run_git(&root, &["rev-parse", &summary_ref]).unwrap();
         sync_live_runtime_descriptor(&root).unwrap();
@@ -6241,16 +5610,10 @@ mod tests {
     #[test]
     fn sync_live_runtime_descriptor_publishes_configured_public_url() {
         let (root, _remote) = temp_git_repo_with_origin();
-        let (snapshot, graph, execution_map) =
+        let snapshot =
             sample_snapshot_for("plan:runtime-public-url", "coord-task:runtime-public-url");
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            &[graph],
-            &execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&sample_publish_context()))
+            .unwrap();
         let public_url_path = crate::PrismPaths::for_workspace_root(&root)
             .unwrap()
             .mcp_public_url_path()
@@ -6278,18 +5641,12 @@ mod tests {
     #[test]
     fn sync_live_runtime_descriptor_clears_public_url_when_configuration_is_removed() {
         let (root, _remote) = temp_git_repo_with_origin();
-        let (snapshot, graph, execution_map) = sample_snapshot_for(
+        let snapshot = sample_snapshot_for(
             "plan:runtime-clear-public-url",
             "coord-task:runtime-clear-public-url",
         );
-        sync_shared_coordination_ref_state(
-            &root,
-            &snapshot,
-            &[graph],
-            &execution_map,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
+        sync_shared_coordination_ref_state(&root, &snapshot, Some(&sample_publish_context()))
+            .unwrap();
         let summary_ref = super::shared_coordination_ref_name(&root);
         let summary_head_before = super::run_git(&root, &["rev-parse", &summary_ref]).unwrap();
         let runtime_ref = super::shared_coordination_runtime_ref_name(

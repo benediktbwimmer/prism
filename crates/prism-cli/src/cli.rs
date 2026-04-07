@@ -358,11 +358,6 @@ pub enum ProtectedStateCommand {
         #[arg(long, default_value_t = false)]
         to_last_valid: bool,
     },
-    #[command(name = "repair-published-plans")]
-    RepairPublishedPlans {
-        #[arg(long, default_value_t = false)]
-        check: bool,
-    },
     #[command(name = "repair-snapshot-artifacts")]
     RepairSnapshotArtifacts,
     #[command(name = "restore-legacy-published-knowledge")]
@@ -1089,23 +1084,6 @@ mod tests {
                 assert_eq!(stream, "concepts:events");
                 assert!(to_last_valid);
             }
-            _ => panic!("unexpected command"),
-        }
-    }
-
-    #[test]
-    fn protected_state_repair_published_plans_accepts_check_mode() {
-        let cli = Cli::parse_from([
-            "prism",
-            "protected-state",
-            "repair-published-plans",
-            "--check",
-        ]);
-        assert!(cli.root.is_none());
-        match cli.command {
-            Command::ProtectedState {
-                command: ProtectedStateCommand::RepairPublishedPlans { check },
-            } => assert!(check),
             _ => panic!("unexpected command"),
         }
     }

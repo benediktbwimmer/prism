@@ -1,8 +1,8 @@
-use prism_ir::{PlanNodeStatus, PlanScope, PlanStatus};
-use std::collections::BTreeSet;
+use prism_ir::{DerivedPlanStatus, EffectiveTaskStatus, NodeRefKind, PlanScope, PlanStatus};
+use std::collections::{BTreeMap, BTreeSet};
 
-use crate::plan_completion::current_timestamp;
-use crate::{NativePlanRuntimeState, PlanListEntry, PlanNodeStatusCounts, Prism};
+use crate::common::current_timestamp;
+use crate::{PlanListEntry, PlanNodeStatusCounts, Prism};
 
 const PLAN_DISCOVERY_CACHE_TTL_SECS: u64 = 5;
 
@@ -32,17 +32,6 @@ impl Prism {
         scope: Option<PlanScope>,
         contains: Option<&str>,
     ) -> Vec<PlanListEntry> {
-        let runtime = self.plan_runtime_state();
-        self.plans_for_runtime(&runtime, status, scope, contains)
-    }
-
-    fn plans_for_runtime(
-        &self,
-        runtime: &NativePlanRuntimeState,
-        status: Option<PlanStatus>,
-        scope: Option<PlanScope>,
-        contains: Option<&str>,
-    ) -> Vec<PlanListEntry> {
         let contains = contains
             .map(str::trim)
             .filter(|value| !value.is_empty())
@@ -51,70 +40,73 @@ impl Prism {
             return entries;
         }
 
+        let snapshot = self.coordination_snapshot_v2();
+        let Some(derivations) = snapshot.derive_statuses().ok() else {
+            return Vec::new();
+        };
+        let Ok(graph) = snapshot.graph() else {
+            return Vec::new();
+        };
         let activity_by_plan = self.plan_activity_index();
-        let mut plans: Vec<(PlanListEntry, Option<f32>, bool)> = self
-            .hydrated_plan_graphs_for_runtime(runtime)
+        let task_ids_by_plan = descendant_task_ids_by_plan(&graph);
+
+        let mut plans: Vec<PlanListEntry> = snapshot
+            .plans
+            .iter()
             .into_iter()
-            .filter_map(|graph| {
-                let summary = self.plan_summary_for_runtime(runtime, &graph.id)?;
-                let node_status_counts = plan_node_status_counts(&graph);
-                let top_recommendation = self
-                    .plan_next_for_runtime(runtime, &graph.id, 1)
-                    .into_iter()
-                    .next();
-                Some((
-                    PlanListEntry {
-                        plan_id: graph.id.clone(),
-                        title: graph.title,
-                        goal: graph.goal,
-                        status: graph.status,
-                        scope: graph.scope,
-                        kind: graph.kind,
-                        policy: runtime.policy(&graph.id).unwrap_or_default(),
-                        scheduling: runtime.scheduling(&graph.id).unwrap_or_default(),
-                        root_node_ids: graph.root_nodes,
-                        summary: plan_discovery_summary(&summary),
-                        plan_summary: summary,
-                        node_status_counts,
-                        activity: activity_by_plan
-                            .get(graph.id.0.as_str())
-                            .cloned()
-                            .unwrap_or_default(),
-                    },
-                    top_recommendation
-                        .as_ref()
-                        .map(|recommendation| recommendation.score),
-                    top_recommendation
-                        .as_ref()
-                        .is_some_and(|recommendation| recommendation.actionable),
-                ))
+            .filter_map(|plan| {
+                let summary = self.plan_summary(&plan.id)?;
+                let node_status_counts = canonical_plan_node_status_counts(
+                    task_ids_by_plan
+                        .get(plan.id.0.as_str())
+                        .map(Vec::as_slice)
+                        .unwrap_or(&[]),
+                    &derivations,
+                );
+                let derived_status = derivations.plan_state(&plan.id)?;
+                let status = self
+                    .coordination_plan(&plan.id)
+                    .map(|legacy| legacy.status)
+                    .unwrap_or_else(|| compatibility_plan_status(derived_status.derived_status));
+                Some(PlanListEntry {
+                    plan_id: plan.id.clone(),
+                    title: plan.title.clone(),
+                    goal: plan.goal.clone(),
+                    status,
+                    scope: plan.scope,
+                    kind: plan.kind,
+                    policy: plan.policy.clone(),
+                    scheduling: plan.scheduling.clone(),
+                    summary: plan_discovery_summary(&summary),
+                    plan_summary: summary,
+                    node_status_counts,
+                    activity: activity_by_plan
+                        .get(plan.id.0.as_str())
+                        .cloned()
+                        .unwrap_or_default(),
+                })
             })
             .collect::<Vec<_>>();
 
         plans.sort_by(|left, right| {
-            let (left_entry, left_score, left_actionable) = left;
-            let (right_entry, right_score, right_actionable) = right;
-            plan_status_rank(left_entry.status)
-                .cmp(&plan_status_rank(right_entry.status))
-                .then_with(|| right_actionable.cmp(left_actionable))
+            plan_status_rank(left.status)
+                .cmp(&plan_status_rank(right.status))
                 .then_with(|| {
-                    right_score
-                        .partial_cmp(left_score)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-                .then_with(|| {
-                    right_entry
+                    right
                         .plan_summary
                         .actionable_nodes
-                        .cmp(&left_entry.plan_summary.actionable_nodes)
+                        .cmp(&left.plan_summary.actionable_nodes)
                 })
-                .then_with(|| left_entry.title.cmp(&right_entry.title))
-                .then_with(|| left_entry.plan_id.0.cmp(&right_entry.plan_id.0))
+                .then_with(|| {
+                    right
+                        .plan_summary
+                        .in_progress_nodes
+                        .cmp(&left.plan_summary.in_progress_nodes)
+                })
+                .then_with(|| left.title.cmp(&right.title))
+                .then_with(|| left.plan_id.0.cmp(&right.plan_id.0))
         });
-        let entries = plans
-            .into_iter()
-            .map(|(entry, _, _)| entry)
-            .collect::<Vec<_>>();
+        let entries = plans;
         self.store_plan_entries_cache(&entries);
         filter_plan_entries(&entries, status, scope, contains.as_deref())
     }
@@ -218,26 +210,68 @@ fn plan_status_rank(status: PlanStatus) -> u8 {
     }
 }
 
-fn plan_node_status_counts(graph: &prism_ir::PlanGraph) -> PlanNodeStatusCounts {
-    let mut counts = PlanNodeStatusCounts::default();
-    for node in &graph.nodes {
-        if node.is_abstract {
-            counts.abstract_nodes += 1;
+fn descendant_task_ids_by_plan(
+    graph: &prism_coordination::CanonicalCoordinationGraph<'_>,
+) -> BTreeMap<String, Vec<prism_ir::TaskId>> {
+    let mut descendant_tasks = BTreeMap::<String, Vec<prism_ir::TaskId>>::new();
+    for node in graph.topological_order().iter().rev() {
+        let Some(prism_coordination::CanonicalNodeRecord::Plan(plan)) = graph.node(node) else {
             continue;
+        };
+        let mut tasks = Vec::new();
+        for child in graph.children_of_plan(&plan.id) {
+            match child.kind {
+                NodeRefKind::Task => tasks.push(prism_ir::TaskId::new(child.id)),
+                NodeRefKind::Plan => {
+                    if let Some(child_tasks) = descendant_tasks.get(child.id.as_str()) {
+                        tasks.extend(child_tasks.iter().cloned());
+                    }
+                }
+            }
         }
-        match node.status {
-            PlanNodeStatus::Proposed => counts.proposed += 1,
-            PlanNodeStatus::Ready => counts.ready += 1,
-            PlanNodeStatus::InProgress => counts.in_progress += 1,
-            PlanNodeStatus::Blocked => counts.blocked += 1,
-            PlanNodeStatus::Waiting => counts.waiting += 1,
-            PlanNodeStatus::InReview => counts.in_review += 1,
-            PlanNodeStatus::Validating => counts.validating += 1,
-            PlanNodeStatus::Completed => counts.completed += 1,
-            PlanNodeStatus::Abandoned => counts.abandoned += 1,
+        tasks.sort_by(|left, right| left.0.cmp(&right.0));
+        tasks.dedup_by(|left, right| left == right);
+        descendant_tasks.insert(plan.id.0.to_string(), tasks);
+    }
+    descendant_tasks
+}
+
+fn canonical_plan_node_status_counts(
+    task_ids: &[prism_ir::TaskId],
+    derivations: &prism_coordination::CoordinationDerivations,
+) -> PlanNodeStatusCounts {
+    let mut counts = PlanNodeStatusCounts::default();
+    for task_id in task_ids {
+        let Some(task_state) = derivations.task_state(task_id) else {
+            continue;
+        };
+        match task_state.effective_status {
+            EffectiveTaskStatus::Pending => counts.proposed += 1,
+            EffectiveTaskStatus::Active => counts.in_progress += 1,
+            EffectiveTaskStatus::Blocked => counts.blocked += 1,
+            EffectiveTaskStatus::BrokenDependency => counts.waiting += 1,
+            EffectiveTaskStatus::Completed => counts.completed += 1,
+            EffectiveTaskStatus::Abandoned => counts.abandoned += 1,
+            EffectiveTaskStatus::Failed => counts.blocked += 1,
+        }
+        if task_state.graph_actionable {
+            counts.ready += 1;
         }
     }
     counts
+}
+
+fn compatibility_plan_status(status: DerivedPlanStatus) -> PlanStatus {
+    match status {
+        DerivedPlanStatus::Pending => PlanStatus::Draft,
+        DerivedPlanStatus::Active => PlanStatus::Active,
+        DerivedPlanStatus::Blocked => PlanStatus::Blocked,
+        DerivedPlanStatus::BrokenDependency => PlanStatus::Blocked,
+        DerivedPlanStatus::Completed => PlanStatus::Completed,
+        DerivedPlanStatus::Failed => PlanStatus::Blocked,
+        DerivedPlanStatus::Abandoned => PlanStatus::Abandoned,
+        DerivedPlanStatus::Archived => PlanStatus::Archived,
+    }
 }
 
 fn plan_discovery_summary(summary: &crate::PlanSummary) -> String {

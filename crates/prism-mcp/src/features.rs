@@ -269,10 +269,8 @@ impl PrismMcpFeatures {
     fn coordination_only_query_method_enabled(&self, operation: &str) -> bool {
         match operation {
             "from" | "tools" | "tool" | "validateToolInput" | "diagnostics" => true,
-            "plans" | "plan" | "planGraph" | "planProjectionAt" | "planProjectionDiff"
-            | "planExecution" | "planReadyNodes" | "planNodeBlockers" | "planSummary"
-            | "planNext" | "portfolioNext" | "coordinationTask" | "readyTasks" | "blockers"
-            | "policyViolations"
+            "plans" | "plan" | "planSummary" | "coordinationTask" | "readyTasks"
+            | "blockers" | "policyViolations"
                 if self.coordination.workflow =>
             {
                 true
@@ -308,15 +306,7 @@ impl PrismMcpFeatures {
             }
             "plans"
             | "plan"
-            | "planGraph"
-            | "planProjectionAt"
-            | "planProjectionDiff"
-            | "planExecution"
-            | "planReadyNodes"
-            | "planNodeBlockers"
             | "planSummary"
-            | "planNext"
-            | "portfolioNext"
             | "coordinationTask"
             | "readyTasks"
             | "blockers"
@@ -425,9 +415,6 @@ impl PrismMcpFeatures {
             | "coordinationTaskStatus"
             | "planStatus"
             | "planScope"
-            | "planNodeStatus"
-            | "planNodeKind"
-            | "planEdgeKind"
             | "acceptanceEvidencePolicy" => self.coordination.workflow,
             "claimAction" | "capability" | "claimMode" => self.coordination.claims,
             "artifactAction" | "reviewVerdict" => self.coordination.artifacts,

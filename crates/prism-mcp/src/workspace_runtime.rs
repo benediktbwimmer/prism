@@ -1571,21 +1571,10 @@ fn serialized_size<T: Serialize>(value: &T) -> Result<u64> {
 fn coordination_reload_materialization(
     state: &prism_core::CoordinationPlanState,
 ) -> Result<ReloadMaterialization> {
-    let overlay_count = state
-        .execution_overlays
-        .values()
-        .map(|overlays| overlays.len())
-        .sum::<usize>();
-    let plan_graph_node_count = state
-        .plan_graphs
-        .iter()
-        .map(|graph| graph.nodes.len().saturating_add(graph.edges.len()))
-        .sum::<usize>();
     let snapshot = &state.snapshot;
+    let snapshot_v2 = &state.canonical_snapshot_v2;
     Ok(ReloadMaterialization {
-        loaded_bytes: serialized_size(snapshot)?
-            .saturating_add(serialized_size(&state.plan_graphs)?)
-            .saturating_add(serialized_size(&state.execution_overlays)?),
+        loaded_bytes: serialized_size(snapshot)?.saturating_add(serialized_size(snapshot_v2)?),
         replay_volume: u64::try_from(
             snapshot
                 .plans
@@ -1595,8 +1584,8 @@ fn coordination_reload_materialization(
                 .saturating_add(snapshot.artifacts.len())
                 .saturating_add(snapshot.reviews.len())
                 .saturating_add(snapshot.events.len())
-                .saturating_add(plan_graph_node_count)
-                .saturating_add(overlay_count),
+                .saturating_add(snapshot_v2.plans.len())
+                .saturating_add(snapshot_v2.tasks.len()),
         )
         .unwrap_or(u64::MAX),
     })
@@ -2523,9 +2512,6 @@ mod tests {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: Value::Null,
-                authored_nodes: Vec::new(),
-                authored_edges: Vec::new(),
-                root_tasks: vec![live_task_id.clone()],
             }],
             tasks: vec![CoordinationTask {
                 id: live_task_id.clone(),
@@ -2571,12 +2557,7 @@ mod tests {
         };
         workspace
             .prism()
-            .replace_coordination_snapshot_and_plan_graphs(
-                live_snapshot.clone(),
-                Vec::new(),
-                std::collections::BTreeMap::new(),
-                Vec::new(),
-            );
+            .replace_coordination_runtime(live_snapshot.clone(), Vec::new());
 
         let runtime_only_revision = persisted_revision.saturating_add(1);
         let reload =

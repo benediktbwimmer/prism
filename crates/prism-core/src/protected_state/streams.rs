@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 
-use prism_ir::PlanId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,17 +62,6 @@ impl ProtectedRepoStream {
         })
     }
 
-    pub(crate) fn plan_stream(plan_id: &PlanId) -> Self {
-        Self {
-            stream: "repo_plan_events",
-            stream_id: plan_id.0.to_string(),
-            relative_path: PathBuf::from(".prism")
-                .join("plans")
-                .join("streams")
-                .join(format!("{}.jsonl", plan_id.0)),
-        }
-    }
-
     pub(crate) fn stream(&self) -> &'static str {
         self.stream
     }
@@ -130,16 +118,6 @@ pub(crate) fn classify_protected_repo_relative_path(path: &Path) -> Option<Prote
         [prism, memory, file] if prism == ".prism" && memory == "memory" => {
             ProtectedRepoStream::memory_stream(file)
         }
-        [prism, plans, streams, file]
-            if prism == ".prism"
-                && plans == "plans"
-                && streams == "streams"
-                && file.ends_with(".jsonl") =>
-        {
-            let plan_id = file.trim_end_matches(".jsonl");
-            (!plan_id.trim().is_empty())
-                .then(|| ProtectedRepoStream::plan_stream(&PlanId::new(plan_id)))
-        }
         _ => None,
     }
 }
@@ -148,11 +126,7 @@ pub(crate) fn classify_protected_repo_relative_path(path: &Path) -> Option<Prote
 mod tests {
     use std::path::Path;
 
-    use prism_ir::PlanId;
-
-    use super::{
-        classify_protected_repo_relative_path, ProtectedRepoStream, ProtectedVerificationStatus,
-    };
+    use super::{classify_protected_repo_relative_path, ProtectedVerificationStatus};
 
     #[test]
     fn classifies_fixed_v1_protected_paths() {
@@ -182,23 +156,6 @@ mod tests {
             .expect("memory events should be protected");
         assert_eq!(memory.stream(), "repo_memory_events");
         assert_eq!(memory.stream_id(), "memory:events");
-    }
-
-    #[test]
-    fn classifies_plan_streams_using_the_streams_topology() {
-        let stream = classify_protected_repo_relative_path(Path::new(
-            ".prism/plans/streams/plan:demo.jsonl",
-        ))
-        .expect("per-plan stream should be protected");
-        assert_eq!(stream.stream(), "repo_plan_events");
-        assert_eq!(stream.stream_id(), "plan:demo");
-        assert_eq!(
-            stream.relative_path(),
-            Path::new(".prism/plans/streams/plan:demo.jsonl")
-        );
-
-        let direct = ProtectedRepoStream::plan_stream(&PlanId::new("plan:demo"));
-        assert_eq!(direct, stream);
     }
 
     #[test]

@@ -9,11 +9,10 @@ use anyhow::{anyhow, Result};
 use prism_agent::InferenceSnapshot;
 use prism_coordination::{
     coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
-    CoordinationSnapshot,
+    CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor,
 };
 use prism_curator::CuratorSnapshot;
 use prism_ir::LineageEvent;
-use prism_ir::{PlanExecutionOverlay, PlanGraph};
 use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
 use prism_projections::{CoChangeDelta, ProjectionIndex, ProjectionSnapshot, ValidationDelta};
 use prism_store::WorkspaceTreeSnapshot;
@@ -26,7 +25,6 @@ use tracing::warn;
 use crate::coordination_persistence::repo_semantic_coordination_snapshot;
 use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::memory_refresh::reanchor_episodic_snapshot;
-use crate::published_plans::execution_overlays_by_plan;
 use crate::tracked_snapshot::{sync_coordination_snapshot_state, TrackedSnapshotPublishContext};
 
 const VALIDATION_COALESCE_WINDOW: Duration = Duration::from_millis(25);
@@ -36,8 +34,8 @@ const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
 pub(crate) struct CoordinationMaterialization {
     pub(crate) authoritative_revision: u64,
     pub(crate) snapshot: CoordinationSnapshot,
-    pub(crate) plan_graphs: Option<Vec<PlanGraph>>,
-    pub(crate) execution_overlays: Option<BTreeMap<String, Vec<PlanExecutionOverlay>>>,
+    pub(crate) canonical_snapshot_v2: Option<CoordinationSnapshotV2>,
+    pub(crate) runtime_descriptors: Option<Vec<RuntimeDescriptor>>,
     pub(crate) publish_context: Option<TrackedSnapshotPublishContext>,
 }
 
@@ -480,19 +478,12 @@ where
     {
         store.save_coordination_compaction(&materialization.snapshot)?;
     }
-    if let (Some(plan_graphs), Some(_execution_overlays)) = (
-        materialization.plan_graphs.as_ref(),
-        materialization.execution_overlays.as_ref(),
-    ) {
+    if let Some(canonical_snapshot_v2) = materialization.canonical_snapshot_v2.as_ref() {
         let repo_semantic_snapshot =
             repo_semantic_coordination_snapshot(materialization.snapshot.clone());
-        let repo_semantic_execution_overlays =
-            execution_overlays_by_plan(&repo_semantic_snapshot.tasks);
         sync_coordination_snapshot_state(
             root,
             &repo_semantic_snapshot,
-            plan_graphs,
-            &repo_semantic_execution_overlays,
             materialization.publish_context.as_ref(),
             Some(materialization.authoritative_revision),
         )?;
@@ -500,8 +491,8 @@ where
             root,
             store,
             &repo_semantic_snapshot,
-            plan_graphs,
-            &repo_semantic_execution_overlays,
+            canonical_snapshot_v2,
+            materialization.runtime_descriptors.as_deref(),
         )?;
     }
     Ok(())

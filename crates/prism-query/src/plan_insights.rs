@@ -1,79 +1,31 @@
-use std::collections::BTreeSet;
-
+use prism_coordination::BlockerKind;
 use prism_ir::{
-    PlanEdgeKind, PlanGraph, PlanId, PlanNode, PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus,
-    PlanStatus, Timestamp,
+    CoordinationTaskId, DerivedPlanStatus, EffectiveTaskStatus, NodeRefKind, PlanId, PlanStatus,
+    TaskId,
 };
 
-use crate::plan_completion::current_timestamp;
-use crate::plan_runtime::NativePlanRuntimeState;
-use crate::{PlanNodeRecommendation, PlanSummary, Prism};
+use crate::common::current_timestamp;
+use crate::{PlanSummary, Prism};
 
 impl Prism {
-    pub(crate) fn actionable_plan_nodes_for_runtime(
-        &self,
-        runtime: &NativePlanRuntimeState,
-        plan_id: &PlanId,
-        now: Timestamp,
-    ) -> Vec<PlanNode> {
-        let Some(graph) = self.hydrated_plan_graph_for_runtime(runtime, plan_id) else {
-            return Vec::new();
-        };
-        if graph.status != PlanStatus::Active {
-            return Vec::new();
-        }
-        let overlays = runtime.plan_execution(&graph.id);
-
-        let mut nodes = graph
-            .nodes
-            .iter()
-            .filter(|node| is_actionable_candidate(node))
-            .filter(|node| {
-                self.plan_node_blockers_for_hydrated_graph(runtime, &graph, &overlays, node, now)
-                    .is_empty()
-            })
-            .cloned()
-            .collect::<Vec<_>>();
-        nodes.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-        nodes
-    }
-
     pub fn plan_summary(&self, plan_id: &PlanId) -> Option<PlanSummary> {
-        let runtime = self.plan_runtime_state();
-        self.plan_summary_for_runtime(&runtime, plan_id)
-    }
-
-    pub fn plan_next(&self, plan_id: &PlanId, limit: usize) -> Vec<PlanNodeRecommendation> {
-        let runtime = self.plan_runtime_state();
-        self.plan_next_for_runtime(&runtime, plan_id, limit)
-    }
-
-    pub fn portfolio_next(&self, limit: usize) -> Vec<PlanNodeRecommendation> {
-        let runtime = self.plan_runtime_state();
-        self.portfolio_next_for_runtime(&runtime, limit)
-    }
-
-    pub(crate) fn plan_summary_for_runtime(
-        &self,
-        runtime: &NativePlanRuntimeState,
-        plan_id: &PlanId,
-    ) -> Option<PlanSummary> {
-        let graph = self.hydrated_plan_graph_for_runtime(runtime, plan_id)?;
-        Some(self.plan_summary_for_hydrated_graph(runtime, &graph))
-    }
-
-    pub(crate) fn plan_summary_for_hydrated_graph(
-        &self,
-        runtime: &NativePlanRuntimeState,
-        graph: &PlanGraph,
-    ) -> PlanSummary {
+        let snapshot = self.coordination_snapshot_v2();
+        let derivations = snapshot.derive_statuses().ok()?;
+        let graph = snapshot.graph().ok()?;
+        let derived_plan = derivations.plan_state(plan_id)?;
+        let task_records = snapshot
+            .tasks
+            .iter()
+            .map(|task| (task.id.0.to_string(), task))
+            .collect::<std::collections::BTreeMap<_, _>>();
+        let descendant_plan_count = canonical_descendant_plan_ids(&graph, plan_id).len();
+        let descendant_task_ids = canonical_descendant_task_ids(&graph, plan_id);
         let now = current_timestamp();
-        let overlays = runtime.plan_execution(&graph.id);
 
         let mut summary = PlanSummary {
-            plan_id: graph.id.clone(),
-            status: graph.status,
-            total_nodes: graph.nodes.len(),
+            plan_id: plan_id.clone(),
+            status: compatibility_plan_status(derived_plan.derived_status),
+            total_nodes: descendant_plan_count + descendant_task_ids.len(),
             completed_nodes: 0,
             abandoned_nodes: 0,
             in_progress_nodes: 0,
@@ -86,346 +38,121 @@ impl Prism {
             claim_conflicted_nodes: 0,
         };
 
-        for node in graph.nodes.iter().filter(|node| !node.is_abstract) {
-            match node.status {
-                PlanNodeStatus::Completed => {
+        for task_id in descendant_task_ids {
+            let task = task_records.get(task_id.0.as_str())?;
+            let task_state = derivations.task_state(&task.id)?;
+            match task_state.effective_status {
+                EffectiveTaskStatus::Completed => {
                     summary.completed_nodes += 1;
                     continue;
                 }
-                PlanNodeStatus::Abandoned => {
+                EffectiveTaskStatus::Abandoned => {
                     summary.abandoned_nodes += 1;
                     continue;
                 }
-                PlanNodeStatus::InProgress => summary.in_progress_nodes += 1,
+                EffectiveTaskStatus::Active => summary.in_progress_nodes += 1,
                 _ => {}
             }
 
-            let blockers =
-                self.plan_node_blockers_for_hydrated_graph(runtime, graph, &overlays, node, now);
-            let has_completion_gates = blockers
-                .iter()
-                .any(|blocker| is_completion_gate(blocker.kind));
-            let actionable = graph.status == PlanStatus::Active
-                && is_actionable_candidate(node)
-                && blockers.is_empty();
-
+            let blockers = self.blockers(&CoordinationTaskId::new(task.id.0.clone()), now);
+            let actionable = task_state.graph_actionable && blockers.is_empty();
             if actionable {
                 summary.actionable_nodes += 1;
             } else {
                 summary.execution_blocked_nodes += 1;
             }
-
-            if has_completion_gates {
+            if blockers
+                .iter()
+                .any(|blocker| is_task_completion_gate(blocker.kind))
+            {
                 summary.completion_gated_nodes += 1;
             }
-            if blockers.iter().any(|blocker| is_review_gate(blocker.kind)) {
+            if blockers.iter().any(|blocker| is_task_review_gate(blocker.kind)) {
                 summary.review_gated_nodes += 1;
             }
             if blockers
                 .iter()
-                .any(|blocker| is_validation_gate(blocker.kind))
+                .any(|blocker| is_task_validation_gate(blocker.kind))
             {
                 summary.validation_gated_nodes += 1;
             }
-            if blockers.iter().any(|blocker| is_stale_gate(blocker.kind)) {
+            if blockers.iter().any(|blocker| is_task_stale_gate(blocker.kind)) {
                 summary.stale_nodes += 1;
             }
             if blockers
                 .iter()
-                .any(|blocker| blocker.kind == PlanNodeBlockerKind::ClaimConflict)
+                .any(|blocker| blocker.kind == BlockerKind::ClaimConflict)
             {
                 summary.claim_conflicted_nodes += 1;
             }
         }
 
-        summary
-    }
-
-    pub(crate) fn plan_next_for_runtime(
-        &self,
-        runtime: &NativePlanRuntimeState,
-        plan_id: &PlanId,
-        limit: usize,
-    ) -> Vec<PlanNodeRecommendation> {
-        let Some(graph) = self.hydrated_plan_graph_for_runtime(runtime, plan_id) else {
-            return Vec::new();
-        };
-        if graph.status != PlanStatus::Active {
-            return Vec::new();
-        }
-        let now = current_timestamp();
-        let mut recommendations = self.plan_recommendations_for_graph(runtime, &graph, now);
-        sort_plan_recommendations(&mut recommendations);
-        recommendations.truncate(limit.max(1));
-        recommendations
-    }
-
-    fn portfolio_next_for_runtime(
-        &self,
-        runtime: &NativePlanRuntimeState,
-        limit: usize,
-    ) -> Vec<PlanNodeRecommendation> {
-        let now = current_timestamp();
-        let mut recommendations = self
-            .hydrated_plan_graphs_for_runtime(runtime)
-            .into_iter()
-            .filter(|graph| graph.status == PlanStatus::Active)
-            .flat_map(|graph| self.plan_recommendations_for_graph(runtime, &graph, now))
-            .collect::<Vec<_>>();
-        sort_plan_recommendations(&mut recommendations);
-        recommendations.truncate(limit.max(1));
-        recommendations
-    }
-
-    fn plan_recommendations_for_graph(
-        &self,
-        runtime: &NativePlanRuntimeState,
-        graph: &prism_ir::PlanGraph,
-        now: Timestamp,
-    ) -> Vec<PlanNodeRecommendation> {
-        let execution = runtime.plan_execution(&graph.id);
-        let scheduling = runtime.scheduling(&graph.id).unwrap_or_default();
-        graph
-            .nodes
-            .iter()
-            .filter(|node| !node.is_abstract && !is_terminal(node))
-            .map(|node| {
-                let effective_assignee = execution
-                    .iter()
-                    .find(|overlay| overlay.node_id == node.id)
-                    .and_then(|overlay| overlay.effective_assignee.clone())
-                    .or_else(|| node.assignee.clone());
-                let blockers =
-                    self.plan_node_blockers_for_runtime(runtime, &graph.id, &node.id, now);
-                let actionable = is_actionable_candidate(node) && blockers.is_empty();
-                let unblocks = unlocked_neighbors(graph, &node.id);
-                let reasons = recommendation_reasons(
-                    node,
-                    actionable,
-                    effective_assignee.as_ref().map(|agent| agent.0.as_str()),
-                    &blockers,
-                    &unblocks,
-                    &scheduling,
-                    now,
-                );
-                let score = recommendation_score(
-                    node,
-                    actionable,
-                    &blockers,
-                    unblocks.len(),
-                    &scheduling,
-                    now,
-                );
-                PlanNodeRecommendation {
-                    node: node.clone(),
-                    actionable,
-                    effective_assignee,
-                    score,
-                    reasons,
-                    blockers,
-                    unblocks,
-                }
-            })
-            .collect()
+        Some(summary)
     }
 }
 
-fn sort_plan_recommendations(recommendations: &mut [PlanNodeRecommendation]) {
-    recommendations.sort_by(|left, right| {
-        right
-            .actionable
-            .cmp(&left.actionable)
-            .then_with(|| {
-                right
-                    .score
-                    .partial_cmp(&left.score)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .then_with(|| right.unblocks.len().cmp(&left.unblocks.len()))
-            .then_with(|| left.node.plan_id.0.cmp(&right.node.plan_id.0))
-            .then_with(|| left.node.id.0.cmp(&right.node.id.0))
-    });
+fn canonical_descendant_plan_ids(
+    graph: &prism_coordination::CanonicalCoordinationGraph<'_>,
+    plan_id: &PlanId,
+) -> Vec<PlanId> {
+    let mut plans = Vec::new();
+    let mut tasks = Vec::new();
+    collect_canonical_descendants(graph, plan_id, &mut plans, &mut tasks);
+    plans
 }
 
-fn is_terminal(node: &PlanNode) -> bool {
-    matches!(
-        node.status,
-        PlanNodeStatus::Completed | PlanNodeStatus::Abandoned
-    )
+fn canonical_descendant_task_ids(
+    graph: &prism_coordination::CanonicalCoordinationGraph<'_>,
+    plan_id: &PlanId,
+) -> Vec<TaskId> {
+    let mut plans = Vec::new();
+    let mut tasks = Vec::new();
+    collect_canonical_descendants(graph, plan_id, &mut plans, &mut tasks);
+    tasks
 }
 
-fn is_actionable_candidate(node: &PlanNode) -> bool {
-    !node.is_abstract
-        && matches!(
-            node.status,
-            PlanNodeStatus::Ready | PlanNodeStatus::InProgress
-        )
-}
-
-fn is_execution_blocker(kind: PlanNodeBlockerKind) -> bool {
-    matches!(
-        kind,
-        PlanNodeBlockerKind::Dependency
-            | PlanNodeBlockerKind::BlockingNode
-            | PlanNodeBlockerKind::Handoff
-            | PlanNodeBlockerKind::ClaimConflict
-    )
-}
-
-fn is_completion_gate(kind: PlanNodeBlockerKind) -> bool {
-    !is_execution_blocker(kind)
-}
-
-fn is_review_gate(kind: PlanNodeBlockerKind) -> bool {
-    matches!(
-        kind,
-        PlanNodeBlockerKind::ReviewRequired | PlanNodeBlockerKind::RiskReviewRequired
-    )
-}
-
-fn is_validation_gate(kind: PlanNodeBlockerKind) -> bool {
-    matches!(
-        kind,
-        PlanNodeBlockerKind::ValidationGate | PlanNodeBlockerKind::ValidationRequired
-    )
-}
-
-fn is_stale_gate(kind: PlanNodeBlockerKind) -> bool {
-    matches!(
-        kind,
-        PlanNodeBlockerKind::StaleRevision | PlanNodeBlockerKind::ArtifactStale
-    )
-}
-
-fn unlocked_neighbors(graph: &prism_ir::PlanGraph, node_id: &PlanNodeId) -> Vec<PlanNodeId> {
-    let mut unblocks = BTreeSet::new();
-    for edge in &graph.edges {
-        match edge.kind {
-            PlanEdgeKind::DependsOn | PlanEdgeKind::Blocks | PlanEdgeKind::Validates
-                if edge.to == *node_id =>
-            {
-                unblocks.insert(edge.from.clone());
+fn collect_canonical_descendants(
+    graph: &prism_coordination::CanonicalCoordinationGraph<'_>,
+    plan_id: &PlanId,
+    plans: &mut Vec<PlanId>,
+    tasks: &mut Vec<TaskId>,
+) {
+    for child in graph.children_of_plan(plan_id) {
+        match child.kind {
+            NodeRefKind::Plan => {
+                let child_plan = PlanId::new(child.id.clone());
+                plans.push(child_plan.clone());
+                collect_canonical_descendants(graph, &child_plan, plans, tasks);
             }
-            PlanEdgeKind::ChildOf if edge.from == *node_id => {
-                unblocks.insert(edge.to.clone());
-            }
-            PlanEdgeKind::HandoffTo if edge.from == *node_id => {
-                unblocks.insert(edge.to.clone());
-            }
-            _ => {}
+            NodeRefKind::Task => tasks.push(TaskId::new(child.id)),
         }
     }
-    unblocks.into_iter().collect()
 }
 
-fn recommendation_reasons(
-    node: &PlanNode,
-    actionable: bool,
-    effective_assignee: Option<&str>,
-    blockers: &[prism_ir::PlanNodeBlocker],
-    unblocks: &[PlanNodeId],
-    scheduling: &prism_coordination::PlanScheduling,
-    now: Timestamp,
-) -> Vec<String> {
-    let mut reasons = Vec::new();
-    if node.status == PlanNodeStatus::InProgress {
-        reasons.push("Already in progress.".to_string());
-    } else if actionable {
-        reasons.push("Actionable now.".to_string());
-    } else if !blockers.is_empty() {
-        reasons.push(format!(
-            "Blocked by {} execution issue(s).",
-            blockers
-                .iter()
-                .filter(|blocker| is_execution_blocker(blocker.kind))
-                .count()
-        ));
-    }
-    if !unblocks.is_empty() {
-        reasons.push(format!(
-            "Completion would unblock {} node(s).",
-            unblocks.len()
-        ));
-    }
-    if let Some(assignee) = effective_assignee {
-        reasons.push(format!("Suggested owner: `{assignee}`."));
-    }
-    let completion_gates = blockers
-        .iter()
-        .filter(|blocker| is_completion_gate(blocker.kind))
-        .map(|blocker| blocker.summary.clone())
-        .collect::<Vec<_>>();
-    if !completion_gates.is_empty() {
-        reasons.push(format!(
-            "Closure still needs: {}",
-            completion_gates.join("; ")
-        ));
-    }
-    if scheduling.importance > 0 {
-        reasons.push(format!("Plan importance: {}.", scheduling.importance));
-    }
-    if scheduling.urgency > 0 {
-        reasons.push(format!("Plan urgency: {}.", scheduling.urgency));
-    }
-    if scheduling.manual_boost > 0 {
-        reasons.push(format!("Manual plan boost: +{}.", scheduling.manual_boost));
-    }
-    if let Some(due_at) = scheduling.due_at {
-        if due_at <= now {
-            reasons.push("Plan is overdue.".to_string());
-        } else if due_at.saturating_sub(now) <= 86_400 {
-            reasons.push("Plan is due within 24h.".to_string());
-        }
-    }
-    reasons
+fn is_task_completion_gate(kind: BlockerKind) -> bool {
+    !matches!(kind, BlockerKind::Dependency | BlockerKind::ClaimConflict)
 }
 
-fn recommendation_score(
-    node: &PlanNode,
-    actionable: bool,
-    blockers: &[prism_ir::PlanNodeBlocker],
-    unblock_count: usize,
-    scheduling: &prism_coordination::PlanScheduling,
-    now: Timestamp,
-) -> f32 {
-    let mut score = 0.0;
-    if actionable {
-        score += 1000.0;
-    }
-    if node.status == PlanNodeStatus::InProgress {
-        score += 200.0;
-    }
-    score += unblock_count as f32 * 25.0;
-    score += node.priority.unwrap_or(0) as f32;
-    score -= blockers
-        .iter()
-        .filter(|blocker| is_execution_blocker(blocker.kind))
-        .count() as f32
-        * 50.0;
-    score -= blockers
-        .iter()
-        .filter(|blocker| is_completion_gate(blocker.kind))
-        .count() as f32
-        * 5.0;
-    score += scheduling_score(scheduling, now);
-    score
+fn is_task_review_gate(kind: BlockerKind) -> bool {
+    matches!(kind, BlockerKind::ReviewRequired | BlockerKind::RiskReviewRequired)
 }
 
-fn scheduling_score(scheduling: &prism_coordination::PlanScheduling, now: Timestamp) -> f32 {
-    let mut score = scheduling.importance as f32 * 4.0;
-    score += scheduling.urgency as f32 * 3.0;
-    score += scheduling.manual_boost as f32;
-    if let Some(due_at) = scheduling.due_at {
-        if due_at <= now {
-            score += 150.0;
-        } else {
-            let seconds_until_due = due_at.saturating_sub(now);
-            if seconds_until_due <= 86_400 {
-                score += 100.0;
-            } else if seconds_until_due <= 259_200 {
-                score += 50.0;
-            }
-        }
+fn is_task_validation_gate(kind: BlockerKind) -> bool {
+    kind == BlockerKind::ValidationRequired
+}
+
+fn is_task_stale_gate(kind: BlockerKind) -> bool {
+    matches!(kind, BlockerKind::StaleRevision | BlockerKind::ArtifactStale)
+}
+
+fn compatibility_plan_status(status: DerivedPlanStatus) -> PlanStatus {
+    match status {
+        DerivedPlanStatus::Pending | DerivedPlanStatus::Active => PlanStatus::Active,
+        DerivedPlanStatus::Blocked
+        | DerivedPlanStatus::BrokenDependency
+        | DerivedPlanStatus::Failed => PlanStatus::Blocked,
+        DerivedPlanStatus::Completed => PlanStatus::Completed,
+        DerivedPlanStatus::Abandoned => PlanStatus::Abandoned,
+        DerivedPlanStatus::Archived => PlanStatus::Archived,
     }
-    score
 }

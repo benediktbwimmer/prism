@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react'
-
 import { PlansPortfolio } from '../components/plans/PlansPortfolio'
 import { PlanWorkspace } from '../components/plans/PlanWorkspace'
 import { TaskDetailDrawer } from '../components/tasks/TaskDetailDrawer'
@@ -25,32 +23,6 @@ export function PlansPage({ search, onNavigate }: PlansPageProps) {
     sort,
     agent,
   })
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
-  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
-
-  useEffect(() => {
-    const selectedPlan = plansView?.selectedPlan
-    if (!selectedPlan) {
-      setSelectedNodeId(null)
-      setSelectedEdgeId(null)
-      return
-    }
-
-    const hasRequestedTask =
-      requestedTaskId
-      && selectedPlan.graph.nodes.some((node) => node.id === requestedTaskId)
-    const nextRecommended = selectedPlan.nextNodes[0]?.node.id
-    const nextRoot = selectedPlan.graph.rootNodeIds[0]
-    const nextFallback = selectedPlan.graph.nodes[0]?.id ?? null
-    setSelectedNodeId(
-      hasRequestedTask
-        ? requestedTaskId
-        : nextRecommended ?? nextRoot ?? nextFallback,
-    )
-    setSelectedEdgeId(null)
-  }, [plansView?.selectedPlanId, requestedTaskId])
 
   if (!plansView) {
     return (
@@ -131,26 +103,11 @@ export function PlansPage({ search, onNavigate }: PlansPageProps) {
       />
 
       <PlanWorkspace
-        hoveredEdgeId={hoveredEdgeId}
-        hoveredNodeId={hoveredNodeId}
         plan={selectedPlan}
-        selectedEdgeId={selectedEdgeId}
-        selectedNodeId={selectedNodeId}
         selectedTaskId={requestedTaskId}
-        onClearSelection={() => {
-          setSelectedEdgeId(null)
-        }}
-        onEdgeHoverChange={setHoveredEdgeId}
-        onEdgeSelect={(edgeId) => {
-          setSelectedEdgeId(edgeId)
-          setSelectedNodeId(null)
-        }}
-        onNodeHoverChange={setHoveredNodeId}
-        onNodeSelect={(nodeId) => {
-          setSelectedNodeId(nodeId)
-          setSelectedEdgeId(null)
+        onTaskSelect={(taskId) => {
           navigateWithPatch({
-            task: nodeId.startsWith('coord-task:') ? nodeId : null,
+            task: taskId,
           })
         }}
       />

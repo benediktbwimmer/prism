@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use prism_ir::{
-    CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus, PlanEdgeKind, PlanId,
-};
+use prism_ir::{CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus, PlanId};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
@@ -155,8 +153,6 @@ pub fn rehydrate_coordination_snapshot(mut snapshot: CoordinationSnapshot) -> Co
     for (review_id, stored) in stored_reviews {
         reviews.entry(review_id).or_insert(stored);
     }
-
-    recompute_root_tasks(&mut plans, &tasks);
 
     snapshot.plans = sorted_values(&plans, |plan| plan.id.0.to_string());
     snapshot.tasks = sorted_values(&tasks, |task| task.id.0.to_string());
@@ -381,8 +377,6 @@ fn merge_stored_plan_metadata(plan: &mut Plan, stored: Plan) {
     plan.tags = stored.tags;
     plan.created_from = stored.created_from;
     plan.metadata = stored.metadata;
-    plan.authored_nodes = stored.authored_nodes;
-    plan.authored_edges = stored.authored_edges;
 }
 
 fn merge_stored_task_metadata(task: &mut CoordinationTask, stored: CoordinationTask) {
@@ -434,84 +428,6 @@ fn merge_stored_task_metadata(task: &mut CoordinationTask, stored: CoordinationT
     }
     if stored.lease_expires_at.is_some() {
         task.lease_expires_at = stored.lease_expires_at;
-    }
-}
-
-fn recompute_root_tasks(
-    plans: &mut HashMap<PlanId, Plan>,
-    tasks: &HashMap<CoordinationTaskId, CoordinationTask>,
-) {
-    let child_targets = plans
-        .iter()
-        .map(|(plan_id, plan)| {
-            let targets = plan
-                .authored_edges
-                .iter()
-                .filter(|edge| edge.kind == PlanEdgeKind::ChildOf)
-                .map(|edge| CoordinationTaskId::new(edge.from.0.clone()))
-                .collect::<Vec<_>>();
-            (plan_id.clone(), targets)
-        })
-        .collect::<HashMap<_, _>>();
-    let dependency_sources = plans
-        .iter()
-        .map(|(plan_id, plan)| {
-            let sources = plan
-                .authored_edges
-                .iter()
-                .filter(|edge| edge.kind == PlanEdgeKind::DependsOn)
-                .map(|edge| CoordinationTaskId::new(edge.from.0.clone()))
-                .collect::<Vec<_>>();
-            (plan_id.clone(), sources)
-        })
-        .collect::<HashMap<_, _>>();
-    for plan in plans.values_mut() {
-        plan.root_tasks.clear();
-    }
-    let mut roots = tasks
-        .values()
-        .filter(|task| task.depends_on.is_empty())
-        .filter(|task| {
-            !child_targets
-                .get(&task.plan)
-                .map(|targets| targets.contains(&task.id))
-                .unwrap_or(false)
-                && !dependency_sources
-                    .get(&task.plan)
-                    .map(|sources| sources.contains(&task.id))
-                    .unwrap_or(false)
-        })
-        .map(|task| (task.plan.clone(), task.id.clone()))
-        .collect::<Vec<_>>();
-    for (plan_id, plan) in plans.iter() {
-        let native_roots = plan
-            .authored_nodes
-            .iter()
-            .filter(|node| {
-                !child_targets
-                    .get(plan_id)
-                    .map(|targets| targets.contains(&CoordinationTaskId::new(node.id.0.clone())))
-                    .unwrap_or(false)
-                    && !dependency_sources
-                        .get(plan_id)
-                        .map(|sources| {
-                            sources.contains(&CoordinationTaskId::new(node.id.0.clone()))
-                        })
-                        .unwrap_or(false)
-            })
-            .map(|node| (plan_id.clone(), CoordinationTaskId::new(node.id.0.clone())));
-        roots.extend(native_roots);
-    }
-    roots.sort_by(|left, right| {
-        left.0
-             .0
-            .cmp(&right.0 .0)
-            .then_with(|| left.1 .0.cmp(&right.1 .0))
-    });
-    for (plan_id, task_id) in roots {
-        if let Some(plan) = plans.get_mut(&plan_id) {
-            plan.root_tasks.push(task_id);
-        }
     }
 }
 

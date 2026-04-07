@@ -12,24 +12,14 @@ pub(crate) fn handle_project_command(
     diff: Option<String>,
 ) -> Result<()> {
     let plan_id = parse_plan_target(&target)?;
+    let _ = prism;
     match (at, diff) {
-        (Some(at), None) => {
-            let as_of = parse_projection_timestamp(&at)?;
-            let projection = prism.plan_projection_at(&plan_id, as_of).ok_or_else(|| {
-                anyhow!(
-                    "no historical plan projection found for `{}` at `{at}`",
-                    plan_id.0
-                )
-            })?;
-            print_json(&projection)
-        }
-        (None, Some(diff)) => {
-            let (from, to) = parse_projection_diff_window(&diff)?;
-            let projection = prism.plan_projection_diff(&plan_id, from, to);
-            print_json(&projection)
-        }
         (None, None) => bail!("project requires either `--at <timestamp>` or `--diff <from..to>`"),
         (Some(_), Some(_)) => bail!("project accepts either `--at` or `--diff`, not both"),
+        _ => bail!(
+            "historical plan projection queries for `{}` were removed with the legacy graph projection surface",
+            plan_id.0
+        ),
     }
 }
 

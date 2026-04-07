@@ -369,14 +369,8 @@ return {{
         assert_eq!(task["id"], Value::String(task_id.clone()));
     }
     assert_eq!(result.result["inbox"]["plan"]["id"], plan_id);
-    assert_eq!(result.result["inbox"]["planGraph"]["id"], plan_id);
-    assert_eq!(
-        result.result["inbox"]["planExecution"]
-            .as_array()
-            .unwrap()
-            .len(),
-        0
-    );
+    assert_eq!(result.result["inbox"]["planV2"]["id"], plan_id);
+    assert_eq!(result.result["inbox"]["children"]["planId"], plan_id);
     assert_eq!(
         result.result["inbox"]["pendingReviews"]
             .as_array()
@@ -384,19 +378,17 @@ return {{
             .len(),
         1
     );
-    assert_eq!(result.result["inbox"]["planSummary"]["planId"], plan_id);
-    assert_eq!(
-        result.result["inbox"]["planNext"][0]["node"]["id"],
-        Value::String(task_id.clone())
-    );
     assert_eq!(result.result["context"]["task"]["id"], task_id);
-    assert_eq!(result.result["context"]["taskNode"]["id"], task_id);
-    assert!(result.result["context"]["taskExecution"].is_null());
-    assert_eq!(result.result["context"]["planGraph"]["id"], plan_id);
-    assert_eq!(result.result["context"]["planSummary"]["planId"], plan_id);
-    assert_eq!(
-        result.result["context"]["planNext"][0]["node"]["id"],
-        Value::String(task_id.clone())
+    assert_eq!(result.result["context"]["taskV2"]["id"], task_id);
+    assert!(
+        result.result["context"]["dependencies"]
+            .as_array()
+            .is_some_and(|dependencies| dependencies.is_empty())
+    );
+    assert!(
+        result.result["context"]["dependents"]
+            .as_array()
+            .is_some_and(|dependents| dependents.is_empty())
     );
     assert_eq!(
         result.result["context"]["claims"].as_array().unwrap().len(),

@@ -49,10 +49,10 @@ use super::{
     ensure_local_principal_registry_snapshot_with_unlocked_profile, hydrate_workspace_session,
     hydrate_workspace_session_with_options, index_workspace, index_workspace_session,
     index_workspace_session_with_curator, index_workspace_session_with_options,
-    inspect_legacy_path_identity_state, inspect_repo_published_plan_artifacts,
+    inspect_legacy_path_identity_state,
     list_registered_worktrees, regenerate_repo_published_plan_artifacts,
     render_repo_published_plan_markdown, repair_legacy_path_identity_state,
-    repair_repo_published_plan_artifacts, AttestedHumanPrincipalInput, BootstrapOwnerInput,
+    AttestedHumanPrincipalInput, BootstrapOwnerInput,
     CredentialProfile, CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata,
     CredentialsFile, HumanSessionFile, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
     SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
@@ -128,9 +128,9 @@ fn load_hydrated_plan_state_from_runtime_store(
 ) -> crate::published_plans::HydratedCoordinationPlanState {
     let mut store = session.store.lock().expect("workspace store lock poisoned");
     store
-        .load_hydrated_coordination_plan_state_for_root(&session.root)
+        .load_eventual_coordination_plan_state_for_root(&session.root)
         .unwrap()
-        .expect("workspace store should hydrate coordination plan state")
+        .expect("workspace store should load eventual coordination plan state")
 }
 
 fn track_temp_dir(path: &std::path::Path) {
@@ -5437,16 +5437,18 @@ fn shared_plan_markdown_renderer_reuses_repo_plan_doc_format() {
     flush_coordination_materializations(&session);
 
     let prism = session.prism();
-    let graph = prism.plan_graph(&plan_id).expect("plan graph should exist");
-    let policy = prism
+    let status = prism
         .coordination_snapshot()
         .plans
         .into_iter()
         .find(|plan| plan.id == plan_id)
-        .map(|plan| plan.policy)
-        .unwrap_or_default();
-    let markdown =
-        render_repo_published_plan_markdown(&graph, &policy, &prism.plan_execution(&plan_id));
+        .map(|plan| plan.status);
+    let markdown = render_repo_published_plan_markdown(
+        &prism.coordination_snapshot_v2(),
+        &plan_id,
+        status,
+    )
+    .expect("plan markdown should render");
 
     assert!(markdown.contains("# Render shared plan markdown"));
     assert!(markdown.contains("## Goal"));
@@ -5986,131 +5988,6 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
 }
 
 #[test]
-fn reloaded_native_plan_bindings_hydrate_through_lineage_without_republishing_runtime_anchors() {
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
-
-    let session = index_workspace_session(&root).unwrap();
-    let prism = session.prism();
-    let alpha = prism
-        .symbol("alpha")
-        .into_iter()
-        .find(|symbol| symbol.id().path == "demo::alpha")
-        .expect("alpha should be indexed")
-        .id()
-        .clone();
-    let alpha_lineage = prism
-        .lineage_of(&alpha)
-        .expect("alpha should have a lineage before rename");
-    drop(prism);
-
-    let (plan_id, node_id) = session
-        .mutate_coordination(|prism| {
-            let plan_id = prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:binding-hydration-plan"),
-                    ts: 1,
-                    actor: EventActor::User,
-                    correlation: Some(TaskId::new("task:binding-hydration")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Reload native bindings".into(),
-                "Reload native bindings".into(),
-                None,
-                Some(Default::default()),
-            )?;
-            let node_id = prism.create_native_plan_node(
-                &plan_id,
-                prism_ir::PlanNodeKind::Edit,
-                "Rename alpha".into(),
-                None,
-                Some(prism_ir::PlanNodeStatus::Ready),
-                None,
-                false,
-                prism_ir::PlanBinding {
-                    anchors: vec![AnchorRef::Node(alpha.clone())],
-                    concept_handles: Vec::new(),
-                    artifact_refs: Vec::new(),
-                    memory_refs: Vec::new(),
-                    outcome_refs: Vec::new(),
-                },
-                Vec::new(),
-                Vec::new(),
-                Vec::new(),
-                prism_ir::WorkspaceRevision {
-                    graph_version: 1,
-                    git_commit: None,
-                },
-                None,
-                Vec::new(),
-            )?;
-            Ok((plan_id, node_id))
-        })
-        .unwrap();
-
-    fs::write(root.join("src/lib.rs"), "fn renamed_alpha() {}\n").unwrap();
-    session.refresh_fs().unwrap();
-    drop(session);
-
-    let reloaded = index_workspace_session(&root).unwrap();
-    let renamed_alpha = reloaded
-        .prism()
-        .symbol("renamed_alpha")
-        .into_iter()
-        .find(|symbol| symbol.id().path == "demo::renamed_alpha")
-        .expect("renamed alpha should be indexed after reload")
-        .id()
-        .clone();
-    let runtime_graph = reloaded
-        .prism()
-        .plan_graph(&plan_id)
-        .expect("runtime graph should reload");
-    let runtime_node = runtime_graph
-        .nodes
-        .iter()
-        .find(|node| node.id == node_id)
-        .expect("runtime node should reload");
-    assert!(runtime_node
-        .bindings
-        .anchors
-        .contains(&AnchorRef::Node(renamed_alpha.clone())));
-    assert!(runtime_node
-        .bindings
-        .anchors
-        .contains(&AnchorRef::Lineage(alpha_lineage.clone())));
-
-    reloaded.persist_current_coordination().unwrap();
-    let raw_state = reloaded
-        .load_coordination_plan_state()
-        .unwrap()
-        .expect("raw plan state should remain persisted");
-    let raw_node = raw_state
-        .plan_graphs
-        .iter()
-        .find(|graph| graph.id == plan_id)
-        .and_then(|graph| graph.nodes.iter().find(|node| node.id == node_id))
-        .expect("persisted node should exist");
-    assert!(raw_node.bindings.anchors.contains(&AnchorRef::Node(alpha)));
-    assert!(raw_node
-        .bindings
-        .anchors
-        .contains(&AnchorRef::Lineage(alpha_lineage)));
-    assert!(!raw_node
-        .bindings
-        .anchors
-        .contains(&AnchorRef::Node(renamed_alpha)));
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
 fn repo_plan_state_hydrates_from_workspace_sqlite_without_shared_runtime_db() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -6533,7 +6410,13 @@ fn repo_published_plans_hydrate_from_tracked_snapshots_without_plan_logs() {
         .tasks
         .iter()
         .any(|task| task.id == task_id && task.plan == plan_id));
-    assert!(hydrated.plan_graphs.iter().any(|graph| graph.id == plan_id));
+    assert!(
+        hydrated
+            .canonical_snapshot_v2
+            .plans
+            .iter()
+            .any(|plan| plan.id == plan_id)
+    );
 
     let _ = fs::remove_dir_all(root);
 }
@@ -6628,7 +6511,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
-    let (published_plan_id, published_task_id) = session
+    let (_published_plan_id, _published_task_id) = session
         .mutate_coordination(|prism| {
             let base_revision = prism.workspace_revision();
             let plan_id = prism.create_native_plan(
@@ -6698,7 +6581,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
             },
         )
         .unwrap();
-    let (snapshot_task_id, _) = coordination
+    let (_snapshot_task_id, _) = coordination
         .create_task(
             EventMeta {
                 id: EventId::new("coordination:snapshot-task"),
@@ -6726,27 +6609,14 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
         )
         .unwrap();
 
-    let snapshot = coordination.snapshot();
-    let loaded = crate::published_plans::load_hydrated_coordination_snapshot(&root, Some(snapshot))
-        .unwrap()
-        .expect("merged coordination snapshot");
-    assert!(!loaded.plans.iter().any(|plan| plan.id == published_plan_id));
-    assert!(!loaded.tasks.iter().any(|task| task.id == published_task_id));
-    assert!(loaded.plans.iter().any(|plan| {
-        plan.id == snapshot_plan_id && plan.goal == "Persisted snapshot should remain authoritative"
-    }));
-    assert!(loaded.tasks.iter().any(|task| {
-        task.id == snapshot_task_id
-            && task.plan == snapshot_plan_id
-            && task.title == "Snapshot task should survive merge"
-            && task.status == prism_ir::CoordinationTaskStatus::InProgress
-    }));
+    let loaded = crate::published_plans::load_authoritative_coordination_snapshot(&root).unwrap();
+    assert!(loaded.is_none());
 
     let _ = fs::remove_dir_all(root);
 }
 
 #[test]
-fn repo_published_plan_state_merges_snapshot_and_published_views() {
+fn authoritative_plan_state_ignores_unpublished_runtime_snapshot() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -6757,7 +6627,7 @@ fn repo_published_plan_state_merges_snapshot_and_published_views() {
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
-    let published_plan_id = session
+    let _published_plan_id = session
         .mutate_coordination(|prism| {
             prism.create_native_plan(
                 EventMeta {
@@ -6779,19 +6649,10 @@ fn repo_published_plan_state_merges_snapshot_and_published_views() {
 
     let coordination = CoordinationStore::new();
     let snapshot = coordination.snapshot();
-    let state =
-        crate::published_plans::load_hydrated_coordination_plan_state(&root, Some(snapshot))
-            .unwrap()
-            .expect("hydrated coordination plan state");
-    assert!(!state
-        .snapshot
-        .plans
-        .iter()
-        .any(|plan| plan.id == published_plan_id));
-    assert!(!state
-        .plan_graphs
-        .iter()
-        .any(|graph| graph.id == published_plan_id));
+    assert!(snapshot.plans.is_empty());
+    assert!(snapshot.tasks.is_empty());
+    let state = crate::published_plans::load_authoritative_coordination_plan_state(&root).unwrap();
+    assert!(state.is_none());
 
     let _ = fs::remove_dir_all(root);
 }
@@ -7078,9 +6939,9 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
         .exists());
 
     let hydrated = store
-        .load_hydrated_coordination_plan_state_for_root(&root)
+        .load_eventual_coordination_plan_state_for_root(&root)
         .unwrap()
-        .expect("coordination backend should hydrate published plan state");
+        .expect("coordination backend should load eventual plan state");
     assert!(hydrated.snapshot.plans.iter().any(|plan| plan.id == plan_id
         && plan.goal == "Exercise backend-neutral coordination persistence"));
     assert!(hydrated.snapshot.tasks.iter().any(|task| {
@@ -7088,9 +6949,13 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
             && task.plan == plan_id
             && task.title == "Hydrate native plan state through the store facade"
     }));
-    assert!(hydrated.plan_graphs.iter().any(|graph| {
-        graph.id == plan_id && graph.nodes.iter().any(|node| node.id.0 == task_id.0)
-    }));
+    assert!(
+        hydrated
+            .canonical_snapshot_v2
+            .tasks
+            .iter()
+            .any(|task| task.id.0 == task_id.0)
+    );
 
     let _ = fs::remove_dir_all(root);
 }
@@ -7303,9 +7168,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
             &appended_events,
             Some(&SessionId::new("session:b")),
             None,
-            None,
-            None,
-            None,
+            &updated_snapshot.to_canonical_snapshot_v2(),
         )
         .unwrap();
 
@@ -7399,21 +7262,10 @@ fn coordination_session_materializes_read_models_off_request_path() {
             .is_none());
     }
 
-    let live_read_model = session
-        .load_coordination_read_model()
-        .unwrap()
-        .expect("session should derive a live coordination read model");
+    assert!(session.load_coordination_read_model().unwrap().is_none());
     let authoritative_revision = session.coordination_revision().unwrap();
-    assert_eq!(live_read_model.active_plans.len(), 1);
-    assert_eq!(live_read_model.task_count, 1);
-    assert_eq!(live_read_model.revision, authoritative_revision);
 
-    let live_queue_model = session
-        .load_coordination_queue_read_model()
-        .unwrap()
-        .expect("session should derive a live coordination queue model");
-    assert!(live_queue_model.pending_handoff_tasks.is_empty());
-    assert_eq!(live_queue_model.revision, authoritative_revision);
+    assert!(session.load_coordination_queue_read_model().unwrap().is_none());
 
     session.flush_materializations().unwrap();
 
@@ -7510,7 +7362,11 @@ fn coordination_read_models_ignore_stale_persisted_shared_runtime_cache() {
         SqliteStore::open(paths.shared_runtime_db_path().unwrap()).unwrap();
     let stale_snapshot = CoordinationSnapshot::default();
     shared_runtime_store
-        .persist_coordination_authoritative_state_for_root(&root, &stale_snapshot, None, None)
+        .persist_coordination_authoritative_state_for_root(
+            &root,
+            &stale_snapshot,
+            &stale_snapshot.to_canonical_snapshot_v2(),
+        )
         .unwrap();
     let mut stale_read_model =
         prism_coordination::coordination_read_model_from_snapshot(&stale_snapshot);
@@ -7808,7 +7664,7 @@ fn authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row() {
         .unwrap();
 
     let loaded = store
-        .load_hydrated_coordination_snapshot_for_root(&root)
+        .load_eventual_coordination_snapshot_for_root(&root)
         .unwrap()
         .expect("event-backed snapshot");
     assert_eq!(loaded.claims.len(), 1);
@@ -7863,7 +7719,7 @@ fn coordination_persistence_compacts_large_event_suffixes_into_optional_baseline
     assert!(stream.fallback_snapshot.is_some());
     assert!(stream.suffix_events.is_empty());
     let hydrated = store
-        .load_hydrated_coordination_snapshot_for_root(&root)
+        .load_eventual_coordination_snapshot_for_root(&root)
         .unwrap()
         .expect("event-backed snapshot");
     assert!(hydrated.events.is_empty());
@@ -7872,7 +7728,7 @@ fn coordination_persistence_compacts_large_event_suffixes_into_optional_baseline
 }
 
 #[test]
-fn load_hydrated_coordination_snapshot_preserves_authoritative_task_lease_fields() {
+fn eventual_coordination_snapshot_preserves_authoritative_task_lease_fields() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -7950,20 +7806,23 @@ fn load_hydrated_coordination_snapshot_preserves_authoritative_task_lease_fields
         .unwrap();
 
     let loaded = store
-        .load_hydrated_coordination_snapshot_for_root(&root)
+        .load_eventual_coordination_snapshot_for_root(&root)
         .unwrap()
-        .expect("hydrated coordination snapshot");
+        .expect("eventual coordination snapshot");
     let loaded_v2 = store
-        .load_hydrated_coordination_snapshot_v2_for_root(&root)
+        .load_eventual_coordination_snapshot_v2_for_root(&root)
         .unwrap()
-        .expect("hydrated coordination snapshot v2");
+        .expect("eventual coordination snapshot v2");
     assert_eq!(loaded_v2, loaded.to_canonical_snapshot_v2());
     let loaded_task = loaded
         .tasks
         .into_iter()
         .find(|candidate| candidate.id == task_id)
         .expect("task should survive hydration");
-    assert!(loaded_task.session.is_none());
+    assert_eq!(
+        loaded_task.session,
+        Some(SessionId::new("session:lease-hydration"))
+    );
     assert_eq!(loaded_task.lease_started_at, Some(2));
     assert_eq!(loaded_task.lease_refreshed_at, Some(1700));
     assert!(loaded_task.lease_stale_at.is_some_and(|value| value > 1700));
@@ -7977,184 +7836,14 @@ fn load_hydrated_coordination_snapshot_preserves_authoritative_task_lease_fields
             .and_then(|holder| holder.session_id.clone()),
         Some(SessionId::new("session:lease-hydration"))
     );
-    assert!(loaded_task.worktree_id.is_none());
-    assert!(loaded_task.branch_ref.is_none());
-}
-
-#[test]
-fn load_hydrated_coordination_snapshot_v2_migrates_standalone_legacy_plan_nodes() {
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-    run_git(&root, &["init"]);
-    run_git(&root, &["config", "user.email", "test@example.com"]);
-    run_git(&root, &["config", "user.name", "Test User"]);
-    run_git(&root, &["add", "."]);
-    run_git(&root, &["commit", "-m", "init"]);
-
-    let plan_id = prism_ir::PlanId::new("plan:hybrid");
-    let snapshot = CoordinationSnapshot {
-        plans: vec![prism_coordination::Plan {
-            id: plan_id.clone(),
-            goal: "Hydrate hybrid state".into(),
-            title: "Hydrate hybrid state".into(),
-            status: prism_ir::PlanStatus::Active,
-            policy: Default::default(),
-            scope: prism_ir::PlanScope::Repo,
-            kind: prism_ir::PlanKind::TaskExecution,
-            revision: 0,
-            scheduling: Default::default(),
-            tags: Vec::new(),
-            created_from: None,
-            metadata: serde_json::Value::Null,
-            authored_nodes: Vec::new(),
-            authored_edges: Vec::new(),
-            root_tasks: vec![prism_ir::CoordinationTaskId::new("coord-task:existing")],
-        }],
-        tasks: vec![prism_coordination::CoordinationTask {
-            id: prism_ir::CoordinationTaskId::new("coord-task:existing"),
-            plan: plan_id.clone(),
-            kind: prism_ir::PlanNodeKind::Edit,
-            title: "Existing task".into(),
-            summary: None,
-            status: prism_ir::CoordinationTaskStatus::Ready,
-            published_task_status: None,
-            assignee: None,
-            pending_handoff_to: None,
-            session: None,
-            lease_holder: None,
-            lease_started_at: None,
-            lease_refreshed_at: None,
-            lease_stale_at: None,
-            lease_expires_at: None,
-            worktree_id: None,
-            branch_ref: None,
-            anchors: Vec::new(),
-            bindings: prism_ir::PlanBinding::default(),
-            depends_on: Vec::new(),
-            coordination_depends_on: Vec::new(),
-            integrated_depends_on: Vec::new(),
-            acceptance: Vec::new(),
-            validation_refs: Vec::new(),
-            is_abstract: false,
-            base_revision: prism_ir::WorkspaceRevision::default(),
-            priority: None,
-            tags: Vec::new(),
-            metadata: serde_json::Value::Null,
-            git_execution: prism_coordination::TaskGitExecution::default(),
-        }],
-        ..CoordinationSnapshot::default()
-    };
-    let plan_graphs = vec![prism_ir::PlanGraph {
-        id: plan_id.clone(),
-        scope: prism_ir::PlanScope::Repo,
-        kind: prism_ir::PlanKind::TaskExecution,
-        title: "Hybrid".into(),
-        goal: "Hybrid".into(),
-        status: prism_ir::PlanStatus::Active,
-        revision: 0,
-        root_nodes: vec![
-            prism_ir::PlanNodeId::new("plan-node:parent"),
-            prism_ir::PlanNodeId::new("coord-task:existing"),
-        ],
-        tags: Vec::new(),
-        created_from: None,
-        metadata: serde_json::Value::Null,
-        nodes: vec![
-            prism_ir::PlanNode {
-                id: prism_ir::PlanNodeId::new("plan-node:parent"),
-                plan_id: plan_id.clone(),
-                kind: prism_ir::PlanNodeKind::Note,
-                title: "Parent".into(),
-                summary: Some("Parent goal".into()),
-                status: prism_ir::PlanNodeStatus::Ready,
-                bindings: prism_ir::PlanBinding::default(),
-                acceptance: Vec::new(),
-                validation_refs: Vec::new(),
-                is_abstract: true,
-                assignee: None,
-                base_revision: prism_ir::WorkspaceRevision::default(),
-                priority: None,
-                tags: Vec::new(),
-                metadata: serde_json::Value::Null,
-            },
-            prism_ir::PlanNode {
-                id: prism_ir::PlanNodeId::new("plan-node:leaf"),
-                plan_id: plan_id.clone(),
-                kind: prism_ir::PlanNodeKind::Edit,
-                title: "Leaf".into(),
-                summary: None,
-                status: prism_ir::PlanNodeStatus::Ready,
-                bindings: prism_ir::PlanBinding::default(),
-                acceptance: Vec::new(),
-                validation_refs: Vec::new(),
-                is_abstract: false,
-                assignee: None,
-                base_revision: prism_ir::WorkspaceRevision::default(),
-                priority: None,
-                tags: Vec::new(),
-                metadata: serde_json::Value::Null,
-            },
-            prism_ir::PlanNode {
-                id: prism_ir::PlanNodeId::new("coord-task:existing"),
-                plan_id: plan_id.clone(),
-                kind: prism_ir::PlanNodeKind::Edit,
-                title: "Existing task".into(),
-                summary: None,
-                status: prism_ir::PlanNodeStatus::Ready,
-                bindings: prism_ir::PlanBinding::default(),
-                acceptance: Vec::new(),
-                validation_refs: Vec::new(),
-                is_abstract: false,
-                assignee: None,
-                base_revision: prism_ir::WorkspaceRevision::default(),
-                priority: None,
-                tags: Vec::new(),
-                metadata: serde_json::Value::Null,
-            },
-        ],
-        edges: vec![prism_ir::PlanEdge {
-            id: prism_ir::PlanEdgeId::new("edge:leaf-child-of-parent"),
-            plan_id: plan_id.clone(),
-            from: prism_ir::PlanNodeId::new("plan-node:leaf"),
-            to: prism_ir::PlanNodeId::new("plan-node:parent"),
-            kind: prism_ir::PlanEdgeKind::ChildOf,
-            summary: None,
-            metadata: serde_json::Value::Null,
-        }],
-    }];
-    let execution_overlays =
-        std::collections::BTreeMap::from([(plan_id.0.to_string(), Vec::new())]);
-
-    let mut store = MemoryStore::default();
-    store
-        .persist_coordination_authoritative_state_for_root(
-            &root,
-            &snapshot,
-            Some(&plan_graphs),
-            Some(&execution_overlays),
-        )
-        .unwrap();
-
-    let loaded_v2 = store
-        .load_hydrated_coordination_snapshot_v2_for_root(&root)
-        .unwrap()
-        .expect("hydrated canonical snapshot");
-    assert!(loaded_v2
-        .plans
-        .iter()
-        .any(|plan| plan.id.0 == "plan:migrated:plan-node:parent"
-            && plan.parent_plan_id == Some(plan_id.clone())));
-    assert!(loaded_v2.tasks.iter().any(|task| {
-        task.id.0 == "plan-node:leaf"
-            && task.parent_plan_id.0 == "plan:migrated:plan-node:parent"
-    }));
-    assert_ne!(loaded_v2, snapshot.to_canonical_snapshot_v2());
+    assert_eq!(
+        loaded_task.worktree_id.as_deref(),
+        Some("worktree:lease-hydration")
+    );
+    assert_eq!(
+        loaded_task.branch_ref.as_deref(),
+        Some("refs/heads/task/lease-hydration")
+    );
 }
 
 #[test]
@@ -8269,7 +7958,7 @@ fn checkpoint_materialization_preserves_authoritative_task_lease_fields() {
 }
 
 #[test]
-fn legacy_repo_published_plan_logs_still_hydrate() {
+fn legacy_repo_published_plan_logs_are_ignored_without_authoritative_shared_ref_state() {
     let root = temp_workspace();
     fs::create_dir_all(root.join(".prism").join("plans").join("active")).unwrap();
     fs::write(
@@ -8293,27 +7982,14 @@ fn legacy_repo_published_plan_logs_still_hydrate() {
             .join("active")
             .join("plan:1.jsonl"),
         concat!(
-            "{\"event_id\":\"published:plan:1:1\",\"kind\":\"plan_updated\",\"plan_id\":\"plan:1\",\"node_id\":null,\"payload\":{\"type\":\"plan\",\"plan\":{\"id\":\"plan:1\",\"goal\":\"Legacy published plan\",\"status\":\"Active\",\"policy\":{\"default_claim_mode\":\"Advisory\",\"max_parallel_editors_per_anchor\":2,\"require_review_for_completion\":false,\"require_validation_for_completion\":false,\"stale_after_graph_change\":true,\"review_required_above_risk_score\":null},\"root_tasks\":[\"coord-task:1\"]}}}\n",
+            "{\"event_id\":\"published:plan:1:1\",\"kind\":\"plan_updated\",\"plan_id\":\"plan:1\",\"node_id\":null,\"payload\":{\"type\":\"plan\",\"plan\":{\"id\":\"plan:1\",\"goal\":\"Legacy published plan\",\"status\":\"Active\",\"policy\":{\"default_claim_mode\":\"Advisory\",\"max_parallel_editors_per_anchor\":2,\"require_review_for_completion\":false,\"require_validation_for_completion\":false,\"stale_after_graph_change\":true,\"review_required_above_risk_score\":null}}}}\n",
             "{\"event_id\":\"published:plan:1:2\",\"kind\":\"node_updated\",\"plan_id\":\"plan:1\",\"node_id\":\"coord-task:1\",\"payload\":{\"type\":\"node\",\"task\":{\"id\":\"coord-task:1\",\"plan\":\"plan:1\",\"title\":\"Hydrate legacy task log\",\"status\":\"Ready\",\"assignee\":null,\"anchors\":[],\"depends_on\":[],\"acceptance\":[],\"base_revision\":{\"graph_version\":1,\"git_commit\":null}}}}\n"
         ),
     )
     .unwrap();
 
     let session = index_workspace_session(&root).unwrap();
-    let snapshot = session
-        .load_coordination_snapshot()
-        .unwrap()
-        .expect("legacy published plans should hydrate a coordination snapshot");
-    assert!(snapshot
-        .plans
-        .iter()
-        .any(|plan| plan.id.0 == "plan:1" && plan.goal == "Legacy published plan"));
-    assert!(snapshot.tasks.iter().any(|task| {
-        task.id.0 == "coord-task:1"
-            && task.plan.0 == "plan:1"
-            && task.title == "Hydrate legacy task log"
-            && task.status == prism_ir::CoordinationTaskStatus::Ready
-    }));
+    assert!(session.load_coordination_snapshot().unwrap().is_none());
 
     let _ = fs::remove_dir_all(root);
 }
@@ -8437,160 +8113,6 @@ fn repo_published_plan_snapshot_persists_task_status_updates_after_cutover() {
 }
 
 #[test]
-fn repo_published_plan_logs_do_not_reemit_existing_child_of_edges() {
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let session = index_workspace_session(&root).unwrap();
-    let (plan_id, child_id, parent_id) = session
-        .mutate_coordination(|prism| {
-            let base_revision = prism.workspace_revision();
-            let plan_id = prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:edge-delta-plan"),
-                    ts: 1,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:edge-delta-plan")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Avoid duplicate child edges".into(),
-                "Avoid duplicate child edges".into(),
-                None,
-                Some(Default::default()),
-            )?;
-            let parent = prism.create_native_task(
-                EventMeta {
-                    id: EventId::new("coordination:edge-delta-parent"),
-                    ts: 2,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:edge-delta-plan")),
-                    causation: None,
-                    execution_context: None,
-                },
-                prism_coordination::TaskCreateInput {
-                    plan_id: plan_id.clone(),
-                    title: "Parent".into(),
-                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
-                    assignee: None,
-                    session: None,
-                    worktree_id: None,
-                    branch_ref: None,
-                    anchors: Vec::new(),
-                    depends_on: Vec::new(),
-                    coordination_depends_on: Vec::new(),
-                    integrated_depends_on: Vec::new(),
-                    acceptance: Vec::new(),
-                    base_revision: base_revision.clone(),
-                },
-            )?;
-            let child = prism.create_native_task(
-                EventMeta {
-                    id: EventId::new("coordination:edge-delta-child"),
-                    ts: 3,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:edge-delta-plan")),
-                    causation: None,
-                    execution_context: None,
-                },
-                prism_coordination::TaskCreateInput {
-                    plan_id: plan_id.clone(),
-                    title: "Child".into(),
-                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
-                    assignee: None,
-                    session: None,
-                    worktree_id: None,
-                    branch_ref: None,
-                    anchors: Vec::new(),
-                    depends_on: Vec::new(),
-                    coordination_depends_on: Vec::new(),
-                    integrated_depends_on: Vec::new(),
-                    acceptance: Vec::new(),
-                    base_revision,
-                },
-            )?;
-            prism.create_native_plan_edge(
-                &plan_id,
-                &prism_ir::PlanNodeId::new(child.id.0.clone()),
-                &prism_ir::PlanNodeId::new(parent.id.0.clone()),
-                prism_ir::PlanEdgeKind::ChildOf,
-            )?;
-            Ok((plan_id, child.id, parent.id))
-        })
-        .unwrap();
-
-    session
-        .mutate_coordination(|prism| {
-            let current_revision = prism.workspace_revision();
-            let _ = prism.update_native_task(
-                EventMeta {
-                    id: EventId::new("coordination:edge-delta-child-update"),
-                    ts: 4,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:edge-delta-plan")),
-                    causation: None,
-                    execution_context: None,
-                },
-                prism_coordination::TaskUpdateInput {
-                    task_id: child_id.clone(),
-                    kind: None,
-                    status: Some(prism_ir::CoordinationTaskStatus::InProgress),
-                    published_task_status: None,
-                    git_execution: None,
-                    assignee: None,
-                    session: None,
-                    worktree_id: None,
-                    branch_ref: None,
-                    title: Some("Child renamed once".into()),
-                    summary: None,
-                    anchors: None,
-                    bindings: None,
-                    depends_on: None,
-                    coordination_depends_on: None,
-                    integrated_depends_on: None,
-                    acceptance: None,
-                    validation_refs: None,
-                    is_abstract: None,
-                    base_revision: None,
-                    priority: None,
-                    tags: None,
-                    completion_context: None,
-                },
-                current_revision,
-                4,
-            )?;
-            Ok(())
-        })
-        .unwrap();
-    flush_coordination_materializations(&session);
-
-    let edge_id = format!("plan-edge:{}:child-of:{}", child_id.0, parent_id.0);
-    let hydrated = load_hydrated_plan_state_from_runtime_store(&session);
-    let graph = hydrated
-        .plan_graphs
-        .iter()
-        .find(|graph| graph.id == plan_id)
-        .expect("tracked snapshot plan graph");
-    let edge_count = graph
-        .edges
-        .iter()
-        .filter(|edge| edge.id.0 == edge_id)
-        .count();
-    assert_eq!(
-        edge_count, 1,
-        "authoritative runtime plan state should retain exactly one child-of edge after unrelated mutations"
-    );
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
 fn regenerate_repo_published_plan_artifacts_removes_legacy_plan_artifacts_when_snapshot_authority_exists(
 ) {
     let root = temp_workspace();
@@ -8680,138 +8202,6 @@ fn regenerate_repo_published_plan_artifacts_removes_legacy_plan_artifacts_when_s
     assert!(!stream_path.exists());
     assert!(!active_path.exists());
     assert!(!index_path.exists());
-
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn repair_repo_published_plan_artifacts_is_empty_under_snapshot_authority() {
-    let root = temp_workspace();
-    fs::create_dir_all(root.join("src")).unwrap();
-    fs::write(
-        root.join("Cargo.toml"),
-        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
-
-    let session = index_workspace_session(&root).unwrap();
-    let (plan_id, parent_id, child_id) = session
-        .mutate_coordination(|prism| {
-            let base_revision = prism.workspace_revision();
-            let plan_id = prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:repair-published-plan-artifacts"),
-                    ts: 1,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:repair-published-plan-artifacts")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Repair published plan artifacts".into(),
-                "Repair published plan artifacts".into(),
-                None,
-                Some(Default::default()),
-            )?;
-            let parent = prism.create_native_task(
-                EventMeta {
-                    id: EventId::new("coordination:repair-published-plan-parent"),
-                    ts: 2,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:repair-published-plan-artifacts")),
-                    causation: None,
-                    execution_context: None,
-                },
-                prism_coordination::TaskCreateInput {
-                    plan_id: plan_id.clone(),
-                    title: "Parent".into(),
-                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
-                    assignee: None,
-                    session: None,
-                    worktree_id: None,
-                    branch_ref: None,
-                    anchors: Vec::new(),
-                    depends_on: Vec::new(),
-                    coordination_depends_on: Vec::new(),
-                    integrated_depends_on: Vec::new(),
-                    acceptance: Vec::new(),
-                    base_revision: base_revision.clone(),
-                },
-            )?;
-            let child = prism.create_native_task(
-                EventMeta {
-                    id: EventId::new("coordination:repair-published-plan-child"),
-                    ts: 3,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:repair-published-plan-artifacts")),
-                    causation: None,
-                    execution_context: None,
-                },
-                prism_coordination::TaskCreateInput {
-                    plan_id: plan_id.clone(),
-                    title: "Child".into(),
-                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
-                    assignee: None,
-                    session: None,
-                    worktree_id: None,
-                    branch_ref: None,
-                    anchors: Vec::new(),
-                    depends_on: Vec::new(),
-                    coordination_depends_on: Vec::new(),
-                    integrated_depends_on: Vec::new(),
-                    acceptance: Vec::new(),
-                    base_revision,
-                },
-            )?;
-            prism.create_native_plan_edge(
-                &plan_id,
-                &prism_ir::PlanNodeId::new(child.id.0.clone()),
-                &prism_ir::PlanNodeId::new(parent.id.0.clone()),
-                prism_ir::PlanEdgeKind::ChildOf,
-            )?;
-            anyhow::Ok((plan_id, parent.id, child.id))
-        })
-        .unwrap();
-    flush_coordination_materializations(&session);
-
-    let report = inspect_repo_published_plan_artifacts(&root).unwrap();
-    assert_eq!(report.scanned_plan_count, 0);
-    assert_eq!(report.repaired_plan_count, 0);
-    assert!(report.entries.is_empty());
-
-    let repair_report = repair_repo_published_plan_artifacts(&root).unwrap();
-    assert_eq!(repair_report.scanned_plan_count, 0);
-    assert_eq!(repair_report.repaired_plan_count, 0);
-    assert!(repair_report.entries.is_empty());
-
-    let hydrated = load_hydrated_plan_state_from_runtime_store(&session);
-    let repaired_graph = hydrated
-        .plan_graphs
-        .iter()
-        .find(|graph| graph.id == plan_id)
-        .expect("hydrated state should include the repaired plan");
-    assert!(repaired_graph
-        .nodes
-        .iter()
-        .any(|node| node.id == prism_ir::PlanNodeId::new(parent_id.0.clone())));
-    assert!(repaired_graph
-        .nodes
-        .iter()
-        .any(|node| node.id == prism_ir::PlanNodeId::new(child_id.0.clone())));
-    assert_eq!(
-        repaired_graph
-            .edges
-            .iter()
-            .filter(|edge| {
-                edge.id
-                    == prism_ir::PlanEdgeId::new(format!(
-                        "plan-edge:{}:child-of:{}",
-                        child_id.0, parent_id.0
-                    ))
-            })
-            .count(),
-        1
-    );
 
     let _ = fs::remove_dir_all(root);
 }
@@ -8930,10 +8320,12 @@ fn completing_last_task_persists_plan_completion_in_tracked_snapshot() {
     );
     assert!(
         hydrated
-            .plan_graphs
-            .iter()
-            .any(|graph| graph.id == plan_id && graph.status == prism_ir::PlanStatus::Completed),
-        "startup checkpoint plan graph should persist the derived completed plan status"
+            .canonical_snapshot_v2
+            .derive_statuses()
+            .unwrap()
+            .plan_state(&plan_id)
+            .is_some_and(|plan| plan.derived_status == prism_ir::DerivedPlanStatus::Completed),
+        "startup checkpoint canonical v2 should persist the derived completed plan status"
     );
 
     let _ = fs::remove_dir_all(root);
@@ -9095,10 +8487,10 @@ fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
     assert_eq!(
         session
             .prism()
-            .plan_graph(&plan_id)
-            .expect("authored plan graph")
+            .coordination_plan_v2(&plan_id)
+            .expect("canonical plan view")
             .status,
-        prism_ir::PlanStatus::Completed
+        prism_ir::DerivedPlanStatus::Completed
     );
 
     let hydrated = load_hydrated_plan_state_from_runtime_store(&session);
@@ -9112,10 +8504,12 @@ fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
     );
     assert!(
         hydrated
-            .plan_graphs
-            .iter()
-            .any(|graph| graph.id == plan_id && graph.status == prism_ir::PlanStatus::Completed),
-        "startup checkpoint plan graph should persist the derived completed plan status after claim release"
+            .canonical_snapshot_v2
+            .derive_statuses()
+            .unwrap()
+            .plan_state(&plan_id)
+            .is_some_and(|plan| plan.derived_status == prism_ir::DerivedPlanStatus::Completed),
+        "startup checkpoint canonical v2 should persist the derived completed plan status after claim release"
     );
 
     let _ = fs::remove_dir_all(root);
@@ -9350,16 +8744,8 @@ fn tampered_legacy_plan_stream_is_rejected_on_reload_without_snapshot_state() {
     )
     .unwrap();
 
-    let error = match index_workspace_session(&root) {
-        Ok(_) => panic!("tampered legacy plan stream should not reload"),
-        Err(error) => error.to_string(),
-    };
-    assert!(
-        error.contains("failed to parse")
-            || error.contains("expected value")
-            || error.contains("legacy published plan"),
-        "expected tamper detection error, got: {error}"
-    );
+    let session = index_workspace_session(&root).unwrap();
+    assert!(session.load_coordination_snapshot().unwrap().is_none());
 
     let _ = fs::remove_dir_all(root);
 }
@@ -10149,8 +9535,6 @@ fn publish_generation_with_incremental_intent_matches_fresh_derivation() {
         prism_memory::OutcomeMemory::new(),
         CoordinationSnapshot::default(),
         Vec::new(),
-        std::collections::BTreeMap::new(),
-        Vec::new(),
         prism_projections::ProjectionIndex::default(),
         prism_ir::PrismRuntimeMode::Full.capabilities(),
     );
@@ -10181,8 +9565,6 @@ fn publish_generation_with_incremental_intent_matches_fresh_derivation() {
         prism_history::HistoryStore::new(),
         prism_memory::OutcomeMemory::new(),
         CoordinationSnapshot::default(),
-        Vec::new(),
-        std::collections::BTreeMap::new(),
         Vec::new(),
         prism_projections::ProjectionIndex::default(),
         prism_ir::PrismRuntimeMode::Full.capabilities(),

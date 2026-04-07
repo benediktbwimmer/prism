@@ -3,11 +3,13 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::{anyhow, Result};
-use prism_coordination::{task_lease_state, CoordinationTask, LeaseState, TaskBlocker};
+use prism_coordination::{
+    task_lease_state, CanonicalTaskRecord, CoordinationTask, LeaseState, TaskBlocker,
+    TaskGitExecution,
+};
 use prism_ir::{
     AnchorRef, CoordinationTaskId, EdgeKind, GitExecutionStatus, GitIntegrationStatus, NodeId,
-    PlanExecutionOverlay, PlanGraph, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId,
-    PlanNodeStatus, TaskId, WorkspaceRevision,
+    NodeRef, NodeRefKind, TaskId, WorkspaceRevision,
 };
 use prism_js::{
     AgentOutcomeSummaryView, AgentTaskBlockerView, AgentTaskBriefResultView,
@@ -54,17 +56,11 @@ impl QueryHost {
                 );
 
                 let plan_started = Instant::now();
-                let plan_graph = prism.plan_graph(&subject.plan_id);
-                let plan_execution = prism.plan_execution(&subject.plan_id);
-                let current_plan_node = plan_graph
-                    .as_ref()
-                    .and_then(|graph| graph.nodes.iter().find(|node| node.id == subject.node_id));
                 query_run.record_phase(
                     "compact.taskBrief.planContext",
                     &json!({
-                        "executionCount": plan_execution.len(),
-                        "hasPlanGraph": plan_graph.is_some(),
-                        "hasCurrentNode": current_plan_node.is_some(),
+                        "dependencyCount": subject.dependencies.len(),
+                        "dependentCount": subject.dependents.len(),
                     }),
                     plan_started.elapsed(),
                     true,
@@ -72,9 +68,6 @@ impl QueryHost {
                 );
 
                 let coordination_started = Instant::now();
-                let task_execution = plan_execution
-                    .iter()
-                    .find(|overlay| overlay.node_id == subject.node_id);
                 let claims = prism.claims(&subject.anchors, now);
                 let conflicts = prism.conflicts(&subject.anchors, now);
                 query_run.record_phase(
@@ -110,11 +103,12 @@ impl QueryHost {
                 let next_reads = compact_task_next_reads(
                     session.as_ref(),
                     prism.as_ref(),
-                    &subject.node_id,
+                    &subject.task_id,
                     subject.status,
                     subject.blockers.as_slice(),
                     &subject.anchors,
-                    plan_graph.as_ref(),
+                    &subject.dependencies,
+                    &subject.dependents,
                 )?;
                 query_run.record_phase(
                     "compact.taskBrief.nextReads",
@@ -136,28 +130,18 @@ impl QueryHost {
                     next_reads.as_slice(),
                 );
                 let likely_validations = task_brief_likely_validations(
-                    current_plan_node,
                     subject.likely_validations.as_slice(),
                     subject.fallback_validation_refs.as_slice(),
                 );
-                let risk_hint = subject
-                    .risk_hint
-                    .or_else(|| compact_native_plan_risk_hint(&subject.plan_blockers));
+                let risk_hint = subject.risk_hint;
 
                 let mut result = AgentTaskBriefResultView {
                     task_id: subject.task_id.clone(),
                     title: clamp_string(&subject.title, TASK_BRIEF_TEXT_MAX_CHARS),
                     status: subject.status,
-                    lifecycle: task_brief_lifecycle_view(subject.status, task_execution),
+                    lifecycle: task_brief_lifecycle_view(subject.status, &subject.git_execution),
                     assignee: subject.assignee.clone(),
-                    pending_handoff_to: task_execution
-                        .and_then(|overlay| {
-                            overlay
-                                .pending_handoff_to
-                                .as_ref()
-                                .map(|agent| agent.0.to_string())
-                        })
-                        .or(subject.pending_handoff_to.clone()),
+                    pending_handoff_to: subject.pending_handoff_to.clone(),
                     lease_state: subject.lease_state.clone(),
                     lease_holder: subject.lease_holder.clone(),
                     blockers: subject.blockers,
@@ -196,17 +180,17 @@ impl QueryHost {
 struct TaskBriefSubject {
     task_id: String,
     coordination_task_id: Option<CoordinationTaskId>,
-    node_id: PlanNodeId,
-    plan_id: prism_ir::PlanId,
     title: String,
     status: prism_ir::CoordinationTaskStatus,
     assignee: Option<String>,
     pending_handoff_to: Option<String>,
+    git_execution: TaskGitExecution,
     lease_state: Option<String>,
     lease_holder: Option<TaskLeaseHolderView>,
     anchors: Vec<AnchorRef>,
     blockers: Vec<AgentTaskBlockerView>,
-    plan_blockers: Vec<PlanNodeBlocker>,
+    dependencies: Vec<NodeRef>,
+    dependents: Vec<NodeRef>,
     likely_validations: Vec<String>,
     fallback_validation_refs: Vec<String>,
     risk_hint: Option<String>,
@@ -245,17 +229,17 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
         return Ok(TaskBriefSubject {
             task_id: task_view.id.clone(),
             coordination_task_id: Some(coordination_task_id),
-            node_id: PlanNodeId::new(task_view.id),
-            plan_id: prism_ir::PlanId::new(task_view.plan_id.clone()),
             title: task_view.title,
             status: task_view.status,
             assignee: task_view.assignee,
             pending_handoff_to: task_view.pending_handoff_to,
+            git_execution: task_v2.task.git_execution.clone(),
             lease_state,
             lease_holder,
             anchors: task_view.anchors,
             blockers,
-            plan_blockers: Vec::new(),
+            dependencies: task_v2.dependencies,
+            dependents: task_v2.dependents,
             likely_validations,
             fallback_validation_refs,
             risk_hint,
@@ -280,103 +264,25 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
         return Ok(TaskBriefSubject {
             task_id: task.id.0.to_string(),
             coordination_task_id: Some(task.id.clone()),
-            node_id: PlanNodeId::new(task.id.0.to_string()),
-            plan_id: task.plan.clone(),
             title: task.title,
             status: task.status,
             assignee: task.assignee.map(|agent| agent.0.to_string()),
             pending_handoff_to: task.pending_handoff_to.map(|agent| agent.0.to_string()),
+            git_execution: task.git_execution.clone(),
             lease_state,
             lease_holder,
             anchors: task.anchors,
             blockers,
-            plan_blockers: Vec::new(),
+            dependencies: prism
+                .node_dependencies_v2(&NodeRef::task(TaskId::new(task.id.0.clone()))),
+            dependents: prism.node_dependents_v2(&NodeRef::task(TaskId::new(task.id.0.clone()))),
             likely_validations,
             fallback_validation_refs,
             risk_hint,
         });
     }
 
-    let Some((plan_id, node)) = resolve_native_plan_node(prism, task_id) else {
-        return Err(anyhow!("unknown coordination task `{task_id}`"));
-    };
-    let plan_blockers = prism.plan_node_blockers(&plan_id, &node.id);
-    let blockers = plan_blockers
-        .iter()
-        .take(TASK_BRIEF_BLOCKER_LIMIT)
-        .map(plan_node_blocker_view)
-        .collect::<Vec<_>>();
-    let likely_validations = native_plan_likely_validations(&node, &plan_blockers);
-    Ok(TaskBriefSubject {
-        task_id: node.id.0.to_string(),
-        coordination_task_id: None,
-        node_id: node.id.clone(),
-        plan_id,
-        title: node.title,
-        status: coordination_task_status_for_plan_node(node.status),
-        assignee: node.assignee.as_ref().map(|agent| agent.0.to_string()),
-        pending_handoff_to: None,
-        lease_state: None,
-        lease_holder: None,
-        anchors: node.bindings.anchors,
-        blockers,
-        plan_blockers,
-        likely_validations,
-        fallback_validation_refs: Vec::new(),
-        risk_hint: None,
-    })
-}
-
-fn resolve_native_plan_node(prism: &Prism, task_id: &str) -> Option<(prism_ir::PlanId, PlanNode)> {
-    prism.plan_graphs().into_iter().find_map(|graph| {
-        graph
-            .nodes
-            .into_iter()
-            .find_map(|node| (node.id.0 == task_id).then(|| (graph.id.clone(), node)))
-    })
-}
-
-fn plan_node_blocker_view(blocker: &PlanNodeBlocker) -> AgentTaskBlockerView {
-    AgentTaskBlockerView {
-        kind: blocker_kind_for_plan_node(blocker.kind),
-        summary: clamp_string(&blocker.summary, TASK_BRIEF_TEXT_MAX_CHARS),
-    }
-}
-
-fn blocker_kind_for_plan_node(kind: PlanNodeBlockerKind) -> prism_coordination::BlockerKind {
-    match kind {
-        PlanNodeBlockerKind::Dependency
-        | PlanNodeBlockerKind::BlockingNode
-        | PlanNodeBlockerKind::ChildIncomplete
-        | PlanNodeBlockerKind::Handoff => prism_coordination::BlockerKind::Dependency,
-        PlanNodeBlockerKind::ClaimConflict => prism_coordination::BlockerKind::ClaimConflict,
-        PlanNodeBlockerKind::ReviewRequired => prism_coordination::BlockerKind::ReviewRequired,
-        PlanNodeBlockerKind::RiskReviewRequired => {
-            prism_coordination::BlockerKind::RiskReviewRequired
-        }
-        PlanNodeBlockerKind::ValidationGate | PlanNodeBlockerKind::ValidationRequired => {
-            prism_coordination::BlockerKind::ValidationRequired
-        }
-        PlanNodeBlockerKind::StaleRevision => prism_coordination::BlockerKind::StaleRevision,
-        PlanNodeBlockerKind::ArtifactStale => prism_coordination::BlockerKind::ArtifactStale,
-    }
-}
-
-fn coordination_task_status_for_plan_node(
-    status: PlanNodeStatus,
-) -> prism_ir::CoordinationTaskStatus {
-    match status {
-        PlanNodeStatus::Proposed => prism_ir::CoordinationTaskStatus::Proposed,
-        PlanNodeStatus::Ready => prism_ir::CoordinationTaskStatus::Ready,
-        PlanNodeStatus::InProgress => prism_ir::CoordinationTaskStatus::InProgress,
-        PlanNodeStatus::Blocked | PlanNodeStatus::Waiting => {
-            prism_ir::CoordinationTaskStatus::Blocked
-        }
-        PlanNodeStatus::InReview => prism_ir::CoordinationTaskStatus::InReview,
-        PlanNodeStatus::Validating => prism_ir::CoordinationTaskStatus::Validating,
-        PlanNodeStatus::Completed => prism_ir::CoordinationTaskStatus::Completed,
-        PlanNodeStatus::Abandoned => prism_ir::CoordinationTaskStatus::Abandoned,
-    }
+    Err(anyhow!("unknown coordination task `{task_id}`"))
 }
 
 fn task_brief_lease_state(task: &CoordinationTask, now: u64) -> Option<String> {
@@ -488,30 +394,6 @@ fn task_brief_authoritative_lease_holder_for_canonical(
     .then_some(view)
 }
 
-fn native_plan_likely_validations(node: &PlanNode, blockers: &[PlanNodeBlocker]) -> Vec<String> {
-    let mut checks = Vec::new();
-    for validation in &node.validation_refs {
-        push_unique_string(&mut checks, validation.id.clone());
-    }
-    for criterion in &node.acceptance {
-        for validation in &criterion.required_checks {
-            push_unique_string(&mut checks, validation.id.clone());
-        }
-    }
-    for blocker in blockers {
-        if matches!(
-            blocker.kind,
-            PlanNodeBlockerKind::ValidationGate | PlanNodeBlockerKind::ValidationRequired
-        ) {
-            for validation in &blocker.validation_checks {
-                push_unique_string(&mut checks, validation.clone());
-            }
-        }
-    }
-    checks.truncate(TASK_BRIEF_VALIDATION_LIMIT);
-    checks
-}
-
 fn push_unique_string(values: &mut Vec<String>, value: String) {
     if !values.iter().any(|existing| existing == &value) {
         values.push(value);
@@ -555,11 +437,12 @@ fn load_task_brief_recent_outcomes(
 fn compact_task_next_reads(
     session: &SessionState,
     prism: &Prism,
-    current_node_id: &PlanNodeId,
+    current_task_id: &str,
     current_status: prism_ir::CoordinationTaskStatus,
     blockers: &[AgentTaskBlockerView],
     anchors: &[AnchorRef],
-    plan_graph: Option<&PlanGraph>,
+    dependencies: &[NodeRef],
+    dependents: &[NodeRef],
 ) -> Result<Vec<AgentTargetHandleView>> {
     let seed_nodes = anchors
         .iter()
@@ -571,39 +454,33 @@ fn compact_task_next_reads(
     let mut seen = HashSet::<NodeId>::new();
     let mut candidates = Vec::<(NodeId, String)>::new();
 
-    if let Some(plan_graph) =
-        plan_graph.filter(|_| task_brief_should_follow_plan_neighbors(current_status, blockers))
-    {
-        for edge in plan_graph.edges.iter().filter(|edge| {
-            (edge.from == *current_node_id || edge.to == *current_node_id)
-                && task_brief_actionable_plan_edge(edge.kind)
-        }) {
-            let adjacent_id = if edge.from == *current_node_id {
-                &edge.to
-            } else {
-                &edge.from
-            };
-            let Some(adjacent_node) = plan_graph.nodes.iter().find(|node| &node.id == adjacent_id)
-            else {
-                continue;
-            };
-            for anchor in &adjacent_node.bindings.anchors {
-                let AnchorRef::Node(node_id) = anchor else {
+    if task_brief_should_follow_task_neighbors(current_status, blockers) {
+        for (node_refs, relation_label) in [
+            (dependencies, "Dependency"),
+            (dependents, "Dependent"),
+        ] {
+            for node_ref in node_refs {
+                let Some(related_task) =
+                    compact_task_related_task(prism, current_task_id, node_ref)
+                else {
                     continue;
                 };
-                if seed_nodes.iter().any(|seed| seed == node_id) || !seen.insert(node_id.clone()) {
-                    continue;
+                for node_id in task_anchor_nodes(&related_task) {
+                    if seed_nodes.iter().any(|seed| seed == &node_id) || !seen.insert(node_id.clone())
+                    {
+                        continue;
+                    }
+                    candidates.push((
+                        node_id,
+                        format!("{relation_label} task `{}`.", related_task.title),
+                    ));
+                    if candidates.len() >= TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(4) {
+                        break;
+                    }
                 }
-                candidates.push((
-                    node_id.clone(),
-                    format!(
-                        "Adjacent plan node `{}` via {:?}.",
-                        adjacent_node.title, edge.kind
-                    ),
-                ));
-                if candidates.len() >= TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(4) {
-                    break;
-                }
+            }
+            if candidates.len() >= TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(4) {
+                break;
             }
         }
     }
@@ -691,15 +568,10 @@ fn push_unique_node(values: &mut Vec<NodeId>, value: NodeId) {
 }
 
 fn task_brief_likely_validations(
-    current_plan_node: Option<&PlanNode>,
     subject_validations: &[String],
     fallback_validation_refs: &[String],
 ) -> Vec<String> {
-    let mut validations = if let Some(node) = current_plan_node {
-        native_plan_likely_validations(node, &[])
-    } else {
-        subject_validations.to_vec()
-    };
+    let mut validations = subject_validations.to_vec();
     if validations.is_empty() {
         validations = fallback_validation_refs.to_vec();
     }
@@ -809,7 +681,7 @@ fn compact_task_brief_next_action(
         return "Inspect the current task blockers before switching nodes; use prism.blockers(taskId) or prism_query for full coordination detail.".to_string();
     }
     if !next_reads.is_empty() {
-        return "Use prism_open on a nextRead to work this plan node, or prism_query for full coordination detail.".to_string();
+        return "Use prism_open on a nextRead to work this task, or prism_query for full coordination detail.".to_string();
     }
     "Inspect recent outcomes, validations, or prism_query for full coordination detail.".to_string()
 }
@@ -823,21 +695,10 @@ fn task_brief_status_is_terminal(status: prism_ir::CoordinationTaskStatus) -> bo
 
 fn task_brief_lifecycle_view(
     status: prism_ir::CoordinationTaskStatus,
-    task_execution: Option<&PlanExecutionOverlay>,
+    git_execution: &TaskGitExecution,
 ) -> CoordinationTaskLifecycleView {
-    let integration_status = task_execution
-        .map(|overlay| {
-            overlay
-                .git_execution
-                .as_ref()
-                .map(|git| git.integration_status)
-        })
-        .flatten()
-        .unwrap_or(GitIntegrationStatus::NotStarted);
-    let execution_status = task_execution
-        .map(|overlay| overlay.git_execution.as_ref().map(|git| git.status))
-        .flatten()
-        .unwrap_or(GitExecutionStatus::NotStarted);
+    let integration_status = git_execution.integration_status;
+    let execution_status = git_execution.status;
     CoordinationTaskLifecycleView {
         completed: status == prism_ir::CoordinationTaskStatus::Completed,
         published_to_branch: matches!(
@@ -852,7 +713,7 @@ fn task_brief_lifecycle_view(
     }
 }
 
-fn task_brief_should_follow_plan_neighbors(
+fn task_brief_should_follow_task_neighbors(
     status: prism_ir::CoordinationTaskStatus,
     blockers: &[AgentTaskBlockerView],
 ) -> bool {
@@ -866,34 +727,32 @@ fn task_brief_should_follow_plan_neighbors(
             ))
 }
 
-fn task_brief_actionable_plan_edge(kind: prism_ir::PlanEdgeKind) -> bool {
-    matches!(
-        kind,
-        prism_ir::PlanEdgeKind::DependsOn
-            | prism_ir::PlanEdgeKind::Blocks
-            | prism_ir::PlanEdgeKind::Validates
-            | prism_ir::PlanEdgeKind::HandoffTo
-            | prism_ir::PlanEdgeKind::ChildOf
-    )
+fn compact_task_related_task(
+    prism: &Prism,
+    current_task_id: &str,
+    node_ref: &NodeRef,
+) -> Option<CanonicalTaskRecord> {
+    if node_ref.kind != NodeRefKind::Task || node_ref.id == current_task_id {
+        return None;
+    }
+    prism
+        .coordination_task_v2(&TaskId::new(node_ref.id.clone()))
+        .map(|task| task.task)
 }
 
-fn compact_native_plan_risk_hint(blockers: &[PlanNodeBlocker]) -> Option<String> {
-    let hint = if let Some(blocker) = blockers.iter().find(|blocker| {
-        matches!(
-            blocker.kind,
-            PlanNodeBlockerKind::RiskReviewRequired
-                | PlanNodeBlockerKind::ReviewRequired
-                | PlanNodeBlockerKind::ValidationRequired
-                | PlanNodeBlockerKind::ValidationGate
-                | PlanNodeBlockerKind::StaleRevision
-                | PlanNodeBlockerKind::ArtifactStale
-        )
-    }) {
-        blocker.summary.clone()
+fn task_anchor_nodes(task: &CanonicalTaskRecord) -> Vec<NodeId> {
+    let anchors = if task.bindings.anchors.is_empty() {
+        &task.anchors
     } else {
-        return None;
+        &task.bindings.anchors
     };
-    Some(clamp_string(&hint, TASK_BRIEF_TEXT_MAX_CHARS))
+    anchors
+        .iter()
+        .filter_map(|anchor| match anchor {
+            AnchorRef::Node(node_id) => Some(node_id.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 fn budgeted_task_brief_result(

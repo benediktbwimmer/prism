@@ -402,58 +402,10 @@ pub(crate) fn query_method_specs() -> Vec<(
             "Read a coordination plan.",
         ),
         (
-            "planGraph",
-            "coordination",
-            Some("workflow"),
-            "Read the first-class plan graph projection for a coordination plan.",
-        ),
-        (
-            "planProjectionAt",
-            "coordination",
-            Some("workflow"),
-            "Replay a historical structural plan projection at one timestamp.",
-        ),
-        (
-            "planProjectionDiff",
-            "coordination",
-            Some("workflow"),
-            "Diff two historical structural plan projections across a bounded time window.",
-        ),
-        (
-            "planExecution",
-            "coordination",
-            Some("workflow"),
-            "Read runtime execution overlays for plan nodes.",
-        ),
-        (
-            "planReadyNodes",
-            "coordination",
-            Some("workflow"),
-            "List graph-native plan nodes that can safely proceed now.",
-        ),
-        (
-            "planNodeBlockers",
-            "coordination",
-            Some("workflow"),
-            "Explain graph-native blockers for one plan node.",
-        ),
-        (
             "planSummary",
             "coordination",
             Some("workflow"),
             "Summarize native plan progress, execution blockers, and completion gates.",
-        ),
-        (
-            "planNext",
-            "coordination",
-            Some("workflow"),
-            "Recommend the next plan nodes to advance based on the native plan runtime.",
-        ),
-        (
-            "portfolioNext",
-            "coordination",
-            Some("workflow"),
-            "Recommend the next actionable plan nodes across all active plans.",
         ),
         (
             "coordinationTask",

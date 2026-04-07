@@ -1473,21 +1473,19 @@ type ArtifactRiskView = {
 
 type CoordinationInboxView = {
   plan: PlanView | null;
-  planGraph: PlanGraphView | null;
-  planExecution: PlanExecutionOverlayView[];
-  planSummary: PlanSummaryView | null;
-  planNext: PlanNodeRecommendationView[];
+  planV2: CoordinationPlanV2View | null;
+  children: PlanChildrenV2View | null;
+  graphActionableTasks: CoordinationTaskV2View[];
+  actionableTasks: CoordinationTaskV2View[];
   readyTasks: CoordinationTaskView[];
   pendingReviews: ArtifactView[];
 };
 
 type TaskContextView = {
   task: CoordinationTaskView | null;
-  taskNode: PlanNodeView | null;
-  taskExecution: PlanExecutionOverlayView | null;
-  planGraph: PlanGraphView | null;
-  planSummary: PlanSummaryView | null;
-  planNext: PlanNodeRecommendationView[];
+  taskV2: CoordinationTaskV2View | null;
+  dependencies: NodeRefView[];
+  dependents: NodeRefView[];
   blockers: BlockerView[];
   artifacts: ArtifactView[];
   claims: ClaimView[];
@@ -1591,7 +1589,6 @@ type PlanView = {
   gitExecutionPolicy: GitExecutionPolicyView;
   tags: string[];
   createdFrom?: string;
-  rootNodeIds: string[];
   activity?: PlanActivityView;
 };
 
@@ -1604,7 +1601,6 @@ type PlanListEntryView = {
   kind: string;
   scheduling: PlanSchedulingView;
   gitExecutionPolicy: GitExecutionPolicyView;
-  rootNodeIds: string[];
   createdAt?: number;
   lastUpdatedAt?: number;
   nodeStatusCounts: PlanNodeStatusCountsView;
@@ -1653,120 +1649,6 @@ type PlanBindingView = {
   outcomeRefs: string[];
 };
 
-type PlanAcceptanceCriterionView = {
-  label: string;
-  anchors: AnchorRef[];
-  requiredChecks: ValidationRefView[];
-  evidencePolicy: string;
-};
-
-type PlanNodeView = {
-  id: string;
-  planId: string;
-  kind: string;
-  title: string;
-  summary?: string;
-  status: string;
-  bindings: PlanBindingView;
-  acceptance: PlanAcceptanceCriterionView[];
-  validationRefs: ValidationRefView[];
-  isAbstract: boolean;
-  assignee?: string;
-  baseRevision: WorkspaceRevisionView;
-  priority?: number;
-  tags: string[];
-  metadata: Record<string, unknown>;
-};
-
-type PlanEdgeView = {
-  id: string;
-  planId: string;
-  from: string;
-  to: string;
-  kind: string;
-  summary?: string;
-  metadata: Record<string, unknown>;
-};
-
-type PlanGraphView = {
-  id: string;
-  scope: string;
-  kind: string;
-  title: string;
-  goal: string;
-  status: string;
-  revision: number;
-  rootNodeIds: string[];
-  tags: string[];
-  createdFrom?: string;
-  metadata: Record<string, unknown>;
-  nodes: PlanNodeView[];
-  edges: PlanEdgeView[];
-};
-
-type PlanExecutionOverlayView = {
-  nodeId: string;
-  pendingHandoffTo?: string;
-  session?: string;
-  effectiveAssignee?: string;
-  awaitingHandoffFrom?: string;
-};
-
-type AdHocPlanProjectionSummaryView = {
-  totalNodes: number;
-  abstractNodes: number;
-  proposedNodes: number;
-  readyNodes: number;
-  waitingNodes: number;
-  inProgressNodes: number;
-  inReviewNodes: number;
-  validatingNodes: number;
-  blockedNodes: number;
-  completedNodes: number;
-  abandonedNodes: number;
-  totalEdges: number;
-};
-
-type AdHocPlanProjectionView = {
-  projectionClass: string;
-  authorityPlanes: string[];
-  historySource: string;
-  planId: string;
-  asOf: number;
-  replayedEventCount: number;
-  graph: PlanGraphView;
-  executionOverlays: PlanExecutionOverlayView[];
-  summary: AdHocPlanProjectionSummaryView;
-};
-
-type AdHocPlanProjectionDiffView = {
-  projectionClass: string;
-  authorityPlanes: string[];
-  historySource: string;
-  planId: string;
-  from: number;
-  to: number;
-  before?: AdHocPlanProjectionView;
-  after?: AdHocPlanProjectionView;
-  planMetadataChanged: boolean;
-  addedNodes: string[];
-  removedNodes: string[];
-  changedNodes: string[];
-  addedEdges: string[];
-  removedEdges: string[];
-  changedEdges: string[];
-  changedExecutionNodes: string[];
-};
-
-type PlanNodeBlockerView = {
-  kind: string;
-  summary: string;
-  relatedNodeId?: string;
-  relatedArtifactId?: string;
-  riskScore?: number;
-  validationChecks: string[];
-};
-
 type PlanSummaryView = {
   planId: string;
   status: string;
@@ -1781,16 +1663,6 @@ type PlanSummaryView = {
   validationGatedNodes: number;
   staleNodes: number;
   claimConflictedNodes: number;
-};
-
-type PlanNodeRecommendationView = {
-  node: PlanNodeView;
-  actionable: boolean;
-  effectiveAssignee?: string;
-  score: number;
-  reasons: string[];
-  blockers: PlanNodeBlockerView[];
-  unblocks: string[];
 };
 
 type CoordinationTaskView = {

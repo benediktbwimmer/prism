@@ -1202,11 +1202,8 @@ impl QueryHost {
     }
 
     fn coordination_runtime_needs_reload(&self, revision: u64) -> bool {
-        if revision == 0 {
-            return false;
-        }
-        let prism = self.current_prism();
-        prism.coordination_snapshot().plans.is_empty() && !prism.authored_plan_graphs().is_empty()
+        let _ = revision;
+        false
     }
 
     fn sync_workspace_revision_value(&self, revision: u64) {
