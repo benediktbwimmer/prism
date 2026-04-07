@@ -1,5 +1,11 @@
 # Refresh Runtime Redesign
 
+Archived historical runtime-reset artifact. The current runtime-serving and authority contracts now
+live in:
+
+- [PRISM_COORDINATION_TARGET_ARCHITECTURE.md](../PRISM_COORDINATION_TARGET_ARCHITECTURE.md)
+- [PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md](../PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md)
+
 This document is the execution artifact for `plan:2` / `coord-task:8`.
 
 Its purpose is to define the hard architectural reset for PRISM refresh and runtime serving.
@@ -20,15 +26,15 @@ The current refresh model has too many overlapping authorities and too many requ
 
 In particular, normal reads and many mutations still synchronously enter persisted refresh logic:
 
-- [`crates/prism-mcp/src/workspace_runtime.rs`](../crates/prism-mcp/src/workspace_runtime.rs)
+- [`crates/prism-mcp/src/workspace_runtime.rs`](../../crates/prism-mcp/src/workspace_runtime.rs)
   `QueryHost::refresh_workspace_for_query`
-- [`crates/prism-mcp/src/workspace_runtime.rs`](../crates/prism-mcp/src/workspace_runtime.rs)
+- [`crates/prism-mcp/src/workspace_runtime.rs`](../../crates/prism-mcp/src/workspace_runtime.rs)
   `QueryHost::refresh_workspace_for_mutation`
-- [`crates/prism-mcp/src/workspace_runtime.rs`](../crates/prism-mcp/src/workspace_runtime.rs)
+- [`crates/prism-mcp/src/workspace_runtime.rs`](../../crates/prism-mcp/src/workspace_runtime.rs)
   `sync_persisted_workspace_state`
-- [`crates/prism-core/src/session.rs`](../crates/prism-core/src/session.rs)
+- [`crates/prism-core/src/session.rs`](../../crates/prism-core/src/session.rs)
   `WorkspaceSession::reload_persisted_prism_with_guard`
-- [`crates/prism-mcp/src/server_surface.rs`](../crates/prism-mcp/src/server_surface.rs)
+- [`crates/prism-mcp/src/server_surface.rs`](../../crates/prism-mcp/src/server_surface.rs)
   `execute_logged_mutation`
 
 This is the direct cause of the observed stalls: request paths are still allowed to block on
@@ -144,11 +150,11 @@ These are not “maybe later” cleanups. They are design-level deletions.
 
 Remove normal request-path dependence on:
 
-- [`crates/prism-mcp/src/workspace_runtime.rs`](../crates/prism-mcp/src/workspace_runtime.rs)
+- [`crates/prism-mcp/src/workspace_runtime.rs`](../../crates/prism-mcp/src/workspace_runtime.rs)
   `QueryHost::refresh_workspace_for_query`
-- [`crates/prism-mcp/src/workspace_runtime.rs`](../crates/prism-mcp/src/workspace_runtime.rs)
+- [`crates/prism-mcp/src/workspace_runtime.rs`](../../crates/prism-mcp/src/workspace_runtime.rs)
   `QueryHost::refresh_workspace_for_mutation`
-- [`crates/prism-mcp/src/workspace_runtime.rs`](../crates/prism-mcp/src/workspace_runtime.rs)
+- [`crates/prism-mcp/src/workspace_runtime.rs`](../../crates/prism-mcp/src/workspace_runtime.rs)
   `sync_persisted_workspace_state`
 
 These should be replaced by a lightweight runtime observation API that:
@@ -161,9 +167,9 @@ These should be replaced by a lightweight runtime observation API that:
 
 Remove the current “persisted-only pre-refresh” behavior from:
 
-- [`crates/prism-mcp/src/server_surface.rs`](../crates/prism-mcp/src/server_surface.rs)
+- [`crates/prism-mcp/src/server_surface.rs`](../../crates/prism-mcp/src/server_surface.rs)
   `MutationRefreshPolicy::PersistedOnly`
-- [`crates/prism-mcp/src/server_surface.rs`](../crates/prism-mcp/src/server_surface.rs)
+- [`crates/prism-mcp/src/server_surface.rs`](../../crates/prism-mcp/src/server_surface.rs)
   `execute_logged_mutation`
 
 The default mutation posture should become:
@@ -176,9 +182,9 @@ The default mutation posture should become:
 
 Remove full-runtime rebuild from steady-state serving:
 
-- [`crates/prism-core/src/session.rs`](../crates/prism-core/src/session.rs)
+- [`crates/prism-core/src/session.rs`](../../crates/prism-core/src/session.rs)
   `WorkspaceSession::try_reload_persisted_prism`
-- [`crates/prism-core/src/session.rs`](../crates/prism-core/src/session.rs)
+- [`crates/prism-core/src/session.rs`](../../crates/prism-core/src/session.rs)
   `WorkspaceSession::reload_persisted_prism_with_guard`
 
 Keep only an explicit recovery or admin path for:

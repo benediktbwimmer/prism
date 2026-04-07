@@ -4,11 +4,15 @@ Status: implementation baseline for `plan:01kng427007ptj9mpg3s0gp4vc`
 Audience: PRISM core, MCP, coordination, storage, and runtime maintainers
 Scope: freeze the current authoritative shared-coordination file/ref map before the v1 hardening rollout
 
+Archived historical baseline. The active shared-coordination architecture now lives in
+[`PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`](../PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md)
+and [`PRISM_SHARED_COORDINATION_REFS.md`](../PRISM_SHARED_COORDINATION_REFS.md).
+
 ---
 
 ## 1. Purpose
 
-[`PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`](./PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md)
+[`PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`](../PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md)
 defines the target architecture for schema-versioned, shard-friendly, 1000-agent-ready shared
 coordination. This audit records the current implementation shape in code so the rollout can be
 done incrementally without losing track of what is authoritative today.
@@ -27,7 +31,7 @@ Today the authoritative shared-coordination surface is one Git ref per logical r
 - `refs/prism/coordination/<repo>/live`
 
 That ref is derived in
-[`crates/prism-core/src/shared_coordination_ref.rs`](../crates/prism-core/src/shared_coordination_ref.rs)
+[`crates/prism-core/src/shared_coordination_ref.rs`](../../crates/prism-core/src/shared_coordination_ref.rs)
 by `shared_coordination_ref_name(...)`.
 
 The publish path in the same file still stages one snapshot tree, writes one signed manifest, and
@@ -53,16 +57,16 @@ Current staged tree layout:
 - `indexes/runtimes.json`
 
 These paths are built and written in
-[`crates/prism-core/src/shared_coordination_ref.rs`](../crates/prism-core/src/shared_coordination_ref.rs)
+[`crates/prism-core/src/shared_coordination_ref.rs`](../../crates/prism-core/src/shared_coordination_ref.rs)
 through the stage helpers, object sync functions, and `rebuild_*_index(...)` helpers.
 
 ### 2.3 Startup hydration still assumes one shared authority shape
 
 The local startup checkpoint authority is still derived from the live ref name, head commit, and
 manifest digest through
-[`crates/prism-core/src/coordination_startup_checkpoint.rs`](../crates/prism-core/src/coordination_startup_checkpoint.rs)
+[`crates/prism-core/src/coordination_startup_checkpoint.rs`](../../crates/prism-core/src/coordination_startup_checkpoint.rs)
 and
-[`crates/prism-core/src/shared_coordination_ref.rs`](../crates/prism-core/src/shared_coordination_ref.rs).
+[`crates/prism-core/src/shared_coordination_ref.rs`](../../crates/prism-core/src/shared_coordination_ref.rs).
 
 That means startup checkpoint validity currently assumes:
 
@@ -236,12 +240,12 @@ Current contract notes:
 
 Current shared-coordination readers in runtime/MCP code:
 
-- [`crates/prism-core/src/watch.rs`](../crates/prism-core/src/watch.rs)
+- [`crates/prism-core/src/watch.rs`](../../crates/prism-core/src/watch.rs)
   - polls one live shared ref through `poll_shared_coordination_ref_live_sync(...)`
   - hydrates one shared coordination snapshot into runtime state
-- [`crates/prism-mcp/src/runtime_views.rs`](../crates/prism-mcp/src/runtime_views.rs)
+- [`crates/prism-mcp/src/runtime_views.rs`](../../crates/prism-mcp/src/runtime_views.rs)
   - surfaces one `shared_coordination_ref` diagnostics object
-- [`crates/prism-mcp/src/peer_runtime_router.rs`](../crates/prism-mcp/src/peer_runtime_router.rs)
+- [`crates/prism-mcp/src/peer_runtime_router.rs`](../../crates/prism-mcp/src/peer_runtime_router.rs)
   - resolves peer runtime descriptors from `shared_coordination_ref_diagnostics(...)`
   - currently assumes runtime descriptors are discoverable through the repo-wide live ref summary
 
@@ -256,7 +260,7 @@ Current contract notes:
 
 ### 4.1 Shared ref publication
 
-[`crates/prism-core/src/coordination_persistence.rs`](../crates/prism-core/src/coordination_persistence.rs)
+[`crates/prism-core/src/coordination_persistence.rs`](../../crates/prism-core/src/coordination_persistence.rs)
 still treats shared-ref publication as the authoritative cross-runtime publish step through
 `sync_authoritative_shared_coordination_ref_observed(...)`.
 
@@ -276,8 +280,8 @@ Important baseline decision:
 
 ### 4.3 Shared runtime store is not shared coordination authority
 
-[`crates/prism-core/src/shared_runtime_store.rs`](../crates/prism-core/src/shared_runtime_store.rs)
-is a local/shared runtime query backend and storage facade. It is not the authoritative Git-backed
+`crates/prism-core/src/shared_runtime_store.rs`
+was the local/shared runtime query backend and storage facade at the time of this audit. It was not the authoritative Git-backed
 coordination ref plane and should not be treated as such in the v1 rollout.
 
 ---
@@ -363,7 +367,7 @@ Target mismatch:
 
 ### 6.1 Core authoritative ref model
 
-- [`crates/prism-core/src/shared_coordination_ref.rs`](../crates/prism-core/src/shared_coordination_ref.rs)
+- [`crates/prism-core/src/shared_coordination_ref.rs`](../../crates/prism-core/src/shared_coordination_ref.rs)
   owns:
   - ref naming
   - manifest envelope
@@ -385,9 +389,9 @@ This file is the primary owner for tasks:
 
 ### 6.2 Coordination persistence and startup hydration
 
-- [`crates/prism-core/src/coordination_persistence.rs`](../crates/prism-core/src/coordination_persistence.rs)
+- [`crates/prism-core/src/coordination_persistence.rs`](../../crates/prism-core/src/coordination_persistence.rs)
   owns request-path authoritative publication orchestration and local derived persistence
-- [`crates/prism-core/src/coordination_startup_checkpoint.rs`](../crates/prism-core/src/coordination_startup_checkpoint.rs)
+- [`crates/prism-core/src/coordination_startup_checkpoint.rs`](../../crates/prism-core/src/coordination_startup_checkpoint.rs)
   owns startup checkpoint authority matching
 
 These files are the primary owners for tasks:
@@ -398,10 +402,10 @@ These files are the primary owners for tasks:
 
 ### 6.3 Runtime/watch integration
 
-- [`crates/prism-core/src/watch.rs`](../crates/prism-core/src/watch.rs)
+- [`crates/prism-core/src/watch.rs`](../../crates/prism-core/src/watch.rs)
   owns live shared-coordination poll and hydrate behavior
-- [`crates/prism-core/src/shared_runtime_store.rs`](../crates/prism-core/src/shared_runtime_store.rs)
-  remains a secondary local/shared runtime backend and should stay out of authoritative topology
+- `crates/prism-core/src/shared_runtime_store.rs`
+  was the secondary local/shared runtime backend at the time of this audit and should stay out of authoritative topology
 
 These files are the primary owners for tasks:
 
@@ -411,11 +415,11 @@ These files are the primary owners for tasks:
 
 ### 6.4 MCP/runtime/operator surfaces
 
-- [`crates/prism-mcp/src/runtime_views.rs`](../crates/prism-mcp/src/runtime_views.rs)
+- [`crates/prism-mcp/src/runtime_views.rs`](../../crates/prism-mcp/src/runtime_views.rs)
   owns runtime diagnostics projection for shared coordination
-- [`crates/prism-mcp/src/peer_runtime_router.rs`](../crates/prism-mcp/src/peer_runtime_router.rs)
+- [`crates/prism-mcp/src/peer_runtime_router.rs`](../../crates/prism-mcp/src/peer_runtime_router.rs)
   owns runtime descriptor resolution and peer query routing
-- [`crates/prism-mcp/src/server_surface.rs`](../crates/prism-mcp/src/server_surface.rs)
+- [`crates/prism-mcp/src/server_surface.rs`](../../crates/prism-mcp/src/server_surface.rs)
   owns mutation-facing compatibility and work-subject checks that will need summary/shard aware
   diagnostics
 
@@ -453,7 +457,7 @@ This baseline means the rollout can proceed in the following order without ambig
 This document intentionally does not:
 
 - redesign the target architecture beyond what
-  [`PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`](./PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md)
+  [`PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`](../PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md)
   already decided
 - prescribe the exact shard count or archive partition count
 - implement any behavioral change

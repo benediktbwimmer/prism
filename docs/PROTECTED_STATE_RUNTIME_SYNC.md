@@ -228,7 +228,9 @@ Mutation paths that publish repo-protected state should:
 - update self-write suppression markers
 - patch live runtime state directly when they already know the authored event
 
-That preserves the rule from [`REFRESH_RUNTIME_REDESIGN.md`](REFRESH_RUNTIME_REDESIGN.md#L182): writes should not rely on "persist then reload to see your write."
+That preserves the current runtime-serving rule from
+[`PRISM_COORDINATION_TARGET_ARCHITECTURE.md`](PRISM_COORDINATION_TARGET_ARCHITECTURE.md): writes
+should not rely on "persist then reload to see your write."
 
 ## Migration Plan
 

@@ -4,7 +4,10 @@ Status: normative implementation target
 Audience: PRISM core, coordination, query, MCP, UI, and shared-ref maintainers  
 Scope: complete replacement of the current hybrid coordination task plus plan-node model
 
-Supersedes for execution planning: [PRISM_FIRST_CLASS_PLANS_SPEC.md](./PRISM_FIRST_CLASS_PLANS_SPEC.md)
+Supersedes for execution planning: [archived/PRISM_FIRST_CLASS_PLANS_SPEC.md](./archived/PRISM_FIRST_CLASS_PLANS_SPEC.md)
+
+Concurrent-write replay, semantic merge, and rejection rules are defined in
+[PRISM_COORDINATION_CONFLICT_HANDLING.md](./PRISM_COORDINATION_CONFLICT_HANDLING.md).
 
 ---
 

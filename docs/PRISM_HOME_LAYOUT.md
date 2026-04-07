@@ -3,8 +3,9 @@
 This document defines the filesystem split between repo-owned PRISM state and
 user-local PRISM state.
 
-It extends the persistence rules in
-[PERSISTENCE_STATE_CLASSIFICATION.md](PERSISTENCE_STATE_CLASSIFICATION.md)
+It extends the current authority and persistence split from
+[PRISM_COORDINATION_TARGET_ARCHITECTURE.md](PRISM_COORDINATION_TARGET_ARCHITECTURE.md) and
+[PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md](PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md)
 with a concrete on-disk layout.
 
 ## Goal

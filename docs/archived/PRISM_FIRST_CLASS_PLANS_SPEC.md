@@ -1,6 +1,7 @@
 # PRISM First-Class Plans Specification
 
-Superseded for execution-planning rewrite by [PRISM_COORDINATION_GRAPH_REWRITE.md](./PRISM_COORDINATION_GRAPH_REWRITE.md).
+Archived historical design. The active execution-planning contract is
+[PRISM_COORDINATION_GRAPH_REWRITE.md](../PRISM_COORDINATION_GRAPH_REWRITE.md).
 
 Status: proposed target design  
 Audience: PRISM core, coordination, MCP, memory, and projection maintainers  

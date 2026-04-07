@@ -2,11 +2,11 @@
 
 Status: historical baseline audit captured before the auth-and-identity cutover
 Audience: PRISM auth, coordination, MCP, runtime, storage, and operator UX maintainers
-Scope: current codebase audit against the canonical target model in [PRISM_AUTH_AND_IDENTITY_MODEL.md](PRISM_AUTH_AND_IDENTITY_MODEL.md)
+Scope: current codebase audit against the canonical target model in [PRISM_AUTH_AND_IDENTITY_MODEL.md](../PRISM_AUTH_AND_IDENTITY_MODEL.md)
 
 This document maps the pre-cutover implementation to the target model and identifies the concrete gaps that had to be closed for the end-to-end auth and identity redesign.
 
-It is retained as baseline context. The current target and operator-facing contract live in [PRISM_AUTH_AND_IDENTITY_MODEL.md](PRISM_AUTH_AND_IDENTITY_MODEL.md).
+It is retained as baseline context. The current target and operator-facing contract live in [PRISM_AUTH_AND_IDENTITY_MODEL.md](../PRISM_AUTH_AND_IDENTITY_MODEL.md).
 
 ## 1. Executive Summary
 
@@ -27,7 +27,7 @@ In other words, the current system implements the old model well, but it is stru
 
 ## 2. Canonical Target
 
-The target model is defined in [PRISM_AUTH_AND_IDENTITY_MODEL.md](PRISM_AUTH_AND_IDENTITY_MODEL.md).
+The target model is defined in [PRISM_AUTH_AND_IDENTITY_MODEL.md](../PRISM_AUTH_AND_IDENTITY_MODEL.md).
 
 The key target rules that drive this audit are:
 
@@ -44,7 +44,7 @@ The key target rules that drive this audit are:
 
 ### 3.1 Principal registry
 
-The principal registry is implemented in [principal_registry.rs](../crates/prism-core/src/principal_registry.rs).
+The principal registry is implemented in [principal_registry.rs](../../crates/prism-core/src/principal_registry.rs).
 
 Current behavior:
 
@@ -61,7 +61,7 @@ Implication:
 
 ### 3.2 Local credentials file
 
-The local credential store is implemented in [local_credentials.rs](../crates/prism-core/src/local_credentials.rs).
+The local credential store is implemented in [local_credentials.rs](../../crates/prism-core/src/local_credentials.rs).
 
 Current behavior:
 
@@ -82,7 +82,7 @@ Implication:
 
 ### 3.3 CLI auth flow
 
-The CLI flow is implemented in [auth_commands.rs](../crates/prism-cli/src/auth_commands.rs).
+The CLI flow is implemented in [auth_commands.rs](../../crates/prism-cli/src/auth_commands.rs).
 
 Current behavior:
 
@@ -99,7 +99,7 @@ Implication:
 
 ### 3.4 Worktree identity
 
-Worktree identity is implemented in [workspace_identity.rs](../crates/prism-core/src/workspace_identity.rs).
+Worktree identity is implemented in [workspace_identity.rs](../../crates/prism-core/src/workspace_identity.rs).
 
 Current behavior:
 
@@ -116,7 +116,7 @@ Implication:
 
 ### 3.5 Worktree principal binding
 
-The current per-worktree identity gate is implemented in [worktree_principal.rs](../crates/prism-core/src/worktree_principal.rs).
+The current per-worktree identity gate is implemented in [worktree_principal.rs](../../crates/prism-core/src/worktree_principal.rs).
 
 Current behavior:
 
@@ -134,7 +134,7 @@ Implication:
 
 ### 3.6 Bridge adoption
 
-The bridge adoption path is implemented in [bridge_auth.rs](../crates/prism-mcp/src/bridge_auth.rs).
+The bridge adoption path is implemented in [bridge_auth.rs](../../crates/prism-mcp/src/bridge_auth.rs).
 
 Current behavior:
 
@@ -152,7 +152,7 @@ Implication:
 
 ### 3.7 UI operator identity and mutation
 
-The UI/operator console identity flow is implemented in [ui_identity.rs](../crates/prism-mcp/src/ui_identity.rs) and [ui_mutations.rs](../crates/prism-mcp/src/ui_mutations.rs).
+The UI/operator console identity flow is implemented in [ui_identity.rs](../../crates/prism-mcp/src/ui_identity.rs) and [ui_mutations.rs](../../crates/prism-mcp/src/ui_mutations.rs).
 
 Current behavior:
 
@@ -169,7 +169,7 @@ Implication:
 
 ### 3.8 Provenance and event execution context
 
-Mutation and observed-change provenance currently include worktree and session context in [session.rs](../crates/prism-core/src/session.rs) and [watch.rs](../crates/prism-core/src/watch.rs).
+Mutation and observed-change provenance currently include worktree and session context in [session.rs](../../crates/prism-core/src/session.rs) and [watch.rs](../../crates/prism-core/src/watch.rs).
 
 Current behavior:
 
@@ -193,7 +193,7 @@ Implication:
 
 ### 3.9 Runtime descriptors
 
-Runtime descriptors currently live in coordination state in [types.rs](../crates/prism-coordination/src/types.rs).
+Runtime descriptors currently live in coordination state in [types.rs](../../crates/prism-coordination/src/types.rs).
 
 Current behavior:
 
@@ -213,7 +213,7 @@ Implication:
 
 ### 3.10 Leases, claims, and handoffs
 
-Coordination task and claim continuity lives primarily in [mutations.rs](../crates/prism-coordination/src/mutations.rs).
+Coordination task and claim continuity lives primarily in [mutations.rs](../../crates/prism-coordination/src/mutations.rs).
 
 Current behavior:
 
@@ -424,17 +424,17 @@ Recommended order:
 
 The highest-leverage code hotspots for the redesign are:
 
-- [principal_registry.rs](../crates/prism-core/src/principal_registry.rs)
-- [local_credentials.rs](../crates/prism-core/src/local_credentials.rs)
-- [auth_commands.rs](../crates/prism-cli/src/auth_commands.rs)
-- [workspace_identity.rs](../crates/prism-core/src/workspace_identity.rs)
-- [worktree_principal.rs](../crates/prism-core/src/worktree_principal.rs)
-- [bridge_auth.rs](../crates/prism-mcp/src/bridge_auth.rs)
-- [ui_identity.rs](../crates/prism-mcp/src/ui_identity.rs)
-- [ui_mutations.rs](../crates/prism-mcp/src/ui_mutations.rs)
-- [server_surface.rs](../crates/prism-mcp/src/server_surface.rs)
-- [types.rs](../crates/prism-coordination/src/types.rs)
-- [mutations.rs](../crates/prism-coordination/src/mutations.rs)
+- [principal_registry.rs](../../crates/prism-core/src/principal_registry.rs)
+- [local_credentials.rs](../../crates/prism-core/src/local_credentials.rs)
+- [auth_commands.rs](../../crates/prism-cli/src/auth_commands.rs)
+- [workspace_identity.rs](../../crates/prism-core/src/workspace_identity.rs)
+- [worktree_principal.rs](../../crates/prism-core/src/worktree_principal.rs)
+- [bridge_auth.rs](../../crates/prism-mcp/src/bridge_auth.rs)
+- [ui_identity.rs](../../crates/prism-mcp/src/ui_identity.rs)
+- [ui_mutations.rs](../../crates/prism-mcp/src/ui_mutations.rs)
+- [server_surface.rs](../../crates/prism-mcp/src/server_surface.rs)
+- [types.rs](../../crates/prism-coordination/src/types.rs)
+- [mutations.rs](../../crates/prism-coordination/src/mutations.rs)
 
 ## 8. Conclusion
 

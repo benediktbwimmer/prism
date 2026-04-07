@@ -1,7 +1,8 @@
 # PRISM Dashboard Implementation Spec
 
-Superseded for V1 operator-console backend work by
-[PRISM_OPERATOR_CONSOLE_BACKEND_SPEC.md](./PRISM_OPERATOR_CONSOLE_BACKEND_SPEC.md).
+Archived historical design. The active operator-console docs are
+[PRISM_OPERATOR_CONSOLE_BACKEND_SPEC.md](../PRISM_OPERATOR_CONSOLE_BACKEND_SPEC.md) and
+[PRISM_SSR_OPERATOR_CONSOLE.md](../PRISM_SSR_OPERATOR_CONSOLE.md).
 
 This document remains useful as historical context for the earlier query-log dashboard direction,
 but it is no longer the implementation contract for the current UI overhaul.

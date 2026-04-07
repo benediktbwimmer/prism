@@ -4,6 +4,9 @@ Status: implemented architecture with validated coverage
 Audience: PRISM core, coordination, storage, git execution, and MCP maintainers
 Scope: shared multi-agent coordination without an external database
 
+Concurrent-write replay, semantic merge, and deterministic rejection rules are defined in
+[PRISM_COORDINATION_CONFLICT_HANDLING.md](./PRISM_COORDINATION_CONFLICT_HANDLING.md).
+
 ---
 
 ## 1. Summary

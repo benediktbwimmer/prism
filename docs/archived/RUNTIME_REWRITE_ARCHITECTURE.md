@@ -1,5 +1,11 @@
 # Runtime Rewrite Architecture
 
+Archived historical runtime architecture. The current authority and runtime split now live in:
+
+- [PRISM_COORDINATION_TARGET_ARCHITECTURE.md](../PRISM_COORDINATION_TARGET_ARCHITECTURE.md)
+- [PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md](../PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md)
+- [PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md](../PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md)
+
 This document is the execution artifact for:
 
 - `plan:01kn2edq9k2cr10t7p9pwscpjz`

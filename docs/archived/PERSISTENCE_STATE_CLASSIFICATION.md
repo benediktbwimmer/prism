@@ -1,5 +1,12 @@
 # Persistence State Classification
 
+Archived historical classification artifact. The current authority and persistence boundaries now
+live in:
+
+- [PRISM_COORDINATION_TARGET_ARCHITECTURE.md](../PRISM_COORDINATION_TARGET_ARCHITECTURE.md)
+- [PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md](../PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md)
+- [PRISM_REPO_SNAPSHOT_REWRITE.md](../PRISM_REPO_SNAPSHOT_REWRITE.md)
+
 This document is the classification artifact for `plan:01kn13pqvcx3xmnkrs493ff3ra` /
 `coord-task:01kn13pz030s4q1c3qrbbg203f`.
 
@@ -48,7 +55,7 @@ The runtime should therefore be memory-authoritative while it is live:
 - Runtime-only hydration details such as fresh handles, resolved overlays, or process-local caches must not be published as authored repo truth.
 - Snapshots and compaction outputs are allowed as accelerators, bootstrap aids, or exports, but not as a second semantic authority.
 - A shared backend should be treated as the mutable runtime state plane for collaboration, not as a replacement for repo-published knowledge.
-- Repo-published state and shared logical runtime state must use portable identity forms such as anchors and repo-relative paths, not machine-specific absolute filesystem paths. The local exceptions are defined in [`PATH_IDENTITY_CONTRACT.md`](PATH_IDENTITY_CONTRACT.md).
+- Repo-published state and shared logical runtime state must use portable identity forms such as anchors and repo-relative paths, not machine-specific absolute filesystem paths. The local exceptions are defined in [`PATH_IDENTITY_CONTRACT.md`](../PATH_IDENTITY_CONTRACT.md).
 - Scope should be modeled explicitly through identity and context, not inferred accidentally from storage location.
 - The live daemon should answer authoritative queries from hot memory unless a surface is explicitly classified as hot-plus-cold or cold-backed.
 - A crash-safe write path should append or persist the minimum authoritative fact, not force every rebuildable projection onto the request path.
@@ -92,12 +99,12 @@ Current code should converge on the following naming rule:
 
 Representative surfaces:
 
-- [lib.rs](../crates/prism-query/src/lib.rs): `hot_lineage_history`,
+- [lib.rs](../../crates/prism-query/src/lib.rs): `hot_lineage_history`,
   `cold_lineage_history`, `lineage_history`, `hot_history_snapshot`, `cold_history_snapshot`,
   `history_snapshot`, `hot_outcome_event`, `cold_outcome_event`, `outcome_event`
-- [outcomes.rs](../crates/prism-query/src/outcomes.rs): `query_hot_outcomes`,
+- [outcomes.rs](../../crates/prism-query/src/outcomes.rs): `query_hot_outcomes`,
   `query_cold_outcomes`, `query_outcomes`, `hot_task_replay`, `cold_task_replay`, `resume_task`
-- [session.rs](../crates/prism-core/src/session.rs): `load_hot_*`,
+- [session.rs](../../crates/prism-core/src/session.rs): `load_hot_*`,
   `load_cold_*`, and merged `load_*` wrappers for runtime-facing callers
 
 ## Classification
@@ -368,7 +375,7 @@ State that is often worktree- or branch-scoped even when a shared backend exists
 
 ## Current Transitional Caveats
 
-The current store boundary is still snapshot-shaped in several places. In particular, [`crates/prism-store/src/store.rs`](../crates/prism-store/src/store.rs) still exposes load/save methods for `HistorySnapshot`, `OutcomeMemorySnapshot`, `ProjectionSnapshot`, `CoordinationSnapshot`, and other snapshot forms.
+The current store boundary is still snapshot-shaped in several places. In particular, [`crates/prism-store/src/store.rs`](../../crates/prism-store/src/store.rs) still exposes load/save methods for `HistorySnapshot`, `OutcomeMemorySnapshot`, `ProjectionSnapshot`, `CoordinationSnapshot`, and other snapshot forms.
 
 That does not make those snapshots the desired long-term authority.
 

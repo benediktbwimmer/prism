@@ -4,6 +4,9 @@ Status: proposed target architecture
 Audience: PRISM coordination, runtime, MCP, bridge, SQLite, and shared-ref maintainers
 Scope: the long-term authority, runtime, read, write, and scaling model for PRISM coordination
 
+The definitive concurrent-write decision tree for CAS retry, replay, semantic merge, and rejection
+lives in [PRISM_COORDINATION_CONFLICT_HANDLING.md](./PRISM_COORDINATION_CONFLICT_HANDLING.md).
+
 ---
 
 ## 1. Summary

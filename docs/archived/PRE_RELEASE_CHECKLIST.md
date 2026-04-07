@@ -1,5 +1,7 @@
 # PRISM Pre-Release Checklist
 
+Archived historical checklist. Current implementation priorities now live in [ROADMAP.md](../ROADMAP.md).
+
 ## Status
 
 **This list is closed. For real this time.** Nothing gets added. The next good
@@ -10,7 +12,7 @@ idea goes on the post-release roadmap.
 - [ ] **1. Projections**
   Auto-generated human-readable markdown for concepts, contracts, plans, and
   memories. This is the primary human-facing surface for v1. No web UI required.
-  See [PRISM_PROJECTIONS.md](./PRISM_PROJECTIONS.md) for the design.
+  See [PRISM_PROJECTIONS.md](../PRISM_PROJECTIONS.md) for the design.
 
 - [ ] **2. Performance tuning and anomaly fixes**
   Fix the trust-eroding anomalies observed during dogfooding. PRISM is
@@ -36,7 +38,7 @@ idea goes on the post-release roadmap.
 - [ ] **6. Packaging and distribution (Phase 1)**
   Ship PRISM as one installed executable named `prism`. Homebrew tap for macOS,
   shell installer for Linux, GitHub Releases as the canonical artifact host.
-  See [PACKAGING_AND_DISTRIBUTION_PLAN.md](./PACKAGING_AND_DISTRIBUTION_PLAN.md)
+  See [PACKAGING_AND_DISTRIBUTION_PLAN.md](../PACKAGING_AND_DISTRIBUTION_PLAN.md)
   for the full plan. Windows is Phase 2.
 
 - [ ] **7. Documentation site**

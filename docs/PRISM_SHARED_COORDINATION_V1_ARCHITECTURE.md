@@ -4,6 +4,10 @@ Status: target architecture for pre-v1 implementation
 Audience: PRISM core, coordination, storage, git execution, runtime, and MCP maintainers
 Scope: schema compatibility, 1000-agent shared coordination topology, state pruning, and semantic merging
 
+The definitive conflict-handling contract now lives in
+[PRISM_COORDINATION_CONFLICT_HANDLING.md](./PRISM_COORDINATION_CONFLICT_HANDLING.md). This
+document explains why sharding and schema-aware merge are required at v1 scale.
+
 ---
 
 ## 1. Summary
