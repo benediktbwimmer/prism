@@ -322,7 +322,7 @@ impl NativePlanRuntimeState {
                 continue;
             };
             if let Some(node) = graph.nodes.iter_mut().find(|node| node.id == node_id) {
-                sync_task_backed_plan_node_authoritative_state(node, task);
+                sync_task_backed_plan_node_authoritative_state(node, task, graph.kind);
             } else if graph.kind == PlanKind::TaskExecution {
                 graph.nodes.push(plan_node_from_coordination_task(task));
                 graph
@@ -739,7 +739,12 @@ impl NativePlanRuntimeState {
         let plan_key = task.plan.0.to_string();
         let node_id = plan_node_id_from_task_id(task.id.clone());
         let overlays = self.execution_overlays.entry(plan_key).or_default();
+        let existing_overlay = overlays.iter().find(|overlay| overlay.node_id == node_id).cloned();
         overlays.retain(|overlay| overlay.node_id != node_id);
+        let preserve_authored_execution = self
+            .graphs
+            .get(task.plan.0.as_str())
+            .is_some_and(|graph| graph.kind == PlanKind::TaskExecution);
         let git_execution = (task.git_execution != prism_coordination::TaskGitExecution::default())
             .then(|| prism_ir::GitExecutionOverlay {
                 status: task.git_execution.status,
@@ -756,19 +761,44 @@ impl NativePlanRuntimeState {
                 integration_evidence: task.git_execution.integration_evidence.clone(),
                 integration_mode: task.git_execution.integration_mode,
                 integration_status: task.git_execution.integration_status,
+            })
+            .or_else(|| {
+                preserve_authored_execution
+                    .then(|| existing_overlay.as_ref().and_then(|overlay| overlay.git_execution.clone()))
+                    .flatten()
             });
-        if task.pending_handoff_to.is_some()
-            || task.session.is_some()
-            || task.worktree_id.is_some()
-            || task.branch_ref.is_some()
+        let pending_handoff_to = task.pending_handoff_to.clone().or_else(|| {
+            preserve_authored_execution
+                .then(|| existing_overlay.as_ref().and_then(|overlay| overlay.pending_handoff_to.clone()))
+                .flatten()
+        });
+        let session = task.session.clone().or_else(|| {
+            preserve_authored_execution
+                .then(|| existing_overlay.as_ref().and_then(|overlay| overlay.session.clone()))
+                .flatten()
+        });
+        let worktree_id = task.worktree_id.clone().or_else(|| {
+            preserve_authored_execution
+                .then(|| existing_overlay.as_ref().and_then(|overlay| overlay.worktree_id.clone()))
+                .flatten()
+        });
+        let branch_ref = task.branch_ref.clone().or_else(|| {
+            preserve_authored_execution
+                .then(|| existing_overlay.as_ref().and_then(|overlay| overlay.branch_ref.clone()))
+                .flatten()
+        });
+        if pending_handoff_to.is_some()
+            || session.is_some()
+            || worktree_id.is_some()
+            || branch_ref.is_some()
             || git_execution.is_some()
         {
             overlays.push(PlanExecutionOverlay {
                 node_id,
-                pending_handoff_to: task.pending_handoff_to.clone(),
-                session: task.session.clone(),
-                worktree_id: task.worktree_id.clone(),
-                branch_ref: task.branch_ref.clone(),
+                pending_handoff_to,
+                session,
+                worktree_id,
+                branch_ref,
                 effective_assignee: None,
                 awaiting_handoff_from: None,
                 git_execution,
@@ -1324,8 +1354,14 @@ fn populate_plan_node_from_coordination_task(node: &mut PlanNode, task: &Coordin
     }
 }
 
-fn sync_task_backed_plan_node_authoritative_state(node: &mut PlanNode, task: &CoordinationTask) {
-    node.status = map_coordination_task_status(effective_coordination_task_status(task));
+fn sync_task_backed_plan_node_authoritative_state(
+    node: &mut PlanNode,
+    task: &CoordinationTask,
+    plan_kind: PlanKind,
+) {
+    if plan_kind != PlanKind::TaskExecution {
+        node.status = map_coordination_task_status(effective_coordination_task_status(task));
+    }
     node.assignee = task.assignee.clone();
 }
 
@@ -1614,6 +1650,20 @@ fn validate_edge_insertion(
             ));
         }
         _ => {}
+    }
+    if kind == PlanEdgeKind::HandoffTo
+        && graph.edges.iter().any(|edge| {
+            edge.kind == PlanEdgeKind::Validates
+                && edge.from == *to_node_id
+                && edge.to == *from_node_id
+        })
+    {
+        return Err(anyhow!(
+            "plan edge `{}` -> `{}` ({:?}) would introduce a cycle",
+            from_node_id.0,
+            to_node_id.0,
+            kind
+        ));
     }
     if edge_kind_requires_acyclic_graph(kind)
         && constrained_path_exists(graph, to_node_id, from_node_id)

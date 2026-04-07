@@ -196,7 +196,9 @@ fn normalize_coordination_startup_checkpoint(
     checkpoint
 }
 
-fn coordination_startup_authority(root: &Path) -> Result<CoordinationStartupCheckpointAuthority> {
+pub(crate) fn coordination_startup_authority(
+    root: &Path,
+) -> Result<CoordinationStartupCheckpointAuthority> {
     Ok(
         shared_coordination_startup_authority(root)?.unwrap_or_else(|| {
             CoordinationStartupCheckpointAuthority {

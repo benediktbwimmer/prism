@@ -939,6 +939,10 @@ impl Prism {
         }
     }
 
+    pub fn create_task(&self, meta: EventMeta, input: TaskCreateInput) -> Result<CoordinationTask> {
+        self.create_native_task(meta, input)
+    }
+
     pub fn update_native_task(
         &self,
         meta: EventMeta,
@@ -1050,6 +1054,15 @@ impl Prism {
                 Err(error)
             }
         }
+    }
+
+    pub fn request_handoff(
+        &self,
+        meta: EventMeta,
+        input: HandoffInput,
+        current_revision: WorkspaceRevision,
+    ) -> Result<CoordinationTask> {
+        self.request_native_handoff(meta, input, current_revision)
     }
 
     pub fn accept_native_handoff(
@@ -1300,6 +1313,17 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
     ) -> Result<PlanId> {
         self.create_native_plan_with_scheduling(meta, title, goal, status, policy, None)
+    }
+
+    pub fn create_plan(
+        &self,
+        meta: EventMeta,
+        title: String,
+        goal: String,
+        status: Option<prism_ir::PlanStatus>,
+        policy: Option<prism_coordination::CoordinationPolicy>,
+    ) -> Result<PlanId> {
+        self.create_native_plan(meta, title, goal, status, policy)
     }
 
     pub fn create_native_plan_with_scheduling(
@@ -1615,6 +1639,18 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
     ) -> Result<()> {
         self.update_native_plan_with_scheduling(meta, plan_id, title, status, goal, policy, None)
+    }
+
+    pub fn update_plan(
+        &self,
+        meta: EventMeta,
+        plan_id: &PlanId,
+        title: Option<String>,
+        status: Option<prism_ir::PlanStatus>,
+        goal: Option<String>,
+        policy: Option<prism_coordination::CoordinationPolicy>,
+    ) -> Result<()> {
+        self.update_native_plan(meta, plan_id, title, status, goal, policy)
     }
 
     pub fn update_native_plan_with_scheduling(

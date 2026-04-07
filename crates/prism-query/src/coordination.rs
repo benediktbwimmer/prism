@@ -30,6 +30,10 @@ impl Prism {
         self.with_coordination_runtime(|runtime| runtime.plan(plan_id))
     }
 
+    pub fn plan(&self, plan_id: &PlanId) -> Option<Plan> {
+        self.coordination_plan(plan_id)
+    }
+
     pub fn coordination_task(&self, task_id: &CoordinationTaskId) -> Option<CoordinationTask> {
         self.with_coordination_runtime(|runtime| runtime.task(task_id))
     }

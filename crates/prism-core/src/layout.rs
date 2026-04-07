@@ -4,12 +4,13 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use prism_ir::{Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Span};
 use prism_store::Graph;
+use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 use toml::Value;
 
 use crate::util::workspace_walk;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct WorkspaceLayout {
     pub(crate) workspace_name: String,
     pub(crate) workspace_display_name: String,
@@ -17,7 +18,7 @@ pub(crate) struct WorkspaceLayout {
     pub(crate) packages: Vec<PackageInfo>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct PackageInfo {
     pub(crate) package_name: String,
     pub(crate) crate_name: String,

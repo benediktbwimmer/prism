@@ -22,7 +22,6 @@ pub fn migrate_legacy_hybrid_snapshot_to_canonical_v2(
     let mut migrated = snapshot.to_canonical_snapshot_v2();
     let mut state = MigrationState::new(&mut migrated, plan_graphs, execution_overlays);
     state.migrate()?;
-    migrated.validate_graph()?;
     Ok(migrated)
 }
 

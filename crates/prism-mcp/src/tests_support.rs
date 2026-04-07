@@ -2,8 +2,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::Duration;
 
@@ -43,6 +44,8 @@ thread_local! {
     });
 }
 
+static CREDENTIALS_TEST_LOCK: Mutex<()> = Mutex::new(());
+
 struct TempTestDirState {
     paths: Vec<PathBuf>,
 }
@@ -76,6 +79,13 @@ pub(crate) fn ensure_process_test_prism_home() -> &'static PathBuf {
         }
         path
     })
+}
+
+pub(crate) fn credentials_test_lock() -> MutexGuard<'static, ()> {
+    match CREDENTIALS_TEST_LOCK.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
 }
 
 pub(crate) fn temp_test_dir(prefix: &str) -> PathBuf {
@@ -196,11 +206,14 @@ fn register_test_worktree(
     prefix: &str,
     mode: WorktreeMode,
 ) -> WorktreeRegistrationRecord {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    root.hash(&mut hasher);
     let label = format!(
-        "{prefix}-{}",
+        "{prefix}-{}-{:x}",
         root.file_name()
             .and_then(|name| name.to_str())
-            .unwrap_or("test-root")
+            .unwrap_or("test-root"),
+        hasher.finish()
     );
     PrismPaths::for_workspace_root(root)
         .expect("paths should resolve")

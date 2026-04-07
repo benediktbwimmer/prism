@@ -478,7 +478,7 @@ mod tests {
     use std::path::Path;
     use std::path::PathBuf;
     use std::process::Command;
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
 
     use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
@@ -495,12 +495,10 @@ mod tests {
 
     use crate::peer_runtime_router::MAX_PEER_QUERY_CODE_CHARS;
     use crate::query_errors::QueryExecutionError;
-    use crate::tests_support::temp_workspace;
+    use crate::tests_support::{credentials_test_lock, temp_workspace};
     use crate::{PrismMcpFeatures, QueryHost, QueryLanguage};
 
     use super::{execute_remote_prism_query, routes, PeerRuntimeAppState, PeerRuntimeQueryRequest};
-
-    static PEER_RUNTIME_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn init_git_workspace(branch: &str) -> PathBuf {
         let root = temp_workspace();
@@ -587,7 +585,7 @@ mod tests {
 
     #[tokio::test]
     async fn peer_runtime_query_requires_explicit_capability() {
-        let _guard = PEER_RUNTIME_TEST_LOCK.lock().unwrap();
+        let _guard = credentials_test_lock();
         let root = init_git_workspace("task/peer-runtime-query-denied");
         let session = peer_runtime_session(&root);
         let owner = session
@@ -665,7 +663,7 @@ mod tests {
 
     #[tokio::test]
     async fn peer_runtime_query_executes_prism_query() {
-        let _guard = PEER_RUNTIME_TEST_LOCK.lock().unwrap();
+        let _guard = credentials_test_lock();
         let root = init_git_workspace("task/peer-runtime-query");
         let session = peer_runtime_session(&root);
         let owner = session
@@ -755,7 +753,7 @@ mod tests {
 
     #[tokio::test]
     async fn execute_remote_prism_query_resolves_runtime_id_from_shared_ref() {
-        let _guard = PEER_RUNTIME_TEST_LOCK.lock().unwrap();
+        let _guard = credentials_test_lock();
         let root = init_git_workspace("task/peer-runtime-client");
         let session = peer_runtime_session(&root);
         let owner = session
@@ -839,7 +837,7 @@ mod tests {
 
     #[tokio::test]
     async fn execute_remote_prism_query_falls_back_to_peer_endpoint_when_public_url_is_offline() {
-        let _guard = PEER_RUNTIME_TEST_LOCK.lock().unwrap();
+        let _guard = credentials_test_lock();
         let root = init_git_workspace("task/peer-runtime-public-fallback");
         let session = peer_runtime_session(&root);
         let owner = session
@@ -917,7 +915,7 @@ mod tests {
 
     #[tokio::test]
     async fn prism_query_from_runtime_executes_remote_runtime_and_file_reads() {
-        let _guard = PEER_RUNTIME_TEST_LOCK.lock().unwrap();
+        let _guard = credentials_test_lock();
         let root = init_git_workspace("task/peer-runtime-chaining");
         std::fs::write(root.join("notes.txt"), "peer-runtime-notes").unwrap();
         let session = peer_runtime_session(&root);
@@ -1009,7 +1007,7 @@ return {{ root: status.root, text: slice.text }};
 
     #[tokio::test]
     async fn prism_query_from_runtime_rejects_empty_runtime_id() {
-        let _guard = PEER_RUNTIME_TEST_LOCK.lock().unwrap();
+        let _guard = credentials_test_lock();
         let root = init_git_workspace("task/peer-runtime-empty-id");
         let host = Arc::new(QueryHost::with_session_and_limits_and_features(
             peer_runtime_session(&root),

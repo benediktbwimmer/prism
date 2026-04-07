@@ -280,29 +280,12 @@ and authority semantics.
 PRISM should support point-in-time and diff-oriented observability for plans, coordination state,
 and agent activity.
 
-Example CLI shape:
+Historical plan/task inspection should not introduce a second public coordination read model.
+Canonical plan/task queries remain the only supported public surface; deeper timeline analysis must
+be built on explicit history or runtime-inspection queries rather than resurrecting graph-native
+projection APIs.
 
-```bash
-# View the plan as it existed yesterday
-prism project plan:01kn6rkat --at="2026-04-01T14:00:00"
-
-# Diff the last 4 hours of plan state
-prism project plan:01kn6rkat --diff="now-4h..now"
-```
-
-Those commands should be understood as projection requests, not as special access to a separate
-historical database.
-
-The first concrete ad hoc projection family should be plan-focused:
-
-- `plan_projection_at(plan_id, as_of)` for point-in-time structural plan views
-- `plan_projection_diff(plan_id, from, to)` for structural plan diffs across a bounded window
-
-Those requests should replay authoritative coordination history up to the requested timestamp and
-derive a historical plan runtime from that replay. They should report their authority plane and
-history source explicitly.
-
-Historical ad hoc plan projections should remain honest about what they are:
+Any future historical coordination inspection should remain honest about what it is:
 
 - they are replayed structural views, not a second canonical plan store
 - they should not silently reuse live hydration paths that can pull current anchor or blocker state

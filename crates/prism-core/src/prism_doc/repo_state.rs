@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 
 use crate::memory_events::load_repo_memory_events;
 use crate::published_plans::{
-    load_hydrated_coordination_plan_state, HydratedCoordinationPlanState,
+    execution_overlays_by_plan, load_hydrated_coordination_plan_state, HydratedCoordinationPlanState,
 };
 
 use super::{anchor_label, write_generated_file, PrismDocFileSync};
@@ -59,10 +59,10 @@ impl RepoStateCatalog {
             .unwrap_or_default();
         let execution_overlays = plan_state
             .as_ref()
-            .map(|state| state.execution_overlays.clone())
+            .map(|state| execution_overlays_by_plan(&state.snapshot.tasks))
             .unwrap_or_default();
         let mut plans = plan_state
-            .map(|state| state.plan_graphs)
+            .map(|state| prism_coordination::snapshot_plan_graphs(&state.snapshot))
             .unwrap_or_default()
             .into_iter()
             .map(|graph| {
