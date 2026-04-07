@@ -1,0 +1,79 @@
+{
+  "kind": "coordination_task",
+  "payload": {
+    "acceptance": [
+      {
+        "anchors": [],
+        "label": "Produce a concrete change plan that addresses the root causes, names affected modules, and specifies targeted validation commands."
+      }
+    ],
+    "anchors": [],
+    "assignee": "codex-b",
+    "base_revision": {
+      "git_commit": null,
+      "graph_version": 13
+    },
+    "bindings": {
+      "anchors": [],
+      "artifact_refs": [],
+      "concept_handles": [],
+      "memory_refs": [],
+      "outcome_refs": []
+    },
+    "branch_ref": null,
+    "coordination_depends_on": [],
+    "depends_on": [
+      "coord-task:01knmj91y99z17mxx802rg4kxp"
+    ],
+    "git_execution": {
+      "integrationCommit": null,
+      "integrationEvidence": null,
+      "integrationMode": "external",
+      "integrationStatus": "not_started",
+      "lastPreflight": null,
+      "lastPublish": null,
+      "pendingTaskStatus": null,
+      "publishCommit": null,
+      "publishRef": null,
+      "reviewArtifactRef": null,
+      "sourceCommit": null,
+      "sourceRef": null,
+      "status": "not_started",
+      "targetBranch": null,
+      "targetCommitAtPublish": null,
+      "targetRef": null
+    },
+    "id": "coord-task:01knmj91ydp334f88h14d91r37",
+    "integrated_depends_on": [],
+    "is_abstract": false,
+    "kind": "Edit",
+    "lease_expires_at": 1775592694,
+    "lease_holder": {
+      "agent_id": "codex-b",
+      "principal": {
+        "authority_id": "worktree_executor",
+        "kind": "agent",
+        "name": "codex-b",
+        "principal_id": "worktree:01knhcah0q0qny1c4fwcjecvkq"
+      },
+      "session_id": "session:01knmj447m1e67zghb0c5h7mev",
+      "worktree_id": "worktree:01knhcah0q0qny1c4fwcjecvkq"
+    },
+    "lease_refreshed_at": 1775585494,
+    "lease_stale_at": 1775587294,
+    "lease_started_at": 1775585494,
+    "metadata": null,
+    "pending_handoff_to": null,
+    "plan": "plan:01knmj91y31zdkz0jjpja8t2tx",
+    "priority": null,
+    "published_task_status": null,
+    "session": "session:01knmj447m1e67zghb0c5h7mev",
+    "status": "Ready",
+    "summary": null,
+    "tags": [],
+    "title": "Define the fix strategy and validation plan for restart, status, and health",
+    "validation_refs": [],
+    "worktree_id": "worktree:01knhcah0q0qny1c4fwcjecvkq"
+  },
+  "schema_version": 1
+}
