@@ -216,6 +216,15 @@ Current progress:
   - missing-auth rejection shaping
 - the shared flow preserves mutation-trace phase recording when a trace is present, while the
   untraced path now depends on the same authorization logic instead of a parallel copy
+- mutation auth and worktree-gating payload shaping now also routes through `trust_surface` for:
+  - missing auth
+  - credential rejection
+  - registered-worktree requirements
+  - worktree-mode mismatch
+  - mutator-slot conflicts and takeover rejection
+  - bridge execution worktree mismatch and mode requirements
+- `server_surface.rs` now delegates those service-facing trust errors to shared builders instead
+  of hand-assembling their JSON envelopes inline
 
 ### Slice 3: Provenance and verification convergence
 

@@ -19,7 +19,13 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::mutation_trace::MutationRun;
-use crate::trust_surface::mutation_capability_denied_error;
+use crate::trust_surface::{
+    mutation_auth_failed_error, mutation_auth_missing_error,
+    mutation_bridge_execution_mismatch_error,
+    mutation_bridge_execution_requires_agent_worktree_error, mutation_capability_denied_error,
+    mutation_worktree_mode_mismatch_error, mutation_worktree_mutator_slot_error,
+    mutation_worktree_unregistered_error,
+};
 use crate::*;
 
 pub(crate) struct MutationOutcomeMeta {
@@ -114,16 +120,6 @@ fn record_optional_mutation_auth_phase(
     }
 }
 
-fn mutation_auth_missing_error() -> McpError {
-    McpError::invalid_params(
-        "prism_mutate requires either `credential` or an attached bridge execution binding",
-        Some(json!({
-            "code": "mutation_auth_missing",
-            "nextAction": "Supply `credential` directly, or call `prism_bridge_adopt` on a stdio bridge attached to a registered agent worktree before retrying the mutation.",
-        })),
-    )
-}
-
 impl PrismMcpServer {
     fn worktree_mode_label(mode: WorktreeMode) -> &'static str {
         match mode {
@@ -167,81 +163,25 @@ impl PrismMcpServer {
             )
         })?;
         let registration = registration.ok_or_else(|| {
-            McpError::invalid_params(
-                "authoritative mutations require a registered worktree",
-                Some(json!({
-                    "code": "mutation_worktree_unregistered",
-                    "principalId": authenticated.principal.principal_id.0,
-                    "principalKind": authenticated.principal.kind,
-                    "nextAction": "Register this worktree in the correct mode before retrying the mutation.",
-                })),
+            mutation_worktree_unregistered_error(
+                Some(authenticated),
+                "Register this worktree in the correct mode before retrying the mutation.",
             )
         })?;
         let required_mode =
             Self::required_worktree_mode_for_principal(authenticated.principal.kind);
         if registration.mode != required_mode {
-            return Err(McpError::invalid_params(
-                "principal kind does not match the current registered worktree mode",
-                Some(json!({
-                    "code": "mutation_worktree_mode_mismatch",
-                    "principalId": authenticated.principal.principal_id.0,
-                    "principalKind": authenticated.principal.kind,
-                    "worktreeId": registration.worktree_id,
-                    "agentLabel": registration.agent_label,
-                    "worktreeMode": Self::worktree_mode_label(registration.mode),
-                    "requiredWorktreeMode": Self::worktree_mode_label(required_mode),
-                    "nextAction": "Use a worktree registered in the matching mode for this actor, or retry through the appropriate bridge or human session.",
-                })),
+            return Err(mutation_worktree_mode_mismatch_error(
+                authenticated,
+                &registration,
+                required_mode,
             ));
         }
         Ok(registration)
     }
 
     fn map_worktree_mutator_slot_error(error: WorktreeMutatorSlotError) -> McpError {
-        match error {
-            WorktreeMutatorSlotError::Conflict(conflict) => McpError::invalid_params(
-                "prism_mutate conflicts with the active worktree mutator session",
-                Some(json!({
-                    "code": "mutation_worktree_mutator_slot_conflict",
-                    "worktreeId": conflict.worktree_id,
-                    "currentOwner": {
-                        "sessionId": conflict.current_owner.session_id,
-                        "authorityId": conflict.current_owner.authority_id,
-                        "principalId": conflict.current_owner.principal_id,
-                        "name": conflict.current_owner.principal_name,
-                        "credentialId": conflict.current_owner.credential_id,
-                        "lastHeartbeatAt": conflict.current_owner.last_heartbeat_at,
-                    },
-                    "attemptedSessionId": conflict.attempted_session_id,
-                    "attemptedPrincipal": {
-                        "authorityId": conflict.attempted_principal.authority_id,
-                        "principalId": conflict.attempted_principal.principal_id,
-                        "name": conflict.attempted_principal.principal_name,
-                    },
-                    "staleAt": conflict.stale_at,
-                    "nextAction": "Retry after the current worktree mutator session goes stale, or have a human operator explicitly take over the worktree before retrying authenticated mutations.",
-                })),
-            ),
-            WorktreeMutatorSlotError::TakeoverRequiresHuman {
-                principal_id,
-                principal_kind,
-            } => McpError::invalid_params(
-                "only a human principal can authorize worktree mutator takeover",
-                Some(json!({
-                    "code": "mutation_worktree_mutator_takeover_requires_human",
-                    "principalId": principal_id,
-                    "principalKind": principal_kind,
-                    "nextAction": "Retry with an authenticated human operator session if this worktree really needs an explicit takeover.",
-                })),
-            ),
-            WorktreeMutatorSlotError::Storage(error) => McpError::internal_error(
-                "failed to update the worktree mutator slot",
-                Some(json!({
-                    "code": "mutation_worktree_mutator_slot_storage_failed",
-                    "error": error.to_string(),
-                })),
-            ),
-        }
+        mutation_worktree_mutator_slot_error(error)
     }
 
     fn payload_has_nonempty_string(payload: &Value, keys: &[&str]) -> bool {
@@ -517,15 +457,7 @@ impl PrismMcpServer {
                 &credential.principal_token,
             )
             .map_err(|error| {
-                McpError::invalid_params(
-                    "prism_mutate credential rejected",
-                    Some(json!({
-                        "code": "mutation_auth_failed",
-                        "credentialId": credential.credential_id,
-                        "error": error.to_string(),
-                        "nextAction": "Use `prism auth login` or mint a fresh credential, then retry the mutation.",
-                    })),
-                )
+                mutation_auth_failed_error(&credential.credential_id, &error.to_string())
             });
         let authenticated = match authenticated {
             Ok(authenticated) => {
@@ -553,8 +485,10 @@ impl PrismMcpServer {
         };
 
         let registration_started = Instant::now();
-        let registration =
-            self.load_registered_worktree_for_authenticated_mutation(workspace.as_ref(), &authenticated);
+        let registration = self.load_registered_worktree_for_authenticated_mutation(
+            workspace.as_ref(),
+            &authenticated,
+        );
         let registration = match registration {
             Ok(registration) => {
                 record_optional_mutation_auth_phase(
@@ -681,39 +615,22 @@ impl PrismMcpServer {
             )
         })?;
         let registration = registration.ok_or_else(|| {
-            McpError::invalid_params(
-                "authoritative mutations require a registered worktree",
-                Some(json!({
-                    "code": "mutation_worktree_unregistered",
-                    "nextAction": "Register this worktree before retrying the mutation, or supply an explicit human/service credential.",
-                })),
+            mutation_worktree_unregistered_error(
+                None,
+                "Register this worktree before retrying the mutation, or supply an explicit human/service credential.",
             )
         })?;
         if registration.mode != WorktreeMode::Agent {
-            return Err(McpError::invalid_params(
-                "bridge execution requires a worktree registered in agent mode",
-                Some(json!({
-                    "code": "mutation_bridge_execution_requires_agent_worktree",
-                    "worktreeId": registration.worktree_id,
-                    "agentLabel": registration.agent_label,
-                    "worktreeMode": "human",
-                    "nextAction": "Use a bridge attached to a registered agent worktree, or supply an explicit human credential for direct operator mutation.",
-                })),
+            return Err(mutation_bridge_execution_requires_agent_worktree_error(
+                &registration,
             ));
         }
         if registration.worktree_id != bridge_execution.worktree_id
             || registration.agent_label != bridge_execution.agent_label
         {
-            return Err(McpError::invalid_params(
-                "bridge execution binding does not match the current registered worktree",
-                Some(json!({
-                    "code": "mutation_bridge_execution_mismatch",
-                    "expectedWorktreeId": registration.worktree_id,
-                    "expectedAgentLabel": registration.agent_label,
-                    "receivedWorktreeId": bridge_execution.worktree_id,
-                    "receivedAgentLabel": bridge_execution.agent_label,
-                    "nextAction": "Call `prism_bridge_adopt` again so the bridge reattaches to the current registered worktree lane.",
-                })),
+            return Err(mutation_bridge_execution_mismatch_error(
+                &registration,
+                bridge_execution,
             ));
         }
         workspace

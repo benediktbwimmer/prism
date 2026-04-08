@@ -4,6 +4,7 @@ use prism_core::{
     AuthenticatedPrincipal, CoordinationAuthorityMutationError,
     CoordinationAuthorityMutationStatus, CoordinationAuthorityStore, CoordinationReadConsistency,
     CoordinationReadRequest, CoordinationStateView, GitSharedRefsCoordinationAuthorityStore,
+    WorktreeMode, WorktreeMutatorSlotError, WorktreeRegistrationRecord,
 };
 use prism_ir::EventId;
 use prism_query::{
@@ -14,7 +15,7 @@ use rmcp::model::ErrorData as McpError;
 use serde::Serialize;
 use serde_json::{json, Value};
 
-use crate::{CoordinationMutationResult, MutationViolationView};
+use crate::{CoordinationMutationResult, MutationViolationView, PrismMutationBridgeExecutionArgs};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,6 +48,154 @@ pub(crate) fn mutation_capability_denied_error(
             "credentialId": authenticated.credential.credential_id.0,
             "principalId": authenticated.principal.principal_id.0,
             "nextAction": "Use a credential with the required capability or mint a new child principal with narrower capabilities for this mutation lane.",
+        })),
+    )
+}
+
+pub(crate) fn mutation_auth_missing_error() -> McpError {
+    McpError::invalid_params(
+        "prism_mutate requires either `credential` or an attached bridge execution binding",
+        Some(json!({
+            "code": "mutation_auth_missing",
+            "nextAction": "Supply `credential` directly, or call `prism_bridge_adopt` on a stdio bridge attached to a registered agent worktree before retrying the mutation.",
+        })),
+    )
+}
+
+pub(crate) fn mutation_auth_failed_error(credential_id: &str, error: &str) -> McpError {
+    McpError::invalid_params(
+        "prism_mutate credential rejected",
+        Some(json!({
+            "code": "mutation_auth_failed",
+            "credentialId": credential_id,
+            "error": error,
+            "nextAction": "Use `prism auth login` or mint a fresh credential, then retry the mutation.",
+        })),
+    )
+}
+
+pub(crate) fn mutation_worktree_unregistered_error(
+    authenticated: Option<&AuthenticatedPrincipal>,
+    next_action: &str,
+) -> McpError {
+    let mut data = json!({
+        "code": "mutation_worktree_unregistered",
+        "nextAction": next_action,
+    });
+    if let Some(authenticated) = authenticated {
+        let Value::Object(object) = &mut data else {
+            unreachable!()
+        };
+        object.insert(
+            "principalId".to_string(),
+            Value::String(authenticated.principal.principal_id.0.to_string()),
+        );
+        object.insert(
+            "principalKind".to_string(),
+            serde_json::to_value(authenticated.principal.kind).unwrap_or(Value::Null),
+        );
+    }
+    McpError::invalid_params(
+        "authoritative mutations require a registered worktree",
+        Some(data),
+    )
+}
+
+pub(crate) fn mutation_worktree_mode_mismatch_error(
+    authenticated: &AuthenticatedPrincipal,
+    registration: &WorktreeRegistrationRecord,
+    required_mode: WorktreeMode,
+) -> McpError {
+    McpError::invalid_params(
+        "principal kind does not match the current registered worktree mode",
+        Some(json!({
+            "code": "mutation_worktree_mode_mismatch",
+            "principalId": authenticated.principal.principal_id.0,
+            "principalKind": authenticated.principal.kind,
+            "worktreeId": registration.worktree_id,
+            "agentLabel": registration.agent_label,
+            "worktreeMode": worktree_mode_label(registration.mode),
+            "requiredWorktreeMode": worktree_mode_label(required_mode),
+            "nextAction": "Use a worktree registered in the matching mode for this actor, or retry through the appropriate bridge or human session.",
+        })),
+    )
+}
+
+pub(crate) fn mutation_worktree_mutator_slot_error(error: WorktreeMutatorSlotError) -> McpError {
+    match error {
+        WorktreeMutatorSlotError::Conflict(conflict) => McpError::invalid_params(
+            "prism_mutate conflicts with the active worktree mutator session",
+            Some(json!({
+                "code": "mutation_worktree_mutator_slot_conflict",
+                "worktreeId": conflict.worktree_id,
+                "currentOwner": {
+                    "sessionId": conflict.current_owner.session_id,
+                    "authorityId": conflict.current_owner.authority_id,
+                    "principalId": conflict.current_owner.principal_id,
+                    "name": conflict.current_owner.principal_name,
+                    "credentialId": conflict.current_owner.credential_id,
+                    "lastHeartbeatAt": conflict.current_owner.last_heartbeat_at,
+                },
+                "attemptedSessionId": conflict.attempted_session_id,
+                "attemptedPrincipal": {
+                    "authorityId": conflict.attempted_principal.authority_id,
+                    "principalId": conflict.attempted_principal.principal_id,
+                    "name": conflict.attempted_principal.principal_name,
+                },
+                "staleAt": conflict.stale_at,
+                "nextAction": "Retry after the current worktree mutator session goes stale, or have a human operator explicitly take over the worktree before retrying authenticated mutations.",
+            })),
+        ),
+        WorktreeMutatorSlotError::TakeoverRequiresHuman {
+            principal_id,
+            principal_kind,
+        } => McpError::invalid_params(
+            "only a human principal can authorize worktree mutator takeover",
+            Some(json!({
+                "code": "mutation_worktree_mutator_takeover_requires_human",
+                "principalId": principal_id,
+                "principalKind": principal_kind,
+                "nextAction": "Retry with an authenticated human operator session if this worktree really needs an explicit takeover.",
+            })),
+        ),
+        WorktreeMutatorSlotError::Storage(error) => McpError::internal_error(
+            "failed to update the worktree mutator slot",
+            Some(json!({
+                "code": "mutation_worktree_mutator_slot_storage_failed",
+                "error": error.to_string(),
+            })),
+        ),
+    }
+}
+
+pub(crate) fn mutation_bridge_execution_requires_agent_worktree_error(
+    registration: &WorktreeRegistrationRecord,
+) -> McpError {
+    McpError::invalid_params(
+        "bridge execution requires a worktree registered in agent mode",
+        Some(json!({
+            "code": "mutation_bridge_execution_requires_agent_worktree",
+            "worktreeId": registration.worktree_id,
+            "agentLabel": registration.agent_label,
+            "worktreeMode": worktree_mode_label(registration.mode),
+            "nextAction": "Use a bridge attached to a registered agent worktree, or supply an explicit human credential for direct operator mutation.",
+        })),
+    )
+}
+
+pub(crate) fn mutation_bridge_execution_mismatch_error(
+    registration: &WorktreeRegistrationRecord,
+    bridge_execution: &PrismMutationBridgeExecutionArgs,
+) -> McpError {
+    McpError::invalid_params(
+        "bridge execution binding does not match the current registered worktree",
+        Some(json!({
+            "code": "mutation_bridge_execution_mismatch",
+            "expectedWorktreeId": registration.worktree_id,
+            "expectedAgentLabel": registration.agent_label,
+            "receivedWorktreeId": bridge_execution.worktree_id,
+            "receivedAgentLabel": bridge_execution.agent_label,
+            "nextAction": "Call `prism_bridge_adopt` again so the bridge reattaches to the current registered worktree lane.",
         })),
     )
 }
@@ -215,6 +364,13 @@ fn coordination_transaction_authority_stamp_view(workspace_root: Option<&Path>) 
     .ok()
 }
 
+fn worktree_mode_label(mode: WorktreeMode) -> &'static str {
+    match mode {
+        WorktreeMode::Human => "human",
+        WorktreeMode::Agent => "agent",
+    }
+}
+
 fn coordination_protocol_violation(
     code: &str,
     summary: &str,
@@ -237,14 +393,19 @@ fn coordination_protocol_violation(
 
 #[cfg(test)]
 mod tests {
-    use prism_core::CoordinationAuthorityMutationError;
-    use prism_ir::EventId;
+    use prism_core::{
+        CoordinationAuthorityMutationError, WorktreeMode, WorktreeRegistrationRecord,
+    };
+    use prism_ir::{EventId, PrincipalKind};
     use prism_query::CoordinationTransactionError;
     use serde_json::Value;
 
     use super::{
         coordination_authority_protocol_result, coordination_authority_protocol_state,
-        coordination_query_protocol_result, mutation_capability_denied_error,
+        coordination_query_protocol_result, mutation_auth_failed_error,
+        mutation_auth_missing_error, mutation_bridge_execution_mismatch_error,
+        mutation_bridge_execution_requires_agent_worktree_error, mutation_capability_denied_error,
+        mutation_worktree_mode_mismatch_error, mutation_worktree_unregistered_error,
     };
 
     #[test]
@@ -343,5 +504,136 @@ mod tests {
         assert_eq!(data["requiredCapability"], "mutate_coordination");
         assert_eq!(data["credentialId"], "credential:test");
         assert_eq!(data["principalId"], "principal:test");
+    }
+
+    #[test]
+    fn auth_missing_error_uses_stable_payload_shape() {
+        let error = mutation_auth_missing_error();
+        let data = error.data.expect("payload");
+        assert_eq!(data["code"], "mutation_auth_missing");
+        assert!(data["nextAction"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty()));
+    }
+
+    #[test]
+    fn auth_failed_error_uses_stable_payload_shape() {
+        let error = mutation_auth_failed_error("credential:test", "invalid signature");
+        let data = error.data.expect("payload");
+        assert_eq!(data["code"], "mutation_auth_failed");
+        assert_eq!(data["credentialId"], "credential:test");
+        assert_eq!(data["error"], "invalid signature");
+    }
+
+    #[test]
+    fn worktree_unregistered_error_includes_principal_context_when_available() {
+        let authenticated = prism_core::AuthenticatedPrincipal {
+            principal: prism_ir::PrincipalProfile {
+                authority_id: prism_ir::PrincipalAuthorityId::new("authority:test"),
+                principal_id: prism_ir::PrincipalId::new("principal:test"),
+                kind: PrincipalKind::Service,
+                name: "Test".to_string(),
+                role: None,
+                status: prism_ir::PrincipalStatus::Active,
+                created_at: 1,
+                updated_at: 1,
+                parent_principal_id: None,
+                profile: Value::Null,
+            },
+            credential: prism_ir::CredentialRecord {
+                credential_id: prism_ir::CredentialId::new("credential:test"),
+                authority_id: prism_ir::PrincipalAuthorityId::new("authority:test"),
+                principal_id: prism_ir::PrincipalId::new("principal:test"),
+                token_verifier: "verifier".to_string(),
+                capabilities: vec![],
+                status: prism_ir::CredentialStatus::Active,
+                created_at: 1,
+                last_used_at: None,
+                revoked_at: None,
+            },
+        };
+        let error = mutation_worktree_unregistered_error(
+            Some(&authenticated),
+            "Register this worktree first.",
+        );
+        let data = error.data.expect("payload");
+        assert_eq!(data["code"], "mutation_worktree_unregistered");
+        assert_eq!(data["principalId"], "principal:test");
+        assert_eq!(data["principalKind"], "service");
+    }
+
+    #[test]
+    fn bridge_execution_errors_use_registered_worktree_shape() {
+        let registration = WorktreeRegistrationRecord {
+            worktree_id: "worktree:123".to_string(),
+            agent_label: "codex-a".to_string(),
+            mode: WorktreeMode::Human,
+            registered_at: 1,
+            last_registered_at: 1,
+        };
+        let requires_agent = mutation_bridge_execution_requires_agent_worktree_error(&registration);
+        let requires_agent_data = requires_agent.data.expect("payload");
+        assert_eq!(
+            requires_agent_data["code"],
+            "mutation_bridge_execution_requires_agent_worktree"
+        );
+        assert_eq!(requires_agent_data["worktreeMode"], "human");
+
+        let mismatch = mutation_bridge_execution_mismatch_error(
+            &registration,
+            &crate::PrismMutationBridgeExecutionArgs {
+                worktree_id: "worktree:other".to_string(),
+                agent_label: "codex-b".to_string(),
+            },
+        );
+        let mismatch_data = mismatch.data.expect("payload");
+        assert_eq!(mismatch_data["code"], "mutation_bridge_execution_mismatch");
+        assert_eq!(mismatch_data["expectedWorktreeId"], "worktree:123");
+        assert_eq!(mismatch_data["receivedWorktreeId"], "worktree:other");
+    }
+
+    #[test]
+    fn worktree_mode_mismatch_error_uses_stable_payload_shape() {
+        let authenticated = prism_core::AuthenticatedPrincipal {
+            principal: prism_ir::PrincipalProfile {
+                authority_id: prism_ir::PrincipalAuthorityId::new("authority:test"),
+                principal_id: prism_ir::PrincipalId::new("principal:test"),
+                kind: PrincipalKind::Human,
+                name: "Test".to_string(),
+                role: None,
+                status: prism_ir::PrincipalStatus::Active,
+                created_at: 1,
+                updated_at: 1,
+                parent_principal_id: None,
+                profile: Value::Null,
+            },
+            credential: prism_ir::CredentialRecord {
+                credential_id: prism_ir::CredentialId::new("credential:test"),
+                authority_id: prism_ir::PrincipalAuthorityId::new("authority:test"),
+                principal_id: prism_ir::PrincipalId::new("principal:test"),
+                token_verifier: "verifier".to_string(),
+                capabilities: vec![],
+                status: prism_ir::CredentialStatus::Active,
+                created_at: 1,
+                last_used_at: None,
+                revoked_at: None,
+            },
+        };
+        let registration = WorktreeRegistrationRecord {
+            worktree_id: "worktree:123".to_string(),
+            agent_label: "codex-a".to_string(),
+            mode: WorktreeMode::Agent,
+            registered_at: 1,
+            last_registered_at: 1,
+        };
+        let error = mutation_worktree_mode_mismatch_error(
+            &authenticated,
+            &registration,
+            WorktreeMode::Human,
+        );
+        let data = error.data.expect("payload");
+        assert_eq!(data["code"], "mutation_worktree_mode_mismatch");
+        assert_eq!(data["worktreeMode"], "agent");
+        assert_eq!(data["requiredWorktreeMode"], "human");
     }
 }
