@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
+use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
 use prism_core::{
     default_workspace_shared_runtime, hydrate_workspace_session_with_options,
     ActiveWorkContextBinding, PrismRuntimeMode, SharedRuntimeBackend, WorkspaceSession,
@@ -1009,6 +1010,28 @@ impl QueryHost {
             .unwrap_or_else(|| Arc::clone(&self.prism))
     }
 
+    pub(crate) fn current_coordination_snapshot(&self) -> Result<CoordinationSnapshot> {
+        if let Some(workspace) = self.workspace_session_ref() {
+            let snapshot = workspace.load_coordination_snapshot()?.unwrap_or_default();
+            if coordination_snapshot_has_data(&snapshot) {
+                return Ok(snapshot);
+            }
+        }
+        Ok(self.current_prism().coordination_snapshot())
+    }
+
+    pub(crate) fn current_coordination_snapshot_v2(&self) -> Result<CoordinationSnapshotV2> {
+        if let Some(workspace) = self.workspace_session_ref() {
+            let snapshot = workspace
+                .load_coordination_snapshot_v2()?
+                .unwrap_or_default();
+            if coordination_snapshot_v2_has_data(&snapshot) {
+                return Ok(snapshot);
+            }
+        }
+        Ok(self.current_prism().coordination_snapshot_v2())
+    }
+
     pub(crate) fn workspace_runtime_binding_ref(&self) -> Option<&Arc<WorkspaceRuntimeBinding>> {
         self.workspace_runtime_binding.as_ref()
     }
@@ -1307,6 +1330,35 @@ impl QueryHost {
         markdown.push_str(&reference);
         markdown
     }
+}
+
+fn coordination_snapshot_has_data(snapshot: &CoordinationSnapshot) -> bool {
+    !(snapshot.plans.is_empty()
+        && snapshot.tasks.is_empty()
+        && snapshot.claims.is_empty()
+        && snapshot.artifacts.is_empty()
+        && snapshot.reviews.is_empty()
+        && snapshot.events.is_empty()
+        && snapshot.next_plan == 0
+        && snapshot.next_task == 0
+        && snapshot.next_claim == 0
+        && snapshot.next_artifact == 0
+        && snapshot.next_review == 0)
+}
+
+fn coordination_snapshot_v2_has_data(snapshot: &CoordinationSnapshotV2) -> bool {
+    !(snapshot.plans.is_empty()
+        && snapshot.tasks.is_empty()
+        && snapshot.dependencies.is_empty()
+        && snapshot.claims.is_empty()
+        && snapshot.artifacts.is_empty()
+        && snapshot.reviews.is_empty()
+        && snapshot.events.is_empty()
+        && snapshot.next_plan == 0
+        && snapshot.next_task == 0
+        && snapshot.next_claim == 0
+        && snapshot.next_artifact == 0
+        && snapshot.next_review == 0)
 }
 
 fn strip_internal_developer_api_reference(markdown: &str) -> String {

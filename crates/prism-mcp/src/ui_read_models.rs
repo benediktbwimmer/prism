@@ -644,8 +644,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
     }
 
     fn ui_fleet_view(&self) -> Result<PrismUiFleetView> {
-        let prism = self.current_prism();
-        let snapshot = prism.coordination_snapshot();
+        let snapshot = self.current_coordination_snapshot()?;
         let now = current_timestamp();
         let window_start = now.saturating_sub(UI_FLEET_LOOKBACK_SECONDS);
         let shared_runtime_descriptors = runtime_status(self)
@@ -1917,7 +1916,7 @@ fn ui_overview_coordination_summary(host: &QueryHost) -> Result<PrismOverviewCoo
 
     let prism = host.current_prism();
     let now = current_timestamp();
-    let fallback_snapshot = prism.coordination_snapshot();
+    let fallback_snapshot = host.current_coordination_snapshot()?;
     let read_model = host
         .workspace_session()
         .and_then(|workspace| workspace.load_coordination_read_model().ok().flatten())
@@ -1985,8 +1984,7 @@ fn ui_overview_coordination_queues(
         });
     }
 
-    let prism = host.current_prism();
-    let fallback_snapshot = prism.coordination_snapshot();
+    let fallback_snapshot = host.current_coordination_snapshot()?;
     let queue_model = host
         .workspace_session()
         .and_then(|workspace| {

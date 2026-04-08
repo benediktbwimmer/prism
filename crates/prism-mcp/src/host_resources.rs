@@ -425,7 +425,7 @@ impl QueryHost {
             let parsed_status = status.as_deref().map(parse_plan_status).transpose()?;
             let parsed_scope = scope.as_deref().map(parse_plan_scope).transpose()?;
             let parsed_sort = PlansResourceSort::parse(sort.as_deref());
-            let snapshot = prism.coordination_snapshot();
+            let snapshot = self.current_coordination_snapshot()?;
             let paged = paginate_items(
                 filtered_plan_entries_from_snapshot(
                     &snapshot,

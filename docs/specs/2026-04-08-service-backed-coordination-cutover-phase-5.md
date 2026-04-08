@@ -64,6 +64,9 @@ Current slice notes:
   reimplementing startup-checkpoint and read-model writes inside `watch.rs`
 - coordination authority refresh/apply orchestration now lives in a dedicated
   `coordination_authority_sync` module used by both `session.rs` and `watch.rs`
+- product-facing MCP/UI readers now prefer session-backed coordination snapshots through
+  `QueryHost` helpers, but fall back to the canonical in-memory `Prism` snapshot when a workspace
+  session has not yet hydrated service-owned coordination state
 - the remaining work is now primarily runtime and surface cutover, not mutation semantics
 
 ## 3. Related roadmap
@@ -219,6 +222,20 @@ Exit criteria:
 - remove residual direct helper reads from product-facing modules
 - make diagnostics/history views consume the same service-backed coordination model
 
+Current progress:
+
+- plans resource reads now use `QueryHost` session-aware coordination snapshot helpers instead of
+  reading directly from `current_prism()`
+- SSR plan markdown export now prefers session-backed coordination snapshots and canonical
+  projection state, with an explicit fallback to the in-memory `Prism` snapshot for fixtures and
+  transitional cases where service-owned coordination materialization has not yet been hydrated
+- UI fleet and overview coordination summary/queue fallbacks now read through the same
+  session-aware `QueryHost` coordination snapshot helpers
+- the helper boundary now centralizes the transitional rule for product-facing reads:
+  service-backed/session-owned coordination materialization wins when present, but empty or
+  unhydrated session state falls back to the canonical in-memory snapshot during the cutover
+  window
+
 Exit criteria:
 
 - product-facing coordination surfaces no longer bypass the new seams
@@ -287,6 +304,6 @@ Phase 5 starts from a stronger base than earlier phases:
 The remaining work is broad but conceptually straightforward:
 
 - cut runtime/bootstrap/watch ownership over to the accepted service-backed model
-- remove product-facing bypasses
+- finish the remaining product-facing bypass removal across MCP, UI/runtime views, and CLI
 - finish deleting the runtime-owned coordination-materialization assumptions that no longer match
   the architecture
