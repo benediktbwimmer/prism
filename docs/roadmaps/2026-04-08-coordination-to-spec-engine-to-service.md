@@ -75,6 +75,8 @@ Current phase spec:
   [../specs/2026-04-08-coordination-mutation-protocol-phase-4.md](../specs/2026-04-08-coordination-mutation-protocol-phase-4.md)
 - Phase 5 completed:
   [../specs/2026-04-08-service-backed-coordination-cutover-phase-5.md](../specs/2026-04-08-service-backed-coordination-cutover-phase-5.md)
+- Phase 6 in progress:
+  [../specs/2026-04-09-trust-family-centralization-phase-6.md](../specs/2026-04-09-trust-family-centralization-phase-6.md)
 
 ## 3. Ordering thesis
 
