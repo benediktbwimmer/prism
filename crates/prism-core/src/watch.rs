@@ -22,16 +22,11 @@ use prism_ir::{
 use prism_memory::OutcomeMemory;
 use prism_projections::ProjectionIndex;
 use prism_query::Prism;
-use prism_store::CoordinationJournal;
 use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, info, warn};
 
-use crate::checkpoint_materializer::{
-    persist_coordination_materialization, CheckpointMaterializerHandle, CoordinationMaterialization,
-};
-use crate::coordination_authority_api::{
-    poll_coordination_authority_live_sync, CoordinationAuthorityLiveSync,
-};
+use crate::checkpoint_materializer::CheckpointMaterializerHandle;
+use crate::coordination_authority_sync::sync_coordination_authority_update;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator::{enqueue_curator_for_observed_async, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
@@ -1215,16 +1210,7 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
     coordination_runtime_revision: &Arc<AtomicU64>,
     coordination_enabled: bool,
 ) -> Result<()> {
-    if !coordination_enabled {
-        return Ok(());
-    }
-    let CoordinationAuthorityLiveSync::Changed(shared) =
-        poll_coordination_authority_live_sync(root)?
-    else {
-        return Ok(());
-    };
-
-    apply_shared_coordination_ref_watch_state(
+    sync_coordination_authority_update(
         root,
         published_generation,
         runtime_state,
@@ -1233,83 +1219,8 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
         refresh_lock,
         loaded_workspace_revision,
         coordination_runtime_revision,
-        &shared,
+        coordination_enabled,
     )
-}
-
-fn apply_shared_coordination_ref_watch_state(
-    root: &Path,
-    published_generation: &Arc<RwLock<WorkspacePublishedGeneration>>,
-    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
-    store: &Arc<Mutex<SqliteStore>>,
-    cold_query_store: &Arc<Mutex<SqliteStore>>,
-    refresh_lock: &Arc<Mutex<()>>,
-    loaded_workspace_revision: &Arc<AtomicU64>,
-    coordination_runtime_revision: &Arc<AtomicU64>,
-    shared: &crate::CoordinationCurrentState,
-) -> Result<()> {
-    let _guard = refresh_lock
-        .lock()
-        .expect("shared coordination ref refresh lock poisoned");
-
-    let local_workspace_revision = store
-        .lock()
-        .expect("workspace store lock poisoned")
-        .workspace_revision()?;
-    let persisted_coordination_revision = store
-        .lock()
-        .expect("workspace store lock poisoned")
-        .coordination_revision()?;
-    let mut next_state = runtime_state
-        .lock()
-        .expect("workspace runtime state lock poisoned")
-        .clone();
-    next_state
-        .replace_coordination_runtime(shared.snapshot.clone(), shared.runtime_descriptors.clone());
-    let next = next_state.publish_generation(
-        prism_ir::WorkspaceRevision {
-            graph_version: local_workspace_revision,
-            git_commit: None,
-        },
-        Some(coordination_persist_context_for_root(root, None)),
-    );
-    WorkspaceSession::attach_cold_query_backends(next.prism_arc().as_ref(), cold_query_store);
-    *runtime_state
-        .lock()
-        .expect("workspace runtime state lock poisoned") = next_state;
-    *published_generation
-        .write()
-        .expect("workspace published generation lock poisoned") = next;
-    loaded_workspace_revision.store(local_workspace_revision, Ordering::Relaxed);
-    let next_coordination_revision = coordination_runtime_revision
-        .load(Ordering::Relaxed)
-        .max(persisted_coordination_revision)
-        .saturating_add(1);
-    {
-        let mut store = store.lock().expect("workspace store lock poisoned");
-        persist_coordination_materialization(
-            root,
-            &mut *store,
-            &CoordinationMaterialization {
-                authoritative_revision: next_coordination_revision,
-                snapshot: shared.snapshot.clone(),
-                canonical_snapshot_v2: Some(shared.canonical_snapshot_v2.clone()),
-                runtime_descriptors: Some(shared.runtime_descriptors.clone()),
-                publish_context: None,
-            },
-        )?;
-    }
-    coordination_runtime_revision.store(next_coordination_revision, Ordering::Relaxed);
-    info!(
-        root = %root.display(),
-        plan_count = shared.snapshot.plans.len(),
-        task_count = shared.snapshot.tasks.len(),
-        claim_count = shared.snapshot.claims.len(),
-        artifact_count = shared.snapshot.artifacts.len(),
-        review_count = shared.snapshot.reviews.len(),
-        "applied shared coordination ref live sync"
-    );
-    Ok(())
 }
 
 fn is_ignored_watch_relative_path(relative: &Path) -> bool {
@@ -1369,6 +1280,7 @@ mod tests {
     use std::sync::atomic::Ordering;
     use std::sync::{Mutex, OnceLock};
 
+    use crate::coordination_authority_sync::apply_coordination_authority_current_state;
     use crate::util::current_timestamp;
     use crate::workspace_identity::coordination_persist_context_for_root;
     use crate::CoordinationCurrentState;
@@ -1569,7 +1481,7 @@ mod tests {
         session
             .loaded_workspace_revision
             .store(0, Ordering::Relaxed);
-        super::apply_shared_coordination_ref_watch_state(
+        apply_coordination_authority_current_state(
             &root,
             &session.published_generation,
             &session.runtime_state,

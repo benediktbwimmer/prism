@@ -55,6 +55,7 @@ use crate::contract_events::append_repo_contract_event;
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
+use crate::coordination_authority_sync::sync_coordination_authority_update;
 use crate::coordination_persistence::{
     coordination_event_delta, CoordinationDerivedPersistenceMode, CoordinationPersistenceBackend,
 };
@@ -103,7 +104,6 @@ use crate::validation_feedback::{
     append_validation_feedback, load_validation_feedback, ValidationFeedbackEntry,
     ValidationFeedbackRecord,
 };
-use crate::watch::sync_shared_coordination_ref_watch_update;
 use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle, WatchMessage};
 use crate::workspace_identity::coordination_persist_context_for_root;
 use crate::workspace_runtime_state::{WorkspacePublishedGeneration, WorkspaceRuntimeState};
@@ -2183,7 +2183,7 @@ impl WorkspaceSession {
     }
 
     fn refresh_coordination_authority_for_strong_read(&self) -> Result<()> {
-        sync_shared_coordination_ref_watch_update(
+        sync_coordination_authority_update(
             &self.root,
             &self.published_generation,
             &self.runtime_state,

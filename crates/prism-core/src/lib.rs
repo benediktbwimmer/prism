@@ -5,6 +5,7 @@ mod concept_relation_events;
 mod contract_events;
 mod coordination_authority_api;
 mod coordination_authority_store;
+mod coordination_authority_sync;
 mod coordination_materialized_store;
 mod coordination_mutation_error;
 mod coordination_persistence;

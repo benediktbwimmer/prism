@@ -62,6 +62,8 @@ Current slice notes:
   as shadow write paths beside the mutation protocol
 - shared-ref live sync now writes coordination materialization through the shared helper instead of
   reimplementing startup-checkpoint and read-model writes inside `watch.rs`
+- coordination authority refresh/apply orchestration now lives in a dedicated
+  `coordination_authority_sync` module used by both `session.rs` and `watch.rs`
 - the remaining work is now primarily runtime and surface cutover, not mutation semantics
 
 ## 3. Related roadmap
@@ -198,6 +200,8 @@ Current progress:
 
 - shared-ref live sync no longer reimplements coordination startup-checkpoint and read-model writes
   inline in `watch.rs`; it now goes through the shared coordination materialization helper
+- session strong reads and watch polling now call the same authority-sync orchestration module
+  instead of owning duplicate refresh choreography
 
 Exit criteria:
 
