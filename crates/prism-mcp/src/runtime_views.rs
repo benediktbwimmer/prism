@@ -6,6 +6,7 @@ use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
+use prism_coordination::CoordinationSnapshot;
 use prism_core::runtime_engine::{
     RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspacePublishedGeneration,
     WorkspaceRuntimeQueueSnapshot,
@@ -133,10 +134,24 @@ pub(crate) fn refresh_cached_runtime_status(host: &QueryHost) -> Result<RuntimeS
     let binding = host.workspace_runtime_binding_ref().ok_or_else(|| {
         anyhow!("runtime introspection requires a workspace-backed PRISM session")
     })?;
+    let service_backed_coordination_snapshot = host.current_coordination_snapshot()?;
+    let live_overlay_coordination_snapshot = host.current_prism().coordination_snapshot();
     let inputs = RuntimeStatusInputs {
         root: workspace.root(),
         workspace: workspace.as_ref(),
         prism: host.current_prism(),
+        service_backed_coordination_snapshot,
+        live_overlay_coordination_snapshot,
+        tracked_coordination_snapshot_revision: workspace
+            .load_tracked_coordination_snapshot_revision()?,
+        coordination_startup_checkpoint_revision: workspace
+            .load_coordination_startup_checkpoint_revision()?,
+        coordination_read_model_revision: workspace
+            .load_coordination_read_model()?
+            .map(|model| model.revision),
+        coordination_queue_read_model_revision: workspace
+            .load_coordination_queue_read_model()?
+            .map(|model| model.revision),
         loaded_workspace_revision: host.loaded_workspace_revision_value(),
         loaded_episodic_revision: host.loaded_episodic_revision_value(),
         loaded_inference_revision: host.loaded_inference_revision_value(),
@@ -181,10 +196,32 @@ pub(crate) fn refresh_cached_runtime_status_for_config(
         .lock()
         .expect("workspace runtime engine lock poisoned")
         .queue_snapshot();
+    let service_backed_coordination_snapshot = config
+        .workspace
+        .load_coordination_snapshot()?
+        .filter(crate::coordination_snapshot_has_data)
+        .unwrap_or_else(|| config.workspace.prism().coordination_snapshot());
+    let live_overlay_coordination_snapshot = config.workspace.prism().coordination_snapshot();
     let inputs = RuntimeStatusInputs {
         root: config.workspace.root(),
         workspace: config.workspace.as_ref(),
         prism: config.workspace.prism_arc(),
+        service_backed_coordination_snapshot,
+        live_overlay_coordination_snapshot,
+        tracked_coordination_snapshot_revision: config
+            .workspace
+            .load_tracked_coordination_snapshot_revision()?,
+        coordination_startup_checkpoint_revision: config
+            .workspace
+            .load_coordination_startup_checkpoint_revision()?,
+        coordination_read_model_revision: config
+            .workspace
+            .load_coordination_read_model()?
+            .map(|model| model.revision),
+        coordination_queue_read_model_revision: config
+            .workspace
+            .load_coordination_queue_read_model()?
+            .map(|model| model.revision),
         loaded_workspace_revision: config.loaded_workspace_revision.load(Ordering::Relaxed),
         loaded_episodic_revision: config.loaded_episodic_revision.load(Ordering::Relaxed),
         loaded_inference_revision: config.loaded_inference_revision.load(Ordering::Relaxed),
@@ -220,6 +257,12 @@ struct RuntimeStatusInputs<'a> {
     root: &'a Path,
     workspace: &'a WorkspaceSession,
     prism: std::sync::Arc<prism_query::Prism>,
+    service_backed_coordination_snapshot: CoordinationSnapshot,
+    live_overlay_coordination_snapshot: CoordinationSnapshot,
+    tracked_coordination_snapshot_revision: Option<u64>,
+    coordination_startup_checkpoint_revision: Option<u64>,
+    coordination_read_model_revision: Option<u64>,
+    coordination_queue_read_model_revision: Option<u64>,
     loaded_workspace_revision: u64,
     loaded_episodic_revision: u64,
     loaded_inference_revision: u64,
@@ -582,40 +625,22 @@ fn runtime_freshness_from_inputs(
         authoritative_revision: authoritative_coordination_revision,
         tracked_snapshot: coordination_surface_lag_item(
             "tracked_snapshot",
-            optional_coordination_surface_revision(
-                inputs
-                    .workspace
-                    .load_tracked_coordination_snapshot_revision(),
-            ),
+            inputs.tracked_coordination_snapshot_revision,
             authoritative_coordination_revision,
         ),
         startup_checkpoint: coordination_surface_lag_item(
             "startup_checkpoint",
-            optional_coordination_surface_revision(
-                inputs
-                    .workspace
-                    .load_coordination_startup_checkpoint_revision(),
-            ),
+            inputs.coordination_startup_checkpoint_revision,
             authoritative_coordination_revision,
         ),
         read_model: coordination_surface_lag_item(
             "read_model",
-            optional_coordination_surface_revision(
-                inputs
-                    .workspace
-                    .load_coordination_read_model()
-                    .map(|model| model.map(|model| model.revision)),
-            ),
+            inputs.coordination_read_model_revision,
             authoritative_coordination_revision,
         ),
         queue_read_model: coordination_surface_lag_item(
             "queue_read_model",
-            optional_coordination_surface_revision(
-                inputs
-                    .workspace
-                    .load_coordination_queue_read_model()
-                    .map(|model| model.map(|model| model.revision)),
-            ),
+            inputs.coordination_queue_read_model_revision,
             authoritative_coordination_revision,
         ),
     });
@@ -892,15 +917,10 @@ fn runtime_scopes_from_inputs(
         .into_iter()
         .map(projection_scope_view)
         .collect();
-    let service_backed_snapshot = inputs
-        .workspace
-        .load_coordination_snapshot()
-        .ok()
-        .flatten()
-        .filter(crate::coordination_snapshot_has_data)
-        .unwrap_or_else(|| inputs.prism.coordination_snapshot());
-    let live_overlay_snapshot = inputs.prism.coordination_snapshot();
-    let overlays = overlay_scope_views(&service_backed_snapshot, &live_overlay_snapshot);
+    let overlays = overlay_scope_views(
+        &inputs.service_backed_coordination_snapshot,
+        &inputs.live_overlay_coordination_snapshot,
+    );
 
     RuntimeScopesView {
         projections,
@@ -1052,10 +1072,6 @@ fn coordination_surface_lag_item(
         revision,
         authoritative_revision,
     }
-}
-
-fn optional_coordination_surface_revision(result: Result<Option<u64>>) -> Option<u64> {
-    result.ok().flatten()
 }
 
 fn workspace_materialization_item(

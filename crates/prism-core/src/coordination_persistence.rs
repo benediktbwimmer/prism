@@ -22,13 +22,11 @@ use crate::coordination_authority_store::{
     GitSharedRefsCoordinationAuthorityStore,
 };
 use crate::coordination_materialized_store::{
-    CoordinationMaterializedStore, CoordinationReadModelsWriteRequest,
+    CoordinationReadModelsWriteRequest, CoordinationStartupCheckpointWriteRequest,
     StoreBackedCoordinationMaterializedStore,
 };
 #[cfg(test)]
-use crate::coordination_materialized_store::{
-    CoordinationStartupCheckpointWriteRequest, SqliteCoordinationMaterializedStore,
-};
+use crate::coordination_materialized_store::SqliteCoordinationMaterializedStore;
 use crate::coordination_mutation_error::CoordinationAuthorityMutationError;
 #[cfg(test)]
 use crate::coordination_reads::{
