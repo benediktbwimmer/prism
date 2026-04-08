@@ -8,16 +8,19 @@ use super::types::{
     CoordinationAuthorityBackendDetails, CoordinationAuthorityBackendKind,
     CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
     CoordinationAuthorityProvenance, CoordinationAuthorityStamp, CoordinationCurrentState,
-    CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
-    CoordinationReadEnvelope, CoordinationReadRequest, CoordinationTransactionRequest,
-    CoordinationTransactionResult, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
-    RuntimeDescriptorQuery,
+    CoordinationConflictInfo, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
+    CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
+    CoordinationTransactionBase, CoordinationTransactionRequest, CoordinationTransactionResult,
+    CoordinationTransactionStatus, RuntimeDescriptorClearRequest,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use crate::coordination_startup_checkpoint::coordination_startup_authority;
 use crate::shared_coordination_ref::{
     load_shared_coordination_ref_state_authoritative, shared_coordination_ref_diagnostics,
+    sync_shared_coordination_ref_state,
 };
+use crate::tracked_snapshot::publish_context_from_coordination_events;
 use crate::workspace_identity::workspace_identity_for_root;
 
 #[derive(Debug, Clone)]
@@ -105,11 +108,41 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
 
     fn apply_transaction(
         &self,
-        _request: CoordinationTransactionRequest,
+        request: CoordinationTransactionRequest,
     ) -> Result<CoordinationTransactionResult> {
-        Err(anyhow!(
-            "git shared-ref authority transactions are not wired through CoordinationAuthorityStore yet"
-        ))
+        let current_authority = self.authority_stamp()?;
+        if let CoordinationTransactionBase::ExpectedAuthorityStamp(expected) = &request.base {
+            if current_authority.as_ref() != Some(expected) {
+                return Ok(CoordinationTransactionResult {
+                    status: CoordinationTransactionStatus::Conflict,
+                    committed: false,
+                    authority: current_authority,
+                    snapshot: self.load_current_state()?,
+                    persisted: None,
+                    conflict: Some(CoordinationConflictInfo {
+                        reason: "authority stamp no longer matches the current shared-ref head"
+                            .to_string(),
+                    }),
+                    diagnostics: Vec::new(),
+                });
+            }
+        }
+        let publish_context = publish_context_from_coordination_events(&request.appended_events);
+        sync_shared_coordination_ref_state(
+            &self.root,
+            &request.snapshot,
+            &request.canonical_snapshot_v2,
+            publish_context.as_ref(),
+        )?;
+        Ok(CoordinationTransactionResult {
+            status: CoordinationTransactionStatus::Committed,
+            committed: true,
+            authority: self.authority_stamp()?,
+            snapshot: self.load_current_state()?,
+            persisted: None,
+            conflict: None,
+            diagnostics: Vec::new(),
+        })
     }
 
     fn publish_runtime_descriptor(

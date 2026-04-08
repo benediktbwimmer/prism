@@ -16,6 +16,11 @@ use prism_store::{
 };
 use serde_json::{json, Value};
 
+use crate::coordination_authority_store::{
+    CoordinationAuthorityStore, CoordinationDerivedStateMode, CoordinationTransactionBase,
+    CoordinationTransactionRequest, CoordinationTransactionStatus,
+    GitSharedRefsCoordinationAuthorityStore,
+};
 use crate::coordination_reads::{
     load_eventual_coordination_plan_state_for_root as load_eventual_plan_state_for_root,
     load_eventual_coordination_snapshot_for_root as load_eventual_snapshot_for_root,
@@ -27,7 +32,6 @@ use crate::published_plans::{
     load_authoritative_coordination_snapshot_v2, sync_repo_published_plans,
     HydratedCoordinationPlanState,
 };
-use crate::shared_coordination_ref::sync_shared_coordination_ref_state;
 use crate::tracked_snapshot::{
     publish_context_from_coordination_events, sync_coordination_snapshot_state,
 };
@@ -105,25 +109,47 @@ fn sync_authoritative_shared_coordination_ref_observed<O>(
     root: &Path,
     snapshot: &CoordinationSnapshot,
     derived: &CoordinationDerivedSyncInputs,
-    publish_context: Option<&crate::tracked_snapshot::TrackedSnapshotPublishContext>,
+    appended_events: &[CoordinationEvent],
+    session_id: Option<&SessionId>,
+    derived_persistence_mode: CoordinationDerivedPersistenceMode,
     observe_phase: &mut O,
 ) -> Result<()>
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
+    let authority_store = GitSharedRefsCoordinationAuthorityStore::new(root);
     observe_coordination_step(
         observe_phase,
         "mutation.coordination.publishedPlans.syncSharedCoordinationRef",
-        |_| json!({}),
-        || {
-            sync_shared_coordination_ref_state(
-                root,
-                snapshot,
-                &derived.canonical_snapshot_v2,
-                publish_context,
-            )
+        |result: &crate::coordination_authority_store::CoordinationTransactionResult| {
+            json!({
+                "committed": result.committed,
+                "status": format!("{:?}", result.status),
+            })
         },
-    )
+        || match authority_store.apply_transaction(CoordinationTransactionRequest {
+            base: CoordinationTransactionBase::LatestStrong,
+            session_id: session_id.cloned(),
+            snapshot: snapshot.clone(),
+            canonical_snapshot_v2: derived.canonical_snapshot_v2.clone(),
+            appended_events: appended_events.to_vec(),
+            derived_state_mode: match derived_persistence_mode {
+                CoordinationDerivedPersistenceMode::Inline => CoordinationDerivedStateMode::Inline,
+                CoordinationDerivedPersistenceMode::Deferred => {
+                    CoordinationDerivedStateMode::Deferred
+                }
+            },
+        })? {
+            result if matches!(result.status, CoordinationTransactionStatus::Committed) => {
+                Ok(result)
+            }
+            result => Err(anyhow::anyhow!(
+                "shared-ref authority transaction did not commit successfully: {:?}",
+                result.status
+            )),
+        },
+    )?;
+    Ok(())
 }
 
 fn sync_inline_coordination_projections_observed<S, O>(
@@ -390,7 +416,9 @@ pub(crate) trait CoordinationPersistenceBackend:
                 root,
                 snapshot,
                 &derived,
-                publish_context.as_ref(),
+                appended_events,
+                session_id,
+                derived_persistence_mode,
                 &mut observe_phase,
             )?;
         } else {

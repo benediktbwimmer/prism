@@ -46,8 +46,10 @@ Current slice notes:
 - the stable type family and Git-backed store shell compile and are exported from `prism-core`
 - authoritative current-state loads in `published_plans` now route through the Git-backed
   authority-store seam
+- the authoritative shared-ref publish step in `coordination_persistence` now routes through
+  `CoordinationAuthorityStore::apply_transaction`
 - the Git-backed implementation still needs real transaction, history, runtime-descriptor write,
-  and diagnostics call-site cutover in later slices
+  explicit indeterminate-outcome handling, and diagnostics call-site cutover in later slices
 
 ## 3. Related roadmap
 
