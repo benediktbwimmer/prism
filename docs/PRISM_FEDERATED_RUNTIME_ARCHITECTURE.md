@@ -6,6 +6,10 @@ Scope: replacing a centralized shared runtime database with a federated repo-nat
 
 ---
 
+Normative shared coordination, authority, identity, capability, and service semantics now live
+under [contracts/README.md](./contracts/README.md).
+This document is the higher-level federated-runtime architecture note and rollout direction.
+
 ## 1. Summary
 
 PRISM should support a federated runtime architecture that removes the need for a mandatory shared

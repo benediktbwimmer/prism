@@ -1,5 +1,9 @@
 # VALIDATION.md
 
+Status: validation philosophy and umbrella reference
+Role: cross-product validation framing for PRISM, VAULT, and HARBOR, not the normative source for
+individual coordination or service seam behavior
+
 Canonical reference for validating **PRISM** now, while planning ahead for **VAULT** and **HARBOR**.
 
 This document defines how the family of products should earn trust as **measured world models**, not just useful retrieval systems.

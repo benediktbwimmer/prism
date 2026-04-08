@@ -1,6 +1,6 @@
 # PRISM Coordination Authority Store
 
-Status: proposed architectural contract  
+Status: normative contract  
 Audience: PRISM coordination, runtime, MCP, query, storage, and future authority-backend maintainers  
 Scope: one backend-neutral authority interface for current and historical coordination state
 
@@ -23,7 +23,8 @@ The abstraction is intentionally **high-level**. It does not try to unify Git re
 an implementation level. It defines the coordination semantics that PRISM needs:
 
 - current authoritative state
-- eventual materialized state
+- coordination-facing read access semantics, while concrete local eventual materialization lives
+  behind a separate materialized-store seam
 - transactional mutation
 - runtime descriptor publication and discovery
 - retained authoritative history
@@ -38,6 +39,17 @@ One rule must remain explicit:
 
 PRISM may later support export, import, mirroring, or migration between backends, but it must not
 allow split-brain authority for the same coordination root.
+
+Companion implementation spec:
+
+- [coordination-authority-store-implementation-spec.md](./coordination-authority-store-implementation-spec.md)
+
+This contract relies on:
+
+- [identity-model.md](./identity-model.md)
+- [authorization-and-capabilities.md](./authorization-and-capabilities.md)
+- [provenance.md](./provenance.md)
+- [signing-and-verification.md](./signing-and-verification.md)
 
 ---
 
@@ -69,6 +81,9 @@ The Coordination Authority Store should become the single contractual answer to:
 - how history is queried
 - how runtime descriptors are published and discovered
 - how authority metadata and diagnostics are surfaced
+
+That includes identity attribution, capability-gated writes, provenance, and verification posture,
+not just storage mechanics.
 
 ---
 
@@ -120,8 +135,9 @@ The key rule is:
 
 - the coordination kernel and the product surfaces depend on the **Coordination Authority Store**
 - only backend adapters know whether authority is implemented with shared refs or PostgreSQL
-- eventual reads are served through the interface, but from previously materialized local state
 - local SQLite read models and startup checkpoints remain downstream of the authority interface
+- the concrete local persistence seam for eventual reads lives in
+  [coordination-materialized-store.md](./coordination-materialized-store.md)
 
 ---
 
@@ -145,6 +161,7 @@ These are coordination semantics, not Git-specific implementation details.
 
 The interface owns the semantics of strong versus eventual reads.
 It does not require the authority backend itself to own SQLite storage or checkpoint persistence.
+Those belong to the materialized-store and local-materialization seams.
 
 ### 5.3 Transactionality is a semantic contract, not a storage accident
 

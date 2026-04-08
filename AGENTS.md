@@ -32,6 +32,79 @@ This repository must stay highly modularized. Prefer small, focused modules with
 
 When touching code that violates this policy, move it toward the target architecture instead of extending the violation.
 
+## Docs Hygiene
+
+Documentation in this repo now has an explicit hierarchy.
+
+Before adding or substantially editing docs, read:
+
+- `docs/README.md` for the overall hierarchy and placement rules
+- `docs/contracts/README.md` when working on normative seams or invariants
+- `docs/specs/README.md` when working on implementation-target specs or planning a significant implementation sprint
+- `docs/roadmaps/README.md` when working on a multi-phase implementation program or a foundation-first migration sequence
+
+### Where docs should go
+
+- Put stable normative semantics in `docs/contracts/`.
+- Put concrete implementation targets in `docs/specs/`.
+- Put multi-phase sequencing and program-level implementation order in `docs/roadmaps/`.
+- Put superseded or historical material in `docs/archived/`.
+- Avoid adding new active design or implementation docs directly under `docs/`.
+
+If a new document does not clearly fit an existing docs subdirectory, create a new subdirectory with
+its own `README.md` instead of dropping the file at the top level.
+
+### Contracts vs roadmaps vs specs vs plans
+
+- Contracts define stable rules and invariant boundaries.
+- Roadmaps define multi-phase ordering across several specs or subsystems.
+- Specs define a concrete implementation target against those contracts.
+- PRISM plans track live execution, ownership, and blockers.
+
+Do not use a spec as a live task board, and do not use a PRISM plan as a replacement for a durable
+implementation target in git.
+Do not use a roadmap as a substitute for the concrete spec of the current slice.
+
+### When a spec is required
+
+Create or update a dated spec in `docs/specs/` before a significant implementation sprint when the
+work involves:
+
+- a new subsystem or interface
+- a meaningful refactor with multiple slices
+- public API, storage-shape, or rollout changes
+- nontrivial validation requirements
+
+Use date-prefixed spec filenames:
+
+- `YYYY-MM-DD-short-name.md`
+
+### Required implementation loop
+
+For significant implementation work:
+
+1. Read the relevant contracts.
+2. If the work is part of a broader ordered program, read the relevant roadmap too.
+3. Read the target spec, or create/update it if it does not exist yet.
+4. Create a PRISM plan to implement that spec.
+5. After each meaningful implementation slice, sanity check the code and behavior against the spec and the contracts.
+6. Update the spec's status and coarse checklist to reflect what has landed and what remains.
+
+This status update is required for significant implementation work. The spec should travel with git
+and stay accurate for the checked-out SHA.
+
+### When to update docs during implementation
+
+Update the docs in the same change when:
+
+- implementation meaningfully changes the target behavior or rollout
+- a slice from the current spec has landed
+- contract-level semantics have changed
+- a spec has become partially implemented, completed, or superseded
+
+If implementation diverges from the current spec, update the spec or replace it before continuing to
+fan out more code changes.
+
 ## Validation Expectations
 
 Use tiered validation to balance velocity and correctness.

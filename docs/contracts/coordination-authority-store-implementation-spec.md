@@ -1,6 +1,6 @@
 # PRISM Coordination Authority Store Migration Spec
 
-Status: proposed implementation spec  
+Status: companion implementation spec  
 Audience: PRISM coordination, runtime, MCP, CLI, and storage maintainers  
 Scope: complete migration of coordination-only authority access to the new `CoordinationAuthorityStore` interface
 

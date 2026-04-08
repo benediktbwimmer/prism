@@ -1,5 +1,11 @@
 # PRISM Contracts Specification
 
+Status: product-design note
+Role: concept and product-shape exploration for PRISM contracts as a feature family, not the
+normative source for live contract semantics
+
+Normative contract definitions now live under [contracts/README.md](./contracts/README.md).
+
 ## 0. Thesis
 
 PRISM currently models:

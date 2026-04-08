@@ -6,6 +6,9 @@ Scope: make PRISM runtime layers composable and independently shippable without 
 
 ---
 
+Normative layer seams now live under [contracts/README.md](./contracts/README.md).
+This document is the higher-level execution and rollout note for the runtime split.
+
 ## 1. Goal
 
 Refactor PRISM so one runtime can compose three explicit layers:

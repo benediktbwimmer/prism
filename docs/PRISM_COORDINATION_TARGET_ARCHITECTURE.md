@@ -7,6 +7,12 @@ Scope: the long-term authority, runtime, read, write, and scaling model for PRIS
 The definitive concurrent-write decision tree for CAS retry, replay, semantic merge, and rejection
 lives in [PRISM_COORDINATION_CONFLICT_HANDLING.md](./PRISM_COORDINATION_CONFLICT_HANDLING.md).
 
+The normative coordination seams and contracts now live under
+[contracts/README.md](./contracts/README.md).
+
+This document should describe architecture shape, motivation, and rollout direction.
+Exact seam semantics should defer to the contract docs rather than being redefined here.
+
 ---
 
 ## 1. Summary

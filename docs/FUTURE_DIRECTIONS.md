@@ -1,5 +1,8 @@
 # PRISM — Perceptual Representation & Intelligence System for Machines
 
+Status: future-direction note
+Role: product and architecture opportunity space, not the normative source for current behavior
+
 ## Future Directions
 
 ## Thesis

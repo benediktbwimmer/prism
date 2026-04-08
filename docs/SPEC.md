@@ -1,8 +1,15 @@
 # PRISM — Perceptual Representation & Intelligence System for Machines
 
+Status: product thesis and umbrella reference
+Role: high-level product framing and broad implementation reference, not the normative source for
+exact coordination or service semantics
+
 ## Rust Implementation Specification
 
 Current implementation priorities live in [ROADMAP.md](ROADMAP.md).
+
+Normative implementation seams now live under [contracts/README.md](./contracts/README.md).
+Concrete implementation targets should live under [specs/README.md](./specs/README.md).
 
 ## 0. Philosophy
 

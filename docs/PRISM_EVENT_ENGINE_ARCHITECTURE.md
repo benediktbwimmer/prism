@@ -7,6 +7,10 @@ execution on top of shared coordination authority
 
 ---
 
+Normative event-engine semantics now live in
+[contracts/event-engine.md](./contracts/event-engine.md).
+This document remains the higher-level architecture note and rationale companion.
+
 ## 1. Summary
 
 PRISM needs a temporal and event-driven execution layer above the coordination graph.
