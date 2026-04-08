@@ -53,6 +53,10 @@ Current active phase:
 
 - Phase 1: implement Coordination Authority Store fully
 
+Current phase spec:
+
+- [../specs/2026-04-08-coordination-authority-store-phase-1.md](../specs/2026-04-08-coordination-authority-store-phase-1.md)
+
 ## 3. Ordering thesis
 
 This work should be sequential, not heavily parallelized.
