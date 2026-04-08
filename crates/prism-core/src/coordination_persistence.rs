@@ -26,7 +26,9 @@ use crate::coordination_materialized_store::{
     StoreBackedCoordinationMaterializedStore,
 };
 #[cfg(test)]
-use crate::coordination_materialized_store::SqliteCoordinationMaterializedStore;
+use crate::coordination_materialized_store::{
+    CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
+};
 use crate::coordination_mutation_error::CoordinationAuthorityMutationError;
 #[cfg(test)]
 use crate::coordination_reads::{

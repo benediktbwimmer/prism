@@ -3,6 +3,7 @@ use std::path::Path;
 use anyhow::Result;
 use prism_ir::PrismRuntimeCapabilities;
 use prism_projections::{ConceptPacket, ConceptRelation, ContractPacket};
+use prism_query::Prism;
 use prism_store::{CoordinationCheckpointStore, CoordinationJournal};
 
 use crate::concept_events::load_repo_curated_concepts;
@@ -184,6 +185,23 @@ where
             canonical_snapshot_v2: value.canonical_snapshot_v2,
             runtime_descriptors: value.runtime_descriptors,
         }))
+}
+
+pub(crate) fn load_repo_protected_plan_state_or_runtime_fallback<S>(
+    root: &Path,
+    store: &mut S,
+    prism: &Prism,
+) -> Result<HydratedCoordinationPlanState>
+where
+    S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
+{
+    Ok(load_repo_protected_plan_state(root, store)?.unwrap_or_else(|| {
+        HydratedCoordinationPlanState {
+            snapshot: prism.coordination_snapshot(),
+            canonical_snapshot_v2: prism.coordination_snapshot_v2(),
+            runtime_descriptors: prism.runtime_descriptors(),
+        }
+    }))
 }
 
 fn sync_repo_memory_stream<S: prism_store::EventJournalStore>(

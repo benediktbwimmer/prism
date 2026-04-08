@@ -216,6 +216,9 @@ Current progress:
   from the materialized-store seam, and the old wrapper helpers are test-only
 - dead store-backed coordination read helpers and unused authoritative persistence compatibility
   methods were removed once the session read path no longer depended on them
+- manual reindex and watch-refresh failure fallback now restore coordination runtime state from the
+  service-backed protected plan-state loader when available, instead of always reviving the live
+  in-memory coordination snapshot as the fallback source
 
 Exit criteria:
 
