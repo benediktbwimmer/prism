@@ -1,6 +1,6 @@
 # Coordination Platform Freeze Phase 7
 
-Status: draft
+Status: in progress
 Audience: coordination, service, runtime, query, MCP, CLI, UI, storage, and testing maintainers
 Scope: complete roadmap Phase 7 by deleting the remaining transitional coordination shims, aligning the live docs with the implemented seams, and treating coordination as the base platform for the native spec engine
 
@@ -42,6 +42,10 @@ Current slice notes:
   - MCP coordination-surface fallback for not-yet-hydrated session state
 - Phase 6 centralized the live trust-family semantics, which means the remaining work is now
   mostly deletion, narrowing, and test/doc cleanup rather than one more semantic migration
+- the first Phase 7 slice narrows `prism-mcp` coordination-surface loading so a workspace-backed
+  coordination surface no longer silently substitutes the live in-memory `Prism` coordination
+  snapshot when service-backed coordination state is absent; live runtime coordination remains an
+  explicit overlay only where the contracts already allow it
 
 ## 3. Related roadmap
 
@@ -159,6 +163,15 @@ Exit criteria:
 
 - migration-only shims are deleted or reduced to clearly intentional boundaries
 
+Current progress:
+
+- `prism-mcp` `coordination_surface` no longer treats the live in-memory `Prism` coordination
+  snapshot as a hidden service-backed fallback whenever a workspace session exists
+- persisted coordination read models, when present, now flow through the named coordination
+  surface instead of always being recomputed from the snapshot
+- live runtime coordination remains available only through the explicit overlay inputs used by the
+  runtime-status surface
+
 ### Slice 2: Test retargeting
 
 - update targeted tests that still assert old runtime-owned or hidden fallback behavior
@@ -206,7 +219,7 @@ Phase 7 is complete only when:
 
 ## 11. Implementation checklist
 
-- [ ] Audit the remaining explicit transitional coordination seams
+- [x] Audit the remaining explicit transitional coordination seams
 - [ ] Delete or narrow migration-only compatibility shims
 - [ ] Retarget tests to the frozen seam behavior
 - [ ] Update docs to describe the frozen coordination platform accurately

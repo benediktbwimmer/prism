@@ -21462,8 +21462,11 @@ pub fn runtime_status() {}
         .iter()
         .find(|scope| scope.scope == "session")
         .expect("session overlay scope should exist");
-    assert_eq!(repo_overlay.plan_count, 1);
-    assert!(repo_overlay.plan_node_count > 0);
+    assert_eq!(
+        repo_overlay.plan_count, 0,
+        "repo-scoped coordination overlay counts now reflect only the service-backed coordination surface"
+    );
+    assert_eq!(repo_overlay.plan_node_count, 0);
     assert_eq!(
         worktree_overlay.overlay_count, 1,
         "runtime overlay scopes still surface the current worktree binding for live coordination work"

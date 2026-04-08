@@ -1341,34 +1341,6 @@ impl QueryHost {
     }
 }
 
-pub(crate) fn coordination_snapshot_has_data(snapshot: &CoordinationSnapshot) -> bool {
-    !(snapshot.plans.is_empty()
-        && snapshot.tasks.is_empty()
-        && snapshot.claims.is_empty()
-        && snapshot.artifacts.is_empty()
-        && snapshot.reviews.is_empty()
-        && snapshot.events.is_empty()
-        && snapshot.next_plan == 0
-        && snapshot.next_task == 0
-        && snapshot.next_claim == 0
-        && snapshot.next_artifact == 0
-        && snapshot.next_review == 0)
-}
-
-pub(crate) fn coordination_snapshot_v2_has_data(snapshot: &CoordinationSnapshotV2) -> bool {
-    !(snapshot.plans.is_empty()
-        && snapshot.tasks.is_empty()
-        && snapshot.dependencies.is_empty()
-        && snapshot.claims.is_empty()
-        && snapshot.artifacts.is_empty()
-        && snapshot.reviews.is_empty()
-        && snapshot.events.is_empty()
-        && snapshot.next_plan == 0
-        && snapshot.next_task == 0
-        && snapshot.next_claim == 0
-        && snapshot.next_artifact == 0
-        && snapshot.next_review == 0)
-}
 
 fn strip_internal_developer_api_reference(markdown: &str) -> String {
     const METHOD_LINES: &[&str] = &[
