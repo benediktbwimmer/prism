@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Migrate PRISM persistence toward authoritative runtime storage for memories, concepts, plans, and coordination state while preserving a three-plane model: repo-published truth in `.prism`, shared mutable runtime state in local or remote backends, and process-local ephemeral caches. Make local embedded and shared remote runtime backends first-class deployment modes, support one Prism endpoint multiplexing multiple repo/worktree contexts through explicit repo, worktree, branch, session, and instance identity, and keep snapshots plus plan compaction artifacts derived-only while native plan graphs, bindings, hydration, rebinding, compatibility projection, and multi-context coordination become explicit persistence concerns.",
       "id": "plan:1",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

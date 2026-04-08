@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "prism-general-improvements: improve PRISM MCP and repo-awareness dogfooding quality by fixing first-hop doc discovery noise, strengthening concept-to-concrete follow-through, making session/task context clearer, improving compact-tool ergonomics, and adding better governing-section or cross-doc navigation.",
       "id": "plan:01kn384cseg90m3a2gpf3802ca",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

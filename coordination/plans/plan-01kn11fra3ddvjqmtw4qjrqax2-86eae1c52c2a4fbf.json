@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "plans-task-graph-node-rewrite: make coordination tasks canonical for task-execution plans, reduce task-backed plan nodes to pure projections, and preserve standalone native plan nodes for graph-native planning.",
       "id": "plan:01kn11fra3ddvjqmtw4qjrqax2",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

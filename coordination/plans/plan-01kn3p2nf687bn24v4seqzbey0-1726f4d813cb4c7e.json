@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Implement principal identity, authenticated mutation provenance, task and claim lease lifecycle, heartbeat advisories, and CLI/bootstrap auth so PRISM coordination becomes principal-authenticated instead of session-authenticated.",
       "id": "plan:01kn3p2nf687bn24v4seqzbey0",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

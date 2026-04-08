@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Investigate and reduce slow PRISM refresh-path latency by measuring the true hot path, isolating the dominant costs in no-op and small-delta refreshes, deciding whether one or more relevant optimizations from docs/OPTIMIZATIONS.md should be adopted during the tuning work, and validating the resulting latency improvements without regressing correctness. If the agent decides to include one or more such optimization items, this plan must be extended to track that added scope explicitly.",
       "id": "plan:7",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Implement a portfolio-wide prioritization and dispatch capability for PRISM that can rank actionable work across active plans with explainable scoring, plan-level scheduling metadata, and explicit inter-plan dependencies, while also introducing a feature-flagged git execution policy layer that enforces or assists claim-time sync and completion-time publish workflow safely through coordination state, blockers, and execution evidence.",
       "id": "plan:01kn8b9d9w039abyab3wghec2n",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

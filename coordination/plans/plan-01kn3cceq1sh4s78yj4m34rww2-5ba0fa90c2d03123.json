@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Follow up on remaining PRISM usability gaps by improving compact-tool ranking transparency, strengthening concept-to-doc-to-code continuity, hardening workspace/path edge cases, and tightening stale-context repair loops.",
       "id": "plan:01kn3cceq1sh4s78yj4m34rww2",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

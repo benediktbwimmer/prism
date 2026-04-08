@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Build a first-class Prism UI control plane around the existing dashboard, with an overview landing surface, a plans view, an architecture graph explorer, shared cross-links, and final concept curation so the repo-native architecture reflects the new human-facing product.",
       "id": "plan:01kmzvjdhb874nxd0v44d2hdmt",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

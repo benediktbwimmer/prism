@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Replace repo-committed append-log authority with compact signed snapshot state in tracked .prism, move fine-grained operational history into runtime/shared journals, and preserve cold-clone correctness, Git-native time travel, and trusted publisher attribution.",
       "id": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

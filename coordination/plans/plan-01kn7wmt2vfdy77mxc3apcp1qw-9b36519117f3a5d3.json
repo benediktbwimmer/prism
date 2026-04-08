@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Eliminate the current slow compact MCP calls by instrumenting refresh-wrapper latency precisely, adding a true current-state fast path for compact reads, coalescing concurrent refresh work across sessions, and validating the resulting latency reduction against live PRISM MCP traces.",
       "id": "plan:01kn7wmt2vfdy77mxc3apcp1qw",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

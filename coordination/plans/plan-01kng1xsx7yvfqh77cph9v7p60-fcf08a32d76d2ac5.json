@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Implement docs/PRISM_COORDINATION_GRAPH_REWRITE.md end to end: replace the hybrid coordination task plus native plan-node execution model with one canonical Plan/Task coordination graph, add transaction-based structural mutations, migrate legacy state, rewrite MCP/query/UI surfaces, and remove legacy execution-plan storage once the compatibility window closes.",
       "id": "plan:01kng1xsx7yvfqh77cph9v7p60",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

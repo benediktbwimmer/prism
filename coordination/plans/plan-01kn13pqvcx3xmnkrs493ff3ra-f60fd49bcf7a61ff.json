@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "persistence-migration: migrate PRISM to a memory-authoritative runtime with synchronous authoritative journals, asynchronous checkpoint/materialization persistence, bounded hot state, and explicit cold-query semantics; finish by reviewing with the user whether a separate persistence worker deserves a follow-up plan.",
       "id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Hit the refresh latency targets in docs/RUNTIME_REWRITE_ARCHITECTURE.md by replacing reconstructive workspace refresh with a true parallel-prepare / tiny-commit / parallel-settle runtime path, reducing hot-path persistence and lock contention, and validating the resulting daemon behavior against explicit p50/p95 budgets.",
       "id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

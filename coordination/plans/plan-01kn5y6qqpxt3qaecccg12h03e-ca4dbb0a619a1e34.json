@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Implement the protected repo .prism state signatures design from docs/PROTECTED_PRISM_STATE_SIGNATURES.md, covering signed protected streams, trust-bundle verification, fail-closed hydration, protected write-path enforcement, migration semantics, and validation coverage.",
       "id": "plan:01kn5y6qqpxt3qaecccg12h03e",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

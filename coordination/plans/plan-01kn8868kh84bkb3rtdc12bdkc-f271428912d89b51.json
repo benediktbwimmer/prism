@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Address the highest-priority remaining PRISM validation-feedback issues across task-brief guidance, compact ranking and follow-through, runtime diagnostics, freshness for newly added files, and deterministic validation stability.",
       "id": "plan:01kn8868kh84bkb3rtdc12bdkc",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

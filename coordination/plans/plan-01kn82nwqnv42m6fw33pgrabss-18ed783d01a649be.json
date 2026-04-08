@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Extend PRISM runtime and MCP log query views so agents can analyze daemon and MCP call state at worktree scope, repo-wide across all worktrees for the same repo on one machine, and across all available log files, while preserving current worktree-local behavior as the default.",
       "id": "plan:01kn82nwqnv42m6fw33pgrabss",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

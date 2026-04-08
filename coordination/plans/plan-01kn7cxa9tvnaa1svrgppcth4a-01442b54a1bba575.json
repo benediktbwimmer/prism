@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Investigate and reduce the next observed PRISM runtime and MCP performance hotspots from live daemon and MCP logs by tackling compact-task latency, refresh-lock admission stalls, oversized co-change work, startup/recovery fixed costs, and noisy bridge transport behavior, while preserving correctness and proving improvements with log-backed validation.",
       "id": "plan:01kn7cxa9tvnaa1svrgppcth4a",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

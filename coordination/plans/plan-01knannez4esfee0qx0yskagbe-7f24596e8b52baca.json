@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Replace weak local-empty-registry bootstrap with externally attested human-root bootstrap, portable human principals, delegated server enrollment, assurance-labeled provenance, and recovery that cannot be bypassed by wiping local runtime state.",
       "id": "plan:01knannez4esfee0qx0yskagbe",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

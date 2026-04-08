@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "incremental-semantic-db-runtime-engine-rewrite: transform PRISM into a true incremental semantic database with a WorkspaceRuntimeEngine actor, heavy parallel preparation and settle pipelines, coalesced edit batches, a minimal serialized commit, and snapshots limited to checkpoint recovery and query acceleration.",
       "id": "plan:01kn2edq9k2cr10t7p9pwscpjz",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

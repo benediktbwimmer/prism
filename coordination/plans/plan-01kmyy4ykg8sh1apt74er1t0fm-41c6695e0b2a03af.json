@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "contracts-01: implement the first PRISM contracts primitive as a concept-like sibling pipeline with explicit schema and event storage, hosted MCP mutations and resources, query/read integration, and contract-aware impact or after-edit behavior, while keeping derived policy or guardrail enforcement out of scope for this first rollout.",
       "id": "plan:01kmyy4ykg8sh1apt74er1t0fm",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

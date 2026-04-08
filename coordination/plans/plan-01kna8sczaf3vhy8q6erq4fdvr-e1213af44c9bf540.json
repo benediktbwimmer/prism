@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Add shared-ref runtime descriptors and authenticated peer runtime reads, while simplifying or disabling the old shared-runtime versus local-runtime split wherever it is no longer needed.",
       "id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 82,

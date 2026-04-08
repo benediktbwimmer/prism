@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Finish every material remaining gap from PRISM_SHARED_COORDINATION_REFS.md by completing target integration policy and lifecycle modeling, durable integration evidence and verification, shared-ref publication ordering for strict require, remote live-sync and reconciliation hardening, branch-local mirror demotion, and retention/compaction so cross-branch coordination becomes the unambiguous primary authority for daily development.",
       "id": "plan:01knap36apc42jgrq3w7k300yz",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

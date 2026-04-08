@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Restore shared-ref runtime descriptors, execute authenticated remote prism_query reads keyed by runtime_id, surface them through prism.from(\"runtime-id\"), and validate authority-aware two-runtime federation without relay or blob export.",
       "id": "plan:01kncfv6c7tzkc21aemhr0pns2",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

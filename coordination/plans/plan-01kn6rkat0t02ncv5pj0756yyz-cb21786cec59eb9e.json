@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Implement strict declared-work provenance, remove implicit undeclared mutation fallback, and cleanly separate work attribution from coordination tasks before PRISM release.",
       "id": "plan:01kn6rkat0t02ncv5pj0756yyz",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

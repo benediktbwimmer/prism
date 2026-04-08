@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Implement the shared-coordination v1 architecture from docs/PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md, including explicit schema-versioned authoritative payloads, partitioned runtime/task/claim refs, bounded hot-state pruning and archive continuity, schema-aware merge policy, and the diagnostics, migration, and validation work needed to make the topology viable at 1000-agent scale.",
       "id": "plan:01kng427007ptj9mpg3s0gp4vc",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

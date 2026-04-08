@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Close every remaining implementation gap in docs/PRISM_SHARED_COORDINATION_REFS.md by demoting branch-local mirrors, separating branch publication from coordination publication, completing all integration modes and evidence models, tightening lease and heartbeat semantics, hardening degraded and recovery paths, and validating the full shared-ref model against the design doc section by section.",
       "id": "plan:01knav51cj8vgw0zp49qgktzps",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

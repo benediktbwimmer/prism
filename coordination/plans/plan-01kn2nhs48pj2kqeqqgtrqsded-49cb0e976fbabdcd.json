@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "runtime-status-cleanup: make runtimeStatus cheap, accurate, and trustworthy by pruning stale runtime-state process records, tightening process/count reporting, and validating the cleaned status surface under real daemon usage.",
       "id": "plan:01kn2nhs48pj2kqeqqgtrqsded",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

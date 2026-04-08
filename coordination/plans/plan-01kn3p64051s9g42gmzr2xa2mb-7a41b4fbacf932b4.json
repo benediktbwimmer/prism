@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "large-edit-follow-up: eliminate the remaining large-edit pathologies in the daemon by preserving better co-change fidelity for oversized change sets, reducing parse/apply and persist cost on large fanout edits, and validating the resulting behavior from the live daemon log.",
       "id": "plan:01kn3p64051s9g42gmzr2xa2mb",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

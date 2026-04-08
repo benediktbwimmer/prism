@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Make shared-coordination-backed PRISM mutations fast enough for normal developer use by shrinking the request-path work to a minimal authoritative write and moving snapshot/checkpoint/read-model/projection side effects off the hot path, while preserving correctness under CAS races, git-execution flows, and multi-worktree convergence.",
       "id": "plan:01knc64s1zzzxq7x324fms1cyc",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

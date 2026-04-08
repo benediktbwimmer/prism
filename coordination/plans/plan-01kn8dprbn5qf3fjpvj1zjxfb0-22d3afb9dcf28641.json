@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Reduce full cargo test latency and improve test reliability by profiling the slowest test paths, separating heavy integration-style coverage from cheap unit-style coverage, removing avoidable setup and timing overhead, and validating the new default suite behavior with measured before/after timings.",
       "id": "plan:01kn8dprbn5qf3fjpvj1zjxfb0",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

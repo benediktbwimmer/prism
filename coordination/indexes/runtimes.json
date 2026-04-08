@@ -54,6 +54,12 @@
     "path": "runtimes/instance-19610-worktree-84a3f98283a83dd5-1775481121788-b912847c6a5f9738.json"
   },
   {
+    "id": "instance:2328:worktree:84a3f98283a83dd5:1775651034420",
+    "title": "worktree:01knhcah0q0qny1c4fwcjecvkq",
+    "status": "LanDirect",
+    "path": "runtimes/instance-2328-worktree-84a3f98283a83dd5-1775651034420-5e3c9754c6c379f6.json"
+  },
+  {
     "id": "instance:25674:worktree:5820c89d186523db:1775467800218",
     "title": "worktree:01kng5pwdqf1fberapprn1q9hr",
     "status": "LanDirect",

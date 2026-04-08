@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Make tracked .prism/state the only repo-published authority by removing the remaining tracked legacy append-log surfaces for memory, concepts, contracts, and plans; keep append-only history in shared runtime only; and preserve cold-clone restore, manifest trust semantics, and startup performance.",
       "id": "plan:01kna4g4q0xn8znaa7bn7s6vq0",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

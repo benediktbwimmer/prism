@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Make shared runtime the sole owner of append-only change history, remove tracked `.prism/state/changes/**`, keep tracked `.prism/state` as stable semantic state only, and rely on signed Git commit history plus PRISM manifest metadata for durable coarse-grained publish history.",
       "id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 100,

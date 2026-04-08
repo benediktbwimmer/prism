@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Complete the portfolio dispatch feature by modeling cross-plan dependencies explicitly, ranking actionable work across plans with explainable scoring, and exposing a practical inbox/next-work surface for agents.",
       "id": "plan:01kn8n8wvmcvrqx1tvd6x93qpg",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

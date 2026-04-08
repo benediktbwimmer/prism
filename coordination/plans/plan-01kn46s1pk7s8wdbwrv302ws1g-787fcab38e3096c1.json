@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "storage-boundary-redesign: separate true shared runtime state from worktree-local semantic cache state, introduce explicit shared-vs-local store ownership and paths, migrate existing repos safely, and validate that cross-worktree shared semantics remain correct while local semantic cache state no longer bloats the shared runtime db.",
       "id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

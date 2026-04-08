@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Refactor the prism-mcp test suite so routine feedback loops are faster and the integration-heavy cases are less flaky and more deterministic.",
       "id": "plan:01kmwmwamj4y87781dsn8x7wt2",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

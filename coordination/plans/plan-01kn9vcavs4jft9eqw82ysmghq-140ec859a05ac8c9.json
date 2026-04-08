@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Define one correct path identity model for PRISM so tracked snapshots, shared/runtime state, APIs, docs, and projections never persist absolute filesystem paths; use file ids plus repo-relative paths as canonical identity and anchors as the primary semantic reference.",
       "id": "plan:01kn9vcavs4jft9eqw82ysmghq",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 100,

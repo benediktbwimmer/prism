@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Trace and eliminate rare MCP slow-call outliers by adding universal request-path observability, attributing shared bottlenecks, and fixing the blocking behaviors those traces expose.",
       "id": "plan:01kn0c0ke4rf6g95nj03738tjp",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

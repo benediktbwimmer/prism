@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Finish the remaining shared coordination ref work by adding CAS retry/reconciliation, remote live-sync, target integration lifecycle/evidence, and shared-ref retention/compaction.",
       "id": "plan:01knadcr3p15he31394q1bs5wv",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

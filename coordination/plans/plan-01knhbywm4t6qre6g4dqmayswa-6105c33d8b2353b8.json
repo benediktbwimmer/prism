@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Remove the shared runtime SQLite database from PRISM entirely and replace its remaining responsibilities with shared coordination refs, worktree-local SQLite, and federated runtime discovery and peer reads as described in docs/PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md.",
       "id": "plan:01knhbywm4t6qre6g4dqmayswa",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

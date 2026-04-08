@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Rewrite the PRISM runtime around incremental invalidation, partial materialization, explicit boundary semantics, worktree-aware overlays, lazy deep parsing, and scalable ranking so the daemon stays radically efficient on small repos and scales cleanly to large monorepos, excluding the remote shared runtime backend and database-pushed traversals.",
       "id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Separate shared coordination refs as the authority/replication source from daemon startup by introducing one local materialized coordination snapshot/checkpoint for bootstrap, moving shared-ref fetch/verify/import onto an explicit sync path, reusing one in-memory coordination load across bootstrap layers, and validating that hot restart falls back to low-single-digit seconds without regressing correctness.",
       "id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

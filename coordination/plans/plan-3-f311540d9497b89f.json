@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Simplify the post-redesign refresh model by removing misleading persisted-refresh naming, consolidating refresh ownership, and further demoting local snapshot/DB authority from steady-state serving.",
       "id": "plan:3",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

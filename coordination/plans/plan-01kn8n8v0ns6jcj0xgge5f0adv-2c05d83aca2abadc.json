@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Finish the git execution policy feature by exposing policy surfaces clearly, separating task lifecycle from publish lifecycle, making publish-pending and publication acknowledgement semantics explicit, finalizing strict `require` so agents own source-code commit scope while PRISM only finalizes allowlisted PRISM-managed projection files, making freshness policy explicit, validating the flow through dogfooding, and removing `auto` once strict `require` is proven.",
       "id": "plan:01kn8n8v0ns6jcj0xgge5f0adv",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

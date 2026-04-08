@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Build a second PRISM UI under /console that serves server-rendered HTML from daemon-side projections, uses Mermaid plus ELK for bounded plan and concept graphs, vis-timeline for fleet swimlanes, and htmx for write-capable operator actions.",
       "id": "plan:01knfcza3w9aezqbr2p883q85m",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

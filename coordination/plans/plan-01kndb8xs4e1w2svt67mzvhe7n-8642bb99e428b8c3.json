@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Ensure every PRISM MCP tool and resource is discoverable, understandable, and operable in truncation-prone harnesses without relying on PRISM source access by providing compact schema, example, shape, recipe, validation, and audit surfaces.",
       "id": "plan:01kndb8xs4e1w2svt67mzvhe7n",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

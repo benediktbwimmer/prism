@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Implement decentralized task-affinity execution with local fitness scoring, soft continuation reservations, explainable selection, and shared coordination/query surfaces for warm execution chains.",
       "id": "plan:01kncq2qqf10y7rn78fyzma8qk",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

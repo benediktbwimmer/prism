@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Redesign PRISM refresh/runtime so request paths never block on full persisted rebuilds, the live runtime is authoritative for serving reads and applying mutations, snapshots/cache become optional startup or recovery aids only, and repo-committed memories, concepts, and plans remain the only durable truth that must survive storage resets.",
       "id": "plan:2",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

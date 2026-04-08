@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "refresh-01: make workspace refresh behavior sound and optimized by explaining and reducing full refreshes, fixing pathological deferred behavior, and tightening overall refresh performance semantics",
       "id": "plan:01kn0sh5q9vv9j2q2n6jwxhtep",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Implement the projections architecture from docs/PRISM_PROJECTIONS.md by making authority planes explicit, introducing first-class projection contracts and freshness semantics, separating published/serving/ad-hoc projections cleanly from authored truth, and exposing stable projection-oriented read surfaces across PRISM docs, MCP, CLI, and query/runtime layers.",
       "id": "plan:01kn7kc7wd38p9kb8src073kpp",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

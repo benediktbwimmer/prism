@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Implement the Protected State Runtime Sync design from docs/PROTECTED_STATE_RUNTIME_SYNC.md so repo-published .prism streams follow one uniform runtime import contract across bootstrap, live sync, self-write suppression, diagnostics, and recovery.",
       "id": "plan:01kn80a3trpmaewse7e2bhb1hs",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

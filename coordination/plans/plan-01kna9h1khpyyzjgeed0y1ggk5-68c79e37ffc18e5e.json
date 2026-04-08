@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Build the shared coordination ref authority plane, move core coordination truth onto it, and rebind git execution policy to that shared cross-branch control plane.",
       "id": "plan:01kna9h1khpyyzjgeed0y1ggk5",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 95,

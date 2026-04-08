@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Deliver the complete backend foundation for the new polling-based PRISM operator console UI: versioned REST reads for plans, task detail, and fleet utilization; a POST mutate endpoint that routes through the exact same authenticated mutation path and audit logging as MCP-triggered mutations; active local principal binding for human attribution; removal of legacy SSE/dashboard backend surfaces; and bundling of the built React UI assets into the Rust daemon binaries.",
       "id": "plan:01knd2zj2hgp4qs7qzfc7rxdgg",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

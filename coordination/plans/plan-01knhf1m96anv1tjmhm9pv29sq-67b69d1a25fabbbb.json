@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Refactor PRISM so coordination can run without cognition, knowledge storage can degrade cleanly without graph-backed resolution, and one runtime can compose these layers via explicit feature modes without splitting the product yet.",
       "id": "plan:01knhf1m96anv1tjmhm9pv29sq",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

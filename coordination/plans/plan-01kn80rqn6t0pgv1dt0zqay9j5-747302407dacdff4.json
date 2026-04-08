@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Trace the daemon death and auth-drift failure paths in code, add durable observability so future daemon exits are diagnosable, and harden the bridge so dead daemons and stale credentials recover automatically or fail with actionable state.",
       "id": "plan:01kn80rqn6t0pgv1dt0zqay9j5",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

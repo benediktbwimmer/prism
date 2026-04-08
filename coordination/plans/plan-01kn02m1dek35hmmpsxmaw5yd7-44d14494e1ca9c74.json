@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Rewrite PRISM co-change persistence and refresh materialization boundaries so authoritative runtime state, bounded serving projections, and cold analytical evidence are separated; eliminate pathological co-change growth from the daemon hot path; and migrate existing cache state without regressing correctness, startup time, or daemon health.",
       "id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

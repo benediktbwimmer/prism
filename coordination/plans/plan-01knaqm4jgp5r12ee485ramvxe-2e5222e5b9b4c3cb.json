@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Make snapshot-era PRISM state survivable in arbitrary repos by auto-installing repo git support on first attach, extending merge-driver coverage to tracked snapshot-era derived artifacts, and adding explicit repair/regeneration workflows for manifests and other generated PRISM files that cannot be safely hand-merged.",
       "id": "plan:01knaqm4jgp5r12ee485ramvxe",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

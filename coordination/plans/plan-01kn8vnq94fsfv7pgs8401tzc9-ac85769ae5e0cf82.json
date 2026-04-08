@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "Capture a live coordination mutation trace after removing auth writes, UI hot-path work, and synchronous plan projection regeneration.",
       "id": "plan:01kn8vnq94fsfv7pgs8401tzc9",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": true
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,

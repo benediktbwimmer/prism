@@ -2,7 +2,6 @@
   "kind": "coordination_plan_record",
   "payload": {
     "plan": {
-      "authored_edges": [],
       "created_from": null,
       "goal": "prism-query-01: add a runtime-gated query-view registry, harden existing PRISM query surfaces, and ship a small measured set of new agent-facing prism_query views with usage logging and pruning discipline.",
       "id": "plan:01kmwxra5d93wb6nmy6a79v8eh",
@@ -30,7 +29,6 @@
         "stale_after_graph_change": false
       },
       "revision": 0,
-      "root_tasks": [],
       "scheduling": {
         "dueAt": null,
         "importance": 0,
