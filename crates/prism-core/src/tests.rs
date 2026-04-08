@@ -52,11 +52,12 @@ use super::{
     inspect_legacy_path_identity_state, list_registered_worktrees,
     regenerate_repo_published_plan_artifacts, render_repo_published_plan_markdown,
     repair_legacy_path_identity_state, AttestedHumanPrincipalInput, BootstrapOwnerInput,
-    CredentialProfile, CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata,
-    CredentialsFile, HumanSessionFile, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
-    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
-    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode,
-    WorktreeMutatorSlotError, WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
+    CoordinationReadConsistency, CoordinationReadFreshness, CredentialProfile,
+    CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata, CredentialsFile,
+    HumanSessionFile, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths, SharedRuntimeBackend,
+    ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
+    WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode, WorktreeMutatorSlotError,
+    WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
 };
 use crate::concept_events::append_repo_concept_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
@@ -7290,6 +7291,111 @@ fn coordination_session_materializes_read_models_off_request_path() {
             .is_none(),
         "coordination materialization should no longer write tracked snapshot revision state"
     );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_strong_reads_do_not_materialize_runtime_local_state() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    session
+        .mutate_coordination(|prism| {
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:strong-read-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:strong-read-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Exercise strong coordination read".into(),
+                "Exercise strong coordination read".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let _ = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:strong-read-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:strong-read-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                TaskCreateInput {
+                    plan_id,
+                    title: "Do not write coordination materialization on strong read".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: prism_ir::WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                },
+            )?;
+            Ok::<_, anyhow::Error>(())
+        })
+        .unwrap();
+
+    {
+        let mut store = session.store.lock().expect("workspace store lock poisoned");
+        assert!(store.load_coordination_read_model().unwrap().is_none());
+        assert!(store.load_coordination_queue_read_model().unwrap().is_none());
+        assert!(
+            prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(
+                &mut *store,
+            )
+            .unwrap()
+            .is_none()
+        );
+    }
+
+    let strong = session
+        .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Strong)
+        .unwrap();
+    assert_eq!(
+        strong.freshness,
+        CoordinationReadFreshness::Unavailable,
+        "without shared-ref authority publish, the strong path should remain unavailable rather than backfilling local coordination state"
+    );
+
+    {
+        let mut store = session.store.lock().expect("workspace store lock poisoned");
+        assert!(
+            store.load_coordination_read_model().unwrap().is_none(),
+            "strong reads must not backfill coordination read models into the worktree store"
+        );
+        assert!(
+            store.load_coordination_queue_read_model().unwrap().is_none(),
+            "strong reads must not backfill coordination queue models into the worktree store"
+        );
+        assert!(
+            prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(
+                &mut *store,
+            )
+            .unwrap()
+            .is_none(),
+            "strong reads must not write coordination startup checkpoints into the worktree store"
+        );
+    }
 
     let _ = fs::remove_dir_all(root);
 }

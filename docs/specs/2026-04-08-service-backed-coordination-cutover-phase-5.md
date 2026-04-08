@@ -54,6 +54,8 @@ Current slice notes:
   to the canonical transaction path
 - workspace startup checkpoints no longer persist or restore coordination snapshots; bootstrap now
   starts with empty in-memory coordination state and expects later service-backed hydration
+- session strong reads no longer write coordination startup checkpoints or read models into the
+  worktree store as a side effect
 - the remaining work is now primarily runtime and surface cutover, not mutation semantics
 
 ## 3. Related roadmap
@@ -171,6 +173,8 @@ Current progress:
 - workspace runtime startup checkpoints no longer serialize or restore coordination snapshots
 - the old checkpoint format was intentionally invalidated for this cutover so stale branch-local
   coordination state cannot be revived implicitly at runtime startup
+- strong coordination reads now sync authority and read authoritatively, but no longer backfill
+  coordination materialization into the runtime-owned worktree store
 
 Exit criteria:
 

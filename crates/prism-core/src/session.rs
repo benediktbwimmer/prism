@@ -53,9 +53,7 @@ use crate::concept_events::append_repo_concept_event;
 use crate::concept_relation_events::append_repo_concept_relation_event;
 use crate::contract_events::append_repo_contract_event;
 use crate::coordination_materialized_store::{
-    CoordinationMaterializedStore, CoordinationReadModelsWriteRequest,
-    CoordinationStartupCheckpointWriteRequest, SqliteCoordinationMaterializedStore,
-    StoreBackedCoordinationMaterializedStore,
+    CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
 use crate::coordination_persistence::{
     coordination_event_delta, CoordinationDerivedPersistenceMode, CoordinationPersistenceBackend,
@@ -2135,7 +2133,7 @@ impl WorkspaceSession {
                 })
             }
             CoordinationReadConsistency::Strong => {
-                match self.refresh_coordination_materialization_for_strong_read() {
+                match self.refresh_coordination_authority_for_strong_read() {
                     Ok(()) => {
                         let value = {
                             let mut store =
@@ -2184,7 +2182,7 @@ impl WorkspaceSession {
         })
     }
 
-    fn refresh_coordination_materialization_for_strong_read(&self) -> Result<()> {
+    fn refresh_coordination_authority_for_strong_read(&self) -> Result<()> {
         sync_shared_coordination_ref_watch_update(
             &self.root,
             &self.published_generation,
@@ -2195,39 +2193,7 @@ impl WorkspaceSession {
             &self.loaded_workspace_revision,
             &self.coordination_runtime_revision,
             self.coordination_enabled,
-        )?;
-
-        let (authoritative, current_revision) = {
-            let mut store = self.store.lock().expect("workspace store lock poisoned");
-            let Some(authoritative) =
-                store.load_authoritative_coordination_plan_state_for_root(&self.root)?
-            else {
-                return Ok(());
-            };
-            let current_revision =
-                self.coordination_runtime_revision_value(store.coordination_revision()?);
-            (authoritative, current_revision)
-        };
-        let mut store = self.store.lock().expect("workspace store lock poisoned");
-        let mut materialized_store =
-            StoreBackedCoordinationMaterializedStore::new(&self.root, &mut *store);
-        materialized_store.write_startup_checkpoint_mut(
-            CoordinationStartupCheckpointWriteRequest {
-                snapshot: authoritative.snapshot.clone(),
-                canonical_snapshot_v2: authoritative.canonical_snapshot_v2.clone(),
-                runtime_descriptors: authoritative.runtime_descriptors.clone(),
-            },
-        )?;
-        let mut read_model = coordination_read_model_from_snapshot(&authoritative.snapshot);
-        read_model.revision = current_revision;
-        let mut queue_read_model =
-            coordination_queue_read_model_from_snapshot(&authoritative.snapshot);
-        queue_read_model.revision = current_revision;
-        materialized_store.write_read_models_mut(CoordinationReadModelsWriteRequest {
-            read_model,
-            queue_read_model,
-        })?;
-        Ok(())
+        )
     }
 
     pub fn hydrate_coordination_runtime(&self) -> Result<Option<CoordinationPlanState>> {
