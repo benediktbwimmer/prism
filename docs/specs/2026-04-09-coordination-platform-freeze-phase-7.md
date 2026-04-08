@@ -1,6 +1,6 @@
 # Coordination Platform Freeze Phase 7
 
-Status: in progress
+Status: completed
 Audience: coordination, service, runtime, query, MCP, CLI, UI, storage, and testing maintainers
 Scope: complete roadmap Phase 7 by deleting the remaining transitional coordination shims, aligning the live docs with the implemented seams, and treating coordination as the base platform for the native spec engine
 
@@ -28,11 +28,10 @@ Current state:
 - [x] service-backed coordination ownership is live
 - [x] product-facing coordination reads and writes route through the new seams
 - [x] the remaining transitional seams are explicit and named
-- [ ] the remaining transitional seams are not yet fully deleted or narrowed to intentional local
-  overlays only
-- [ ] tests are not yet consistently written against the new seam boundaries
-- [ ] docs do not yet consistently describe the current code as implemented reality instead of
-  recent migration history
+- [x] the remaining transitional seams are now deleted or narrowed to intentional local overlays
+- [x] changed tests now target the frozen seam boundaries touched in this phase
+- [x] the roadmap/spec layer now describes coordination as the base platform rather than an
+  ongoing migration
 
 Current slice notes:
 
@@ -46,6 +45,9 @@ Current slice notes:
   coordination surface no longer silently substitutes the live in-memory `Prism` coordination
   snapshot when service-backed coordination state is absent; live runtime coordination remains an
   explicit overlay only where the contracts already allow it
+- the only remaining explicit coordination overlay after this phase is the assisted-lease
+  republish path, and it is now treated as intentional long-term local liveness behavior rather
+  than migration compatibility debt
 
 ## 3. Related roadmap
 
@@ -174,6 +176,9 @@ Current progress:
 - protected-state runtime recovery and workspace indexer startup now also default missing
   service-backed coordination state to empty coordination state instead of inheriting the live
   in-memory coordination snapshot as a hidden fallback
+- assisted-lease republish remains as an explicit local-only overlay boundary in `watch.rs`, with
+  non-authoritative semantics called out directly in code and diagnostics instead of being treated
+  as unresolved cutover debt
 
 ### Slice 2: Test retargeting
 
@@ -223,19 +228,23 @@ Phase 7 is complete only when:
 ## 11. Implementation checklist
 
 - [x] Audit the remaining explicit transitional coordination seams
-- [ ] Delete or narrow migration-only compatibility shims
-- [ ] Retarget tests to the frozen seam behavior
-- [ ] Update docs to describe the frozen coordination platform accurately
-- [ ] Validate changed crates and direct downstream dependents
-- [ ] Update roadmap/spec status as slices land
+- [x] Delete or narrow migration-only compatibility shims
+- [x] Retarget tests to the frozen seam behavior
+- [x] Update docs to describe the frozen coordination platform accurately
+- [x] Validate changed crates and direct downstream dependents
+- [x] Update roadmap/spec status as slices land
 
 ## 12. Current implementation status
 
-Coordination is now close to platform status, but not quite there yet.
+Coordination now behaves as the base platform the spec engine can build on.
 
-The remaining work is no longer foundational seam invention.
-It is the cleanup needed so the next subsystem does not inherit:
+The surviving local assisted-lease path is explicit and intentionally non-authoritative.
+The migration-era hidden fallbacks cleaned up in this phase are gone from the product and recovery
+surfaces touched here.
 
-- compatibility layers as accidental architecture
-- tests that still encode old ownership assumptions
-- docs that still talk like the migration is the product
+Final assessment:
+
+- completed
+- service-backed coordination state no longer falls back silently to live runtime coordination in
+  the product and recovery paths cleaned up by this phase
+- the next layer should treat coordination as settled platform, not active migration
