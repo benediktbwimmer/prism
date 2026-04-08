@@ -171,6 +171,9 @@ Current progress:
   surface instead of always being recomputed from the snapshot
 - live runtime coordination remains available only through the explicit overlay inputs used by the
   runtime-status surface
+- protected-state runtime recovery and workspace indexer startup now also default missing
+  service-backed coordination state to empty coordination state instead of inheriting the live
+  in-memory coordination snapshot as a hidden fallback
 
 ### Slice 2: Test retargeting
 

@@ -191,24 +191,23 @@ where
         }))
 }
 
-pub(crate) fn load_repo_protected_plan_state_or_runtime_fallback<S>(
+pub(crate) fn load_repo_protected_plan_state_or_default<S>(
     root: &Path,
     store: &mut S,
-    prism: &Prism,
 ) -> Result<HydratedCoordinationPlanState>
 where
     S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
 {
     Ok(load_repo_protected_plan_state(root, store)?.unwrap_or_else(|| {
         HydratedCoordinationPlanState {
-            snapshot: prism.coordination_snapshot(),
-            canonical_snapshot_v2: prism.coordination_snapshot_v2(),
-            runtime_descriptors: prism.runtime_descriptors(),
+            snapshot: Default::default(),
+            canonical_snapshot_v2: Default::default(),
+            runtime_descriptors: Vec::new(),
         }
     }))
 }
 
-pub(crate) fn build_runtime_state_with_protected_coordination_fallback<S>(
+pub(crate) fn build_runtime_state_with_materialized_coordination_state<S>(
     root: &Path,
     store: &mut S,
     prism: &Prism,
@@ -217,7 +216,7 @@ pub(crate) fn build_runtime_state_with_protected_coordination_fallback<S>(
 where
     S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
 {
-    let fallback_plan_state = load_repo_protected_plan_state_or_runtime_fallback(root, store, prism)?;
+    let fallback_plan_state = load_repo_protected_plan_state_or_default(root, store)?;
     let mut fallback_graph = Graph::from_snapshot(prism.graph().snapshot());
     fallback_graph.bind_workspace_root(root);
     Ok(WorkspaceRuntimeState::new(

@@ -81,7 +81,7 @@ use crate::prism_doc::{
 };
 use crate::projection_hydration::persisted_projection_load_plan;
 use crate::protected_state::runtime_sync::{
-    build_runtime_state_with_protected_coordination_fallback,
+    build_runtime_state_with_materialized_coordination_state,
     load_repo_protected_knowledge_for_runtime, load_repo_protected_plan_state,
     sync_repo_protected_state,
 };
@@ -1244,7 +1244,7 @@ impl WorkspaceSession {
         if let Err(error) = index_result {
             let fallback_state = if self.coordination_enabled {
                 let mut store = self.store.lock().expect("workspace store lock poisoned");
-                build_runtime_state_with_protected_coordination_fallback(
+                build_runtime_state_with_materialized_coordination_state(
                     &self.root,
                     &mut *store,
                     current_prism.as_ref(),

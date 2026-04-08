@@ -33,7 +33,7 @@ use crate::indexer::WorkspaceIndexer;
 use crate::layout::discover_layout;
 use crate::observed_change_tracker::SharedObservedChangeTracker;
 use crate::protected_state::runtime_sync::{
-    build_runtime_state_with_protected_coordination_fallback,
+    build_runtime_state_with_materialized_coordination_state,
     load_repo_protected_knowledge_for_runtime, load_repo_protected_plan_state,
     sync_selected_repo_protected_state, ProtectedStateImportSelection,
 };
@@ -581,7 +581,7 @@ fn refresh_prism_snapshot_with_guard(
             Err(error) => {
                 let fallback_state = if coordination_enabled {
                     let mut local_store = store.lock().expect("workspace store lock poisoned");
-                    build_runtime_state_with_protected_coordination_fallback(
+                    build_runtime_state_with_materialized_coordination_state(
                         root,
                         &mut *local_store,
                         current_prism.as_ref(),
