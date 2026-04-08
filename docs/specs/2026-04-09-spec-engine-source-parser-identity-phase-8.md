@@ -33,7 +33,8 @@ Current state:
 - [x] configurable spec-root resolution exists in code
 - [x] markdown-plus-frontmatter spec parsing exists in code
 - [ ] stable repo-unique `spec_id` validation does not yet exist in code
-- [ ] checklist extraction and stable checklist identity do not yet exist in code
+- [x] checklist extraction and stable checklist identity exist in code
+- [x] checklist requirement-level parsing exists in code
 - [ ] dependency parsing and source metadata capture do not yet exist in code
 
 Current slice notes:
@@ -45,6 +46,9 @@ Current slice notes:
   field and preserves `.prism/specs/` as the default when the config file is absent
 - Slice 2 now parses YAML frontmatter plus markdown body, validates the minimum required fields,
   and returns structured local diagnostics instead of silently skipping malformed specs
+- Slice 3 now extracts markdown checklist items with section context, supports explicit
+  `<!-- id: ... -->` identity annotations, generates deterministic fallback ids, and parses
+  `[info]` item markers plus `(informational)` heading suffixes into effective requirement levels
 
 ## 3. Related roadmap
 
@@ -179,6 +183,8 @@ Initial behavior:
 - default to `required`
 - parse explicit informational markers when present
 - expose the effective level in the parsed record
+- v1 parser support includes `[info]` or `[informational]` item markers and a section-heading
+  suffix `(informational)` for defaulting descendants
 
 This phase only parses and normalizes the level.
 Later phases decide how derived status uses it.
@@ -257,6 +263,16 @@ Exit criteria:
 
 - parsed checklist items have stable local identity beyond raw ordinal position
 
+Slice 3 landed with:
+
+- checklist extraction from markdown body lines under the parsed spec document
+- section-path capture from markdown headings
+- explicit identity annotations via `<!-- id: ... -->`
+- deterministic generated fallback ids from spec id, section path, normalized label, and local
+  disambiguator
+- effective requirement-level parsing from `[info]` or `[informational]` item markers and the
+  heading suffix `(informational)`
+
 ### Slice 4: Dependency and source metadata capture
 
 - parse `depends_on`
@@ -300,8 +316,8 @@ Phase 8 is complete only when:
 - [x] Add deterministic spec discovery
 - [x] Add markdown/frontmatter parser and schema validation
 - [ ] Add stable `spec_id` validation
-- [ ] Add checklist extraction and stable checklist identity
-- [ ] Add checklist requirement-level parsing
+- [x] Add checklist extraction and stable checklist identity
+- [x] Add checklist requirement-level parsing
 - [ ] Add dependency parsing
 - [ ] Add source path and revision metadata capture
 - [ ] Validate changed crates and direct downstream dependents

@@ -57,6 +57,30 @@ impl SpecDeclaredStatus {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpecChecklistIdentitySource {
+    Explicit,
+    Generated,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpecChecklistRequirementLevel {
+    Required,
+    Informational,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpecChecklistItem {
+    pub item_id: String,
+    pub identity_source: SpecChecklistIdentitySource,
+    pub explicit_id: Option<String>,
+    pub label: String,
+    pub checked: bool,
+    pub requirement_level: SpecChecklistRequirementLevel,
+    pub section_path: Vec<String>,
+    pub line_number: usize,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParsedSpecDocument {
     pub source: DiscoveredSpecSource,
@@ -66,6 +90,7 @@ pub struct ParsedSpecDocument {
     pub title: String,
     pub status: SpecDeclaredStatus,
     pub created: String,
+    pub checklist_items: Vec<SpecChecklistItem>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -165,8 +165,9 @@ pub use snapshot_restoration::{
 };
 pub use spec_engine::{
     discover_spec_sources, parse_spec_source, resolve_spec_root, DiscoveredSpecSource,
-    ParsedSpecDocument, SpecDeclaredStatus, SpecParseDiagnostic, SpecParseDiagnosticKind,
-    SpecRootResolution, SpecRootSource,
+    ParsedSpecDocument, SpecChecklistIdentitySource, SpecChecklistItem,
+    SpecChecklistRequirementLevel, SpecDeclaredStatus, SpecParseDiagnostic,
+    SpecParseDiagnosticKind, SpecRootResolution, SpecRootSource,
 };
 pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,
