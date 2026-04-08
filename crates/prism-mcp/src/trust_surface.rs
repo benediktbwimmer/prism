@@ -5,13 +5,16 @@ use prism_core::{
     CoordinationAuthorityMutationStatus, CoordinationAuthorityStore, CoordinationReadConsistency,
     CoordinationReadRequest, CoordinationStateView, GitSharedRefsCoordinationAuthorityStore,
 };
+use prism_ir::EventId;
 use prism_query::{
-    CoordinationTransactionProtocolIndeterminate, CoordinationTransactionProtocolRejection,
-    CoordinationTransactionProtocolState,
+    CoordinationTransactionError, CoordinationTransactionProtocolIndeterminate,
+    CoordinationTransactionProtocolRejection, CoordinationTransactionProtocolState,
 };
 use rmcp::model::ErrorData as McpError;
 use serde::Serialize;
 use serde_json::{json, Value};
+
+use crate::{CoordinationMutationResult, MutationViolationView};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -91,6 +94,79 @@ pub(crate) fn coordination_authority_protocol_state(
     }
 }
 
+pub(crate) fn coordination_query_protocol_result(
+    event_id: &EventId,
+    protocol_error: &CoordinationTransactionError,
+) -> Option<CoordinationMutationResult> {
+    match protocol_error {
+        CoordinationTransactionError::Rejected(rejection) => {
+            if matches!(
+                rejection.stage,
+                prism_query::CoordinationTransactionValidationStage::Domain
+                    | prism_query::CoordinationTransactionValidationStage::Commit
+            ) {
+                return None;
+            }
+            let state = serde_json::to_value(protocol_error.protocol_state()).ok()?;
+            Some(CoordinationMutationResult {
+                event_id: event_id.0.to_string(),
+                event_ids: Vec::new(),
+                rejected: true,
+                violations: vec![coordination_protocol_violation(
+                    &rejection.reason_code,
+                    &rejection.message,
+                    rejection.stage.tag(),
+                    rejection.category.tag(),
+                )],
+                state,
+            })
+        }
+        CoordinationTransactionError::Indeterminate { .. } => Some(CoordinationMutationResult {
+            event_id: event_id.0.to_string(),
+            event_ids: Vec::new(),
+            rejected: false,
+            violations: Vec::new(),
+            state: serde_json::to_value(protocol_error.protocol_state()).ok()?,
+        }),
+    }
+}
+
+pub(crate) fn coordination_authority_protocol_result(
+    event_id: &EventId,
+    authority_error: &CoordinationAuthorityMutationError,
+) -> Option<CoordinationMutationResult> {
+    let state = coordination_protocol_state_value(
+        coordination_authority_protocol_state(authority_error),
+        None,
+    )?;
+    let rejected = !matches!(
+        authority_error.status,
+        CoordinationAuthorityMutationStatus::Indeterminate
+    );
+    let violations = if rejected {
+        let category = match authority_error.status {
+            CoordinationAuthorityMutationStatus::Conflict => "conflict",
+            CoordinationAuthorityMutationStatus::Rejected => "domain_violation",
+            CoordinationAuthorityMutationStatus::Indeterminate => unreachable!(),
+        };
+        vec![coordination_protocol_violation(
+            &authority_error.reason_code,
+            &authority_error.message,
+            "commit",
+            category,
+        )]
+    } else {
+        Vec::new()
+    };
+    Some(CoordinationMutationResult {
+        event_id: event_id.0.to_string(),
+        event_ids: Vec::new(),
+        rejected,
+        violations,
+        state,
+    })
+}
+
 pub(crate) fn coordination_protocol_state_value(
     protocol_state: CoordinationTransactionProtocolState,
     workspace_root: Option<&Path>,
@@ -139,12 +215,37 @@ fn coordination_transaction_authority_stamp_view(workspace_root: Option<&Path>) 
     .ok()
 }
 
+fn coordination_protocol_violation(
+    code: &str,
+    summary: &str,
+    stage: &str,
+    category: &str,
+) -> MutationViolationView {
+    MutationViolationView {
+        code: code.to_string(),
+        summary: summary.to_string(),
+        plan_id: None,
+        task_id: None,
+        claim_id: None,
+        artifact_id: None,
+        details: json!({
+            "stage": stage,
+            "category": category,
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use prism_core::CoordinationAuthorityMutationError;
+    use prism_ir::EventId;
+    use prism_query::CoordinationTransactionError;
     use serde_json::Value;
 
-    use super::{coordination_authority_protocol_state, mutation_capability_denied_error};
+    use super::{
+        coordination_authority_protocol_result, coordination_authority_protocol_state,
+        coordination_query_protocol_result, mutation_capability_denied_error,
+    };
 
     #[test]
     fn authority_conflict_maps_to_commit_conflict_protocol_state() {
@@ -177,6 +278,36 @@ mod tests {
             state.indeterminate.expect("indeterminate").reason_code,
             "shared_ref_transport_uncertain"
         );
+    }
+
+    #[test]
+    fn protocol_query_rejection_builds_structured_mutation_result() {
+        let error =
+            CoordinationTransactionError::Rejected(prism_query::CoordinationTransactionRejection {
+                stage: prism_query::CoordinationTransactionValidationStage::InputShape,
+                category: prism_query::CoordinationTransactionRejectionCategory::DomainViolation,
+                reason_code: "invalid_mutation_shape",
+                message: "mutation payload is invalid".to_string(),
+            });
+        let result = coordination_query_protocol_result(&EventId::new("event:test"), &error)
+            .expect("protocol result");
+        assert!(result.rejected);
+        assert_eq!(result.violations[0].code, "invalid_mutation_shape");
+        assert_eq!(result.state["outcome"], "Rejected");
+    }
+
+    #[test]
+    fn authority_conflict_builds_structured_mutation_result() {
+        let error = CoordinationAuthorityMutationError::conflict(
+            "authority_transaction_conflict",
+            "authority stamp no longer matches",
+            None,
+        );
+        let result = coordination_authority_protocol_result(&EventId::new("event:test"), &error)
+            .expect("authority result");
+        assert!(result.rejected);
+        assert_eq!(result.violations[0].code, "authority_transaction_conflict");
+        assert_eq!(result.state["rejection"]["category"], "conflict");
     }
 
     #[test]

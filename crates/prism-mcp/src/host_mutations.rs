@@ -49,8 +49,10 @@ use crate::git_execution::{
 use crate::mutation_trace::MutationRun;
 use crate::trust_surface::{
     attach_coordination_authority_stamp,
+    coordination_authority_protocol_result as build_coordination_authority_protocol_result,
     coordination_authority_protocol_state as build_coordination_authority_protocol_state,
     coordination_protocol_state_value,
+    coordination_query_protocol_result as build_coordination_query_protocol_result,
 };
 use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
@@ -147,94 +149,10 @@ pub(crate) fn coordination_transaction_protocol_result(
     error: &anyhow::Error,
 ) -> Option<CoordinationMutationResult> {
     if let Some(protocol_error) = error.downcast_ref::<CoordinationTransactionError>() {
-        return coordination_query_protocol_result(event_id, protocol_error);
+        return build_coordination_query_protocol_result(event_id, protocol_error);
     }
     let authority_error = error.downcast_ref::<CoordinationAuthorityMutationError>()?;
-    coordination_authority_protocol_result(event_id, authority_error)
-}
-
-fn coordination_query_protocol_result(
-    event_id: &EventId,
-    protocol_error: &CoordinationTransactionError,
-) -> Option<CoordinationMutationResult> {
-    match protocol_error {
-        CoordinationTransactionError::Rejected(rejection) => {
-            if matches!(
-                rejection.stage,
-                prism_query::CoordinationTransactionValidationStage::Domain
-                    | prism_query::CoordinationTransactionValidationStage::Commit
-            ) {
-                return None;
-            }
-            let state = serde_json::to_value(protocol_error.protocol_state()).ok()?;
-            Some(CoordinationMutationResult {
-                event_id: event_id.0.to_string(),
-                event_ids: Vec::new(),
-                rejected: true,
-                violations: vec![MutationViolationView {
-                    code: rejection.reason_code.to_string(),
-                    summary: rejection.message.clone(),
-                    plan_id: None,
-                    task_id: None,
-                    claim_id: None,
-                    artifact_id: None,
-                    details: json!({
-                        "stage": rejection.stage.tag(),
-                        "category": rejection.category.tag(),
-                    }),
-                }],
-                state,
-            })
-        }
-        CoordinationTransactionError::Indeterminate { .. } => Some(CoordinationMutationResult {
-            event_id: event_id.0.to_string(),
-            event_ids: Vec::new(),
-            rejected: false,
-            violations: Vec::new(),
-            state: serde_json::to_value(protocol_error.protocol_state()).ok()?,
-        }),
-    }
-}
-
-fn coordination_authority_protocol_result(
-    event_id: &EventId,
-    authority_error: &CoordinationAuthorityMutationError,
-) -> Option<CoordinationMutationResult> {
-    let state = coordination_protocol_state_value(
-        build_coordination_authority_protocol_state(authority_error),
-        None,
-    )?;
-    let rejected = !matches!(
-        authority_error.status,
-        CoordinationAuthorityMutationStatus::Indeterminate
-    );
-    let mut violations = Vec::new();
-    if rejected {
-        let category = match authority_error.status {
-            CoordinationAuthorityMutationStatus::Conflict => "conflict",
-            CoordinationAuthorityMutationStatus::Rejected => "domain_violation",
-            CoordinationAuthorityMutationStatus::Indeterminate => unreachable!(),
-        };
-        violations.push(MutationViolationView {
-            code: authority_error.reason_code.to_string(),
-            summary: authority_error.message.clone(),
-            plan_id: None,
-            task_id: None,
-            claim_id: None,
-            artifact_id: None,
-            details: json!({
-                "stage": "commit",
-                "category": category,
-            }),
-        });
-    }
-    Some(CoordinationMutationResult {
-        event_id: event_id.0.to_string(),
-        event_ids: Vec::new(),
-        rejected,
-        violations,
-        state,
-    })
+    build_coordination_authority_protocol_result(event_id, authority_error)
 }
 
 fn coordination_transaction_audited_rejection_result(

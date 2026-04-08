@@ -184,6 +184,13 @@ Current progress:
 - protected-state verification semantics now have shared report predicates in `prism-core`, and
   the MCP protected-state resource now uses those predicates instead of reinterpreting string
   status labels locally
+- `trust_surface` now also owns the shared builders for structured coordination protocol mutation
+  results when a mutation fails before any authoritative commit:
+  - query-stage protocol rejections
+  - authority conflicts
+  - authority indeterminate outcomes
+- `host_mutations.rs` no longer assembles those rejected/conflict/indeterminate result envelopes
+  inline; it now delegates to the shared trust-surface builders
 
 ### Slice 2: Capability and authorization centralization
 
@@ -239,6 +246,9 @@ Current progress:
   - projection materialization-state interpretation
 - `runtime_views.rs` and `serving_projection_models.rs` now consume the same freshness semantics
   instead of independently reinterpreting raw status strings
+- coordination mutation result shaping for pre-commit protocol failures now also flows through the
+  same trust boundary used for authority protocol-state translation, instead of being rebuilt
+  separately in `host_mutations.rs`
 
 ### Slice 4: Diagnostics and service-surface cleanup
 
