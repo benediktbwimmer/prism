@@ -3,6 +3,7 @@ mod checkpoint_materializer;
 mod concept_events;
 mod concept_relation_events;
 mod contract_events;
+mod coordination_authority_store;
 mod coordination_persistence;
 mod coordination_reads;
 mod coordination_snapshot_sanitization;
@@ -73,6 +74,18 @@ use session_bootstrap::{
 pub use admission::AdmissionBusyError;
 pub use coordination_reads::{
     CoordinationReadConsistency, CoordinationReadFreshness, CoordinationReadResult,
+};
+pub use coordination_authority_store::{
+    CoordinationAuthorityBackendDetails, CoordinationAuthorityBackendKind,
+    CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
+    CoordinationAuthorityProvenance, CoordinationAuthorityStamp, CoordinationAuthorityStore,
+    CoordinationConflictInfo, CoordinationCurrentState, CoordinationDerivedStateMode,
+    CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryEntry,
+    CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
+    CoordinationStateView, CoordinationTransactionBase, CoordinationTransactionDiagnostic,
+    CoordinationTransactionRequest, CoordinationTransactionResult,
+    CoordinationTransactionStatus, GitSharedRefsCoordinationAuthorityStore,
+    RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
