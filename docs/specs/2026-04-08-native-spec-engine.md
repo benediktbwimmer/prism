@@ -214,11 +214,38 @@ The normalized checklist item should include at least:
 Raw index is not enough.
 Checklist identity must survive ordinary editing better than position alone.
 
-The initial model should support:
+#### Preferred: explicit inline annotations
 
-- explicit checklist item ids when present
-- otherwise a deterministic generated key based on section path, normalized label text, and local
-  disambiguator
+The preferred checklist identity mechanism is an explicit inline annotation on the checklist item
+itself, for example:
+
+```md
+- [ ] implement plan sorting <!-- id: impl-sort -->
+- [ ] add query surface for sorted plans <!-- id: sort-query -->
+```
+
+Explicit ids are stable across rewording, reordering, and section reorganization.
+
+This matters because sync provenance and coverage tracking bind to checklist item identities. If a
+human rewords a checklist item and the identity silently changes, all linked sync provenance
+orphans, coverage tracking fractures, and drift detection produces false positives.
+
+Explicit annotations eliminate that failure mode entirely.
+
+PRISM's own specs should use explicit annotations from day one so that dogfooding exercises the
+stable identity path immediately.
+
+#### Fallback: generated keys
+
+When no explicit annotation is present, PRISM should fall back to a deterministic generated key
+based on section path, normalized label text, and a local disambiguator.
+
+Generated keys are acceptable for repos that do not need tight sync provenance or coverage
+tracking. They are not acceptable as the primary identity mechanism for specs that will drive
+coordination sync.
+
+PRISM should surface a diagnostic warning when a spec uses generated keys for checklist items that
+are linked to coordination objects through sync provenance.
 
 PRISM should not require a separate checklist schema in v1.
 
