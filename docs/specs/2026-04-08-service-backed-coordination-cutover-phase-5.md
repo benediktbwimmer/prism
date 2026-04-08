@@ -219,6 +219,8 @@ Current progress:
 - manual reindex and watch-refresh failure fallback now restore coordination runtime state from the
   service-backed protected plan-state loader when available, instead of always reviving the live
   in-memory coordination snapshot as the fallback source
+- the live-prism workspace indexer constructor now also prefers protected/materialized
+  coordination plan state before falling back to the in-memory continuity snapshot
 
 Exit criteria:
 

@@ -258,7 +258,7 @@ impl<S: Store> WorkspaceIndexer<S> {
     #[allow(dead_code)]
     pub(crate) fn with_live_prism_and_options(
         root: impl AsRef<Path>,
-        store: S,
+        mut store: S,
         prism: &Prism,
         workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
         checkpoint_materializer: Option<CheckpointMaterializerHandle>,
@@ -320,11 +320,21 @@ impl<S: Store> WorkspaceIndexer<S> {
         } else {
             ProjectionIndex::default()
         };
-        let coordination_snapshot = if coordination {
-            prism.coordination_snapshot()
+        let plan_state = if coordination {
+            load_repo_protected_plan_state(&root, &mut store)?
         } else {
-            CoordinationSnapshot::default()
+            None
         };
+        let coordination_snapshot = plan_state
+            .as_ref()
+            .map(|state| state.snapshot.clone())
+            .unwrap_or_else(|| {
+                if coordination {
+                    prism.coordination_snapshot()
+                } else {
+                    CoordinationSnapshot::default()
+                }
+            });
         let restore_runtime_ms = restore_runtime_started.elapsed().as_millis();
 
         info!(
