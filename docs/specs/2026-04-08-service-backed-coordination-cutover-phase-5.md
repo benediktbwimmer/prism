@@ -227,6 +227,9 @@ Current progress:
 - strong coordination-runtime hydration now also republishes through the same service-backed
   current-state applicator instead of mutating the live runtime snapshot and runtime-state cache
   separately by hand
+- watch-refresh and manual-reindex recovery now share one protected-state-aware fallback runtime
+  builder instead of duplicating the same “protected plan state or live continuity snapshot”
+  reconstruction logic in both call sites
 
 Exit criteria:
 

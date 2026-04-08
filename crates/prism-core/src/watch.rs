@@ -33,9 +33,9 @@ use crate::indexer::WorkspaceIndexer;
 use crate::layout::discover_layout;
 use crate::observed_change_tracker::SharedObservedChangeTracker;
 use crate::protected_state::runtime_sync::{
+    build_runtime_state_with_protected_coordination_fallback,
     load_repo_protected_knowledge_for_runtime, load_repo_protected_plan_state,
-    load_repo_protected_plan_state_or_runtime_fallback, sync_selected_repo_protected_state,
-    ProtectedStateImportSelection,
+    sync_selected_repo_protected_state, ProtectedStateImportSelection,
 };
 use crate::protected_state::streams::{classify_protected_repo_relative_path, ProtectedRepoStream};
 use crate::session::{
@@ -579,36 +579,31 @@ fn refresh_prism_snapshot_with_guard(
         match indexer.index_with_refresh_plan_and_meta(trigger.clone(), &plan, observed_meta) {
             Ok(observed) => observed,
             Err(error) => {
-                let fallback_plan_state = if coordination_enabled {
+                let fallback_state = if coordination_enabled {
                     let mut local_store = store.lock().expect("workspace store lock poisoned");
-                    Some(load_repo_protected_plan_state_or_runtime_fallback(
+                    build_runtime_state_with_protected_coordination_fallback(
                         root,
                         &mut *local_store,
                         current_prism.as_ref(),
-                    )?)
+                        next_layout,
+                    )?
                 } else {
-                    None
+                    let mut fallback_graph = Graph::from_snapshot(current_prism.graph().snapshot());
+                    fallback_graph.bind_workspace_root(root);
+                    WorkspaceRuntimeState::new(
+                        next_layout,
+                        fallback_graph,
+                        HistoryStore::from_snapshot(current_prism.history_snapshot()),
+                        OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
+                        Default::default(),
+                        Vec::new(),
+                        ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
+                        current_prism.runtime_capabilities(),
+                    )
                 };
-                let mut fallback_graph = Graph::from_snapshot(current_prism.graph().snapshot());
-                fallback_graph.bind_workspace_root(root);
                 *runtime_state
                     .lock()
-                    .expect("workspace runtime state lock poisoned") = WorkspaceRuntimeState::new(
-                    next_layout,
-                    fallback_graph,
-                    HistoryStore::from_snapshot(current_prism.history_snapshot()),
-                    OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
-                    fallback_plan_state
-                        .as_ref()
-                        .map(|state| state.snapshot.clone())
-                        .unwrap_or_default(),
-                    fallback_plan_state
-                        .as_ref()
-                        .map(|state| state.runtime_descriptors.clone())
-                        .unwrap_or_default(),
-                    ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
-                    current_prism.runtime_capabilities(),
-                );
+                    .expect("workspace runtime state lock poisoned") = fallback_state;
                 return Err(error);
             }
         };

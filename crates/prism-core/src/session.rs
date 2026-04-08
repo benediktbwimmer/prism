@@ -81,8 +81,8 @@ use crate::prism_doc::{
 };
 use crate::projection_hydration::persisted_projection_load_plan;
 use crate::protected_state::runtime_sync::{
+    build_runtime_state_with_protected_coordination_fallback,
     load_repo_protected_knowledge_for_runtime, load_repo_protected_plan_state,
-    load_repo_protected_plan_state_or_runtime_fallback,
     sync_repo_protected_state,
 };
 use crate::published_knowledge::{
@@ -1242,34 +1242,28 @@ impl WorkspaceSession {
             &deep_paths,
         );
         if let Err(error) = index_result {
-            let fallback_plan_state = if self.coordination_enabled {
+            let fallback_state = if self.coordination_enabled {
                 let mut store = self.store.lock().expect("workspace store lock poisoned");
-                Some(load_repo_protected_plan_state_or_runtime_fallback(
+                build_runtime_state_with_protected_coordination_fallback(
                     &self.root,
                     &mut *store,
                     current_prism.as_ref(),
-                )?)
+                    next_layout,
+                )?
             } else {
-                None
+                let mut fallback_graph = Graph::from_snapshot(current_prism.graph().snapshot());
+                fallback_graph.bind_workspace_root(&self.root);
+                WorkspaceRuntimeState::new(
+                    next_layout,
+                    fallback_graph,
+                    HistoryStore::from_snapshot(current_prism.history_snapshot()),
+                    OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
+                    Default::default(),
+                    Vec::new(),
+                    ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
+                    current_prism.runtime_capabilities(),
+                )
             };
-            let mut fallback_graph = Graph::from_snapshot(current_prism.graph().snapshot());
-            fallback_graph.bind_workspace_root(&self.root);
-            let fallback_state = WorkspaceRuntimeState::new(
-                next_layout,
-                fallback_graph,
-                HistoryStore::from_snapshot(current_prism.history_snapshot()),
-                OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
-                fallback_plan_state
-                    .as_ref()
-                    .map(|state| state.snapshot.clone())
-                    .unwrap_or_default(),
-                fallback_plan_state
-                    .as_ref()
-                    .map(|state| state.runtime_descriptors.clone())
-                    .unwrap_or_default(),
-                ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
-                current_prism.runtime_capabilities(),
-            );
             *self
                 .runtime_state
                 .lock()
