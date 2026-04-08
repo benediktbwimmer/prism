@@ -114,6 +114,16 @@ fn record_optional_mutation_auth_phase(
     }
 }
 
+fn mutation_auth_missing_error() -> McpError {
+    McpError::invalid_params(
+        "prism_mutate requires either `credential` or an attached bridge execution binding",
+        Some(json!({
+            "code": "mutation_auth_missing",
+            "nextAction": "Supply `credential` directly, or call `prism_bridge_adopt` on a stdio bridge attached to a registered agent worktree before retrying the mutation.",
+        })),
+    )
+}
+
 impl PrismMcpServer {
     fn worktree_mode_label(mode: WorktreeMode) -> &'static str {
         match mode {
@@ -425,28 +435,37 @@ impl PrismMcpServer {
         bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
         requirement: MutationCapabilityRequirement,
     ) -> Result<MutationAuthentication, McpError> {
-        if let Some(credential) = credential {
-            return self.authenticate_principal_mutation(credential, requirement);
-        }
-        if let Some(bridge_execution) = bridge_execution {
-            self.authenticate_bridge_execution(bridge_execution)?;
-            return Ok(MutationAuthentication::WorktreeExecutor);
-        }
-        Err(McpError::invalid_params(
-            "prism_mutate requires either `credential` or an attached bridge execution binding",
-            Some(json!({
-                "code": "mutation_auth_missing",
-                "nextAction": "Supply `credential` directly, or call `prism_bridge_adopt` on a stdio bridge attached to a registered agent worktree before retrying the mutation.",
-            })),
-        ))
+        self.authenticate_mutation_common(None, credential, bridge_execution, requirement)
     }
 
-    fn authenticate_principal_mutation(
+    fn authenticate_mutation_common(
         &self,
-        credential: &PrismMutationCredentialArgs,
+        run: Option<&MutationRun>,
+        credential: Option<&PrismMutationCredentialArgs>,
+        bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
         requirement: MutationCapabilityRequirement,
     ) -> Result<MutationAuthentication, McpError> {
-        self.authenticate_principal_mutation_common(None, credential, requirement)
+        if let Some(credential) = credential {
+            return self.authenticate_principal_mutation_common(run, credential, requirement);
+        }
+        if let Some(bridge_execution) = bridge_execution {
+            let started = Instant::now();
+            let result = self.authenticate_bridge_execution(bridge_execution);
+            record_optional_mutation_auth_phase(
+                run,
+                "mutation.auth.bridgeExecution",
+                json!({
+                    "worktreeId": bridge_execution.worktree_id,
+                    "agentLabel": bridge_execution.agent_label,
+                }),
+                started,
+                result.is_ok(),
+                result.as_ref().err().map(ToString::to_string),
+            );
+            result?;
+            return Ok(MutationAuthentication::WorktreeExecutor);
+        }
+        Err(mutation_auth_missing_error())
     }
 
     fn authenticate_principal_mutation_common(
@@ -710,40 +729,7 @@ impl PrismMcpServer {
         bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
         requirement: MutationCapabilityRequirement,
     ) -> Result<MutationAuthentication, McpError> {
-        if let Some(credential) = credential {
-            return self.authenticate_principal_mutation_with_run(run, credential, requirement);
-        }
-        if let Some(bridge_execution) = bridge_execution {
-            let started = Instant::now();
-            let result = self.authenticate_bridge_execution(bridge_execution);
-            run.record_phase(
-                "mutation.auth.bridgeExecution",
-                &json!({
-                    "worktreeId": bridge_execution.worktree_id,
-                    "agentLabel": bridge_execution.agent_label,
-                }),
-                started.elapsed(),
-                result.is_ok(),
-                result.as_ref().err().map(ToString::to_string),
-            );
-            return result.map(|_| MutationAuthentication::WorktreeExecutor);
-        }
-        Err(McpError::invalid_params(
-            "prism_mutate requires either `credential` or an attached bridge execution binding",
-            Some(json!({
-                "code": "mutation_auth_missing",
-                "nextAction": "Supply `credential` directly, or call `prism_bridge_adopt` on a stdio bridge attached to a registered agent worktree before retrying the mutation.",
-            })),
-        ))
-    }
-
-    fn authenticate_principal_mutation_with_run(
-        &self,
-        run: &MutationRun,
-        credential: &PrismMutationCredentialArgs,
-        requirement: MutationCapabilityRequirement,
-    ) -> Result<MutationAuthentication, McpError> {
-        self.authenticate_principal_mutation_common(Some(run), credential, requirement)
+        self.authenticate_mutation_common(Some(run), credential, bridge_execution, requirement)
     }
 
     fn require_declared_work_context(

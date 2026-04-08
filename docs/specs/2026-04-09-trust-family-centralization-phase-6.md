@@ -50,6 +50,11 @@ Current slice notes:
   - authority-stamp attachment for coordination mutation result state
 - `server_surface.rs` principal-auth mutation gating now goes through one shared
   `authenticate_principal_mutation_common(...)` flow for both traced and untraced entry points
+- the top-level mutation-auth dispatcher now also goes through one shared
+  `authenticate_mutation_common(...)` path for:
+  - principal credentials
+  - bridge execution bindings
+  - missing-auth rejection shaping
 - provenance selection for ordinary mutation surfaces versus coordination-authority mutation
   surfaces now goes through `MutationProvenance::for_execution(...)` and
   `MutationProvenanceMode`, instead of keeping that actor/execution-context precedence logic as
@@ -186,6 +191,10 @@ Current progress:
   - registered-worktree enforcement
   - worktree mutator-slot acquisition
   - mutation capability gating
+- `server_surface.rs` no longer keeps separate traced and untraced dispatchers for:
+  - credential-vs-bridge selection
+  - bridge binding verification tracing
+  - missing-auth rejection shaping
 - the shared flow preserves mutation-trace phase recording when a trace is present, while the
   untraced path now depends on the same authorization logic instead of a parallel copy
 
