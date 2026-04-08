@@ -20,6 +20,7 @@ use crate::patch_outcomes::{default_outcome_meta, RecordedPatchOutcome};
 use crate::projection_hydration::persisted_projection_load_plan;
 use crate::protected_state::runtime_sync::{
     load_repo_protected_knowledge_for_runtime, load_repo_protected_plan_state,
+    load_repo_protected_plan_state_or_runtime_fallback,
 };
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::repo_patch_events::merge_repo_patch_events_into_memory;
@@ -320,21 +321,11 @@ impl<S: Store> WorkspaceIndexer<S> {
         } else {
             ProjectionIndex::default()
         };
-        let plan_state = if coordination {
-            load_repo_protected_plan_state(&root, &mut store)?
+        let coordination_snapshot = if coordination {
+            load_repo_protected_plan_state_or_runtime_fallback(&root, &mut store, &prism)?.snapshot
         } else {
-            None
+            CoordinationSnapshot::default()
         };
-        let coordination_snapshot = plan_state
-            .as_ref()
-            .map(|state| state.snapshot.clone())
-            .unwrap_or_else(|| {
-                if coordination {
-                    prism.coordination_snapshot()
-                } else {
-                    CoordinationSnapshot::default()
-                }
-            });
         let restore_runtime_ms = restore_runtime_started.elapsed().as_millis();
 
         info!(

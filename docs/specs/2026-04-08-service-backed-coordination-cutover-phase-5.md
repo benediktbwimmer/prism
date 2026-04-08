@@ -230,6 +230,9 @@ Current progress:
 - watch-refresh and manual-reindex recovery now share one protected-state-aware fallback runtime
   builder instead of duplicating the same “protected plan state or live continuity snapshot”
   reconstruction logic in both call sites
+- the live-prism workspace indexer startup constructor now also uses the same protected-state
+  fallback helper directly, instead of spelling out its own startup-only protected-vs-live
+  coordination snapshot rule
 
 Exit criteria:
 
