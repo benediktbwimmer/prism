@@ -196,51 +196,7 @@ fn coordination_authority_protocol_result(
     event_id: &EventId,
     authority_error: &CoordinationAuthorityMutationError,
 ) -> Option<CoordinationMutationResult> {
-    let state = match authority_error.status {
-        CoordinationAuthorityMutationStatus::Conflict => {
-            serde_json::to_value(prism_query::CoordinationTransactionProtocolState {
-                outcome: "Rejected".to_string(),
-                commit: None,
-                authority_version: None,
-                rejection: Some(prism_query::CoordinationTransactionProtocolRejection {
-                    stage: "commit".to_string(),
-                    category: "conflict".to_string(),
-                    reason_code: authority_error.reason_code.to_string(),
-                    message: authority_error.message.clone(),
-                }),
-                indeterminate: None,
-            })
-            .ok()?
-        }
-        CoordinationAuthorityMutationStatus::Rejected => {
-            serde_json::to_value(prism_query::CoordinationTransactionProtocolState {
-                outcome: "Rejected".to_string(),
-                commit: None,
-                authority_version: None,
-                rejection: Some(prism_query::CoordinationTransactionProtocolRejection {
-                    stage: "commit".to_string(),
-                    category: "domain_violation".to_string(),
-                    reason_code: authority_error.reason_code.to_string(),
-                    message: authority_error.message.clone(),
-                }),
-                indeterminate: None,
-            })
-            .ok()?
-        }
-        CoordinationAuthorityMutationStatus::Indeterminate => {
-            serde_json::to_value(prism_query::CoordinationTransactionProtocolState {
-                outcome: "Indeterminate".to_string(),
-                commit: None,
-                authority_version: None,
-                rejection: None,
-                indeterminate: Some(prism_query::CoordinationTransactionProtocolIndeterminate {
-                    reason_code: authority_error.reason_code.to_string(),
-                    message: authority_error.message.clone(),
-                }),
-            })
-            .ok()?
-        }
-    };
+    let state = coordination_authority_protocol_state(authority_error)?;
     let rejected = !matches!(
         authority_error.status,
         CoordinationAuthorityMutationStatus::Indeterminate
@@ -270,6 +226,97 @@ fn coordination_authority_protocol_result(
         event_ids: Vec::new(),
         rejected,
         violations,
+        state,
+    })
+}
+
+fn coordination_authority_protocol_state(
+    authority_error: &CoordinationAuthorityMutationError,
+) -> Option<Value> {
+    match authority_error.status {
+        CoordinationAuthorityMutationStatus::Conflict => serde_json::to_value(
+            prism_query::CoordinationTransactionProtocolState {
+                outcome: "Rejected".to_string(),
+                commit: None,
+                authority_version: None,
+                rejection: Some(prism_query::CoordinationTransactionProtocolRejection {
+                    stage: "commit".to_string(),
+                    category: "conflict".to_string(),
+                    reason_code: authority_error.reason_code.to_string(),
+                    message: authority_error.message.clone(),
+                }),
+                indeterminate: None,
+            },
+        )
+        .ok(),
+        CoordinationAuthorityMutationStatus::Rejected => serde_json::to_value(
+            prism_query::CoordinationTransactionProtocolState {
+                outcome: "Rejected".to_string(),
+                commit: None,
+                authority_version: None,
+                rejection: Some(prism_query::CoordinationTransactionProtocolRejection {
+                    stage: "commit".to_string(),
+                    category: "domain_violation".to_string(),
+                    reason_code: authority_error.reason_code.to_string(),
+                    message: authority_error.message.clone(),
+                }),
+                indeterminate: None,
+            },
+        )
+        .ok(),
+        CoordinationAuthorityMutationStatus::Indeterminate => serde_json::to_value(
+            prism_query::CoordinationTransactionProtocolState {
+                outcome: "Indeterminate".to_string(),
+                commit: None,
+                authority_version: None,
+                rejection: None,
+                indeterminate: Some(prism_query::CoordinationTransactionProtocolIndeterminate {
+                    reason_code: authority_error.reason_code.to_string(),
+                    message: authority_error.message.clone(),
+                }),
+            },
+        )
+        .ok(),
+    }
+}
+
+fn coordination_transaction_audited_rejection_result(
+    event_id: &EventId,
+    error: &anyhow::Error,
+    audit: CoordinationAudit,
+) -> Option<CoordinationMutationResult> {
+    if !audit.rejected || audit.event_ids.is_empty() {
+        return None;
+    }
+    let state = if let Some(protocol_error) = error.downcast_ref::<CoordinationTransactionError>() {
+        match protocol_error {
+            CoordinationTransactionError::Rejected(_) => {
+                serde_json::to_value(protocol_error.protocol_state()).ok()?
+            }
+            CoordinationTransactionError::Indeterminate { .. } => return None,
+        }
+    } else if let Some(authority_error) = error.downcast_ref::<CoordinationAuthorityMutationError>()
+    {
+        match authority_error.status {
+            CoordinationAuthorityMutationStatus::Indeterminate => return None,
+            CoordinationAuthorityMutationStatus::Conflict
+            | CoordinationAuthorityMutationStatus::Rejected => {
+                coordination_authority_protocol_state(authority_error)?
+            }
+        }
+    } else {
+        return None;
+    };
+
+    Some(CoordinationMutationResult {
+        event_id: audit
+            .event_ids
+            .first()
+            .cloned()
+            .unwrap_or_else(|| event_id.0.to_string()),
+        event_ids: audit.event_ids,
+        rejected: true,
+        violations: audit.violations,
         state,
     })
 }
@@ -3447,7 +3494,9 @@ impl QueryHost {
                         true,
                         None,
                     );
-                    if audit.rejected && !audit.event_ids.is_empty() {
+                    if let Some(result) =
+                        coordination_transaction_audited_rejection_result(&event_id, &error, audit)
+                    {
                         let sync_started = std::time::Instant::now();
                         match self.sync_coordination_revision(workspace) {
                             Ok(()) => {
@@ -3476,17 +3525,7 @@ impl QueryHost {
                                 return Err(sync_error);
                             }
                         }
-                        return Ok(CoordinationMutationResult {
-                            event_id: audit
-                                .event_ids
-                                .first()
-                                .cloned()
-                                .unwrap_or_else(|| event_id.0.to_string()),
-                            event_ids: audit.event_ids,
-                            rejected: true,
-                            violations: audit.violations,
-                            state: Value::Null,
-                        });
+                        return Ok(result);
                     }
                     return Err(error);
                 }
@@ -3502,18 +3541,10 @@ impl QueryHost {
                         return Ok(result);
                     }
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
-                    if audit.rejected && !audit.event_ids.is_empty() {
-                        return Ok(CoordinationMutationResult {
-                            event_id: audit
-                                .event_ids
-                                .first()
-                                .cloned()
-                                .unwrap_or_else(|| event_id.0.to_string()),
-                            event_ids: audit.event_ids,
-                            rejected: true,
-                            violations: audit.violations,
-                            state: Value::Null,
-                        });
+                    if let Some(result) =
+                        coordination_transaction_audited_rejection_result(&event_id, &error, audit)
+                    {
+                        return Ok(result);
                     }
                     return Err(error);
                 }

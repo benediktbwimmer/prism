@@ -251,8 +251,8 @@ Progress:
 - [x] shape, authorization, and identity stages are now explicit protocol functions
 - [x] stable typed rejections exist for empty transactions, unsupported fields, duplicate client ids,
   missing ids, and forward client references
-- [ ] domain-stage rejected results still need to converge with the same shared rejected-result
-  envelope instead of relying on downstream audit interpretation
+- [x] domain-stage rejected results now preserve the same structured rejected-result envelope even
+  when the rejection is also persisted as a `MutationRejected` audit event
 
 ### Slice 3: Conflict, replay, and deterministic rejection
 
@@ -363,6 +363,8 @@ What remains incomplete is the actual protocol convergence:
   `prism-query` envelope; `prism-mcp` only enriches committed results with touched-object views
 - authority-store conflict and indeterminate persistence failures now also surface structurally at
   the host boundary instead of collapsing immediately into generic errors
+- persisted domain rejections no longer fall back to `state: null`; they now preserve the same
+  protocol rejection envelope alongside the audit event ids and violations
 - `prism-query` now owns the protocol-lowering helpers for common plan and task create/update
   adapters, but `host_mutations` still owns too much response shaping and some remaining
   convenience lowering

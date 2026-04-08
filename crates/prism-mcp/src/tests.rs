@@ -2611,7 +2611,19 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
         .unwrap();
     assert!(rejected.rejected);
     assert!(!rejected.event_ids.is_empty());
-    assert_eq!(rejected.state, Value::Null);
+    assert_eq!(rejected.state["outcome"], Value::String("Rejected".to_string()));
+    assert_eq!(
+        rejected.state["rejection"]["stage"],
+        Value::String("domain".to_string())
+    );
+    assert_eq!(
+        rejected.state["rejection"]["category"],
+        Value::String("domain_violation".to_string())
+    );
+    assert_eq!(
+        rejected.state["rejection"]["reasonCode"],
+        Value::String("domain_validation_failed".to_string())
+    );
     assert!(rejected
         .violations
         .iter()
