@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
 use prism_coordination::{
-    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
 };
 use prism_core::{
@@ -39,6 +38,7 @@ mod compact_followups;
 mod compact_tools;
 mod concept_followthrough;
 mod concept_resolution;
+mod coordination_surface;
 mod coordination_executor;
 mod daemon_log;
 mod daemon_mode;
@@ -123,6 +123,7 @@ use change_views::*;
 use common::*;
 use concept_followthrough::*;
 use concept_resolution::*;
+use coordination_surface::current_coordination_surface;
 pub use daemon_mode::serve_with_mode;
 use diagnostics::*;
 use diagnostics_state::DiagnosticsState;
@@ -1016,17 +1017,8 @@ impl QueryHost {
     fn current_coordination_snapshots(
         &self,
     ) -> Result<(CoordinationSnapshot, CoordinationSnapshotV2)> {
-        if let Some(workspace) = self.workspace_session_ref() {
-            if let Some(state) = workspace.load_coordination_plan_state()? {
-                if coordination_snapshot_has_data(&state.snapshot)
-                    || coordination_snapshot_v2_has_data(&state.canonical_snapshot_v2)
-                {
-                    return Ok((state.snapshot, state.canonical_snapshot_v2));
-                }
-            }
-        }
-        let prism = self.current_prism();
-        Ok((prism.coordination_snapshot(), prism.coordination_snapshot_v2()))
+        let surface = current_coordination_surface(self)?;
+        Ok((surface.snapshot, surface.snapshot_v2))
     }
 
     pub(crate) fn current_coordination_snapshot(&self) -> Result<CoordinationSnapshot> {
@@ -1038,27 +1030,13 @@ impl QueryHost {
     }
 
     pub(crate) fn current_coordination_read_model(&self) -> Result<CoordinationReadModel> {
-        if let Some(workspace) = self.workspace_session_ref() {
-            if let Some(read_model) = workspace.load_coordination_read_model()? {
-                return Ok(read_model);
-            }
-        }
-        Ok(coordination_read_model_from_snapshot(
-            &self.current_coordination_snapshot()?,
-        ))
+        Ok(current_coordination_surface(self)?.read_model)
     }
 
     pub(crate) fn current_coordination_queue_read_model(
         &self,
     ) -> Result<CoordinationQueueReadModel> {
-        if let Some(workspace) = self.workspace_session_ref() {
-            if let Some(queue_read_model) = workspace.load_coordination_queue_read_model()? {
-                return Ok(queue_read_model);
-            }
-        }
-        Ok(coordination_queue_read_model_from_snapshot(
-            &self.current_coordination_snapshot()?,
-        ))
+        Ok(current_coordination_surface(self)?.queue_read_model)
     }
 
     pub(crate) fn workspace_runtime_binding_ref(&self) -> Option<&Arc<WorkspaceRuntimeBinding>> {

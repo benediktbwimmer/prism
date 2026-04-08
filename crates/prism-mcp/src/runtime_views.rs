@@ -35,6 +35,9 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::daemon_log;
+use crate::coordination_surface::{
+    current_coordination_surface, current_coordination_surface_for_workspace,
+};
 use crate::diagnostics_state::RuntimeStatusRevisionKey;
 use crate::log_scope::{select_log_sources, LogScope, RepoLogSource};
 use crate::mcp_call_log::McpCallLogStore;
@@ -134,24 +137,19 @@ pub(crate) fn refresh_cached_runtime_status(host: &QueryHost) -> Result<RuntimeS
     let binding = host.workspace_runtime_binding_ref().ok_or_else(|| {
         anyhow!("runtime introspection requires a workspace-backed PRISM session")
     })?;
-    let service_backed_coordination_snapshot = host.current_coordination_snapshot()?;
+    let coordination_surface = current_coordination_surface(host)?;
     let live_overlay_coordination_snapshot = host.current_prism().coordination_snapshot();
     let inputs = RuntimeStatusInputs {
         root: workspace.root(),
         workspace: workspace.as_ref(),
         prism: host.current_prism(),
-        service_backed_coordination_snapshot,
+        service_backed_coordination_snapshot: coordination_surface.snapshot,
         live_overlay_coordination_snapshot,
-        tracked_coordination_snapshot_revision: workspace
-            .load_tracked_coordination_snapshot_revision()?,
-        coordination_startup_checkpoint_revision: workspace
-            .load_coordination_startup_checkpoint_revision()?,
-        coordination_read_model_revision: workspace
-            .load_coordination_read_model()?
-            .map(|model| model.revision),
-        coordination_queue_read_model_revision: workspace
-            .load_coordination_queue_read_model()?
-            .map(|model| model.revision),
+        tracked_coordination_snapshot_revision: coordination_surface.tracked_snapshot_revision,
+        coordination_startup_checkpoint_revision: coordination_surface
+            .startup_checkpoint_revision,
+        coordination_read_model_revision: coordination_surface.read_model_revision,
+        coordination_queue_read_model_revision: coordination_surface.queue_read_model_revision,
         loaded_workspace_revision: host.loaded_workspace_revision_value(),
         loaded_episodic_revision: host.loaded_episodic_revision_value(),
         loaded_inference_revision: host.loaded_inference_revision_value(),
@@ -196,32 +194,22 @@ pub(crate) fn refresh_cached_runtime_status_for_config(
         .lock()
         .expect("workspace runtime engine lock poisoned")
         .queue_snapshot();
-    let service_backed_coordination_snapshot = config
-        .workspace
-        .load_coordination_snapshot()?
-        .filter(crate::coordination_snapshot_has_data)
-        .unwrap_or_else(|| config.workspace.prism().coordination_snapshot());
+    let coordination_surface = current_coordination_surface_for_workspace(
+        Some(config.workspace.as_ref()),
+        config.workspace.prism_arc(),
+    )?;
     let live_overlay_coordination_snapshot = config.workspace.prism().coordination_snapshot();
     let inputs = RuntimeStatusInputs {
         root: config.workspace.root(),
         workspace: config.workspace.as_ref(),
         prism: config.workspace.prism_arc(),
-        service_backed_coordination_snapshot,
+        service_backed_coordination_snapshot: coordination_surface.snapshot,
         live_overlay_coordination_snapshot,
-        tracked_coordination_snapshot_revision: config
-            .workspace
-            .load_tracked_coordination_snapshot_revision()?,
-        coordination_startup_checkpoint_revision: config
-            .workspace
-            .load_coordination_startup_checkpoint_revision()?,
-        coordination_read_model_revision: config
-            .workspace
-            .load_coordination_read_model()?
-            .map(|model| model.revision),
-        coordination_queue_read_model_revision: config
-            .workspace
-            .load_coordination_queue_read_model()?
-            .map(|model| model.revision),
+        tracked_coordination_snapshot_revision: coordination_surface.tracked_snapshot_revision,
+        coordination_startup_checkpoint_revision: coordination_surface
+            .startup_checkpoint_revision,
+        coordination_read_model_revision: coordination_surface.read_model_revision,
+        coordination_queue_read_model_revision: coordination_surface.queue_read_model_revision,
         loaded_workspace_revision: config.loaded_workspace_revision.load(Ordering::Relaxed),
         loaded_episodic_revision: config.loaded_episodic_revision.load(Ordering::Relaxed),
         loaded_inference_revision: config.loaded_inference_revision.load(Ordering::Relaxed),
