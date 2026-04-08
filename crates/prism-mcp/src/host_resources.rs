@@ -225,7 +225,12 @@ impl QueryHost {
             })?;
             let stream_selector =
                 parse_resource_query_param(uri, "stream").filter(|value| !value.is_empty());
-            let streams = diagnose_protected_state(workspace_root, stream_selector.as_deref())?
+            let reports = diagnose_protected_state(workspace_root, stream_selector.as_deref())?;
+            let non_verified_stream_count = reports
+                .iter()
+                .filter(|report| !report.is_verified())
+                .count();
+            let streams = reports
                 .into_iter()
                 .map(|report| ProtectedStateStreamView {
                     stream: report.stream,
@@ -240,10 +245,6 @@ impl QueryHost {
                     repair_hint: report.repair_hint,
                 })
                 .collect::<Vec<_>>();
-            let non_verified_stream_count = streams
-                .iter()
-                .filter(|stream| stream.verification_status != "Verified")
-                .count();
             let related_resources = dedupe_resource_link_views(vec![
                 instructions_resource_view_link(),
                 capabilities_resource_view_link(),

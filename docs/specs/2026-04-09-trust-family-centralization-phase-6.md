@@ -181,6 +181,9 @@ Current progress:
   envelopes inline; that policy now lives in shared `MutationProvenance` helpers
 - update and retire concept flows now share the same default-provenance fill rule instead of
   repeating `ConceptProvenance::default()` checks inline
+- protected-state verification semantics now have shared report predicates in `prism-core`, and
+  the MCP protected-state resource now uses those predicates instead of reinterpreting string
+  status labels locally
 
 ### Slice 2: Capability and authorization centralization
 
@@ -219,6 +222,17 @@ Exit criteria:
 
 - provenance and verification semantics are carried by shared code paths across coordination and
   service-backed runtime surfaces
+
+Current progress:
+
+- `prism-core::ProtectedStateStreamReport` now owns shared trust predicates for:
+  - verified
+  - conflict
+  - truncated
+- core protected-state verify/quarantine/repair/reconcile flows now use those predicates instead
+  of open-coded string comparisons
+- the MCP protected-state resource now counts non-verified streams from the shared report
+  semantics instead of reinterpreting `verification_status` after view projection
 
 ### Slice 4: Diagnostics and service-surface cleanup
 
