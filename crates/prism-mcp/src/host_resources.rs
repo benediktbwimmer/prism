@@ -1228,7 +1228,11 @@ pub(crate) fn session_task_view(
         .and_then(|task_id| prism.coordination_task(&CoordinationTaskId::new(task_id.clone())));
     let blockers = coordination_task_id
         .as_ref()
-        .map(|task_id| prism.blockers(&CoordinationTaskId::new(task_id.clone()), now))
+        .and_then(|task_id| {
+            prism
+                .task_evidence_status(&CoordinationTaskId::new(task_id.clone()), now)
+                .map(|status| status.blockers)
+        })
         .unwrap_or_default();
     let heartbeat_advice = coordination_task_id.as_ref().and_then(|task_id| {
         task_heartbeat_advice(

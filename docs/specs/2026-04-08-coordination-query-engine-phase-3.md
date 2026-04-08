@@ -348,5 +348,13 @@ The current evidence/review slice is also in place:
   - approved/rejected artifact counts
   - missing validation aggregation across task risk and artifact-required validations
 
+The first product-facing cutover is also in place:
+
+- `prism-mcp` task-facing readers now consume the engine-backed evidence status instead of
+  stitching blockers and artifacts together locally in:
+  - `compact_tools/task_brief.rs`
+  - `host_resources.rs`
+  - `ui_read_models.rs`
+
 The next Phase 3 slice should focus on product-facing read cutover and duplicate-logic removal,
 rather than growing more coordination semantics back into surface modules.

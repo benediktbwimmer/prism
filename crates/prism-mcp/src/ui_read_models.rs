@@ -554,9 +554,12 @@ impl QueryHostUiReadModelsExt for QueryHost {
         let prism = self.current_prism();
         let now = crate::current_timestamp();
         let task_id = prism_ir::CoordinationTaskId::new(task_id.to_string());
+        let evidence_status = prism.task_evidence_status(&task_id, now);
         let (task_view, blockers) = if let Some(task) = prism.coordination_task(&task_id) {
-            let blockers = prism
-                .blockers(&task_id, now)
+            let blockers = evidence_status
+                .as_ref()
+                .map(|status| status.blockers.clone())
+                .unwrap_or_else(|| prism.blockers(&task_id, now))
                 .into_iter()
                 .map(|blocker| {
                     let related_task = blocker
@@ -594,8 +597,15 @@ impl QueryHostUiReadModelsExt for QueryHost {
             })
             .collect::<Vec<_>>();
         let recent_commits = task_recent_commits(&task_view);
-        let artifacts = prism
-            .artifacts(&task_id)
+        let artifacts = evidence_status
+            .map(|status| {
+                status
+                    .artifacts
+                    .into_iter()
+                    .map(|artifact| artifact.artifact)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_else(|| prism.artifacts(&task_id))
             .into_iter()
             .map(artifact_view)
             .collect::<Vec<_>>();
