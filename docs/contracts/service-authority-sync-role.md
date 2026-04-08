@@ -14,6 +14,8 @@ This role exists so that:
 
 - polling, fetch, verification, and refresh behavior have one clear owner inside the service
 - service-side authority freshness does not get smeared across reads, writes, and runtime fanout
+- service-owned coordination materialization advances from one sync owner rather than many runtime
+  local stores
 
 ## 2. Responsibilities
 
@@ -22,7 +24,7 @@ The authority sync role owns:
 - namespace- or root-scoped authority polling
 - fetch and verification of authoritative updates
 - verified snapshot or current-state refresh
-- triggers for local materialization and checkpoint refresh
+- triggers for service-local coordination materialization and checkpoint refresh
 - self-write suppression
 - local authority-change fanout to other roles
 

@@ -1,7 +1,7 @@
 # PRISM Coordination Authority Store
 
-Status: normative contract  
-Audience: PRISM coordination, runtime, MCP, query, storage, and future authority-backend maintainers  
+Status: normative contract
+Audience: PRISM coordination, service, runtime, MCP, query, storage, and future authority-backend maintainers
 Scope: one backend-neutral authority interface for current and historical coordination state
 
 ---
@@ -125,17 +125,18 @@ The target layering should be:
    - Git shared refs backend first
    - PostgreSQL backend later
 
-4. **Local materialization / runtime services**
-   - worktree-local SQLite read models
-   - startup checkpoints
-   - UI read acceleration
-   - local activity telemetry
+4. **Service-owned coordination materialization / runtime services**
+- service-owned coordination read models
+- service-owned coordination checkpoints
+- UI and query acceleration
+- runtime-local activity telemetry
 
 The key rule is:
 
 - the coordination kernel and the product surfaces depend on the **Coordination Authority Store**
 - only backend adapters know whether authority is implemented with shared refs or PostgreSQL
-- local SQLite read models and startup checkpoints remain downstream of the authority interface
+- service-owned coordination read models and checkpoints remain downstream of the authority
+  interface
 - the concrete local persistence seam for eventual reads lives in
   [coordination-materialized-store.md](./coordination-materialized-store.md)
 

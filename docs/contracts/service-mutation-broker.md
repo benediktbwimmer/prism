@@ -15,6 +15,7 @@ This role exists so that:
 - authoritative writes have one orchestration home inside the service
 - write coalescing and retry behavior are explicit
 - the service does not become a hidden write authority
+- runtimes submit coordination mutations through one required service-owned path
 
 ## 2. Responsibilities
 
@@ -26,6 +27,7 @@ The mutation broker owns:
 - routing commits through the coordination mutation protocol and authority store
 - conflict replay or retry orchestration
 - acknowledgment and committed-result fanout
+- brokering coordination writes for runtimes that do not own coordination state directly
 
 ## 3. Non-goals
 

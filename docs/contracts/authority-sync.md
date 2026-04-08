@@ -8,8 +8,8 @@ Scope: discovery of authoritative changes, refresh behavior, checkpoint rebuild 
 
 ## 1. Goal
 
-PRISM must define one explicit **authority sync** contract between the authority store and local
-materialization or runtime consumers.
+PRISM must define one explicit **authority sync** contract between the authority store and
+service-owned coordination materialization or other consumers.
 
 This contract exists so that:
 
@@ -30,7 +30,8 @@ This contract is a client of:
 Authority sync must preserve these rules:
 
 1. Authority discovery and refresh are downstream of the active authority backend.
-2. Local sync logic may detect and import new authoritative state, but may not invent authority.
+2. Service-local sync logic may detect and import new authoritative state, but may not invent
+   authority.
 3. Self-write suppression must prevent churn without hiding genuine remote advancement.
 4. Verification failure must fail honestly rather than silently accepting suspect state.
 5. Sync status must be explainable in terms of authority metadata and freshness state.
@@ -41,8 +42,8 @@ Authority sync is responsible for:
 
 - discovering whether authority has advanced
 - obtaining a verified current authoritative snapshot or equivalent current-state view
-- updating local materialization from that verified input
-- rebuilding or invalidating startup checkpoints when needed
+- updating service-owned coordination materialization from that verified input
+- rebuilding or invalidating service-owned coordination checkpoints when needed
 - suppressing immediate self-write loops
 
 Authority sync is not responsible for:
@@ -114,7 +115,7 @@ Those decisions must be based on explicit authority and schema inputs rather tha
 ## 9. Relationship to reads
 
 Strong reads may drive authority sync immediately.
-Eventual reads may observe the most recent successful materialization.
+Eventual reads may observe the most recent successful service-owned coordination materialization.
 
 This preserves the rule:
 

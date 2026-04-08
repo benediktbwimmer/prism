@@ -2,7 +2,7 @@
 
 Status: in progress
 Audience: coordination, query, storage, runtime, MCP, CLI, UI, auth, and service maintainers
-Scope: the sequential implementation order for finishing the coordination platform, then the full native spec engine, then the PRISM Service
+Scope: the sequential implementation order for finishing the service-backed coordination platform, then the full native spec engine, then the remaining richer PRISM Service roles
 
 ---
 
@@ -11,10 +11,10 @@ Scope: the sequential implementation order for finishing the coordination platfo
 PRISM should complete its next major implementation era in one foundation-first ladder:
 
 1. finish the coordination abstractions fully
-2. cut the codebase over to those abstractions completely
+2. cut the codebase over to a service-backed coordination platform
 3. freeze coordination as the new platform
 4. build the full native spec engine on top of that stable platform
-5. only then implement the PRISM Service on top of those settled seams
+5. implement the remaining richer PRISM Service roles on top of those settled seams
 
 This roadmap exists to prevent:
 
@@ -28,6 +28,10 @@ The core rule is:
 
 - build the foundations fully before building the next layer that depends on them
 
+This roadmap now assumes the accepted decision in:
+
+- [../adrs/2026-04-08-service-owned-coordination-materialization.md](../adrs/2026-04-08-service-owned-coordination-materialization.md)
+
 ## 2. Status
 
 Current phase checklist:
@@ -37,7 +41,7 @@ Current phase checklist:
 - [x] Phase 2: implement Coordination Materialized Store fully
 - [x] Phase 3: implement Coordination Query Engine fully
 - [ ] Phase 4: implement Transactional Coordination Mutation Protocol fully
-- [ ] Phase 5: cut over coordination runtime and product surfaces
+- [ ] Phase 5: cut over service-backed coordination runtime and product surfaces
 - [ ] Phase 6: trust-family cleanup and centralization
 - [ ] Phase 7: freeze coordination as the base platform
 - [ ] Phase 8: implement spec engine source, parser, and identity model
@@ -47,7 +51,7 @@ Current phase checklist:
 - [ ] Phase 12: implement SpecCoverageView fully
 - [ ] Phase 13: implement explicit spec-to-coordination sync actions
 - [ ] Phase 14: expose the spec engine fully through CLI, MCP, and UI
-- [ ] Phase 15: implement the PRISM Service contracts
+- [ ] Phase 15: implement the remaining PRISM Service roles and deployment modes
 
 Current active phase:
 
@@ -71,8 +75,9 @@ The point is to make the architecture structurally clean.
 That means:
 
 - finish the coordination seams first
-- then finish the full spec engine on top of them
-- then build the service on top of the settled platform
+- then finish the service-backed coordination platform
+- then finish the full spec engine on top of it
+- then expand the remaining richer service roles
 
 ## 4. Phases
 
@@ -127,12 +132,12 @@ Current assessment:
 
 ### Phase 2: Implement the Coordination Materialized Store
 
-Implement the local persistent read-model seam fully enough that all local coordination
+Implement the service-owned persistent read-model seam fully enough that all coordination
 materialization goes through it.
 
 This includes:
 
-- local persistent coordination snapshot and read-model access
+- service-local persistent coordination snapshot and read-model access
 - checkpoint bundle access
 - local version and authority-key tracking
 - rebuild, replace, invalidate, and refresh operations
@@ -140,18 +145,18 @@ This includes:
 
 Migration target:
 
-- no product or runtime code talks directly to the coordination SQLite schema except the
+- no product or service code talks directly to the coordination SQLite schema except the
   materialized-store implementation
 
 Exit criteria:
 
-- local coordination persistence is fully behind one disciplined seam
+- service-owned coordination persistence is fully behind one disciplined seam
 
 Current assessment:
 
-- completed by the materialized-store seam, SQLite-backed implementation, explicit read/write/clear
-  families, and product-facing cutover of eventual reads, checkpoint persistence, read-model
-  writes, compaction writes, and materialization metadata access
+- completed at the seam level; ownership target is now explicitly service-owned rather than
+  runtime-owned per the accepted ADR, and later cutover work should converge implementation toward
+  that target
 
 ### Phase 3: Implement the Coordination Query Engine
 
@@ -173,8 +178,8 @@ This includes:
 
 Migration target:
 
-- MCP handlers, CLI commands, UI-facing reads, and runtime views stop embedding workflow evaluation
-  logic directly
+- MCP handlers, CLI commands, UI-facing reads, and service-backed runtime views stop embedding
+  workflow evaluation logic directly
 
 Exit criteria:
 
@@ -213,7 +218,7 @@ Exit criteria:
 
 - all coordination writes happen through one explicit transactional protocol
 
-### Phase 5: Cut over the coordination runtime to those four seams
+### Phase 5: Cut over the service-backed coordination runtime and product surfaces to those four seams
 
 Do the broad migration pass once the four core seams exist.
 
@@ -222,6 +227,7 @@ Touch:
 - session and bootstrap paths
 - watch and sync paths
 - runtime refresh paths
+- service-hosted coordination materialization ownership
 - MCP host, query, and tool paths
 - CLI read and mutate commands
 - UI-facing runtime views
@@ -233,7 +239,7 @@ Touch:
 Exit criteria:
 
 - the coordination layer is fully expressed through the new abstractions
-- no old direct authority, materialization, query, or mutation paths remain
+- no old direct authority, runtime-owned materialization, query, or mutation paths remain
 
 ### Phase 6: Implement the trust-family contracts in code where still needed
 
@@ -253,7 +259,7 @@ Exit criteria:
 
 ### Phase 7: Freeze coordination and call it the new base platform
 
-Checkpoint the coordination layer before building the spec engine on top of it.
+Checkpoint the service-backed coordination layer before building the spec engine on top of it.
 
 This includes:
 
@@ -373,7 +379,7 @@ Exit criteria:
 
 - the spec engine is first-class and usable as the feature-intent layer
 
-### Phase 15: Implement the PRISM Service contracts
+### Phase 15: Implement the remaining PRISM Service roles and deployment modes
 
 Implement in order:
 
@@ -399,7 +405,9 @@ This ordering is driven by real dependency structure:
 - spec engine depends on coordination seams being stable
 - spec coverage depends on both SpecQueryEngine and CoordinationQueryEngine
 - spec sync depends on mutation, query, and provenance seams being stable
-- service depends on all of the above being stable enough not to absorb missing architecture
+- service-backed runtime participation depends on service-owned coordination materialization
+- remaining richer service roles depend on all of the above being stable enough not to absorb
+  missing architecture
 
 This is why the work is mostly sequential.
 
@@ -409,6 +417,7 @@ Do not:
 
 - parallelize by adding temporary bypasses
 - leave direct authority or SQLite access behind “for now”
+- leave runtime-owned coordination materialization behind “for now”
 - couple branch-local spec state into authoritative coordination by accident
 - build service roles before the lower seams are actually clean
 - ship fake abstractions that still require handler-specific logic everywhere
@@ -424,7 +433,7 @@ The implementation order to stake the project on is:
 5. mutation protocol
 6. full coordination cutover
 7. trust and provenance cleanup
-8. freeze coordination platform
+8. freeze service-backed coordination platform
 9. full spec engine
 10. full spec-coordination coverage and sync
-11. PRISM service
+11. remaining richer PRISM service roles

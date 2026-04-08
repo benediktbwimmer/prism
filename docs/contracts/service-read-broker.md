@@ -15,6 +15,8 @@ This role exists so that:
 - service-side reads have one owner for strong versus eventual routing
 - strong-read coalescing is explicit
 - freshness and verification metadata are attached consistently
+- eventual coordination reads are served from service-owned materialization rather than
+  runtime-owned SQLite state
 
 ## 2. Responsibilities
 
@@ -25,6 +27,7 @@ The read broker owns:
 - coalescing strong reads targeting the same relevant authority set
 - selecting between authority-backed and materialized inputs
 - attaching consistency, freshness, and verification metadata to responses
+- serving coordination reads to runtimes that do not own coordination materialization themselves
 
 ## 3. Non-goals
 
@@ -44,6 +47,9 @@ This role is a client of:
 - [coordination-query-engine.md](./coordination-query-engine.md)
 - [consistency-and-freshness.md](./consistency-and-freshness.md)
 - [service-authority-sync-role.md](./service-authority-sync-role.md)
+
+The materialized input here is service-owned coordination materialization, not per-runtime
+coordination storage.
 
 ## 5. Strong-read coalescing
 

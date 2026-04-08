@@ -15,25 +15,33 @@ This contract exists so that:
 
 - the service is specified as an orchestration host rather than a vague blob
 - service responsibilities are sharply separated without introducing a microservice swarm
-- the service remains an optimization around the authority plane rather than becoming a hidden
+- the service remains a coordination host around the authority plane rather than becoming a hidden
   authority plane itself
+- coordination participation has one required host for authority access, materialization, reads,
+  and mutations
 
 ## 2. Core rule
 
 The PRISM Service is:
 
 - one host process
-- an optimization and orchestration shell around the authority plane
+- the required coordination host around the authority plane
 - composed from several narrow internal role engines
 
 The PRISM Service is not:
 
 - the authority plane
 - a microservice swarm
-- a singleton correctness dependency
+- the durable source of coordination truth
 
-If the service disappears, PRISM may become slower or less convenient, but correctness must still
-be recoverable through the authority backend and local fallback behavior.
+Interactive PRISM coordination participation requires a reachable PRISM Service.
+
+If the service disappears:
+
+- the authority backend remains the durable coordination truth
+- offline tooling, export, migration, or diagnostics may still exist
+- interactive runtime participation in coordination should fail clearly rather than half-working
+  against runtime-owned coordination state
 
 ## 3. Service shell responsibilities
 
@@ -45,6 +53,7 @@ The service shell owns:
 - auth and trust plumbing
 - role wiring
 - observability and resource management
+- repo partitioning and multi-repo coordination-root hosting
 
 The service shell does not own coordination domain semantics directly.
 
@@ -73,6 +82,12 @@ Service roles should compose around a small shared kernel:
 - [runtime-identity-and-descriptors.md](./runtime-identity-and-descriptors.md)
 - [authorization-and-capabilities.md](./authorization-and-capabilities.md)
 
+Within that kernel:
+
+- the service owns coordination materialization
+- runtimes do not own coordination SQLite state
+- runtimes remain clients of the service for coordination participation
+
 ## 6. Hard anti-bypass rule
 
 No service role may bypass the authority store, query engine, or materialized-store seams to reach
@@ -92,12 +107,19 @@ object or a hidden authority layer.
 
 The same service shape should support:
 
-- local edge mode
-- repo-scoped leader mode
-- org- or hosted-leader mode later
-- follower mode later
+- local service with Git authority
+- hosted service with Git authority
+- hosted service with PostgreSQL authority
+- follower or edge modes later
 
 These are deployment modes of one service shape, not separate products.
+
+One service process may serve:
+
+- many repos
+- many coordination roots
+- many worktrees
+- many runtimes
 
 ## 8. Initial implementation phases
 
@@ -129,7 +151,7 @@ The intended answers are:
 
 - authority -> authority store or kernel contract
 - deterministic coordination evaluation -> query engine
-- local persisted eventual state -> materialized store
+- service-owned persisted eventual state -> materialized store
 - orchestration, coalescing, or scheduling -> service role
 - transport and runtime connectivity -> runtime gateway
 
@@ -139,5 +161,5 @@ This contract is considered implemented only when:
 
 - the service is modeled as one host process with explicit internal roles
 - role boundaries reference the lower-level contracts instead of inventing their own semantics
-- the service is not required for correctness
+- interactive coordination participation is modeled as service-backed rather than runtime-owned
 - the anti-bypass rule is upheld in code structure and tests

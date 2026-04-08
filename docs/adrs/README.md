@@ -1,0 +1,44 @@
+# PRISM Architecture Decisions
+
+Status: active ADR index  
+Audience: contributors, maintainers, and implementation agents  
+Scope: durable architecture decisions that contracts, specs, and roadmaps should build on
+
+---
+
+## Purpose
+
+`docs/adrs/` is the home for PRISM architecture decision records.
+
+Use this directory when PRISM makes a lasting architectural choice that:
+
+- changes subsystem ownership boundaries
+- supersedes an earlier target assumption
+- should be cited by contracts, specs, and roadmaps
+- is important enough to persist beyond one implementation sprint
+
+## When to write an ADR
+
+Write an ADR when:
+
+- a boundary between subsystems changes
+- an implementation target is replaced by a cleaner one
+- a previously optional component becomes required
+- a new deployment or participation model is adopted
+
+## Filename rules
+
+ADRs should use date-prefixed filenames:
+
+- `YYYY-MM-DD-short-name.md`
+
+## Relationship to other docs
+
+Use this split:
+
+- ADR = durable architecture decision
+- contract = normative seam or invariant after that decision
+- spec = concrete implementation target
+- roadmap = multi-phase sequencing influenced by that decision
+
+When a new ADR changes an active contract or roadmap, update those docs in the same change.

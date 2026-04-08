@@ -64,6 +64,20 @@ Start here:
 
 - [roadmaps/README.md](./roadmaps/README.md)
 
+### `adrs/`
+
+Architecture decision records.
+
+Use `docs/adrs/` for:
+
+- accepted or superseded architecture decisions
+- explicit changes in ownership boundaries or deployment assumptions
+- decisions that contracts, specs, and roadmaps should cite directly
+
+Start here:
+
+- [adrs/README.md](./adrs/README.md)
+
 ### `archived/`
 
 Superseded or historical docs that should no longer be treated as active guidance.
@@ -96,6 +110,7 @@ In practice, this means:
 - if it defines a concrete implementation target, it belongs in `specs/`
 - if it defines a broader implementation ordering across several targets, it belongs in
   `roadmaps/`
+- if it records a durable architectural decision, it belongs in `adrs/`
 - if it is no longer active, it belongs in `archived/`
 
 ## Legacy top-level docs

@@ -1,19 +1,20 @@
 # PRISM Coordination Materialized Store
 
-Status: normative contract  
-Audience: coordination, runtime, query, MCP, CLI, UI, storage, and future service maintainers  
-Scope: non-authoritative persistent local coordination read models, checkpoints, indexed eventual reads, and materialization metadata
+Status: normative contract
+Audience: coordination, service, runtime, query, MCP, CLI, UI, and storage maintainers
+Scope: service-owned non-authoritative coordination read models, checkpoints, indexed eventual reads, and materialization metadata
 
 ---
 
 ## 1. Goal
 
 PRISM must define one explicit **CoordinationMaterializedStore** abstraction for non-authoritative
-local coordination state.
+coordination state owned by the PRISM Service.
 
 This contract exists so that:
 
-- local SQLite semantics live behind one seam instead of leaking across call sites
+- service-owned coordination materialization lives behind one seam instead of leaking across call
+  sites
 - eventual coordination reads use one disciplined path
 - checkpoints, indexed views, and local read models are updated through one protocol
 - authority and materialization do not blur back together
@@ -27,13 +28,14 @@ This abstraction is distinct from:
 
 Canonical ownership:
 
-- this document defines the persisted local coordination storage seam
+- this document defines the service-owned persisted coordination storage seam
 - [local-materialization.md](./local-materialization.md) defines the broader behavioral rules for
   local materialization as a layer
 - [spec-engine.md](./spec-engine.md) defines local spec parsing and spec materialization semantics
   outside the coordination storage seam
 
-The materialized store is the local persisted projection of authority, not the authority itself.
+The materialized store is the service-owned persisted projection of authority, not the authority
+itself.
 
 This contract relies on:
 
@@ -51,22 +53,24 @@ The materialized store must preserve these rules:
    inputs defined by contract.
 4. It must surface which authority version or stamp it corresponds to.
 5. It must remain disposable and rebuildable.
+6. Runtimes do not own or mutate coordination materialization directly.
 
 ## 3. Responsibilities
 
 The CoordinationMaterializedStore owns:
 
-- reading local eventual coordination snapshots
-- reading local indexed task, plan, artifact, and review views
-- reading and writing startup checkpoint bundles
-- replacing or advancing local materialized state from authoritative snapshots or commit results
-- invalidating or clearing stale local materialization
+- reading service-local eventual coordination snapshots
+- reading service-local indexed task, plan, artifact, and review views
+- reading and writing service-owned coordination checkpoint bundles
+- replacing or advancing service-local materialized state from authoritative snapshots or commit
+  results
+- invalidating or clearing stale service-owned coordination materialization
 - storing materialization metadata such as schema version, authority stamp, and materialized-at
 
 It may also own:
 
 - repo- or project-scoped imported coordination checkpoints
-- local diagnostics tables that are explicitly part of materialization metadata
+- service-local diagnostics tables that are explicitly part of materialization metadata
 
 It does not own native spec parsing or spec-state materialization unless another implementation
 contract explicitly chooses to colocate storage behind a separate spec-engine seam.
@@ -82,12 +86,13 @@ The materialized store does not own:
 - runtime descriptor truth
 - mutation acceptance or rejection
 - spec parsing and spec dependency evaluation
+- runtime-local telemetry, command history, or worktree-local operational state
 
 Those belong to the authority store, mutation protocol, and related contracts.
 
 ## 5. Canonical read families
 
-The materialized store should expose local eventual read families such as:
+The materialized store should expose service-local eventual read families such as:
 
 - `read_eventual_snapshot(root_id)`
 - `read_eventual_plan(plan_id)`
@@ -121,17 +126,18 @@ Every persisted materialization unit must be traceable to:
 - authority backend kind
 - authority stamp, version, or equivalent
 - materialization schema version
-- scope identity such as repo, project, worktree, or runtime when relevant
+- scope identity such as coordination root, repo, project, or service partition when relevant
 - materialized-at timestamp
 - completeness or degraded-state metadata when relevant
 
 ## 8. Relationship to eventual reads
 
-The CoordinationMaterializedStore is the primary storage seam for eventual coordination reads.
+The CoordinationMaterializedStore is the primary service-local storage seam for eventual
+coordination reads.
 
 That means:
 
-- product surfaces should not reach directly into SQLite tables
+- service roles and product surfaces should not reach directly into SQLite tables
 - eventual-read call sites should depend on the materialized-store API
 - consistency and freshness metadata must still be surfaced according to
   [consistency-and-freshness.md](./consistency-and-freshness.md)
@@ -144,20 +150,21 @@ The intended flow is:
 
 - authority store yields authoritative snapshot or commit result
 - query engine evaluates coordination semantics
-- materialized store persists the bounded derived state needed for fast eventual reads
+- service-owned materialized store persists the bounded derived state needed for fast eventual
+  reads
 
 If a materialized store contains precomputed evaluation results, those results are still derived
 outputs of the query engine contract.
 
 ## 10. Relationship to checkpoints
 
-Startup checkpoints are part of the materialized-store boundary.
+Coordination checkpoints are part of the materialized-store boundary.
 
 The materialized store should therefore own:
 
 - checkpoint persistence
 - checkpoint invalidation metadata
-- checkpoint lookup by coordination root and local scope
+- checkpoint lookup by coordination root and service-local scope
 
 Checkpoint validity rules themselves are governed by
 [local-materialization.md](./local-materialization.md) and
@@ -171,6 +178,11 @@ The materialized-store abstraction should enforce:
 - no direct SQLite writes for coordination materialization outside the store implementation
 - testability with in-memory or simplified local-store implementations where useful
 
+For runtime participants this also means:
+
+- no runtime-owned SQLite coordination materialization
+- no runtime-side direct reads or writes of coordination eventual state
+
 The abstraction is justified by semantic boundary and call-site discipline, not by hypothetical
 backend swapping alone.
 
@@ -179,7 +191,7 @@ backend swapping alone.
 This contract is considered implemented only when:
 
 - eventual coordination reads no longer depend on ad hoc SQLite access
-- startup checkpoint persistence is routed through the materialized-store seam
+- service-owned coordination checkpoint persistence is routed through the materialized-store seam
 - materialization metadata is explicit and queryable
 - local materialization updates advance only from committed authority or explicitly allowed local
   operational inputs

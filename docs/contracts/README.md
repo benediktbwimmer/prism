@@ -34,6 +34,10 @@ When documents overlap:
 - target architecture docs describe intended shape and rollout direction
 - thesis, roadmap, and future-direction docs provide framing rather than exact semantics
 
+Foundational ADRs that active contracts currently depend on:
+
+- [../adrs/2026-04-08-service-owned-coordination-materialization.md](../adrs/2026-04-08-service-owned-coordination-materialization.md)
+
 ## Current contract set
 
 Core coordination contracts:
