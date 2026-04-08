@@ -63,7 +63,8 @@ Current phase spec:
   [../specs/2026-04-08-coordination-materialized-store-phase-2.md](../specs/2026-04-08-coordination-materialized-store-phase-2.md)
 - Phase 3 completed:
   [../specs/2026-04-08-coordination-query-engine-phase-3.md](../specs/2026-04-08-coordination-query-engine-phase-3.md)
-- Phase 4 spec pending
+- Phase 4 in progress:
+  [../specs/2026-04-08-coordination-mutation-protocol-phase-4.md](../specs/2026-04-08-coordination-mutation-protocol-phase-4.md)
 
 ## 3. Ordering thesis
 
