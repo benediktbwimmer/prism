@@ -202,6 +202,11 @@ Current progress:
   inline in `watch.rs`; it now goes through the shared coordination materialization helper
 - session strong reads and watch polling now call the same authority-sync orchestration module
   instead of owning duplicate refresh choreography
+- session eventual coordination snapshots, plan-state reads, and read-model loads now read through
+  the materialized-store seam or the authority-backed published-plan loaders instead of reaching
+  through the workspace store as a de facto coordination owner
+- dead store-backed coordination read helpers and unused authoritative persistence compatibility
+  methods were removed once the session read path no longer depended on them
 
 Exit criteria:
 

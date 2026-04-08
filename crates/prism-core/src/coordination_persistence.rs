@@ -32,11 +32,7 @@ use crate::coordination_reads::{
     load_eventual_coordination_snapshot_for_root as load_eventual_snapshot_for_root,
     load_eventual_coordination_snapshot_v2_for_root as load_eventual_snapshot_v2_for_root,
 };
-use crate::published_plans::{
-    load_authoritative_coordination_plan_state, load_authoritative_coordination_snapshot,
-    load_authoritative_coordination_snapshot_v2, sync_repo_published_plans,
-    HydratedCoordinationPlanState,
-};
+use crate::published_plans::{sync_repo_published_plans, HydratedCoordinationPlanState};
 use crate::tracked_snapshot::{
     publish_context_from_coordination_events, sync_coordination_snapshot_state,
 };
@@ -118,7 +114,7 @@ fn sync_authoritative_shared_coordination_ref_observed<O>(
     session_id: Option<&SessionId>,
     derived_persistence_mode: CoordinationDerivedPersistenceMode,
     observe_phase: &mut O,
-    ) -> Result<()>
+) -> Result<()>
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
@@ -390,27 +386,6 @@ pub(crate) trait CoordinationPersistenceBackend:
     ) -> Result<Option<HydratedCoordinationPlanState>> {
         let _ = self;
         load_eventual_plan_state_for_root(root)
-    }
-
-    fn load_authoritative_coordination_snapshot_for_root(
-        &mut self,
-        root: &Path,
-    ) -> Result<Option<CoordinationSnapshot>> {
-        load_authoritative_coordination_snapshot(root)
-    }
-
-    fn load_authoritative_coordination_snapshot_v2_for_root(
-        &mut self,
-        root: &Path,
-    ) -> Result<Option<CoordinationSnapshotV2>> {
-        load_authoritative_coordination_snapshot_v2(root)
-    }
-
-    fn load_authoritative_coordination_plan_state_for_root(
-        &mut self,
-        root: &Path,
-    ) -> Result<Option<HydratedCoordinationPlanState>> {
-        load_authoritative_coordination_plan_state(root)
     }
 
     fn persist_coordination_snapshot_for_root(

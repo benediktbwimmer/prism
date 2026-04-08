@@ -52,10 +52,10 @@ use crate::checkpoint_materializer::{
 use crate::concept_events::append_repo_concept_event;
 use crate::concept_relation_events::append_repo_concept_relation_event;
 use crate::contract_events::append_repo_contract_event;
+use crate::coordination_authority_sync::sync_coordination_authority_update;
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
-use crate::coordination_authority_sync::sync_coordination_authority_update;
 use crate::coordination_persistence::{
     coordination_event_delta, CoordinationDerivedPersistenceMode, CoordinationPersistenceBackend,
 };
@@ -1999,10 +1999,8 @@ impl WorkspaceSession {
     ) -> Result<CoordinationReadResult<CoordinationSnapshot>> {
         self.read_coordination_with_consistency(
             consistency,
-            |_store| {
-                crate::coordination_reads::load_eventual_coordination_snapshot_for_root(&self.root)
-            },
-            |store| store.load_authoritative_coordination_snapshot_for_root(&self.root),
+            || crate::coordination_reads::load_eventual_coordination_snapshot_for_root(&self.root),
+            || crate::published_plans::load_authoritative_coordination_snapshot(&self.root),
         )
     }
 
@@ -2012,12 +2010,12 @@ impl WorkspaceSession {
     ) -> Result<CoordinationReadResult<CoordinationSnapshotV2>> {
         self.read_coordination_with_consistency(
             consistency,
-            |_store| {
+            || {
                 crate::coordination_reads::load_eventual_coordination_snapshot_v2_for_root(
                     &self.root,
                 )
             },
-            |store| store.load_authoritative_coordination_snapshot_v2_for_root(&self.root),
+            || crate::published_plans::load_authoritative_coordination_snapshot_v2(&self.root),
         )
     }
 
@@ -2025,16 +2023,18 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        let mut store = self.store.lock().expect("workspace store lock poisoned");
-        if let Some(persisted) =
-            prism_store::CoordinationCheckpointStore::load_coordination_read_model(&mut *store)?
-        {
+        let materialized = SqliteCoordinationMaterializedStore::new(&self.root);
+        if let Some(persisted) = materialized.read_read_model()?.value {
             return Ok(Some(persisted));
         }
-        let Some(snapshot) = store.load_eventual_coordination_snapshot_for_root(&self.root)? else {
+        let snapshot = materialized.read_snapshot()?;
+        let Some(snapshot) = snapshot.value else {
             return Ok(None);
         };
-        let current_revision = store.coordination_revision()?;
+        let current_revision = materialized
+            .read_metadata()?
+            .coordination_revision
+            .unwrap_or_default();
         let mut model = coordination_read_model_from_snapshot(&snapshot);
         model.revision = current_revision;
         Ok(Some(model))
@@ -2044,18 +2044,18 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        let mut store = self.store.lock().expect("workspace store lock poisoned");
-        if let Some(persisted) =
-            prism_store::CoordinationCheckpointStore::load_coordination_queue_read_model(
-                &mut *store,
-            )?
-        {
+        let materialized = SqliteCoordinationMaterializedStore::new(&self.root);
+        if let Some(persisted) = materialized.read_queue_read_model()?.value {
             return Ok(Some(persisted));
         }
-        let Some(snapshot) = store.load_eventual_coordination_snapshot_for_root(&self.root)? else {
+        let snapshot = materialized.read_snapshot()?;
+        let Some(snapshot) = snapshot.value else {
             return Ok(None);
         };
-        let current_revision = store.coordination_revision()?;
+        let current_revision = materialized
+            .read_metadata()?
+            .coordination_revision
+            .unwrap_or_default();
         let mut model = coordination_queue_read_model_from_snapshot(&snapshot);
         model.revision = current_revision;
         Ok(Some(model))
@@ -2095,15 +2095,19 @@ impl WorkspaceSession {
     ) -> Result<CoordinationReadResult<CoordinationPlanState>> {
         self.read_coordination_with_consistency(
             consistency,
-            |store| {
-                Ok(store
-                    .load_eventual_coordination_plan_state_for_root(&self.root)?
-                    .map(CoordinationPlanState::from))
+            || {
+                Ok(
+                    crate::coordination_reads::load_eventual_coordination_plan_state_for_root(
+                        &self.root,
+                    )?
+                    .map(CoordinationPlanState::from),
+                )
             },
-            |store| {
-                Ok(store
-                    .load_authoritative_coordination_plan_state_for_root(&self.root)?
-                    .map(CoordinationPlanState::from))
+            || {
+                Ok(
+                    crate::published_plans::load_authoritative_coordination_plan_state(&self.root)?
+                        .map(CoordinationPlanState::from),
+                )
             },
         )
     }
@@ -2115,18 +2119,15 @@ impl WorkspaceSession {
         strong_load: S,
     ) -> Result<CoordinationReadResult<T>>
     where
-        E: Fn(&mut SqliteStore) -> Result<Option<T>>,
-        S: Fn(&mut SqliteStore) -> Result<Option<T>>,
+        E: Fn() -> Result<Option<T>>,
+        S: Fn() -> Result<Option<T>>,
     {
         if !self.coordination_enabled {
             return Ok(CoordinationReadResult::unavailable(consistency, None));
         }
         match consistency {
             CoordinationReadConsistency::Eventual => {
-                let value = {
-                    let mut store = self.store.lock().expect("workspace store lock poisoned");
-                    eventual_load(&mut *store)?
-                };
+                let value = eventual_load()?;
                 Ok(match value {
                     Some(value) => CoordinationReadResult::verified_current(consistency, value),
                     None => CoordinationReadResult::unavailable(consistency, None),
@@ -2134,24 +2135,15 @@ impl WorkspaceSession {
             }
             CoordinationReadConsistency::Strong => {
                 match self.refresh_coordination_authority_for_strong_read() {
-                    Ok(()) => {
-                        let value = {
-                            let mut store =
-                                self.store.lock().expect("workspace store lock poisoned");
-                            strong_load(&mut *store)
-                        };
-                        match value {
-                            Ok(Some(value)) => {
-                                Ok(CoordinationReadResult::verified_current(consistency, value))
-                            }
-                            Ok(None) => Ok(CoordinationReadResult::unavailable(consistency, None)),
-                            Err(error) => self.stale_coordination_read_fallback(
-                                consistency,
-                                eventual_load,
-                                error,
-                            ),
+                    Ok(()) => match strong_load() {
+                        Ok(Some(value)) => {
+                            Ok(CoordinationReadResult::verified_current(consistency, value))
                         }
-                    }
+                        Ok(None) => Ok(CoordinationReadResult::unavailable(consistency, None)),
+                        Err(error) => {
+                            self.stale_coordination_read_fallback(consistency, eventual_load, error)
+                        }
+                    },
                     Err(error) => {
                         self.stale_coordination_read_fallback(consistency, eventual_load, error)
                     }
@@ -2167,13 +2159,10 @@ impl WorkspaceSession {
         error: anyhow::Error,
     ) -> Result<CoordinationReadResult<T>>
     where
-        E: Fn(&mut SqliteStore) -> Result<Option<T>>,
+        E: Fn() -> Result<Option<T>>,
     {
         let refresh_error = Some(error.to_string());
-        let value = {
-            let mut store = self.store.lock().expect("workspace store lock poisoned");
-            eventual_load(&mut *store)?
-        };
+        let value = eventual_load()?;
         Ok(match value {
             Some(value) => {
                 CoordinationReadResult::verified_stale(consistency, value, refresh_error)
