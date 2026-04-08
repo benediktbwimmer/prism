@@ -56,8 +56,12 @@ Current slice notes:
   starts with empty in-memory coordination state and expects later service-backed hydration
 - session strong reads no longer write coordination startup checkpoints or read models into the
   worktree store as a side effect
+- strong coordination reads and eventual coordination reads are now intentionally split: strong
+  reads no longer implicitly backfill eventual local coordination state
 - unused session-level ad hoc coordination persistence helpers were removed instead of being kept
   as shadow write paths beside the mutation protocol
+- shared-ref live sync now writes coordination materialization through the shared helper instead of
+  reimplementing startup-checkpoint and read-model writes inside `watch.rs`
 - the remaining work is now primarily runtime and surface cutover, not mutation semantics
 
 ## 3. Related roadmap
@@ -189,6 +193,11 @@ Exit criteria:
 - reduce runtime-local coordination watch behavior to telemetry/operational concerns only
 - make stale/current coordination refresh semantics line up with the authority-sync and read-broker
   contracts
+
+Current progress:
+
+- shared-ref live sync no longer reimplements coordination startup-checkpoint and read-model writes
+  inline in `watch.rs`; it now goes through the shared coordination materialization helper
 
 Exit criteria:
 

@@ -5461,17 +5461,9 @@ mod tests {
             .unwrap();
         assert_eq!(
             eventual_after_initial.freshness,
-            CoordinationReadFreshness::VerifiedCurrent
+            CoordinationReadFreshness::Unavailable
         );
-        assert_eq!(
-            eventual_after_initial
-                .value
-                .as_ref()
-                .and_then(|state| state.snapshot.tasks.first())
-                .map(|task| task.title.as_str())
-                .unwrap(),
-            "ship it"
-        );
+        assert!(eventual_after_initial.value.is_none());
     }
 
     #[test]
