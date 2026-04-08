@@ -1,5 +1,10 @@
 mod discovery;
+mod parse;
 mod types;
 
 pub use discovery::{discover_spec_sources, resolve_spec_root};
-pub use types::{DiscoveredSpecSource, SpecRootResolution, SpecRootSource};
+pub use parse::parse_spec_source;
+pub use types::{
+    DiscoveredSpecSource, ParsedSpecDocument, SpecDeclaredStatus, SpecParseDiagnostic,
+    SpecParseDiagnosticKind, SpecRootResolution, SpecRootSource,
+};

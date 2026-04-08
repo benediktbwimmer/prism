@@ -164,8 +164,9 @@ pub use snapshot_restoration::{
     restore_legacy_repo_published_knowledge, LegacyRepoKnowledgeRestoreReport,
 };
 pub use spec_engine::{
-    discover_spec_sources, resolve_spec_root, DiscoveredSpecSource, SpecRootResolution,
-    SpecRootSource,
+    discover_spec_sources, parse_spec_source, resolve_spec_root, DiscoveredSpecSource,
+    ParsedSpecDocument, SpecDeclaredStatus, SpecParseDiagnostic, SpecParseDiagnosticKind,
+    SpecRootResolution, SpecRootSource,
 };
 pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,

@@ -31,7 +31,7 @@ Current state:
 - [x] the native spec engine contract exists
 - [x] the broader native spec engine design doc exists
 - [x] configurable spec-root resolution exists in code
-- [ ] markdown-plus-frontmatter spec parsing does not yet exist in code
+- [x] markdown-plus-frontmatter spec parsing exists in code
 - [ ] stable repo-unique `spec_id` validation does not yet exist in code
 - [ ] checklist extraction and stable checklist identity do not yet exist in code
 - [ ] dependency parsing and source metadata capture do not yet exist in code
@@ -43,6 +43,8 @@ Current slice notes:
 - the goal here is deterministic local structure, not query or storage fanout yet
 - Slice 1 now uses `.prism/spec-engine.json` as the repo-local override path with one `root`
   field and preserves `.prism/specs/` as the default when the config file is absent
+- Slice 2 now parses YAML frontmatter plus markdown body, validates the minimum required fields,
+  and returns structured local diagnostics instead of silently skipping malformed specs
 
 ## 3. Related roadmap
 
@@ -236,6 +238,13 @@ Exit criteria:
 - well-formed spec files produce structured parsed records
 - malformed files produce deterministic diagnostics
 
+Slice 2 landed with:
+
+- one parsed document shape carrying frontmatter, body, and the required normalized fields
+- declared-status validation against the shared minimum status vocabulary
+- structured diagnostics for missing frontmatter, malformed YAML, missing required fields, and
+  invalid status values
+
 ### Slice 3: Checklist extraction and identity
 
 - extract markdown checkbox items
@@ -289,7 +298,7 @@ Phase 8 is complete only when:
 
 - [x] Add configurable spec-root resolution
 - [x] Add deterministic spec discovery
-- [ ] Add markdown/frontmatter parser and schema validation
+- [x] Add markdown/frontmatter parser and schema validation
 - [ ] Add stable `spec_id` validation
 - [ ] Add checklist extraction and stable checklist identity
 - [ ] Add checklist requirement-level parsing
