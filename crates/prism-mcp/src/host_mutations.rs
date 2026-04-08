@@ -135,40 +135,6 @@ struct CoordinationExecutionBinding {
     branch_ref: Option<String>,
 }
 
-fn coordination_transaction_stage_tag(error: &CoordinationTransactionError) -> Option<&'static str> {
-    match error {
-        CoordinationTransactionError::Rejected(rejection) => Some(match rejection.stage {
-            prism_query::CoordinationTransactionValidationStage::InputShape => "input_shape",
-            prism_query::CoordinationTransactionValidationStage::Authorization => "authorization",
-            prism_query::CoordinationTransactionValidationStage::ObjectIdentity => {
-                "object_identity"
-            }
-            prism_query::CoordinationTransactionValidationStage::Domain => "domain",
-            prism_query::CoordinationTransactionValidationStage::Conflict => "conflict",
-            prism_query::CoordinationTransactionValidationStage::Commit => "commit",
-        }),
-        CoordinationTransactionError::Indeterminate { .. } => None,
-    }
-}
-
-fn coordination_transaction_category_tag(
-    error: &CoordinationTransactionError,
-) -> Option<&'static str> {
-    match error {
-        CoordinationTransactionError::Rejected(rejection) => Some(match rejection.category {
-            prism_query::CoordinationTransactionRejectionCategory::InvalidInput => "invalid_input",
-            prism_query::CoordinationTransactionRejectionCategory::Unauthorized => "unauthorized",
-            prism_query::CoordinationTransactionRejectionCategory::NotFound => "not_found",
-            prism_query::CoordinationTransactionRejectionCategory::DomainViolation => {
-                "domain_violation"
-            }
-            prism_query::CoordinationTransactionRejectionCategory::Conflict => "conflict",
-            prism_query::CoordinationTransactionRejectionCategory::Unsupported => "unsupported",
-        }),
-        CoordinationTransactionError::Indeterminate { .. } => None,
-    }
-}
-
 fn coordination_transaction_protocol_result(
     event_id: &EventId,
     error: &anyhow::Error,
@@ -183,10 +149,7 @@ fn coordination_transaction_protocol_result(
             ) {
                 return None;
             }
-            let stage = coordination_transaction_stage_tag(protocol_error)
-                .unwrap_or("unknown");
-            let category = coordination_transaction_category_tag(protocol_error)
-                .unwrap_or("unknown");
+            let state = serde_json::to_value(protocol_error.protocol_state()).ok()?;
             Some(CoordinationMutationResult {
                 event_id: event_id.0.to_string(),
                 event_ids: Vec::new(),
@@ -199,36 +162,19 @@ fn coordination_transaction_protocol_result(
                     claim_id: None,
                     artifact_id: None,
                     details: json!({
-                        "stage": stage,
-                        "category": category,
+                        "stage": rejection.stage.tag(),
+                        "category": rejection.category.tag(),
                     }),
                 }],
-                state: json!({
-                    "outcome": "Rejected",
-                    "rejection": {
-                        "stage": stage,
-                        "category": category,
-                        "reasonCode": rejection.reason_code,
-                        "message": rejection.message,
-                    }
-                }),
+                state,
             })
         }
-        CoordinationTransactionError::Indeterminate {
-            reason_code,
-            message,
-        } => Some(CoordinationMutationResult {
+        CoordinationTransactionError::Indeterminate { .. } => Some(CoordinationMutationResult {
             event_id: event_id.0.to_string(),
             event_ids: Vec::new(),
             rejected: false,
             violations: Vec::new(),
-            state: json!({
-                "outcome": "Indeterminate",
-                "indeterminate": {
-                    "reasonCode": reason_code,
-                    "message": message,
-                }
-            }),
+            state: serde_json::to_value(protocol_error.protocol_state()).ok()?,
         }),
     }
 }
@@ -1318,6 +1264,7 @@ fn coordination_transaction_state(
     prism: &Prism,
     result: &prism_query::CoordinationTransactionResult,
 ) -> Result<Value> {
+    let mut state = serde_json::to_value(result.protocol_state())?;
     let plans = result
         .touched_plan_ids
         .iter()
@@ -1350,66 +1297,54 @@ fn coordination_transaction_state(
         .touched_task_ids
         .last()
         .map(|task_id| task_id.0.clone());
-    Ok(json!({
-        "outcome": format!("{:?}", result.outcome),
-        "commit": coordination_transaction_commit_view(result),
-        "id": primary_task_id.clone().or_else(|| primary_plan_id.clone()),
-        "planId": primary_plan_id,
-        "taskId": primary_task_id,
-        "planIdsByClientId": result.plan_ids_by_client_id,
-        "taskIdsByClientId": result.task_ids_by_client_id,
-        "plans": plans,
-        "tasks": tasks,
-    }))
-}
-
-fn coordination_transaction_commit_view(
-    result: &prism_query::CoordinationTransactionResult,
-) -> Value {
-    json!({
-        "eventIds": result
-            .commit
-            .event_ids
-            .iter()
-            .map(|event_id| event_id.0.clone())
-            .collect::<Vec<_>>(),
-        "eventCount": result.commit.event_count,
-        "lastEventId": result
-            .commit
-            .last_event_id
-            .as_ref()
-            .map(|event_id| event_id.0.clone()),
-        "committedAt": result.commit.committed_at,
-    })
-}
-
-fn coordination_transaction_authority_version_view(
-    result: &prism_query::CoordinationTransactionResult,
-) -> Value {
-    json!({
-        "eventCount": result.authority_version.total_event_count,
-        "lastEventId": result
-            .authority_version
-            .last_event_id
-            .as_ref()
-            .map(|event_id| event_id.0.clone()),
-        "committedAt": result.authority_version.committed_at,
-    })
+    let Value::Object(ref mut object) = state else {
+        return Ok(state);
+    };
+    object.insert(
+        "id".to_string(),
+        primary_task_id
+            .clone()
+            .or_else(|| primary_plan_id.clone())
+            .map(|id| Value::String(id.to_string()))
+            .unwrap_or(Value::Null),
+    );
+    object.insert(
+        "planId".to_string(),
+        primary_plan_id
+            .map(|id| Value::String(id.to_string()))
+            .unwrap_or(Value::Null),
+    );
+    object.insert(
+        "taskId".to_string(),
+        primary_task_id
+            .map(|id| Value::String(id.to_string()))
+            .unwrap_or(Value::Null),
+    );
+    object.insert(
+        "planIdsByClientId".to_string(),
+        serde_json::to_value(&result.plan_ids_by_client_id)?,
+    );
+    object.insert(
+        "taskIdsByClientId".to_string(),
+        serde_json::to_value(&result.task_ids_by_client_id)?,
+    );
+    object.insert("plans".to_string(), Value::Array(plans));
+    object.insert("tasks".to_string(), Value::Array(tasks));
+    Ok(state)
 }
 
 fn attach_coordination_transaction_metadata(
     mut state: Value,
     result: &prism_query::CoordinationTransactionResult,
 ) -> Value {
+    let protocol_state = match serde_json::to_value(result.protocol_state()) {
+        Ok(Value::Object(state)) => state,
+        _ => return state,
+    };
     let Value::Object(ref mut object) = state else {
         return state;
     };
-    object.insert("outcome".to_string(), Value::String(format!("{:?}", result.outcome)));
-    object.insert("commit".to_string(), coordination_transaction_commit_view(result));
-    object.insert(
-        "authorityVersion".to_string(),
-        coordination_transaction_authority_version_view(result),
-    );
+    object.extend(protocol_state);
     state
 }
 

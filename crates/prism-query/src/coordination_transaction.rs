@@ -11,6 +11,7 @@ use prism_ir::{
     AgentId, AnchorRef, CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus, EventId,
     EventMeta, PlanBinding, PlanId, PlanStatus, SessionId, ValidationRef, WorkspaceRevision,
 };
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::Prism;
@@ -170,6 +171,19 @@ pub enum CoordinationTransactionValidationStage {
     Commit,
 }
 
+impl CoordinationTransactionValidationStage {
+    pub fn tag(self) -> &'static str {
+        match self {
+            Self::InputShape => "input_shape",
+            Self::Authorization => "authorization",
+            Self::ObjectIdentity => "object_identity",
+            Self::Conflict => "conflict",
+            Self::Domain => "domain",
+            Self::Commit => "commit",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CoordinationTransactionRejectionCategory {
     InvalidInput,
@@ -178,6 +192,19 @@ pub enum CoordinationTransactionRejectionCategory {
     DomainViolation,
     Conflict,
     Unsupported,
+}
+
+impl CoordinationTransactionRejectionCategory {
+    pub fn tag(self) -> &'static str {
+        match self {
+            Self::InvalidInput => "invalid_input",
+            Self::Unauthorized => "unauthorized",
+            Self::NotFound => "not_found",
+            Self::DomainViolation => "domain_violation",
+            Self::Conflict => "conflict",
+            Self::Unsupported => "unsupported",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -220,6 +247,36 @@ impl CoordinationTransactionError {
             error.to_string(),
         )
     }
+
+    pub fn protocol_state(&self) -> CoordinationTransactionProtocolState {
+        match self {
+            Self::Rejected(rejection) => CoordinationTransactionProtocolState {
+                outcome: "Rejected".to_string(),
+                commit: None,
+                authority_version: None,
+                rejection: Some(CoordinationTransactionProtocolRejection {
+                    stage: rejection.stage.tag().to_string(),
+                    category: rejection.category.tag().to_string(),
+                    reason_code: rejection.reason_code.to_string(),
+                    message: rejection.message.clone(),
+                }),
+                indeterminate: None,
+            },
+            Self::Indeterminate {
+                reason_code,
+                message,
+            } => CoordinationTransactionProtocolState {
+                outcome: "Indeterminate".to_string(),
+                commit: None,
+                authority_version: None,
+                rejection: None,
+                indeterminate: Some(CoordinationTransactionProtocolIndeterminate {
+                    reason_code: reason_code.to_string(),
+                    message: message.clone(),
+                }),
+            },
+        }
+    }
 }
 
 impl fmt::Display for CoordinationTransactionError {
@@ -245,6 +302,14 @@ pub enum CoordinationTransactionOutcome {
     Committed,
 }
 
+impl CoordinationTransactionOutcome {
+    pub fn tag(self) -> &'static str {
+        match self {
+            Self::Committed => "Committed",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct CoordinationTransactionCommitMetadata {
     pub event_ids: Vec<EventId>,
@@ -260,6 +325,53 @@ pub struct CoordinationTransactionAuthorityVersion {
     pub committed_at: Option<u64>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTransactionProtocolCommit {
+    pub event_ids: Vec<String>,
+    pub event_count: usize,
+    pub last_event_id: Option<String>,
+    pub committed_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTransactionProtocolAuthorityVersion {
+    pub event_count: usize,
+    pub last_event_id: Option<String>,
+    pub committed_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTransactionProtocolRejection {
+    pub stage: String,
+    pub category: String,
+    pub reason_code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTransactionProtocolIndeterminate {
+    pub reason_code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTransactionProtocolState {
+    pub outcome: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit: Option<CoordinationTransactionProtocolCommit>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authority_version: Option<CoordinationTransactionProtocolAuthorityVersion>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rejection: Option<CoordinationTransactionProtocolRejection>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub indeterminate: Option<CoordinationTransactionProtocolIndeterminate>,
+}
+
 #[derive(Debug, Clone)]
 pub struct CoordinationTransactionResult {
     pub outcome: CoordinationTransactionOutcome,
@@ -269,6 +381,49 @@ pub struct CoordinationTransactionResult {
     pub task_ids_by_client_id: BTreeMap<String, CoordinationTaskId>,
     pub touched_plan_ids: Vec<PlanId>,
     pub touched_task_ids: Vec<CoordinationTaskId>,
+}
+
+impl CoordinationTransactionCommitMetadata {
+    fn protocol_state(&self) -> CoordinationTransactionProtocolCommit {
+        CoordinationTransactionProtocolCommit {
+            event_ids: self
+                .event_ids
+                .iter()
+                .map(|event_id| event_id.0.to_string())
+                .collect(),
+            event_count: self.event_count,
+            last_event_id: self
+                .last_event_id
+                .as_ref()
+                .map(|event_id| event_id.0.to_string()),
+            committed_at: self.committed_at,
+        }
+    }
+}
+
+impl CoordinationTransactionAuthorityVersion {
+    fn protocol_state(&self) -> CoordinationTransactionProtocolAuthorityVersion {
+        CoordinationTransactionProtocolAuthorityVersion {
+            event_count: self.total_event_count,
+            last_event_id: self
+                .last_event_id
+                .as_ref()
+                .map(|event_id| event_id.0.to_string()),
+            committed_at: self.committed_at,
+        }
+    }
+}
+
+impl CoordinationTransactionResult {
+    pub fn protocol_state(&self) -> CoordinationTransactionProtocolState {
+        CoordinationTransactionProtocolState {
+            outcome: self.outcome.tag().to_string(),
+            commit: Some(self.commit.protocol_state()),
+            authority_version: Some(self.authority_version.protocol_state()),
+            rejection: None,
+            indeterminate: None,
+        }
+    }
 }
 
 impl Prism {

@@ -229,7 +229,8 @@ Progress:
 
 - [x] committed outcome and commit metadata now have explicit protocol types
 - [x] backend-neutral post-commit authority-version metadata now flows with committed results
-- [ ] rejection and indeterminate outcome families remain to be added
+- [x] committed, rejected, and indeterminate outcomes now share one protocol-state envelope in
+  `prism-query`, even though the transport still uses `Result`
 - [ ] backend-specific authority-stamp fields remain to be added where higher layers need them
 
 ### Slice 2: Centralize validation ordering
@@ -266,10 +267,13 @@ Progress:
   rejection codes in `prism-query`
 - [x] MCP now preserves those pre-event protocol rejections as structured mutation results instead
   of collapsing them into generic transport errors
+- [x] the stable rejection and indeterminate state envelope now lives in `prism-query` instead of
+  being rebuilt ad hoc in `prism-mcp`
 - [x] initial stale-base conflict handling now exists for `expectedEventCount` and
   `expectedLastEventId`
 - [ ] authority-store-backed conflict bases and replay semantics still need to be implemented
-- [ ] indeterminate outcomes still need to be surfaced through the same common protocol result
+- [ ] authority-store-backed indeterminate outcomes still need to route through the same common
+  protocol envelope
 
 ### Slice 4: Commit result and downstream follow-through
 
@@ -352,6 +356,8 @@ What remains incomplete is the actual protocol convergence:
 - service-backed downstream follow-through is not finished yet
 - some convenience mutation surfaces, including `plan_create`, `plan_bootstrap`, `task_create`,
   and task `update`, now attach canonical protocol `outcome` and `commit` metadata
+- committed, rejected, and indeterminate protocol state now comes from one shared
+  `prism-query` envelope; `prism-mcp` only enriches committed results with touched-object views
 - `prism-query` now owns the protocol-lowering helpers for common plan and task create/update
   adapters, but `host_mutations` still owns too much response shaping and some remaining
   convenience lowering
