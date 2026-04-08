@@ -11,9 +11,9 @@ use prism_store::{
 use super::types::{
     CoordinationCompactionWriteRequest, CoordinationMaterializationMetadata,
     CoordinationMaterializedBackendKind, CoordinationMaterializedCapabilities,
-    CoordinationMaterializedReadEnvelope, CoordinationMaterializedState,
-    CoordinationMaterializedWriteResult, CoordinationReadModelsWriteRequest,
-    CoordinationStartupCheckpointWriteRequest,
+    CoordinationMaterializedClearRequest, CoordinationMaterializedReadEnvelope,
+    CoordinationMaterializedState, CoordinationMaterializedWriteResult,
+    CoordinationReadModelsWriteRequest, CoordinationStartupCheckpointWriteRequest,
 };
 use crate::coordination_startup_checkpoint::{
     load_persisted_coordination_plan_state, load_persisted_coordination_snapshot,
@@ -168,6 +168,25 @@ where
         request: CoordinationCompactionWriteRequest,
     ) -> Result<CoordinationMaterializedWriteResult> {
         self.store.save_coordination_compaction(&request.snapshot)?;
+        Ok(CoordinationMaterializedWriteResult {
+            metadata: self.load_metadata()?,
+        })
+    }
+
+    pub(crate) fn clear_materialization_mut(
+        &mut self,
+        request: CoordinationMaterializedClearRequest,
+    ) -> Result<CoordinationMaterializedWriteResult> {
+        if request.clear_startup_checkpoint {
+            self.store.clear_coordination_startup_checkpoint()?;
+        }
+        if request.clear_read_models {
+            self.store.clear_coordination_read_model()?;
+            self.store.clear_coordination_queue_read_model()?;
+        }
+        if request.clear_compaction {
+            self.store.clear_coordination_compaction()?;
+        }
         Ok(CoordinationMaterializedWriteResult {
             metadata: self.load_metadata()?,
         })

@@ -266,6 +266,7 @@ pub trait Store {
     fn load_coordination_events(&mut self) -> Result<Vec<CoordinationEvent>>;
     fn load_coordination_event_stream(&mut self) -> Result<CoordinationEventStream>;
     fn save_coordination_compaction(&mut self, snapshot: &CoordinationSnapshot) -> Result<()>;
+    fn clear_coordination_compaction(&mut self) -> Result<()>;
     fn load_coordination_startup_checkpoint(
         &mut self,
     ) -> Result<Option<CoordinationStartupCheckpoint>>;
@@ -278,13 +279,16 @@ pub trait Store {
         &mut self,
         checkpoint: &CoordinationStartupCheckpoint,
     ) -> Result<()>;
+    fn clear_coordination_startup_checkpoint(&mut self) -> Result<()>;
     fn load_coordination_read_model(&mut self) -> Result<Option<CoordinationReadModel>>;
     fn save_coordination_read_model(&mut self, read_model: &CoordinationReadModel) -> Result<()>;
+    fn clear_coordination_read_model(&mut self) -> Result<()>;
     fn load_coordination_queue_read_model(&mut self) -> Result<Option<CoordinationQueueReadModel>>;
     fn save_coordination_queue_read_model(
         &mut self,
         read_model: &CoordinationQueueReadModel,
     ) -> Result<()>;
+    fn clear_coordination_queue_read_model(&mut self) -> Result<()>;
     fn load_latest_coordination_persist_context(
         &mut self,
     ) -> Result<Option<CoordinationPersistContext>>;
@@ -493,6 +497,10 @@ impl<T: Store + ?Sized> Store for MutexGuard<'_, T> {
         Store::save_coordination_compaction(&mut **self, snapshot)
     }
 
+    fn clear_coordination_compaction(&mut self) -> Result<()> {
+        Store::clear_coordination_compaction(&mut **self)
+    }
+
     fn load_coordination_startup_checkpoint(
         &mut self,
     ) -> Result<Option<CoordinationStartupCheckpoint>> {
@@ -510,12 +518,20 @@ impl<T: Store + ?Sized> Store for MutexGuard<'_, T> {
         Store::save_coordination_startup_checkpoint(&mut **self, checkpoint)
     }
 
+    fn clear_coordination_startup_checkpoint(&mut self) -> Result<()> {
+        Store::clear_coordination_startup_checkpoint(&mut **self)
+    }
+
     fn load_coordination_read_model(&mut self) -> Result<Option<CoordinationReadModel>> {
         Store::load_coordination_read_model(&mut **self)
     }
 
     fn save_coordination_read_model(&mut self, read_model: &CoordinationReadModel) -> Result<()> {
         Store::save_coordination_read_model(&mut **self, read_model)
+    }
+
+    fn clear_coordination_read_model(&mut self) -> Result<()> {
+        Store::clear_coordination_read_model(&mut **self)
     }
 
     fn load_coordination_queue_read_model(&mut self) -> Result<Option<CoordinationQueueReadModel>> {
@@ -527,6 +543,10 @@ impl<T: Store + ?Sized> Store for MutexGuard<'_, T> {
         read_model: &CoordinationQueueReadModel,
     ) -> Result<()> {
         Store::save_coordination_queue_read_model(&mut **self, read_model)
+    }
+
+    fn clear_coordination_queue_read_model(&mut self) -> Result<()> {
+        Store::clear_coordination_queue_read_model(&mut **self)
     }
 
     fn load_latest_coordination_persist_context(

@@ -34,7 +34,7 @@ Current phase checklist:
 
 - [x] Phase 0: freeze coordination semantics
 - [x] Phase 1: implement Coordination Authority Store fully
-- [ ] Phase 2: implement Coordination Materialized Store fully
+- [x] Phase 2: implement Coordination Materialized Store fully
 - [ ] Phase 3: implement Coordination Query Engine fully
 - [ ] Phase 4: implement Transactional Coordination Mutation Protocol fully
 - [ ] Phase 5: cut over coordination runtime and product surfaces
@@ -51,11 +51,13 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 2: implement Coordination Materialized Store fully
+- Phase 3: implement Coordination Query Engine fully
 
 Current phase spec:
 
-- [../specs/2026-04-08-coordination-materialized-store-phase-2.md](../specs/2026-04-08-coordination-materialized-store-phase-2.md)
+- Phase 2 completed:
+  [../specs/2026-04-08-coordination-materialized-store-phase-2.md](../specs/2026-04-08-coordination-materialized-store-phase-2.md)
+- Phase 3 spec pending
 
 ## 3. Ordering thesis
 
@@ -142,6 +144,12 @@ Migration target:
 Exit criteria:
 
 - local coordination persistence is fully behind one disciplined seam
+
+Current assessment:
+
+- completed by the materialized-store seam, SQLite-backed implementation, explicit read/write/clear
+  families, and product-facing cutover of eventual reads, checkpoint persistence, read-model
+  writes, compaction writes, and materialization metadata access
 
 ### Phase 3: Implement the Coordination Query Engine
 

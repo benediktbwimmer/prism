@@ -41,6 +41,7 @@ pub trait CoordinationJournal {
 /// coordination source of truth.
 pub trait CoordinationCheckpointStore {
     fn save_coordination_compaction(&mut self, snapshot: &CoordinationSnapshot) -> Result<()>;
+    fn clear_coordination_compaction(&mut self) -> Result<()>;
     fn load_coordination_startup_checkpoint(
         &mut self,
     ) -> Result<Option<CoordinationStartupCheckpoint>>;
@@ -53,13 +54,16 @@ pub trait CoordinationCheckpointStore {
         &mut self,
         checkpoint: &CoordinationStartupCheckpoint,
     ) -> Result<()>;
+    fn clear_coordination_startup_checkpoint(&mut self) -> Result<()>;
     fn load_coordination_read_model(&mut self) -> Result<Option<CoordinationReadModel>>;
     fn save_coordination_read_model(&mut self, read_model: &CoordinationReadModel) -> Result<()>;
+    fn clear_coordination_read_model(&mut self) -> Result<()>;
     fn load_coordination_queue_read_model(&mut self) -> Result<Option<CoordinationQueueReadModel>>;
     fn save_coordination_queue_read_model(
         &mut self,
         read_model: &CoordinationQueueReadModel,
     ) -> Result<()>;
+    fn clear_coordination_queue_read_model(&mut self) -> Result<()>;
 }
 
 /// Cold history and outcome lookups that remain legitimate on bounded query paths even after live
@@ -178,6 +182,10 @@ impl<T: Store + ?Sized> CoordinationCheckpointStore for T {
         Store::save_coordination_compaction(self, snapshot)
     }
 
+    fn clear_coordination_compaction(&mut self) -> Result<()> {
+        Store::clear_coordination_compaction(self)
+    }
+
     fn load_coordination_startup_checkpoint(
         &mut self,
     ) -> Result<Option<CoordinationStartupCheckpoint>> {
@@ -195,12 +203,20 @@ impl<T: Store + ?Sized> CoordinationCheckpointStore for T {
         Store::save_coordination_startup_checkpoint(self, checkpoint)
     }
 
+    fn clear_coordination_startup_checkpoint(&mut self) -> Result<()> {
+        Store::clear_coordination_startup_checkpoint(self)
+    }
+
     fn load_coordination_read_model(&mut self) -> Result<Option<CoordinationReadModel>> {
         Store::load_coordination_read_model(self)
     }
 
     fn save_coordination_read_model(&mut self, read_model: &CoordinationReadModel) -> Result<()> {
         Store::save_coordination_read_model(self, read_model)
+    }
+
+    fn clear_coordination_read_model(&mut self) -> Result<()> {
+        Store::clear_coordination_read_model(self)
     }
 
     fn load_coordination_queue_read_model(&mut self) -> Result<Option<CoordinationQueueReadModel>> {
@@ -212,6 +228,10 @@ impl<T: Store + ?Sized> CoordinationCheckpointStore for T {
         read_model: &CoordinationQueueReadModel,
     ) -> Result<()> {
         Store::save_coordination_queue_read_model(self, read_model)
+    }
+
+    fn clear_coordination_queue_read_model(&mut self) -> Result<()> {
+        Store::clear_coordination_queue_read_model(self)
     }
 }
 

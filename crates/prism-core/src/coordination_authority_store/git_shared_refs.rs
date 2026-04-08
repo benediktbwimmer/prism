@@ -15,11 +15,11 @@ use super::types::{
     RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
-use crate::coordination_startup_checkpoint::coordination_startup_authority;
 use crate::shared_coordination_ref::{
     clear_runtime_descriptor_record, load_shared_coordination_ref_state_authoritative,
-    load_shared_coordination_retained_history, publish_runtime_descriptor_record,
-    shared_coordination_ref_diagnostics, sync_shared_coordination_ref_state,
+    load_shared_coordination_retained_history, load_shared_coordination_runtime_refs,
+    publish_runtime_descriptor_record, shared_coordination_ref_diagnostics,
+    shared_coordination_startup_authority, sync_shared_coordination_ref_state,
 };
 use crate::tracked_snapshot::publish_context_from_coordination_events;
 use crate::workspace_identity::workspace_identity_for_root;
@@ -46,7 +46,13 @@ impl GitSharedRefsCoordinationAuthorityStore {
         let Some(diagnostics) = diagnostics else {
             return Ok(None);
         };
-        let authority = coordination_startup_authority(&self.root)?;
+        let authority = shared_coordination_startup_authority(&self.root)?.unwrap_or_else(|| {
+            prism_store::CoordinationStartupCheckpointAuthority {
+                ref_name: "shared-coordination".to_string(),
+                head_commit: None,
+                manifest_digest: None,
+            }
+        });
         let snapshot_id = authority
             .manifest_digest
             .clone()
@@ -270,10 +276,13 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
         request: RuntimeDescriptorQuery,
     ) -> Result<CoordinationReadEnvelope<Vec<RuntimeDescriptor>>> {
         let authority = self.authority_stamp()?;
-        let value = self
+        let mut value = self
             .load_current_state()?
             .map(|state| state.runtime_descriptors)
             .unwrap_or_default();
+        if value.is_empty() {
+            value = load_shared_coordination_runtime_refs(&self.root)?;
+        }
         if value.is_empty() && matches!(request.consistency, CoordinationReadConsistency::Strong) {
             return Ok(CoordinationReadEnvelope::unavailable(
                 request.consistency,

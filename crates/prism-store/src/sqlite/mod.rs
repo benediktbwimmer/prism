@@ -964,6 +964,10 @@ impl Store for SqliteStore {
         self.with_immediate_tx(|tx| coordination_compaction::save_compaction_tx(tx, snapshot))
     }
 
+    fn clear_coordination_compaction(&mut self) -> Result<()> {
+        self.with_immediate_tx(coordination_compaction::clear_compaction_tx)
+    }
+
     fn load_coordination_startup_checkpoint(
         &mut self,
     ) -> Result<Option<crate::CoordinationStartupCheckpoint>> {
@@ -1000,6 +1004,12 @@ impl Store for SqliteStore {
         })
     }
 
+    fn clear_coordination_startup_checkpoint(&mut self) -> Result<()> {
+        self.with_immediate_tx(|tx| {
+            snapshots::delete_snapshot_row_tx(tx, "coordination_startup_checkpoint")
+        })
+    }
+
     fn load_coordination_read_model(
         &mut self,
     ) -> Result<Option<prism_coordination::CoordinationReadModel>> {
@@ -1015,6 +1025,12 @@ impl Store for SqliteStore {
         })
     }
 
+    fn clear_coordination_read_model(&mut self) -> Result<()> {
+        self.with_immediate_tx(|tx| {
+            snapshots::delete_snapshot_row_tx(tx, "coordination_read_model")
+        })
+    }
+
     fn load_coordination_queue_read_model(
         &mut self,
     ) -> Result<Option<prism_coordination::CoordinationQueueReadModel>> {
@@ -1027,6 +1043,12 @@ impl Store for SqliteStore {
     ) -> Result<()> {
         self.with_immediate_tx(|tx| {
             snapshots::save_snapshot_row_tx(tx, "coordination_queue_read_model", read_model)
+        })
+    }
+
+    fn clear_coordination_queue_read_model(&mut self) -> Result<()> {
+        self.with_immediate_tx(|tx| {
+            snapshots::delete_snapshot_row_tx(tx, "coordination_queue_read_model")
         })
     }
 

@@ -32,6 +32,7 @@ prism-parser = { path = "../prism-parser" }
 prism-projections = { path = "../prism-projections" }
 prism-query = { path = "../prism-query" }
 prism-store = { path = "../prism-store" }
+rusqlite.workspace = true
 serde.workspace = true
 serde_jcs.workspace = true
 serde_json.workspace = true

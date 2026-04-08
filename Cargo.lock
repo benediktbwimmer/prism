@@ -2093,6 +2093,7 @@ dependencies = [
  "prism-query",
  "prism-store",
  "rand 0.8.5",
+ "rusqlite",
  "serde",
  "serde_jcs",
  "serde_json",

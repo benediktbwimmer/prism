@@ -7295,6 +7295,99 @@ fn coordination_session_materializes_read_models_off_request_path() {
 }
 
 #[test]
+fn coordination_materialized_store_can_clear_local_materialization() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    session
+        .mutate_coordination(|prism| {
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:clear-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:clear-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Exercise local materialization clearing".into(),
+                "Exercise local materialization clearing".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let _ = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:clear-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:clear-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                TaskCreateInput {
+                    plan_id,
+                    title: "Clear local coordination materialization".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: prism_ir::WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                },
+            )?;
+            Ok::<_, anyhow::Error>(())
+        })
+        .unwrap();
+    session.flush_materializations().unwrap();
+
+    let store = crate::SqliteCoordinationMaterializedStore::new(&root);
+    let before = crate::CoordinationMaterializedStore::read_metadata(&store).unwrap();
+    assert!(before.has_snapshot);
+    assert!(before.has_read_model);
+    assert!(before.has_queue_read_model);
+
+    crate::CoordinationMaterializedStore::clear_materialization(
+        &store,
+        crate::CoordinationMaterializedClearRequest::all(),
+    )
+    .unwrap();
+
+    let after = crate::CoordinationMaterializedStore::read_metadata(&store).unwrap();
+    assert!(!after.has_snapshot);
+    assert!(!after.has_read_model);
+    assert!(!after.has_queue_read_model);
+    assert!(
+        crate::CoordinationMaterializedStore::read_plan_state(&store)
+            .unwrap()
+            .value
+            .is_none()
+    );
+    assert!(
+        crate::CoordinationMaterializedStore::read_startup_checkpoint(&store)
+            .unwrap()
+            .value
+            .is_none()
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn coordination_read_models_ignore_stale_persisted_shared_runtime_cache() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

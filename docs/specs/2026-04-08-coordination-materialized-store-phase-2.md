@@ -1,6 +1,6 @@
 # Coordination Materialized Store Phase 2
 
-Status: in progress
+Status: completed
 Audience: coordination, runtime, query, MCP, CLI, UI, storage, and authority-backend maintainers
 Scope: complete Phase 2 implementation of the `CoordinationMaterializedStore` seam so local coordination materialization routes through one explicit non-authoritative storage boundary
 
@@ -38,7 +38,7 @@ Current state:
 - [x] eventual coordination snapshot and plan-state read families implemented through the new seam
 - [x] startup checkpoint persistence and restore implemented through the new seam
 - [x] materialization metadata, revision, and authority-key access implemented through the new seam
-- [ ] invalidation, replace, and clear families implemented through the new seam
+- [x] invalidation, replace, and clear families implemented through the new seam
 - [x] direct product-facing coordination SQLite and checkpoint calls removed or redirected
 
 Current slice notes:
@@ -63,8 +63,10 @@ Current slice notes:
   and checkpoint materialization paths
 - startup-checkpoint revision access in `WorkspaceSession` now comes from materialized-store
   metadata rather than direct checkpoint-store access
-- explicit invalidation, replace, and clear families remain deferred to a follow-up slice rather
-  than being smuggled into the write-path cutover
+- the seam now exposes an explicit local clear family for startup checkpoints, read models, and
+  compaction state, with local invalidation modeled as explicit clearing of stale materialization
+- authoritative replacement and advancement are now expressed through the shared write-request
+  types instead of ad hoc caller-specific checkpoint helpers
 
 ## 3. Related roadmap
 

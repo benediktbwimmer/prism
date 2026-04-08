@@ -379,6 +379,11 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    fn clear_coordination_compaction(&mut self) -> Result<()> {
+        self.coordination_compaction = None;
+        Ok(())
+    }
+
     fn load_coordination_startup_checkpoint(
         &mut self,
     ) -> Result<Option<CoordinationStartupCheckpoint>> {
@@ -393,12 +398,22 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    fn clear_coordination_startup_checkpoint(&mut self) -> Result<()> {
+        self.coordination_startup_checkpoint = None;
+        Ok(())
+    }
+
     fn load_coordination_read_model(&mut self) -> Result<Option<CoordinationReadModel>> {
         Ok(self.coordination_read_model.clone())
     }
 
     fn save_coordination_read_model(&mut self, read_model: &CoordinationReadModel) -> Result<()> {
         self.coordination_read_model = Some(read_model.clone());
+        Ok(())
+    }
+
+    fn clear_coordination_read_model(&mut self) -> Result<()> {
+        self.coordination_read_model = None;
         Ok(())
     }
 
@@ -411,6 +426,11 @@ impl Store for MemoryStore {
         read_model: &CoordinationQueueReadModel,
     ) -> Result<()> {
         self.coordination_queue_read_model = Some(read_model.clone());
+        Ok(())
+    }
+
+    fn clear_coordination_queue_read_model(&mut self) -> Result<()> {
+        self.coordination_queue_read_model = None;
         Ok(())
     }
 

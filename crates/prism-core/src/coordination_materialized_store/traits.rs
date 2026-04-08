@@ -6,9 +6,10 @@ use prism_store::CoordinationStartupCheckpoint;
 
 use super::types::{
     CoordinationCompactionWriteRequest, CoordinationMaterializationMetadata,
-    CoordinationMaterializedCapabilities, CoordinationMaterializedReadEnvelope,
-    CoordinationMaterializedState, CoordinationMaterializedWriteResult,
-    CoordinationReadModelsWriteRequest, CoordinationStartupCheckpointWriteRequest,
+    CoordinationMaterializedCapabilities, CoordinationMaterializedClearRequest,
+    CoordinationMaterializedReadEnvelope, CoordinationMaterializedState,
+    CoordinationMaterializedWriteResult, CoordinationReadModelsWriteRequest,
+    CoordinationStartupCheckpointWriteRequest,
 };
 
 pub trait CoordinationMaterializedStore {
@@ -51,5 +52,10 @@ pub trait CoordinationMaterializedStore {
     fn write_compaction(
         &self,
         request: CoordinationCompactionWriteRequest,
+    ) -> Result<CoordinationMaterializedWriteResult>;
+
+    fn clear_materialization(
+        &self,
+        request: CoordinationMaterializedClearRequest,
     ) -> Result<CoordinationMaterializedWriteResult>;
 }

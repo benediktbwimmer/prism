@@ -5,14 +5,15 @@ use prism_coordination::{
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
 };
 use prism_store::{CoordinationCheckpointStore, CoordinationStartupCheckpoint, SqliteStore};
+use rusqlite::Connection;
 
 use super::traits::CoordinationMaterializedStore;
 use super::types::{
     CoordinationCompactionWriteRequest, CoordinationMaterializationMetadata,
     CoordinationMaterializedBackendKind, CoordinationMaterializedCapabilities,
-    CoordinationMaterializedReadEnvelope, CoordinationMaterializedState,
-    CoordinationMaterializedWriteResult, CoordinationReadModelsWriteRequest,
-    CoordinationStartupCheckpointWriteRequest,
+    CoordinationMaterializedClearRequest, CoordinationMaterializedReadEnvelope,
+    CoordinationMaterializedState, CoordinationMaterializedWriteResult,
+    CoordinationReadModelsWriteRequest, CoordinationStartupCheckpointWriteRequest,
 };
 use crate::coordination_startup_checkpoint::{
     load_persisted_coordination_plan_state, load_persisted_coordination_snapshot,
@@ -34,6 +35,10 @@ impl SqliteCoordinationMaterializedStore {
     fn open_store(&self) -> Result<SqliteStore> {
         let paths = PrismPaths::for_workspace_root(&self.root)?;
         SqliteStore::open(paths.worktree_cache_db_path()?)
+    }
+
+    fn worktree_cache_db_path(&self) -> Result<PathBuf> {
+        Ok(PrismPaths::for_workspace_root(&self.root)?.worktree_cache_db_path()?)
     }
 
     fn load_metadata_from_store(
@@ -167,6 +172,35 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
     ) -> Result<CoordinationMaterializedWriteResult> {
         let mut store = self.open_store()?;
         store.save_coordination_compaction(&request.snapshot)?;
+        Ok(CoordinationMaterializedWriteResult {
+            metadata: self.load_metadata_from_store(&mut store)?,
+        })
+    }
+
+    fn clear_materialization(
+        &self,
+        request: CoordinationMaterializedClearRequest,
+    ) -> Result<CoordinationMaterializedWriteResult> {
+        let conn = Connection::open(self.worktree_cache_db_path()?)?;
+        let tx = conn.unchecked_transaction()?;
+        if request.clear_startup_checkpoint {
+            tx.execute(
+                "DELETE FROM snapshots WHERE key = 'coordination_startup_checkpoint'",
+                [],
+            )?;
+        }
+        if request.clear_read_models {
+            tx.execute(
+                "DELETE FROM snapshots WHERE key IN ('coordination_read_model', 'coordination_queue_read_model')",
+                [],
+            )?;
+        }
+        if request.clear_compaction {
+            tx.execute("DELETE FROM coordination_event_compaction WHERE id = 1", [])?;
+        }
+        tx.commit()?;
+
+        let mut store = self.open_store()?;
         Ok(CoordinationMaterializedWriteResult {
             metadata: self.load_metadata_from_store(&mut store)?,
         })

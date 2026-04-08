@@ -86,6 +86,23 @@ pub struct CoordinationMaterializedWriteResult {
     pub metadata: CoordinationMaterializationMetadata,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoordinationMaterializedClearRequest {
+    pub clear_startup_checkpoint: bool,
+    pub clear_read_models: bool,
+    pub clear_compaction: bool,
+}
+
+impl CoordinationMaterializedClearRequest {
+    pub const fn all() -> Self {
+        Self {
+            clear_startup_checkpoint: true,
+            clear_read_models: true,
+            clear_compaction: true,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use prism_coordination::{

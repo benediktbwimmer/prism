@@ -92,10 +92,10 @@ pub use coordination_authority_store::{
 pub use coordination_materialized_store::{
     CoordinationCompactionWriteRequest, CoordinationMaterializationMetadata,
     CoordinationMaterializedBackendKind, CoordinationMaterializedCapabilities,
-    CoordinationMaterializedReadEnvelope, CoordinationMaterializedState,
-    CoordinationMaterializedStore, CoordinationMaterializedWriteResult,
-    CoordinationReadModelsWriteRequest, CoordinationStartupCheckpointWriteRequest,
-    SqliteCoordinationMaterializedStore,
+    CoordinationMaterializedClearRequest, CoordinationMaterializedReadEnvelope,
+    CoordinationMaterializedState, CoordinationMaterializedStore,
+    CoordinationMaterializedWriteResult, CoordinationReadModelsWriteRequest,
+    CoordinationStartupCheckpointWriteRequest, SqliteCoordinationMaterializedStore,
 };
 pub use coordination_reads::{
     CoordinationReadConsistency, CoordinationReadFreshness, CoordinationReadResult,

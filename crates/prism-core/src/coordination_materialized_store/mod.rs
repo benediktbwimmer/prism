@@ -9,7 +9,7 @@ pub use traits::CoordinationMaterializedStore;
 pub use types::{
     CoordinationCompactionWriteRequest, CoordinationMaterializationMetadata,
     CoordinationMaterializedBackendKind, CoordinationMaterializedCapabilities,
-    CoordinationMaterializedReadEnvelope, CoordinationMaterializedState,
-    CoordinationMaterializedWriteResult, CoordinationReadModelsWriteRequest,
-    CoordinationStartupCheckpointWriteRequest,
+    CoordinationMaterializedClearRequest, CoordinationMaterializedReadEnvelope,
+    CoordinationMaterializedState, CoordinationMaterializedWriteResult,
+    CoordinationReadModelsWriteRequest, CoordinationStartupCheckpointWriteRequest,
 };

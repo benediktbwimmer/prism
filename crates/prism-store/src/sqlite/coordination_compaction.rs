@@ -62,6 +62,11 @@ pub(super) fn save_compaction_tx(
     Ok(())
 }
 
+pub(super) fn clear_compaction_tx(tx: &Transaction<'_>) -> Result<()> {
+    tx.execute("DELETE FROM coordination_event_compaction WHERE id = 1", [])?;
+    Ok(())
+}
+
 fn compacted_snapshot(snapshot: &CoordinationSnapshot) -> CoordinationSnapshot {
     let mut compacted = snapshot.clone();
     compacted.events.clear();

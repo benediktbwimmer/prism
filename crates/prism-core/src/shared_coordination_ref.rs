@@ -1727,7 +1727,7 @@ fn load_authoritative_shared_coordination_ref_state(
         .map(Some)
 }
 
-fn load_shared_coordination_runtime_refs(root: &Path) -> Result<Vec<RuntimeDescriptor>> {
+pub(crate) fn load_shared_coordination_runtime_refs(root: &Path) -> Result<Vec<RuntimeDescriptor>> {
     let mut runtime_descriptors = load_shared_coordination_sharded_records(
         root,
         &shared_coordination_runtime_ref_prefix(root),
@@ -3130,8 +3130,11 @@ fn push_shared_coordination_ref_updates_atomic(
     remote: &str,
     updates: &[PreparedSharedCoordinationRefUpdate],
 ) -> Result<()> {
-    if updates.is_empty() || !git_remote_available(root, remote) {
+    if updates.is_empty() {
         return Ok(());
+    }
+    if !git_remote_available(root, remote) {
+        return apply_local_shared_coordination_ref_updates_atomic(root, updates);
     }
     let mut args = vec![
         "push".to_string(),
@@ -3145,6 +3148,62 @@ fn push_shared_coordination_ref_updates_atomic(
     let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
     let _ = run_git(root, &arg_refs)?;
     Ok(())
+}
+
+fn apply_local_shared_coordination_ref_updates_atomic(
+    root: &Path,
+    updates: &[PreparedSharedCoordinationRefUpdate],
+) -> Result<()> {
+    let mut command = Command::new("git");
+    command
+        .current_dir(root)
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_COMMON_DIR")
+        .env_remove("GIT_INDEX_FILE")
+        .env_remove("GIT_OBJECT_DIRECTORY")
+        .env_remove("GIT_ALTERNATE_OBJECT_DIRECTORIES")
+        .env("GIT_AUTHOR_NAME", "PRISM")
+        .env("GIT_AUTHOR_EMAIL", "prism@local")
+        .env("GIT_COMMITTER_NAME", "PRISM")
+        .env("GIT_COMMITTER_EMAIL", "prism@local")
+        .args(["update-ref", "--stdin"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = command.spawn().context(
+        "failed to spawn `git update-ref --stdin` for local shared coordination publish",
+    )?;
+    {
+        let mut stdin = child
+            .stdin
+            .take()
+            .context("failed to open stdin for `git update-ref --stdin`")?;
+        writeln!(stdin, "start")?;
+        for update in updates {
+            if let Some(old_commit) = resolve_ref_commit(root, &update.ref_name)? {
+                writeln!(
+                    stdin,
+                    "update {} {} {}",
+                    update.ref_name, update.new_commit, old_commit
+                )?;
+            } else {
+                writeln!(stdin, "create {} {}", update.ref_name, update.new_commit)?;
+            }
+        }
+        writeln!(stdin, "prepare")?;
+        writeln!(stdin, "commit")?;
+    }
+    let output = child
+        .wait_with_output()
+        .context("failed to wait for local shared coordination ref update transaction")?;
+    if output.status.success() {
+        return Ok(());
+    }
+    Err(anyhow!(
+        "git update-ref --stdin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    ))
 }
 
 fn maybe_compact_shared_coordination_ref(
