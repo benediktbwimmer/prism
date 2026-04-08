@@ -1,6 +1,6 @@
 # Coordination Authority Store Phase 1
 
-Status: in progress
+Status: completed
 Audience: coordination, runtime, query, MCP, CLI, UI, storage, and authority-backend maintainers
 Scope: complete Phase 1 implementation of the `CoordinationAuthorityStore` seam so all authoritative coordination access can route through one backend-neutral interface
 
@@ -34,7 +34,7 @@ Current state:
 - [x] `CoordinationAuthorityStore` trait and type family finalized in code
 - [x] Git shared-ref backend extracted behind the authority-store seam
 - [x] current-state read families implemented through the new seam
-- [ ] transactional mutation commit path implemented through the new seam
+- [x] transactional mutation commit path implemented through the new seam
 - [x] retained history families implemented through the new seam
 - [x] runtime descriptor publication and discovery implemented through the new seam
 - [x] authority diagnostics and metadata exposed through the new seam
@@ -56,8 +56,10 @@ Current slice notes:
   through authority-store-facing wrappers instead of direct shared-ref helpers
 - watch and indexer live-sync paths now depend on the authority façade instead of importing
   shared-ref helpers directly
-- the Git-backed implementation still needs broader transaction adoption and explicit
-  indeterminate-outcome handling in later slices
+- the Git-backed implementation now classifies transport-uncertain publish and descriptor updates
+  as explicit indeterminate outcomes instead of flattening them into plain failures
+- the authority seam is now complete enough for Phase 1; later phases can build on it without
+  further interface redesign
 
 ## 3. Related roadmap
 
@@ -311,6 +313,11 @@ This phase is complete when:
   diagnostics all route through it
 - the rest of the app no longer needs direct shared-ref helpers to perform authoritative
   coordination access
+
+Current assessment:
+
+- satisfied by the current seam and Git-backed implementation
+- remaining coordination cleanup now belongs to later phases, not to Phase 1 seam creation
 
 ## 12. Follow-on phases
 

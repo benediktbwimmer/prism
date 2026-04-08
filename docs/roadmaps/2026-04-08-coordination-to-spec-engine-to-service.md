@@ -1,6 +1,6 @@
 # Coordination To Spec Engine To Service
 
-Status: draft
+Status: in progress
 Audience: coordination, query, storage, runtime, MCP, CLI, UI, auth, and service maintainers
 Scope: the sequential implementation order for finishing the coordination platform, then the full native spec engine, then the PRISM Service
 
@@ -33,7 +33,7 @@ The core rule is:
 Current phase checklist:
 
 - [x] Phase 0: freeze coordination semantics
-- [ ] Phase 1: implement Coordination Authority Store fully
+- [x] Phase 1: implement Coordination Authority Store fully
 - [ ] Phase 2: implement Coordination Materialized Store fully
 - [ ] Phase 3: implement Coordination Query Engine fully
 - [ ] Phase 4: implement Transactional Coordination Mutation Protocol fully
@@ -51,11 +51,11 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 1: implement Coordination Authority Store fully
+- Phase 2: implement Coordination Materialized Store fully
 
 Current phase spec:
 
-- [../specs/2026-04-08-coordination-authority-store-phase-1.md](../specs/2026-04-08-coordination-authority-store-phase-1.md)
+- none yet
 
 ## 3. Ordering thesis
 
@@ -114,6 +114,12 @@ Migration target:
 Exit criteria:
 
 - the rest of the app can no longer talk directly to coordination authority storage
+
+Current assessment:
+
+- completed by the new authority-store seam and Git-backed backend cutover
+- authoritative current reads, commit, history, descriptor, diagnostics, and live-sync families
+  now route through the authority boundary instead of direct product-facing shared-ref helpers
 
 ### Phase 2: Implement the Coordination Materialized Store
 

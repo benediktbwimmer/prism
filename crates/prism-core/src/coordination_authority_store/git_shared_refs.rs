@@ -76,6 +76,42 @@ impl GitSharedRefsCoordinationAuthorityStore {
             }
         }))
     }
+
+    fn indeterminate_transaction_result(
+        &self,
+        error: &anyhow::Error,
+    ) -> Result<CoordinationTransactionResult> {
+        Ok(CoordinationTransactionResult {
+            status: CoordinationTransactionStatus::Indeterminate,
+            committed: false,
+            authority: self.authority_stamp()?,
+            snapshot: self.load_current_state()?,
+            persisted: None,
+            conflict: None,
+            diagnostics: vec![super::types::CoordinationTransactionDiagnostic {
+                code: "transport_uncertain".to_string(),
+                message: error.to_string(),
+            }],
+        })
+    }
+}
+
+fn transport_outcome_uncertain(error: &anyhow::Error) -> bool {
+    let message = error.to_string().to_ascii_lowercase();
+    [
+        "broken pipe",
+        "connection reset",
+        "connection aborted",
+        "unexpected disconnect",
+        "remote end hung up",
+        "timed out",
+        "timeout",
+        "eof",
+        "early eof",
+        "failed to send request",
+    ]
+    .iter()
+    .any(|needle| message.contains(needle))
 }
 
 impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
@@ -130,12 +166,17 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
             }
         }
         let publish_context = publish_context_from_coordination_events(&request.appended_events);
-        sync_shared_coordination_ref_state(
+        if let Err(error) = sync_shared_coordination_ref_state(
             &self.root,
             &request.snapshot,
             &request.canonical_snapshot_v2,
             publish_context.as_ref(),
-        )?;
+        ) {
+            if transport_outcome_uncertain(&error) {
+                return self.indeterminate_transaction_result(&error);
+            }
+            return Err(error);
+        }
         Ok(CoordinationTransactionResult {
             status: CoordinationTransactionStatus::Committed,
             committed: true,
@@ -168,7 +209,12 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
                 });
             }
         }
-        publish_runtime_descriptor_record(&self.root, &request.descriptor)?;
+        if let Err(error) = publish_runtime_descriptor_record(&self.root, &request.descriptor) {
+            if transport_outcome_uncertain(&error) {
+                return self.indeterminate_transaction_result(&error);
+            }
+            return Err(error);
+        }
         Ok(CoordinationTransactionResult {
             status: CoordinationTransactionStatus::Committed,
             committed: true,
@@ -201,7 +247,12 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
                 });
             }
         }
-        clear_runtime_descriptor_record(&self.root, &request.runtime_id)?;
+        if let Err(error) = clear_runtime_descriptor_record(&self.root, &request.runtime_id) {
+            if transport_outcome_uncertain(&error) {
+                return self.indeterminate_transaction_result(&error);
+            }
+            return Err(error);
+        }
         Ok(CoordinationTransactionResult {
             status: CoordinationTransactionStatus::Committed,
             committed: true,
