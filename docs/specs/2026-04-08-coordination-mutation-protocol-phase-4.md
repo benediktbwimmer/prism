@@ -325,7 +325,7 @@ Phase 4 is complete only when:
 - [ ] Centralize validation ordering
 - [ ] Implement deterministic rejection categories and codes
 - [ ] Implement conflict and replay handling coherently
-- [ ] Unify authoritative commit-result metadata
+- [x] Unify authoritative commit-result metadata
 - [ ] Make service-owned materialization explicitly downstream of commit
 - [ ] Reduce convenience mutation surfaces to protocol adapters
 - [ ] Validate `prism-query`, `prism-mcp`, and `prism-cli`
@@ -345,8 +345,9 @@ What remains incomplete is the actual protocol convergence:
 
 - unsupported `intent_metadata` and `optimistic_preconditions`
 - incomplete explicit result taxonomy
-- incomplete separation between authoritative commit and downstream follow-through
-- too much surface-local lowering and response shaping in `host_mutations`
+- service-backed downstream follow-through is not finished yet
+- some convenience mutation surfaces now attach canonical protocol `outcome` and `commit` metadata,
+  but `host_mutations` still owns too much lowering and response shaping
 - no clearly finished service-backed mutation model yet
 
 The next Phase 4 slice should therefore focus on protocol type/result convergence first, not on

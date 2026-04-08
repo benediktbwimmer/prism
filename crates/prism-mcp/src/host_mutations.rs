@@ -1352,21 +1352,7 @@ fn coordination_transaction_state(
         .map(|task_id| task_id.0.clone());
     Ok(json!({
         "outcome": format!("{:?}", result.outcome),
-        "commit": {
-            "eventIds": result
-                .commit
-                .event_ids
-                .iter()
-                .map(|event_id| event_id.0.clone())
-                .collect::<Vec<_>>(),
-            "eventCount": result.commit.event_count,
-            "lastEventId": result
-                .commit
-                .last_event_id
-                .as_ref()
-                .map(|event_id| event_id.0.clone()),
-            "committedAt": result.commit.committed_at,
-        },
+        "commit": coordination_transaction_commit_view(result),
         "id": primary_task_id.clone().or_else(|| primary_plan_id.clone()),
         "planId": primary_plan_id,
         "taskId": primary_task_id,
@@ -1375,6 +1361,38 @@ fn coordination_transaction_state(
         "plans": plans,
         "tasks": tasks,
     }))
+}
+
+fn coordination_transaction_commit_view(
+    result: &prism_query::CoordinationTransactionResult,
+) -> Value {
+    json!({
+        "eventIds": result
+            .commit
+            .event_ids
+            .iter()
+            .map(|event_id| event_id.0.clone())
+            .collect::<Vec<_>>(),
+        "eventCount": result.commit.event_count,
+        "lastEventId": result
+            .commit
+            .last_event_id
+            .as_ref()
+            .map(|event_id| event_id.0.clone()),
+        "committedAt": result.commit.committed_at,
+    })
+}
+
+fn attach_coordination_transaction_metadata(
+    mut state: Value,
+    result: &prism_query::CoordinationTransactionResult,
+) -> Value {
+    let Value::Object(ref mut object) = state else {
+        return state;
+    };
+    object.insert("outcome".to_string(), Value::String(format!("{:?}", result.outcome)));
+    object.insert("commit".to_string(), coordination_transaction_commit_view(result));
+    state
 }
 
 fn coordination_audit_since(prism: &Prism, before_len: usize) -> CoordinationAudit {
@@ -5293,16 +5311,19 @@ impl QueryHost {
                 let plan = prism
                     .coordination_plan_v2(&plan_id)
                     .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-                Ok(serde_json::to_value(plan_view_from_v2(
-                    plan,
-                    prism.coordination_plan(&plan_id),
-                    prism.plan_activity(&plan_id),
-                ))?)
+                Ok(attach_coordination_transaction_metadata(
+                    serde_json::to_value(plan_view_from_v2(
+                        plan,
+                        prism.coordination_plan(&plan_id),
+                        prism.plan_activity(&plan_id),
+                    ))?,
+                    &result,
+                ))
             }
             CoordinationMutationKindInput::PlanUpdate => {
                 let payload: PlanUpdatePayload = serde_json::from_value(args.payload)?;
                 let plan_id = PlanId::new(payload.plan_id.clone());
-                prism.execute_coordination_transaction(
+                let result = prism.execute_coordination_transaction(
                     meta,
                     CoordinationTransactionInput {
                         mutations: vec![CoordinationTransactionMutation::PlanUpdate {
@@ -5319,16 +5340,19 @@ impl QueryHost {
                 let plan = prism
                     .coordination_plan_v2(&plan_id)
                     .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-                Ok(serde_json::to_value(plan_view_from_v2(
-                    plan,
-                    prism.coordination_plan(&plan_id),
-                    prism.plan_activity(&plan_id),
-                ))?)
+                Ok(attach_coordination_transaction_metadata(
+                    serde_json::to_value(plan_view_from_v2(
+                        plan,
+                        prism.coordination_plan(&plan_id),
+                        prism.plan_activity(&plan_id),
+                    ))?,
+                    &result,
+                ))
             }
             CoordinationMutationKindInput::PlanArchive => {
                 let payload: PlanArchivePayload = serde_json::from_value(args.payload)?;
                 let plan_id = PlanId::new(payload.plan_id);
-                prism.execute_coordination_transaction(
+                let result = prism.execute_coordination_transaction(
                     meta,
                     CoordinationTransactionInput {
                         mutations: vec![CoordinationTransactionMutation::PlanArchive {
@@ -5340,11 +5364,14 @@ impl QueryHost {
                 let plan = prism
                     .coordination_plan_v2(&plan_id)
                     .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-                Ok(serde_json::to_value(plan_view_from_v2(
-                    plan,
-                    prism.coordination_plan(&plan_id),
-                    prism.plan_activity(&plan_id),
-                ))?)
+                Ok(attach_coordination_transaction_metadata(
+                    serde_json::to_value(plan_view_from_v2(
+                        plan,
+                        prism.coordination_plan(&plan_id),
+                        prism.plan_activity(&plan_id),
+                    ))?,
+                    &result,
+                ))
             }
             CoordinationMutationKindInput::TaskCreate => {
                 let payload: TaskCreatePayload = serde_json::from_value(args.payload)?;
@@ -5401,7 +5428,10 @@ impl QueryHost {
                 let task = prism
                     .coordination_task(&task_id)
                     .ok_or_else(|| anyhow!("unknown task `{}`", task_id.0))?;
-                Ok(serde_json::to_value(coordination_task_view(task))?)
+                Ok(attach_coordination_transaction_metadata(
+                    serde_json::to_value(coordination_task_view(task))?,
+                    &result,
+                ))
             }
             CoordinationMutationKindInput::Update => {
                 let mut payload: WorkflowUpdatePayload =
@@ -5463,7 +5493,7 @@ impl QueryHost {
                                 completion_context,
                             },
                         )?;
-                        prism.execute_coordination_transaction(
+                        let result = prism.execute_coordination_transaction(
                             meta.clone(),
                             CoordinationTransactionInput {
                                 mutations: vec![update_mutation],
@@ -5484,7 +5514,10 @@ impl QueryHost {
                             .unwrap_or(task),
                             None => task,
                         };
-                        Ok(serde_json::to_value(coordination_task_view(task))?)
+                        Ok(attach_coordination_transaction_metadata(
+                            serde_json::to_value(coordination_task_view(task))?,
+                            &result,
+                        ))
                     }
                 }
             }

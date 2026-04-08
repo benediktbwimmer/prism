@@ -2731,6 +2731,94 @@ fn mcp_returns_structured_protocol_conflicts_before_any_coordination_event() {
 }
 
 #[test]
+fn plan_create_surfaces_transaction_metadata_in_state() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let created = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "title": "Ship reviewed change", "goal": "Ship reviewed change" }),
+                task_id: None,
+            },
+        )
+        .expect("plan creation should succeed");
+
+    assert_eq!(created.state["outcome"], Value::String("Committed".to_string()));
+    assert!(
+        created.state["commit"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= 1
+    );
+    assert!(
+        created.state["commit"]["lastEventId"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty())
+    );
+}
+
+#[test]
+fn workflow_update_surfaces_transaction_metadata_in_state() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "title": "Update metadata coverage", "goal": "Update metadata coverage" }),
+                task_id: None,
+            },
+        )
+        .expect("plan creation should succeed");
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .expect("task creation should succeed");
+
+    let updated = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task.state["id"].as_str().unwrap(),
+                    "status": "in_progress"
+                }),
+                task_id: None,
+            },
+        )
+        .expect("workflow update should succeed");
+
+    assert_eq!(updated.state["outcome"], Value::String("Committed".to_string()));
+    assert!(
+        updated.state["commit"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= 1
+    );
+}
+
+#[test]
 fn mcp_exposes_policy_violations_through_prism_query() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
