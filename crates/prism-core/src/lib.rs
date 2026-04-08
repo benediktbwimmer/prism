@@ -5,6 +5,7 @@ mod concept_relation_events;
 mod contract_events;
 mod coordination_authority_api;
 mod coordination_authority_store;
+mod coordination_materialized_store;
 mod coordination_persistence;
 mod coordination_reads;
 mod coordination_snapshot_sanitization;
@@ -87,6 +88,12 @@ pub use coordination_authority_store::{
     CoordinationTransactionRequest, CoordinationTransactionResult,
     CoordinationTransactionStatus, GitSharedRefsCoordinationAuthorityStore,
     RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+};
+pub use coordination_materialized_store::{
+    CoordinationMaterializationMetadata, CoordinationMaterializedBackendKind,
+    CoordinationMaterializedCapabilities, CoordinationMaterializedReadEnvelope,
+    CoordinationMaterializedState, CoordinationMaterializedStore,
+    SqliteCoordinationMaterializedStore,
 };
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;

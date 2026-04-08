@@ -33,11 +33,11 @@ coordination truth.
 
 Current state:
 
-- [ ] `CoordinationMaterializedStore` trait and type family finalized in code
-- [ ] SQLite-backed coordination materialized-store implementation extracted behind the seam
-- [ ] eventual coordination snapshot and plan-state read families implemented through the new seam
+- [x] `CoordinationMaterializedStore` trait and type family finalized in code
+- [x] SQLite-backed coordination materialized-store implementation extracted behind the seam
+- [x] eventual coordination snapshot and plan-state read families implemented through the new seam
 - [ ] startup checkpoint persistence and restore implemented through the new seam
-- [ ] materialization metadata, revision, and authority-key access implemented through the new seam
+- [x] materialization metadata, revision, and authority-key access implemented through the new seam
 - [ ] invalidation, replace, and clear families implemented through the new seam
 - [ ] direct product-facing coordination SQLite and checkpoint calls removed or redirected
 
@@ -50,6 +50,12 @@ Current slice notes:
   storage paths directly
 - coordination SQLite access is still spread across product-facing code and should become the
   materialized-store implementation concern in this phase
+- the backend-neutral materialized-store module now exists in
+  `crates/prism-core/src/coordination_materialized_store/`
+- the stable type family and SQLite-backed store shell compile and are exported from `prism-core`
+- the seam currently exposes eventual snapshot, plan-state, read-model, queue-model, startup
+  checkpoint, and metadata read families while downstream call-site cutover remains for later
+  slices
 
 ## 3. Related roadmap
 
