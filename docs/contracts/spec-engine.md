@@ -52,6 +52,7 @@ Initial rules:
 
 - default root: `.prism/specs/`
 - repos may configure another repo-relative root
+- v1 repo-local override configuration should live at `.prism/spec-engine.json`
 - the configured root must remain inside the repo
 
 Native spec support must therefore not assume one hardcoded path such as `docs/specs/`.

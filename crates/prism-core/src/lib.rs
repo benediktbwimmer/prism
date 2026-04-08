@@ -51,6 +51,7 @@ mod shared_runtime;
 mod shared_runtime_backend;
 mod snapshot_artifact_repair;
 mod snapshot_restoration;
+mod spec_engine;
 mod tracked_snapshot;
 mod util;
 mod validation_feedback;
@@ -161,6 +162,10 @@ pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use snapshot_artifact_repair::regenerate_repo_snapshot_derived_artifacts;
 pub use snapshot_restoration::{
     restore_legacy_repo_published_knowledge, LegacyRepoKnowledgeRestoreReport,
+};
+pub use spec_engine::{
+    discover_spec_sources, resolve_spec_root, DiscoveredSpecSource, SpecRootResolution,
+    SpecRootSource,
 };
 pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,

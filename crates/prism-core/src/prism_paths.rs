@@ -119,6 +119,10 @@ impl PrismPaths {
         &self.repo_prism_dir
     }
 
+    pub fn spec_engine_config_path(&self) -> PathBuf {
+        self.repo_prism_dir.join("spec-engine.json")
+    }
+
     pub(crate) fn identity(&self) -> &WorkspaceIdentity {
         &self.identity
     }

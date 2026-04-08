@@ -1,6 +1,6 @@
 # Spec Engine Source, Parser, and Identity Phase 8
 
-Status: draft
+Status: in_progress
 Audience: spec-engine, query, MCP, CLI, docs, and repo-integration maintainers
 Scope: complete roadmap Phase 8 by implementing configurable spec discovery, markdown-plus-frontmatter parsing, stable repo-local spec identity, checklist extraction, dependency parsing, and source metadata capture
 
@@ -30,7 +30,7 @@ Current state:
 
 - [x] the native spec engine contract exists
 - [x] the broader native spec engine design doc exists
-- [ ] configurable spec-root resolution does not yet exist in code
+- [x] configurable spec-root resolution exists in code
 - [ ] markdown-plus-frontmatter spec parsing does not yet exist in code
 - [ ] stable repo-unique `spec_id` validation does not yet exist in code
 - [ ] checklist extraction and stable checklist identity do not yet exist in code
@@ -41,6 +41,8 @@ Current slice notes:
 - Phase 7 closed the coordination platform freeze, so this phase can now build on settled
   coordination seams instead of a moving migration target
 - the goal here is deterministic local structure, not query or storage fanout yet
+- Slice 1 now uses `.prism/spec-engine.json` as the repo-local override path with one `root`
+  field and preserves `.prism/specs/` as the default when the config file is absent
 
 ## 3. Related roadmap
 
@@ -106,6 +108,7 @@ Phase 8 must support a configurable spec root.
 Initial behavior:
 
 - default root: `.prism/specs/`
+- v1 repo-local override config path: `.prism/spec-engine.json`
 - repo-local override may point to another repo-relative path such as `docs/specs/`
 - the configured root must resolve inside the repo
 
@@ -215,6 +218,13 @@ Exit criteria:
 
 - PRISM can enumerate candidate spec files in one configured root deterministically
 
+Slice 1 landed with:
+
+- `.prism/spec-engine.json` as the repo-local override file
+- one `root` field in that JSON file
+- recursive deterministic discovery of `*.md` files under the resolved root
+- rejection of absolute or repo-escaping overrides
+
 ### Slice 2: Frontmatter parser and minimum schema validation
 
 - parse markdown files into frontmatter plus body
@@ -277,8 +287,8 @@ Phase 8 is complete only when:
 
 ## 11. Implementation checklist
 
-- [ ] Add configurable spec-root resolution
-- [ ] Add deterministic spec discovery
+- [x] Add configurable spec-root resolution
+- [x] Add deterministic spec discovery
 - [ ] Add markdown/frontmatter parser and schema validation
 - [ ] Add stable `spec_id` validation
 - [ ] Add checklist extraction and stable checklist identity
