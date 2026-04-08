@@ -234,6 +234,9 @@ Current progress:
   transitional cases where service-owned coordination materialization has not yet been hydrated
 - UI fleet and overview coordination summary/queue fallbacks now read through the same
   session-aware `QueryHost` coordination snapshot helpers
+- `QueryHost` now also owns session-aware coordination read-model and queue-read-model fallback so
+  product-facing overview readers no longer reach into `WorkspaceSession` directly to rebuild that
+  branching themselves
 - UI plans agent filtering and graph touchpoint derivation now read canonical coordination graph
   state through session-aware `QueryHost` snapshot helpers instead of calling
   `prism.coordination_snapshot_v2()` directly inside view helpers

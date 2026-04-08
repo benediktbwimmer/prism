@@ -1,7 +1,10 @@
 use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
-use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
+use prism_coordination::{
+    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
+};
 use prism_core::{
     default_workspace_shared_runtime, hydrate_workspace_session_with_options,
     ActiveWorkContextBinding, PrismRuntimeMode, SharedRuntimeBackend, WorkspaceSession,
@@ -1030,6 +1033,30 @@ impl QueryHost {
             }
         }
         Ok(self.current_prism().coordination_snapshot_v2())
+    }
+
+    pub(crate) fn current_coordination_read_model(&self) -> Result<CoordinationReadModel> {
+        if let Some(workspace) = self.workspace_session_ref() {
+            if let Some(read_model) = workspace.load_coordination_read_model()? {
+                return Ok(read_model);
+            }
+        }
+        Ok(coordination_read_model_from_snapshot(
+            &self.current_coordination_snapshot()?,
+        ))
+    }
+
+    pub(crate) fn current_coordination_queue_read_model(
+        &self,
+    ) -> Result<CoordinationQueueReadModel> {
+        if let Some(workspace) = self.workspace_session_ref() {
+            if let Some(queue_read_model) = workspace.load_coordination_queue_read_model()? {
+                return Ok(queue_read_model);
+            }
+        }
+        Ok(coordination_queue_read_model_from_snapshot(
+            &self.current_coordination_snapshot()?,
+        ))
     }
 
     pub(crate) fn workspace_runtime_binding_ref(&self) -> Option<&Arc<WorkspaceRuntimeBinding>> {

@@ -2,9 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    coordination_queue_read_model_from_snapshot, ready_task_count_for_active_plans,
-    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
-    CoordinationSnapshotV2, WorkClaim,
+    ready_task_count_for_active_plans, CoordinationSnapshot, CoordinationSnapshotV2, WorkClaim,
 };
 use prism_ir::{
     sortable_token_timestamp, ClaimStatus, CoordinationEventKind, CoordinationTaskId,
@@ -1920,20 +1918,8 @@ fn ui_overview_coordination_summary(host: &QueryHost) -> Result<PrismOverviewCoo
 
     let prism = host.current_prism();
     let now = current_timestamp();
-    let fallback_snapshot = host.current_coordination_snapshot()?;
-    let read_model = host
-        .workspace_session()
-        .and_then(|workspace| workspace.load_coordination_read_model().ok().flatten())
-        .unwrap_or_else(|| fallback_coordination_read_model(&fallback_snapshot));
-    let queue_model = host
-        .workspace_session()
-        .and_then(|workspace| {
-            workspace
-                .load_coordination_queue_read_model()
-                .ok()
-                .flatten()
-        })
-        .unwrap_or_else(|| fallback_coordination_queue_read_model(&fallback_snapshot));
+    let read_model = host.current_coordination_read_model()?;
+    let queue_model = host.current_coordination_queue_read_model()?;
     let ready_task_count = ready_task_count_for_active_plans(&read_model.active_plans, |plan_id| {
         if let Some(caller) = current_executor_caller(host.workspace_root(), None) {
             prism.ready_tasks_for_executor(plan_id, now, &caller).len()
@@ -1988,16 +1974,7 @@ fn ui_overview_coordination_queues(
         });
     }
 
-    let fallback_snapshot = host.current_coordination_snapshot()?;
-    let queue_model = host
-        .workspace_session()
-        .and_then(|workspace| {
-            workspace
-                .load_coordination_queue_read_model()
-                .ok()
-                .flatten()
-        })
-        .unwrap_or_else(|| fallback_coordination_queue_read_model(&fallback_snapshot));
+    let queue_model = host.current_coordination_queue_read_model()?;
 
     Ok(PrismOverviewCoordinationQueuesView {
         enabled: true,
@@ -2023,18 +2000,6 @@ fn ui_overview_coordination_queues(
             .map(artifact_view)
             .collect(),
     })
-}
-
-fn fallback_coordination_read_model(
-    snapshot: &prism_coordination::CoordinationSnapshot,
-) -> CoordinationReadModel {
-    prism_coordination::coordination_read_model_from_snapshot(snapshot)
-}
-
-fn fallback_coordination_queue_read_model(
-    snapshot: &prism_coordination::CoordinationSnapshot,
-) -> CoordinationQueueReadModel {
-    coordination_queue_read_model_from_snapshot(snapshot)
 }
 
 fn ui_session_view(host: &QueryHost, session: Option<&SessionState>) -> crate::SessionView {
