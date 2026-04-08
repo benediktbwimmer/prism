@@ -13,7 +13,7 @@ lives in [PRISM_COORDINATION_CONFLICT_HANDLING.md](./PRISM_COORDINATION_CONFLICT
 
 PRISM coordination should be built around one hard rule:
 
-- shared refs are the only authoritative coordination substrate
+- each coordination root has exactly one active authoritative coordination backend
 
 Everything else exists to make that authority usable at speed and at scale:
 
@@ -36,8 +36,8 @@ it.
 
 The model is:
 
-1. shared refs hold current authoritative coordination state
-2. git history of those refs is the retained authoritative history
+1. one configured authority backend holds current authoritative coordination state
+2. that backend exposes retained authoritative history according to its retention contract
 3. the coordination kernel is sufficient for coordination correctness
 4. the PRISM Service makes reads, writes, and event execution practical without
    becoming authority
@@ -59,7 +59,7 @@ This lets PRISM remain:
 
 Required goals:
 
-- keep authoritative coordination truth in shared refs
+- keep authoritative coordination truth behind one explicit authority backend
 - make the coordination kernel self-sufficient for correctness
 - make all local runtime state disposable
 - allow high-quality operation without requiring cognition
@@ -71,7 +71,7 @@ Required goals:
 Required non-goals:
 
 - no mandatory PostgreSQL or central database for coordination correctness
-- no second authoritative store besides shared refs
+- no more than one active authoritative store for the same coordination root
 - no unverified shared-coordination reads
 - no separate explicit append-only coordination event log embedded in git payloads
 - no dependence on cognition for lease, claim, plan, task, or artifact correctness
@@ -82,7 +82,8 @@ Required non-goals:
 
 ### 4.1 Authority rule
 
-Shared refs are the sole source of authoritative coordination truth.
+The configured coordination authority backend is the sole source of authoritative coordination truth
+for that coordination root.
 
 That includes:
 
@@ -97,18 +98,22 @@ That includes:
 
 SQLite, startup checkpoints, and local runtime memory are never authoritative.
 
+In the current default deployment, Git shared refs are that backend.
+Other backends may exist later, but only one may be authoritative for a coordination root at a
+time.
+
 ### 4.2 History rule
 
 PRISM should not build a second explicit append log inside git.
 
 Instead:
 
-- shared refs store current authoritative state
-- git commit history of those refs is the effective retained event trail
+- the authority backend stores current authoritative state
+- that backend exposes the effective retained event trail for its current retention window
 - compaction or pruning may later reduce retained history depth
 
-This keeps shared-ref state compact and avoids bloating git with both current state and a duplicate
-embedded event journal.
+For the current Git backend, this keeps shared-ref state compact and avoids bloating git with both
+current state and a duplicate embedded event journal.
 
 ### 4.3 Verification rule
 
@@ -707,8 +712,9 @@ PRISM should use the same PRISM Service shape for:
 
 PRISM should support an elected leader per repository for optimization purposes.
 
-That leader must be selected through shared-ref authority, not through hidden in-memory
-coordination or an external database.
+That leader must be selected through the configured coordination authority backend, not through
+hidden in-memory coordination. For the current Git-backed deployment shape, that means shared-ref
+authority rather than an external side channel.
 
 The recommended mechanism is:
 
@@ -1062,7 +1068,7 @@ These changes improve scale without changing authority.
 
 The final architecture should be understood in one sentence:
 
-- shared refs are truth; git is the authoritative transport and retained history; the PRISM
-  Service and local SQLite are optimization layers that must remain disposable
+- one configured authority backend is truth; the PRISM Service and local SQLite are optimization
+  layers that must remain disposable; Git shared refs are the current default backend
 
 That is the target PRISM should implement against.

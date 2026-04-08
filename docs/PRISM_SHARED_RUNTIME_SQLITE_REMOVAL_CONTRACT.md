@@ -28,7 +28,9 @@ PRISM is removing the shared runtime SQLite database completely.
 
 The target model is:
 
-- shared coordination refs are the only cross-runtime mutable authority plane
+- shared runtime SQLite is never the cross-runtime mutable authority plane
+- coordination authority currently lives in shared refs and may later be provided by another
+  explicit coordination authority backend
 - worktree-local SQLite is the only rich hot runtime store
 - peer or archive reads are optional enrichment paths, never correctness dependencies
 - repo-published `.prism/state/**` remains the repo-published semantic authority plane
@@ -154,7 +156,7 @@ Specifically:
 - do not keep dual-write fan-out from local runtime materializers into a shared DB
 - do not keep `workspace_runtime` freshness logic that consults shared runtime revisions
 - do not keep CLI or daemon defaults that silently recreate the shared DB as part of normal startup
-- do not preserve the unimplemented remote shared runtime backend as if it were still part of the
+- do not preserve the old remote shared runtime backend idea as if it were still part of the
   active architecture contract
 
 If a capability still needs cross-runtime sharing, it must move to one of:
@@ -185,13 +187,13 @@ paths, and only then deletes the compatibility scaffolding.
 
 The following older assumptions are no longer valid for implementation work on this cutover:
 
-- "repo-shared runtime authority" in `docs/PRISM_HOME_LAYOUT.md`
-- "shared runtime authority" as a first-class projection plane in `docs/PRISM_PROJECTIONS.md`
-- "shared runtime owns append-only operational history" in `docs/PRISM_TRACKED_CHANGES_REMOVAL.md`
-- "shared runtime backend" as mutable operational truth in `docs/PRISM_CROSS_REPO_FUTURE_DESIGN.md`
+- repo-shared SQLite is an authority backend
+- projections may treat shared runtime state as a first-class authority plane
+- append-only operational history must live in one repo-shared runtime database
+- future remote runtime layers should be treated as mutable operational truth by default
 
-Those documents should be rewritten by later tasks in the cutover plan. Until then, this document
-and `docs/PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md` define the live contract.
+The companion docs that previously used that language have now been updated. This document and
+`docs/PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md` remain the live contract for the removal boundary.
 
 ---
 

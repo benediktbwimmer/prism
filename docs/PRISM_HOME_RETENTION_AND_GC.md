@@ -15,7 +15,7 @@ cross-session continuity, and local debugging value without allowing
 
 The retention policy must balance:
 
-- preserving expensive-to-rebuild shared runtime state
+- preserving expensive-to-rebuild repo- or project-scoped local state
 - reclaiming disposable worktree-local state quickly
 - avoiding premature deletion for live or recently used checkouts
 - making cleanup behavior explainable and inspectable
@@ -24,7 +24,7 @@ The retention policy must balance:
 
 `~/.prism/repos/` stores several different classes of local state:
 
-- repo-scoped shared runtime authority
+- repo-scoped shared local state and coordination materialization
 - worktree-scoped caches and process handoff files
 - logs and rotated traces
 - backups and crash leftovers
@@ -78,7 +78,7 @@ Properties:
 
 - highest rebuild value
 - shared across worktrees
-- publishes the repo-visible continuity story
+- preserves the repo-visible continuity story and imported coordination checkpoints
 - may include legacy migration artifacts that are no longer part of the live hot path
 
 Policy:

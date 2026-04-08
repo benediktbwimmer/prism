@@ -595,11 +595,11 @@ PRISM should not call the shared coordination design v1-ready for 1000-agent sca
 This document supersedes the old assumption that the single repo-wide shared coordination ref is
 both:
 
-- the only authoritative cross-branch coordination plane
+- the only possible authoritative cross-branch coordination plane
 - the primary hot write target for all shared coordination facts
 
 `docs/PRISM_SHARED_COORDINATION_REFS.md` remains the implemented baseline and closure record for
-the current system.
+the current Git-backed system.
 
 This document defines the pre-v1 compatibility and scale work that should now be implemented on top
 of that baseline.

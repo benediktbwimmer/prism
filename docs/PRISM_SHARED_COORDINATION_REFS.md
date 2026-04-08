@@ -323,7 +323,8 @@ Branch-local `.prism/state/**` should not mirror the full shared coordination sn
 
 The default rule should be:
 
-- shared coordination ref is the only authoritative cross-branch live coordination plane
+- shared coordination ref is the authoritative cross-branch live coordination plane for the
+  current Git-backed coordination root
 - branch-local `.prism/state/**` keeps branch-published intent and branch-scoped semantic state
 - branch-local mirrors of shared coordination are allowed only when they are explicitly derived,
   bounded, and useful for branch review or task-scoped evidence

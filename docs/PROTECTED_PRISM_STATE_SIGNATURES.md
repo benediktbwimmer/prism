@@ -936,11 +936,12 @@ This design preserves the intended three-plane model:
 
 - repo `.prism`
   - published runtime-attested signed repo truth
-- shared runtime / local home
-  - mutable identity authority, trust root, credentials, coordination continuity, and portable
-    public verification material
+- local home operational state plus configured coordination authority inputs
+  - mutable identity material, trust roots, credentials, coordination inputs, and portable public
+    verification material
 - hot memory
-  - live serving state hydrated from verified repo truth plus shared runtime authority
+  - live serving state hydrated from verified repo truth plus authoritative coordination state and
+    local operational state
 
 This avoids dual truth:
 

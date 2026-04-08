@@ -32,7 +32,8 @@ The system must preserve these rules:
 5. A review task may aggregate many review records into one review pass.
 6. Artifact and review requirements that affect normative completion or review-gate behavior must
    be declared up front or added through an explicit future-compatible retrofit path.
-7. Shared refs remain the authoritative coordination substrate.
+7. Coordination state is authoritative only in the configured coordination authority backend for
+   the active coordination root. Git shared refs are the current default backend.
 8. Local SQLite is a materialization and restart accelerator only.
 9. Every review outcome that changes coordination state must do so atomically.
 

@@ -25,7 +25,7 @@ The target design is:
 This split must preserve PRISM's three persistence planes:
 
 - repo-published authority in `<repo>/.prism`
-- shared runtime authority in `~/.prism`
+- repo- or project-scoped local operational state and coordination materialization in `~/.prism`
 - worktree-local hot acceleration in `~/.prism`
 
 ## Ownership Rule
@@ -203,7 +203,7 @@ information source.
 `~/.prism` should not be treated as one undifferentiated local bucket. It should
 mirror the remaining two persistence planes explicitly:
 
-- `shared/`: shared runtime authority for the logical repo on this machine
+- `shared/`: repo-scoped shared local state for the logical repo on this machine
 - `worktrees/<worktree_id>/acceleration/`: optional worktree-local hot acceleration
 - `worktrees/<worktree_id>/mcp/`: process-facing MCP runtime files and logs
 
@@ -211,7 +211,7 @@ That means the local design is:
 
 - repo `.prism` for published truth
 - `~/.prism/projects/<project_id>/` for optional cross-repo coordination scope
-- `~/.prism/.../shared/` for authoritative mutable runtime state
+- `~/.prism/.../shared/` for durable repo-scoped local state and imported coordination materialization
 - `~/.prism/.../worktrees/<worktree_id>/acceleration/` for rebuildable fast paths
 
 The project scope is intentionally above repo scope:
@@ -219,42 +219,41 @@ The project scope is intentionally above repo scope:
 - a project may include multiple repos
 - a repo may participate in zero or one project in the simple local model
 - project-scoped data should contain only genuinely cross-repo coordination state
-- repo-scoped runtime truth should not be promoted upward just because a repo is
+- repo-scoped local runtime state should not be promoted upward just because a repo is
   part of a project
 
 ### `shared/`
 
-This is the local home of shared runtime authority.
+This is the local home of repo-scoped shared local state.
 
 It contains:
 
-- the authoritative shared runtime database, proposed as `state.db`
+- the durable repo-scoped local database, proposed as `state.db`
 - WAL and SHM sidecars
 - local backup files
-- future authoritative runtime journals or compaction outputs that belong to the
-  shared runtime plane
+- future imported coordination checkpoints, local journals, or compaction outputs that belong to
+  the repo-scoped local state plane
 
 This directory is repo-scoped rather than worktree-scoped.
 
-This is where the optional local shared-runtime backend lives. On a single machine
-with multiple worktrees, PRISM should have one authoritative shared runtime store
-per `repo_id`, not one SQLite authority per checkout path.
+This is where repo-scoped local continuity and materialization live. On a single machine with
+multiple worktrees, PRISM should have one repo-scoped shared local store per `repo_id`, not one
+SQLite store per checkout path for the shared portion of local state.
 
 The important consequence is:
 
-- `state.db` is not a cache
-- `state.db` should hold shared mutable runtime truth
+- `state.db` is not an authority backend
+- `state.db` is a durable local materialization and continuity store
 - worktree divergence must be represented inside the data model with `worktree_id`
-  and related scope fields, not by creating separate authoritative databases
+  and related scope fields, not by creating separate repo-scoped local databases
 
-Representative contents of shared runtime authority:
+Representative contents of repo-scoped shared local state:
 
-- coordination runtime state
-- shared mutable plans or execution overlays that are not yet published repo truth
-- claims, handoffs, reviews, and other continuity state
-- crash-sensitive journals for authored local/session state
-- persisted state needed so different local runtimes can see the same repo-scoped
-  live truth
+- imported coordination checkpoints and materialized read models
+- local continuity state needed so different worktrees on this machine can resume efficiently
+- crash-sensitive journals for authored local or session state
+- shared feedback and migration artifacts that are local to this machine
+- repo-scoped local state that is more durable than one worktree cache but still non-authoritative
 
 ### `projects/<project_id>/coordination/`
 
@@ -276,15 +275,17 @@ Rules:
 - this is coordination scope, not a replacement for repo runtime state
 - repo graph/runtime truth remains under `repo_id`
 - project state should reference repos explicitly rather than absorb their local
-  runtime authority
-- this scope is the right semantic bridge to a future shared Postgres backend
+  operational state
+- this scope is the right semantic bridge to a future project-scoped authority backend or
+  project-scoped imported coordination materialization
 
 ### `worktrees/<worktree_id>/acceleration/`
 
 This is optional worktree-local hot acceleration state.
 
 It is explicitly not authoritative. It exists to make one checkout fast without
-changing the semantic truth of the shared runtime plane.
+changing the semantic truth of the configured coordination authority backend or durable repo-scoped
+local state.
 
 Representative contents:
 
@@ -365,7 +366,7 @@ published repo knowledge.
 | `<repo>/.prism/concepts/**` | unchanged | repo | published repo truth |
 | `<repo>/.prism/contracts/**` | unchanged | repo | published repo truth |
 | `<repo>/.prism/memory/**` | unchanged | repo | published repo truth |
-| `<repo>/.prism/cache.db*` | `~/.prism/repos/<repo_id>/worktrees/<worktree_id>/cache/state.db*` | worktree-local runtime cache | local mutable truth for rich runtime state |
+| `<repo>/.prism/cache.db*` | `~/.prism/repos/<repo_id>/worktrees/<worktree_id>/cache/state.db*` | worktree-local runtime cache | durable local materialization for rich runtime state |
 | `<repo>/.prism/backups/cache.db*.bak` | `~/.prism/repos/<repo_id>/worktrees/<worktree_id>/backups/state.db*.bak` | worktree-local runtime cache | local recovery material for worktree cache state |
 | `<repo>/.prism/validation_feedback.jsonl` | `~/.prism/repos/<repo_id>/feedback/validation_feedback.jsonl` | repo-local user state | not publishable repo truth |
 | `<repo>/.prism/prism-mcp-http-uri` | `~/.prism/repos/<repo_id>/worktrees/<worktree_id>/mcp/state/prism-mcp-http-uri` | worktree | process handoff file |
@@ -484,7 +485,7 @@ this phase.
 
 Switch the following call sites first:
 
-- shared runtime `cache.db` resolution, renamed to `state.db`
+- repo-scoped local `cache.db` resolution, renamed to `state.db`
 - validation feedback
 - MCP daemon URI and runtime files
 - daemon log resolution
@@ -519,15 +520,15 @@ After the migration has settled:
   migration, complete the rename to `state.db` once the location split is stable
 
 Given the three-plane model, `state.db` is the better target name than
-`runtime.db` or `cache.db`, because this file is authoritative shared runtime
-state rather than a disposable cache.
+`runtime.db` or `cache.db`, because this file holds durable local state and materialization rather
+than being only a disposable cache.
 
 ## Non-Goals
 
 - This design does not move published plans, concepts, contracts, or repo memory
   out of the repo tree.
-- This design does not force a remote shared backend; local SQLite remains
-  first-class.
+- This design does not require a remote or service-backed authority backend; local SQLite remains
+  first-class as a non-authoritative local store.
 - This design does not require one database per worktree.
 - This design does not require one MCP daemon per worktree.
 - This design does not make all local runtime state machine-global by default.
@@ -538,8 +539,8 @@ The split is intentionally strict:
 
 - repo `.prism` becomes publishable repo knowledge only
 - `~/.prism/projects/<project_id>/` is the future home for optional cross-repo
-  coordination state
-- `~/.prism/repos/<repo_id>/shared/` holds authoritative shared runtime state
+  coordination state and local project-scoped materialization
+- `~/.prism/repos/<repo_id>/shared/` holds durable repo-scoped local state
 - `~/.prism/repos/<repo_id>/worktrees/<worktree_id>/acceleration/` holds optional
   rebuildable hot acceleration state
 - worktree-specific MCP runtime artifacts live under `worktrees/<worktree_id>/mcp/`

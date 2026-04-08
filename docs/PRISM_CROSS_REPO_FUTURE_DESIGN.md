@@ -2,7 +2,8 @@
 
 Status: forward-looking design note  
 Audience: PRISM core, coordination, runtime, storage, MCP, and query maintainers  
-Scope: project-scoped published knowledge, cross-repo coordination, shared-ref authority, and local materialization and binding strategy
+Scope: project-scoped published knowledge, cross-repo coordination, configured authority backends,
+and local materialization and binding strategy
 
 ---
 
@@ -14,7 +15,8 @@ The central design decision is:
 
 - **repo-local published truth** continues to live in each code repo's `.prism/`
 - **project-level published cross-repo truth** should live in a dedicated **project git repo**
-- **cross-repo coordination authority** should live in the project repo's shared coordination refs
+- **cross-repo coordination authority** should live behind one configured backend for the project
+  coordination root
 - **worktree-local hot acceleration** remains local and rebuildable
 
 This means PRISM grows by **adding a project scope**, not by collapsing all truth into a mutable database or inventing a vague global mode.
@@ -22,7 +24,7 @@ This means PRISM grows by **adding a project scope**, not by collapsing all trut
 This should read as a direct architecture extension of PRISM's current model, not as a parallel side system:
 
 - published truth stays explicit and git-backed
-- coordination authority stays explicit and git-backed
+- coordination authority stays explicit and backend-defined
 - rebuildable acceleration stays disposable
 
 Local SQLite and runtime-local state are still important, but their role is different:
@@ -86,11 +88,12 @@ That enables workflows such as:
 - Preserve the current strength of repo-local published truth.
 - Add first-class cross-repo plans, concepts, contracts, and memories.
 - Keep published knowledge explicit and reviewable.
-- Keep coordination authority in shared refs.
+- Keep coordination authority behind one explicit backend per coordination root.
 - Keep local SQLite and runtime state in a non-authoritative materialization role.
 - Support one machine-level daemon managing many repos and worktrees.
 - Support future multi-machine coordination without redefining the data model.
-- Avoid blurring repo-local truth, project truth, shared-ref authority, local bindings, and rebuildable caches.
+- Avoid blurring repo-local truth, project truth, configured coordination authority, local
+  bindings, and rebuildable caches.
 
 ### 3.2 Non-goals
 
@@ -140,21 +143,26 @@ It also lets published cross-repo truth inherit naturally through normal git wor
 
 The project repo is the cross-repo equivalent of a code repo's local `.prism/`.
 
-### 4.3 Use project shared refs as the authoritative coordination plane
+### 4.3 Use one configured authority backend per project coordination root
 
-For cross-repo coordination, the project repo should also own the authoritative coordination refs.
+For cross-repo coordination, the project must have one explicit coordination root and one active
+authority backend.
 
 That means:
 
-- project-scoped plans, tasks, claims, artifacts, and reviews are published under the project
-  repo's shared coordination ref set
-- compare-and-swap, replay, and semantic merge follow the same coordination conflict contract that
-  repo-local coordination already uses
-- local SQLite and runtime state materialize those refs for fast reads and restart acceleration
+- project-scoped plans, tasks, claims, artifacts, and reviews are committed through one authority
+  backend for that root
+- Git shared refs are the initial and default backend
+- PostgreSQL may later be added as an alternative authority backend with the same coordination
+  semantics
+- compare-and-swap, replay, and semantic merge remain backend-defined implementations of one
+  coordination conflict contract
+- local SQLite and runtime state materialize committed authority results for fast reads and restart
+  acceleration
 - machine-local checkout bindings remain local and non-authoritative
 
-Cross-repo coordination should therefore extend the existing shared-ref-authoritative model rather
-than introducing a second mutable authority plane.
+Cross-repo coordination should therefore extend the existing coordination semantics rather than
+introducing a second mutable authority plane.
 
 ### 4.4 Preserve worktree-scoped hot runtime engines
 
@@ -611,7 +619,7 @@ This is the same pattern PRISM already uses locally, extended upward to project 
 
 Cross-repo coordination should follow the same principles PRISM already uses inside one repo.
 
-The project repo shared refs plus local materialization should support:
+The project coordination backend plus local materialization should support:
 
 - project-scoped execution leases
 - cross-repo handoffs
@@ -656,7 +664,7 @@ The project repo is the place for:
 - published concepts
 - published contracts
 - promoted memories
-- authoritative cross-repo coordination refs
+- authoritative cross-repo coordination state
 
 Local runtime state is the place for:
 
@@ -689,7 +697,7 @@ That means:
 - same scope model
 - same identities
 - same event and mutation model
-- same distinction between shared-ref authority and local overlays
+- same distinction between configured coordination authority and local overlays
 
 Any future remote layer should not redefine the architecture. It should only change how acceleration, replication, or discovery is provided.
 
@@ -702,9 +710,11 @@ A future remote layer is a candidate place for:
 - remote cache distribution
 - shared query acceleration
 
-It is **not** the authority plane for published project truth or authoritative coordination state.
+It is **not** the authority backend for published project truth or authoritative coordination
+state.
 
-That remains the project repo.
+That remains the configured project coordination backend, with the project repo plus Git shared refs
+as the initial/default shape.
 
 ---
 
@@ -899,7 +909,7 @@ Cross-repo coordination-only support is a plausible PRISM v1 feature if it is sc
 The goal of this slice is:
 
 - support cross-repo plans, tasks, claims, artifacts, and reviews
-- keep authority entirely in the project repo shared refs
+- keep authority in one configured backend for the project coordination root
 - keep local SQLite and runtime state purely as materialization and binding layers
 - defer project-scoped concepts, contracts, and memories to a later release
 
@@ -908,7 +918,7 @@ The goal of this slice is:
 For v1:
 
 - one umbrella or project repo is the coordination root
-- the project repo owns the authoritative cross-repo coordination refs
+- the initial authoritative backend is Git shared refs
 - every cross-repo coordination record is explicitly scope-qualified
 - artifacts are repo-qualified evidence pointers
 - repo-local claims remain repo-qualified rather than becoming one giant global lock space
@@ -938,7 +948,8 @@ The minimum viable implementation should do these things explicitly:
    - optional path or module hints
 6. Make project-scoped tasks able to point to repo-qualified work ownership and repo-local follow-up work.
 7. Keep concrete edit claims repo-qualified, even when the owning project task is cross-repo.
-8. Materialize the project coordination refs into local SQLite for fast reads and restart, without making SQLite authoritative.
+8. Materialize committed project coordination state into local SQLite for fast reads and restart,
+   without making SQLite authoritative.
 9. Make MCP and query surfaces expose both:
    - the coordination root
    - the local execution repo binding
@@ -998,7 +1009,8 @@ Concrete outcomes for this phase:
 
 ### Phase 2 — coordination-only cross-repo release
 
-Support project-scoped cross-repo coordination through the project repo shared refs plus local materialization:
+Support project-scoped cross-repo coordination through the initial Git shared-refs backend plus
+local materialization:
 
 - project-scoped plans, tasks, claims, artifacts, and reviews
 - project-scoped execution leases, handoffs, and overlays materialized locally from shared refs
@@ -1100,13 +1112,13 @@ The recommended stance is:
 
 - **code repos** own local published truth
 - the **project repo** owns published cross-repo truth
-- the **project repo shared refs** own authoritative cross-repo coordination state
+- the **configured project coordination backend** owns authoritative cross-repo coordination state
 - **worktree-local state and SQLite** own rebuildable hot acceleration, materialization, and checkout bindings
 
 This gives PRISM the best of both worlds:
 
 - durable, reviewable, portable knowledge in git
-- one clear authority plane for coordination
+- one clear authority backend for coordination
 - fast local reads without authority confusion
 - a real future for cross-repo plans, concepts, contracts, and memories
 

@@ -24,7 +24,7 @@ The recommended order is:
 * multi-workspace/worktree support
 * incremental indexing and invalidation
 * partial materialization and boundary semantics
-* shared remote runtime state
+* optional service-backed coordination authority backend
 * lazy deep parsing
 * graph-ranking and centrality-based retrieval
 * database-pushed traversals for very large graphs
@@ -42,8 +42,8 @@ This roadmap assumes the following are already in place:
 * clean 3-way split:
 
   * `.prism` for repo-published truth
-  * database backend for shared mutable runtime state
-  * process-local caches for fast ephemeral data
+  * one explicit coordination authority backend for mutable coordination state
+  * local materialization and process-local caches for fast ephemeral data
 * explicit scope model:
 
   * `repo_id`
@@ -225,20 +225,21 @@ Agents need to know the difference between:
 
 ---
 
-## Phase 2 — Shared runtime scaling
+## Phase 2 — Optional coordination-backend scaling
 
 These should follow once the foundational substrate is stable.
 
-### 4.4 Remote shared runtime backend (e.g. Postgres)
+### 4.4 Optional service-backed coordination authority backend (e.g. Postgres)
 
 #### Goal
 
-Allow multiple PRISM instances or sessions to share live runtime state safely.
+Allow multiple PRISM instances or sessions to share authoritative coordination state safely through
+an alternative backend implementation.
 
 #### High-value uses
 
 * multiple agents on one repo
-* worktree coordination across one machine
+* cross-machine coordination roots with service-backed authority
 * CI/runtime/worker integration
 * enterprise deployments
 * shared maintenance queues
@@ -246,36 +247,37 @@ Allow multiple PRISM instances or sessions to share live runtime state safely.
 
 #### What belongs here
 
-* active claims
-* handoffs
-* live plan overlays
-* per-session coordination state
-* maintenance queues
-* draft local/session artifacts before publication
-* ephemeral runtime materializations
+* plans and tasks
+* claims and leases
+* handoffs and reviews
+* runtime descriptors
+* retained coordination history according to the backend's contract
+* maintenance queues that are part of authoritative coordination state
 
 #### What does not move here
 
 * repo-published truth that belongs in `.prism`
 * purely local process caches
+* worktree-local journals and hot materializations that do not need cross-runtime convergence
 
 #### Required semantics
 
 The persistence abstraction should support more than simple CRUD:
 
-* append event
+* append retained history
 * compare-and-swap or revisioned mutation
 * lease acquire/renew/release
 * active claim scan
 * stale session scan
-* projection read/write
+* strong and eventual authority reads
 * idempotent replay behavior
 
 #### Acceptance criteria
 
 * multiple PRISM instances can safely coordinate on one repo/worktree set
 * claim conflicts and handoffs remain consistent
-* runtime state can be shared without undermining local-first `.prism` semantics
+* the alternative backend can replace Git shared refs as the active authority backend for one
+  coordination root without changing product semantics
 
 ---
 
@@ -471,7 +473,7 @@ After the persistence split and multi-workspace scoping land, follow this order:
 1. incremental indexing and invalidation
 2. partial materialization / depth tiers
 3. explicit boundary-node semantics
-4. remote shared runtime backend
+4. optional service-backed coordination authority backend
 5. worktree-aware projections and runtime overlays
 6. lazy deep parsing
 7. graph centrality / large-repo ranking

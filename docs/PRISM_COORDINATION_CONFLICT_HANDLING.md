@@ -2,8 +2,8 @@
 
 Status: normative coordination write contract
 Audience: PRISM coordination, core, MCP, service, and shared-ref maintainers
-Scope: authoritative concurrent writes to `refs/prism/coordination/**`, including CAS retry,
-transaction replay, semantic merge, and deterministic rejection
+Scope: authoritative concurrent coordination writes, currently to `refs/prism/coordination/**` for
+the Git backend, including CAS retry, transaction replay, semantic merge, and deterministic rejection
 
 ---
 
@@ -15,13 +15,13 @@ PRISM must answer one coordination question unambiguously:
 
 The rule set is:
 
-- shared refs remain the only authoritative coordination substrate
+- each coordination root has exactly one active authority backend
 - every logical coordination change is expressed as one transaction over the canonical plan/task
   model
 - writers stage that transaction against the latest verified authoritative state for the affected
-  ref set
-- publication uses compare-and-swap (CAS) against the heads that were staged
-- if a head advanced, the default recovery path is refetch, restage, and replay the full
+  write set
+- publication uses backend-appropriate conflict detection against the staged authority base
+- if that authority base advanced, the default recovery path is refetch, restage, and replay the full
   transaction intent
 - semantic merge is used only when replay reaches the same authoritative payload and the schema
   defines a deterministic three-way merge rule
@@ -37,6 +37,9 @@ The important split is:
 ## 2. Authority And Write Set
 
 The conflict model operates on the authoritative write set, not on derived views.
+
+For the current Git backend, that write set is implemented as coordination refs under
+`refs/prism/coordination/**`.
 
 Authoritative coordination writes may touch:
 

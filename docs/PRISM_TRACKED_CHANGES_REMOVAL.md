@@ -197,18 +197,21 @@ This includes:
 - detailed coordination churn
 - other high-resolution audit and replay detail
 
-The local hot runtime can still cache or spool local operational state, but the architectural owner of append-only operational history should be the shared runtime.
+The local hot runtime can still cache or spool local operational state, but the architectural owner
+of append-only operational history should be a durable local runtime store rather than tracked repo
+state.
 
 This has several advantages:
 
 - one clear home for operational history
 - no repo growth driven by operational churn
 - easier future compaction or archival
-- better alignment with a future remote shared runtime backend
+- better alignment with a future service-backed authority backend plus local operational
+  materialization
 
 Tracked `.prism/state` then becomes what it should be:
 
-- a stable projection of shared-runtime history into repo-owned semantic state
+- a stable projection of operational history into repo-owned semantic state
 
 ---
 

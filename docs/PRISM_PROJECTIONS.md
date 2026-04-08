@@ -11,8 +11,8 @@ PRISM separates authority from interface-layer read models.
 
 The following rules are implementation requirements:
 
-1. Published repo authority, shared runtime authority, and derived projection state remain
-   explicitly distinct planes.
+1. Published repo authority, configured coordination authority, local operational state, and
+   derived projection state remain explicitly distinct sources.
 2. Projections are always derived. They may explain, summarize, cache, hydrate, or index
    authoritative state, but they do not silently become a second write authority.
 3. Projection surfaces must be able to say which authority plane or planes they read from.
@@ -71,7 +71,8 @@ This document proposes making that split explicit and first-class.
 The design rule is:
 
 1. Authoritative state lives in explicit authority planes already defined by PRISM contracts.
-2. Those authority planes include published repo truth and shared runtime authority.
+2. Those authority planes include published repo truth and explicit coordination authority
+   backends.
 3. Serving projections, caches, and hydrated indexes are read-optimized derived state.
 4. Human-facing docs, IDE widgets, dashboards, and audit outputs are projections over the authority planes.
 
@@ -222,7 +223,7 @@ graph TD
     subgraph "Authority Planes"
         A["Agent / Human Actions"] -->|Authenticated mutations| B["prism-daemon / mutation host"]
         B -->|Append published repo truth| C[".prism/**/*.jsonl"]
-        B -->|Mutate shared runtime authority| D["shared runtime authority"]
+        B -->|Mutate coordination authority backend or local operational state| D["coordination authority / local operational state"]
         C --> E["serving indexes / caches / hydrated projections"]
         D --> E
     end
@@ -340,5 +341,6 @@ The shortest accurate summary is:
 
 > PRISM’s ledger is the authority layer. Projections are the human and tool interface layer.
 > Some projections are published docs, some are runtime serving indexes, and some are ad hoc
-> historical views. They may read from published repo authority or shared runtime authority, but
-> all of them remain derived and none of them silently replace the underlying truth.
+> historical views. They may read from published repo authority, configured coordination authority,
+> or local operational state, but all of them remain derived and none of them silently replace the
+> underlying truth.

@@ -134,13 +134,17 @@ Critical boundaries:
 
 PRISM separates authority from interface-layer read models.
 
-Authority planes:
+Authority planes and operational sources:
 
 * published repo authority: repo-scoped signed snapshot state under `.prism/state/**/*` plus the tracked publish manifest
-* shared runtime authority: mutable runtime-scoped truth such as trust state, coordination
-  continuity, leases, unpublished working state, and fine-grained operational journals
+* configured coordination authority: mutable coordination truth for one coordination root,
+  currently implemented by Git shared refs and later potentially by another backend such as
+  PostgreSQL
+* local operational state: machine-local identity, trust roots, credentials, runtime journals,
+  and durable local materializations that may inform serving behavior without becoming cross-runtime
+  coordination authority
 * derived projection state: read-optimized indexes, packets, summaries, caches, and generated
-  documentation derived from one or more authority planes
+  documentation derived from one or more authority or operational sources
 
 Projection classes:
 
@@ -153,7 +157,8 @@ Projection classes:
 Rules:
 
 * projections never silently author new truth
-* projections may read from published repo authority, shared runtime authority, or both
+* projections may read from published repo authority, configured coordination authority, local
+  operational state, or a combination of them
 * projections must surface freshness or materialization state when it affects trust in the answer
 * persisted projection accelerators remain derived and rebuildable, not hidden write authority
 * exported projection artifacts are useful interfaces, but they remain derived and optional; they

@@ -31,8 +31,8 @@ This makes PRISM a distributed system, but in a repo-native way rather than a da
 
 ## 2. Problem
 
-Several current and planned PRISM documents assume a "shared runtime authority" plane that may
-eventually be implemented by Postgres or another centralized shared backend.
+Several older PRISM documents assumed a centralized shared runtime database that might eventually
+be implemented by Postgres or another shared backend.
 
 That model works, but it has real costs:
 
@@ -215,11 +215,13 @@ authority planes.
 Tracked `.prism/state/**` and its signed manifest remain repo-published authority for repo-scoped
 knowledge and branch-published intent.
 
-### 5.2 Shared coordination authority
+### 5.2 Coordination authority backend
 
-Shared coordination refs become the authoritative cross-branch coordination plane.
+One configured coordination authority backend becomes the authoritative cross-branch coordination
+plane for a coordination root.
 
-This replaces the "all shared mutable truth lives in Postgres" assumption for many workloads.
+Git shared refs are the current default backend. PostgreSQL or another service-backed backend may
+later implement the same authority contract.
 
 ### 5.3 Local runtime authority
 
@@ -447,7 +449,7 @@ The read layer should stay honest about which authority plane is primary for the
 
 In practice:
 
-- coordination truth should stay shared-ref-first
+- coordination truth should stay authority-backend-first, currently shared-ref-first
 - repo semantic truth should stay repo-published-state-first
 - rich replay, diagnostics, hot overlays, and local execution detail are the best candidates for
   runtime-targeted reads
@@ -898,10 +900,10 @@ rich-state exchange.
 
 Add signed exported runtime bundles and shared-ref pointers to them.
 
-### Phase 5: central shared DB becomes optional
+### Phase 5: service-backed authority backend becomes optional
 
-At this point Postgres or another centralized shared backend becomes a deployment option, not a
-required architecture assumption.
+At this point Postgres or another centralized shared backend becomes an optional authority-backend
+implementation or deployment option, not a required architecture assumption.
 
 ---
 
@@ -943,5 +945,5 @@ That architecture keeps PRISM:
 - distributed
 - operationally lighter than a mandatory shared database
 
-Postgres can still exist as an optional deployment backend later, but it should not be required to
-make PRISM feel like one coherent distributed system.
+Postgres can still exist as an optional authority-backend implementation later, but it should not
+be required to make PRISM feel like one coherent distributed system.
