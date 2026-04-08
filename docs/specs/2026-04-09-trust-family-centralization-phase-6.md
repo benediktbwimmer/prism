@@ -44,6 +44,12 @@ Current slice notes:
   because there are fewer old bypasses left to special-case
 - the next implementation work should focus on shared trust envelopes and shared check/evaluation
   helpers, not on inventing new policy
+- `prism-mcp` now has an explicit `trust_surface` helper boundary for:
+  - stable `mutation_capability_denied` payload shaping
+  - authority-error to protocol-state conversion
+  - authority-stamp attachment for coordination mutation result state
+- that first slice reduces duplicated trust metadata shaping in `server_surface.rs` and
+  `host_mutations.rs`, but broader provenance and verification/freshness convergence still remain
 
 ## 3. Related roadmap
 
@@ -142,6 +148,17 @@ Exit criteria:
 
 - live trust-related outputs no longer assemble the same metadata in several incompatible ways
 
+Current progress:
+
+- a new `prism-mcp` `trust_surface` module now centralizes:
+  - mutation capability-denial payload construction
+  - authority mutation error to coordination protocol-state mapping
+  - authority-stamp attachment for committed coordination mutation result state
+- `server_surface.rs` now uses the shared capability-denial helper in both traced and untraced
+  authentication paths
+- `host_mutations.rs` now uses the shared trust-surface helper for authority protocol-state and
+  authority-stamp shaping instead of open-coding those trust envelopes inline
+
 ### Slice 2: Capability and authorization centralization
 
 - group capability checks that are currently repeated across service/runtime/coordination entry
@@ -209,6 +226,7 @@ Phase 6 is complete only when:
 ## 11. Implementation checklist
 
 - [ ] Audit live trust-family metadata and duplicate builders
+- [x] Centralize the first shared MCP trust-surface helpers
 - [ ] Centralize repeated capability checks
 - [ ] Centralize provenance and verification/freshness construction
 - [ ] Cut diagnostics/service surfaces over to the shared trust-family boundary

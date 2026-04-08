@@ -7,11 +7,9 @@ use prism_coordination::{
     TaskCompletionContext, TaskGitExecution, TaskReclaimInput, TaskResumeInput, TaskUpdateInput,
 };
 use prism_core::{
-    AdmissionBusyError, AuthenticatedPrincipal, CoordinationAuthorityStore,
-    CoordinationAuthorityMutationError, CoordinationAuthorityMutationStatus,
-    CoordinationReadConsistency, CoordinationReadRequest, CoordinationStateView,
-    GitSharedRefsCoordinationAuthorityStore, PrismPaths, ValidationFeedbackCategory, ValidationFeedbackRecord,
-    ValidationFeedbackVerdict, WorkspaceSession, WorktreeMode,
+    AdmissionBusyError, AuthenticatedPrincipal, CoordinationAuthorityMutationError,
+    CoordinationAuthorityMutationStatus, PrismPaths, ValidationFeedbackCategory,
+    ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceSession, WorktreeMode,
 };
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CuratorJobId, CuratorProposal,
@@ -33,9 +31,10 @@ use prism_query::{
     ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction,
     ConceptRelationKind, ConceptScope, ContractCompatibility, ContractEvent, ContractEventAction,
     ContractEventPatch, ContractGuarantee, ContractGuaranteeStrength, ContractKind, ContractPacket,
-    ContractStability, ContractStatus, ContractTarget, ContractValidation, CoordinationDependencyKind,
-    CoordinationTransactionError, CoordinationTransactionGitExecutionPolicyPatch,
-    CoordinationTransactionInput, CoordinationTransactionMutation, CoordinationTransactionPlanRef,
+    ContractStability, ContractStatus, ContractTarget, ContractValidation,
+    CoordinationDependencyKind, CoordinationTransactionError,
+    CoordinationTransactionGitExecutionPolicyPatch, CoordinationTransactionInput,
+    CoordinationTransactionMutation, CoordinationTransactionPlanRef,
     CoordinationTransactionPlanSchedulingPatch, CoordinationTransactionPolicyPatch,
     CoordinationTransactionTaskRef, Prism,
 };
@@ -48,6 +47,11 @@ use crate::git_execution::{
     worktree_dirty_paths,
 };
 use crate::mutation_trace::MutationRun;
+use crate::trust_surface::{
+    attach_coordination_authority_stamp,
+    coordination_authority_protocol_state as build_coordination_authority_protocol_state,
+    coordination_protocol_state_value,
+};
 use crate::MutationProvenance;
 use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
@@ -196,7 +200,10 @@ fn coordination_authority_protocol_result(
     event_id: &EventId,
     authority_error: &CoordinationAuthorityMutationError,
 ) -> Option<CoordinationMutationResult> {
-    let state = coordination_authority_protocol_state(authority_error)?;
+    let state = coordination_protocol_state_value(
+        build_coordination_authority_protocol_state(authority_error),
+        None,
+    )?;
     let rejected = !matches!(
         authority_error.status,
         CoordinationAuthorityMutationStatus::Indeterminate
@@ -230,56 +237,6 @@ fn coordination_authority_protocol_result(
     })
 }
 
-fn coordination_authority_protocol_state(
-    authority_error: &CoordinationAuthorityMutationError,
-) -> Option<Value> {
-    match authority_error.status {
-        CoordinationAuthorityMutationStatus::Conflict => serde_json::to_value(
-            prism_query::CoordinationTransactionProtocolState {
-                outcome: "Rejected".to_string(),
-                commit: None,
-                authority_version: None,
-                rejection: Some(prism_query::CoordinationTransactionProtocolRejection {
-                    stage: "commit".to_string(),
-                    category: "conflict".to_string(),
-                    reason_code: authority_error.reason_code.to_string(),
-                    message: authority_error.message.clone(),
-                }),
-                indeterminate: None,
-            },
-        )
-        .ok(),
-        CoordinationAuthorityMutationStatus::Rejected => serde_json::to_value(
-            prism_query::CoordinationTransactionProtocolState {
-                outcome: "Rejected".to_string(),
-                commit: None,
-                authority_version: None,
-                rejection: Some(prism_query::CoordinationTransactionProtocolRejection {
-                    stage: "commit".to_string(),
-                    category: "domain_violation".to_string(),
-                    reason_code: authority_error.reason_code.to_string(),
-                    message: authority_error.message.clone(),
-                }),
-                indeterminate: None,
-            },
-        )
-        .ok(),
-        CoordinationAuthorityMutationStatus::Indeterminate => serde_json::to_value(
-            prism_query::CoordinationTransactionProtocolState {
-                outcome: "Indeterminate".to_string(),
-                commit: None,
-                authority_version: None,
-                rejection: None,
-                indeterminate: Some(prism_query::CoordinationTransactionProtocolIndeterminate {
-                    reason_code: authority_error.reason_code.to_string(),
-                    message: authority_error.message.clone(),
-                }),
-            },
-        )
-        .ok(),
-    }
-}
-
 fn coordination_transaction_audited_rejection_result(
     event_id: &EventId,
     error: &anyhow::Error,
@@ -300,9 +257,10 @@ fn coordination_transaction_audited_rejection_result(
         match authority_error.status {
             CoordinationAuthorityMutationStatus::Indeterminate => return None,
             CoordinationAuthorityMutationStatus::Conflict
-            | CoordinationAuthorityMutationStatus::Rejected => {
-                coordination_authority_protocol_state(authority_error)?
-            }
+            | CoordinationAuthorityMutationStatus::Rejected => coordination_protocol_state_value(
+                build_coordination_authority_protocol_state(authority_error),
+                None,
+            )?,
         }
     } else {
         return None;
@@ -1469,34 +1427,8 @@ fn coordination_transaction_state(
     );
     object.insert("plans".to_string(), Value::Array(plans));
     object.insert("tasks".to_string(), Value::Array(tasks));
-    if let Some(authority_stamp) = coordination_transaction_authority_stamp_view(workspace_root) {
-        object.insert("authorityStamp".to_string(), authority_stamp);
-    }
+    attach_coordination_authority_stamp(&mut state, workspace_root);
     Ok(state)
-}
-
-fn coordination_transaction_authority_stamp_view(workspace_root: Option<&Path>) -> Option<Value> {
-    let workspace_root = workspace_root?;
-    let store = GitSharedRefsCoordinationAuthorityStore::new(workspace_root);
-    let authority = store
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Strong,
-            view: CoordinationStateView::Summary,
-        })
-        .ok()?
-        .authority?;
-    Some(json!({
-        "backendKind": format!("{:?}", authority.backend_kind),
-        "logicalRepoId": authority.logical_repo_id,
-        "snapshotId": authority.snapshot_id,
-        "transactionId": authority.transaction_id,
-        "committedAt": authority.committed_at,
-        "provenance": {
-            "refName": authority.provenance.ref_name,
-            "headCommit": authority.provenance.head_commit,
-            "manifestDigest": authority.provenance.manifest_digest,
-        }
-    }))
 }
 
 fn attach_coordination_transaction_metadata(
@@ -1504,17 +1436,15 @@ fn attach_coordination_transaction_metadata(
     mut state: Value,
     result: &prism_query::CoordinationTransactionResult,
 ) -> Value {
-    let protocol_state = match serde_json::to_value(result.protocol_state()) {
-        Ok(Value::Object(state)) => state,
-        _ => return state,
-    };
+    let protocol_state =
+        match coordination_protocol_state_value(result.protocol_state(), workspace_root) {
+            Some(Value::Object(state)) => state,
+            _ => return state,
+        };
     let Value::Object(ref mut object) = state else {
         return state;
     };
     object.extend(protocol_state);
-    if let Some(authority_stamp) = coordination_transaction_authority_stamp_view(workspace_root) {
-        object.insert("authorityStamp".to_string(), authority_stamp);
-    }
     state
 }
 

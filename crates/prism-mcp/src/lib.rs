@@ -100,6 +100,7 @@ mod task_journal;
 mod text_search;
 mod tool_args;
 mod tool_schemas;
+mod trust_surface;
 mod ui_assets;
 mod ui_credentials;
 mod ui_identity;

@@ -19,6 +19,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::mutation_trace::MutationRun;
+use crate::trust_surface::mutation_capability_denied_error;
 use crate::*;
 
 pub(crate) struct MutationOutcomeMeta {
@@ -465,15 +466,9 @@ impl PrismMcpServer {
             .acquire_or_refresh_worktree_mutator_slot(&authenticated, &self.session.session_id())
             .map_err(Self::map_worktree_mutator_slot_error)?;
         if !requirement.allows(&authenticated) {
-            return Err(McpError::invalid_params(
-                "prism_mutate credential lacks the required capability",
-                Some(json!({
-                    "code": "mutation_capability_denied",
-                    "requiredCapability": requirement.label(),
-                    "credentialId": authenticated.credential.credential_id.0,
-                    "principalId": authenticated.principal.principal_id.0,
-                    "nextAction": "Use a credential with the required capability or mint a new child principal with narrower capabilities for this mutation lane.",
-                })),
+            return Err(mutation_capability_denied_error(
+                requirement.label(),
+                &authenticated,
             ));
         }
         Ok(MutationAuthentication::Principal(authenticated))
@@ -712,16 +707,8 @@ impl PrismMcpServer {
                 );
                 let capability_started = Instant::now();
                 if !requirement.allows(&authenticated) {
-                    let mapped = McpError::invalid_params(
-                        "prism_mutate credential lacks the required capability",
-                        Some(json!({
-                            "code": "mutation_capability_denied",
-                            "requiredCapability": requirement.label(),
-                            "credentialId": authenticated.credential.credential_id.0,
-                            "principalId": authenticated.principal.principal_id.0,
-                            "nextAction": "Use a credential with the required capability or mint a new child principal with narrower capabilities for this mutation lane.",
-                        })),
-                    );
+                    let mapped =
+                        mutation_capability_denied_error(requirement.label(), &authenticated);
                     run.record_phase(
                         "mutation.auth.checkCapability",
                         &json!({ "requiredCapability": requirement.label() }),
