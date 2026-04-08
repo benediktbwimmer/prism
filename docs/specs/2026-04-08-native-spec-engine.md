@@ -364,17 +364,31 @@ PRISM must not, by default:
 If users want stronger coordination integration, PRISM should support explicit sync actions later.
 
 Crucially, PRISM does not deterministically "compile" a flat markdown checklist into a complex
-coordination DAG. Topology, artifact requirements, and review injection require semantic understanding.
-Therefore, the sync boundary is natively an **agentic action**.
+coordination DAG. Topology, artifact requirements, review injection, and inter-plan dependencies
+require semantic understanding. Therefore, the sync boundary is natively an **agentic action**.
 
-Examples:
+#### The ideal agentic sync loop
 
-- an agent reads a spec and creates a plan or task DAG via `coordination_transaction`
-- an agent syncs spec milestones into task summaries
-- a human or agent updates checklist status based on completed tasks
+The intended flow for translating feature intent into the execution graph is:
 
-These must be explicit actions mapping feature intent to the execution graph, not silent background
-coupling by the PRISM daemon.
+1. The spec engine parses and materializes the local spec markdown.
+2. An agent requests `spec_sync_brief(spec_id)` to receive the structured state plus the raw markdown.
+3. The agent reads the raw spec prose and constraints to understand semantic intent.
+4. The agent synthesizes the corresponding Plan/Task DAG, including Review Tasks and Artifact
+   Requirements according to repo policy.
+5. The agent submits one explicit `coordination_transaction`.
+6. PRISM stores the resulting sync provenance and explicit task-to-checklist-item links.
+7. The local `SpecCoverageView` uses those links to compute what is covered, drifting, or missing.
+
+#### Task-to-checklist-item linkage
+
+If tasks are not explicitly linked to checklist items, coverage tracking becomes vague and drift
+detection weakens. To make `SpecCoverageView` robust, execution objects must carry explicit links:
+
+- **Plans** should carry `spec_refs` and the source spec revision at sync time.
+- **Tasks** must natively carry `covered_checklist_items` identifying exactly which checklist
+  item identities they fulfill. This is a many-to-many link (one task may cover multiple items,
+  and vice versa).
 
 Whenever PRISM explicitly creates or syncs coordination objects from a spec, it should record sync
 provenance that can identify at least:
@@ -437,11 +451,17 @@ The CLI should support humans first.
 
 ### 7.2 MCP
 
-PRISM should expose matching spec queries over MCP.
+PRISM should expose matching spec queries over MCP to power the agentic sync loop.
 
-Minimum useful MCP families:
+Minimum useful MCP query families:
 
-- list specs
+- `list_specs`
+- `spec_sync_brief(spec_id)`: the primary agent entry point. Returns the parsed `SpecRecord`, stable
+  checklist items, dependency posture, coverage summary, and the raw markdown body or sections so the
+  agent can read intent natively.
+- `repo_planning_policy()`: optional query to give the agent repo-specific hints on plan granularity,
+  review-gate frequency, or default artifact requirements, so the agent doesn't invent planning
+  style from scratch.
 - fetch one spec by id
 - fetch open checklist items
 - fetch dependency graph for one spec

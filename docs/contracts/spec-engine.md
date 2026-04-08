@@ -191,7 +191,10 @@ The minimum sync provenance must identify:
 - source spec revision, commit, or equivalent source-version marker
 - target coordination object id
 - sync kind such as `create_from_spec` or `update_from_spec`
-- checklist item ids and/or section ids used for the sync when relevant
+- exact checklist item ids and/or section ids used for the sync (`covered_checklist_items`)
+
+Every task explicitly created from a spec sync must identify the checklist items it covers. This
+many-to-many linkage is an absolute requirement for local coverage and drift detection to work.
 
 General actor and timestamp attribution should rely on the shared provenance contract rather than
 inventing a second parallel authorship model here.
