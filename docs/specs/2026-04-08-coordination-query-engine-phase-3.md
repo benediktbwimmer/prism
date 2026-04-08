@@ -309,11 +309,30 @@ Phase 3 is complete only when:
 
 ## 12. Implementation checklist
 
-- [ ] Introduce the coordination-query engine module and result families in `prism-query`
-- [ ] Route `Prism` task/plan coordination reads through the engine
-- [ ] Centralize actionable-task, blocker, and plan-rollup reasoning
+- [x] Introduce the coordination-query engine module and result families in `prism-query`
+- [x] Route `Prism` task/plan coordination reads through the engine
+- [x] Centralize actionable-task, blocker, and plan-rollup reasoning
 - [ ] Add explicit evidence/review query families
 - [ ] Cut over MCP/UI/CLI coordination readers to the engine-facing API
 - [ ] Remove obvious duplicated coordination-read logic
 - [ ] Validate `prism-query`, `prism-mcp`, and `prism-cli`
 - [ ] Mark Phase 3 complete in the roadmap
+
+## 13. Current implementation status
+
+The first engine slice is now in place:
+
+- `crates/prism-query/src/coordination_query_engine.rs` owns the core task/plan/blocker
+  derivations that previously lived directly in `coordination.rs` and `plan_insights.rs`
+- `Prism` now acts as a thin facade for:
+  - `coordination_plan_v2`
+  - `coordination_task_v2`
+  - `graph_actionable_tasks_v2`
+  - `actionable_tasks_for_executor_v2`
+  - `root_plans_v2`
+  - `blockers`
+  - `base_blockers`
+  - `plan_summary`
+
+The next Phase 3 slice should focus on product-facing read cutover and the explicit evidence/review
+query families, rather than growing more coordination semantics back into surface modules.

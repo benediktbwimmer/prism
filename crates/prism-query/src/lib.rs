@@ -1,6 +1,7 @@
 mod common;
 mod contracts;
 mod coordination;
+mod coordination_query_engine;
 mod coordination_transaction;
 mod impact;
 mod intent;
