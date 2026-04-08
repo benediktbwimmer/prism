@@ -1997,7 +1997,11 @@ impl WorkspaceSession {
     ) -> Result<CoordinationReadResult<CoordinationSnapshot>> {
         self.read_coordination_with_consistency(
             consistency,
-            || crate::coordination_reads::load_eventual_coordination_snapshot_for_root(&self.root),
+            || {
+                Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+                    .read_snapshot()?
+                    .value)
+            },
             || crate::published_plans::load_authoritative_coordination_snapshot(&self.root),
         )
     }
@@ -2009,9 +2013,9 @@ impl WorkspaceSession {
         self.read_coordination_with_consistency(
             consistency,
             || {
-                crate::coordination_reads::load_eventual_coordination_snapshot_v2_for_root(
-                    &self.root,
-                )
+                Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+                    .read_snapshot_v2()?
+                    .value)
             },
             || crate::published_plans::load_authoritative_coordination_snapshot_v2(&self.root),
         )
@@ -2071,10 +2075,16 @@ impl WorkspaceSession {
             consistency,
             || {
                 Ok(
-                    crate::coordination_reads::load_eventual_coordination_plan_state_for_root(
-                        &self.root,
-                    )?
-                    .map(CoordinationPlanState::from),
+                    SqliteCoordinationMaterializedStore::new(&self.root)
+                        .read_plan_state()?
+                        .value
+                        .map(|value| {
+                            CoordinationPlanState::from(HydratedCoordinationPlanState {
+                                snapshot: value.snapshot,
+                                canonical_snapshot_v2: value.canonical_snapshot_v2,
+                                runtime_descriptors: value.runtime_descriptors,
+                            })
+                        }),
                 )
             },
             || {

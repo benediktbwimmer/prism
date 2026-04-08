@@ -68,6 +68,7 @@ impl<T> CoordinationReadResult<T> {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn load_eventual_coordination_snapshot_for_root(
     root: &Path,
 ) -> Result<Option<CoordinationSnapshot>> {
@@ -76,6 +77,7 @@ pub(crate) fn load_eventual_coordination_snapshot_for_root(
         .value)
 }
 
+#[cfg(test)]
 pub(crate) fn load_eventual_coordination_snapshot_v2_for_root(
     root: &Path,
 ) -> Result<Option<CoordinationSnapshotV2>> {
@@ -84,6 +86,7 @@ pub(crate) fn load_eventual_coordination_snapshot_v2_for_root(
         .value)
 }
 
+#[cfg(test)]
 pub(crate) fn load_eventual_coordination_plan_state_for_root(
     root: &Path,
 ) -> Result<Option<HydratedCoordinationPlanState>> {

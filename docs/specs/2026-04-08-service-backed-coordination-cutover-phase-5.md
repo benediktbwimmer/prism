@@ -211,6 +211,9 @@ Current progress:
 - the materialized-store seam now owns effective coordination read-model fallback, including the
   derive-from-snapshot path when persisted read models are absent, so `WorkspaceSession` no
   longer rebuilds that fallback itself
+- live production code no longer uses the old `coordination_reads` eventual-load wrappers;
+  `WorkspaceSession` and protected-state hydration now read eventual coordination state directly
+  from the materialized-store seam, and the old wrapper helpers are test-only
 - dead store-backed coordination read helpers and unused authoritative persistence compatibility
   methods were removed once the session read path no longer depended on them
 

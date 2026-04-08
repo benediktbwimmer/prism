@@ -8,7 +8,9 @@ use prism_store::{CoordinationCheckpointStore, CoordinationJournal};
 use crate::concept_events::load_repo_curated_concepts;
 use crate::concept_relation_events::load_repo_concept_relations;
 use crate::contract_events::load_repo_curated_contracts;
-use crate::coordination_reads::load_eventual_coordination_plan_state_for_root;
+use crate::coordination_materialized_store::{
+    CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
+};
 use crate::memory_events::load_repo_memory_events;
 use crate::protected_state::streams::ProtectedRepoStream;
 use crate::published_plans::HydratedCoordinationPlanState;
@@ -174,7 +176,14 @@ where
     S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
 {
     let _ = store;
-    load_eventual_coordination_plan_state_for_root(root)
+    Ok(SqliteCoordinationMaterializedStore::new(root)
+        .read_plan_state()?
+        .value
+        .map(|value| HydratedCoordinationPlanState {
+            snapshot: value.snapshot,
+            canonical_snapshot_v2: value.canonical_snapshot_v2,
+            runtime_descriptors: value.runtime_descriptors,
+        }))
 }
 
 fn sync_repo_memory_stream<S: prism_store::EventJournalStore>(
