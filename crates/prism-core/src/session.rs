@@ -2198,17 +2198,35 @@ impl WorkspaceSession {
         let Some(state) = state else {
             return Ok(None);
         };
-        let snapshot = state.snapshot.clone();
-        let runtime_descriptors = state.runtime_descriptors.clone();
-        self.prism_arc()
-            .replace_coordination_runtime(snapshot, runtime_descriptors.clone());
-        self.runtime_state
+        let current_state = crate::CoordinationCurrentState::from(
+            HydratedCoordinationPlanState {
+                snapshot: state.snapshot.clone(),
+                canonical_snapshot_v2: state.canonical_snapshot_v2.clone(),
+                runtime_descriptors: state.runtime_descriptors.clone(),
+            },
+        );
+        let local_workspace_revision = self
+            .store
             .lock()
-            .expect("workspace runtime state lock poisoned")
-            .replace_coordination_runtime(
-                state.snapshot.clone(),
-                state.runtime_descriptors.clone(),
-            );
+            .expect("workspace store lock poisoned")
+            .workspace_revision()?;
+        let workspace_revision = self.loaded_workspace_revision.load(Ordering::Relaxed);
+        apply_service_backed_coordination_current_state(
+            &self.root,
+            &self.published_generation,
+            &self.runtime_state,
+            &self.store,
+            &self.cold_query_store,
+            &self.loaded_workspace_revision,
+            None,
+            None,
+            local_workspace_revision,
+            workspace_revision,
+            Some(coordination_persist_context_for_root(&self.root, None)),
+            &current_state,
+            self.coordination_runtime_revision_value(self.coordination_revision()?),
+            None,
+        )?;
         Ok(Some(state))
     }
 

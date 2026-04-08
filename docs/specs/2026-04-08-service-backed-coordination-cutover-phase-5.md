@@ -224,6 +224,9 @@ Current progress:
 - authority-sync application and post-mutation continuity publication now share one
   service-backed current-state applicator for runtime republish plus coordination materialization,
   instead of maintaining separate inline runtime-state replacement and materialization logic
+- strong coordination-runtime hydration now also republishes through the same service-backed
+  current-state applicator instead of mutating the live runtime snapshot and runtime-state cache
+  separately by hand
 
 Exit criteria:
 
