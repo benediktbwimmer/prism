@@ -34,10 +34,7 @@ use prism_projections::{
     ConceptRelationEvent, ConceptRelationEventAction, ConceptScope, ContractEvent, ProjectionIndex,
 };
 use prism_query::Prism;
-use prism_store::{
-    AuxiliaryPersistBatch, CoordinationCheckpointStore, Graph, SqliteStore, Store,
-    WorkspaceTreeSnapshot,
-};
+use prism_store::{AuxiliaryPersistBatch, Graph, SqliteStore, Store, WorkspaceTreeSnapshot};
 use prism_store::{PatchEventSummary, PatchFileSummary};
 use serde_json::{json, Value};
 use tracing::{info, warn};
@@ -55,11 +52,15 @@ use crate::checkpoint_materializer::{
 use crate::concept_events::append_repo_concept_event;
 use crate::concept_relation_events::append_repo_concept_relation_event;
 use crate::contract_events::append_repo_contract_event;
+use crate::coordination_materialized_store::{
+    CoordinationMaterializedStore, CoordinationReadModelsWriteRequest,
+    CoordinationStartupCheckpointWriteRequest, SqliteCoordinationMaterializedStore,
+    StoreBackedCoordinationMaterializedStore,
+};
 use crate::coordination_persistence::{
     coordination_event_delta, CoordinationDerivedPersistenceMode, CoordinationPersistenceBackend,
 };
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadResult};
-use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
 use crate::history_backend::StoreHistoryReadBackend;
 use crate::indexer::{
@@ -2066,9 +2067,9 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint_revision(
-            &mut *self.store.lock().expect("workspace store lock poisoned"),
-        )
+        Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+            .read_metadata()?
+            .startup_checkpoint_coordination_revision)
     }
 
     pub fn load_tracked_coordination_snapshot_revision(&self) -> Result<Option<u64>> {
@@ -2196,31 +2197,36 @@ impl WorkspaceSession {
             self.coordination_enabled,
         )?;
 
-        let mut store = self.store.lock().expect("workspace store lock poisoned");
-        let Some(authoritative) =
-            store.load_authoritative_coordination_plan_state_for_root(&self.root)?
-        else {
-            return Ok(());
+        let (authoritative, current_revision) = {
+            let mut store = self.store.lock().expect("workspace store lock poisoned");
+            let Some(authoritative) =
+                store.load_authoritative_coordination_plan_state_for_root(&self.root)?
+            else {
+                return Ok(());
+            };
+            let current_revision =
+                self.coordination_runtime_revision_value(store.coordination_revision()?);
+            (authoritative, current_revision)
         };
-        save_shared_coordination_startup_checkpoint(
-            &self.root,
-            &mut *store,
-            &authoritative.snapshot,
-            &authoritative.canonical_snapshot_v2,
-            Some(&authoritative.runtime_descriptors),
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        let mut materialized_store =
+            StoreBackedCoordinationMaterializedStore::new(&self.root, &mut *store);
+        materialized_store.write_startup_checkpoint_mut(
+            CoordinationStartupCheckpointWriteRequest {
+                snapshot: authoritative.snapshot.clone(),
+                canonical_snapshot_v2: authoritative.canonical_snapshot_v2.clone(),
+                runtime_descriptors: authoritative.runtime_descriptors.clone(),
+            },
         )?;
-        let current_revision =
-            self.coordination_runtime_revision_value(store.coordination_revision()?);
         let mut read_model = coordination_read_model_from_snapshot(&authoritative.snapshot);
         read_model.revision = current_revision;
-        CoordinationCheckpointStore::save_coordination_read_model(&mut *store, &read_model)?;
         let mut queue_read_model =
             coordination_queue_read_model_from_snapshot(&authoritative.snapshot);
         queue_read_model.revision = current_revision;
-        CoordinationCheckpointStore::save_coordination_queue_read_model(
-            &mut *store,
-            &queue_read_model,
-        )?;
+        materialized_store.write_read_models_mut(CoordinationReadModelsWriteRequest {
+            read_model,
+            queue_read_model,
+        })?;
         Ok(())
     }
 

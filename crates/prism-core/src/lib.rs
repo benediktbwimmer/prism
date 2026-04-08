@@ -90,9 +90,11 @@ pub use coordination_authority_store::{
     RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 pub use coordination_materialized_store::{
-    CoordinationMaterializationMetadata, CoordinationMaterializedBackendKind,
-    CoordinationMaterializedCapabilities, CoordinationMaterializedReadEnvelope,
-    CoordinationMaterializedState, CoordinationMaterializedStore,
+    CoordinationCompactionWriteRequest, CoordinationMaterializationMetadata,
+    CoordinationMaterializedBackendKind, CoordinationMaterializedCapabilities,
+    CoordinationMaterializedReadEnvelope, CoordinationMaterializedState,
+    CoordinationMaterializedStore, CoordinationMaterializedWriteResult,
+    CoordinationReadModelsWriteRequest, CoordinationStartupCheckpointWriteRequest,
     SqliteCoordinationMaterializedStore,
 };
 pub use coordination_reads::{

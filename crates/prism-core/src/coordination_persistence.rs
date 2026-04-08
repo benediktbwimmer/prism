@@ -21,12 +21,16 @@ use crate::coordination_authority_store::{
     CoordinationTransactionRequest, CoordinationTransactionStatus,
     GitSharedRefsCoordinationAuthorityStore,
 };
+use crate::coordination_materialized_store::{
+    CoordinationMaterializedStore, CoordinationReadModelsWriteRequest,
+    CoordinationStartupCheckpointWriteRequest, SqliteCoordinationMaterializedStore,
+    StoreBackedCoordinationMaterializedStore,
+};
 use crate::coordination_reads::{
     load_eventual_coordination_plan_state_for_root as load_eventual_plan_state_for_root,
     load_eventual_coordination_snapshot_for_root as load_eventual_snapshot_for_root,
     load_eventual_coordination_snapshot_v2_for_root as load_eventual_snapshot_v2_for_root,
 };
-use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::published_plans::{
     load_authoritative_coordination_plan_state, load_authoritative_coordination_snapshot,
     load_authoritative_coordination_snapshot_v2, sync_repo_published_plans,
@@ -184,13 +188,13 @@ where
         "mutation.coordination.publishedPlans.saveStartupCheckpoint",
         |_| json!({}),
         || {
-            save_shared_coordination_startup_checkpoint(
-                root,
-                store,
-                &repo_semantic_snapshot,
-                &derived.canonical_snapshot_v2,
-                None,
-            )
+            StoreBackedCoordinationMaterializedStore::new(root, store)
+                .write_startup_checkpoint_mut(CoordinationStartupCheckpointWriteRequest {
+                    snapshot: repo_semantic_snapshot.clone(),
+                    canonical_snapshot_v2: derived.canonical_snapshot_v2.clone(),
+                    runtime_descriptors: Vec::new(),
+                })?;
+            Ok::<(), anyhow::Error>(())
         },
     )?;
     observe_phase(
@@ -205,6 +209,7 @@ where
 
 fn persist_coordination_read_models_and_compaction_observed<S, O>(
     store: &mut S,
+    root: &Path,
     authoritative_revision: u64,
     snapshot: &CoordinationSnapshot,
     appended_events: &[CoordinationEvent],
@@ -250,22 +255,36 @@ where
     );
     observe_coordination_step(
         observe_phase,
-        "mutation.coordination.saveReadModel",
-        |_| json!({ "eventCount": snapshot.events.len() }),
-        || store.save_coordination_read_model(&read_model),
-    )?;
-    observe_coordination_step(
-        observe_phase,
-        "mutation.coordination.saveQueueReadModel",
-        |_| json!({ "taskCount": snapshot.tasks.len() }),
-        || store.save_coordination_queue_read_model(&queue_read_model),
+        "mutation.coordination.saveReadModels",
+        |_| {
+            json!({
+                "eventCount": snapshot.events.len(),
+                "taskCount": snapshot.tasks.len(),
+            })
+        },
+        || {
+            StoreBackedCoordinationMaterializedStore::new(root, store).write_read_models_mut(
+                CoordinationReadModelsWriteRequest {
+                    read_model: read_model.clone(),
+                    queue_read_model: queue_read_model.clone(),
+                },
+            )?;
+            Ok::<(), anyhow::Error>(())
+        },
     )?;
     if applied {
         observe_coordination_step(
             observe_phase,
             "mutation.coordination.compactEvents",
             |_| json!({ "applied": true }),
-            || store.maybe_compact_coordination_events(snapshot),
+            || {
+                StoreBackedCoordinationMaterializedStore::new(root, store).write_compaction_mut(
+                    crate::CoordinationCompactionWriteRequest {
+                        snapshot: snapshot.clone(),
+                    },
+                )?;
+                Ok::<(), anyhow::Error>(())
+            },
         )?;
     } else {
         observe_phase(
@@ -296,12 +315,12 @@ pub(crate) trait CoordinationPersistenceBackend:
             appended_events,
         })?;
         sync_repo_published_plans(root, snapshot, canonical_snapshot_v2, None)?;
-        save_shared_coordination_startup_checkpoint(
-            root,
-            self,
-            snapshot,
-            canonical_snapshot_v2,
-            None,
+        SqliteCoordinationMaterializedStore::new(root).write_startup_checkpoint(
+            CoordinationStartupCheckpointWriteRequest {
+                snapshot: snapshot.clone(),
+                canonical_snapshot_v2: canonical_snapshot_v2.clone(),
+                runtime_descriptors: Vec::new(),
+            },
         )?;
         Ok(result)
     }
@@ -388,8 +407,12 @@ pub(crate) trait CoordinationPersistenceBackend:
             existing_queue_read_model.as_ref(),
             &appended_events,
         );
-        self.save_coordination_read_model(&read_model)?;
-        self.save_coordination_queue_read_model(&queue_read_model)?;
+        StoreBackedCoordinationMaterializedStore::new(root, self).write_read_models_mut(
+            CoordinationReadModelsWriteRequest {
+                read_model,
+                queue_read_model,
+            },
+        )?;
         self.maybe_compact_coordination_events(snapshot)?;
         Ok(())
     }
@@ -612,6 +635,7 @@ pub(crate) trait CoordinationPersistenceBackend:
             )?;
         persist_coordination_read_models_and_compaction_observed(
             self,
+            root,
             result.revision,
             snapshot,
             appended_events,

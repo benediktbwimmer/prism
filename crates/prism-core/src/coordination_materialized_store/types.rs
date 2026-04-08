@@ -1,4 +1,7 @@
-use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor};
+use prism_coordination::{
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    CoordinationSnapshotV2, RuntimeDescriptor,
+};
 use prism_store::CoordinationStartupCheckpointAuthority;
 
 use crate::published_plans::HydratedCoordinationPlanState;
@@ -37,6 +40,7 @@ impl From<HydratedCoordinationPlanState> for CoordinationMaterializedState {
 pub struct CoordinationMaterializationMetadata {
     pub backend_kind: CoordinationMaterializedBackendKind,
     pub coordination_revision: Option<u64>,
+    pub startup_checkpoint_coordination_revision: Option<u64>,
     pub startup_checkpoint_version: Option<u32>,
     pub startup_checkpoint_materialized_at: Option<u64>,
     pub startup_checkpoint_authority: Option<CoordinationStartupCheckpointAuthority>,
@@ -57,6 +61,29 @@ impl<T> CoordinationMaterializedReadEnvelope<T> {
     pub fn new(metadata: CoordinationMaterializationMetadata, value: Option<T>) -> Self {
         Self { metadata, value }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CoordinationStartupCheckpointWriteRequest {
+    pub snapshot: CoordinationSnapshot,
+    pub canonical_snapshot_v2: CoordinationSnapshotV2,
+    pub runtime_descriptors: Vec<RuntimeDescriptor>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CoordinationReadModelsWriteRequest {
+    pub read_model: CoordinationReadModel,
+    pub queue_read_model: CoordinationQueueReadModel,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CoordinationCompactionWriteRequest {
+    pub snapshot: CoordinationSnapshot,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CoordinationMaterializedWriteResult {
+    pub metadata: CoordinationMaterializationMetadata,
 }
 
 #[cfg(test)]
@@ -104,6 +131,7 @@ mod tests {
         let metadata = super::CoordinationMaterializationMetadata {
             backend_kind: super::CoordinationMaterializedBackendKind::Sqlite,
             coordination_revision: Some(7),
+            startup_checkpoint_coordination_revision: Some(6),
             startup_checkpoint_version: None,
             startup_checkpoint_materialized_at: None,
             startup_checkpoint_authority: None,

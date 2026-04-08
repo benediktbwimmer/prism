@@ -23,7 +23,7 @@ use prism_ir::{
 use prism_memory::OutcomeMemory;
 use prism_projections::ProjectionIndex;
 use prism_query::Prism;
-use prism_store::{CoordinationCheckpointStore, CoordinationJournal};
+use prism_store::CoordinationJournal;
 use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, info, warn};
 
@@ -31,8 +31,11 @@ use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::coordination_authority_api::{
     poll_coordination_authority_live_sync, CoordinationAuthorityLiveSync,
 };
+use crate::coordination_materialized_store::{
+    CoordinationReadModelsWriteRequest, CoordinationStartupCheckpointWriteRequest,
+    StoreBackedCoordinationMaterializedStore,
+};
 use crate::coordination_persistence::CoordinationPersistenceBackend;
-use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::curator::{enqueue_curator_for_observed_async, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
 use crate::layout::discover_layout;
@@ -1264,13 +1267,18 @@ fn apply_shared_coordination_ref_watch_state(
         .lock()
         .expect("workspace runtime state lock poisoned")
         .clone();
-    save_shared_coordination_startup_checkpoint(
-        root,
-        &mut *store.lock().expect("workspace store lock poisoned"),
-        &shared.snapshot,
-        &shared.canonical_snapshot_v2,
-        Some(&shared.runtime_descriptors),
-    )?;
+    {
+        let mut store = store.lock().expect("workspace store lock poisoned");
+        let mut materialized_store =
+            StoreBackedCoordinationMaterializedStore::new(root, &mut *store);
+        materialized_store.write_startup_checkpoint_mut(
+            CoordinationStartupCheckpointWriteRequest {
+                snapshot: shared.snapshot.clone(),
+                canonical_snapshot_v2: shared.canonical_snapshot_v2.clone(),
+                runtime_descriptors: shared.runtime_descriptors.clone(),
+            },
+        )?;
+    }
     next_state
         .replace_coordination_runtime(shared.snapshot.clone(), shared.runtime_descriptors.clone());
     let next = next_state.publish_generation(
@@ -1292,14 +1300,18 @@ fn apply_shared_coordination_ref_watch_state(
         .load(Ordering::Relaxed)
         .max(persisted_coordination_revision)
         .saturating_add(1);
+    let mut read_model = coordination_read_model_from_snapshot(&shared.snapshot);
+    read_model.revision = next_coordination_revision;
+    let mut queue_read_model = coordination_queue_read_model_from_snapshot(&shared.snapshot);
+    queue_read_model.revision = next_coordination_revision;
     {
         let mut store = store.lock().expect("workspace store lock poisoned");
-        let mut read_model = coordination_read_model_from_snapshot(&shared.snapshot);
-        read_model.revision = next_coordination_revision;
-        store.save_coordination_read_model(&read_model)?;
-        let mut queue_read_model = coordination_queue_read_model_from_snapshot(&shared.snapshot);
-        queue_read_model.revision = next_coordination_revision;
-        store.save_coordination_queue_read_model(&queue_read_model)?;
+        let mut materialized_store =
+            StoreBackedCoordinationMaterializedStore::new(root, &mut *store);
+        materialized_store.write_read_models_mut(CoordinationReadModelsWriteRequest {
+            read_model,
+            queue_read_model,
+        })?;
     }
     coordination_runtime_revision.store(next_coordination_revision, Ordering::Relaxed);
     info!(

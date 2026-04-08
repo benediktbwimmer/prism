@@ -5,11 +5,13 @@ use prism_coordination::{
 use prism_store::CoordinationStartupCheckpoint;
 
 use super::types::{
-    CoordinationMaterializationMetadata, CoordinationMaterializedCapabilities,
-    CoordinationMaterializedReadEnvelope, CoordinationMaterializedState,
+    CoordinationCompactionWriteRequest, CoordinationMaterializationMetadata,
+    CoordinationMaterializedCapabilities, CoordinationMaterializedReadEnvelope,
+    CoordinationMaterializedState, CoordinationMaterializedWriteResult,
+    CoordinationReadModelsWriteRequest, CoordinationStartupCheckpointWriteRequest,
 };
 
-pub trait CoordinationMaterializedStore: Send + Sync {
+pub trait CoordinationMaterializedStore {
     fn capabilities(&self) -> CoordinationMaterializedCapabilities;
 
     fn read_snapshot(&self) -> Result<CoordinationMaterializedReadEnvelope<CoordinationSnapshot>>;
@@ -35,4 +37,19 @@ pub trait CoordinationMaterializedStore: Send + Sync {
     ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationStartupCheckpoint>>;
 
     fn read_metadata(&self) -> Result<CoordinationMaterializationMetadata>;
+
+    fn write_startup_checkpoint(
+        &self,
+        request: CoordinationStartupCheckpointWriteRequest,
+    ) -> Result<CoordinationMaterializedWriteResult>;
+
+    fn write_read_models(
+        &self,
+        request: CoordinationReadModelsWriteRequest,
+    ) -> Result<CoordinationMaterializedWriteResult>;
+
+    fn write_compaction(
+        &self,
+        request: CoordinationCompactionWriteRequest,
+    ) -> Result<CoordinationMaterializedWriteResult>;
 }

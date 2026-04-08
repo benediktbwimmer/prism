@@ -4,9 +4,10 @@ use anyhow::Result;
 use prism_coordination::{
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
 };
-use prism_store::{CoordinationCheckpointStore, CoordinationStartupCheckpoint, SqliteStore};
+use prism_store::{
+    CoordinationCheckpointStore, CoordinationJournal, CoordinationStartupCheckpoint,
+};
 
-use super::traits::CoordinationMaterializedStore;
 use super::types::{
     CoordinationCompactionWriteRequest, CoordinationMaterializationMetadata,
     CoordinationMaterializedBackendKind, CoordinationMaterializedCapabilities,
@@ -18,32 +19,30 @@ use crate::coordination_startup_checkpoint::{
     load_persisted_coordination_plan_state, load_persisted_coordination_snapshot,
     load_persisted_coordination_snapshot_v2, save_shared_coordination_startup_checkpoint,
 };
-use crate::prism_paths::PrismPaths;
 
-pub struct SqliteCoordinationMaterializedStore {
+pub(crate) struct StoreBackedCoordinationMaterializedStore<'a, S: ?Sized> {
     root: PathBuf,
+    store: &'a mut S,
 }
 
-impl SqliteCoordinationMaterializedStore {
-    pub fn new(root: &Path) -> Self {
+impl<'a, S: ?Sized> StoreBackedCoordinationMaterializedStore<'a, S> {
+    pub(crate) fn new(root: &Path, store: &'a mut S) -> Self {
         Self {
             root: root.to_path_buf(),
+            store,
         }
     }
+}
 
-    fn open_store(&self) -> Result<SqliteStore> {
-        let paths = PrismPaths::for_workspace_root(&self.root)?;
-        SqliteStore::open(paths.worktree_cache_db_path()?)
-    }
-
-    fn load_metadata_from_store(
-        &self,
-        store: &mut SqliteStore,
-    ) -> Result<CoordinationMaterializationMetadata> {
-        let checkpoint = store.load_coordination_startup_checkpoint()?;
-        let read_model = store.load_coordination_read_model()?;
-        let queue_read_model = store.load_coordination_queue_read_model()?;
-        let coordination_revision = Some(store.coordination_revision()?);
+impl<S> StoreBackedCoordinationMaterializedStore<'_, S>
+where
+    S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
+{
+    fn load_metadata(&mut self) -> Result<CoordinationMaterializationMetadata> {
+        let checkpoint = self.store.load_coordination_startup_checkpoint()?;
+        let read_model = self.store.load_coordination_read_model()?;
+        let queue_read_model = self.store.load_coordination_queue_read_model()?;
+        let coordination_revision = Some(self.store.coordination_revision()?);
 
         Ok(CoordinationMaterializationMetadata {
             backend_kind: CoordinationMaterializedBackendKind::Sqlite,
@@ -70,19 +69,21 @@ impl SqliteCoordinationMaterializedStore {
         })
     }
 
-    fn load_envelope<T, F>(&self, load: F) -> Result<CoordinationMaterializedReadEnvelope<T>>
+    fn load_envelope<T, F>(&mut self, load: F) -> Result<CoordinationMaterializedReadEnvelope<T>>
     where
-        F: FnOnce(&mut SqliteStore) -> Result<Option<T>>,
+        F: FnOnce(&mut S) -> Result<Option<T>>,
     {
-        let mut store = self.open_store()?;
-        let metadata = self.load_metadata_from_store(&mut store)?;
-        let value = load(&mut store)?;
+        let metadata = self.load_metadata()?;
+        let value = load(self.store)?;
         Ok(CoordinationMaterializedReadEnvelope::new(metadata, value))
     }
 }
 
-impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
-    fn capabilities(&self) -> CoordinationMaterializedCapabilities {
+impl<S> StoreBackedCoordinationMaterializedStore<'_, S>
+where
+    S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
+{
+    pub(crate) fn capabilities(&self) -> CoordinationMaterializedCapabilities {
         CoordinationMaterializedCapabilities {
             supports_eventual_snapshots: true,
             supports_read_models: true,
@@ -91,84 +92,84 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
         }
     }
 
-    fn read_snapshot(&self) -> Result<CoordinationMaterializedReadEnvelope<CoordinationSnapshot>> {
+    pub(crate) fn read_snapshot_mut(
+        &mut self,
+    ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationSnapshot>> {
         self.load_envelope(load_persisted_coordination_snapshot)
     }
 
-    fn read_snapshot_v2(
-        &self,
+    pub(crate) fn read_snapshot_v2_mut(
+        &mut self,
     ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationSnapshotV2>> {
         self.load_envelope(load_persisted_coordination_snapshot_v2)
     }
 
-    fn read_plan_state(
-        &self,
+    pub(crate) fn read_plan_state_mut(
+        &mut self,
     ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationMaterializedState>> {
         self.load_envelope(|store| {
             Ok(load_persisted_coordination_plan_state(store)?.map(Into::into))
         })
     }
 
-    fn read_read_model(
-        &self,
+    pub(crate) fn read_read_model_mut(
+        &mut self,
     ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationReadModel>> {
         self.load_envelope(|store| store.load_coordination_read_model())
     }
 
-    fn read_queue_read_model(
-        &self,
+    pub(crate) fn read_queue_read_model_mut(
+        &mut self,
     ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationQueueReadModel>> {
         self.load_envelope(|store| store.load_coordination_queue_read_model())
     }
 
-    fn read_startup_checkpoint(
-        &self,
+    pub(crate) fn read_startup_checkpoint_mut(
+        &mut self,
     ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationStartupCheckpoint>> {
         self.load_envelope(|store| store.load_coordination_startup_checkpoint())
     }
 
-    fn read_metadata(&self) -> Result<CoordinationMaterializationMetadata> {
-        let mut store = self.open_store()?;
-        self.load_metadata_from_store(&mut store)
+    pub(crate) fn read_metadata_mut(&mut self) -> Result<CoordinationMaterializationMetadata> {
+        self.load_metadata()
     }
 
-    fn write_startup_checkpoint(
-        &self,
+    pub(crate) fn write_startup_checkpoint_mut(
+        &mut self,
         request: CoordinationStartupCheckpointWriteRequest,
     ) -> Result<CoordinationMaterializedWriteResult> {
-        let mut store = self.open_store()?;
         save_shared_coordination_startup_checkpoint(
             &self.root,
-            &mut store,
+            self.store,
             &request.snapshot,
             &request.canonical_snapshot_v2,
             Some(&request.runtime_descriptors),
         )?;
         Ok(CoordinationMaterializedWriteResult {
-            metadata: self.load_metadata_from_store(&mut store)?,
+            metadata: self.load_metadata()?,
         })
     }
 
-    fn write_read_models(
-        &self,
+    pub(crate) fn write_read_models_mut(
+        &mut self,
         request: CoordinationReadModelsWriteRequest,
     ) -> Result<CoordinationMaterializedWriteResult> {
-        let mut store = self.open_store()?;
-        store.save_coordination_read_model(&request.read_model)?;
-        store.save_coordination_queue_read_model(&request.queue_read_model)?;
+        self.store
+            .save_coordination_read_model(&request.read_model)?;
+        self.store
+            .save_coordination_queue_read_model(&request.queue_read_model)?;
         Ok(CoordinationMaterializedWriteResult {
-            metadata: self.load_metadata_from_store(&mut store)?,
+            metadata: self.load_metadata()?,
         })
     }
 
-    fn write_compaction(
-        &self,
+    pub(crate) fn write_compaction_mut(
+        &mut self,
         request: CoordinationCompactionWriteRequest,
     ) -> Result<CoordinationMaterializedWriteResult> {
-        let mut store = self.open_store()?;
-        store.save_coordination_compaction(&request.snapshot)?;
+        self.store.save_coordination_compaction(&request.snapshot)?;
         Ok(CoordinationMaterializedWriteResult {
-            metadata: self.load_metadata_from_store(&mut store)?,
+            metadata: self.load_metadata()?,
         })
     }
 }

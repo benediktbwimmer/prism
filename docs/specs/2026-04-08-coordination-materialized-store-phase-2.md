@@ -36,10 +36,10 @@ Current state:
 - [x] `CoordinationMaterializedStore` trait and type family finalized in code
 - [x] SQLite-backed coordination materialized-store implementation extracted behind the seam
 - [x] eventual coordination snapshot and plan-state read families implemented through the new seam
-- [ ] startup checkpoint persistence and restore implemented through the new seam
+- [x] startup checkpoint persistence and restore implemented through the new seam
 - [x] materialization metadata, revision, and authority-key access implemented through the new seam
 - [ ] invalidation, replace, and clear families implemented through the new seam
-- [ ] direct product-facing coordination SQLite and checkpoint calls removed or redirected
+- [x] direct product-facing coordination SQLite and checkpoint calls removed or redirected
 
 Current slice notes:
 
@@ -58,6 +58,13 @@ Current slice notes:
   slices
 - the `coordination_reads` helper layer and protected-state eventual plan-state load now delegate
   through the materialized-store seam instead of reading checkpoints directly
+- startup checkpoint persistence, read-model writes, queue-model writes, and compaction writes are
+  now routed through the seam from coordination persistence, session strong-refresh, watch sync,
+  and checkpoint materialization paths
+- startup-checkpoint revision access in `WorkspaceSession` now comes from materialized-store
+  metadata rather than direct checkpoint-store access
+- explicit invalidation, replace, and clear families remain deferred to a follow-up slice rather
+  than being smuggled into the write-path cutover
 
 ## 3. Related roadmap
 
