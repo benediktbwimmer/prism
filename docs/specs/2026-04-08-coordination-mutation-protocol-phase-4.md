@@ -40,8 +40,8 @@ Current state:
 - [x] MCP already exposes `coordination_transaction` as one mutation variant
 - [x] many convenience mutation kinds already lower into the transaction engine
 - [ ] transaction intent shape is aligned with the contract fully
-- [ ] validation ordering is made explicit and centralized
-- [ ] deterministic rejection categories and codes are formalized
+- [x] validation ordering is made explicit and centralized for shape, authorization, and identity stages
+- [ ] deterministic rejection categories and codes are formalized fully
 - [ ] optimistic preconditions and authority-base conflict handling are implemented coherently
 - [x] explicit transaction outcome and commit metadata now flow through the protocol result
 - [ ] authoritative commit-result metadata is unified across mutation surfaces
@@ -61,6 +61,13 @@ Current slice notes:
 - the first implementation slice now exposes explicit transaction outcome and commit metadata from
   `prism-query` into MCP-facing response shaping; later slices still need rejected and indeterminate
   outcomes plus shared authority-stamp semantics
+- the second implementation slice now makes validation ordering explicit in code for:
+  - input-shape validation
+  - authorization placeholder staging
+  - object identity and ordered client-reference validation
+  - typed rejected outcomes for those stages
+  later slices still need conflict handling, indeterminate outcomes, and shared rejected-result
+  shaping through all mutation surfaces
 
 ## 3. Related roadmap
 
@@ -223,6 +230,14 @@ Progress:
 Exit criteria:
 
 - validation ordering is visible and testable through the protocol boundary
+
+Progress:
+
+- [x] shape, authorization, and identity stages are now explicit protocol functions
+- [x] stable typed rejections exist for empty transactions, unsupported fields, duplicate client ids,
+  missing ids, and forward client references
+- [ ] domain-stage rejected results still need to converge with the same shared rejected-result
+  envelope instead of relying on downstream audit interpretation
 
 ### Slice 3: Conflict, replay, and deterministic rejection
 

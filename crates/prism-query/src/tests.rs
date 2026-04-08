@@ -24,7 +24,11 @@ use prism_projections::{
 use prism_store::{CoordinationPersistContext, Graph};
 use serde_json::json;
 
-use super::Prism;
+use super::{
+    CoordinationTransactionError, CoordinationTransactionInput, CoordinationTransactionMutation,
+    CoordinationTransactionPlanRef, CoordinationTransactionRejectionCategory,
+    CoordinationTransactionValidationStage, Prism,
+};
 
 #[test]
 fn finds_documents_by_file_stem_and_path_fragment() {
@@ -4117,4 +4121,106 @@ fn policy_violations_expose_rejected_coordination_mutations() {
             .any(|violation| violation.code
                 == prism_coordination::PolicyViolationCode::ReviewRequired)
     );
+}
+
+#[test]
+fn coordination_transaction_rejects_empty_transaction_with_stable_reason() {
+    let prism = Prism::new(Graph::new());
+    let error = prism
+        .execute_coordination_transaction(
+            EventMeta {
+                id: EventId::new("coord:tx:empty"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            CoordinationTransactionInput::default(),
+        )
+        .expect_err("empty transaction should reject before domain mutation");
+
+    let CoordinationTransactionError::Rejected(rejection) = error else {
+        panic!("expected rejected transaction");
+    };
+    assert_eq!(rejection.stage, CoordinationTransactionValidationStage::InputShape);
+    assert_eq!(
+        rejection.category,
+        CoordinationTransactionRejectionCategory::InvalidInput
+    );
+    assert_eq!(rejection.reason_code, "empty_transaction");
+}
+
+#[test]
+fn coordination_transaction_rejects_forward_task_client_refs_before_domain_stage() {
+    let prism = Prism::new(Graph::new());
+    let error = prism
+        .execute_coordination_transaction(
+            EventMeta {
+                id: EventId::new("coord:tx:forward-task-client-ref"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            CoordinationTransactionInput {
+                mutations: vec![
+                    CoordinationTransactionMutation::PlanCreate {
+                        client_plan_id: Some("plan".to_string()),
+                        title: "Plan".to_string(),
+                        goal: "Create tasks".to_string(),
+                        status: None,
+                        policy: None,
+                        scheduling: None,
+                    },
+                    CoordinationTransactionMutation::TaskCreate {
+                        client_task_id: Some("first".to_string()),
+                        plan: CoordinationTransactionPlanRef::ClientId("plan".to_string()),
+                        title: "First".to_string(),
+                        status: None,
+                        assignee: None,
+                        session: None,
+                        worktree_id: None,
+                        branch_ref: None,
+                        anchors: Vec::new(),
+                        depends_on: vec![super::CoordinationTransactionTaskRef::ClientId(
+                            "later".to_string(),
+                        )],
+                        coordination_depends_on: Vec::new(),
+                        integrated_depends_on: Vec::new(),
+                        acceptance: Vec::new(),
+                        base_revision: WorkspaceRevision::default(),
+                    },
+                    CoordinationTransactionMutation::TaskCreate {
+                        client_task_id: Some("later".to_string()),
+                        plan: CoordinationTransactionPlanRef::ClientId("plan".to_string()),
+                        title: "Later".to_string(),
+                        status: None,
+                        assignee: None,
+                        session: None,
+                        worktree_id: None,
+                        branch_ref: None,
+                        anchors: Vec::new(),
+                        depends_on: Vec::new(),
+                        coordination_depends_on: Vec::new(),
+                        integrated_depends_on: Vec::new(),
+                        acceptance: Vec::new(),
+                        base_revision: WorkspaceRevision::default(),
+                    },
+                ],
+                ..CoordinationTransactionInput::default()
+            },
+        )
+        .expect_err("forward client references should reject before domain mutation");
+
+    let CoordinationTransactionError::Rejected(rejection) = error else {
+        panic!("expected rejected transaction");
+    };
+    assert_eq!(rejection.stage, CoordinationTransactionValidationStage::ObjectIdentity);
+    assert_eq!(
+        rejection.category,
+        CoordinationTransactionRejectionCategory::NotFound
+    );
+    assert_eq!(rejection.reason_code, "forward_task_client_reference");
 }

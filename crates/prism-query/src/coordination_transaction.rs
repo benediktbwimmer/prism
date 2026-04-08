@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 
 use anyhow::{anyhow, Result};
 use prism_coordination::{
@@ -154,6 +155,86 @@ pub struct CoordinationTransactionInput {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoordinationTransactionValidationStage {
+    InputShape,
+    Authorization,
+    ObjectIdentity,
+    Domain,
+    Conflict,
+    Commit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoordinationTransactionRejectionCategory {
+    InvalidInput,
+    Unauthorized,
+    NotFound,
+    DomainViolation,
+    Conflict,
+    Unsupported,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoordinationTransactionRejection {
+    pub stage: CoordinationTransactionValidationStage,
+    pub category: CoordinationTransactionRejectionCategory,
+    pub reason_code: &'static str,
+    pub message: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum CoordinationTransactionError {
+    Rejected(CoordinationTransactionRejection),
+    Indeterminate {
+        reason_code: &'static str,
+        message: String,
+    },
+}
+
+impl CoordinationTransactionError {
+    fn rejected(
+        stage: CoordinationTransactionValidationStage,
+        category: CoordinationTransactionRejectionCategory,
+        reason_code: &'static str,
+        message: impl Into<String>,
+    ) -> Self {
+        Self::Rejected(CoordinationTransactionRejection {
+            stage,
+            category,
+            reason_code,
+            message: message.into(),
+        })
+    }
+
+    fn domain(error: anyhow::Error) -> Self {
+        Self::rejected(
+            CoordinationTransactionValidationStage::Domain,
+            CoordinationTransactionRejectionCategory::DomainViolation,
+            "domain_validation_failed",
+            error.to_string(),
+        )
+    }
+}
+
+impl fmt::Display for CoordinationTransactionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Rejected(rejection) => write!(
+                f,
+                "{} [{}::{:?}]",
+                rejection.message, rejection.reason_code, rejection.category
+            ),
+            Self::Indeterminate {
+                reason_code,
+                message,
+            } => write!(f, "{message} [{reason_code}]"),
+        }
+    }
+}
+
+impl std::error::Error for CoordinationTransactionError {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CoordinationTransactionOutcome {
     Committed,
 }
@@ -181,26 +262,22 @@ impl Prism {
         &self,
         meta: EventMeta,
         input: CoordinationTransactionInput,
-    ) -> Result<CoordinationTransactionResult> {
-        if input.intent_metadata.is_some() {
-            return Err(anyhow!(
-                "coordination_transaction intentMetadata is not supported yet"
-            ));
-        }
-        if input.optimistic_preconditions.is_some() {
-            return Err(anyhow!(
-                "coordination_transaction optimisticPreconditions are not supported yet"
-            ));
-        }
-
+    ) -> std::result::Result<CoordinationTransactionResult, CoordinationTransactionError> {
+        validate_transaction_input_shape(&input)?;
+        validate_transaction_authorization(&input)?;
         self.coordination_transaction(|coordination_runtime| {
+            validate_transaction_identity(coordination_runtime, &input)?;
             apply_coordination_transaction(coordination_runtime, meta.clone(), input)
+                .map_err(CoordinationTransactionError::domain)
         })
     }
 
-    pub(crate) fn coordination_transaction<T, F>(&self, mutate: F) -> Result<T>
+    pub(crate) fn coordination_transaction<T, F>(
+        &self,
+        mutate: F,
+    ) -> std::result::Result<T, CoordinationTransactionError>
     where
-        F: FnOnce(&mut CoordinationRuntimeState) -> Result<T>,
+        F: FnOnce(&mut CoordinationRuntimeState) -> std::result::Result<T, CoordinationTransactionError>,
     {
         let mut runtime = self
             .materialized_runtime
@@ -212,8 +289,13 @@ impl Prism {
             match mutate(coordination_runtime) {
                 Ok(value) => {
                     let snapshot = coordination_runtime.snapshot();
-                    snapshot.validate_canonical_projection()?;
-                    snapshot.to_canonical_snapshot_v2().validate_graph()?;
+                    snapshot
+                        .validate_canonical_projection()
+                        .map_err(CoordinationTransactionError::domain)?;
+                    snapshot
+                        .to_canonical_snapshot_v2()
+                        .validate_graph()
+                        .map_err(CoordinationTransactionError::domain)?;
                     Ok(value)
                 }
                 Err(error) => Err(error),
@@ -236,6 +318,297 @@ impl Prism {
             }
         }
     }
+}
+
+fn validate_transaction_input_shape(
+    input: &CoordinationTransactionInput,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    if input.mutations.is_empty() {
+        return Err(CoordinationTransactionError::rejected(
+            CoordinationTransactionValidationStage::InputShape,
+            CoordinationTransactionRejectionCategory::InvalidInput,
+            "empty_transaction",
+            "coordination_transaction requires at least one staged mutation",
+        ));
+    }
+    if input.intent_metadata.is_some() {
+        return Err(CoordinationTransactionError::rejected(
+            CoordinationTransactionValidationStage::InputShape,
+            CoordinationTransactionRejectionCategory::Unsupported,
+            "unsupported_intent_metadata",
+            "coordination_transaction intentMetadata is not supported yet",
+        ));
+    }
+    if input.optimistic_preconditions.is_some() {
+        return Err(CoordinationTransactionError::rejected(
+            CoordinationTransactionValidationStage::Conflict,
+            CoordinationTransactionRejectionCategory::Unsupported,
+            "unsupported_optimistic_preconditions",
+            "coordination_transaction optimisticPreconditions are not supported yet",
+        ));
+    }
+
+    let mut seen_plan_client_ids = BTreeSet::new();
+    let mut seen_task_client_ids = BTreeSet::new();
+    for mutation in &input.mutations {
+        match mutation {
+            CoordinationTransactionMutation::PlanCreate {
+                client_plan_id: Some(client_plan_id),
+                ..
+            } => {
+                if !seen_plan_client_ids.insert(client_plan_id.clone()) {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "duplicate_plan_client_id",
+                        format!(
+                            "coordination transaction plan client id `{client_plan_id}` was used more than once"
+                        ),
+                    ));
+                }
+            }
+            CoordinationTransactionMutation::TaskCreate {
+                client_task_id: Some(client_task_id),
+                ..
+            } => {
+                if !seen_task_client_ids.insert(client_task_id.clone()) {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "duplicate_task_client_id",
+                        format!(
+                            "coordination transaction task client id `{client_task_id}` was used more than once"
+                        ),
+                    ));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_transaction_authorization(
+    _input: &CoordinationTransactionInput,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    Ok(())
+}
+
+fn validate_transaction_identity(
+    coordination_runtime: &CoordinationRuntimeState,
+    input: &CoordinationTransactionInput,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    let mut declared_plan_client_ids = BTreeSet::new();
+    let mut declared_task_client_ids = BTreeSet::new();
+    for mutation in &input.mutations {
+        match mutation {
+            CoordinationTransactionMutation::PlanCreate {
+                client_plan_id: Some(client_plan_id),
+                ..
+            } => {
+                declared_plan_client_ids.insert(client_plan_id.clone());
+            }
+            CoordinationTransactionMutation::TaskCreate {
+                client_task_id: Some(client_task_id),
+                ..
+            } => {
+                declared_task_client_ids.insert(client_task_id.clone());
+            }
+            _ => {}
+        }
+    }
+
+    let mut seen_plan_client_ids = BTreeSet::new();
+    let mut seen_task_client_ids = BTreeSet::new();
+    for mutation in &input.mutations {
+        match mutation {
+            CoordinationTransactionMutation::PlanCreate {
+                client_plan_id,
+                ..
+            } => {
+                if let Some(client_plan_id) = client_plan_id {
+                    seen_plan_client_ids.insert(client_plan_id.clone());
+                }
+            }
+            CoordinationTransactionMutation::PlanUpdate { plan, .. }
+            | CoordinationTransactionMutation::PlanArchive { plan } => {
+                validate_plan_ref(
+                    coordination_runtime,
+                    plan,
+                    &seen_plan_client_ids,
+                    &declared_plan_client_ids,
+                )?;
+            }
+            CoordinationTransactionMutation::TaskCreate {
+                client_task_id,
+                plan,
+                depends_on,
+                coordination_depends_on,
+                integrated_depends_on,
+                ..
+            } => {
+                validate_plan_ref(
+                    coordination_runtime,
+                    plan,
+                    &seen_plan_client_ids,
+                    &declared_plan_client_ids,
+                )?;
+                validate_task_refs(
+                    coordination_runtime,
+                    depends_on,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+                validate_task_refs(
+                    coordination_runtime,
+                    coordination_depends_on,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+                validate_task_refs(
+                    coordination_runtime,
+                    integrated_depends_on,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+                if let Some(client_task_id) = client_task_id {
+                    seen_task_client_ids.insert(client_task_id.clone());
+                }
+            }
+            CoordinationTransactionMutation::TaskUpdate { task, .. } => {
+                validate_task_ref(
+                    coordination_runtime,
+                    task,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+            }
+            CoordinationTransactionMutation::DependencyCreate {
+                task, depends_on, ..
+            } => {
+                validate_task_ref(
+                    coordination_runtime,
+                    task,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+                validate_task_ref(
+                    coordination_runtime,
+                    depends_on,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_plan_ref(
+    coordination_runtime: &CoordinationRuntimeState,
+    plan: &CoordinationTransactionPlanRef,
+    seen_plan_client_ids: &BTreeSet<String>,
+    declared_plan_client_ids: &BTreeSet<String>,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    match plan {
+        CoordinationTransactionPlanRef::Id(plan_id) => {
+            if coordination_runtime.plan(plan_id).is_none() {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::ObjectIdentity,
+                    CoordinationTransactionRejectionCategory::NotFound,
+                    "unknown_plan",
+                    format!("unknown plan `{}`", plan_id.0),
+                ));
+            }
+            Ok(())
+        }
+        CoordinationTransactionPlanRef::ClientId(client_id) => {
+            if seen_plan_client_ids.contains(client_id) {
+                return Ok(());
+            }
+            let reason_code = if declared_plan_client_ids.contains(client_id) {
+                "forward_plan_client_reference"
+            } else {
+                "unknown_plan_client_id"
+            };
+            let message = if declared_plan_client_ids.contains(client_id) {
+                format!(
+                    "coordination transaction plan client id `{client_id}` was referenced before it was created"
+                )
+            } else {
+                format!("unknown coordination transaction plan client id `{client_id}`")
+            };
+            Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::ObjectIdentity,
+                CoordinationTransactionRejectionCategory::NotFound,
+                reason_code,
+                message,
+            ))
+        }
+    }
+}
+
+fn validate_task_ref(
+    coordination_runtime: &CoordinationRuntimeState,
+    task: &CoordinationTransactionTaskRef,
+    seen_task_client_ids: &BTreeSet<String>,
+    declared_task_client_ids: &BTreeSet<String>,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    match task {
+        CoordinationTransactionTaskRef::Id(task_id) => {
+            if coordination_runtime.task(task_id).is_none() {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::ObjectIdentity,
+                    CoordinationTransactionRejectionCategory::NotFound,
+                    "unknown_task",
+                    format!("unknown task `{}`", task_id.0),
+                ));
+            }
+            Ok(())
+        }
+        CoordinationTransactionTaskRef::ClientId(client_id) => {
+            if seen_task_client_ids.contains(client_id) {
+                return Ok(());
+            }
+            let reason_code = if declared_task_client_ids.contains(client_id) {
+                "forward_task_client_reference"
+            } else {
+                "unknown_task_client_id"
+            };
+            let message = if declared_task_client_ids.contains(client_id) {
+                format!(
+                    "coordination transaction task client id `{client_id}` was referenced before it was created"
+                )
+            } else {
+                format!("unknown coordination transaction task client id `{client_id}`")
+            };
+            Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::ObjectIdentity,
+                CoordinationTransactionRejectionCategory::NotFound,
+                reason_code,
+                message,
+            ))
+        }
+    }
+}
+
+fn validate_task_refs(
+    coordination_runtime: &CoordinationRuntimeState,
+    refs: &[CoordinationTransactionTaskRef],
+    seen_task_client_ids: &BTreeSet<String>,
+    declared_task_client_ids: &BTreeSet<String>,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    for task_ref in refs {
+        validate_task_ref(
+            coordination_runtime,
+            task_ref,
+            seen_task_client_ids,
+            declared_task_client_ids,
+        )?;
+    }
+    Ok(())
 }
 
 fn apply_coordination_transaction(
