@@ -221,6 +221,9 @@ Current progress:
   in-memory coordination snapshot as the fallback source
 - the live-prism workspace indexer constructor now also prefers protected/materialized
   coordination plan state before falling back to the in-memory continuity snapshot
+- authority-sync application and post-mutation continuity publication now share one
+  service-backed current-state applicator for runtime republish plus coordination materialization,
+  instead of maintaining separate inline runtime-state replacement and materialization logic
 
 Exit criteria:
 

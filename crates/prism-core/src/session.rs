@@ -45,12 +45,14 @@ const MUTATION_REFRESH_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 
 use crate::admission::AdmissionBusyError;
 use crate::checkpoint_materializer::{
-    persist_coordination_materialization, CheckpointMaterializerHandle, CoordinationMaterialization,
+    CheckpointMaterializerHandle,
 };
 use crate::concept_events::append_repo_concept_event;
 use crate::concept_relation_events::append_repo_concept_relation_event;
 use crate::contract_events::append_repo_contract_event;
-use crate::coordination_authority_sync::sync_coordination_authority_update;
+use crate::coordination_authority_sync::{
+    apply_service_backed_coordination_current_state, sync_coordination_authority_update,
+};
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
@@ -2313,12 +2315,15 @@ impl WorkspaceSession {
         );
         let canonical_snapshot_v2 = prism.coordination_snapshot_v2();
         let runtime_descriptors = prism.runtime_descriptors();
+        let current_state = crate::CoordinationCurrentState {
+            snapshot: snapshot.clone(),
+            canonical_snapshot_v2: canonical_snapshot_v2.clone(),
+            runtime_descriptors: runtime_descriptors.clone(),
+        };
         let publish_context = publish_context_from_coordination_events(&appended_events);
-        self.runtime_state
-            .lock()
-            .expect("workspace runtime state lock poisoned")
-            .replace_coordination_runtime(snapshot.clone(), runtime_descriptors);
         let should_persist = !appended_events.is_empty() || snapshot != before;
+        let local_workspace_revision = prism.workspace_revision().graph_version;
+        let workspace_revision = self.loaded_workspace_revision.load(Ordering::Relaxed);
         if should_persist {
             let persist_started = Instant::now();
             let persist_result = {
@@ -2346,66 +2351,61 @@ impl WorkspaceSession {
                 persist_result.as_ref().err().map(|error| error.to_string()),
             );
             let authoritative_revision = persist_result?.revision;
-            if schedule_materialization {
-                let materialization = CoordinationMaterialization {
-                    authoritative_revision,
-                    snapshot: snapshot.clone(),
-                    canonical_snapshot_v2: Some(canonical_snapshot_v2.clone()),
-                    runtime_descriptors: Some(prism.runtime_descriptors()),
-                    publish_context: publish_context.clone(),
-                };
-                let materialize_started = Instant::now();
-                let enqueue_result = if let Some(materializer) =
+            let apply_started = Instant::now();
+            let apply_result = apply_service_backed_coordination_current_state(
+                &self.root,
+                &self.published_generation,
+                &self.runtime_state,
+                &self.store,
+                &self.cold_query_store,
+                &self.loaded_workspace_revision,
+                Some(&self.coordination_runtime_revision),
+                if schedule_materialization {
                     self.checkpoint_materializer.as_ref()
-                {
-                    materializer.enqueue_coordination_materialization(materialization.clone())
                 } else {
-                    let mut store = self.store.lock().expect("coordination store lock poisoned");
-                    persist_coordination_materialization(
-                        &self.root,
-                        &mut *store,
-                        &materialization,
-                    )?;
-                    Ok(())
-                };
-                observe_phase(
-                    "mutation.coordination.scheduleMaterialization",
-                    materialize_started.elapsed(),
-                    json!({ "eventCount": snapshot.events.len() }),
-                    enqueue_result.is_ok(),
-                    enqueue_result.as_ref().err().map(|error| error.to_string()),
-                );
-                enqueue_result?;
-            } else {
+                    None
+                },
+                local_workspace_revision,
+                workspace_revision,
+                Some(coordination_persist_context_for_root(&self.root, session_id)),
+                &current_state,
+                authoritative_revision,
+                publish_context.clone(),
+            );
+            observe_phase(
+                "mutation.coordination.applyCurrentState",
+                apply_started.elapsed(),
+                json!({
+                    "eventCount": current_state.snapshot.events.len(),
+                    "materializationScheduled": schedule_materialization,
+                }),
+                apply_result.is_ok(),
+                apply_result.as_ref().err().map(|error| error.to_string()),
+            );
+            apply_result?;
+            if !schedule_materialization {
                 observe_phase(
                     "mutation.coordination.scheduleMaterialization",
                     Duration::ZERO,
-                    json!({
-                        "eventCount": snapshot.events.len(),
-                        "suppressed": true,
-                    }),
+                    json!({ "eventCount": snapshot.events.len() }),
                     true,
                     None,
                 );
             }
+        } else {
+            let runtime_state = self
+                .runtime_state
+                .lock()
+                .expect("workspace runtime state lock poisoned")
+                .clone();
+            self.publish_runtime_state(
+                runtime_state,
+                local_workspace_revision,
+                workspace_revision,
+                Some(coordination_persist_context_for_root(&self.root, session_id)),
+                None,
+            );
         }
-        let coordination_context = Some(coordination_persist_context_for_root(
-            &self.root, session_id,
-        ));
-        let local_workspace_revision = prism.workspace_revision().graph_version;
-        let workspace_revision = self.loaded_workspace_revision.load(Ordering::Relaxed);
-        let runtime_state = self
-            .runtime_state
-            .lock()
-            .expect("workspace runtime state lock poisoned")
-            .clone();
-        self.publish_runtime_state(
-            runtime_state,
-            local_workspace_revision,
-            workspace_revision,
-            coordination_context,
-            None,
-        );
         result
     }
 
