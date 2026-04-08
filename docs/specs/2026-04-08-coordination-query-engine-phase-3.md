@@ -312,7 +312,7 @@ Phase 3 is complete only when:
 - [x] Introduce the coordination-query engine module and result families in `prism-query`
 - [x] Route `Prism` task/plan coordination reads through the engine
 - [x] Centralize actionable-task, blocker, and plan-rollup reasoning
-- [ ] Add explicit evidence/review query families
+- [x] Add explicit evidence/review query families
 - [ ] Cut over MCP/UI/CLI coordination readers to the engine-facing API
 - [ ] Remove obvious duplicated coordination-read logic
 - [ ] Validate `prism-query`, `prism-mcp`, and `prism-cli`
@@ -334,5 +334,19 @@ The first engine slice is now in place:
   - `base_blockers`
   - `plan_summary`
 
-The next Phase 3 slice should focus on product-facing read cutover and the explicit evidence/review
-query families, rather than growing more coordination semantics back into surface modules.
+The current evidence/review slice is also in place:
+
+- the engine now owns:
+  - `pending_reviews`
+  - `artifacts`
+  - `task_evidence_status`
+  - `task_review_status`
+- `task_evidence_status` is currently defined over the artifact and review records implemented in
+  coordination today, including:
+  - artifact-scoped review aggregation
+  - pending review posture
+  - approved/rejected artifact counts
+  - missing validation aggregation across task risk and artifact-required validations
+
+The next Phase 3 slice should focus on product-facing read cutover and duplicate-logic removal,
+rather than growing more coordination semantics back into surface modules.

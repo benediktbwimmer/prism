@@ -2440,6 +2440,132 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
 }
 
 #[test]
+fn task_evidence_status_aggregates_artifacts_reviews_and_blockers() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:task-evidence-status"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Task evidence status".into(),
+                goal: "Aggregate artifact and review posture".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    review_required_above_risk_score: Some(0.0),
+                    require_validation_for_completion: true,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:task-evidence-status"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Implement alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let artifact_id = prism_ir::ArtifactId::new("artifact:evidence-status");
+    let review_id = prism_ir::ReviewId::new("review:evidence-status");
+    let mut snapshot = coordination.snapshot();
+    snapshot.artifacts.push(Artifact {
+        id: artifact_id.clone(),
+        task: task_id.clone(),
+        worktree_id: None,
+        branch_ref: None,
+        anchors: Vec::new(),
+        base_revision: WorkspaceRevision::default(),
+        diff_ref: Some("patch:evidence".into()),
+        status: prism_ir::ArtifactStatus::InReview,
+        evidence: Vec::new(),
+        reviews: vec![review_id.clone()],
+        required_validations: vec!["test:alpha".into()],
+        validated_checks: Vec::new(),
+        risk_score: Some(0.8),
+    });
+    snapshot.reviews.push(prism_coordination::ArtifactReview {
+        id: review_id.clone(),
+        artifact: artifact_id.clone(),
+        verdict: prism_ir::ReviewVerdict::ChangesRequested,
+        summary: "needs changes".into(),
+        meta: EventMeta {
+            id: EventId::new("coord:review:evidence-status"),
+            ts: 3,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+            execution_context: None,
+        },
+    });
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        snapshot,
+        ProjectionIndex::default(),
+    );
+
+    let evidence = prism
+        .task_evidence_status(&task_id, 5)
+        .expect("task evidence status");
+    assert_eq!(evidence.task_id, task_id);
+    assert_eq!(evidence.artifacts.len(), 1);
+    assert_eq!(evidence.pending_review_count, 1);
+    assert_eq!(evidence.rejected_artifact_count, 1);
+    assert!(evidence.review_required);
+    assert!(!evidence.has_approved_artifact);
+    assert_eq!(evidence.missing_validations, vec!["test:alpha"]);
+    assert_eq!(
+        evidence.artifacts[0].latest_review_verdict,
+        Some(prism_ir::ReviewVerdict::ChangesRequested)
+    );
+    assert!(evidence.artifacts[0].pending_review);
+
+    let review_status = prism
+        .task_review_status(&task_id, 5)
+        .expect("task review status");
+    assert_eq!(review_status.pending_review_count, 1);
+    assert_eq!(review_status.rejected_artifact_count, 1);
+}
+
+#[test]
 fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
     let coordination = CoordinationStore::new();
     let (plan_id, _) = coordination

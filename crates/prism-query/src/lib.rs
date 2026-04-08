@@ -64,7 +64,8 @@ pub use crate::types::{
     ContractPublicationStatus, ContractResolution, ContractScope, ContractStability,
     ContractStatus, ContractTarget, ContractValidation, CoordinationPlanV2, CoordinationTaskV2,
     DriftCandidate, PlanActivity, PlanListEntry, PlanNodeStatusCounts, PlanSummary, QueryLimits,
-    TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    TaskEvidenceArtifactStatus, TaskEvidenceStatus, TaskIntent, TaskReviewStatus, TaskRisk,
+    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 pub use coordination_transaction::{
     CoordinationDependencyKind, CoordinationTransactionGitExecutionPolicyPatch,

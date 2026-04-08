@@ -1,6 +1,7 @@
 use prism_ir::{
     ArtifactId, BlockerCause, CoordinationEventKind, CoordinationTaskId, DerivedPlanStatus,
     EffectiveTaskStatus, LineageId, NodeId, NodeRef, PlanId, PlanKind, PlanScope, PlanStatus,
+    ReviewVerdict,
 };
 use prism_memory::OutcomeEvent;
 use serde::{Deserialize, Serialize};
@@ -183,6 +184,38 @@ pub struct CoordinationTaskV2 {
     pub blocker_causes: Vec<BlockerCause>,
     pub dependencies: Vec<NodeRef>,
     pub dependents: Vec<NodeRef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskEvidenceArtifactStatus {
+    pub artifact: prism_coordination::Artifact,
+    pub reviews: Vec<prism_coordination::ArtifactReview>,
+    pub latest_review: Option<prism_coordination::ArtifactReview>,
+    pub latest_review_verdict: Option<ReviewVerdict>,
+    pub pending_review: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskEvidenceStatus {
+    pub task_id: CoordinationTaskId,
+    pub artifacts: Vec<TaskEvidenceArtifactStatus>,
+    pub blockers: Vec<prism_coordination::TaskBlocker>,
+    pub pending_review_count: usize,
+    pub approved_artifact_count: usize,
+    pub rejected_artifact_count: usize,
+    pub missing_validations: Vec<String>,
+    pub stale_artifact_ids: Vec<ArtifactId>,
+    pub review_required: bool,
+    pub has_approved_artifact: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskReviewStatus {
+    pub task_id: CoordinationTaskId,
+    pub artifacts: Vec<TaskEvidenceArtifactStatus>,
+    pub pending_review_count: usize,
+    pub approved_artifact_count: usize,
+    pub rejected_artifact_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

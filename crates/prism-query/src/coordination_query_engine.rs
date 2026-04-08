@@ -1,13 +1,17 @@
 use prism_coordination::{
-    CanonicalTaskRecord, CoordinationDerivations, TaskBlocker, TaskExecutorCaller,
+    Artifact, ArtifactReview, CanonicalTaskRecord, CoordinationDerivations, TaskBlocker,
+    TaskExecutorCaller,
 };
 use prism_ir::{
     BlockerCause, BlockerCauseSource, CoordinationTaskId, DerivedPlanStatus, NodeRef, NodeRefKind,
-    PlanId, PlanStatus, PrincipalId, TaskId, Timestamp,
+    PlanId, PlanStatus, PrincipalId, ReviewVerdict, TaskId, Timestamp,
 };
 
 use crate::common::current_timestamp;
-use crate::{CoordinationPlanV2, CoordinationTaskV2, PlanSummary, Prism};
+use crate::{
+    CoordinationPlanV2, CoordinationTaskV2, PlanSummary, Prism, TaskEvidenceArtifactStatus,
+    TaskEvidenceStatus, TaskReviewStatus,
+};
 
 pub(crate) struct CoordinationQueryEngine<'a> {
     prism: &'a Prism,
@@ -293,6 +297,152 @@ impl<'a> CoordinationQueryEngine<'a> {
 
         Some(summary)
     }
+
+    pub(crate) fn pending_reviews(&self, plan_id: Option<&PlanId>) -> Vec<Artifact> {
+        let worktree_id = coordination_worktree_scope(self.prism);
+        self.prism.with_coordination_runtime(|runtime| {
+            runtime.pending_reviews_in_scope(plan_id, worktree_id.as_deref())
+        })
+    }
+
+    pub(crate) fn artifacts(&self, task_id: &CoordinationTaskId) -> Vec<Artifact> {
+        let worktree_id = coordination_worktree_scope(self.prism);
+        self.prism.with_coordination_runtime(|runtime| {
+            runtime.artifacts_in_scope(task_id, worktree_id.as_deref())
+        })
+    }
+
+    pub(crate) fn task_evidence_status(
+        &self,
+        task_id: &CoordinationTaskId,
+        now: Timestamp,
+    ) -> Option<TaskEvidenceStatus> {
+        let artifacts = self.artifacts(task_id);
+        let artifact_statuses = self
+            .artifacts(task_id)
+            .into_iter()
+            .map(|artifact| self.task_evidence_artifact_status(artifact))
+            .collect::<Vec<_>>();
+        let task_risk = self.prism.task_risk(task_id, now)?;
+        let blockers = self.blockers(task_id, now);
+        let missing_validations = dedupe_strings(
+            task_risk
+                .missing_validations
+                .iter()
+                .cloned()
+                .chain(artifact_statuses.iter().flat_map(|artifact| {
+                    artifact
+                        .artifact
+                        .required_validations
+                        .iter()
+                        .filter(|check| {
+                            !artifact
+                                .artifact
+                                .validated_checks
+                                .iter()
+                                .any(|value| value == *check)
+                        })
+                        .cloned()
+                }))
+                .collect(),
+        );
+        let pending_review_count = artifact_statuses
+            .iter()
+            .filter(|artifact| artifact.pending_review)
+            .count();
+        let approved_artifact_count = artifact_statuses
+            .iter()
+            .filter(|artifact| {
+                artifact.latest_review_verdict == Some(ReviewVerdict::Approved)
+                    || artifact.artifact.status == prism_ir::ArtifactStatus::Approved
+            })
+            .count();
+        let rejected_artifact_count = artifact_statuses
+            .iter()
+            .filter(|artifact| {
+                matches!(
+                    artifact.latest_review_verdict,
+                    Some(ReviewVerdict::Rejected | ReviewVerdict::ChangesRequested)
+                ) || artifact.artifact.status == prism_ir::ArtifactStatus::Rejected
+            })
+            .count();
+
+        Some(TaskEvidenceStatus {
+            task_id: task_id.clone(),
+            artifacts: if artifacts.is_empty() {
+                Vec::new()
+            } else {
+                artifact_statuses
+            },
+            blockers,
+            pending_review_count,
+            approved_artifact_count,
+            rejected_artifact_count,
+            missing_validations,
+            stale_artifact_ids: task_risk.stale_artifact_ids,
+            review_required: task_risk.review_required,
+            has_approved_artifact: task_risk.has_approved_artifact,
+        })
+    }
+
+    pub(crate) fn task_review_status(
+        &self,
+        task_id: &CoordinationTaskId,
+        now: Timestamp,
+    ) -> Option<TaskReviewStatus> {
+        let evidence = self.task_evidence_status(task_id, now)?;
+        Some(TaskReviewStatus {
+            task_id: evidence.task_id,
+            artifacts: evidence.artifacts,
+            pending_review_count: evidence.pending_review_count,
+            approved_artifact_count: evidence.approved_artifact_count,
+            rejected_artifact_count: evidence.rejected_artifact_count,
+        })
+    }
+
+    fn task_evidence_artifact_status(&self, artifact: Artifact) -> TaskEvidenceArtifactStatus {
+        let reviews = self.reviews_for_artifact(&artifact);
+        let latest_review = latest_review(&reviews);
+        let latest_review_verdict = latest_review.as_ref().map(|review| review.verdict);
+        let pending_review = matches!(
+            artifact.status,
+            prism_ir::ArtifactStatus::Proposed | prism_ir::ArtifactStatus::InReview
+        ) && !matches!(
+            latest_review_verdict,
+            Some(ReviewVerdict::Approved | ReviewVerdict::Rejected)
+        );
+
+        TaskEvidenceArtifactStatus {
+            artifact,
+            reviews,
+            latest_review,
+            latest_review_verdict,
+            pending_review,
+        }
+    }
+
+    fn reviews_for_artifact(&self, artifact: &Artifact) -> Vec<ArtifactReview> {
+        let review_ids = artifact
+            .reviews
+            .iter()
+            .map(|review_id| review_id.0.to_string())
+            .collect::<std::collections::BTreeSet<_>>();
+        let snapshot = self.prism.coordination_snapshot_v2();
+        let mut reviews = snapshot
+            .reviews
+            .into_iter()
+            .filter(|review| {
+                review.artifact == artifact.id || review_ids.contains(review.id.0.as_str())
+            })
+            .collect::<Vec<_>>();
+        reviews.sort_by(|left, right| {
+            left.meta
+                .ts
+                .cmp(&right.meta.ts)
+                .then_with(|| left.id.0.cmp(&right.id.0))
+        });
+        reviews
+    }
 }
 
 fn actionable_task_views_from_snapshot(
@@ -354,6 +504,24 @@ fn principal_allowed(allowed: &[PrincipalId], caller_principal: Option<&Principa
         || caller_principal
             .as_ref()
             .is_some_and(|principal| allowed.contains(*principal))
+}
+
+fn latest_review(reviews: &[ArtifactReview]) -> Option<ArtifactReview> {
+    reviews
+        .iter()
+        .max_by(|left, right| {
+            left.meta
+                .ts
+                .cmp(&right.meta.ts)
+                .then_with(|| left.id.0.cmp(&right.id.0))
+        })
+        .cloned()
+}
+
+fn coordination_worktree_scope(prism: &Prism) -> Option<String> {
+    prism
+        .coordination_context()
+        .map(|context| context.worktree_id)
 }
 
 fn canonical_descendant_plan_ids(
@@ -442,4 +610,11 @@ fn dedupe_blockers(mut blockers: Vec<TaskBlocker>) -> Vec<TaskBlocker> {
     });
     blockers.dedup_by(|left, right| left.kind == right.kind && left.summary == right.summary);
     blockers
+}
+
+fn dedupe_strings(values: Vec<String>) -> Vec<String> {
+    let mut values = values;
+    values.sort();
+    values.dedup();
+    values
 }

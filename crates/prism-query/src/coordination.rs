@@ -9,7 +9,7 @@ use prism_ir::{
 
 use crate::common::{anchor_sort_key, sort_node_ids};
 use crate::coordination_query_engine::CoordinationQueryEngine;
-use crate::{CoordinationPlanV2, CoordinationTaskV2, Prism};
+use crate::{CoordinationPlanV2, CoordinationTaskV2, Prism, TaskEvidenceStatus, TaskReviewStatus};
 
 impl Prism {
     fn coordination_worktree_scope(&self) -> Option<String> {
@@ -156,17 +156,27 @@ impl Prism {
     }
 
     pub fn pending_reviews(&self, plan_id: Option<&PlanId>) -> Vec<Artifact> {
-        let worktree_id = self.coordination_worktree_scope();
-        self.with_coordination_runtime(|runtime| {
-            runtime.pending_reviews_in_scope(plan_id, worktree_id.as_deref())
-        })
+        CoordinationQueryEngine::new(self).pending_reviews(plan_id)
     }
 
     pub fn artifacts(&self, task_id: &CoordinationTaskId) -> Vec<Artifact> {
-        let worktree_id = self.coordination_worktree_scope();
-        self.with_coordination_runtime(|runtime| {
-            runtime.artifacts_in_scope(task_id, worktree_id.as_deref())
-        })
+        CoordinationQueryEngine::new(self).artifacts(task_id)
+    }
+
+    pub fn task_evidence_status(
+        &self,
+        task_id: &CoordinationTaskId,
+        now: Timestamp,
+    ) -> Option<TaskEvidenceStatus> {
+        CoordinationQueryEngine::new(self).task_evidence_status(task_id, now)
+    }
+
+    pub fn task_review_status(
+        &self,
+        task_id: &CoordinationTaskId,
+        now: Timestamp,
+    ) -> Option<TaskReviewStatus> {
+        CoordinationQueryEngine::new(self).task_review_status(task_id, now)
     }
 
     pub fn policy_violations(
