@@ -21464,8 +21464,14 @@ pub fn runtime_status() {}
         .expect("session overlay scope should exist");
     assert_eq!(repo_overlay.plan_count, 1);
     assert!(repo_overlay.plan_node_count > 0);
-    assert_eq!(worktree_overlay.overlay_count, 0);
-    assert_eq!(session_overlay.overlay_count, 1);
+    assert_eq!(
+        worktree_overlay.overlay_count, 1,
+        "runtime overlay scopes still surface the current worktree binding for live coordination work"
+    );
+    assert_eq!(
+        session_overlay.overlay_count, 1,
+        "runtime status overlays still read live coordination session bindings directly until the runtime-status surface is cut over"
+    );
 }
 
 #[test]
