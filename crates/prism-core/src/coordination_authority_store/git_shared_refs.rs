@@ -84,6 +84,65 @@ impl GitSharedRefsCoordinationAuthorityStore {
         )
     }
 
+    fn current_revision(current_state: Option<&CoordinationCurrentState>) -> u64 {
+        current_state
+            .map(|state| u64::try_from(state.snapshot.events.len()).unwrap_or(u64::MAX))
+            .unwrap_or(0)
+    }
+
+    fn conflict_transaction_result(
+        &self,
+        authority: Option<CoordinationAuthorityStamp>,
+        snapshot: Option<CoordinationCurrentState>,
+        reason: impl Into<String>,
+    ) -> CoordinationTransactionResult {
+        CoordinationTransactionResult {
+            status: CoordinationTransactionStatus::Conflict,
+            committed: false,
+            authority,
+            snapshot,
+            persisted: None,
+            conflict: Some(CoordinationConflictInfo {
+                reason: reason.into(),
+            }),
+            diagnostics: Vec::new(),
+        }
+    }
+
+    fn validate_transaction_base(
+        &self,
+        base: &CoordinationTransactionBase,
+        current_authority: &Option<CoordinationAuthorityStamp>,
+        current_state: &Option<CoordinationCurrentState>,
+    ) -> Option<CoordinationTransactionResult> {
+        match base {
+            CoordinationTransactionBase::LatestStrong => None,
+            CoordinationTransactionBase::ExpectedRevision(expected_revision) => {
+                let actual_revision = Self::current_revision(current_state.as_ref());
+                if actual_revision == *expected_revision {
+                    return None;
+                }
+                Some(self.conflict_transaction_result(
+                    current_authority.clone(),
+                    current_state.clone(),
+                    format!(
+                        "authority revision no longer matches the current shared-ref state: expected `{expected_revision}`, found `{actual_revision}`"
+                    ),
+                ))
+            }
+            CoordinationTransactionBase::ExpectedAuthorityStamp(expected) => {
+                if current_authority.as_ref() == Some(expected) {
+                    return None;
+                }
+                Some(self.conflict_transaction_result(
+                    current_authority.clone(),
+                    current_state.clone(),
+                    "authority stamp no longer matches the current shared-ref head",
+                ))
+            }
+        }
+    }
+
     fn indeterminate_transaction_result(
         &self,
         error: &anyhow::Error,
@@ -156,21 +215,11 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
         request: CoordinationTransactionRequest,
     ) -> Result<CoordinationTransactionResult> {
         let current_authority = self.authority_stamp()?;
-        if let CoordinationTransactionBase::ExpectedAuthorityStamp(expected) = &request.base {
-            if current_authority.as_ref() != Some(expected) {
-                return Ok(CoordinationTransactionResult {
-                    status: CoordinationTransactionStatus::Conflict,
-                    committed: false,
-                    authority: current_authority,
-                    snapshot: self.load_current_state()?,
-                    persisted: None,
-                    conflict: Some(CoordinationConflictInfo {
-                        reason: "authority stamp no longer matches the current shared-ref head"
-                            .to_string(),
-                    }),
-                    diagnostics: Vec::new(),
-                });
-            }
+        let current_state = self.load_current_state()?;
+        if let Some(result) =
+            self.validate_transaction_base(&request.base, &current_authority, &current_state)
+        {
+            return Ok(result);
         }
         let publish_context = publish_context_from_coordination_events(&request.appended_events);
         if let Err(error) = sync_shared_coordination_ref_state(
@@ -200,21 +249,11 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
         request: RuntimeDescriptorPublishRequest,
     ) -> Result<CoordinationTransactionResult> {
         let current_authority = self.authority_stamp()?;
-        if let CoordinationTransactionBase::ExpectedAuthorityStamp(expected) = &request.base {
-            if current_authority.as_ref() != Some(expected) {
-                return Ok(CoordinationTransactionResult {
-                    status: CoordinationTransactionStatus::Conflict,
-                    committed: false,
-                    authority: current_authority,
-                    snapshot: self.load_current_state()?,
-                    persisted: None,
-                    conflict: Some(CoordinationConflictInfo {
-                        reason: "authority stamp no longer matches the current shared-ref head"
-                            .to_string(),
-                    }),
-                    diagnostics: Vec::new(),
-                });
-            }
+        let current_state = self.load_current_state()?;
+        if let Some(result) =
+            self.validate_transaction_base(&request.base, &current_authority, &current_state)
+        {
+            return Ok(result);
         }
         if let Err(error) = publish_runtime_descriptor_record(&self.root, &request.descriptor) {
             if transport_outcome_uncertain(&error) {
@@ -238,21 +277,11 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
         request: RuntimeDescriptorClearRequest,
     ) -> Result<CoordinationTransactionResult> {
         let current_authority = self.authority_stamp()?;
-        if let CoordinationTransactionBase::ExpectedAuthorityStamp(expected) = &request.base {
-            if current_authority.as_ref() != Some(expected) {
-                return Ok(CoordinationTransactionResult {
-                    status: CoordinationTransactionStatus::Conflict,
-                    committed: false,
-                    authority: current_authority,
-                    snapshot: self.load_current_state()?,
-                    persisted: None,
-                    conflict: Some(CoordinationConflictInfo {
-                        reason: "authority stamp no longer matches the current shared-ref head"
-                            .to_string(),
-                    }),
-                    diagnostics: Vec::new(),
-                });
-            }
+        let current_state = self.load_current_state()?;
+        if let Some(result) =
+            self.validate_transaction_base(&request.base, &current_authority, &current_state)
+        {
+            return Ok(result);
         }
         if let Err(error) = clear_runtime_descriptor_record(&self.root, &request.runtime_id) {
             if transport_outcome_uncertain(&error) {
@@ -340,5 +369,101 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
             runtime_descriptor_count,
             backend_details: details,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
+
+    use super::*;
+    use crate::coordination_authority_store::CoordinationDerivedStateMode;
+
+    static NEXT_TEMP_REPO: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_git_repo() -> PathBuf {
+        let nonce = NEXT_TEMP_REPO.fetch_add(1, Ordering::Relaxed);
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("prism-authority-store-{unique}-{nonce}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        run_git(&root, &["init", "-b", "main"]);
+        run_git(&root, &["config", "user.name", "PRISM Test"]);
+        run_git(&root, &["config", "user.email", "prism@example.invalid"]);
+        fs::write(root.join("README.md"), "# test\n").unwrap();
+        run_git(&root, &["add", "README.md"]);
+        run_git(&root, &["commit", "-m", "init"]);
+        root
+    }
+
+    fn run_git(root: &Path, args: &[&str]) {
+        let status = Command::new("git")
+            .args(args)
+            .current_dir(root)
+            .status()
+            .expect("git command should start");
+        assert!(status.success(), "git {:?} should succeed", args);
+    }
+
+    fn default_transaction_request(base: CoordinationTransactionBase) -> CoordinationTransactionRequest {
+        CoordinationTransactionRequest {
+            base,
+            session_id: None,
+            snapshot: CoordinationSnapshot::default(),
+            canonical_snapshot_v2: CoordinationSnapshotV2::default(),
+            appended_events: Vec::new(),
+            derived_state_mode: CoordinationDerivedStateMode::Inline,
+        }
+    }
+
+    #[test]
+    fn git_shared_refs_conflicts_when_expected_revision_is_stale() {
+        let root = temp_git_repo();
+        let store = GitSharedRefsCoordinationAuthorityStore::new(&root);
+
+        let result = store
+            .apply_transaction(default_transaction_request(
+                CoordinationTransactionBase::ExpectedRevision(1),
+            ))
+            .expect("authority transaction should return a conflict result");
+
+        assert_eq!(result.status, CoordinationTransactionStatus::Conflict);
+        assert!(!result.committed);
+        assert_eq!(
+            result.conflict.as_ref().map(|value| value.reason.as_str()),
+            Some(
+                "authority revision no longer matches the current shared-ref state: expected `1`, found `0`"
+            )
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn git_shared_refs_commits_when_expected_revision_matches_current_state() {
+        let root = temp_git_repo();
+        let store = GitSharedRefsCoordinationAuthorityStore::new(&root);
+
+        let result = store
+            .apply_transaction(default_transaction_request(
+                CoordinationTransactionBase::ExpectedRevision(0),
+            ))
+            .expect("authority transaction should succeed");
+
+        assert_eq!(result.status, CoordinationTransactionStatus::Committed);
+        assert!(result.committed);
+        assert!(result.authority.is_some());
+
+        let _ = fs::remove_dir_all(root);
     }
 }

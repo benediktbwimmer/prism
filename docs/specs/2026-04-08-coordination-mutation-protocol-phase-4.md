@@ -274,7 +274,9 @@ Progress:
   being rebuilt ad hoc in `prism-mcp`
 - [x] initial stale-base conflict handling now exists for `expectedRevision`,
   `expectedEventCount`, and `expectedLastEventId`
-- [ ] authority-store-backed conflict bases and replay semantics still need to be implemented
+- [x] the Git authority backend now also honors `ExpectedRevision` conflict bases directly at the
+  authority-store boundary instead of only supporting `ExpectedAuthorityStamp`
+- [ ] authority-store-backed replay semantics still need to be implemented
 - [x] authority-store-backed indeterminate outcomes now route through the same common protocol
   envelope at the host boundary
 
@@ -363,6 +365,9 @@ What remains incomplete is the actual protocol convergence:
   `prism-query` envelope; `prism-mcp` only enriches committed results with touched-object views
 - authority-store conflict and indeterminate persistence failures now also surface structurally at
   the host boundary instead of collapsing immediately into generic errors
+- the Git authority backend now enforces `ExpectedRevision` conflict bases directly when applying
+  authoritative transactions, which closes the previous mismatch between the authority-store type
+  family and the implemented Git backend
 - persisted domain rejections no longer fall back to `state: null`; they now preserve the same
   protocol rejection envelope alongside the audit event ids and violations
 - `prism-query` now owns the protocol-lowering helpers for common plan and task create/update
