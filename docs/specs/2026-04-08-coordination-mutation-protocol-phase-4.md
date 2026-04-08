@@ -59,11 +59,12 @@ Current slice notes:
 - the protocol must now be finished against the service-backed architecture recorded in
   [../adrs/2026-04-08-service-owned-coordination-materialization.md](../adrs/2026-04-08-service-owned-coordination-materialization.md)
 - the first implementation slice now exposes explicit transaction outcome and commit metadata from
-  `prism-query` into MCP-facing response shaping; later slices still need rejected and indeterminate
-  outcomes plus shared authority-stamp semantics
+  `prism-query` into MCP-facing response shaping
 - protocol commit results now also carry a backend-neutral post-commit authority-version view based
   on total coordination event count and current last event id; backend-specific authority stamps
   still belong above this layer
+- committed MCP mutation results now also attach the current backend-specific authority stamp from
+  the authority store when a workspace authority root is available
 - the second implementation slice now makes validation ordering explicit in code for:
   - input-shape validation
   - authorization placeholder staging
@@ -232,7 +233,8 @@ Progress:
 - [x] backend-neutral post-commit authority-version metadata now flows with committed results
 - [x] committed, rejected, and indeterminate outcomes now share one protocol-state envelope in
   `prism-query`, even though the transport still uses `Result`
-- [ ] backend-specific authority-stamp fields remain to be added where higher layers need them
+- [x] backend-specific authority-stamp fields now attach at the host layer for committed MCP
+  mutation results
 
 ### Slice 2: Centralize validation ordering
 
