@@ -48,6 +48,8 @@ Current slice notes:
   - stable `mutation_capability_denied` payload shaping
   - authority-error to protocol-state conversion
   - authority-stamp attachment for coordination mutation result state
+- `server_surface.rs` principal-auth mutation gating now goes through one shared
+  `authenticate_principal_mutation_common(...)` flow for both traced and untraced entry points
 - that first slice reduces duplicated trust metadata shaping in `server_surface.rs` and
   `host_mutations.rs`, but broader provenance and verification/freshness convergence still remain
 
@@ -169,6 +171,16 @@ Current progress:
 Exit criteria:
 
 - capability-gated coordination and service surfaces no longer depend on scattered local checks
+
+Current progress:
+
+- `server_surface.rs` no longer keeps separate traced and untraced implementations of:
+  - workspace-backed principal credential verification
+  - registered-worktree enforcement
+  - worktree mutator-slot acquisition
+  - mutation capability gating
+- the shared flow preserves mutation-trace phase recording when a trace is present, while the
+  untraced path now depends on the same authorization logic instead of a parallel copy
 
 ### Slice 3: Provenance and verification convergence
 
