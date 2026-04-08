@@ -1332,7 +1332,7 @@ impl QueryHost {
     }
 }
 
-fn coordination_snapshot_has_data(snapshot: &CoordinationSnapshot) -> bool {
+pub(crate) fn coordination_snapshot_has_data(snapshot: &CoordinationSnapshot) -> bool {
     !(snapshot.plans.is_empty()
         && snapshot.tasks.is_empty()
         && snapshot.claims.is_empty()
@@ -1346,7 +1346,7 @@ fn coordination_snapshot_has_data(snapshot: &CoordinationSnapshot) -> bool {
         && snapshot.next_review == 0)
 }
 
-fn coordination_snapshot_v2_has_data(snapshot: &CoordinationSnapshotV2) -> bool {
+pub(crate) fn coordination_snapshot_v2_has_data(snapshot: &CoordinationSnapshotV2) -> bool {
     !(snapshot.plans.is_empty()
         && snapshot.tasks.is_empty()
         && snapshot.dependencies.is_empty()

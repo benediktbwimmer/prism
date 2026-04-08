@@ -231,10 +231,16 @@ Current progress:
   transitional cases where service-owned coordination materialization has not yet been hydrated
 - UI fleet and overview coordination summary/queue fallbacks now read through the same
   session-aware `QueryHost` coordination snapshot helpers
+- UI plans agent filtering and graph touchpoint derivation now read canonical coordination graph
+  state through session-aware `QueryHost` snapshot helpers instead of calling
+  `prism.coordination_snapshot_v2()` directly inside view helpers
 - the helper boundary now centralizes the transitional rule for product-facing reads:
   service-backed/session-owned coordination materialization wins when present, but empty or
   unhydrated session state falls back to the canonical in-memory snapshot during the cutover
   window
+- runtime-status overlay scopes remain intentionally runtime-local for now; they are not part of
+  this product-surface cutover slice because they still report live runtime/session overlay state
+  rather than service-owned eventual coordination materialization
 
 Exit criteria:
 

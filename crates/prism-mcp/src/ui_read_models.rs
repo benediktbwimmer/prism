@@ -3,7 +3,8 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use anyhow::{anyhow, Result};
 use prism_coordination::{
     coordination_queue_read_model_from_snapshot, ready_task_count_for_active_plans,
-    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, WorkClaim,
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    CoordinationSnapshotV2, WorkClaim,
 };
 use prism_ir::{
     sortable_token_timestamp, ClaimStatus, CoordinationEventKind, CoordinationTaskId,
@@ -400,6 +401,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
 
     fn ui_plans_view(&self, options: UiPlansQueryOptions) -> Result<PrismPlansView> {
         let prism = self.current_prism();
+        let coordination_snapshot_v2 = self.current_coordination_snapshot_v2()?;
         let all_plans = prism
             .plans(None, None, None)
             .into_iter()
@@ -447,7 +449,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
             .filter(|plan| {
                 agent
                     .as_deref()
-                    .map(|query| plan_matches_agent(&prism, plan, query))
+                    .map(|query| plan_matches_agent(&prism, &coordination_snapshot_v2, plan, query))
                     .unwrap_or(true)
             })
             .collect::<Vec<_>>();
@@ -504,6 +506,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
 
     fn ui_graph_view(&self, selected_concept_handle: Option<&str>) -> Result<PrismGraphView> {
         let prism = self.current_prism();
+        let coordination_snapshot_v2 = self.current_coordination_snapshot_v2()?;
         let root_packet = prism
             .concept_by_handle(GRAPH_DEFAULT_CONCEPT_HANDLE)
             .or_else(|| prism.concept("prism architecture"))
@@ -530,7 +533,8 @@ impl QueryHostUiReadModelsExt for QueryHost {
             None,
         );
         let entry_concepts = graph_entry_concepts(&prism, &root_packet);
-        let related_plans = graph_plan_touchpoints(&prism, &selected_concept_handle);
+        let related_plans =
+            graph_plan_touchpoints(&prism, &coordination_snapshot_v2, &selected_concept_handle);
 
         Ok(PrismGraphView {
             selected_concept_handle,
@@ -1034,12 +1038,12 @@ fn plan_matches_search(plan: &prism_js::PlanListEntryView, query: &str) -> bool 
 
 fn plan_matches_agent(
     prism: &prism_query::Prism,
+    snapshot: &CoordinationSnapshotV2,
     plan: &prism_js::PlanListEntryView,
     query: &str,
 ) -> bool {
     let query = query.to_ascii_lowercase();
     let plan_id = PlanId::new(plan.plan_id.clone());
-    let snapshot = prism.coordination_snapshot_v2();
     let Ok(graph) = snapshot.graph() else {
         return false;
     };
@@ -2275,9 +2279,9 @@ fn graph_entry_concepts(
 
 fn graph_plan_touchpoints(
     prism: &prism_query::Prism,
+    snapshot: &CoordinationSnapshotV2,
     selected_concept_handle: &str,
 ) -> Vec<GraphPlanTouchpointView> {
-    let snapshot = prism.coordination_snapshot_v2();
     let Ok(graph) = snapshot.graph() else {
         return Vec::new();
     };
