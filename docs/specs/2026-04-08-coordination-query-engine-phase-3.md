@@ -1,6 +1,6 @@
 # Coordination Query Engine Phase 3
 
-Status: in progress
+Status: completed
 Owner: coordination-query
 Created: 2026-04-08
 Updated: 2026-04-08
@@ -313,10 +313,10 @@ Phase 3 is complete only when:
 - [x] Route `Prism` task/plan coordination reads through the engine
 - [x] Centralize actionable-task, blocker, and plan-rollup reasoning
 - [x] Add explicit evidence/review query families
-- [ ] Cut over MCP/UI/CLI coordination readers to the engine-facing API
-- [ ] Remove obvious duplicated coordination-read logic
-- [ ] Validate `prism-query`, `prism-mcp`, and `prism-cli`
-- [ ] Mark Phase 3 complete in the roadmap
+- [x] Cut over MCP/UI/CLI coordination readers to the engine-facing API
+- [x] Remove obvious duplicated coordination-read logic
+- [x] Validate `prism-query`, `prism-mcp`, and `prism-cli`
+- [x] Mark Phase 3 complete in the roadmap
 
 ## 13. Current implementation status
 
@@ -363,5 +363,14 @@ The first product-facing cutover is also in place:
 - the task brief and UI task detail paths now treat engine-backed evidence status as the canonical
   blocker and artifact source instead of carrying their own old-path fallbacks for existing tasks
 
-The next Phase 3 slice should focus on product-facing read cutover and duplicate-logic removal,
-rather than growing more coordination semantics back into surface modules.
+Phase 3 is now complete.
+
+The remaining broad runtime/bootstrap/watch-path migration work stays in Phase 5 by design. The
+query-engine completion bar for Phase 3 is satisfied because:
+
+- the seam exists as a real module boundary in `prism-query`
+- `Prism` acts as a facade over that seam for task, plan, blocker, evidence, and review reads
+- the stable `prism_query` surface exposes the engine-backed evidence and review families
+- MCP task-facing readers now use the engine-backed composite evidence posture rather than
+  reconstructing blockers and artifacts ad hoc
+- targeted downstream validation passed in `prism-query`, `prism-mcp`, and `prism-cli`

@@ -35,7 +35,7 @@ Current phase checklist:
 - [x] Phase 0: freeze coordination semantics
 - [x] Phase 1: implement Coordination Authority Store fully
 - [x] Phase 2: implement Coordination Materialized Store fully
-- [ ] Phase 3: implement Coordination Query Engine fully
+- [x] Phase 3: implement Coordination Query Engine fully
 - [ ] Phase 4: implement Transactional Coordination Mutation Protocol fully
 - [ ] Phase 5: cut over coordination runtime and product surfaces
 - [ ] Phase 6: trust-family cleanup and centralization
@@ -51,14 +51,15 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 3: implement Coordination Query Engine fully
+- Phase 4: implement Transactional Coordination Mutation Protocol fully
 
 Current phase spec:
 
 - Phase 2 completed:
   [../specs/2026-04-08-coordination-materialized-store-phase-2.md](../specs/2026-04-08-coordination-materialized-store-phase-2.md)
-- Phase 3 in progress:
+- Phase 3 completed:
   [../specs/2026-04-08-coordination-query-engine-phase-3.md](../specs/2026-04-08-coordination-query-engine-phase-3.md)
+- Phase 4 spec pending
 
 ## 3. Ordering thesis
 
@@ -178,6 +179,12 @@ Migration target:
 Exit criteria:
 
 - all coordination reasoning lives here, not in product handlers
+
+Current assessment:
+
+- completed by the dedicated `prism-query` engine seam, evidence/review query families, stable
+  query-surface exposure of task evidence and review status, and MCP/UI task-facing cutover away
+  from duplicated blocker/artifact interpretation
 
 ### Phase 4: Implement the Transactional Coordination Mutation Protocol
 
