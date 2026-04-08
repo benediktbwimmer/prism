@@ -244,9 +244,10 @@ Current progress:
   service-backed/session-owned coordination materialization wins when present, but empty or
   unhydrated session state falls back to the canonical in-memory snapshot during the cutover
   window
-- runtime-status overlay scopes remain intentionally runtime-local for now; they are not part of
-  this product-surface cutover slice because they still report live runtime/session overlay state
-  rather than service-owned eventual coordination materialization
+- runtime-status repo overlay counts now prefer the same session-aware/service-backed coordination
+  snapshot path as other product surfaces, while worktree and session overlay counts remain
+  intentionally runtime-local because they report live runtime/session bindings rather than
+  service-owned eventual coordination materialization
 
 Exit criteria:
 

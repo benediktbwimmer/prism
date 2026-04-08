@@ -375,7 +375,7 @@ fn runtime_status_from_inputs(
         Ok(details) => details,
         Err(error) => {
             let freshness = degraded_runtime_freshness_from_inputs(inputs, runtime_state, &error);
-            let scopes = runtime_scopes_from_prism(inputs.prism.as_ref(), &freshness);
+            let scopes = runtime_scopes_from_inputs(inputs, &freshness);
             (freshness, None, scopes)
         }
     };
@@ -428,7 +428,7 @@ fn runtime_status_details_from_inputs(
         None => shared_coordination_ref_diagnostics(inputs.root)?
             .map(runtime_shared_coordination_ref_view),
     };
-    let scopes = runtime_scopes_from_prism(inputs.prism.as_ref(), &freshness);
+    let scopes = runtime_scopes_from_inputs(inputs, &freshness);
     Ok((freshness, shared_coordination_ref, scopes))
 }
 
@@ -884,16 +884,23 @@ fn runtime_queue_class_label(
     }
 }
 
-fn runtime_scopes_from_prism(
-    prism: &prism_query::Prism,
+fn runtime_scopes_from_inputs(
+    inputs: &RuntimeStatusInputs<'_>,
     freshness: &RuntimeFreshnessView,
 ) -> RuntimeScopesView {
-    let projections = runtime_projection_scopes(prism, freshness)
+    let projections = runtime_projection_scopes(inputs.prism.as_ref(), freshness)
         .into_iter()
         .map(projection_scope_view)
         .collect();
-    let coordination = prism.coordination_snapshot();
-    let overlays = overlay_scope_views(&coordination);
+    let service_backed_snapshot = inputs
+        .workspace
+        .load_coordination_snapshot()
+        .ok()
+        .flatten()
+        .filter(crate::coordination_snapshot_has_data)
+        .unwrap_or_else(|| inputs.prism.coordination_snapshot());
+    let live_overlay_snapshot = inputs.prism.coordination_snapshot();
+    let overlays = overlay_scope_views(&service_backed_snapshot, &live_overlay_snapshot);
 
     RuntimeScopesView {
         projections,
@@ -927,6 +934,7 @@ fn projection_scope_view(scope: ProjectionScopeReadModel) -> RuntimeProjectionSc
 
 fn overlay_scope_views(
     snapshot: &prism_coordination::CoordinationSnapshot,
+    live_overlay_snapshot: &prism_coordination::CoordinationSnapshot,
 ) -> Vec<RuntimeOverlayScopeView> {
     let canonical_snapshot = snapshot.to_canonical_snapshot_v2();
     vec![
@@ -940,7 +948,7 @@ fn overlay_scope_views(
             scope: "worktree".to_string(),
             plan_count: 0,
             plan_node_count: 0,
-            overlay_count: snapshot
+            overlay_count: live_overlay_snapshot
                 .tasks
                 .iter()
                 .filter(|task| task.worktree_id.is_some() || task.branch_ref.is_some())
@@ -950,7 +958,7 @@ fn overlay_scope_views(
             scope: "session".to_string(),
             plan_count: 0,
             plan_node_count: 0,
-            overlay_count: snapshot
+            overlay_count: live_overlay_snapshot
                 .tasks
                 .iter()
                 .filter(|task| task.session.is_some())
