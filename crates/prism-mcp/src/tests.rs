@@ -19,7 +19,7 @@ use prism_coordination::{
     GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
 };
 use prism_core::{
-    default_workspace_shared_runtime, hydrate_workspace_session,
+    CoordinationAuthorityMutationError, default_workspace_shared_runtime, hydrate_workspace_session,
     hydrate_workspace_session_with_options, index_workspace_session,
     index_workspace_session_with_curator, index_workspace_session_with_options, PrismPaths,
     SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
@@ -2672,6 +2672,55 @@ fn mcp_returns_structured_protocol_rejections_before_any_coordination_event() {
     assert_eq!(
         rejected.state["rejection"]["reasonCode"],
         Value::String("unsupported_optimistic_preconditions".to_string())
+    );
+}
+
+#[test]
+fn mcp_returns_structured_authority_indeterminate_before_any_coordination_event() {
+    let result = crate::host_mutations::coordination_transaction_protocol_result(
+        &EventId::new("coord:tx:authority-indeterminate"),
+        &anyhow::Error::new(CoordinationAuthorityMutationError::indeterminate(
+            "shared_ref_transport_uncertain",
+            "shared coordination ref publish may have succeeded but the outcome could not be verified",
+            None,
+        )),
+    )
+    .expect("authority indeterminate should be surfaced structurally");
+
+    assert!(!result.rejected);
+    assert!(result.event_ids.is_empty());
+    assert_eq!(result.violations.len(), 0);
+    assert_eq!(result.state["outcome"], Value::String("Indeterminate".to_string()));
+    assert_eq!(
+        result.state["indeterminate"]["reasonCode"],
+        Value::String("shared_ref_transport_uncertain".to_string())
+    );
+}
+
+#[test]
+fn mcp_returns_structured_authority_conflicts_before_any_coordination_event() {
+    let result = crate::host_mutations::coordination_transaction_protocol_result(
+        &EventId::new("coord:tx:authority-conflict"),
+        &anyhow::Error::new(CoordinationAuthorityMutationError::conflict(
+            "authority_transaction_conflict",
+            "authority stamp no longer matches the current shared-ref head",
+            None,
+        )),
+    )
+    .expect("authority conflict should be surfaced structurally");
+
+    assert!(result.rejected);
+    assert!(result.event_ids.is_empty());
+    assert_eq!(result.violations.len(), 1);
+    assert_eq!(result.violations[0].code, "authority_transaction_conflict");
+    assert_eq!(result.state["outcome"], Value::String("Rejected".to_string()));
+    assert_eq!(
+        result.state["rejection"]["stage"],
+        Value::String("commit".to_string())
+    );
+    assert_eq!(
+        result.state["rejection"]["category"],
+        Value::String("conflict".to_string())
     );
 }
 

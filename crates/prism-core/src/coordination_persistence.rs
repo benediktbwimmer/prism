@@ -18,7 +18,7 @@ use serde_json::{json, Value};
 
 use crate::coordination_authority_store::{
     CoordinationAuthorityStore, CoordinationDerivedStateMode, CoordinationTransactionBase,
-    CoordinationTransactionRequest, CoordinationTransactionStatus,
+    CoordinationTransactionRequest, CoordinationTransactionResult, CoordinationTransactionStatus,
     GitSharedRefsCoordinationAuthorityStore,
 };
 use crate::coordination_materialized_store::{
@@ -26,6 +26,7 @@ use crate::coordination_materialized_store::{
     CoordinationStartupCheckpointWriteRequest, SqliteCoordinationMaterializedStore,
     StoreBackedCoordinationMaterializedStore,
 };
+use crate::coordination_mutation_error::CoordinationAuthorityMutationError;
 use crate::coordination_reads::{
     load_eventual_coordination_plan_state_for_root as load_eventual_plan_state_for_root,
     load_eventual_coordination_snapshot_for_root as load_eventual_snapshot_for_root,
@@ -117,7 +118,7 @@ fn sync_authoritative_shared_coordination_ref_observed<O>(
     session_id: Option<&SessionId>,
     derived_persistence_mode: CoordinationDerivedPersistenceMode,
     observe_phase: &mut O,
-) -> Result<()>
+    ) -> Result<()>
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
@@ -145,15 +146,57 @@ where
             },
         })? {
             result if matches!(result.status, CoordinationTransactionStatus::Committed) => {
-                Ok(result)
+                Ok::<_, anyhow::Error>(result)
             }
-            result => Err(anyhow::anyhow!(
-                "shared-ref authority transaction did not commit successfully: {:?}",
-                result.status
-            )),
+            result => Err(authority_transaction_error(
+                &result,
+                "shared-ref authority transaction did not commit successfully",
+            )
+            .into()),
         },
     )?;
     Ok(())
+}
+
+fn authority_transaction_error(
+    result: &CoordinationTransactionResult,
+    fallback_message: &str,
+) -> CoordinationAuthorityMutationError {
+    let diagnostic = result.diagnostics.first();
+    let diagnostic_code = diagnostic
+        .map(|value| value.code.clone())
+        .unwrap_or_else(|| "authority_transaction_failed".to_string());
+    let diagnostic_message = diagnostic
+        .map(|value| value.message.clone())
+        .unwrap_or_else(|| fallback_message.to_string());
+    match result.status {
+        CoordinationTransactionStatus::Conflict => CoordinationAuthorityMutationError::conflict(
+            "authority_transaction_conflict",
+            result
+                .conflict
+                .as_ref()
+                .map(|value| value.reason.clone())
+                .unwrap_or(diagnostic_message.clone()),
+            result.authority.clone(),
+        ),
+        CoordinationTransactionStatus::Rejected => CoordinationAuthorityMutationError::rejected(
+            diagnostic_code,
+            diagnostic_message,
+            result.authority.clone(),
+        ),
+        CoordinationTransactionStatus::Indeterminate => {
+            CoordinationAuthorityMutationError::indeterminate(
+                diagnostic_code,
+                diagnostic_message,
+                result.authority.clone(),
+            )
+        }
+        CoordinationTransactionStatus::Committed => CoordinationAuthorityMutationError::rejected(
+            "authority_transaction_failed",
+            fallback_message,
+            result.authority.clone(),
+        ),
+    }
 }
 
 fn sync_inline_coordination_projections_observed<S, O>(

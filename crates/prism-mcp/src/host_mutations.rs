@@ -8,6 +8,7 @@ use prism_coordination::{
 };
 use prism_core::{
     AdmissionBusyError, AuthenticatedPrincipal, CoordinationAuthorityStore,
+    CoordinationAuthorityMutationError, CoordinationAuthorityMutationStatus,
     CoordinationReadConsistency, CoordinationReadRequest, CoordinationStateView,
     GitSharedRefsCoordinationAuthorityStore, PrismPaths, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceSession, WorktreeMode,
@@ -137,11 +138,21 @@ struct CoordinationExecutionBinding {
     branch_ref: Option<String>,
 }
 
-fn coordination_transaction_protocol_result(
+pub(crate) fn coordination_transaction_protocol_result(
     event_id: &EventId,
     error: &anyhow::Error,
 ) -> Option<CoordinationMutationResult> {
-    let protocol_error = error.downcast_ref::<CoordinationTransactionError>()?;
+    if let Some(protocol_error) = error.downcast_ref::<CoordinationTransactionError>() {
+        return coordination_query_protocol_result(event_id, protocol_error);
+    }
+    let authority_error = error.downcast_ref::<CoordinationAuthorityMutationError>()?;
+    coordination_authority_protocol_result(event_id, authority_error)
+}
+
+fn coordination_query_protocol_result(
+    event_id: &EventId,
+    protocol_error: &CoordinationTransactionError,
+) -> Option<CoordinationMutationResult> {
     match protocol_error {
         CoordinationTransactionError::Rejected(rejection) => {
             if matches!(
@@ -179,6 +190,88 @@ fn coordination_transaction_protocol_result(
             state: serde_json::to_value(protocol_error.protocol_state()).ok()?,
         }),
     }
+}
+
+fn coordination_authority_protocol_result(
+    event_id: &EventId,
+    authority_error: &CoordinationAuthorityMutationError,
+) -> Option<CoordinationMutationResult> {
+    let state = match authority_error.status {
+        CoordinationAuthorityMutationStatus::Conflict => {
+            serde_json::to_value(prism_query::CoordinationTransactionProtocolState {
+                outcome: "Rejected".to_string(),
+                commit: None,
+                authority_version: None,
+                rejection: Some(prism_query::CoordinationTransactionProtocolRejection {
+                    stage: "commit".to_string(),
+                    category: "conflict".to_string(),
+                    reason_code: authority_error.reason_code.to_string(),
+                    message: authority_error.message.clone(),
+                }),
+                indeterminate: None,
+            })
+            .ok()?
+        }
+        CoordinationAuthorityMutationStatus::Rejected => {
+            serde_json::to_value(prism_query::CoordinationTransactionProtocolState {
+                outcome: "Rejected".to_string(),
+                commit: None,
+                authority_version: None,
+                rejection: Some(prism_query::CoordinationTransactionProtocolRejection {
+                    stage: "commit".to_string(),
+                    category: "domain_violation".to_string(),
+                    reason_code: authority_error.reason_code.to_string(),
+                    message: authority_error.message.clone(),
+                }),
+                indeterminate: None,
+            })
+            .ok()?
+        }
+        CoordinationAuthorityMutationStatus::Indeterminate => {
+            serde_json::to_value(prism_query::CoordinationTransactionProtocolState {
+                outcome: "Indeterminate".to_string(),
+                commit: None,
+                authority_version: None,
+                rejection: None,
+                indeterminate: Some(prism_query::CoordinationTransactionProtocolIndeterminate {
+                    reason_code: authority_error.reason_code.to_string(),
+                    message: authority_error.message.clone(),
+                }),
+            })
+            .ok()?
+        }
+    };
+    let rejected = !matches!(
+        authority_error.status,
+        CoordinationAuthorityMutationStatus::Indeterminate
+    );
+    let mut violations = Vec::new();
+    if rejected {
+        let category = match authority_error.status {
+            CoordinationAuthorityMutationStatus::Conflict => "conflict",
+            CoordinationAuthorityMutationStatus::Rejected => "domain_violation",
+            CoordinationAuthorityMutationStatus::Indeterminate => unreachable!(),
+        };
+        violations.push(MutationViolationView {
+            code: authority_error.reason_code.to_string(),
+            summary: authority_error.message.clone(),
+            plan_id: None,
+            task_id: None,
+            claim_id: None,
+            artifact_id: None,
+            details: json!({
+                "stage": "commit",
+                "category": category,
+            }),
+        });
+    }
+    Some(CoordinationMutationResult {
+        event_id: event_id.0.to_string(),
+        event_ids: Vec::new(),
+        rejected,
+        violations,
+        state,
+    })
 }
 
 #[derive(Clone, serde::Serialize)]

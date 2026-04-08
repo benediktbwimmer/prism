@@ -275,8 +275,8 @@ Progress:
 - [x] initial stale-base conflict handling now exists for `expectedRevision`,
   `expectedEventCount`, and `expectedLastEventId`
 - [ ] authority-store-backed conflict bases and replay semantics still need to be implemented
-- [ ] authority-store-backed indeterminate outcomes still need to route through the same common
-  protocol envelope
+- [x] authority-store-backed indeterminate outcomes now route through the same common protocol
+  envelope at the host boundary
 
 ### Slice 4: Commit result and downstream follow-through
 
@@ -361,6 +361,8 @@ What remains incomplete is the actual protocol convergence:
   and task `update`, now attach canonical protocol `outcome` and `commit` metadata
 - committed, rejected, and indeterminate protocol state now comes from one shared
   `prism-query` envelope; `prism-mcp` only enriches committed results with touched-object views
+- authority-store conflict and indeterminate persistence failures now also surface structurally at
+  the host boundary instead of collapsing immediately into generic errors
 - `prism-query` now owns the protocol-lowering helpers for common plan and task create/update
   adapters, but `host_mutations` still owns too much response shaping and some remaining
   convenience lowering

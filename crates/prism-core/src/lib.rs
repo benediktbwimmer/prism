@@ -6,6 +6,7 @@ mod contract_events;
 mod coordination_authority_api;
 mod coordination_authority_store;
 mod coordination_materialized_store;
+mod coordination_mutation_error;
 mod coordination_persistence;
 mod coordination_reads;
 mod coordination_snapshot_sanitization;
@@ -96,6 +97,9 @@ pub use coordination_materialized_store::{
     CoordinationMaterializedState, CoordinationMaterializedStore,
     CoordinationMaterializedWriteResult, CoordinationReadModelsWriteRequest,
     CoordinationStartupCheckpointWriteRequest, SqliteCoordinationMaterializedStore,
+};
+pub use coordination_mutation_error::{
+    CoordinationAuthorityMutationError, CoordinationAuthorityMutationStatus,
 };
 pub use coordination_reads::{
     CoordinationReadConsistency, CoordinationReadFreshness, CoordinationReadResult,
