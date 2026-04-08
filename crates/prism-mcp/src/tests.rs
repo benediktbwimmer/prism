@@ -2663,7 +2663,7 @@ fn mcp_returns_structured_protocol_rejections_before_any_coordination_event() {
     assert_eq!(rejected.state["outcome"], Value::String("Rejected".to_string()));
     assert_eq!(
         rejected.state["rejection"]["stage"],
-        Value::String("conflict".to_string())
+        Value::String("input_shape".to_string())
     );
     assert_eq!(
         rejected.state["rejection"]["category"],
@@ -2672,6 +2672,61 @@ fn mcp_returns_structured_protocol_rejections_before_any_coordination_event() {
     assert_eq!(
         rejected.state["rejection"]["reasonCode"],
         Value::String("unsupported_optimistic_preconditions".to_string())
+    );
+}
+
+#[test]
+fn mcp_returns_structured_protocol_conflicts_before_any_coordination_event() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanCreate,
+            payload: json!({ "title": "Seed", "goal": "Seed" }),
+            task_id: None,
+        },
+    )
+    .expect("seed coordination mutation should commit");
+
+    let rejected = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::CoordinationTransaction,
+                payload: json!({
+                    "mutations": [{
+                        "action": "plan_create",
+                        "input": {
+                            "clientPlanId": "plan",
+                            "title": "Plan",
+                            "goal": "Plan"
+                        }
+                    }],
+                    "optimisticPreconditions": {
+                        "expectedEventCount": 0
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .expect("protocol conflict should be surfaced structurally");
+
+    assert!(rejected.rejected);
+    assert!(rejected.event_ids.is_empty());
+    assert_eq!(rejected.violations[0].code, "stale_event_count");
+    assert_eq!(
+        rejected.state["rejection"]["stage"],
+        Value::String("conflict".to_string())
+    );
+    assert_eq!(
+        rejected.state["rejection"]["category"],
+        Value::String("conflict".to_string())
+    );
+    assert_eq!(
+        rejected.state["rejection"]["reasonCode"],
+        Value::String("stale_event_count".to_string())
     );
 }
 

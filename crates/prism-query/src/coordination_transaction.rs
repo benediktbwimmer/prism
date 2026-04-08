@@ -154,6 +154,12 @@ pub struct CoordinationTransactionInput {
     pub optimistic_preconditions: Option<Value>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct CoordinationTransactionOptimisticPreconditions {
+    expected_event_count: Option<usize>,
+    expected_last_event_id: Option<EventId>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CoordinationTransactionValidationStage {
     InputShape,
@@ -265,8 +271,14 @@ impl Prism {
     ) -> std::result::Result<CoordinationTransactionResult, CoordinationTransactionError> {
         validate_transaction_input_shape(&input)?;
         validate_transaction_authorization(&input)?;
+        let optimistic_preconditions =
+            parse_optimistic_preconditions(input.optimistic_preconditions.as_ref())?;
         self.coordination_transaction(|coordination_runtime| {
             validate_transaction_identity(coordination_runtime, &input)?;
+            validate_transaction_conflict(
+                coordination_runtime,
+                optimistic_preconditions.as_ref(),
+            )?;
             apply_coordination_transaction(coordination_runtime, meta.clone(), input)
                 .map_err(CoordinationTransactionError::domain)
         })
@@ -339,14 +351,6 @@ fn validate_transaction_input_shape(
             "coordination_transaction intentMetadata is not supported yet",
         ));
     }
-    if input.optimistic_preconditions.is_some() {
-        return Err(CoordinationTransactionError::rejected(
-            CoordinationTransactionValidationStage::Conflict,
-            CoordinationTransactionRejectionCategory::Unsupported,
-            "unsupported_optimistic_preconditions",
-            "coordination_transaction optimisticPreconditions are not supported yet",
-        ));
-    }
 
     let mut seen_plan_client_ids = BTreeSet::new();
     let mut seen_task_client_ids = BTreeSet::new();
@@ -387,6 +391,87 @@ fn validate_transaction_input_shape(
     }
 
     Ok(())
+}
+
+fn parse_optimistic_preconditions(
+    optimistic_preconditions: Option<&Value>,
+) -> std::result::Result<
+    Option<CoordinationTransactionOptimisticPreconditions>,
+    CoordinationTransactionError,
+> {
+    let Some(value) = optimistic_preconditions else {
+        return Ok(None);
+    };
+    let Value::Object(map) = value else {
+        return Err(CoordinationTransactionError::rejected(
+            CoordinationTransactionValidationStage::InputShape,
+            CoordinationTransactionRejectionCategory::Unsupported,
+            "unsupported_optimistic_preconditions",
+            "coordination_transaction optimisticPreconditions must be an object when provided",
+        ));
+    };
+
+    let mut expected_event_count = None;
+    let mut expected_last_event_id = None;
+    for (key, value) in map {
+        match key.as_str() {
+            "expectedEventCount" => {
+                let Value::Number(number) = value else {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "invalid_expected_event_count",
+                        "coordination_transaction optimisticPreconditions.expectedEventCount must be a non-negative integer",
+                    ));
+                };
+                let Some(parsed) = number.as_u64().and_then(|value| usize::try_from(value).ok())
+                else {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "invalid_expected_event_count",
+                        "coordination_transaction optimisticPreconditions.expectedEventCount must be a non-negative integer",
+                    ));
+                };
+                expected_event_count = Some(parsed);
+            }
+            "expectedLastEventId" => {
+                let Value::String(event_id) = value else {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "invalid_expected_last_event_id",
+                        "coordination_transaction optimisticPreconditions.expectedLastEventId must be a string",
+                    ));
+                };
+                expected_last_event_id = Some(EventId::new(event_id.clone()));
+            }
+            _ => {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::InputShape,
+                    CoordinationTransactionRejectionCategory::Unsupported,
+                    "unsupported_optimistic_preconditions",
+                    format!(
+                        "coordination_transaction optimisticPreconditions field `{key}` is not supported yet"
+                    ),
+                ));
+            }
+        }
+    }
+
+    if expected_event_count.is_none() && expected_last_event_id.is_none() {
+        return Err(CoordinationTransactionError::rejected(
+            CoordinationTransactionValidationStage::InputShape,
+            CoordinationTransactionRejectionCategory::Unsupported,
+            "unsupported_optimistic_preconditions",
+            "coordination_transaction optimisticPreconditions must include at least one supported field",
+        ));
+    }
+
+    Ok(Some(CoordinationTransactionOptimisticPreconditions {
+        expected_event_count,
+        expected_last_event_id,
+    }))
 }
 
 fn validate_transaction_authorization(
@@ -503,6 +588,49 @@ fn validate_transaction_identity(
         }
     }
 
+    Ok(())
+}
+
+fn validate_transaction_conflict(
+    coordination_runtime: &CoordinationRuntimeState,
+    optimistic_preconditions: Option<&CoordinationTransactionOptimisticPreconditions>,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    let Some(optimistic_preconditions) = optimistic_preconditions else {
+        return Ok(());
+    };
+    let snapshot = coordination_runtime.snapshot();
+    if let Some(expected_event_count) = optimistic_preconditions.expected_event_count {
+        let actual_event_count = snapshot.events.len();
+        if actual_event_count != expected_event_count {
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::Conflict,
+                CoordinationTransactionRejectionCategory::Conflict,
+                "stale_event_count",
+                format!(
+                    "coordination transaction optimisticPreconditions.expectedEventCount expected `{expected_event_count}` but current event count is `{actual_event_count}`"
+                ),
+            ));
+        }
+    }
+    if let Some(expected_last_event_id) = optimistic_preconditions.expected_last_event_id.as_ref() {
+        let actual_last_event_id = snapshot.events.last().map(|event| event.meta.id.clone());
+        if actual_last_event_id.as_ref() != Some(expected_last_event_id) {
+            let actual_last_event_id_label = actual_last_event_id
+                .as_ref()
+                .map(|value| value.0.as_str())
+                .unwrap_or("<none>");
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::Conflict,
+                CoordinationTransactionRejectionCategory::Conflict,
+                "stale_last_event_id",
+                format!(
+                    "coordination transaction optimisticPreconditions.expectedLastEventId expected `{}` but current last event id is `{}`",
+                    expected_last_event_id.0,
+                    actual_last_event_id_label
+                ),
+            ));
+        }
+    }
     Ok(())
 }
 

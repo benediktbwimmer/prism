@@ -70,6 +70,11 @@ Current slice notes:
   results across all mutation surfaces
 - MCP now surfaces pre-event protocol rejections structurally from the protocol error type while
   still preserving persisted domain rejection events through the existing audit path
+- optimistic preconditions now support an initial conflict family against the current coordination
+  event head:
+  - `expectedEventCount`
+  - `expectedLastEventId`
+  unsupported optimistic-precondition fields still reject at input-shape validation
 
 ## 3. Related roadmap
 
@@ -257,7 +262,9 @@ Progress:
   rejection codes in `prism-query`
 - [x] MCP now preserves those pre-event protocol rejections as structured mutation results instead
   of collapsing them into generic transport errors
-- [ ] authority-base conflict handling and replay semantics still need to be implemented
+- [x] initial stale-base conflict handling now exists for `expectedEventCount` and
+  `expectedLastEventId`
+- [ ] authority-store-backed conflict bases and replay semantics still need to be implemented
 - [ ] indeterminate outcomes still need to be surfaced through the same common protocol result
 
 ### Slice 4: Commit result and downstream follow-through

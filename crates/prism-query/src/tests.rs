@@ -4224,3 +4224,67 @@ fn coordination_transaction_rejects_forward_task_client_refs_before_domain_stage
     );
     assert_eq!(rejection.reason_code, "forward_task_client_reference");
 }
+
+#[test]
+fn coordination_transaction_rejects_stale_event_count_preconditions() {
+    let prism = Prism::new(Graph::new());
+    prism.execute_coordination_transaction(
+        EventMeta {
+            id: EventId::new("coord:tx:seed-plan"),
+            ts: 1,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+            execution_context: None,
+        },
+        CoordinationTransactionInput {
+            mutations: vec![CoordinationTransactionMutation::PlanCreate {
+                client_plan_id: Some("plan".to_string()),
+                title: "Seed".to_string(),
+                goal: "Seed".to_string(),
+                status: None,
+                policy: None,
+                scheduling: None,
+            }],
+            ..CoordinationTransactionInput::default()
+        },
+    )
+    .expect("seed transaction should commit");
+
+    let error = prism
+        .execute_coordination_transaction(
+            EventMeta {
+                id: EventId::new("coord:tx:stale-event-count"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::PlanCreate {
+                    client_plan_id: Some("next".to_string()),
+                    title: "Next".to_string(),
+                    goal: "Next".to_string(),
+                    status: None,
+                    policy: None,
+                    scheduling: None,
+                }],
+                optimistic_preconditions: Some(json!({
+                    "expectedEventCount": 0
+                })),
+                ..CoordinationTransactionInput::default()
+            },
+        )
+        .expect_err("stale event count should reject as a conflict");
+
+    let CoordinationTransactionError::Rejected(rejection) = error else {
+        panic!("expected rejected transaction");
+    };
+    assert_eq!(rejection.stage, CoordinationTransactionValidationStage::Conflict);
+    assert_eq!(
+        rejection.category,
+        CoordinationTransactionRejectionCategory::Conflict
+    );
+    assert_eq!(rejection.reason_code, "stale_event_count");
+}
