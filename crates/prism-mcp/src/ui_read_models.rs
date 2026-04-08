@@ -556,10 +556,11 @@ impl QueryHostUiReadModelsExt for QueryHost {
         let task_id = prism_ir::CoordinationTaskId::new(task_id.to_string());
         let evidence_status = prism.task_evidence_status(&task_id, now);
         let (task_view, blockers) = if let Some(task) = prism.coordination_task(&task_id) {
+            debug_assert!(evidence_status.is_some());
             let blockers = evidence_status
                 .as_ref()
                 .map(|status| status.blockers.clone())
-                .unwrap_or_else(|| prism.blockers(&task_id, now))
+                .unwrap_or_default()
                 .into_iter()
                 .map(|blocker| {
                     let related_task = blocker
@@ -605,7 +606,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
                     .map(|artifact| artifact.artifact)
                     .collect::<Vec<_>>()
             })
-            .unwrap_or_else(|| prism.artifacts(&task_id))
+            .unwrap_or_default()
             .into_iter()
             .map(artifact_view)
             .collect::<Vec<_>>();

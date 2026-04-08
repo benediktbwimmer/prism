@@ -360,6 +360,8 @@ The first product-facing cutover is also in place:
   - `taskReviewStatus(taskId)`
 - the generic `blockers(taskId)` query path now prefers the engine-backed evidence-status
   composite before falling back to the older direct blocker read
+- the task brief and UI task detail paths now treat engine-backed evidence status as the canonical
+  blocker and artifact source instead of carrying their own old-path fallbacks for existing tasks
 
 The next Phase 3 slice should focus on product-facing read cutover and duplicate-logic removal,
 rather than growing more coordination semantics back into surface modules.

@@ -201,12 +201,13 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
     let canonical_task_id = TaskId::new(task_id.to_string());
     let evidence_status = prism.task_evidence_status(&coordination_task_id, now);
     if let Some(task_v2) = prism.coordination_task_v2(&canonical_task_id) {
+        debug_assert!(evidence_status.is_some());
         let legacy_task = prism.coordination_task(&coordination_task_id);
         let task_view = coordination_task_view_from_v2(task_v2.clone(), legacy_task.clone());
         let raw_blockers = evidence_status
             .as_ref()
             .map(|status| status.blockers.clone())
-            .unwrap_or_else(|| prism.blockers(&coordination_task_id, now));
+            .unwrap_or_default();
         let blockers = raw_blockers
             .iter()
             .take(TASK_BRIEF_BLOCKER_LIMIT)
@@ -250,10 +251,11 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
         });
     }
     if let Some(task) = prism.coordination_task(&coordination_task_id) {
+        debug_assert!(evidence_status.is_some());
         let raw_blockers = evidence_status
             .as_ref()
             .map(|status| status.blockers.clone())
-            .unwrap_or_else(|| prism.blockers(&coordination_task_id, now));
+            .unwrap_or_default();
         let blockers = raw_blockers
             .iter()
             .take(TASK_BRIEF_BLOCKER_LIMIT)
