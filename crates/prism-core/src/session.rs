@@ -962,13 +962,16 @@ impl WorkspaceSession {
         let concepts = prism.curated_concepts_snapshot();
         let relations = prism.concept_relations_snapshot();
         let contracts = prism.curated_contracts();
-        let plan_state = self
-            .coordination_enabled
-            .then(|| HydratedCoordinationPlanState {
-                canonical_snapshot_v2: prism.coordination_snapshot_v2(),
-                snapshot: prism.coordination_snapshot(),
-                runtime_descriptors: prism.runtime_descriptors(),
-            });
+        let plan_state = if self.coordination_enabled {
+            self.load_coordination_plan_state()?
+                .map(|value| HydratedCoordinationPlanState {
+                    snapshot: value.snapshot,
+                    canonical_snapshot_v2: value.canonical_snapshot_v2,
+                    runtime_descriptors: value.runtime_descriptors,
+                })
+        } else {
+            None
+        };
         let sync = export_repo_prism_doc_with_plan_state(
             &self.root,
             output_root,

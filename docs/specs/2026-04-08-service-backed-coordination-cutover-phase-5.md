@@ -242,9 +242,13 @@ Current progress:
   branching themselves
 - product-facing integration mutation helpers now use query-layer artifact and review getters
   instead of spelunking raw coordination snapshots for review-artifact readiness decisions
+- assisted-lease watcher target selection now uses explicit coordination task/claim query methods
+  instead of iterating the raw live runtime snapshot directly
 - UI plans agent filtering and graph touchpoint derivation now read canonical coordination graph
   state through session-aware `QueryHost` snapshot helpers instead of calling
   `prism.coordination_snapshot_v2()` directly inside view helpers
+- PRISM doc export now loads coordination plan state through the session coordination read path
+  instead of exporting directly from the live runtime snapshot
 - the helper boundary now centralizes the transitional rule for product-facing reads:
   service-backed/session-owned coordination materialization wins when present, but empty or
   unhydrated session state falls back to the canonical in-memory snapshot during the cutover

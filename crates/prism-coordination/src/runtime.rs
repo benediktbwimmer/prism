@@ -553,6 +553,30 @@ impl CoordinationRuntimeState {
             .collect()
     }
 
+    pub fn tasks_in_scope(&self, worktree_id: Option<&str>) -> Vec<CoordinationTask> {
+        let mut tasks = self
+            .state
+            .tasks
+            .values()
+            .filter(|task| task_matches_worktree_scope(task, worktree_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        tasks.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+        tasks
+    }
+
+    pub fn claims_in_scope(&self, worktree_id: Option<&str>) -> Vec<WorkClaim> {
+        let mut claims = self
+            .state
+            .claims
+            .values()
+            .filter(|claim| claim_matches_worktree_scope(claim, worktree_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        claims.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+        claims
+    }
+
     pub fn artifacts(&self, task_id: &prism_ir::CoordinationTaskId) -> Vec<Artifact> {
         self.artifacts_in_scope(task_id, None)
     }

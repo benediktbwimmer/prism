@@ -133,6 +133,16 @@ impl Prism {
         })
     }
 
+    pub fn coordination_tasks(&self) -> Vec<CoordinationTask> {
+        let worktree_id = self.coordination_worktree_scope();
+        self.with_coordination_runtime(|runtime| runtime.tasks_in_scope(worktree_id.as_deref()))
+    }
+
+    pub fn coordination_claims(&self) -> Vec<WorkClaim> {
+        let worktree_id = self.coordination_worktree_scope();
+        self.with_coordination_runtime(|runtime| runtime.claims_in_scope(worktree_id.as_deref()))
+    }
+
     pub fn task_claim_history(
         &self,
         task_id: &CoordinationTaskId,

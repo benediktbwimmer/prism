@@ -860,13 +860,11 @@ fn select_assisted_lease_target(
     now: u64,
 ) -> Option<AssistedLeaseTarget> {
     let task_targets = prism
-        .coordination_snapshot()
-        .tasks
+        .coordination_tasks()
         .into_iter()
         .filter_map(|task| assisted_task_target(prism, worktree_id, task, now));
     let claim_targets = prism
-        .coordination_snapshot()
-        .claims
+        .coordination_claims()
         .into_iter()
         .filter_map(|claim| assisted_claim_target(prism, worktree_id, claim, now));
     let mut targets = task_targets.chain(claim_targets).collect::<Vec<_>>();
@@ -1614,12 +1612,7 @@ mod tests {
         let mut store = MemoryStore::default();
         let worktree_id = super::workspace_identity_for_root(root.as_path()).worktree_id;
         let target = super::select_assisted_lease_target(&prism, &worktree_id, current_timestamp())
-            .unwrap_or_else(|| {
-                panic!(
-                    "missing assisted target: {:?}",
-                    prism.coordination_snapshot().tasks
-                )
-            });
+            .unwrap_or_else(|| panic!("missing assisted target: {:?}", prism.coordination_tasks()));
         assert!(matches!(
             target.due_state(&prism, current_timestamp()),
             prism_coordination::LeaseHeartbeatDueState::DueSoon
