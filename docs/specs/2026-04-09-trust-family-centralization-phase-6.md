@@ -59,6 +59,11 @@ Current slice notes:
   surfaces now goes through `MutationProvenance::for_execution(...)` and
   `MutationProvenanceMode`, instead of keeping that actor/execution-context precedence logic as
   ad hoc local functions in `host_mutations.rs`
+- knowledge-side concept, contract, and concept-relation packet provenance now also goes through
+  shared `MutationProvenance` helpers for:
+  - scope-to-origin mapping
+  - manual packet provenance construction
+  - default provenance filling on update/retire flows
 - that first slice reduces duplicated trust metadata shaping in `server_surface.rs` and
   `host_mutations.rs`, but broader provenance and verification/freshness convergence still remain
 
@@ -172,6 +177,10 @@ Current progress:
 - `host_mutations.rs` now also delegates provenance-mode selection to the shared provenance module
   instead of locally deciding how authenticated principals and worktree mutator slots should be
   prioritized
+- `host_mutations.rs` no longer hand-builds repeated concept/contract/relation packet provenance
+  envelopes inline; that policy now lives in shared `MutationProvenance` helpers
+- update and retire concept flows now share the same default-provenance fill rule instead of
+  repeating `ConceptProvenance::default()` checks inline
 
 ### Slice 2: Capability and authorization centralization
 

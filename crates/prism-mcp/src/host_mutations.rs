@@ -52,7 +52,6 @@ use crate::trust_surface::{
     coordination_authority_protocol_state as build_coordination_authority_protocol_state,
     coordination_protocol_state_value,
 };
-use crate::{MutationProvenance, MutationProvenanceMode};
 use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
     contract_packet_view, convert_acceptance, convert_anchors, convert_capability,
@@ -94,6 +93,7 @@ use crate::{
     WorkflowStatusInput, WorkflowUpdatePayload, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
     DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
+use crate::{MutationProvenance, MutationProvenanceMode};
 
 fn record_optional_trace_phase(
     trace: Option<&MutationRun>,
@@ -777,9 +777,7 @@ fn observed_integration_git_execution(
                     let mut approved_artifacts = prism
                         .artifacts(&task.id)
                         .iter()
-                        .filter(|artifact| {
-                            artifact_ready_for_integration(artifact)
-                        })
+                        .filter(|artifact| artifact_ready_for_integration(artifact))
                         .map(|artifact| artifact.id.0.to_string())
                         .collect::<Vec<_>>();
                     approved_artifacts.sort();
@@ -5253,9 +5251,7 @@ impl QueryHost {
                             .collect::<Result<Vec<_>>>()?,
                     },
                 )?;
-                let plan_id = bootstrap
-                    .plan_id
-                    .clone();
+                let plan_id = bootstrap.plan_id.clone();
                 let plan = prism
                     .coordination_plan_v2(&plan_id)
                     .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
@@ -6067,11 +6063,11 @@ impl QueryHost {
             recorded_at,
             concept_args_from_curator_candidate(candidate, &task_id, args.scope.clone()),
         )?;
-        packet.provenance = ConceptProvenance {
-            origin: "curator".to_string(),
-            kind: "curator_concept_candidate".to_string(),
-            task_id: Some(task_id.0.to_string()),
-        };
+        packet.provenance = MutationProvenance::concept_packet_provenance_for_origin(
+            "curator",
+            "curator_concept_candidate",
+            &task_id,
+        );
         let mut event = ConceptEvent {
             id: next_concept_event_id(),
             recorded_at,
@@ -6794,15 +6790,11 @@ fn build_promoted_concept_packet(
         risk_hint,
         decode_lenses: convert_concept_lenses(args.decode_lenses),
         scope,
-        provenance: ConceptProvenance {
-            origin: match scope {
-                ConceptScope::Local => "local_mutation".to_string(),
-                ConceptScope::Session => "session_mutation".to_string(),
-                ConceptScope::Repo => "repo_mutation".to_string(),
-            },
-            kind: "manual_concept_promote".to_string(),
-            task_id: Some(task_id.0.to_string()),
-        },
+        provenance: MutationProvenance::concept_packet_provenance(
+            scope,
+            "manual_concept_promote",
+            task_id,
+        ),
         publication: (scope == ConceptScope::Repo).then_some(ConceptPublication {
             published_at: recorded_at,
             last_reviewed_at: Some(recorded_at),
@@ -6899,15 +6891,11 @@ fn build_promoted_contract_packet(
         })),
         status,
         scope,
-        provenance: ConceptProvenance {
-            origin: match scope {
-                ConceptScope::Local => "local_mutation".to_string(),
-                ConceptScope::Session => "session_mutation".to_string(),
-                ConceptScope::Repo => "repo_mutation".to_string(),
-            },
-            kind: "manual_contract_promote".to_string(),
-            task_id: Some(task_id.0.to_string()),
-        },
+        provenance: MutationProvenance::concept_packet_provenance(
+            scope,
+            "manual_contract_promote",
+            task_id,
+        ),
         publication: (scope == ConceptScope::Repo).then_some(ConceptPublication {
             published_at: recorded_at,
             last_reviewed_at: Some(recorded_at),
@@ -7016,15 +7004,11 @@ fn build_updated_contract_packet(
             "contract update requires at least one changed field"
         ));
     }
-    packet.provenance = ConceptProvenance {
-        origin: match packet.scope {
-            ConceptScope::Local => "local_mutation".to_string(),
-            ConceptScope::Session => "session_mutation".to_string(),
-            ConceptScope::Repo => "repo_mutation".to_string(),
-        },
-        kind: "manual_contract_update".to_string(),
-        task_id: Some(task_id.0.to_string()),
-    };
+    packet.provenance = MutationProvenance::concept_packet_provenance(
+        packet.scope,
+        "manual_contract_update",
+        task_id,
+    );
     packet.publication = update_contract_publication(
         packet.publication,
         packet.scope,
@@ -7046,15 +7030,11 @@ fn build_retired_contract_packet(
         required_contract_handle(args.handle.as_deref(), "contract retire requires handle")?;
     let mut packet = current_contract(prism, &handle)?;
     packet.status = ContractStatus::Retired;
-    packet.provenance = ConceptProvenance {
-        origin: match packet.scope {
-            ConceptScope::Local => "local_mutation".to_string(),
-            ConceptScope::Session => "session_mutation".to_string(),
-            ConceptScope::Repo => "repo_mutation".to_string(),
-        },
-        kind: "manual_contract_retire".to_string(),
-        task_id: Some(task_id.0.to_string()),
-    };
+    packet.provenance = MutationProvenance::concept_packet_provenance(
+        packet.scope,
+        "manual_contract_retire",
+        task_id,
+    );
     packet.publication = update_contract_publication(
         packet.publication,
         packet.scope,
@@ -7084,11 +7064,11 @@ fn build_contract_with_evidence_attached(
         required_contract_handle(args.handle.as_deref(), "attach_evidence requires handle")?;
     let mut packet = current_contract(prism, &handle)?;
     packet.evidence = merge_unique_strings(packet.evidence, additions);
-    packet.provenance = ConceptProvenance {
-        origin: origin_for_scope(packet.scope).to_string(),
-        kind: "manual_contract_attach_evidence".to_string(),
-        task_id: Some(task_id.0.to_string()),
-    };
+    packet.provenance = MutationProvenance::concept_packet_provenance(
+        packet.scope,
+        "manual_contract_attach_evidence",
+        task_id,
+    );
     packet.publication = update_contract_publication(
         packet.publication,
         packet.scope,
@@ -7117,11 +7097,11 @@ fn build_contract_with_validation_attached(
         required_contract_handle(args.handle.as_deref(), "attach_validation requires handle")?;
     let mut packet = current_contract(prism, &handle)?;
     packet.validations = merge_contract_validations(packet.validations, additions);
-    packet.provenance = ConceptProvenance {
-        origin: origin_for_scope(packet.scope).to_string(),
-        kind: "manual_contract_attach_validation".to_string(),
-        task_id: Some(task_id.0.to_string()),
-    };
+    packet.provenance = MutationProvenance::concept_packet_provenance(
+        packet.scope,
+        "manual_contract_attach_validation",
+        task_id,
+    );
     packet.publication = update_contract_publication(
         packet.publication,
         packet.scope,
@@ -7150,11 +7130,11 @@ fn build_contract_with_consumer_recorded(
         required_contract_handle(args.handle.as_deref(), "record_consumer requires handle")?;
     let mut packet = current_contract(prism, &handle)?;
     packet.consumers = merge_contract_targets(packet.consumers, additions);
-    packet.provenance = ConceptProvenance {
-        origin: origin_for_scope(packet.scope).to_string(),
-        kind: "manual_contract_record_consumer".to_string(),
-        task_id: Some(task_id.0.to_string()),
-    };
+    packet.provenance = MutationProvenance::concept_packet_provenance(
+        packet.scope,
+        "manual_contract_record_consumer",
+        task_id,
+    );
     packet.publication = update_contract_publication(
         packet.publication,
         packet.scope,
@@ -7180,11 +7160,11 @@ fn build_contract_with_status_set(
     let handle = required_contract_handle(args.handle.as_deref(), "set_status requires handle")?;
     let mut packet = current_contract(prism, &handle)?;
     packet.status = status;
-    packet.provenance = ConceptProvenance {
-        origin: origin_for_scope(packet.scope).to_string(),
-        kind: "manual_contract_set_status".to_string(),
-        task_id: Some(task_id.0.to_string()),
-    };
+    packet.provenance = MutationProvenance::concept_packet_provenance(
+        packet.scope,
+        "manual_contract_set_status",
+        task_id,
+    );
     packet.publication = update_contract_publication(
         packet.publication,
         packet.scope,
@@ -7279,11 +7259,11 @@ fn build_concept_relation(
                 .clone()
                 .map(convert_concept_scope)
                 .unwrap_or(ConceptScope::Session),
-            provenance: ConceptProvenance {
-                origin: "manual_concept_relation".to_string(),
-                kind: "manual_concept_relation".to_string(),
-                task_id: Some(task_id.0.to_string()),
-            },
+            provenance: MutationProvenance::concept_packet_provenance_for_origin(
+                "manual_concept_relation",
+                "manual_concept_relation",
+                task_id,
+            ),
         }),
         ConceptRelationMutationOperationInput::Retire => prism
             .concept_relations_for_handle(&source_handle)
@@ -7582,14 +7562,6 @@ fn update_contract_publication(
         publication.retirement_reason = None;
     }
     Some(publication)
-}
-
-fn origin_for_scope(scope: ConceptScope) -> &'static str {
-    match scope {
-        ConceptScope::Local => "local_mutation",
-        ConceptScope::Session => "session_mutation",
-        ConceptScope::Repo => "repo_mutation",
-    }
 }
 
 fn convert_contract_kind(kind: ContractKindInput) -> ContractKind {
@@ -7918,17 +7890,12 @@ fn build_updated_concept_packet(
             "concept update requires at least one field to change"
         ));
     }
-    if packet.provenance == ConceptProvenance::default() {
-        packet.provenance = ConceptProvenance {
-            origin: match packet.scope {
-                ConceptScope::Local => "local_mutation".to_string(),
-                ConceptScope::Session => "session_mutation".to_string(),
-                ConceptScope::Repo => "repo_mutation".to_string(),
-            },
-            kind: "manual_concept_update".to_string(),
-            task_id: Some(task_id.0.to_string()),
-        };
-    }
+    MutationProvenance::ensure_concept_packet_provenance(
+        &mut packet.provenance,
+        packet.scope,
+        "manual_concept_update",
+        task_id,
+    );
     if packet.scope == ConceptScope::Repo {
         let publication = packet
             .publication
@@ -7972,17 +7939,12 @@ fn build_retired_concept_packet(
     if let Some(scope) = args.scope.clone().map(convert_concept_scope) {
         packet.scope = scope;
     }
-    if packet.provenance == ConceptProvenance::default() {
-        packet.provenance = ConceptProvenance {
-            origin: match packet.scope {
-                ConceptScope::Local => "local_mutation".to_string(),
-                ConceptScope::Session => "session_mutation".to_string(),
-                ConceptScope::Repo => "repo_mutation".to_string(),
-            },
-            kind: "manual_concept_retire".to_string(),
-            task_id: Some(task_id.0.to_string()),
-        };
-    }
+    MutationProvenance::ensure_concept_packet_provenance(
+        &mut packet.provenance,
+        packet.scope,
+        "manual_concept_retire",
+        task_id,
+    );
     let publication = packet
         .publication
         .get_or_insert_with(|| ConceptPublication {
