@@ -87,6 +87,8 @@ Current slice notes:
   - `handoff_accept`
   and surface the same committed metadata envelope instead of mutating coordination state through
   separate live-runtime paths
+- the older query-layer `create_native_task` and `update_native_task` helpers now also route
+  through the transaction engine instead of mutating the live coordination runtime directly
 
 ## 3. Related roadmap
 
@@ -313,6 +315,8 @@ Progress:
   workflow `update` already lower through query-layer transaction adapters
 - [x] `handoff`, `resume`, `reclaim`, and `handoff_accept` now also lower through the same
   transaction engine and surface protocol commit metadata at the MCP boundary
+- [x] the ordinary query-layer `create_native_task` and `update_native_task` helpers now delegate
+  to the same transaction path instead of keeping a separate live-runtime mutation route
 
 ## 9. Validation
 

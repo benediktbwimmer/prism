@@ -814,27 +814,21 @@ impl Prism {
     pub fn create_native_task(
         &self,
         meta: EventMeta,
-        mut input: TaskCreateInput,
+        input: TaskCreateInput,
     ) -> Result<CoordinationTask> {
-        if let Some(context) = self.coordination_context() {
-            if input.session.is_some() {
-                input.worktree_id = Some(context.worktree_id);
-                input.branch_ref = context.branch_ref;
-            }
-        }
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| runtime.create_task(meta, input));
-        let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result.map(|(_, task)| task))
+        let result = self.create_native_task_transaction(meta, input)?;
+        self.coordination_task(&result.task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
     }
 
-    pub fn update_native_task(
+    pub fn update_native_task_transaction(
         &self,
         meta: EventMeta,
-        mut input: TaskUpdateInput,
+        input: TaskUpdateInput,
         current_revision: WorkspaceRevision,
-        now: u64,
-    ) -> Result<CoordinationTask> {
+        _now: u64,
+    ) -> Result<CoordinationTransactionResult> {
+        let mut input = input;
         if let Some(context) = self.coordination_context() {
             if matches!(input.session, Some(Some(_))) {
                 input.worktree_id = Some(Some(context.worktree_id));
@@ -844,12 +838,45 @@ impl Prism {
                 input.branch_ref = Some(None);
             }
         }
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| {
-                runtime.update_task(meta, input, current_revision, now)
-            });
-        let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        Ok(self.execute_coordination_mutation(
+            meta,
+            CoordinationTransactionMutation::TaskUpdate {
+                task: CoordinationTransactionTaskRef::Id(input.task_id),
+                status: input.status,
+                published_task_status: input.published_task_status,
+                git_execution: input.git_execution,
+                assignee: input.assignee,
+                session: input.session,
+                worktree_id: input.worktree_id,
+                branch_ref: input.branch_ref,
+                title: input.title,
+                summary: input.summary,
+                anchors: input.anchors,
+                bindings: input.bindings,
+                depends_on: input
+                    .depends_on
+                    .map(|depends_on| depends_on.into_iter().map(CoordinationTransactionTaskRef::Id).collect()),
+                acceptance: input.acceptance,
+                validation_refs: input.validation_refs,
+                base_revision: input.base_revision.unwrap_or(current_revision),
+                priority: input.priority,
+                tags: input.tags,
+                completion_context: input.completion_context,
+            },
+        )?)
+    }
+
+    pub fn update_native_task(
+        &self,
+        meta: EventMeta,
+        input: TaskUpdateInput,
+        current_revision: WorkspaceRevision,
+        now: u64,
+    ) -> Result<CoordinationTask> {
+        let task_id = input.task_id.clone();
+        self.update_native_task_transaction(meta, input, current_revision, now)?;
+        self.coordination_task(&task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))
     }
 
     pub fn update_native_task_authoritative_only(
