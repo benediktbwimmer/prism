@@ -2758,6 +2758,18 @@ fn plan_create_surfaces_transaction_metadata_in_state() {
             .as_str()
             .is_some_and(|value| !value.is_empty())
     );
+    assert_eq!(
+        created.state["authorityVersion"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default(),
+        created.state["commit"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+    );
+    assert_eq!(
+        created.state["authorityVersion"]["lastEventId"],
+        created.state["commit"]["lastEventId"]
+    );
 }
 
 #[test]
@@ -2816,6 +2828,19 @@ fn workflow_update_surfaces_transaction_metadata_in_state() {
             .unwrap_or_default()
             >= 1
     );
+    assert!(
+        updated.state["authorityVersion"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= updated.state["commit"]["eventCount"]
+                .as_u64()
+                .unwrap_or_default()
+    );
+    assert!(
+        updated.state["authorityVersion"]["lastEventId"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty())
+    );
 }
 
 #[test]
@@ -2866,6 +2891,14 @@ fn task_create_surfaces_transaction_metadata_in_state() {
             .as_str()
             .is_some_and(|value| !value.is_empty())
     );
+    assert!(
+        created.state["authorityVersion"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= created.state["commit"]["eventCount"]
+                .as_u64()
+                .unwrap_or_default()
+    );
 }
 
 #[test]
@@ -2913,6 +2946,14 @@ fn plan_bootstrap_surfaces_transaction_metadata_in_state() {
         bootstrapped.state["commit"]["lastEventId"]
             .as_str()
             .is_some_and(|value| !value.is_empty())
+    );
+    assert!(
+        bootstrapped.state["authorityVersion"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= bootstrapped.state["commit"]["eventCount"]
+                .as_u64()
+                .unwrap_or_default()
     );
 }
 

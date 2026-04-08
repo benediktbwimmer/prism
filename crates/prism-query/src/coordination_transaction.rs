@@ -253,10 +253,18 @@ pub struct CoordinationTransactionCommitMetadata {
     pub committed_at: Option<u64>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct CoordinationTransactionAuthorityVersion {
+    pub total_event_count: usize,
+    pub last_event_id: Option<EventId>,
+    pub committed_at: Option<u64>,
+}
+
 #[derive(Debug, Clone)]
 pub struct CoordinationTransactionResult {
     pub outcome: CoordinationTransactionOutcome,
     pub commit: CoordinationTransactionCommitMetadata,
+    pub authority_version: CoordinationTransactionAuthorityVersion,
     pub plan_ids_by_client_id: BTreeMap<String, PlanId>,
     pub task_ids_by_client_id: BTreeMap<String, CoordinationTaskId>,
     pub touched_plan_ids: Vec<PlanId>,
@@ -1100,6 +1108,11 @@ fn apply_coordination_transaction(
             last_event_id: committed_event_ids.last().cloned(),
             event_ids: committed_event_ids,
             committed_at,
+        },
+        authority_version: CoordinationTransactionAuthorityVersion {
+            total_event_count: committed_events.len(),
+            last_event_id: committed_events.last().map(|event| event.meta.id.clone()),
+            committed_at: committed_events.last().map(|event| event.meta.ts),
         },
         plan_ids_by_client_id,
         task_ids_by_client_id,

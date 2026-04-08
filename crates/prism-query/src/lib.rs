@@ -68,7 +68,8 @@ pub use crate::types::{
     TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 pub use coordination_transaction::{
-    CoordinationDependencyKind, CoordinationTransactionCommitMetadata,
+    CoordinationDependencyKind, CoordinationTransactionAuthorityVersion,
+    CoordinationTransactionCommitMetadata,
     CoordinationTransactionError, CoordinationTransactionGitExecutionPolicyPatch,
     CoordinationTransactionInput, CoordinationTransactionMutation,
     CoordinationTransactionOutcome, CoordinationTransactionPlanRef,

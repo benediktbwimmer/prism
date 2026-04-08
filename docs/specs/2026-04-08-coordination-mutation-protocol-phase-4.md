@@ -61,6 +61,9 @@ Current slice notes:
 - the first implementation slice now exposes explicit transaction outcome and commit metadata from
   `prism-query` into MCP-facing response shaping; later slices still need rejected and indeterminate
   outcomes plus shared authority-stamp semantics
+- protocol commit results now also carry a backend-neutral post-commit authority-version view based
+  on total coordination event count and current last event id; backend-specific authority stamps
+  still belong above this layer
 - the second implementation slice now makes validation ordering explicit in code for:
   - input-shape validation
   - authorization placeholder staging
@@ -225,8 +228,9 @@ Exit criteria:
 Progress:
 
 - [x] committed outcome and commit metadata now have explicit protocol types
+- [x] backend-neutral post-commit authority-version metadata now flows with committed results
 - [ ] rejection and indeterminate outcome families remain to be added
-- [ ] authority-stamp fields remain to be added
+- [ ] backend-specific authority-stamp fields remain to be added where higher layers need them
 
 ### Slice 2: Centralize validation ordering
 

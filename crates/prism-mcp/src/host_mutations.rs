@@ -1383,6 +1383,20 @@ fn coordination_transaction_commit_view(
     })
 }
 
+fn coordination_transaction_authority_version_view(
+    result: &prism_query::CoordinationTransactionResult,
+) -> Value {
+    json!({
+        "eventCount": result.authority_version.total_event_count,
+        "lastEventId": result
+            .authority_version
+            .last_event_id
+            .as_ref()
+            .map(|event_id| event_id.0.clone()),
+        "committedAt": result.authority_version.committed_at,
+    })
+}
+
 fn attach_coordination_transaction_metadata(
     mut state: Value,
     result: &prism_query::CoordinationTransactionResult,
@@ -1392,6 +1406,10 @@ fn attach_coordination_transaction_metadata(
     };
     object.insert("outcome".to_string(), Value::String(format!("{:?}", result.outcome)));
     object.insert("commit".to_string(), coordination_transaction_commit_view(result));
+    object.insert(
+        "authorityVersion".to_string(),
+        coordination_transaction_authority_version_view(result),
+    );
     state
 }
 
