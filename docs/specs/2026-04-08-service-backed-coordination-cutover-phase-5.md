@@ -208,6 +208,9 @@ Current progress:
 - session eventual coordination snapshots, plan-state reads, and read-model loads now read through
   the materialized-store seam or the authority-backed published-plan loaders instead of reaching
   through the workspace store as a de facto coordination owner
+- the materialized-store seam now owns effective coordination read-model fallback, including the
+  derive-from-snapshot path when persisted read models are absent, so `WorkspaceSession` no
+  longer rebuilds that fallback itself
 - dead store-backed coordination read helpers and unused authoritative persistence compatibility
   methods were removed once the session read path no longer depended on them
 

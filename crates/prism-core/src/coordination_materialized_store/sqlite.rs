@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use prism_coordination::{
+    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
 };
 use prism_store::{CoordinationCheckpointStore, CoordinationStartupCheckpoint, SqliteStore};
@@ -120,10 +121,50 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
         self.load_envelope(|store| store.load_coordination_read_model())
     }
 
+    fn read_effective_read_model(
+        &self,
+    ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationReadModel>> {
+        if let Some(read_model) = self.read_read_model()?.value {
+            let metadata = self.read_metadata()?;
+            return Ok(CoordinationMaterializedReadEnvelope::new(
+                metadata,
+                Some(read_model),
+            ));
+        }
+        let snapshot = self.read_snapshot()?;
+        let metadata = snapshot.metadata.clone();
+        let value = snapshot.value.map(|snapshot| {
+            let mut model = coordination_read_model_from_snapshot(&snapshot);
+            model.revision = metadata.coordination_revision.unwrap_or_default();
+            model
+        });
+        Ok(CoordinationMaterializedReadEnvelope::new(metadata, value))
+    }
+
     fn read_queue_read_model(
         &self,
     ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationQueueReadModel>> {
         self.load_envelope(|store| store.load_coordination_queue_read_model())
+    }
+
+    fn read_effective_queue_read_model(
+        &self,
+    ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationQueueReadModel>> {
+        if let Some(queue_read_model) = self.read_queue_read_model()?.value {
+            let metadata = self.read_metadata()?;
+            return Ok(CoordinationMaterializedReadEnvelope::new(
+                metadata,
+                Some(queue_read_model),
+            ));
+        }
+        let snapshot = self.read_snapshot()?;
+        let metadata = snapshot.metadata.clone();
+        let value = snapshot.value.map(|snapshot| {
+            let mut model = coordination_queue_read_model_from_snapshot(&snapshot);
+            model.revision = metadata.coordination_revision.unwrap_or_default();
+            model
+        });
+        Ok(CoordinationMaterializedReadEnvelope::new(metadata, value))
     }
 
     fn read_startup_checkpoint(

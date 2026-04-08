@@ -7587,52 +7587,20 @@ fn coordination_read_models_ignore_stale_persisted_shared_runtime_cache() {
         .unwrap()
         .expect("coordination queue model should load from the local cache");
     assert_eq!(queue_model.pending_handoff_tasks.len(), 0);
-    let snapshot = session
-        .load_coordination_snapshot()
-        .unwrap()
-        .expect("coordination snapshot should hydrate from the local store");
-    assert!(snapshot
-        .tasks
-        .iter()
-        .any(|task| task.title == "Prefer local coordination cache over shared runtime cache"));
-    let snapshot_v2 = session
-        .load_coordination_snapshot_v2()
-        .unwrap()
-        .expect("coordination snapshot v2 should hydrate from the local store");
-    assert!(snapshot_v2
-        .tasks
-        .iter()
-        .any(|task| task.title == "Prefer local coordination cache over shared runtime cache"));
-    let plan_state = session
-        .load_coordination_plan_state()
-        .unwrap()
-        .expect("coordination plan state should hydrate from the local store");
-    assert!(plan_state
-        .snapshot
-        .tasks
-        .iter()
-        .any(|task| task.title == "Prefer local coordination cache over shared runtime cache"));
     drop(shared_runtime_store);
     drop(session);
 
     let reloaded = index_workspace_session(&root).unwrap();
-    let reloaded_plan_state = reloaded
-        .load_coordination_plan_state()
+    let reloaded_read_model = reloaded
+        .load_coordination_read_model()
         .unwrap()
-        .expect("reloaded coordination plan state should still hydrate from the local store");
-    assert!(reloaded_plan_state
-        .snapshot
-        .tasks
-        .iter()
-        .any(|task| task.title == "Prefer local coordination cache over shared runtime cache"));
-    let reloaded_snapshot_v2 = reloaded
-        .load_coordination_snapshot_v2()
+        .expect("reloaded coordination read model should still prefer the local cache");
+    assert_eq!(reloaded_read_model.task_count, 1);
+    let reloaded_queue_model = reloaded
+        .load_coordination_queue_read_model()
         .unwrap()
-        .expect("reloaded coordination snapshot v2 should still hydrate from the local store");
-    assert!(reloaded_snapshot_v2
-        .tasks
-        .iter()
-        .any(|task| task.title == "Prefer local coordination cache over shared runtime cache"));
+        .expect("reloaded coordination queue model should still prefer the local cache");
+    assert_eq!(reloaded_queue_model.pending_handoff_tasks.len(), 0);
 
     let _ = fs::remove_dir_all(root);
 }

@@ -8,9 +8,7 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, Result};
 use prism_agent::{InferenceSnapshot, InferredEdgeRecord};
 use prism_coordination::{
-    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
-    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
-    CoordinationSnapshotV2,
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
 };
 use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
@@ -2023,42 +2021,18 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        let materialized = SqliteCoordinationMaterializedStore::new(&self.root);
-        if let Some(persisted) = materialized.read_read_model()?.value {
-            return Ok(Some(persisted));
-        }
-        let snapshot = materialized.read_snapshot()?;
-        let Some(snapshot) = snapshot.value else {
-            return Ok(None);
-        };
-        let current_revision = materialized
-            .read_metadata()?
-            .coordination_revision
-            .unwrap_or_default();
-        let mut model = coordination_read_model_from_snapshot(&snapshot);
-        model.revision = current_revision;
-        Ok(Some(model))
+        Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+            .read_effective_read_model()?
+            .value)
     }
 
     pub fn load_coordination_queue_read_model(&self) -> Result<Option<CoordinationQueueReadModel>> {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        let materialized = SqliteCoordinationMaterializedStore::new(&self.root);
-        if let Some(persisted) = materialized.read_queue_read_model()?.value {
-            return Ok(Some(persisted));
-        }
-        let snapshot = materialized.read_snapshot()?;
-        let Some(snapshot) = snapshot.value else {
-            return Ok(None);
-        };
-        let current_revision = materialized
-            .read_metadata()?
-            .coordination_revision
-            .unwrap_or_default();
-        let mut model = coordination_queue_read_model_from_snapshot(&snapshot);
-        model.revision = current_revision;
-        Ok(Some(model))
+        Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+            .read_effective_queue_read_model()?
+            .value)
     }
 
     pub fn load_coordination_startup_checkpoint_revision(&self) -> Result<Option<u64>> {

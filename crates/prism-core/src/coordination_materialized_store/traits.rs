@@ -29,7 +29,15 @@ pub trait CoordinationMaterializedStore {
         &self,
     ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationReadModel>>;
 
+    fn read_effective_read_model(
+        &self,
+    ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationReadModel>>;
+
     fn read_queue_read_model(
+        &self,
+    ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationQueueReadModel>>;
+
+    fn read_effective_queue_read_model(
         &self,
     ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationQueueReadModel>>;
 
