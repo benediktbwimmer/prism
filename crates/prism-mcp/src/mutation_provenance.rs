@@ -21,7 +21,54 @@ pub(crate) struct MutationProvenance {
     current_work: Option<SessionWorkState>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MutationProvenanceMode {
+    General,
+    CoordinationAuthority,
+}
+
 impl MutationProvenance {
+    pub(crate) fn for_execution(
+        workspace: Option<&WorkspaceSession>,
+        session: &SessionState,
+        prism: Arc<Prism>,
+        authenticated: Option<&AuthenticatedPrincipal>,
+        mode: MutationProvenanceMode,
+    ) -> Self {
+        match mode {
+            MutationProvenanceMode::General => {
+                if let Some(authenticated) = authenticated {
+                    return Self::authenticated(workspace, session, prism, authenticated);
+                }
+                if let Some(workspace) = workspace {
+                    if let Some(slot) = workspace.current_worktree_mutator_slot() {
+                        return Self::worktree_executor(workspace, session, prism, &slot, None);
+                    }
+                }
+                Self::fallback(workspace, session, prism)
+            }
+            MutationProvenanceMode::CoordinationAuthority => {
+                if let Some(workspace) = workspace {
+                    if let Some(slot) = workspace.current_worktree_mutator_slot() {
+                        let credential_id =
+                            authenticated.map(|authenticated| &authenticated.credential.credential_id);
+                        return Self::worktree_executor(
+                            workspace,
+                            session,
+                            prism,
+                            &slot,
+                            credential_id,
+                        );
+                    }
+                }
+                if let Some(authenticated) = authenticated {
+                    return Self::authenticated(workspace, session, prism, authenticated);
+                }
+                Self::fallback(workspace, session, prism)
+            }
+        }
+    }
+
     pub(crate) fn fallback(
         workspace: Option<&WorkspaceSession>,
         session: &SessionState,

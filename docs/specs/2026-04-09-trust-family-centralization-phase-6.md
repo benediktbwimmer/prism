@@ -50,6 +50,10 @@ Current slice notes:
   - authority-stamp attachment for coordination mutation result state
 - `server_surface.rs` principal-auth mutation gating now goes through one shared
   `authenticate_principal_mutation_common(...)` flow for both traced and untraced entry points
+- provenance selection for ordinary mutation surfaces versus coordination-authority mutation
+  surfaces now goes through `MutationProvenance::for_execution(...)` and
+  `MutationProvenanceMode`, instead of keeping that actor/execution-context precedence logic as
+  ad hoc local functions in `host_mutations.rs`
 - that first slice reduces duplicated trust metadata shaping in `server_surface.rs` and
   `host_mutations.rs`, but broader provenance and verification/freshness convergence still remain
 
@@ -160,6 +164,9 @@ Current progress:
   authentication paths
 - `host_mutations.rs` now uses the shared trust-surface helper for authority protocol-state and
   authority-stamp shaping instead of open-coding those trust envelopes inline
+- `host_mutations.rs` now also delegates provenance-mode selection to the shared provenance module
+  instead of locally deciding how authenticated principals and worktree mutator slots should be
+  prioritized
 
 ### Slice 2: Capability and authorization centralization
 

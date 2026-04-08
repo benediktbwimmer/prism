@@ -52,7 +52,7 @@ use crate::trust_surface::{
     coordination_authority_protocol_state as build_coordination_authority_protocol_state,
     coordination_protocol_state_value,
 };
-use crate::MutationProvenance;
+use crate::{MutationProvenance, MutationProvenanceMode};
 use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
     contract_packet_view, convert_acceptance, convert_anchors, convert_capability,
@@ -1661,17 +1661,13 @@ fn mutation_provenance(
     session: &SessionState,
     authenticated: Option<&AuthenticatedPrincipal>,
 ) -> MutationProvenance {
-    let workspace = host.workspace_session_ref();
-    let prism = host.current_prism();
-    if let Some(authenticated) = authenticated {
-        return MutationProvenance::authenticated(workspace, session, prism, authenticated);
-    }
-    if let Some(workspace) = workspace {
-        if let Some(slot) = workspace.current_worktree_mutator_slot() {
-            return MutationProvenance::worktree_executor(workspace, session, prism, &slot, None);
-        }
-    }
-    MutationProvenance::fallback(workspace, session, prism)
+    MutationProvenance::for_execution(
+        host.workspace_session_ref(),
+        session,
+        host.current_prism(),
+        authenticated,
+        MutationProvenanceMode::General,
+    )
 }
 
 fn coordination_mutation_provenance(
@@ -1679,25 +1675,13 @@ fn coordination_mutation_provenance(
     session: &SessionState,
     authenticated: Option<&AuthenticatedPrincipal>,
 ) -> MutationProvenance {
-    let workspace = host.workspace_session_ref();
-    let prism = host.current_prism();
-    if let Some(workspace) = workspace {
-        if let Some(slot) = workspace.current_worktree_mutator_slot() {
-            let credential_id =
-                authenticated.map(|authenticated| &authenticated.credential.credential_id);
-            return MutationProvenance::worktree_executor(
-                workspace,
-                session,
-                prism,
-                &slot,
-                credential_id,
-            );
-        }
-    }
-    if let Some(authenticated) = authenticated {
-        return MutationProvenance::authenticated(workspace, session, prism, authenticated);
-    }
-    MutationProvenance::fallback(workspace, session, prism)
+    MutationProvenance::for_execution(
+        host.workspace_session_ref(),
+        session,
+        host.current_prism(),
+        authenticated,
+        MutationProvenanceMode::CoordinationAuthority,
+    )
 }
 
 fn ensure_authenticated_coordination_execution(
