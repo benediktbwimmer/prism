@@ -6,6 +6,10 @@ use prism_projections::{
 use prism_query::Prism;
 use serde::Serialize;
 
+use crate::runtime_freshness_surface::{
+    projection_freshness_state, projection_materialization_state,
+};
+
 pub(crate) fn runtime_projection_scopes(
     prism: &Prism,
     freshness: &RuntimeFreshnessView,
@@ -14,8 +18,8 @@ pub(crate) fn runtime_projection_scopes(
     let concepts = prism.curated_concepts_snapshot();
     let relations = prism.concept_relations_snapshot();
     let contracts = prism.curated_contracts();
-    let worktree_freshness = projection_freshness(freshness);
-    let worktree_materialization = projection_materialization(freshness);
+    let worktree_freshness = projection_freshness_state(freshness);
+    let worktree_materialization = projection_materialization_state(freshness);
 
     vec![
         ProjectionScopeReadModel::serving(
@@ -164,40 +168,6 @@ fn scope_label<T: Serialize + ?Sized>(scope: &T) -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
-fn projection_freshness(freshness: &RuntimeFreshnessView) -> ProjectionFreshnessState {
-    if freshness.last_refresh_path.as_deref() == Some("recovery") {
-        return ProjectionFreshnessState::Recovery;
-    }
-    match freshness.status.as_str() {
-        "current" => ProjectionFreshnessState::Current,
-        "refresh-queued" => ProjectionFreshnessState::Pending,
-        "deferred" => ProjectionFreshnessState::Deferred,
-        "stale" => ProjectionFreshnessState::Stale,
-        "unknown" => ProjectionFreshnessState::Unknown,
-        _ => ProjectionFreshnessState::Unknown,
-    }
-}
-
-fn projection_materialization(freshness: &RuntimeFreshnessView) -> ProjectionMaterializationState {
-    if freshness.status == "deferred" {
-        return ProjectionMaterializationState::Deferred;
-    }
-    let projections_domain = freshness
-        .domains
-        .iter()
-        .find(|domain| domain.domain == "projections");
-    if projections_domain
-        .is_some_and(|domain| domain.materialization_depth == "known_unmaterialized")
-    {
-        return ProjectionMaterializationState::KnownUnmaterialized;
-    }
-    if freshness.fs_dirty || freshness.status == "stale" || freshness.status == "unknown" {
-        ProjectionMaterializationState::Partial
-    } else {
-        ProjectionMaterializationState::Materialized
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,7 +246,7 @@ mod tests {
             materialization_depth: "known_unmaterialized".to_string(),
         });
         assert_eq!(
-            projection_materialization(&freshness),
+            projection_materialization_state(&freshness),
             ProjectionMaterializationState::KnownUnmaterialized
         );
     }
@@ -286,7 +256,7 @@ mod tests {
         let mut freshness = freshness("stale");
         freshness.last_refresh_path = Some("recovery".to_string());
         assert_eq!(
-            projection_freshness(&freshness),
+            projection_freshness_state(&freshness),
             ProjectionFreshnessState::Recovery
         );
     }

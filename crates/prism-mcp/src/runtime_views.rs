@@ -34,13 +34,14 @@ use prism_projections::{
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use crate::daemon_log;
 use crate::coordination_surface::{
     current_coordination_surface, current_coordination_surface_for_workspace,
 };
+use crate::daemon_log;
 use crate::diagnostics_state::RuntimeStatusRevisionKey;
 use crate::log_scope::{select_log_sources, LogScope, RepoLogSource};
 use crate::mcp_call_log::McpCallLogStore;
+use crate::runtime_freshness_surface::runtime_freshness_status_label;
 use crate::runtime_state::{
     process_is_live, read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord, RuntimeState,
 };
@@ -146,8 +147,7 @@ pub(crate) fn refresh_cached_runtime_status(host: &QueryHost) -> Result<RuntimeS
         service_backed_coordination_snapshot: coordination_surface.snapshot,
         live_overlay_coordination_snapshot,
         tracked_coordination_snapshot_revision: coordination_surface.tracked_snapshot_revision,
-        coordination_startup_checkpoint_revision: coordination_surface
-            .startup_checkpoint_revision,
+        coordination_startup_checkpoint_revision: coordination_surface.startup_checkpoint_revision,
         coordination_read_model_revision: coordination_surface.read_model_revision,
         coordination_queue_read_model_revision: coordination_surface.queue_read_model_revision,
         loaded_workspace_revision: host.loaded_workspace_revision_value(),
@@ -206,8 +206,7 @@ pub(crate) fn refresh_cached_runtime_status_for_config(
         service_backed_coordination_snapshot: coordination_surface.snapshot,
         live_overlay_coordination_snapshot,
         tracked_coordination_snapshot_revision: coordination_surface.tracked_snapshot_revision,
-        coordination_startup_checkpoint_revision: coordination_surface
-            .startup_checkpoint_revision,
+        coordination_startup_checkpoint_revision: coordination_surface.startup_checkpoint_revision,
         coordination_read_model_revision: coordination_surface.read_model_revision,
         coordination_queue_read_model_revision: coordination_surface.queue_read_model_revision,
         loaded_workspace_revision: config.loaded_workspace_revision.load(Ordering::Relaxed),
@@ -689,7 +688,7 @@ fn runtime_freshness_from_inputs(
             .as_ref()
             .map(|snapshot| runtime_queue_depth_views(snapshot))
             .unwrap_or_default(),
-        status: freshness_status(
+        status: runtime_freshness_status_label(
             fs_dirty,
             &materialization,
             last_refresh.as_ref().map(|refresh| refresh.path.as_str()),
@@ -1123,32 +1122,6 @@ fn coordination_surface_lag_status(
         Some(revision) if revision == authoritative_revision => "current",
         Some(_) => "stale",
         None => "missing",
-    }
-}
-
-fn freshness_status(
-    fs_dirty: bool,
-    materialization: &RuntimeMaterializationView,
-    last_refresh_path: Option<&str>,
-) -> &'static str {
-    if fs_dirty {
-        return "refresh-queued";
-    }
-    if last_refresh_path == Some("deferred") {
-        return "deferred";
-    }
-    let statuses = [
-        materialization.workspace.status.as_str(),
-        materialization.episodic.status.as_str(),
-        materialization.inference.status.as_str(),
-        materialization.coordination.status.as_str(),
-    ];
-    if statuses.contains(&"stale") {
-        "stale"
-    } else if statuses.contains(&"unknown") {
-        "unknown"
-    } else {
-        "current"
     }
 }
 

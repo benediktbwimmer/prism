@@ -233,6 +233,12 @@ Current progress:
   of open-coded string comparisons
 - the MCP protected-state resource now counts non-verified streams from the shared report
   semantics instead of reinterpreting `verification_status` after view projection
+- `prism-mcp` now has a dedicated `runtime_freshness_surface` helper boundary for:
+  - top-level runtime freshness status classification
+  - projection freshness-state interpretation
+  - projection materialization-state interpretation
+- `runtime_views.rs` and `serving_projection_models.rs` now consume the same freshness semantics
+  instead of independently reinterpreting raw status strings
 
 ### Slice 4: Diagnostics and service-surface cleanup
 
