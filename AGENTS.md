@@ -104,9 +104,10 @@ Rules:
 - Once `prism://startup` reports ready, read `prism://instructions`, then follow those instructions closely.
 - If the server is unavailable, fall back to targeted local inspection until it is available again.
 - After meaningful changes to PRISM MCP behavior or query/runtime behavior, rebuild the release binaries and restart the MCP daemon so the live PRISM server reflects the current code during the same Codex session.
+- Use coordination-only runtime mode with the UI enabled when restarting the MCP daemon from this repo.
 - From the repo root, use these exact commands:
   - `cargo build --release -p prism-cli -p prism-mcp`
-  - `./target/release/prism-cli mcp restart --internal-developer`
+  - `./target/release/prism-cli mcp restart --internal-developer --runtime-mode coordination_only --ui`
   - `./target/release/prism-cli mcp status`
   - `./target/release/prism-cli mcp health`
 - Prefer the release binaries for restart and verification instead of `cargo run`, so the daemon and CLI are both using the freshly rebuilt release executables.

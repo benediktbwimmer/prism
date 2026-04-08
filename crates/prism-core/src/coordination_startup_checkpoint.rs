@@ -1,16 +1,16 @@
 use std::path::Path;
 
 use anyhow::{anyhow, Result};
-use prism_coordination::{
-    CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor,
-};
+use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor};
 use prism_store::{
     CoordinationCheckpointStore, CoordinationJournal, CoordinationStartupCheckpoint,
     CoordinationStartupCheckpointAuthority,
 };
 
 use crate::coordination_snapshot_sanitization::sanitize_persisted_coordination_snapshot;
-use crate::published_plans::{merge_shared_coordination_into_snapshot, HydratedCoordinationPlanState};
+use crate::published_plans::{
+    merge_shared_coordination_into_snapshot, HydratedCoordinationPlanState,
+};
 use crate::shared_coordination_ref::shared_coordination_startup_authority;
 use crate::util::current_timestamp;
 
@@ -136,7 +136,6 @@ fn hydrated_plan_state_from_checkpoint(
         }
     })
 }
-
 
 pub(crate) fn coordination_startup_authority(
     root: &Path,

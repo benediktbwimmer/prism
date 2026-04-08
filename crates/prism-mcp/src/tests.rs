@@ -47,6 +47,7 @@ use prism_query::{
     ContractStability, ContractStatus,
 };
 use prism_store::{Graph, SqliteStore, Store};
+use rusqlite::Connection;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -3111,8 +3112,12 @@ fn mcp_plan_bootstrap_creates_task_dependencies_from_client_ids() {
     let snapshot = host.current_prism().coordination_snapshot_v2();
     let graph = snapshot.graph().expect("canonical graph");
     assert_eq!(
-        graph.dependency_targets(&prism_ir::NodeRef::task(prism_ir::TaskId::new(task_t1.clone()))),
-        vec![prism_ir::NodeRef::task(prism_ir::TaskId::new(task_t0.clone()))]
+        graph.dependency_targets(&prism_ir::NodeRef::task(prism_ir::TaskId::new(
+            task_t1.clone()
+        ))),
+        vec![prism_ir::NodeRef::task(prism_ir::TaskId::new(
+            task_t0.clone()
+        ))]
     );
     let mut actual_children = graph.children_of_plan(&PlanId::new(plan_id));
     actual_children.sort_by(|left, right| left.id.cmp(&right.id));
@@ -20471,6 +20476,97 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
             .capabilities
             .contains(&prism_js::RuntimeDescriptorCapabilityView::CoordinationRefPublisher));
     }
+}
+
+#[test]
+fn runtime_status_tolerates_legacy_startup_checkpoint_plan_shape() {
+    let root = temp_workspace();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let cache = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .worktree_cache_db_path()
+        .unwrap();
+    let conn = Connection::open(cache).unwrap();
+    let checkpoint = serde_json::json!({
+        "version": 4,
+        "materialized_at": 123,
+        "coordination_revision": 77,
+        "authority": {
+            "ref_name": "refs/prism/coordination/repo-test/live"
+        },
+        "snapshot": {
+            "plans": [{
+                "id": "plan:compat",
+                "goal": "Compatibility fallback",
+                "title": "Compatibility fallback",
+                "status": "Active",
+                "policy": {
+                    "default_claim_mode": "Advisory",
+                    "max_parallel_editors_per_anchor": 2,
+                    "require_review_for_completion": false,
+                    "require_validation_for_completion": false,
+                    "stale_after_graph_change": true,
+                    "review_required_above_risk_score": null,
+                    "lease_stale_after_seconds": 1800,
+                    "lease_expires_after_seconds": 7200,
+                    "lease_renewal_mode": "strict",
+                    "git_execution": {
+                        "startMode": "off",
+                        "completionMode": "off",
+                        "targetRef": null,
+                        "targetBranch": "",
+                        "requireTaskBranch": false,
+                        "maxCommitsBehindTarget": 0,
+                        "maxFetchAgeSeconds": null,
+                        "integrationMode": "external"
+                    }
+                },
+                "scope": "Repo",
+                "kind": "TaskExecution",
+                "revision": 0,
+                "scheduling": {
+                    "importance": 0,
+                    "urgency": 0,
+                    "manualBoost": 0,
+                    "dueAt": null
+                },
+                "tags": [],
+                "created_from": null,
+                "metadata": null
+            }],
+            "tasks": [],
+            "claims": [],
+            "artifacts": [],
+            "reviews": [],
+            "events": [],
+            "next_plan": 1,
+            "next_task": 0,
+            "next_claim": 0,
+            "next_artifact": 0,
+            "next_review": 0
+        },
+        "canonical_snapshot_v2": null,
+        "runtime_descriptors": []
+    });
+    conn.execute(
+        "INSERT INTO snapshots(key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        rusqlite::params!["coordination_startup_checkpoint", checkpoint.to_string()],
+    )
+    .unwrap();
+
+    host.diagnostics_state().invalidate_runtime_status();
+    let status = crate::runtime_views::refresh_cached_runtime_status(&host)
+        .expect("runtime status should tolerate legacy startup checkpoint plan shape");
+    assert_eq!(
+        status
+            .freshness
+            .coordination_lag
+            .as_ref()
+            .and_then(|lag| lag.startup_checkpoint.revision),
+        Some(77)
+    );
 }
 
 #[test]

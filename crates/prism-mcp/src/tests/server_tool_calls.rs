@@ -12,7 +12,7 @@ use prism_coordination::TaskCreateInput;
 use prism_core::{
     default_workspace_shared_runtime, index_workspace_session,
     index_workspace_session_with_options, BootstrapOwnerInput, MintPrincipalRequest,
-    WorkspaceSessionOptions,
+    PrismRuntimeMode, WorkspaceSessionOptions,
 };
 use prism_ir::{
     CoordinationTaskStatus, CredentialCapability, CredentialId, EventActor, EventId, EventMeta,
@@ -643,10 +643,7 @@ return {{
         envelope["result"]["plan"]["goal"],
         "Coordinate the main edit"
     );
-    assert_eq!(
-        envelope["result"]["planV2"]["id"],
-        plan_id
-    );
+    assert_eq!(envelope["result"]["planV2"]["id"], plan_id);
     assert_eq!(
         envelope["result"]["children"]["children"]
             .as_array()
@@ -654,10 +651,7 @@ return {{
             .len(),
         1
     );
-    assert_eq!(
-        envelope["result"]["children"]["children"][0]["id"],
-        task_id
-    );
+    assert_eq!(envelope["result"]["children"]["children"][0]["id"], task_id);
     assert_eq!(envelope["result"]["ready"].as_array().unwrap().len(), 0);
     assert_eq!(envelope["result"]["claims"].as_array().unwrap().len(), 0);
     assert_eq!(envelope["result"]["artifacts"].as_array().unwrap().len(), 1);
@@ -2199,6 +2193,79 @@ async fn mcp_server_executes_heartbeat_lease_mutation_round_trip() {
             .len(),
         event_count_before_heartbeat
     );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_executes_coordination_mutation_round_trip_in_coordination_only_mode() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session_and_features(
+        session,
+        PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
+    );
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Exercise coordination mutations in reduced runtime mode"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let declared_work = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared_work["action"], "declare_work");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_mutate",
+            json!({
+                "action": "coordination",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "kind": "plan_create",
+                    "payload": {
+                        "title": "Coordinate reduced runtime mutation",
+                        "goal": "Verify coordination mutations remain executable in coordination_only mode"
+                    }
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let plan = first_tool_content_json(client.receive().await.unwrap());
+
+    assert_eq!(plan["action"], "coordination");
+    assert_eq!(plan["result"]["state"]["status"], "Active");
+    assert_eq!(
+        plan["result"]["state"]["title"],
+        "Coordinate reduced runtime mutation"
+    );
+    assert!(plan["result"]["state"]["id"].as_str().is_some());
 
     running.cancel().await.unwrap();
 }

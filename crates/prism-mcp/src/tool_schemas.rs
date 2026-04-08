@@ -23,8 +23,8 @@ use crate::{
     MemoryRetirePayload, MemoryStorePayload, PlanArchivePayload, PlanBootstrapPayload,
     PlanCreatePayload, PlanUpdatePayload, PrismConceptArgs, PrismExpandArgs, PrismGatherArgs,
     PrismLocateArgs, PrismMcpFeatures, PrismMutationArgs, PrismOpenArgs, PrismQueryArgs,
-    PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView, TaskCreatePayload,
-    TaskReclaimPayload, TaskResumePayload, WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
+    PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView, TaskCreatePayload, TaskReclaimPayload,
+    TaskResumePayload, WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -616,7 +616,7 @@ fn filter_tool_schema_for_features(
                 .and_then(Value::as_object)
                 .and_then(|action| action.get("const"))
                 .and_then(Value::as_str)
-                .is_some_and(|action| features.prism_mutate_action_enabled(action))
+                .is_some_and(|action| features.prism_mutate_action_visible(action))
         });
     }
     if let Some(examples) = schema.get_mut("examples").and_then(Value::as_array_mut) {
@@ -647,7 +647,7 @@ fn tool_example_matches_features(
     example
         .get("action")
         .and_then(Value::as_str)
-        .is_some_and(|action| features.prism_mutate_action_enabled(action))
+        .is_some_and(|action| features.prism_mutate_action_visible(action))
 }
 
 fn bind_transport_root_schema(tool_name: &str, schema: Value) -> Value {

@@ -51,13 +51,6 @@ pub use crate::source::{
     SourceLocation,
 };
 pub use crate::symbol::{Relations, Symbol};
-pub use coordination_transaction::{
-    CoordinationDependencyKind, CoordinationTransactionGitExecutionPolicyPatch,
-    CoordinationTransactionInput, CoordinationTransactionMutation, CoordinationTransactionPlanRef,
-    CoordinationTransactionPlanSchedulingPatch, CoordinationTransactionPolicyPatch,
-    CoordinationTransactionResult,
-    CoordinationTransactionTaskRef,
-};
 pub use crate::types::{
     canonical_concept_handle, canonical_contract_handle, ArtifactRisk, ChangeImpact, CoChange,
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptHealth,
@@ -71,6 +64,12 @@ pub use crate::types::{
     ContractStatus, ContractTarget, ContractValidation, CoordinationPlanV2, CoordinationTaskV2,
     DriftCandidate, PlanActivity, PlanListEntry, PlanNodeStatusCounts, PlanSummary, QueryLimits,
     TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+};
+pub use coordination_transaction::{
+    CoordinationDependencyKind, CoordinationTransactionGitExecutionPolicyPatch,
+    CoordinationTransactionInput, CoordinationTransactionMutation, CoordinationTransactionPlanRef,
+    CoordinationTransactionPlanSchedulingPatch, CoordinationTransactionPolicyPatch,
+    CoordinationTransactionResult, CoordinationTransactionTaskRef,
 };
 
 pub struct Prism {
@@ -1156,9 +1155,7 @@ impl Prism {
                         max_parallel_editors_per_anchor: Some(
                             policy.max_parallel_editors_per_anchor,
                         ),
-                        require_review_for_completion: Some(
-                            policy.require_review_for_completion,
-                        ),
+                        require_review_for_completion: Some(policy.require_review_for_completion),
                         require_validation_for_completion: Some(
                             policy.require_validation_for_completion,
                         ),
@@ -1177,9 +1174,7 @@ impl Prism {
                             max_commits_behind_target: Some(
                                 policy.git_execution.max_commits_behind_target,
                             ),
-                            max_fetch_age_seconds: policy
-                                .git_execution
-                                .max_fetch_age_seconds,
+                            max_fetch_age_seconds: policy.git_execution.max_fetch_age_seconds,
                         }),
                     }),
                     scheduling: scheduling.map(|scheduling| {

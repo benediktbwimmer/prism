@@ -44,6 +44,11 @@ pub trait CoordinationCheckpointStore {
     fn load_coordination_startup_checkpoint(
         &mut self,
     ) -> Result<Option<CoordinationStartupCheckpoint>>;
+    fn load_coordination_startup_checkpoint_revision(&mut self) -> Result<Option<u64>> {
+        Ok(self
+            .load_coordination_startup_checkpoint()?
+            .map(|checkpoint| checkpoint.coordination_revision))
+    }
     fn save_coordination_startup_checkpoint(
         &mut self,
         checkpoint: &CoordinationStartupCheckpoint,
@@ -177,6 +182,10 @@ impl<T: Store + ?Sized> CoordinationCheckpointStore for T {
         &mut self,
     ) -> Result<Option<CoordinationStartupCheckpoint>> {
         Store::load_coordination_startup_checkpoint(self)
+    }
+
+    fn load_coordination_startup_checkpoint_revision(&mut self) -> Result<Option<u64>> {
+        Store::load_coordination_startup_checkpoint_revision(self)
     }
 
     fn save_coordination_startup_checkpoint(

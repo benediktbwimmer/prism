@@ -2077,8 +2077,8 @@ impl QueryHost {
         })
     }
 
-    pub(crate) fn ensure_tool_enabled(&self, tool_name: &str, label: &str) -> Result<()> {
-        if !self.features.is_tool_enabled(tool_name) {
+    pub(crate) fn ensure_mutation_action_enabled(&self, action: &str, label: &str) -> Result<()> {
+        if !self.features.prism_mutate_action_enabled(action) {
             return Err(anyhow!(
                 "{label} are disabled by the PRISM MCP server feature flags"
             ));
@@ -2993,7 +2993,7 @@ impl QueryHost {
         trace: Option<&MutationRun>,
         authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<CoordinationMutationResult> {
-        self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
+        self.ensure_mutation_action_enabled("coordination", "coordination workflow mutations")?;
         ensure_authenticated_coordination_execution(self, session, authenticated)?;
         if let Some(result) =
             self.maybe_handle_git_execution_coordination(session, &args, trace, authenticated)?
@@ -4676,7 +4676,7 @@ impl QueryHost {
         args: PrismClaimArgs,
         authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<ClaimMutationResult> {
-        self.ensure_tool_enabled("prism_claim", "coordination claim mutations")?;
+        self.ensure_mutation_action_enabled("claim", "coordination claim mutations")?;
         ensure_authenticated_coordination_execution(self, session, authenticated)?;
         if let Some(workspace) = self.workspace_session() {
             self.refresh_workspace_for_mutation()?;
@@ -4757,8 +4757,8 @@ impl QueryHost {
         args: PrismHeartbeatLeaseArgs,
         authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<HeartbeatLeaseMutationResult> {
-        self.ensure_tool_enabled(
-            "prism_coordination",
+        self.ensure_mutation_action_enabled(
+            "heartbeat_lease",
             "coordination lease heartbeat mutations",
         )?;
         if let Some(workspace) = self.workspace_session() {
@@ -4856,7 +4856,7 @@ impl QueryHost {
         args: PrismArtifactArgs,
         authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<ArtifactMutationResult> {
-        self.ensure_tool_enabled("prism_artifact", "coordination artifact mutations")?;
+        self.ensure_mutation_action_enabled("artifact", "coordination artifact mutations")?;
         ensure_authenticated_coordination_execution(self, session, authenticated)?;
         if let Some(workspace) = self.workspace_session() {
             self.refresh_workspace_for_mutation()?;

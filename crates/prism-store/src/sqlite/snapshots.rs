@@ -2,25 +2,28 @@ use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 
+pub(super) fn load_snapshot_row_raw(conn: &Connection, key: &str) -> Result<Option<String>> {
+    super::retry::retry_on_transient_sqlite_read(|| {
+        conn.query_row(
+            "SELECT value FROM snapshots WHERE key = ?1",
+            params![key],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(Into::into)
+    })
+}
+
 pub(super) fn load_snapshot_row<T>(conn: &Connection, key: &str) -> Result<Option<T>>
 where
     T: for<'de> Deserialize<'de>,
 {
-    super::retry::retry_on_transient_sqlite_read(|| {
-        let raw = conn
-            .query_row(
-                "SELECT value FROM snapshots WHERE key = ?1",
-                params![key],
-                |row| row.get::<_, String>(0),
-            )
-            .optional()?;
-        raw.map(|value| {
-            serde_json::from_str(&value)
-                .with_context(|| format!("failed to decode snapshot `{key}` from sqlite"))
-        })
-        .transpose()
-        .map_err(Into::into)
+    let raw = load_snapshot_row_raw(conn, key)?;
+    raw.map(|value| {
+        serde_json::from_str(&value)
+            .with_context(|| format!("failed to decode snapshot `{key}` from sqlite"))
     })
+    .transpose()
 }
 
 pub(super) fn save_snapshot_row_tx<T>(tx: &Transaction<'_>, key: &str, snapshot: &T) -> Result<()>

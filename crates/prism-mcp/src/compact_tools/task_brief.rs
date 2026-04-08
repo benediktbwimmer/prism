@@ -455,10 +455,8 @@ fn compact_task_next_reads(
     let mut candidates = Vec::<(NodeId, String)>::new();
 
     if task_brief_should_follow_task_neighbors(current_status, blockers) {
-        for (node_refs, relation_label) in [
-            (dependencies, "Dependency"),
-            (dependents, "Dependent"),
-        ] {
+        for (node_refs, relation_label) in [(dependencies, "Dependency"), (dependents, "Dependent")]
+        {
             for node_ref in node_refs {
                 let Some(related_task) =
                     compact_task_related_task(prism, current_task_id, node_ref)
@@ -466,7 +464,8 @@ fn compact_task_next_reads(
                     continue;
                 };
                 for node_id in task_anchor_nodes(&related_task) {
-                    if seed_nodes.iter().any(|seed| seed == &node_id) || !seen.insert(node_id.clone())
+                    if seed_nodes.iter().any(|seed| seed == &node_id)
+                        || !seen.insert(node_id.clone())
                     {
                         continue;
                     }

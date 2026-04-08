@@ -1389,7 +1389,7 @@ impl PrismMcpServer {
             mutation,
         } = args;
         let action = mutation.action_tag();
-        if !self.host.features.prism_mutate_action_enabled(action) {
+        if !self.host.features.prism_mutate_action_visible(action) {
             return Err(McpError::invalid_params(
                 "prism_mutate action is unavailable in the active runtime mode",
                 Some(json!({
@@ -1748,7 +1748,10 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::HeartbeatLease(args) => {
                 self.host
-                    .ensure_tool_enabled("prism_coordination", "coordination lease heartbeats")
+                    .ensure_mutation_action_enabled(
+                        "heartbeat_lease",
+                        "coordination lease heartbeats",
+                    )
                     .map_err(map_query_error)?;
                 let authenticated = self.authenticate_mutation(
                     credential.as_ref(),
@@ -1788,7 +1791,10 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::Coordination(args) => {
                 self.host
-                    .ensure_tool_enabled("prism_coordination", "coordination workflow mutations")
+                    .ensure_mutation_action_enabled(
+                        "coordination",
+                        "coordination workflow mutations",
+                    )
                     .map_err(map_query_error)?;
                 let run = self
                     .host
@@ -1840,7 +1846,7 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::Claim(args) => {
                 self.host
-                    .ensure_tool_enabled("prism_claim", "coordination claim mutations")
+                    .ensure_mutation_action_enabled("claim", "coordination claim mutations")
                     .map_err(map_query_error)?;
                 let authenticated = self.authenticate_mutation(
                     credential.as_ref(),
@@ -1874,7 +1880,7 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::Artifact(args) => {
                 self.host
-                    .ensure_tool_enabled("prism_artifact", "coordination artifact mutations")
+                    .ensure_mutation_action_enabled("artifact", "coordination artifact mutations")
                     .map_err(map_query_error)?;
                 let authenticated = self.authenticate_mutation(
                     credential.as_ref(),

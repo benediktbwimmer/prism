@@ -486,7 +486,6 @@ pub(crate) fn load_memory_snapshot_events(root: &Path) -> Result<Vec<MemoryEvent
     Ok(events)
 }
 
-
 fn cleanup_tracked_plan_snapshot_exports(root: &Path) -> Result<()> {
     cleanup_directory_json_files(&snapshot_plans_dir(root), &BTreeSet::new())?;
     remove_file_if_exists(&snapshot_indexes_dir(root).join("plans.json"))?;

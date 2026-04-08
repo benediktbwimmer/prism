@@ -37,7 +37,7 @@ use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use prism_agent::InferredEdgeRecord;
 use prism_ir::EventId;
 use prism_memory::{
@@ -967,7 +967,30 @@ impl Store for SqliteStore {
     fn load_coordination_startup_checkpoint(
         &mut self,
     ) -> Result<Option<crate::CoordinationStartupCheckpoint>> {
-        snapshots::load_snapshot_row(&self.conn, "coordination_startup_checkpoint")
+        let raw =
+            snapshots::load_snapshot_row_raw(&self.conn, "coordination_startup_checkpoint")?;
+        raw.map(|value| {
+            crate::coordination_checkpoint::decode_coordination_startup_checkpoint_compat(&value)
+                .with_context(|| {
+                    "failed to decode snapshot `coordination_startup_checkpoint` from sqlite"
+                })
+        })
+        .transpose()
+    }
+
+    fn load_coordination_startup_checkpoint_revision(&mut self) -> Result<Option<u64>> {
+        let raw =
+            snapshots::load_snapshot_row_raw(&self.conn, "coordination_startup_checkpoint")?;
+        raw.map(|value| {
+            crate::coordination_checkpoint::decode_coordination_startup_checkpoint_revision_compat(
+                &value,
+            )
+            .with_context(|| {
+                "failed to decode snapshot `coordination_startup_checkpoint` from sqlite"
+            })
+        })
+        .transpose()
+        .map(|checkpoint| checkpoint.map(|checkpoint| checkpoint.coordination_revision))
     }
 
     fn save_coordination_startup_checkpoint(

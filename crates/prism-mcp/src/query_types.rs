@@ -20,12 +20,12 @@ use std::path::{Path, PathBuf};
 use crate::log_scope::LogScope;
 use crate::tool_args::ValidationRefPayload;
 use crate::{
-    vocabulary_error, AcceptanceCriterionPayload, AnchorRefInput, CapabilityInput,
-    ClaimModeInput, CoordinationPolicyPayload, CoordinationTaskStatusInput,
-    GitExecutionCompletionModeInput, GitExecutionStartModeInput, GitIntegrationModeInput,
-    InferredEdgeScopeInput, LeaseRenewalModeInput, MemoryKindInput, MemorySourceInput, NodeIdInput,
-    OutcomeEvidenceInput, OutcomeKindInput, OutcomeResultInput, PlanBindingPayload,
-    PlanSchedulingPayload, PlanStatusInput, ReviewVerdictInput, TaskCompletionContextPayload,
+    vocabulary_error, AcceptanceCriterionPayload, AnchorRefInput, CapabilityInput, ClaimModeInput,
+    CoordinationPolicyPayload, CoordinationTaskStatusInput, GitExecutionCompletionModeInput,
+    GitExecutionStartModeInput, GitIntegrationModeInput, InferredEdgeScopeInput,
+    LeaseRenewalModeInput, MemoryKindInput, MemorySourceInput, NodeIdInput, OutcomeEvidenceInput,
+    OutcomeKindInput, OutcomeResultInput, PlanBindingPayload, PlanSchedulingPayload,
+    PlanStatusInput, ReviewVerdictInput, TaskCompletionContextPayload,
 };
 
 #[derive(Debug, Clone, Deserialize)]

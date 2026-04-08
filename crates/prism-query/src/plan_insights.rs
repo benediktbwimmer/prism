@@ -67,7 +67,10 @@ impl Prism {
             {
                 summary.completion_gated_nodes += 1;
             }
-            if blockers.iter().any(|blocker| is_task_review_gate(blocker.kind)) {
+            if blockers
+                .iter()
+                .any(|blocker| is_task_review_gate(blocker.kind))
+            {
                 summary.review_gated_nodes += 1;
             }
             if blockers
@@ -76,7 +79,10 @@ impl Prism {
             {
                 summary.validation_gated_nodes += 1;
             }
-            if blockers.iter().any(|blocker| is_task_stale_gate(blocker.kind)) {
+            if blockers
+                .iter()
+                .any(|blocker| is_task_stale_gate(blocker.kind))
+            {
                 summary.stale_nodes += 1;
             }
             if blockers
@@ -134,7 +140,10 @@ fn is_task_completion_gate(kind: BlockerKind) -> bool {
 }
 
 fn is_task_review_gate(kind: BlockerKind) -> bool {
-    matches!(kind, BlockerKind::ReviewRequired | BlockerKind::RiskReviewRequired)
+    matches!(
+        kind,
+        BlockerKind::ReviewRequired | BlockerKind::RiskReviewRequired
+    )
 }
 
 fn is_task_validation_gate(kind: BlockerKind) -> bool {
@@ -142,7 +151,10 @@ fn is_task_validation_gate(kind: BlockerKind) -> bool {
 }
 
 fn is_task_stale_gate(kind: BlockerKind) -> bool {
-    matches!(kind, BlockerKind::StaleRevision | BlockerKind::ArtifactStale)
+    matches!(
+        kind,
+        BlockerKind::StaleRevision | BlockerKind::ArtifactStale
+    )
 }
 
 fn compatibility_plan_status(status: DerivedPlanStatus) -> PlanStatus {

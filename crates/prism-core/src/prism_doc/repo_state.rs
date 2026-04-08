@@ -8,7 +8,7 @@ use prism_coordination::{
 };
 use prism_ir::{
     CoordinationTaskStatus, DerivedPlanStatus, EffectiveTaskStatus, GitExecutionStatus, NodeRef,
-    NodeRefKind, PlanId, PlanKind, PlanScope, PlanStatus, TaskLifecycleStatus, TaskId,
+    NodeRefKind, PlanId, PlanKind, PlanScope, PlanStatus, TaskId, TaskLifecycleStatus,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemoryEventKind};
 use serde::Serialize;
@@ -16,7 +16,9 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::memory_events::load_repo_memory_events;
-use crate::published_plans::{load_authoritative_coordination_plan_state, HydratedCoordinationPlanState};
+use crate::published_plans::{
+    load_authoritative_coordination_plan_state, HydratedCoordinationPlanState,
+};
 
 use super::{anchor_label, write_generated_file, PrismDocFileSync};
 
@@ -53,7 +55,12 @@ impl RepoStateCatalog {
             left.bucket
                 .sort_key()
                 .cmp(&right.bucket.sort_key())
-                .then_with(|| left.plan.title.to_ascii_lowercase().cmp(&right.plan.title.to_ascii_lowercase()))
+                .then_with(|| {
+                    left.plan
+                        .title
+                        .to_ascii_lowercase()
+                        .cmp(&right.plan.title.to_ascii_lowercase())
+                })
                 .then_with(|| left.plan.id.0.cmp(&right.plan.id.0))
         });
 
@@ -431,7 +438,11 @@ fn build_published_plan_doc(
     let task_statuses = descendant_task_ids
         .iter()
         .filter_map(|task_id| {
-            let task = snapshot.tasks.iter().find(|task| task.id == *task_id)?.clone();
+            let task = snapshot
+                .tasks
+                .iter()
+                .find(|task| task.id == *task_id)?
+                .clone();
             let effective_status = derivations.task_state(task_id)?.effective_status;
             Some(PublishedTaskDoc {
                 task,

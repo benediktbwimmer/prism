@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use prism_coordination::{
-    coordination_queue_read_model_from_seed, coordination_read_model_from_seed,
-    CoordinationEvent, CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    coordination_queue_read_model_from_seed, coordination_read_model_from_seed, CoordinationEvent,
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
     CoordinationSnapshotV2, TaskGitExecution,
 };
 use prism_ir::SessionId;
@@ -327,7 +327,11 @@ pub(crate) trait CoordinationPersistenceBackend:
         root: &Path,
         snapshot: &CoordinationSnapshot,
     ) -> Result<()> {
-        self.persist_coordination_state_for_root(root, snapshot, &snapshot.to_canonical_snapshot_v2())
+        self.persist_coordination_state_for_root(
+            root,
+            snapshot,
+            &snapshot.to_canonical_snapshot_v2(),
+        )
     }
 
     fn persist_coordination_state_for_root(
@@ -376,6 +380,31 @@ pub(crate) trait CoordinationPersistenceBackend:
     where
         O: FnMut(&str, Duration, Value, bool, Option<String>),
     {
+        let publish_context = publish_context_from_coordination_events(appended_events);
+        let derived = CoordinationDerivedSyncInputs {
+            canonical_snapshot_v2: canonical_snapshot_v2.clone(),
+        };
+        let shared_publish_enabled = shared_coordination_ref_publish_enabled(root);
+        if shared_publish_enabled {
+            sync_authoritative_shared_coordination_ref_observed(
+                root,
+                snapshot,
+                &derived,
+                publish_context.as_ref(),
+                &mut observe_phase,
+            )?;
+        } else {
+            observe_phase(
+                "mutation.coordination.publishedPlans.syncSharedCoordinationRef",
+                Duration::ZERO,
+                json!({
+                    "skipped": true,
+                    "reason": "test_default_disabled",
+                }),
+                true,
+                None,
+            );
+        }
         let result = observe_coordination_step(
             &mut observe_phase,
             "mutation.coordination.commitPersistBatch",
@@ -388,19 +417,16 @@ pub(crate) trait CoordinationPersistenceBackend:
             || {
                 self.commit_coordination_persist_batch(&CoordinationPersistBatch {
                     context: coordination_persist_context_for_root(root, session_id),
-                    expected_revision: Some(expected_revision),
+                    expected_revision: if shared_publish_enabled {
+                        None
+                    } else {
+                        Some(expected_revision)
+                    },
                     appended_events: appended_events.to_vec(),
                 })
             },
         )?;
         if !result.applied {
-            observe_phase(
-                "mutation.coordination.publishedPlans.syncSharedCoordinationRef",
-                Duration::ZERO,
-                json!({ "skipped": true, "applied": false }),
-                true,
-                None,
-            );
             if matches!(
                 derived_persistence_mode,
                 CoordinationDerivedPersistenceMode::Inline
@@ -450,30 +476,6 @@ pub(crate) trait CoordinationPersistenceBackend:
                 );
             }
             return Ok(result);
-        }
-        let publish_context = publish_context_from_coordination_events(appended_events);
-        let derived = CoordinationDerivedSyncInputs {
-            canonical_snapshot_v2: canonical_snapshot_v2.clone(),
-        };
-        if shared_coordination_ref_publish_enabled(root) {
-            sync_authoritative_shared_coordination_ref_observed(
-                root,
-                snapshot,
-                &derived,
-                publish_context.as_ref(),
-                &mut observe_phase,
-            )?;
-        } else {
-            observe_phase(
-                "mutation.coordination.publishedPlans.syncSharedCoordinationRef",
-                Duration::ZERO,
-                json!({
-                    "skipped": true,
-                    "reason": "test_default_disabled",
-                }),
-                true,
-                None,
-            );
         }
         if matches!(
             derived_persistence_mode,

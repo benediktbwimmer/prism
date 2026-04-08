@@ -280,7 +280,10 @@ pub(crate) fn merge_shared_coordination_into_snapshot(
     snapshot
 }
 
-fn write_derived_published_plan_artifacts(root: &Path, snapshot: &CoordinationSnapshotV2) -> Result<()> {
+fn write_derived_published_plan_artifacts(
+    root: &Path,
+    snapshot: &CoordinationSnapshotV2,
+) -> Result<()> {
     let active_dir = repo_active_plans_dir(root);
     let archived_dir = repo_archived_plans_dir(root);
     fs::create_dir_all(&active_dir)?;
@@ -413,7 +416,10 @@ fn derived_plan_log_path(status: PlanStatus, plan_id: &PlanId) -> PathBuf {
     base.join(format!("{}.jsonl", plan_id.0))
 }
 
-fn cleanup_stale_derived_plan_logs(root: &Path, expected_derived_logs: &BTreeSet<String>) -> Result<()> {
+fn cleanup_stale_derived_plan_logs(
+    root: &Path,
+    expected_derived_logs: &BTreeSet<String>,
+) -> Result<()> {
     for dir in [repo_active_plans_dir(root), repo_archived_plans_dir(root)] {
         if !dir.exists() {
             continue;

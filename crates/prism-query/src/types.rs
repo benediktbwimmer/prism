@@ -185,7 +185,6 @@ pub struct CoordinationTaskV2 {
     pub dependents: Vec<NodeRef>,
 }
 
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DriftCandidate {
     pub spec: NodeId,

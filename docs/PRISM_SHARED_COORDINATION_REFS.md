@@ -149,15 +149,21 @@ Required non-goals:
 PRISM should store authoritative multi-agent coordination state in a dedicated shared ref namespace,
 not in the current branch worktree.
 
-Canonical v1 ref shape:
+Canonical authoritative ref family:
 
 ```text
 refs/prism/coordination/<logical-repo-id>/live
+refs/prism/coordination/<logical-repo-id>/tasks/<shard>
+refs/prism/coordination/<logical-repo-id>/claims/<shard>
+refs/prism/coordination/<logical-repo-id>/runtimes/<runtime-id>
 ```
 
 For the initial implementation, the naming should be fixed rather than left open:
 
-- one shared logical coordination head per repository
+- one shared logical summary head per repository
+- sharded task refs
+- sharded claim refs
+- per-runtime runtime refs
 - writable through normal Git fetch and push
 - not tied to `main` or any feature branch
 
@@ -167,10 +173,14 @@ PRISM should therefore treat:
 refs/prism/coordination/<logical-repo-id>/live
 ```
 
-as the canonical live coordination ref for a logical repository.
+as the canonical live coordination summary ref for a logical repository.
 
-Domain-specific shards belong inside the snapshot tree under that one live head, not in separate
-live refs.
+The summary ref is the transaction root for authoritative reads. It must name the exact shard and
+runtime ref heads that belong to the published snapshot.
+
+Task, claim, and runtime refs remain physically sharded so routine hot writes stay narrow, but
+those refs are not authoritative to readers on their own. A reader must only trust the shard heads
+that the current summary manifest names.
 
 ### 4.2 The shared ref should be snapshot-oriented
 
@@ -365,23 +375,35 @@ Shared coordination writes should use explicit optimistic concurrency.
 
 For a mutation that changes shared coordination state:
 
-1. fetch the current shared coordination ref
-2. verify the current manifest and snapshot set
-3. hydrate the relevant live coordination state
+1. fetch the current shared coordination summary ref and any shard/runtime ref families needed to
+   materialize the current authoritative snapshot
+2. verify the current summary manifest and the shard/runtime commits it names
+3. hydrate the current authoritative state from the summary ref plus those exact named shard heads
 4. apply the mutation in memory
-5. materialize a new deterministic snapshot tree
-6. write a new signed manifest
-7. create a new commit for the shared ref
-8. push the updated ref with expected-old-head semantics
+5. materialize deterministic trees for:
+   - each changed task shard ref
+   - each changed claim shard ref
+   - each changed runtime ref
+   - the summary `live` ref
+6. create local commits for every changed ref without first mutating the published local ref heads
+7. write the summary manifest so `summarySources` names the exact new shard/runtime commit heads
+8. push all changed refs together with `git push --atomic` and expected-old-head semantics for
+   every destination ref
+9. only after that atomic push succeeds, update local derived state such as:
+   - coordination read models
+   - queue read models
+   - startup checkpoints
+   - any local compatibility/event mirrors
 
-If the push succeeds, the mutation is globally published.
+If the atomic push succeeds, the mutation is globally published.
+If it fails, no ref becomes authoritative and the local cache must remain unchanged.
 
 ### 8.2 Compare-and-swap semantics
 
-The push must behave like compare-and-swap:
+The publish must behave like compare-and-swap across the whole changed ref set:
 
-- if the remote ref head is still the one PRISM fetched, the push succeeds
-- if another agent won the race first, the push is rejected
+- if every remote ref head is still the one PRISM fetched, the atomic push succeeds
+- if any one destination ref changed first, the atomic push is rejected and none of the refs move
 
 On rejection, PRISM should:
 
@@ -391,7 +413,8 @@ On rejection, PRISM should:
 4. re-evaluate whether the mutation still applies
 5. retry or fail explicitly
 
-This gives PRISM optimistic concurrency without a central database lock manager.
+This gives PRISM optimistic concurrency without a central database lock manager and without
+exposing partial remote state.
 
 ### 8.3 Idempotence
 
@@ -404,7 +427,8 @@ Examples:
 - a lease renewal should confirm that the lease is still owned by the renewing principal
 - a completion acknowledgment should confirm whether publication was already recorded
 
-This is especially important once multiple agents are writing the same shared ref.
+This is especially important once multiple agents are writing the same summary and shard ref
+family.
 
 ### 8.4 Transport implementation boundary
 
@@ -424,8 +448,8 @@ coordination protocol is stable, but v1 should not depend on dual backends.
 
 ## 9. Read and Hydration Protocol
 
-PRISM should treat the shared coordination ref as the first durable source for cross-branch live
-coordination.
+PRISM should treat the shared coordination summary ref as the first durable source for cross-branch
+live coordination.
 
 ### 9.1 Startup
 
@@ -439,7 +463,7 @@ On startup PRISM should:
 
 The critical-path rule is:
 
-- the shared ref remains the authority and replication source
+- the shared summary ref remains the authority and replication source
 - the local materialized coordination snapshot is the startup artifact
 - startup must not treat the shared ref as a live database by fetch-verifying and reloading hundreds
   of shared snapshot files on every hot restart
@@ -489,20 +513,25 @@ should be extended conceptually to shared coordination ref updates.
 The runtime needs:
 
 - a dedicated watcher or poller for the shared ref head
-- targeted import of changed snapshot shards
+- targeted import of the shard/runtime heads named by the current summary manifest
 - self-write suppression so PRISM does not churn on its own just-published coordination updates
 - bounded reconciliation as a safety net
 
 That explicit sync path should also own:
 
-- fetch and manifest verification for the shared ref
+- fetch and manifest verification for the shared summary ref
+- fetch and verification for the exact shard/runtime heads named by the summary manifest
 - rebuild or refresh of the local materialized coordination snapshot or checkpoint
 - invalidation keyed by shared-ref identity such as the live head commit, canonical manifest digest,
   or both
 
-The sync path should compare the remote/shared authority key against the last imported local key and
+The sync path should compare the summary-head authority key against the last imported local key and
 rebuild the local startup checkpoint only when that authority input changed or the local checkpoint
 schema version changed.
+
+The local SQLite cache is a read model. It must not become authoritative just because a local
+mutation was attempted. Direct write paths may refresh that cache after a successful authoritative
+publish, but the cache must never advance ahead of the shared summary and shard refs.
 
 Longer term, the shared ref may also publish one compact canonical checkpoint artifact so sync no
 longer has to rehydrate from hundreds of tiny files as its primary ingestion format. But even in
@@ -945,11 +974,13 @@ This is normal and expected.
 
 ### 14.2 Verification failures
 
-If the shared coordination manifest or shards fail verification:
+If the shared coordination summary manifest or any shard/runtime commit that it names fail
+verification:
 
 - PRISM must refuse authoritative hydration
 - runtime should surface a clear degraded status
-- repair or restore flows should operate on the shared ref, not silently fall back to stale state
+- repair or restore flows should operate on the shared ref family, not silently fall back to stale
+  local shard heads
 
 ### 14.3 Partial completion publication
 
@@ -1015,6 +1046,8 @@ The implementation now includes explicit coverage for:
 
 - cold hydration from the shared coordination ref alone
 - compare-and-swap push races between two writers
+- multi-ref atomic push so task/claim/runtime shard refs and the summary ref never publish
+  partially
 - claim visibility across branches without merging the task branch
 - lease renewal and expiry using low-frequency authoritative updates
 - self-write suppression during local publication
@@ -1035,7 +1068,13 @@ Concrete test and dogfooding evidence is recorded in `docs/SHARED_COORDINATION_R
 
 The storage and CAS design decisions are now implemented for v1:
 
-- use one live shared coordination head per logical repository, not separate heads per domain
+- use one live shared coordination summary head per logical repository plus sharded task, claim,
+  and runtime refs
+- treat the summary manifest as the transaction root for authoritative reads by pinning the exact
+  shard/runtime heads that belong to the snapshot
+- publish changed refs by creating local commits first, then using one `git push --atomic` with
+  compare-and-swap expectations for the whole changed ref set
+- update local read models and startup checkpoints only after authoritative publish succeeds
 - keep branch-local `.prism/state/**` mirrors minimal, derived, and explicitly non-authoritative
 - implement the shared-ref transport behind an abstraction, but ship shell Git first as the only
   backend
@@ -1064,10 +1103,9 @@ The main operational constraint remains bounded-history growth, which is why com
 archive-boundary metadata, and operator diagnostics are part of the implemented design rather than a
 later follow-up.
 
-That is manageable if PRISM treats the shared ref as:
+That is manageable if PRISM treats the shared coordination ref family as:
 
-- compact current snapshots
-- one signed manifest
+- one signed summary manifest as the transaction root
 - narrow shards
 - bounded recent detail
 - aggressive compaction for older history

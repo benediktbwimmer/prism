@@ -2060,11 +2060,8 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        Ok(
-            prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(
-                &mut *self.store.lock().expect("workspace store lock poisoned"),
-            )?
-            .map(|checkpoint| checkpoint.coordination_revision),
+        prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint_revision(
+            &mut *self.store.lock().expect("workspace store lock poisoned"),
         )
     }
 

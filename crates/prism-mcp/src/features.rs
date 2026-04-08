@@ -245,7 +245,7 @@ impl PrismMcpFeatures {
         }
     }
 
-    pub(crate) fn prism_mutate_action_enabled(&self, action: &str) -> bool {
+    pub(crate) fn prism_mutate_action_visible(&self, action: &str) -> bool {
         if self.runtime_mode != PrismRuntimeMode::CoordinationOnly {
             return true;
         }
@@ -255,6 +255,18 @@ impl PrismMcpFeatures {
             "heartbeat_lease" | "claim" => self.coordination.claims,
             "artifact" => self.coordination.artifacts,
             _ => false,
+        }
+    }
+
+    pub(crate) fn prism_mutate_action_enabled(&self, action: &str) -> bool {
+        if !self.prism_mutate_action_visible(action) {
+            return false;
+        }
+        match action {
+            "coordination" => self.coordination.workflow,
+            "heartbeat_lease" | "claim" => self.coordination.claims,
+            "artifact" => self.coordination.artifacts,
+            _ => true,
         }
     }
 
@@ -269,8 +281,8 @@ impl PrismMcpFeatures {
     fn coordination_only_query_method_enabled(&self, operation: &str) -> bool {
         match operation {
             "from" | "tools" | "tool" | "validateToolInput" | "diagnostics" => true,
-            "plans" | "plan" | "planSummary" | "coordinationTask" | "readyTasks"
-            | "blockers" | "policyViolations"
+            "plans" | "plan" | "planSummary" | "coordinationTask" | "readyTasks" | "blockers"
+            | "policyViolations"
                 if self.coordination.workflow =>
             {
                 true
@@ -428,7 +440,7 @@ impl PrismMcpFeatures {
 
     pub(crate) fn vocabulary_value_visible(&self, key: &str, value: &str) -> bool {
         match key {
-            "prismMutateAction" => self.prism_mutate_action_enabled(value),
+            "prismMutateAction" => self.prism_mutate_action_visible(value),
             _ => self.vocabulary_category_visible(key),
         }
     }

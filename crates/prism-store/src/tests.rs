@@ -1863,6 +1863,267 @@ fn sqlite_store_round_trips_workspace_tree_snapshot() {
 }
 
 #[test]
+fn startup_checkpoint_revision_load_ignores_nested_checkpoint_decode_failures() {
+    let path = temp_sqlite_path("prism-store-startup-checkpoint-revision");
+    let store = SqliteStore::open(&path).unwrap();
+    drop(store);
+
+    {
+        let conn = Connection::open(&path).unwrap();
+        let checkpoint = serde_json::json!({
+            "version": 4,
+            "materialized_at": 123,
+            "coordination_revision": 77,
+            "authority": {
+                "ref_name": "refs/prism/coordination/repo-test/live"
+            },
+            "snapshot": {
+                "plans": "invalid"
+            },
+            "runtime_descriptors": []
+        });
+        conn.execute(
+            "INSERT INTO snapshots(key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            rusqlite::params!["coordination_startup_checkpoint", checkpoint.to_string()],
+        )
+        .unwrap();
+    }
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    assert_eq!(
+        Store::load_coordination_startup_checkpoint_revision(&mut store).unwrap(),
+        Some(77)
+    );
+    assert!(Store::load_coordination_startup_checkpoint(&mut store).is_err());
+
+    let _ = fs::remove_file(path);
+}
+
+#[test]
+fn startup_checkpoint_load_accepts_camel_case_checkpoint_fields() {
+    let path = temp_sqlite_path("prism-store-startup-checkpoint-camel-case");
+    let store = SqliteStore::open(&path).unwrap();
+    drop(store);
+
+    {
+        let conn = Connection::open(&path).unwrap();
+        let checkpoint = serde_json::json!({
+            "version": 4,
+            "materializedAt": 123,
+            "coordinationRevision": 77,
+            "authority": {
+                "ref_name": "refs/prism/coordination/repo-test/live"
+            },
+            "snapshot": {
+                "plans": [],
+                "tasks": [],
+                "claims": [],
+                "artifacts": [],
+                "reviews": [],
+                "events": [],
+                "next_plan": 0,
+                "next_task": 0,
+                "next_claim": 0,
+                "next_artifact": 0,
+                "next_review": 0
+            },
+            "canonicalSnapshotV2": null,
+            "runtimeDescriptors": []
+        });
+        conn.execute(
+            "INSERT INTO snapshots(key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            rusqlite::params!["coordination_startup_checkpoint", checkpoint.to_string()],
+        )
+        .unwrap();
+    }
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    let checkpoint = Store::load_coordination_startup_checkpoint(&mut store)
+        .unwrap()
+        .expect("checkpoint should load");
+    assert_eq!(checkpoint.materialized_at, 123);
+    assert_eq!(checkpoint.coordination_revision, 77);
+
+    let _ = fs::remove_file(path);
+}
+
+#[test]
+fn startup_checkpoint_load_accepts_summary_plan_snapshots_without_root_tasks() {
+    let path = temp_sqlite_path("prism-store-startup-checkpoint-summary-plans");
+    let store = SqliteStore::open(&path).unwrap();
+    drop(store);
+
+    {
+        let conn = Connection::open(&path).unwrap();
+        let checkpoint = serde_json::json!({
+            "version": 4,
+            "materialized_at": 123,
+            "coordination_revision": 77,
+            "authority": {
+                "ref_name": "refs/prism/coordination/repo-test/live"
+            },
+            "snapshot": {
+                "plans": [{
+                    "id": "plan:compat",
+                    "goal": "Compatibility fallback",
+                    "title": "Compatibility fallback",
+                    "status": "Active",
+                    "policy": {
+                        "default_claim_mode": "Advisory",
+                        "max_parallel_editors_per_anchor": 2,
+                        "require_review_for_completion": false,
+                        "require_validation_for_completion": false,
+                        "stale_after_graph_change": true,
+                        "review_required_above_risk_score": null,
+                        "lease_stale_after_seconds": 1800,
+                        "lease_expires_after_seconds": 7200,
+                        "lease_renewal_mode": "strict",
+                        "git_execution": {
+                            "startMode": "off",
+                            "completionMode": "off",
+                            "targetRef": null,
+                            "targetBranch": "",
+                            "requireTaskBranch": false,
+                            "maxCommitsBehindTarget": 0,
+                            "maxFetchAgeSeconds": null,
+                            "integrationMode": "external"
+                        }
+                    },
+                    "scope": "Repo",
+                    "kind": "TaskExecution",
+                    "revision": 0,
+                    "scheduling": {
+                        "importance": 0,
+                        "urgency": 0,
+                        "manualBoost": 0,
+                        "dueAt": null
+                    },
+                    "tags": [],
+                    "created_from": null,
+                    "metadata": null
+                }],
+                "tasks": [],
+                "claims": [],
+                "artifacts": [],
+                "reviews": [],
+                "events": [],
+                "next_plan": 1,
+                "next_task": 0,
+                "next_claim": 0,
+                "next_artifact": 0,
+                "next_review": 0
+            },
+            "canonical_snapshot_v2": null,
+            "runtime_descriptors": []
+        });
+        conn.execute(
+            "INSERT INTO snapshots(key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            rusqlite::params!["coordination_startup_checkpoint", checkpoint.to_string()],
+        )
+        .unwrap();
+    }
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    let checkpoint = Store::load_coordination_startup_checkpoint(&mut store)
+        .unwrap()
+        .expect("checkpoint should load");
+    assert_eq!(checkpoint.snapshot.plans.len(), 1);
+    assert_eq!(checkpoint.snapshot.plans[0].id.0, "plan:compat");
+    assert_eq!(checkpoint.snapshot.next_plan, 1);
+
+    let _ = fs::remove_file(path);
+}
+
+#[test]
+fn startup_checkpoint_revision_load_accepts_summary_plan_snapshots_without_root_tasks() {
+    let path = temp_sqlite_path("prism-store-startup-checkpoint-summary-plan-revision");
+    let store = SqliteStore::open(&path).unwrap();
+    drop(store);
+
+    {
+        let conn = Connection::open(&path).unwrap();
+        let checkpoint = serde_json::json!({
+            "version": 4,
+            "materialized_at": 123,
+            "coordination_revision": 77,
+            "authority": {
+                "ref_name": "refs/prism/coordination/repo-test/live"
+            },
+            "snapshot": {
+                "plans": [{
+                    "id": "plan:compat",
+                    "goal": "Compatibility fallback",
+                    "title": "Compatibility fallback",
+                    "status": "Active",
+                    "policy": {
+                        "default_claim_mode": "Advisory",
+                        "max_parallel_editors_per_anchor": 2,
+                        "require_review_for_completion": false,
+                        "require_validation_for_completion": false,
+                        "stale_after_graph_change": true,
+                        "review_required_above_risk_score": null,
+                        "lease_stale_after_seconds": 1800,
+                        "lease_expires_after_seconds": 7200,
+                        "lease_renewal_mode": "strict",
+                        "git_execution": {
+                            "startMode": "off",
+                            "completionMode": "off",
+                            "targetRef": null,
+                            "targetBranch": "",
+                            "requireTaskBranch": false,
+                            "maxCommitsBehindTarget": 0,
+                            "maxFetchAgeSeconds": null,
+                            "integrationMode": "external"
+                        }
+                    },
+                    "scope": "Repo",
+                    "kind": "TaskExecution",
+                    "revision": 0,
+                    "scheduling": {
+                        "importance": 0,
+                        "urgency": 0,
+                        "manualBoost": 0,
+                        "dueAt": null
+                    },
+                    "tags": [],
+                    "created_from": null,
+                    "metadata": null
+                }],
+                "tasks": [],
+                "claims": [],
+                "artifacts": [],
+                "reviews": [],
+                "events": [],
+                "next_plan": 1,
+                "next_task": 0,
+                "next_claim": 0,
+                "next_artifact": 0,
+                "next_review": 0
+            },
+            "canonical_snapshot_v2": null,
+            "runtime_descriptors": []
+        });
+        conn.execute(
+            "INSERT INTO snapshots(key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            rusqlite::params!["coordination_startup_checkpoint", checkpoint.to_string()],
+        )
+        .unwrap();
+    }
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    assert_eq!(
+        Store::load_coordination_startup_checkpoint_revision(&mut store).unwrap(),
+        Some(77)
+    );
+
+    let _ = fs::remove_file(path);
+}
+
+#[test]
 fn sqlite_store_configures_connection_pragmas() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-pragmas-test-{}.db",

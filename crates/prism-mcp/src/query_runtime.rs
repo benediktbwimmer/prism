@@ -45,26 +45,24 @@ use crate::{
     owner_views_for_target, parse_event_actor, parse_memory_event_action, parse_memory_kind,
     parse_memory_scope, parse_node_kind, parse_outcome_kind, parse_outcome_result,
     parse_plan_scope, parse_plan_status, parse_typescript_error, plan_children_v2_view,
-    plan_summary_view, plan_view_from_v2,
-    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
-    promoted_validation_checks, query_diagnostic, query_feature_disabled_error, query_method_specs,
-    rank_search_results, read_context_view_cached, recent_change_context_view_cached,
-    recent_patches, recent_patches_from_events, relations_view, resolve_concepts_for_session,
-    result_decode_error, runtime_or_serialization_error, scored_memory_view, search_queries,
-    source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view, symbol_for,
-    symbol_view, symbol_views_for_ids, task_intent_view, task_risk_view,
-    task_validation_recipe_view, tool_catalog_views_with_features,
-    tool_schema_view_with_features, validate_tool_input_value_with_features,
-    validation_context_view_cached, validation_recipe_view_with, weak_concept_match_reason,
-    weak_search_match_diagnostic_data, weak_search_match_reason, where_used,
-    AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, ConceptHandleArgs,
-    ConceptQueryArgs, ConceptVerbosity, ContractQueryArgs, ContractsQueryArgs,
-    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, CuratorProposalsArgs,
-    DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs,
-    FileReadArgs, ImplementationTargetArgs, LimitArgs, McpLogArgs, McpTraceArgs, MemoryEventArgs,
-    MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
-    PendingReviewsArgs, PlanTargetArgs,
-    PlansQueryArgs, PolicyViolationQueryArgs, QueryHost,
+    plan_summary_view, plan_view_from_v2, policy_violation_record_view, promoted_memory_entries,
+    promoted_summary_texts, promoted_validation_checks, query_diagnostic,
+    query_feature_disabled_error, query_method_specs, rank_search_results,
+    read_context_view_cached, recent_change_context_view_cached, recent_patches,
+    recent_patches_from_events, relations_view, resolve_concepts_for_session, result_decode_error,
+    runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
+    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
+    task_intent_view, task_risk_view, task_validation_recipe_view,
+    tool_catalog_views_with_features, tool_schema_view_with_features,
+    validate_tool_input_value_with_features, validation_context_view_cached,
+    validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
+    weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
+    ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs, ConceptVerbosity, ContractQueryArgs,
+    ContractsQueryArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
+    CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
+    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, McpLogArgs, McpTraceArgs,
+    MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
+    PendingReviewsArgs, PlanTargetArgs, PlansQueryArgs, PolicyViolationQueryArgs, QueryHost,
     QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs,
     RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache,
     SessionState, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs,
@@ -216,7 +214,8 @@ struct TaskQuerySubject {
 
 fn resolve_task_query_subject(prism: &Prism, task_id: &str) -> Option<TaskQuerySubject> {
     let coordination_task_id = CoordinationTaskId::new(task_id.to_string());
-    prism.coordination_task(&coordination_task_id)
+    prism
+        .coordination_task(&coordination_task_id)
         .map(|_| TaskQuerySubject {
             coordination_task_id,
         })
@@ -1094,15 +1093,13 @@ impl QueryExecution {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     let plan_id = PlanId::new(args.plan_id);
                     Ok(serde_json::to_value(
-                        self.prism
-                            .coordination_plan_v2(&plan_id)
-                            .map(|plan| {
-                                plan_view_from_v2(
-                                    plan,
-                                    self.prism.coordination_plan(&plan_id),
-                                    self.prism.plan_activity(&plan_id),
-                                )
-                            }),
+                        self.prism.coordination_plan_v2(&plan_id).map(|plan| {
+                            plan_view_from_v2(
+                                plan,
+                                self.prism.coordination_plan(&plan_id),
+                                self.prism.plan_activity(&plan_id),
+                            )
+                        }),
                     )?)
                 }
                 "planV2" => {
@@ -1373,8 +1370,9 @@ impl QueryExecution {
                     Ok(serde_json::to_value(
                         resolve_task_query_subject(self.prism.as_ref(), &args.task_id).and_then(
                             |subject| {
-                                let impact =
-                                    self.prism.task_blast_radius(&subject.coordination_task_id)?;
+                                let impact = self
+                                    .prism
+                                    .task_blast_radius(&subject.coordination_task_id)?;
                                 let anchors =
                                     task_query_subject_anchors(self.prism.as_ref(), &subject);
                                 let mut view = change_impact_view(impact);
@@ -1425,9 +1423,10 @@ impl QueryExecution {
                                     self.prism.coordination_task(&subject.coordination_task_id);
                                 let anchors =
                                     task_query_subject_anchors(self.prism.as_ref(), &subject);
-                                let mut risk = self
-                                    .prism
-                                    .task_risk(&subject.coordination_task_id, current_timestamp())?;
+                                let mut risk = self.prism.task_risk(
+                                    &subject.coordination_task_id,
+                                    current_timestamp(),
+                                )?;
                                 let promoted_summaries = promoted_summary_texts(
                                     self.session.as_ref(),
                                     self.prism.as_ref(),

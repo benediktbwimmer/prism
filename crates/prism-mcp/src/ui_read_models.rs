@@ -1136,10 +1136,14 @@ pub(crate) fn plan_entries_from_snapshot(
         .plans
         .iter()
         .filter_map(|plan| {
-            let summary = plan_summary_from_canonical_snapshot(&canonical_snapshot, &derivations, &plan.id)?;
+            let summary =
+                plan_summary_from_canonical_snapshot(&canonical_snapshot, &derivations, &plan.id)?;
             let node_status_counts =
                 canonical_plan_node_status_counts(&derivations, &graph, &plan.id);
-            let activity = activity_by_plan.get(plan.id.0.as_str()).cloned().unwrap_or_default();
+            let activity = activity_by_plan
+                .get(plan.id.0.as_str())
+                .cloned()
+                .unwrap_or_default();
             let activity = plan_activity_present(&activity).then(|| plan_activity_view(activity));
             let derived_status = derivations.plan_state(&plan.id)?;
             let status = legacy_status_by_plan
@@ -2327,12 +2331,9 @@ fn graph_plan_touchpoints(
     touchpoints
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::{
-        sort_plan_entries, sort_plan_entries_for_resource, PlansResourceSort, UiPlanSort,
-    };
+    use super::{sort_plan_entries, sort_plan_entries_for_resource, PlansResourceSort, UiPlanSort};
     use prism_ir::{PlanKind, PlanScope, PlanStatus};
     use prism_js::{
         GitExecutionPolicyView, PlanListEntryView, PlanNodeStatusCountsView, PlanSchedulingView,

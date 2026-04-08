@@ -380,16 +380,12 @@ return {{
     );
     assert_eq!(result.result["context"]["task"]["id"], task_id);
     assert_eq!(result.result["context"]["taskV2"]["id"], task_id);
-    assert!(
-        result.result["context"]["dependencies"]
-            .as_array()
-            .is_some_and(|dependencies| dependencies.is_empty())
-    );
-    assert!(
-        result.result["context"]["dependents"]
-            .as_array()
-            .is_some_and(|dependents| dependents.is_empty())
-    );
+    assert!(result.result["context"]["dependencies"]
+        .as_array()
+        .is_some_and(|dependencies| dependencies.is_empty()));
+    assert!(result.result["context"]["dependents"]
+        .as_array()
+        .is_some_and(|dependents| dependents.is_empty()));
     assert_eq!(
         result.result["context"]["claims"].as_array().unwrap().len(),
         1
