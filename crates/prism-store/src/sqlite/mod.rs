@@ -967,8 +967,7 @@ impl Store for SqliteStore {
     fn load_coordination_startup_checkpoint(
         &mut self,
     ) -> Result<Option<crate::CoordinationStartupCheckpoint>> {
-        let raw =
-            snapshots::load_snapshot_row_raw(&self.conn, "coordination_startup_checkpoint")?;
+        let raw = snapshots::load_snapshot_row_raw(&self.conn, "coordination_startup_checkpoint")?;
         raw.map(|value| {
             crate::coordination_checkpoint::decode_coordination_startup_checkpoint_compat(&value)
                 .with_context(|| {
@@ -979,8 +978,7 @@ impl Store for SqliteStore {
     }
 
     fn load_coordination_startup_checkpoint_revision(&mut self) -> Result<Option<u64>> {
-        let raw =
-            snapshots::load_snapshot_row_raw(&self.conn, "coordination_startup_checkpoint")?;
+        let raw = snapshots::load_snapshot_row_raw(&self.conn, "coordination_startup_checkpoint")?;
         raw.map(|value| {
             crate::coordination_checkpoint::decode_coordination_startup_checkpoint_revision_compat(
                 &value,

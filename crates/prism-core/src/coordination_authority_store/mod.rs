@@ -9,10 +9,9 @@ pub use types::{
     CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
     CoordinationAuthorityProvenance, CoordinationAuthorityStamp, CoordinationConflictInfo,
     CoordinationCurrentState, CoordinationDerivedStateMode, CoordinationDiagnosticsRequest,
-    CoordinationHistoryEnvelope, CoordinationHistoryEntry, CoordinationHistoryRequest,
+    CoordinationHistoryEntry, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
     CoordinationReadEnvelope, CoordinationReadRequest, CoordinationStateView,
-    CoordinationTransactionBase, CoordinationTransactionDiagnostic,
-    CoordinationTransactionRequest, CoordinationTransactionResult,
-    CoordinationTransactionStatus, RuntimeDescriptorClearRequest,
+    CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
+    CoordinationTransactionResult, CoordinationTransactionStatus, RuntimeDescriptorClearRequest,
     RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };

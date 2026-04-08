@@ -2000,7 +2000,9 @@ impl WorkspaceSession {
     ) -> Result<CoordinationReadResult<CoordinationSnapshot>> {
         self.read_coordination_with_consistency(
             consistency,
-            |store| store.load_eventual_coordination_snapshot_for_root(&self.root),
+            |_store| {
+                crate::coordination_reads::load_eventual_coordination_snapshot_for_root(&self.root)
+            },
             |store| store.load_authoritative_coordination_snapshot_for_root(&self.root),
         )
     }
@@ -2011,7 +2013,11 @@ impl WorkspaceSession {
     ) -> Result<CoordinationReadResult<CoordinationSnapshotV2>> {
         self.read_coordination_with_consistency(
             consistency,
-            |store| store.load_eventual_coordination_snapshot_v2_for_root(&self.root),
+            |_store| {
+                crate::coordination_reads::load_eventual_coordination_snapshot_v2_for_root(
+                    &self.root,
+                )
+            },
             |store| store.load_authoritative_coordination_snapshot_v2_for_root(&self.root),
         )
     }

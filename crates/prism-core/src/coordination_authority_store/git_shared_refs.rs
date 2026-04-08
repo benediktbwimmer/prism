@@ -7,20 +7,19 @@ use super::traits::CoordinationAuthorityStore;
 use super::types::{
     CoordinationAuthorityBackendDetails, CoordinationAuthorityBackendKind,
     CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
-    CoordinationAuthorityProvenance, CoordinationAuthorityStamp, CoordinationCurrentState,
-    CoordinationConflictInfo, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
+    CoordinationAuthorityProvenance, CoordinationAuthorityStamp, CoordinationConflictInfo,
+    CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
     CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
     CoordinationTransactionBase, CoordinationTransactionRequest, CoordinationTransactionResult,
-    CoordinationTransactionStatus, RuntimeDescriptorClearRequest,
-    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    CoordinationTransactionStatus, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
+    RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use crate::coordination_startup_checkpoint::coordination_startup_authority;
 use crate::shared_coordination_ref::{
     clear_runtime_descriptor_record, load_shared_coordination_ref_state_authoritative,
     load_shared_coordination_retained_history, publish_runtime_descriptor_record,
-    shared_coordination_ref_diagnostics,
-    sync_shared_coordination_ref_state,
+    shared_coordination_ref_diagnostics, sync_shared_coordination_ref_state,
 };
 use crate::tracked_snapshot::publish_context_from_coordination_events;
 use crate::workspace_identity::workspace_identity_for_root;
@@ -68,13 +67,15 @@ impl GitSharedRefsCoordinationAuthorityStore {
     }
 
     fn load_current_state(&self) -> Result<Option<CoordinationCurrentState>> {
-        Ok(load_shared_coordination_ref_state_authoritative(&self.root)?.map(|shared| {
-            CoordinationCurrentState {
-                snapshot: shared.snapshot,
-                canonical_snapshot_v2: shared.canonical_snapshot_v2,
-                runtime_descriptors: shared.runtime_descriptors,
-            }
-        }))
+        Ok(
+            load_shared_coordination_ref_state_authoritative(&self.root)?.map(|shared| {
+                CoordinationCurrentState {
+                    snapshot: shared.snapshot,
+                    canonical_snapshot_v2: shared.canonical_snapshot_v2,
+                    runtime_descriptors: shared.runtime_descriptors,
+                }
+            }),
+        )
     }
 
     fn indeterminate_transaction_result(
@@ -319,7 +320,9 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
             .map(CoordinationAuthorityBackendDetails::GitSharedRefs)
             .unwrap_or(CoordinationAuthorityBackendDetails::Unavailable);
         let runtime_descriptor_count = match &details {
-            CoordinationAuthorityBackendDetails::GitSharedRefs(value) => value.runtime_descriptors.len(),
+            CoordinationAuthorityBackendDetails::GitSharedRefs(value) => {
+                value.runtime_descriptors.len()
+            }
             CoordinationAuthorityBackendDetails::Unavailable => 0,
         };
         Ok(CoordinationAuthorityDiagnostics {

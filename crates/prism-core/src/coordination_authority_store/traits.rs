@@ -2,11 +2,11 @@ use anyhow::Result;
 use prism_coordination::RuntimeDescriptor;
 
 use super::types::{
-    CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
-    CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
-    CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
-    CoordinationTransactionRequest, CoordinationTransactionResult, RuntimeDescriptorClearRequest,
-    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics, CoordinationCurrentState,
+    CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
+    CoordinationReadEnvelope, CoordinationReadRequest, CoordinationTransactionRequest,
+    CoordinationTransactionResult, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
+    RuntimeDescriptorQuery,
 };
 
 pub trait CoordinationAuthorityStore: Send + Sync {

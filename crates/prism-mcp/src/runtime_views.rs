@@ -367,17 +367,18 @@ fn runtime_status_from_inputs(
     let bridge_counts = classify_bridges(&bridges, &connected_bridge_pids);
     let connection =
         daemon_connection_info(inputs.root, &paths, &daemons, process_error.as_deref())?;
-    let (freshness, shared_coordination_ref, scopes) =
-        match runtime_status_details_from_inputs(inputs, runtime_state, cached_shared_coordination_ref)
-        {
-            Ok(details) => details,
-            Err(error) => {
-                let freshness =
-                    degraded_runtime_freshness_from_inputs(inputs, runtime_state, &error);
-                let scopes = runtime_scopes_from_prism(inputs.prism.as_ref(), &freshness);
-                (freshness, None, scopes)
-            }
-        };
+    let (freshness, shared_coordination_ref, scopes) = match runtime_status_details_from_inputs(
+        inputs,
+        runtime_state,
+        cached_shared_coordination_ref,
+    ) {
+        Ok(details) => details,
+        Err(error) => {
+            let freshness = degraded_runtime_freshness_from_inputs(inputs, runtime_state, &error);
+            let scopes = runtime_scopes_from_prism(inputs.prism.as_ref(), &freshness);
+            (freshness, None, scopes)
+        }
+    };
 
     Ok(RuntimeStatusView {
         root: inputs.root.display().to_string(),
@@ -582,14 +583,18 @@ fn runtime_freshness_from_inputs(
         tracked_snapshot: coordination_surface_lag_item(
             "tracked_snapshot",
             optional_coordination_surface_revision(
-                inputs.workspace.load_tracked_coordination_snapshot_revision(),
+                inputs
+                    .workspace
+                    .load_tracked_coordination_snapshot_revision(),
             ),
             authoritative_coordination_revision,
         ),
         startup_checkpoint: coordination_surface_lag_item(
             "startup_checkpoint",
             optional_coordination_surface_revision(
-                inputs.workspace.load_coordination_startup_checkpoint_revision(),
+                inputs
+                    .workspace
+                    .load_coordination_startup_checkpoint_revision(),
             ),
             authoritative_coordination_revision,
         ),

@@ -119,11 +119,7 @@ fn decode_coordination_snapshot_compat(value: Value) -> Result<CoordinationSnaps
             "tasks",
             serde_json::from_value,
         )?,
-        claims: decode_snapshot_records::<WorkClaim, _>(
-            object,
-            "claims",
-            serde_json::from_value,
-        )?,
+        claims: decode_snapshot_records::<WorkClaim, _>(object, "claims", serde_json::from_value)?,
         artifacts: decode_snapshot_records::<Artifact, _>(
             object,
             "artifacts",
@@ -170,7 +166,10 @@ where
 
 fn decode_plan_compat(value: Value) -> Result<Plan, serde_json::Error> {
     serde_json::from_value::<Plan>(value.clone()).or_else(|primary_error| {
-        let payload = value.get("payload").cloned().unwrap_or_else(|| value.clone());
+        let payload = value
+            .get("payload")
+            .cloned()
+            .unwrap_or_else(|| value.clone());
         let plan_value = payload.get("plan").cloned().unwrap_or(payload);
         serde_json::from_value(plan_value).map_err(|_| primary_error)
     })

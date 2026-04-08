@@ -1371,9 +1371,9 @@ mod tests {
     use std::sync::atomic::Ordering;
     use std::sync::{Mutex, OnceLock};
 
-    use crate::CoordinationCurrentState;
     use crate::util::current_timestamp;
     use crate::workspace_identity::coordination_persist_context_for_root;
+    use crate::CoordinationCurrentState;
     use crate::{
         index_workspace_session_with_options, SharedRuntimeBackend, WorkspaceSessionOptions,
     };

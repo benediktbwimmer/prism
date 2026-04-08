@@ -1,5 +1,7 @@
 use anyhow::Result;
-use prism_coordination::{CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2};
+use prism_coordination::{
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
+};
 use prism_store::CoordinationStartupCheckpoint;
 
 use super::types::{

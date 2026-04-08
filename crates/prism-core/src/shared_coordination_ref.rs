@@ -949,9 +949,10 @@ pub(crate) fn publish_runtime_descriptor_record(
     let mut desired_state = load_shared_coordination_ref_state_authoritative(root)?
         .unwrap_or_else(empty_shared_coordination_ref_state);
     let existing = desired_state.runtime_descriptors.clone();
-    desired_state.runtime_descriptors = overlay_records(&existing, std::slice::from_ref(descriptor), |descriptor| {
-        descriptor.runtime_id.as_str()
-    });
+    desired_state.runtime_descriptors =
+        overlay_records(&existing, std::slice::from_ref(descriptor), |descriptor| {
+            descriptor.runtime_id.as_str()
+        });
     sync_shared_coordination_ref_family_state(root, &desired_state, None)?;
     record_observed_shared_coordination_head(
         root,
@@ -1836,9 +1837,16 @@ pub(crate) fn load_shared_coordination_retained_history(
     let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
     let output = run_git(root, &arg_refs)?;
     let mut entries = Vec::new();
-    for commit in output.lines().map(str::trim).filter(|line| !line.is_empty()) {
+    for commit in output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
         let manifest = load_shared_coordination_manifest_from_ref(root, commit)?;
-        let manifest_digest = manifest.as_ref().map(canonical_manifest_digest).transpose()?;
+        let manifest_digest = manifest
+            .as_ref()
+            .map(canonical_manifest_digest)
+            .transpose()?;
         let published_at = manifest.as_ref().map(|value| value.published_at);
         let previous_manifest_digest = manifest
             .as_ref()

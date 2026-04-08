@@ -56,6 +56,8 @@ Current slice notes:
 - the seam currently exposes eventual snapshot, plan-state, read-model, queue-model, startup
   checkpoint, and metadata read families while downstream call-site cutover remains for later
   slices
+- the `coordination_reads` helper layer and protected-state eventual plan-state load now delegate
+  through the materialized-store seam instead of reading checkpoints directly
 
 ## 3. Related roadmap
 

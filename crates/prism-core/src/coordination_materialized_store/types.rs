@@ -123,8 +123,10 @@ mod tests {
                 .coordination_revision,
             Some(7)
         );
-        assert!(CoordinationMaterializedReadEnvelope::new(metadata, Some(queue_model))
-            .value
-            .is_some());
+        assert!(
+            CoordinationMaterializedReadEnvelope::new(metadata, Some(queue_model))
+                .value
+                .is_some()
+        );
     }
 }

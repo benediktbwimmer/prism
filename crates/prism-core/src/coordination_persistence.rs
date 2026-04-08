@@ -310,21 +310,24 @@ pub(crate) trait CoordinationPersistenceBackend:
         &mut self,
         root: &Path,
     ) -> Result<Option<CoordinationSnapshot>> {
-        load_eventual_snapshot_for_root(root, self)
+        let _ = self;
+        load_eventual_snapshot_for_root(root)
     }
 
     fn load_eventual_coordination_snapshot_v2_for_root(
         &mut self,
         root: &Path,
     ) -> Result<Option<CoordinationSnapshotV2>> {
-        load_eventual_snapshot_v2_for_root(root, self)
+        let _ = self;
+        load_eventual_snapshot_v2_for_root(root)
     }
 
     fn load_eventual_coordination_plan_state_for_root(
         &mut self,
         root: &Path,
     ) -> Result<Option<HydratedCoordinationPlanState>> {
-        load_eventual_plan_state_for_root(root, self)
+        let _ = self;
+        load_eventual_plan_state_for_root(root)
     }
 
     fn load_authoritative_coordination_snapshot_for_root(

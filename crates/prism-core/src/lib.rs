@@ -74,26 +74,29 @@ use session_bootstrap::{
 };
 
 pub use admission::AdmissionBusyError;
-pub use coordination_reads::{
-    CoordinationReadConsistency, CoordinationReadFreshness, CoordinationReadResult,
+pub use coordination_authority_api::{
+    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor,
 };
 pub use coordination_authority_store::{
     CoordinationAuthorityBackendDetails, CoordinationAuthorityBackendKind,
     CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
     CoordinationAuthorityProvenance, CoordinationAuthorityStamp, CoordinationAuthorityStore,
     CoordinationConflictInfo, CoordinationCurrentState, CoordinationDerivedStateMode,
-    CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryEntry,
+    CoordinationDiagnosticsRequest, CoordinationHistoryEntry, CoordinationHistoryEnvelope,
     CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
     CoordinationStateView, CoordinationTransactionBase, CoordinationTransactionDiagnostic,
-    CoordinationTransactionRequest, CoordinationTransactionResult,
-    CoordinationTransactionStatus, GitSharedRefsCoordinationAuthorityStore,
-    RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    CoordinationTransactionRequest, CoordinationTransactionResult, CoordinationTransactionStatus,
+    GitSharedRefsCoordinationAuthorityStore, RuntimeDescriptorClearRequest,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 pub use coordination_materialized_store::{
     CoordinationMaterializationMetadata, CoordinationMaterializedBackendKind,
     CoordinationMaterializedCapabilities, CoordinationMaterializedReadEnvelope,
     CoordinationMaterializedState, CoordinationMaterializedStore,
     SqliteCoordinationMaterializedStore,
+};
+pub use coordination_reads::{
+    CoordinationReadConsistency, CoordinationReadFreshness, CoordinationReadResult,
 };
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
@@ -141,9 +144,6 @@ pub use protected_state::operators::{
     ProtectedStateTrustImportReport, ProtectedStateVerifyReport,
 };
 pub use published_plans::regenerate_repo_published_plan_artifacts;
-pub use coordination_authority_api::{
-    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor,
-};
 pub use session::{
     CoordinationPlanState, FsRefreshStatus, PersistedObservedChangeCheckpointResult,
     WorkspaceFsRefreshOutcome, WorkspaceRefreshBreakdown, WorkspaceRefreshWork, WorkspaceSession,

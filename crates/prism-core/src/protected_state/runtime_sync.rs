@@ -173,7 +173,8 @@ pub(crate) fn load_repo_protected_plan_state<S>(
 where
     S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
 {
-    load_eventual_coordination_plan_state_for_root(root, store)
+    let _ = store;
+    load_eventual_coordination_plan_state_for_root(root)
 }
 
 fn sync_repo_memory_stream<S: prism_store::EventJournalStore>(

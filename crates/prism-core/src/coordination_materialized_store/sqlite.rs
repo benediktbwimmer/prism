@@ -4,9 +4,7 @@ use anyhow::Result;
 use prism_coordination::{
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
 };
-use prism_store::{
-    CoordinationCheckpointStore, CoordinationStartupCheckpoint, SqliteStore,
-};
+use prism_store::{CoordinationCheckpointStore, CoordinationStartupCheckpoint, SqliteStore};
 
 use super::traits::CoordinationMaterializedStore;
 use super::types::{
@@ -49,7 +47,9 @@ impl SqliteCoordinationMaterializedStore {
             backend_kind: CoordinationMaterializedBackendKind::Sqlite,
             coordination_revision,
             startup_checkpoint_version: checkpoint.as_ref().map(|value| value.version),
-            startup_checkpoint_materialized_at: checkpoint.as_ref().map(|value| value.materialized_at),
+            startup_checkpoint_materialized_at: checkpoint
+                .as_ref()
+                .map(|value| value.materialized_at),
             startup_checkpoint_authority: checkpoint.as_ref().map(|value| value.authority.clone()),
             has_snapshot: checkpoint.is_some(),
             has_canonical_snapshot_v2: checkpoint
