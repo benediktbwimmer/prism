@@ -1253,6 +1253,22 @@ fn coordination_transaction_state(
         .last()
         .map(|task_id| task_id.0.clone());
     Ok(json!({
+        "outcome": format!("{:?}", result.outcome),
+        "commit": {
+            "eventIds": result
+                .commit
+                .event_ids
+                .iter()
+                .map(|event_id| event_id.0.clone())
+                .collect::<Vec<_>>(),
+            "eventCount": result.commit.event_count,
+            "lastEventId": result
+                .commit
+                .last_event_id
+                .as_ref()
+                .map(|event_id| event_id.0.clone()),
+            "committedAt": result.commit.committed_at,
+        },
         "id": primary_task_id.clone().or_else(|| primary_plan_id.clone()),
         "planId": primary_plan_id,
         "taskId": primary_task_id,

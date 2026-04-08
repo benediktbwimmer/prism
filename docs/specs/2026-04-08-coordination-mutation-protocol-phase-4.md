@@ -43,6 +43,7 @@ Current state:
 - [ ] validation ordering is made explicit and centralized
 - [ ] deterministic rejection categories and codes are formalized
 - [ ] optimistic preconditions and authority-base conflict handling are implemented coherently
+- [x] explicit transaction outcome and commit metadata now flow through the protocol result
 - [ ] authoritative commit-result metadata is unified across mutation surfaces
 - [ ] local materialization follow-through is explicitly downstream of authoritative commit
 - [ ] legacy convenience mutation semantics are fully reduced to protocol adapters
@@ -57,6 +58,9 @@ Current slice notes:
   `host_mutations.rs`
 - the protocol must now be finished against the service-backed architecture recorded in
   [../adrs/2026-04-08-service-owned-coordination-materialization.md](../adrs/2026-04-08-service-owned-coordination-materialization.md)
+- the first implementation slice now exposes explicit transaction outcome and commit metadata from
+  `prism-query` into MCP-facing response shaping; later slices still need rejected and indeterminate
+  outcomes plus shared authority-stamp semantics
 
 ## 3. Related roadmap
 
@@ -203,6 +207,12 @@ No convenience mutation surface should retain separate hidden semantics once the
 Exit criteria:
 
 - code outside the protocol can depend on one stable transaction request/result family
+
+Progress:
+
+- [x] committed outcome and commit metadata now have explicit protocol types
+- [ ] rejection and indeterminate outcome families remain to be added
+- [ ] authority-stamp fields remain to be added
 
 ### Slice 2: Centralize validation ordering
 

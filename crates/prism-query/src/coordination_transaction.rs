@@ -153,8 +153,23 @@ pub struct CoordinationTransactionInput {
     pub optimistic_preconditions: Option<Value>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoordinationTransactionOutcome {
+    Committed,
+}
+
 #[derive(Debug, Clone, Default)]
+pub struct CoordinationTransactionCommitMetadata {
+    pub event_ids: Vec<EventId>,
+    pub event_count: usize,
+    pub last_event_id: Option<EventId>,
+    pub committed_at: Option<u64>,
+}
+
+#[derive(Debug, Clone)]
 pub struct CoordinationTransactionResult {
+    pub outcome: CoordinationTransactionOutcome,
+    pub commit: CoordinationTransactionCommitMetadata,
     pub plan_ids_by_client_id: BTreeMap<String, PlanId>,
     pub task_ids_by_client_id: BTreeMap<String, CoordinationTaskId>,
     pub touched_plan_ids: Vec<PlanId>,
@@ -228,6 +243,7 @@ fn apply_coordination_transaction(
     meta: EventMeta,
     input: CoordinationTransactionInput,
 ) -> Result<CoordinationTransactionResult> {
+    let before_event_len = coordination_runtime.snapshot().events.len();
     let mut seen_plan_client_ids = BTreeSet::new();
     let mut seen_task_client_ids = BTreeSet::new();
     let mut plan_ids_by_client_id = BTreeMap::new();
@@ -550,7 +566,26 @@ fn apply_coordination_transaction(
         }
     }
 
+    let committed_events = coordination_runtime.snapshot().events;
+    let committed_event_ids = committed_events
+        .iter()
+        .skip(before_event_len)
+        .map(|event| event.meta.id.clone())
+        .collect::<Vec<_>>();
+    let committed_at = committed_events
+        .iter()
+        .skip(before_event_len)
+        .map(|event| event.meta.ts)
+        .max();
+
     Ok(CoordinationTransactionResult {
+        outcome: CoordinationTransactionOutcome::Committed,
+        commit: CoordinationTransactionCommitMetadata {
+            event_count: committed_event_ids.len(),
+            last_event_id: committed_event_ids.last().cloned(),
+            event_ids: committed_event_ids,
+            committed_at,
+        },
         plan_ids_by_client_id,
         task_ids_by_client_id,
         touched_plan_ids,

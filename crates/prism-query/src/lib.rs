@@ -68,10 +68,12 @@ pub use crate::types::{
     TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 pub use coordination_transaction::{
-    CoordinationDependencyKind, CoordinationTransactionGitExecutionPolicyPatch,
-    CoordinationTransactionInput, CoordinationTransactionMutation, CoordinationTransactionPlanRef,
-    CoordinationTransactionPlanSchedulingPatch, CoordinationTransactionPolicyPatch,
-    CoordinationTransactionResult, CoordinationTransactionTaskRef,
+    CoordinationDependencyKind, CoordinationTransactionCommitMetadata,
+    CoordinationTransactionGitExecutionPolicyPatch, CoordinationTransactionInput,
+    CoordinationTransactionMutation, CoordinationTransactionOutcome,
+    CoordinationTransactionPlanRef, CoordinationTransactionPlanSchedulingPatch,
+    CoordinationTransactionPolicyPatch, CoordinationTransactionResult,
+    CoordinationTransactionTaskRef,
 };
 
 pub struct Prism {
