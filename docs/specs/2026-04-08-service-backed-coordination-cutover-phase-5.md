@@ -56,6 +56,8 @@ Current slice notes:
   starts with empty in-memory coordination state and expects later service-backed hydration
 - session strong reads no longer write coordination startup checkpoints or read models into the
   worktree store as a side effect
+- unused session-level ad hoc coordination persistence helpers were removed instead of being kept
+  as shadow write paths beside the mutation protocol
 - the remaining work is now primarily runtime and surface cutover, not mutation semantics
 
 ## 3. Related roadmap
