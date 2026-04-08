@@ -2396,6 +2396,7 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
         )
         .unwrap();
     let mut runtime_snapshot = seeded.snapshot();
+    let review_id = prism_ir::ReviewId::new("review:a");
     runtime_snapshot.artifacts.push(Artifact {
         id: prism_ir::ArtifactId::new("artifact:a"),
         task: task_id.clone(),
@@ -2406,7 +2407,7 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
         diff_ref: Some("patch:a".into()),
         status: prism_ir::ArtifactStatus::Proposed,
         evidence: Vec::new(),
-        reviews: Vec::new(),
+        reviews: vec![review_id.clone()],
         required_validations: Vec::new(),
         validated_checks: Vec::new(),
         risk_score: None,
@@ -2426,6 +2427,20 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
         validated_checks: Vec::new(),
         risk_score: None,
     });
+    runtime_snapshot.reviews.push(prism_coordination::ArtifactReview {
+        id: review_id.clone(),
+        artifact: prism_ir::ArtifactId::new("artifact:a"),
+        verdict: prism_ir::ReviewVerdict::Approved,
+        meta: EventMeta {
+            id: EventId::new("coord:review:artifact-scope"),
+            ts: 3,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+            execution_context: None,
+        },
+        summary: "LGTM".into(),
+    });
     prism.replace_coordination_snapshot(runtime_snapshot);
 
     let artifacts = prism.artifacts(&task_id);
@@ -2441,6 +2456,12 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
     assert!(prism
         .coordination_artifact(&prism_ir::ArtifactId::new("artifact:b"))
         .is_none());
+    assert_eq!(
+        prism
+            .coordination_review(&review_id)
+            .map(|review| review.id),
+        Some(review_id)
+    );
 }
 
 #[test]

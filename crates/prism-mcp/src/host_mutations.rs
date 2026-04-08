@@ -778,10 +778,7 @@ fn observed_integration_git_execution(
             prism_ir::ArtifactStatus::Approved | prism_ir::ArtifactStatus::Merged
         ) || artifact.reviews.iter().any(|review_id| {
             prism
-                .coordination_snapshot()
-                .reviews
-                .iter()
-                .find(|review| review.id == *review_id)
+                .coordination_review(review_id)
                 .is_some_and(|review| review.verdict == prism_ir::ReviewVerdict::Approved)
         })
     };
@@ -820,11 +817,10 @@ fn observed_integration_git_execution(
                     Some(review_artifact_ref)
                 } else {
                     let mut approved_artifacts = prism
-                        .coordination_snapshot()
-                        .artifacts
+                        .artifacts(&task.id)
                         .iter()
                         .filter(|artifact| {
-                            artifact.task == task.id && artifact_ready_for_integration(artifact)
+                            artifact_ready_for_integration(artifact)
                         })
                         .map(|artifact| artifact.id.0.to_string())
                         .collect::<Vec<_>>();

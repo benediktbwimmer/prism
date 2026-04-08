@@ -240,6 +240,8 @@ Current progress:
 - `QueryHost` now also owns session-aware coordination read-model and queue-read-model fallback so
   product-facing overview readers no longer reach into `WorkspaceSession` directly to rebuild that
   branching themselves
+- product-facing integration mutation helpers now use query-layer artifact and review getters
+  instead of spelunking raw coordination snapshots for review-artifact readiness decisions
 - UI plans agent filtering and graph touchpoint derivation now read canonical coordination graph
   state through session-aware `QueryHost` snapshot helpers instead of calling
   `prism.coordination_snapshot_v2()` directly inside view helpers

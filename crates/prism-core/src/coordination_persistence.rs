@@ -23,8 +23,11 @@ use crate::coordination_authority_store::{
 };
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, CoordinationReadModelsWriteRequest,
-    CoordinationStartupCheckpointWriteRequest, SqliteCoordinationMaterializedStore,
     StoreBackedCoordinationMaterializedStore,
+};
+#[cfg(test)]
+use crate::coordination_materialized_store::{
+    CoordinationStartupCheckpointWriteRequest, SqliteCoordinationMaterializedStore,
 };
 use crate::coordination_mutation_error::CoordinationAuthorityMutationError;
 #[cfg(test)]
@@ -33,6 +36,7 @@ use crate::coordination_reads::{
     load_eventual_coordination_snapshot_for_root as load_eventual_snapshot_for_root,
     load_eventual_coordination_snapshot_v2_for_root as load_eventual_snapshot_v2_for_root,
 };
+#[cfg(test)]
 use crate::published_plans::{sync_repo_published_plans, HydratedCoordinationPlanState};
 use crate::tracked_snapshot::{
     publish_context_from_coordination_events, sync_coordination_snapshot_state,

@@ -1,10 +1,10 @@
 use prism_coordination::{
-    Artifact, CoordinationConflict, CoordinationEvent, CoordinationTask, Plan, TaskBlocker,
-    TaskExecutorCaller, WorkClaim,
+    Artifact, ArtifactReview, CoordinationConflict, CoordinationEvent, CoordinationTask, Plan,
+    TaskBlocker, TaskExecutorCaller, WorkClaim,
 };
 use prism_ir::{
     AnchorRef, ArtifactId, Capability, ClaimMode, CoordinationTaskId, NodeRef, PlanId, SessionId,
-    TaskId, Timestamp, WorkspaceRevision,
+    ReviewId, TaskId, Timestamp, WorkspaceRevision,
 };
 
 use crate::common::{anchor_sort_key, sort_node_ids};
@@ -84,6 +84,11 @@ impl Prism {
         self.with_coordination_runtime(|runtime| {
             runtime.artifact_in_scope(artifact_id, worktree_id.as_deref())
         })
+    }
+
+    pub fn coordination_review(&self, review_id: &ReviewId) -> Option<ArtifactReview> {
+        let worktree_id = self.coordination_worktree_scope();
+        self.with_coordination_runtime(|runtime| runtime.review_in_scope(review_id, worktree_id.as_deref()))
     }
 
     pub fn coordination_events(&self) -> Vec<CoordinationEvent> {

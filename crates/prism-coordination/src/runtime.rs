@@ -648,4 +648,18 @@ impl CoordinationRuntimeState {
         let artifact = self.state.artifacts.get(artifact_id)?;
         artifact_matches_worktree_scope(artifact, worktree_id).then(|| artifact.clone())
     }
+
+    pub fn review(&self, review_id: &ReviewId) -> Option<ArtifactReview> {
+        self.review_in_scope(review_id, None)
+    }
+
+    pub fn review_in_scope(
+        &self,
+        review_id: &ReviewId,
+        worktree_id: Option<&str>,
+    ) -> Option<ArtifactReview> {
+        let review = self.state.reviews.get(review_id)?;
+        let artifact = self.state.artifacts.get(&review.artifact)?;
+        artifact_matches_worktree_scope(artifact, worktree_id).then(|| review.clone())
+    }
 }

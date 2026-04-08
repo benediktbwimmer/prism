@@ -1,10 +1,15 @@
+#[cfg(test)]
 use std::path::Path;
 
+#[cfg(test)]
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
+#[cfg(test)]
 use crate::published_plans::HydratedCoordinationPlanState;
+#[cfg(test)]
 use anyhow::Result;
+#[cfg(test)]
 use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
