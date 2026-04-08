@@ -32,8 +32,8 @@ They are authority families, not later service-only concerns.
 Current state:
 
 - [x] `CoordinationAuthorityStore` trait and type family finalized in code
-- [ ] Git shared-ref backend extracted behind the authority-store seam
-- [ ] current-state read families implemented through the new seam
+- [x] Git shared-ref backend extracted behind the authority-store seam
+- [x] current-state read families implemented through the new seam
 - [ ] transactional mutation commit path implemented through the new seam
 - [ ] retained history families implemented through the new seam
 - [ ] runtime descriptor publication and discovery implemented through the new seam
@@ -44,8 +44,10 @@ Current slice notes:
 
 - the backend-neutral authority module now exists in `crates/prism-core/src/coordination_authority_store/`
 - the stable type family and Git-backed store shell compile and are exported from `prism-core`
-- the Git-backed implementation still needs real transaction, history, and runtime-descriptor write
-  cutover in later slices
+- authoritative current-state loads in `published_plans` now route through the Git-backed
+  authority-store seam
+- the Git-backed implementation still needs real transaction, history, runtime-descriptor write,
+  and diagnostics call-site cutover in later slices
 
 ## 3. Related roadmap
 

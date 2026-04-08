@@ -15,8 +15,9 @@ use super::types::{
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use crate::coordination_startup_checkpoint::coordination_startup_authority;
-use crate::published_plans::load_authoritative_coordination_plan_state;
-use crate::shared_coordination_ref::shared_coordination_ref_diagnostics;
+use crate::shared_coordination_ref::{
+    load_shared_coordination_ref_state_authoritative, shared_coordination_ref_diagnostics,
+};
 use crate::workspace_identity::workspace_identity_for_root;
 
 #[derive(Debug, Clone)]
@@ -62,7 +63,13 @@ impl GitSharedRefsCoordinationAuthorityStore {
     }
 
     fn load_current_state(&self) -> Result<Option<CoordinationCurrentState>> {
-        Ok(load_authoritative_coordination_plan_state(&self.root)?.map(Into::into))
+        Ok(load_shared_coordination_ref_state_authoritative(&self.root)?.map(|shared| {
+            CoordinationCurrentState {
+                snapshot: shared.snapshot,
+                canonical_snapshot_v2: shared.canonical_snapshot_v2,
+                runtime_descriptors: shared.runtime_descriptors,
+            }
+        }))
     }
 }
 

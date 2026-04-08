@@ -13,9 +13,12 @@ use prism_ir::{DerivedPlanStatus, NodeRef, NodeRefKind, PlanId, PlanStatus};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::shared_coordination_ref::{
-    load_shared_coordination_ref_state_authoritative, sync_shared_coordination_ref_state,
+use crate::coordination_authority_store::{
+    CoordinationAuthorityStore, CoordinationReadRequest, CoordinationStateView,
+    GitSharedRefsCoordinationAuthorityStore,
 };
+use crate::coordination_reads::CoordinationReadConsistency;
+use crate::shared_coordination_ref::sync_shared_coordination_ref_state;
 use crate::tracked_snapshot::{
     remove_obsolete_legacy_tracked_authority_artifacts, tracked_snapshot_authority_active,
     TrackedSnapshotPublishContext,
@@ -185,27 +188,44 @@ where
 pub(crate) fn load_authoritative_coordination_snapshot(
     root: &Path,
 ) -> Result<Option<CoordinationSnapshot>> {
-    Ok(load_shared_coordination_ref_state_authoritative(root)?.map(|shared| shared.snapshot))
+    let store = GitSharedRefsCoordinationAuthorityStore::new(root);
+    Ok(store
+        .read_current(CoordinationReadRequest {
+            consistency: CoordinationReadConsistency::Strong,
+            view: CoordinationStateView::Snapshot,
+        })?
+        .value
+        .map(|state| state.snapshot))
 }
 
 pub(crate) fn load_authoritative_coordination_snapshot_v2(
     root: &Path,
 ) -> Result<Option<CoordinationSnapshotV2>> {
-    Ok(load_authoritative_coordination_plan_state(root)?.map(|state| state.canonical_snapshot_v2))
+    let store = GitSharedRefsCoordinationAuthorityStore::new(root);
+    Ok(store
+        .read_current(CoordinationReadRequest {
+            consistency: CoordinationReadConsistency::Strong,
+            view: CoordinationStateView::SnapshotV2,
+        })?
+        .value
+        .map(|state| state.canonical_snapshot_v2))
 }
 
 pub(crate) fn load_authoritative_coordination_plan_state(
     root: &Path,
 ) -> Result<Option<HydratedCoordinationPlanState>> {
-    Ok(
-        load_shared_coordination_ref_state_authoritative(root)?.map(|shared| {
-            HydratedCoordinationPlanState {
-                canonical_snapshot_v2: shared.canonical_snapshot_v2,
-                snapshot: shared.snapshot,
-                runtime_descriptors: shared.runtime_descriptors,
-            }
-        }),
-    )
+    let store = GitSharedRefsCoordinationAuthorityStore::new(root);
+    Ok(store
+        .read_current(CoordinationReadRequest {
+            consistency: CoordinationReadConsistency::Strong,
+            view: CoordinationStateView::PlanState,
+        })?
+        .value
+        .map(|state| HydratedCoordinationPlanState {
+            canonical_snapshot_v2: state.canonical_snapshot_v2,
+            snapshot: state.snapshot,
+            runtime_descriptors: state.runtime_descriptors,
+        }))
 }
 
 pub(crate) fn merge_shared_coordination_into_snapshot(
