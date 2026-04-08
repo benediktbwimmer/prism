@@ -263,6 +263,8 @@ Current progress:
 - runtime-status freshness and overlay rendering now consume precomputed service-backed
   coordination snapshot and lag metadata from the boundary input set instead of reaching back into
   the workspace session repeatedly inside view helpers
+- `QueryHost` snapshot and canonical-graph readers now share one current coordination plan-state
+  fallback decision instead of maintaining separate snapshot and v2 fallback branches
 - the old `CoordinationPersistenceBackend` snapshot/materialization compatibility helpers are now
   test-only instead of part of the live crate surface, so persistence-path compatibility no longer
   leaks into production code shape

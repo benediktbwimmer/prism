@@ -1013,26 +1013,28 @@ impl QueryHost {
             .unwrap_or_else(|| Arc::clone(&self.prism))
     }
 
-    pub(crate) fn current_coordination_snapshot(&self) -> Result<CoordinationSnapshot> {
+    fn current_coordination_snapshots(
+        &self,
+    ) -> Result<(CoordinationSnapshot, CoordinationSnapshotV2)> {
         if let Some(workspace) = self.workspace_session_ref() {
-            let snapshot = workspace.load_coordination_snapshot()?.unwrap_or_default();
-            if coordination_snapshot_has_data(&snapshot) {
-                return Ok(snapshot);
+            if let Some(state) = workspace.load_coordination_plan_state()? {
+                if coordination_snapshot_has_data(&state.snapshot)
+                    || coordination_snapshot_v2_has_data(&state.canonical_snapshot_v2)
+                {
+                    return Ok((state.snapshot, state.canonical_snapshot_v2));
+                }
             }
         }
-        Ok(self.current_prism().coordination_snapshot())
+        let prism = self.current_prism();
+        Ok((prism.coordination_snapshot(), prism.coordination_snapshot_v2()))
+    }
+
+    pub(crate) fn current_coordination_snapshot(&self) -> Result<CoordinationSnapshot> {
+        Ok(self.current_coordination_snapshots()?.0)
     }
 
     pub(crate) fn current_coordination_snapshot_v2(&self) -> Result<CoordinationSnapshotV2> {
-        if let Some(workspace) = self.workspace_session_ref() {
-            let snapshot = workspace
-                .load_coordination_snapshot_v2()?
-                .unwrap_or_default();
-            if coordination_snapshot_v2_has_data(&snapshot) {
-                return Ok(snapshot);
-            }
-        }
-        Ok(self.current_prism().coordination_snapshot_v2())
+        Ok(self.current_coordination_snapshots()?.1)
     }
 
     pub(crate) fn current_coordination_read_model(&self) -> Result<CoordinationReadModel> {
