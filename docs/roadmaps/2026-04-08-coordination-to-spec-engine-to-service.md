@@ -81,6 +81,8 @@ Current phase spec:
   [../specs/2026-04-09-coordination-platform-freeze-phase-7.md](../specs/2026-04-09-coordination-platform-freeze-phase-7.md)
 - Phase 8 completed:
   [../specs/2026-04-09-spec-engine-source-parser-identity-phase-8.md](../specs/2026-04-09-spec-engine-source-parser-identity-phase-8.md)
+- Phase 9 in progress:
+  [../specs/2026-04-09-spec-engine-local-materialization-phase-9.md](../specs/2026-04-09-spec-engine-local-materialization-phase-9.md)
 
 ## 3. Ordering thesis
 
