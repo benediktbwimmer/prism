@@ -137,6 +137,25 @@ pub struct NativePlanBootstrapResult {
     pub task_ids_by_client_id: BTreeMap<String, CoordinationTaskId>,
 }
 
+#[derive(Debug, Clone)]
+pub struct NativePlanMutationResult {
+    pub plan_id: PlanId,
+    pub transaction: CoordinationTransactionResult,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeTaskMutationResult {
+    pub task_id: CoordinationTaskId,
+    pub transaction: CoordinationTransactionResult,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativePlanBootstrapTransactionResult {
+    pub plan_id: PlanId,
+    pub task_ids_by_client_id: BTreeMap<String, CoordinationTaskId>,
+    pub transaction: CoordinationTransactionResult,
+}
+
 pub trait OutcomeReadBackend: Send + Sync {
     fn query_outcomes(&self, query: &OutcomeRecallQuery) -> Result<Vec<OutcomeEvent>>;
     fn load_outcome_event(&self, event_id: &EventId) -> Result<Option<OutcomeEvent>>;
@@ -1020,7 +1039,23 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
         scheduling: Option<prism_coordination::PlanScheduling>,
     ) -> Result<PlanId> {
-        let result = self.execute_coordination_transaction(
+        Ok(self
+            .create_native_plan_with_scheduling_transaction(
+                meta, title, goal, status, policy, scheduling,
+            )?
+            .plan_id)
+    }
+
+    pub fn create_native_plan_with_scheduling_transaction(
+        &self,
+        meta: EventMeta,
+        title: String,
+        goal: String,
+        status: Option<prism_ir::PlanStatus>,
+        policy: Option<prism_coordination::CoordinationPolicy>,
+        scheduling: Option<prism_coordination::PlanScheduling>,
+    ) -> Result<NativePlanMutationResult> {
+        let transaction = self.execute_coordination_transaction(
             meta,
             CoordinationTransactionInput {
                 mutations: vec![CoordinationTransactionMutation::PlanCreate {
@@ -1034,11 +1069,15 @@ impl Prism {
                 ..CoordinationTransactionInput::default()
             },
         )?;
-        result
+        let plan_id = transaction
             .plan_ids_by_client_id
             .get("created_plan")
             .cloned()
-            .ok_or_else(|| anyhow!("coordination transaction did not create a plan"))
+            .ok_or_else(|| anyhow!("coordination transaction did not create a plan"))?;
+        Ok(NativePlanMutationResult {
+            plan_id,
+            transaction,
+        })
     }
 
     pub fn bootstrap_native_plan(
@@ -1046,6 +1085,18 @@ impl Prism {
         meta: EventMeta,
         input: NativePlanBootstrapInput,
     ) -> Result<NativePlanBootstrapResult> {
+        let result = self.bootstrap_native_plan_transaction(meta, input)?;
+        Ok(NativePlanBootstrapResult {
+            plan_id: result.plan_id,
+            task_ids_by_client_id: result.task_ids_by_client_id,
+        })
+    }
+
+    pub fn bootstrap_native_plan_transaction(
+        &self,
+        meta: EventMeta,
+        input: NativePlanBootstrapInput,
+    ) -> Result<NativePlanBootstrapTransactionResult> {
         let NativePlanBootstrapInput {
             title,
             goal,
@@ -1109,20 +1160,21 @@ impl Prism {
                 });
             }
         }
-        let result = self.execute_coordination_transaction(
+        let transaction = self.execute_coordination_transaction(
             meta,
             CoordinationTransactionInput {
                 mutations,
                 ..CoordinationTransactionInput::default()
             },
         )?;
-        Ok(NativePlanBootstrapResult {
-            plan_id: result
+        Ok(NativePlanBootstrapTransactionResult {
+            plan_id: transaction
                 .plan_ids_by_client_id
                 .get(&bootstrap_plan_client_id)
                 .cloned()
                 .ok_or_else(|| anyhow!("coordination transaction did not create bootstrap plan"))?,
-            task_ids_by_client_id: result.task_ids_by_client_id,
+            task_ids_by_client_id: transaction.task_ids_by_client_id.clone(),
+            transaction,
         })
     }
 
@@ -1148,7 +1200,23 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
         scheduling: Option<prism_coordination::PlanScheduling>,
     ) -> Result<()> {
-        self.execute_coordination_transaction(
+        self.update_native_plan_with_scheduling_transaction(
+            meta, plan_id, title, status, goal, policy, scheduling,
+        )?;
+        Ok(())
+    }
+
+    pub fn update_native_plan_with_scheduling_transaction(
+        &self,
+        meta: EventMeta,
+        plan_id: &PlanId,
+        title: Option<String>,
+        status: Option<prism_ir::PlanStatus>,
+        goal: Option<String>,
+        policy: Option<prism_coordination::CoordinationPolicy>,
+        scheduling: Option<prism_coordination::PlanScheduling>,
+    ) -> Result<CoordinationTransactionResult> {
+        Ok(self.execute_coordination_transaction(
             meta,
             CoordinationTransactionInput {
                 mutations: vec![CoordinationTransactionMutation::PlanUpdate {
@@ -1194,8 +1262,79 @@ impl Prism {
                 }],
                 ..CoordinationTransactionInput::default()
             },
+        )?)
+    }
+
+    pub fn archive_native_plan_transaction(
+        &self,
+        meta: EventMeta,
+        plan_id: &PlanId,
+    ) -> Result<CoordinationTransactionResult> {
+        Ok(self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::PlanArchive {
+                    plan: CoordinationTransactionPlanRef::Id(plan_id.clone()),
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?)
+    }
+
+    pub fn create_native_task_transaction(
+        &self,
+        meta: EventMeta,
+        mut input: TaskCreateInput,
+    ) -> Result<NativeTaskMutationResult> {
+        if let Some(context) = self.coordination_context() {
+            if input.session.is_some() {
+                input.worktree_id = Some(context.worktree_id);
+                input.branch_ref = context.branch_ref;
+            }
+        }
+        let transaction = self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::TaskCreate {
+                    client_task_id: Some("created_task".to_string()),
+                    plan: CoordinationTransactionPlanRef::Id(input.plan_id),
+                    title: input.title,
+                    status: input.status,
+                    assignee: input.assignee,
+                    session: input.session,
+                    worktree_id: input.worktree_id,
+                    branch_ref: input.branch_ref,
+                    anchors: input.anchors,
+                    depends_on: input
+                        .depends_on
+                        .into_iter()
+                        .map(CoordinationTransactionTaskRef::Id)
+                        .collect(),
+                    coordination_depends_on: input
+                        .coordination_depends_on
+                        .into_iter()
+                        .map(CoordinationTransactionTaskRef::Id)
+                        .collect(),
+                    integrated_depends_on: input
+                        .integrated_depends_on
+                        .into_iter()
+                        .map(CoordinationTransactionTaskRef::Id)
+                        .collect(),
+                    acceptance: input.acceptance,
+                    base_revision: input.base_revision,
+                }],
+                ..CoordinationTransactionInput::default()
+            },
         )?;
-        Ok(())
+        let task_id = transaction
+            .task_ids_by_client_id
+            .get("created_task")
+            .cloned()
+            .ok_or_else(|| anyhow!("coordination transaction did not create a task"))?;
+        Ok(NativeTaskMutationResult {
+            task_id,
+            transaction,
+        })
     }
 
     pub fn projection_snapshot(&self) -> ProjectionSnapshot {

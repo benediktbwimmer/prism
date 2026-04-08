@@ -2819,6 +2819,56 @@ fn workflow_update_surfaces_transaction_metadata_in_state() {
 }
 
 #[test]
+fn task_create_surfaces_transaction_metadata_in_state() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "title": "Task metadata coverage", "goal": "Task metadata coverage" }),
+                task_id: None,
+            },
+        )
+        .expect("plan creation should succeed");
+
+    let created = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit beta",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::beta",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .expect("task creation should succeed");
+
+    assert_eq!(created.state["outcome"], Value::String("Committed".to_string()));
+    assert!(
+        created.state["commit"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= 1
+    );
+    assert!(
+        created.state["commit"]["lastEventId"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty())
+    );
+}
+
+#[test]
 fn plan_bootstrap_surfaces_transaction_metadata_in_state() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
