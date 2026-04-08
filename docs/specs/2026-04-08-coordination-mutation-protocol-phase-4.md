@@ -351,6 +351,9 @@ What remains incomplete is the actual protocol convergence:
 - `prism-query` now owns the protocol-lowering helpers for common plan and task create/update
   adapters, but `host_mutations` still owns too much response shaping and some remaining
   convenience lowering
+- `prism-mcp` now calls the raw `execute_coordination_transaction` path directly only for the
+  canonical `coordination_transaction` mutation kind; common convenience mutations flow through
+  query-layer adapters instead
 - no clearly finished service-backed mutation model yet
 
 The next Phase 4 slice should therefore focus on protocol type/result convergence first, not on

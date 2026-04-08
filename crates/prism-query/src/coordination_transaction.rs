@@ -284,6 +284,20 @@ impl Prism {
         })
     }
 
+    pub fn execute_coordination_mutation(
+        &self,
+        meta: EventMeta,
+        mutation: CoordinationTransactionMutation,
+    ) -> std::result::Result<CoordinationTransactionResult, CoordinationTransactionError> {
+        self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![mutation],
+                ..CoordinationTransactionInput::default()
+            },
+        )
+    }
+
     pub(crate) fn coordination_transaction<T, F>(
         &self,
         mutate: F,

@@ -5437,13 +5437,8 @@ impl QueryHost {
                                 completion_context,
                             },
                         )?;
-                        let result = prism.execute_coordination_transaction(
-                            meta.clone(),
-                            CoordinationTransactionInput {
-                                mutations: vec![update_mutation],
-                                ..CoordinationTransactionInput::default()
-                            },
-                        )?;
+                        let result =
+                            prism.execute_coordination_mutation(meta.clone(), update_mutation)?;
                         let task = prism
                             .coordination_task(&task_id)
                             .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
