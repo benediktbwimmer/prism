@@ -55,7 +55,7 @@ Current active phase:
 
 Current phase spec:
 
-- none yet
+- [../specs/2026-04-08-coordination-materialized-store-phase-2.md](../specs/2026-04-08-coordination-materialized-store-phase-2.md)
 
 ## 3. Ordering thesis
 
