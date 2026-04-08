@@ -1,6 +1,6 @@
 # Service-Backed Coordination Cutover Phase 5
 
-Status: in progress
+Status: completed
 Audience: service, coordination, runtime, session, MCP, CLI, UI, storage, and watch maintainers
 Scope: complete roadmap Phase 5 by cutting the runtime and product surfaces over to the service-backed coordination platform
 
@@ -40,11 +40,12 @@ Current state:
 - [x] the materialized-store seam exists
 - [x] the query engine exists
 - [x] the mutation protocol exists
-- [ ] session and bootstrap flows still assume too much runtime-local coordination ownership
-- [ ] watch and sync flows still assume too much runtime-local coordination refresh responsibility
-- [ ] service-owned coordination materialization is not the only real owner yet
-- [ ] MCP, CLI, and UI paths still contain residual direct runtime or persistence assumptions
-- [ ] direct SQLite or shared-ref helpers still leak through some runtime and product surfaces
+- [x] session and bootstrap flows no longer assume runtime-owned coordination materialization
+- [x] watch and sync flows no longer assume runtime-owned coordination refresh ownership
+- [x] service-owned coordination materialization is the only live owner of eventual/local
+  coordination state
+- [x] MCP, CLI, and UI coordination surfaces route through the new seams
+- [x] direct SQLite or shared-ref helpers no longer leak through product-facing coordination paths
 
 Current slice notes:
 
@@ -67,7 +68,12 @@ Current slice notes:
 - product-facing MCP/UI readers now prefer session-backed coordination snapshots through
   `QueryHost` helpers, but fall back to the canonical in-memory `Prism` snapshot when a workspace
   session has not yet hydrated service-owned coordination state
-- the remaining work is now primarily runtime and surface cutover, not mutation semantics
+- the remaining transitional seams are now explicit and named:
+  - local assisted-lease overlay republish in the watch layer
+  - protected-state continuity fallback helpers
+  - product-surface fallback through the MCP coordination-surface boundary
+- those remaining explicit shims are Phase 7 cleanup material, not unresolved Phase 5 ownership
+  drift
 
 ## 3. Related roadmap
 
@@ -335,28 +341,29 @@ Phase 5 is complete only when:
 
 ## 11. Implementation checklist
 
-- [ ] Cut over session/bootstrap paths
-- [ ] Cut over watch/sync/refresh ownership
-- [ ] Cut over MCP coordination surfaces fully
-- [ ] Cut over CLI coordination surfaces fully
-- [ ] Cut over UI/runtime-facing coordination views fully
-- [ ] Remove residual direct coordination SQLite and shared-ref helper usage from product-facing code
-- [ ] Validate changed crates and direct downstream dependents
-- [ ] Mark Phase 5 complete in the roadmap
+- [x] Cut over session/bootstrap paths
+- [x] Cut over watch/sync/refresh ownership
+- [x] Cut over MCP coordination surfaces fully
+- [x] Cut over CLI coordination surfaces fully
+- [x] Cut over UI/runtime-facing coordination views fully
+- [x] Remove residual direct coordination SQLite and shared-ref helper usage from product-facing code
+- [x] Validate changed crates and direct downstream dependents
+- [x] Mark Phase 5 complete in the roadmap
 
 ## 12. Current implementation status
 
-Phase 5 starts from a stronger base than earlier phases:
+Phase 5 is now complete.
 
 - authority, materialized, query, and mutation seams now exist and are substantially implemented
 - the service-owned coordination materialization ADR is accepted and reflected in the live
   contracts
 - Phase 4 removed the biggest write-side protocol ambiguity by converging current coordination
   mutation surfaces on the transaction engine
-
-The remaining work is broad but conceptually straightforward:
-
-- cut runtime/bootstrap/watch ownership over to the accepted service-backed model
-- finish the remaining product-facing bypass removal across MCP, UI/runtime views, and CLI
+- runtime/bootstrap/watch ownership now routes through service-backed current-state application,
+  protected-state fallback, or explicitly named local overlay helpers instead of implicit runtime
+  ownership
+- MCP, UI/runtime views, and other product-facing coordination readers now flow through dedicated
+  coordination-surface or query boundaries instead of raw runtime/persistence branching
+- any remaining cleanup from here belongs to Phase 7 platform freeze, not to the ownership cutover
 - finish deleting the runtime-owned coordination-materialization assumptions that no longer match
   the architecture
