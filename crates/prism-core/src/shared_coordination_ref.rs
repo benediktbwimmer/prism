@@ -288,6 +288,15 @@ pub struct SharedCoordinationRefStatusSummary {
     pub compaction_status: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SharedCoordinationRetainedHistoryEntry {
+    pub(crate) head_commit: String,
+    pub(crate) manifest_digest: Option<String>,
+    pub(crate) published_at: Option<u64>,
+    pub(crate) previous_manifest_digest: Option<String>,
+    pub(crate) summary: String,
+}
+
 pub(crate) enum SharedCoordinationRefLiveSync {
     Unchanged,
     Changed(SharedCoordinationRefState),
@@ -1806,6 +1815,53 @@ pub(crate) fn shared_coordination_startup_authority(
         head_commit: Some(head_commit),
         manifest_digest,
     }))
+}
+
+pub(crate) fn load_shared_coordination_retained_history(
+    root: &Path,
+    limit: Option<u64>,
+) -> Result<Vec<SharedCoordinationRetainedHistoryEntry>> {
+    if !git_repo_available(root) {
+        return Ok(Vec::new());
+    }
+    let ref_name = shared_coordination_ref_name(root);
+    if resolve_ref_commit(root, &ref_name)?.is_none() {
+        return Ok(Vec::new());
+    }
+    let mut args = vec!["rev-list".to_string()];
+    if let Some(limit) = limit {
+        args.push(format!("--max-count={limit}"));
+    }
+    args.push(ref_name);
+    let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+    let output = run_git(root, &arg_refs)?;
+    let mut entries = Vec::new();
+    for commit in output.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        let manifest = load_shared_coordination_manifest_from_ref(root, commit)?;
+        let manifest_digest = manifest.as_ref().map(canonical_manifest_digest).transpose()?;
+        let published_at = manifest.as_ref().map(|value| value.published_at);
+        let previous_manifest_digest = manifest
+            .as_ref()
+            .and_then(|value| value.previous_manifest_digest.clone());
+        let summary = manifest.as_ref().map_or_else(
+            || "shared coordination commit".to_string(),
+            |value| {
+                format!(
+                    "shared coordination publish at {} with {} files",
+                    value.published_at,
+                    value.files.len()
+                )
+            },
+        );
+        entries.push(SharedCoordinationRetainedHistoryEntry {
+            head_commit: commit.to_string(),
+            manifest_digest,
+            published_at,
+            previous_manifest_digest,
+            summary,
+        });
+    }
+    Ok(entries)
 }
 
 fn load_shared_coordination_ref_state_from_current_ref(

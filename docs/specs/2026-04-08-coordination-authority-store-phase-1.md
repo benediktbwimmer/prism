@@ -35,7 +35,7 @@ Current state:
 - [x] Git shared-ref backend extracted behind the authority-store seam
 - [x] current-state read families implemented through the new seam
 - [ ] transactional mutation commit path implemented through the new seam
-- [ ] retained history families implemented through the new seam
+- [x] retained history families implemented through the new seam
 - [x] runtime descriptor publication and discovery implemented through the new seam
 - [x] authority diagnostics and metadata exposed through the new seam
 - [ ] direct product-facing shared-ref authority calls removed or redirected
@@ -50,8 +50,10 @@ Current slice notes:
   `CoordinationAuthorityStore::apply_transaction`
 - the public `prism-core` descriptor and diagnostics wrappers now route through the authority-store
   seam, so CLI and MCP no longer depend on shared-ref helpers directly for those surfaces
-- the Git-backed implementation still needs retained-history routing, broader transaction adoption,
-  explicit indeterminate-outcome handling, and live-sync/watch cutover in later slices
+- the Git-backed implementation now exposes retained shared-ref manifest history through the
+  authority-store seam
+- the Git-backed implementation still needs broader transaction adoption, explicit
+  indeterminate-outcome handling, and live-sync/watch cutover in later slices
 
 ## 3. Related roadmap
 

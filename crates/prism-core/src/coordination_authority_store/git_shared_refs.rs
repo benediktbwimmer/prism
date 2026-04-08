@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use prism_coordination::RuntimeDescriptor;
 
 use super::traits::CoordinationAuthorityStore;
@@ -18,7 +18,8 @@ use crate::coordination_reads::CoordinationReadConsistency;
 use crate::coordination_startup_checkpoint::coordination_startup_authority;
 use crate::shared_coordination_ref::{
     clear_runtime_descriptor_record, load_shared_coordination_ref_state_authoritative,
-    publish_runtime_descriptor_record, shared_coordination_ref_diagnostics,
+    load_shared_coordination_retained_history, publish_runtime_descriptor_record,
+    shared_coordination_ref_diagnostics,
     sync_shared_coordination_ref_state,
 };
 use crate::tracked_snapshot::publish_context_from_coordination_events;
@@ -237,11 +238,26 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
 
     fn read_history(
         &self,
-        _request: CoordinationHistoryRequest,
+        request: CoordinationHistoryRequest,
     ) -> Result<CoordinationHistoryEnvelope> {
-        Err(anyhow!(
-            "retained history is not wired through CoordinationAuthorityStore yet"
-        ))
+        let entries = load_shared_coordination_retained_history(&self.root, request.limit)?
+            .into_iter()
+            .map(|entry| super::types::CoordinationHistoryEntry {
+                transaction_id: Some(entry.head_commit.clone()),
+                snapshot_id: entry.manifest_digest.or(Some(entry.head_commit)),
+                committed_at: entry.published_at,
+                summary: entry.summary,
+            })
+            .collect::<Vec<_>>();
+        let truncated = request
+            .limit
+            .map(|limit| entries.len() as u64 >= limit)
+            .unwrap_or(false);
+        Ok(CoordinationHistoryEnvelope {
+            backend_kind: CoordinationAuthorityBackendKind::GitSharedRefs,
+            entries,
+            truncated,
+        })
     }
 
     fn diagnostics(
