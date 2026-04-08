@@ -52,6 +52,8 @@ Current slice notes:
   authoritative for eventual/local coordination reads, not per-worktree runtime SQLite state
 - Phase 4 closed the write-side protocol and reduced the remaining coordination mutation surfaces
   to the canonical transaction path
+- workspace startup checkpoints no longer persist or restore coordination snapshots; bootstrap now
+  starts with empty in-memory coordination state and expects later service-backed hydration
 - the remaining work is now primarily runtime and surface cutover, not mutation semantics
 
 ## 3. Related roadmap
@@ -163,6 +165,12 @@ Runtimes may not remain the owner of:
   runtime-local ownership
 - move those paths behind the service-owned coordination materialization model
 - make service reachability and service-backed coordination participation explicit at startup
+
+Current progress:
+
+- workspace runtime startup checkpoints no longer serialize or restore coordination snapshots
+- the old checkpoint format was intentionally invalidated for this cutover so stale branch-local
+  coordination state cannot be revived implicitly at runtime startup
 
 Exit criteria:
 

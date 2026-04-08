@@ -40,7 +40,7 @@ use crate::workspace_runtime_state::WorkspaceRuntimeState;
 use crate::{WorkspaceSession, WorkspaceSessionOptions};
 
 const WORKSPACE_RUNTIME_STARTUP_CHECKPOINT_MAGIC: &[u8; 8] = b"PRWSCP01";
-const WORKSPACE_RUNTIME_STARTUP_CHECKPOINT_VERSION: u32 = 9;
+const WORKSPACE_RUNTIME_STARTUP_CHECKPOINT_VERSION: u32 = 10;
 const MAX_STARTUP_CHECKPOINT_SEGMENT_BYTES: u64 = 1 << 30;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -481,7 +481,6 @@ pub(crate) fn build_workspace_indexer_with_startup_checkpoint(
             &options,
             restored.local_stale,
             restored.outcome_stale,
-            restored.coordination_stale,
         )?;
         if restored.local_stale {
             indexer.startup_intent = None;
@@ -507,13 +506,10 @@ pub(crate) fn build_workspace_indexer_with_startup_checkpoint(
             workspace_revision = restored.revisions.workspace,
             episodic_revision = restored.revisions.episodic,
             inference_revision = restored.revisions.inference,
-            coordination_revision = restored.revisions.coordination,
             local_reloaded = restored.local_stale,
             outcome_stale = restored.outcome_stale,
-            coordination_reloaded = restored.coordination_stale,
             load_outcomes_ms = reload_metrics.load_outcomes_ms,
             reload_projections_ms = reload_metrics.reload_projections_ms,
-            coordination_reload_ms = reload_metrics.reload_coordination_ms,
             total_ms = started.elapsed().as_millis(),
             "restored prism workspace indexer from startup checkpoint"
         );
@@ -531,14 +527,12 @@ pub(crate) fn persist_workspace_runtime_startup_checkpoint(
         .lock()
         .expect("workspace store lock poisoned")
         .outcome_revision()?;
-    let coordination_authority = coordination_startup_authority(session.root())?;
     let (
         layout,
         graph_snapshot,
         history_snapshot,
         intent_index,
         outcome_snapshot,
-        coordination_snapshot,
         projection_snapshot,
     ) = {
         let runtime_state = session
@@ -554,7 +548,6 @@ pub(crate) fn persist_workspace_runtime_startup_checkpoint(
                 runtime_state.graph.edges.iter().collect::<Vec<_>>(),
             ),
             runtime_state.outcomes.snapshot(),
-            runtime_state.coordination_snapshot.clone(),
             runtime_state.projections.snapshot(),
         )
     };
@@ -573,7 +566,7 @@ pub(crate) fn persist_workspace_runtime_startup_checkpoint(
         materialized_at: crate::util::current_timestamp(),
         revisions,
         outcome_revision,
-        coordination_authority: coordination_authority.into(),
+        coordination_authority: coordination_startup_authority(session.root())?.into(),
     };
     write_checkpoint_header(&mut writer, &header)?;
     write_bincode_segment(
@@ -601,11 +594,6 @@ pub(crate) fn persist_workspace_runtime_startup_checkpoint(
         &mut writer,
         &encode_json(&outcome_snapshot)?,
         "outcome snapshot json",
-    )?;
-    write_bytes_segment(
-        &mut writer,
-        &encode_json(&coordination_snapshot)?,
-        "coordination snapshot json",
     )?;
     write_bytes_segment(
         &mut writer,
@@ -641,14 +629,12 @@ struct RestoredWorkspaceRuntimeCheckpoint {
     runtime_state: WorkspaceRuntimeState,
     local_stale: bool,
     outcome_stale: bool,
-    coordination_stale: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
 struct RestoredRuntimeReloadMetrics {
     load_outcomes_ms: u128,
     reload_projections_ms: u128,
-    reload_coordination_ms: u128,
 }
 
 fn load_workspace_runtime_startup_checkpoint(
@@ -749,35 +735,6 @@ fn load_workspace_runtime_startup_checkpoint(
             "restoring startup checkpoint with stale outcome revision; outcomes will reload from persisted state"
         );
     }
-    let current_authority = coordination_startup_authority(root)?;
-    let checkpoint_authority: CoordinationStartupCheckpointAuthority =
-        header.coordination_authority.into();
-    let coordination_stale = coordination_restore_stale(
-        header.revisions.coordination,
-        current_revisions.coordination,
-        &checkpoint_authority,
-        &current_authority,
-    );
-    if coordination_stale {
-        info!(
-            root = %root.display(),
-            checkpoint_coordination_revision = header.revisions.coordination,
-            current_coordination_revision = current_revisions.coordination,
-            checkpoint_ref_name = checkpoint_authority.ref_name,
-            checkpoint_head = checkpoint_authority
-                .head_commit
-                .as_deref()
-                .unwrap_or(""),
-            checkpoint_manifest_digest = checkpoint_authority
-                .manifest_digest
-                .as_deref()
-                .unwrap_or(""),
-            current_ref_name = current_authority.ref_name,
-            current_head = current_authority.head_commit.as_deref().unwrap_or(""),
-            current_manifest_digest = current_authority.manifest_digest.as_deref().unwrap_or(""),
-            "restoring startup checkpoint with stale coordination state; coordination will resync asynchronously"
-        );
-    }
     let restored = (|| -> Result<RestoredWorkspaceRuntimeCheckpoint> {
         let workspace_tree_snapshot: WorkspaceTreeSnapshot =
             read_bincode_segment::<_, WorkspaceTreeSnapshotCheckpoint>(
@@ -799,10 +756,6 @@ fn load_workspace_runtime_startup_checkpoint(
             &read_bytes_segment(&mut reader, "outcome snapshot json")?,
             "outcome snapshot",
         )?;
-        let coordination_snapshot: prism_coordination::CoordinationSnapshot = decode_json(
-            &read_bytes_segment(&mut reader, "coordination snapshot json")?,
-            "coordination snapshot",
-        )?;
         let projection_snapshot: ProjectionSnapshot = decode_json(
             &read_bytes_segment(&mut reader, "projection snapshot json")?,
             "projection snapshot",
@@ -812,7 +765,7 @@ fn load_workspace_runtime_startup_checkpoint(
             Graph::from_snapshot(graph_snapshot),
             HistoryStore::from_snapshot(history_snapshot.clone()),
             OutcomeMemory::from_snapshot(outcome_snapshot),
-            coordination_snapshot,
+            prism_coordination::CoordinationSnapshot::default(),
             Vec::new(),
             ProjectionIndex::from_snapshot_with_history(
                 projection_snapshot,
@@ -829,7 +782,6 @@ fn load_workspace_runtime_startup_checkpoint(
             runtime_state,
             local_stale,
             outcome_stale,
-            coordination_stale,
         })
     })();
     match restored {
@@ -854,10 +806,9 @@ fn refresh_restored_runtime_domains(
     options: &WorkspaceSessionOptions,
     local_stale: bool,
     outcome_stale: bool,
-    coordination_stale: bool,
 ) -> Result<RestoredRuntimeReloadMetrics> {
     let mut metrics = RestoredRuntimeReloadMetrics::default();
-    if !local_stale && !outcome_stale && !coordination_stale {
+    if !local_stale && !outcome_stale {
         return Ok(metrics);
     }
     if !options.knowledge_storage_enabled() {
@@ -911,7 +862,7 @@ fn refresh_restored_runtime_domains(
     }
     metrics.reload_projections_ms = projections_started.elapsed().as_millis();
 
-    let _ = (root, coordination_stale, options.coordination_enabled());
+    let _ = (root, options.coordination_enabled());
 
     Ok(metrics)
 }
@@ -932,15 +883,6 @@ fn local_restore_revisions_recoverable(
     checkpoint.workspace <= current.workspace
         && checkpoint.episodic <= current.episodic
         && checkpoint.inference <= current.inference
-}
-
-fn coordination_restore_stale(
-    checkpoint_revision: u64,
-    current_revision: u64,
-    checkpoint_authority: &CoordinationStartupCheckpointAuthority,
-    current_authority: &CoordinationStartupCheckpointAuthority,
-) -> bool {
-    checkpoint_revision != current_revision || checkpoint_authority != current_authority
 }
 
 fn encode_json<T: serde::Serialize>(value: &T) -> Result<Vec<u8>> {
@@ -1158,14 +1100,14 @@ mod tests {
     use prism_ir::{EventMeta, LineageEvent, LineageEventKind, LineageEvidence, NodeId, NodeKind};
     use prism_memory::OutcomeMemorySnapshot;
     use prism_store::{
-        CoordinationStartupCheckpointAuthority, Graph, IndexPersistBatch, MaterializationStore,
-        SnapshotRevisions, WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
+        Graph, IndexPersistBatch, MaterializationStore, SnapshotRevisions,
+        WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
     };
 
     use super::{
-        build_workspace_indexer_with_startup_checkpoint, coordination_restore_stale,
-        local_restore_revisions_match, local_restore_revisions_recoverable, read_bincode_segment,
-        write_bincode_segment, HistorySnapshotCheckpoint, WorkspaceTreeSnapshotCheckpoint,
+        build_workspace_indexer_with_startup_checkpoint, local_restore_revisions_match,
+        local_restore_revisions_recoverable, read_bincode_segment, write_bincode_segment,
+        HistorySnapshotCheckpoint, WorkspaceTreeSnapshotCheckpoint,
     };
     use crate::{
         index_workspace_session_with_options, SharedRuntimeBackend, WorkspaceSessionOptions,
@@ -1290,6 +1232,10 @@ mod tests {
         assert!(
             restored.trust_cached_query_state,
             "clean startup checkpoint restore should trust cached query state"
+        );
+        assert!(
+            restored.coordination_snapshot.plans.is_empty(),
+            "workspace startup checkpoint restore must not repopulate coordination state"
         );
     }
 
@@ -1464,27 +1410,6 @@ mod tests {
         };
 
         assert!(!local_restore_revisions_recoverable(checkpoint, current));
-    }
-
-    #[test]
-    fn coordination_restore_detects_authority_drift() {
-        let checkpoint_authority = CoordinationStartupCheckpointAuthority {
-            ref_name: "refs/prism/coordination/demo/live".to_string(),
-            head_commit: Some("commit-a".to_string()),
-            manifest_digest: Some("manifest-a".to_string()),
-        };
-        let current_authority = CoordinationStartupCheckpointAuthority {
-            ref_name: "refs/prism/coordination/demo/live".to_string(),
-            head_commit: Some("commit-b".to_string()),
-            manifest_digest: Some("manifest-b".to_string()),
-        };
-
-        assert!(coordination_restore_stale(
-            1,
-            1,
-            &checkpoint_authority,
-            &current_authority,
-        ));
     }
 
     fn temp_workspace() -> PathBuf {
