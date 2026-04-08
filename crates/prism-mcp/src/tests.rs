@@ -2648,7 +2648,7 @@ fn mcp_returns_structured_protocol_rejections_before_any_coordination_event() {
                         }
                     }],
                     "optimisticPreconditions": {
-                        "expectedRevision": 1
+                        "expectedAuthorityStamp": "authority:demo"
                     }
                 }),
                 task_id: None,
@@ -2705,7 +2705,7 @@ fn mcp_returns_structured_protocol_conflicts_before_any_coordination_event() {
                         }
                     }],
                     "optimisticPreconditions": {
-                        "expectedEventCount": 0
+                        "expectedRevision": 0
                     }
                 }),
                 task_id: None,
@@ -2715,7 +2715,7 @@ fn mcp_returns_structured_protocol_conflicts_before_any_coordination_event() {
 
     assert!(rejected.rejected);
     assert!(rejected.event_ids.is_empty());
-    assert_eq!(rejected.violations[0].code, "stale_event_count");
+    assert_eq!(rejected.violations[0].code, "stale_revision");
     assert_eq!(
         rejected.state["rejection"]["stage"],
         Value::String("conflict".to_string())
@@ -2726,7 +2726,7 @@ fn mcp_returns_structured_protocol_conflicts_before_any_coordination_event() {
     );
     assert_eq!(
         rejected.state["rejection"]["reasonCode"],
-        Value::String("stale_event_count".to_string())
+        Value::String("stale_revision".to_string())
     );
 }
 

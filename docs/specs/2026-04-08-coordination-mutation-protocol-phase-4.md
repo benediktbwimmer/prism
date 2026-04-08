@@ -75,6 +75,7 @@ Current slice notes:
   still preserving persisted domain rejection events through the existing audit path
 - optimistic preconditions now support an initial conflict family against the current coordination
   event head:
+  - `expectedRevision`
   - `expectedEventCount`
   - `expectedLastEventId`
   unsupported optimistic-precondition fields still reject at input-shape validation
@@ -269,8 +270,8 @@ Progress:
   of collapsing them into generic transport errors
 - [x] the stable rejection and indeterminate state envelope now lives in `prism-query` instead of
   being rebuilt ad hoc in `prism-mcp`
-- [x] initial stale-base conflict handling now exists for `expectedEventCount` and
-  `expectedLastEventId`
+- [x] initial stale-base conflict handling now exists for `expectedRevision`,
+  `expectedEventCount`, and `expectedLastEventId`
 - [ ] authority-store-backed conflict bases and replay semantics still need to be implemented
 - [ ] authority-store-backed indeterminate outcomes still need to route through the same common
   protocol envelope

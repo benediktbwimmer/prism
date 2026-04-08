@@ -157,6 +157,7 @@ pub struct CoordinationTransactionInput {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct CoordinationTransactionOptimisticPreconditions {
+    expected_revision: Option<u64>,
     expected_event_count: Option<usize>,
     expected_last_event_id: Option<EventId>,
 }
@@ -588,10 +589,30 @@ fn parse_optimistic_preconditions(
         ));
     };
 
+    let mut expected_revision = None;
     let mut expected_event_count = None;
     let mut expected_last_event_id = None;
     for (key, value) in map {
         match key.as_str() {
+            "expectedRevision" => {
+                let Value::Number(number) = value else {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "invalid_expected_revision",
+                        "coordination_transaction optimisticPreconditions.expectedRevision must be a non-negative integer",
+                    ));
+                };
+                let Some(parsed) = number.as_u64() else {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "invalid_expected_revision",
+                        "coordination_transaction optimisticPreconditions.expectedRevision must be a non-negative integer",
+                    ));
+                };
+                expected_revision = Some(parsed);
+            }
             "expectedEventCount" => {
                 let Value::Number(number) = value else {
                     return Err(CoordinationTransactionError::rejected(
@@ -636,7 +657,10 @@ fn parse_optimistic_preconditions(
         }
     }
 
-    if expected_event_count.is_none() && expected_last_event_id.is_none() {
+    if expected_revision.is_none()
+        && expected_event_count.is_none()
+        && expected_last_event_id.is_none()
+    {
         return Err(CoordinationTransactionError::rejected(
             CoordinationTransactionValidationStage::InputShape,
             CoordinationTransactionRejectionCategory::Unsupported,
@@ -646,6 +670,7 @@ fn parse_optimistic_preconditions(
     }
 
     Ok(Some(CoordinationTransactionOptimisticPreconditions {
+        expected_revision,
         expected_event_count,
         expected_last_event_id,
     }))
@@ -776,6 +801,19 @@ fn validate_transaction_conflict(
         return Ok(());
     };
     let snapshot = coordination_runtime.snapshot();
+    if let Some(expected_revision) = optimistic_preconditions.expected_revision {
+        let actual_revision = u64::try_from(snapshot.events.len()).unwrap_or(u64::MAX);
+        if actual_revision != expected_revision {
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::Conflict,
+                CoordinationTransactionRejectionCategory::Conflict,
+                "stale_revision",
+                format!(
+                    "coordination transaction optimisticPreconditions.expectedRevision expected `{expected_revision}` but current revision is `{actual_revision}`"
+                ),
+            ));
+        }
+    }
     if let Some(expected_event_count) = optimistic_preconditions.expected_event_count {
         let actual_event_count = snapshot.events.len();
         if actual_event_count != expected_event_count {
