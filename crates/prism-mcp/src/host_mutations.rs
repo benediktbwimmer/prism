@@ -30,8 +30,8 @@ use prism_query::{
     ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction,
     ConceptRelationKind, ConceptScope, ContractCompatibility, ContractEvent, ContractEventAction,
     ContractEventPatch, ContractGuarantee, ContractGuaranteeStrength, ContractKind, ContractPacket,
-    ContractStability, ContractStatus, ContractTarget, ContractValidation,
-    CoordinationDependencyKind, CoordinationTransactionGitExecutionPolicyPatch,
+    ContractStability, ContractStatus, ContractTarget, ContractValidation, CoordinationDependencyKind,
+    CoordinationTransactionError, CoordinationTransactionGitExecutionPolicyPatch,
     CoordinationTransactionInput, CoordinationTransactionMutation, CoordinationTransactionPlanRef,
     CoordinationTransactionPlanSchedulingPatch, CoordinationTransactionPolicyPatch,
     CoordinationTransactionTaskRef, Prism,
@@ -133,6 +133,104 @@ struct CoordinationExecutionBinding {
     assignee: Option<AgentId>,
     worktree_id: Option<String>,
     branch_ref: Option<String>,
+}
+
+fn coordination_transaction_stage_tag(error: &CoordinationTransactionError) -> Option<&'static str> {
+    match error {
+        CoordinationTransactionError::Rejected(rejection) => Some(match rejection.stage {
+            prism_query::CoordinationTransactionValidationStage::InputShape => "input_shape",
+            prism_query::CoordinationTransactionValidationStage::Authorization => "authorization",
+            prism_query::CoordinationTransactionValidationStage::ObjectIdentity => {
+                "object_identity"
+            }
+            prism_query::CoordinationTransactionValidationStage::Domain => "domain",
+            prism_query::CoordinationTransactionValidationStage::Conflict => "conflict",
+            prism_query::CoordinationTransactionValidationStage::Commit => "commit",
+        }),
+        CoordinationTransactionError::Indeterminate { .. } => None,
+    }
+}
+
+fn coordination_transaction_category_tag(
+    error: &CoordinationTransactionError,
+) -> Option<&'static str> {
+    match error {
+        CoordinationTransactionError::Rejected(rejection) => Some(match rejection.category {
+            prism_query::CoordinationTransactionRejectionCategory::InvalidInput => "invalid_input",
+            prism_query::CoordinationTransactionRejectionCategory::Unauthorized => "unauthorized",
+            prism_query::CoordinationTransactionRejectionCategory::NotFound => "not_found",
+            prism_query::CoordinationTransactionRejectionCategory::DomainViolation => {
+                "domain_violation"
+            }
+            prism_query::CoordinationTransactionRejectionCategory::Conflict => "conflict",
+            prism_query::CoordinationTransactionRejectionCategory::Unsupported => "unsupported",
+        }),
+        CoordinationTransactionError::Indeterminate { .. } => None,
+    }
+}
+
+fn coordination_transaction_protocol_result(
+    event_id: &EventId,
+    error: &anyhow::Error,
+) -> Option<CoordinationMutationResult> {
+    let protocol_error = error.downcast_ref::<CoordinationTransactionError>()?;
+    match protocol_error {
+        CoordinationTransactionError::Rejected(rejection) => {
+            if matches!(
+                rejection.stage,
+                prism_query::CoordinationTransactionValidationStage::Domain
+                    | prism_query::CoordinationTransactionValidationStage::Commit
+            ) {
+                return None;
+            }
+            let stage = coordination_transaction_stage_tag(protocol_error)
+                .unwrap_or("unknown");
+            let category = coordination_transaction_category_tag(protocol_error)
+                .unwrap_or("unknown");
+            Some(CoordinationMutationResult {
+                event_id: event_id.0.to_string(),
+                event_ids: Vec::new(),
+                rejected: true,
+                violations: vec![MutationViolationView {
+                    code: rejection.reason_code.to_string(),
+                    summary: rejection.message.clone(),
+                    plan_id: None,
+                    task_id: None,
+                    claim_id: None,
+                    artifact_id: None,
+                    details: json!({
+                        "stage": stage,
+                        "category": category,
+                    }),
+                }],
+                state: json!({
+                    "outcome": "Rejected",
+                    "rejection": {
+                        "stage": stage,
+                        "category": category,
+                        "reasonCode": rejection.reason_code,
+                        "message": rejection.message,
+                    }
+                }),
+            })
+        }
+        CoordinationTransactionError::Indeterminate {
+            reason_code,
+            message,
+        } => Some(CoordinationMutationResult {
+            event_id: event_id.0.to_string(),
+            event_ids: Vec::new(),
+            rejected: false,
+            violations: Vec::new(),
+            state: json!({
+                "outcome": "Indeterminate",
+                "indeterminate": {
+                    "reasonCode": reason_code,
+                    "message": message,
+                }
+            }),
+        }),
+    }
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -3232,6 +3330,11 @@ impl QueryHost {
                 }
                 Err(error) => {
                     let prism = self.current_prism();
+                    if let Some(result) =
+                        coordination_transaction_protocol_result(&event_id, &error)
+                    {
+                        return Ok(result);
+                    }
                     let audit_started = std::time::Instant::now();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     record_optional_trace_phase(
@@ -3295,6 +3398,11 @@ impl QueryHost {
             match self.apply_coordination_mutation(session, prism.as_ref(), args, meta.clone()) {
                 Ok(state) => state,
                 Err(error) => {
+                    if let Some(result) =
+                        coordination_transaction_protocol_result(&event_id, &error)
+                    {
+                        return Ok(result);
+                    }
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
                         return Ok(CoordinationMutationResult {

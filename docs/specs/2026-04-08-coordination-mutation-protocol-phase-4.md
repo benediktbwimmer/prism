@@ -66,8 +66,10 @@ Current slice notes:
   - authorization placeholder staging
   - object identity and ordered client-reference validation
   - typed rejected outcomes for those stages
-  later slices still need conflict handling, indeterminate outcomes, and shared rejected-result
-  shaping through all mutation surfaces
+  later slices still need conflict handling, indeterminate outcomes, and fully unified rejected
+  results across all mutation surfaces
+- MCP now surfaces pre-event protocol rejections structurally from the protocol error type while
+  still preserving persisted domain rejection events through the existing audit path
 
 ## 3. Related roadmap
 
@@ -248,6 +250,15 @@ Progress:
 Exit criteria:
 
 - retryable conflict and deterministic invalid input are distinguished through one protocol result
+
+Progress:
+
+- [x] deterministic invalid input and unsupported precondition cases now have stable typed
+  rejection codes in `prism-query`
+- [x] MCP now preserves those pre-event protocol rejections as structured mutation results instead
+  of collapsing them into generic transport errors
+- [ ] authority-base conflict handling and replay semantics still need to be implemented
+- [ ] indeterminate outcomes still need to be surfaced through the same common protocol result
 
 ### Slice 4: Commit result and downstream follow-through
 
