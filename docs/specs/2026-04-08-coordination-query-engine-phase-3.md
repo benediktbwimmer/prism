@@ -355,6 +355,11 @@ The first product-facing cutover is also in place:
   - `compact_tools/task_brief.rs`
   - `host_resources.rs`
   - `ui_read_models.rs`
+- the stable `prism_query` surface now exposes:
+  - `taskEvidenceStatus(taskId)`
+  - `taskReviewStatus(taskId)`
+- the generic `blockers(taskId)` query path now prefers the engine-backed evidence-status
+  composite before falling back to the older direct blocker read
 
 The next Phase 3 slice should focus on product-facing read cutover and duplicate-logic removal,
 rather than growing more coordination semantics back into surface modules.

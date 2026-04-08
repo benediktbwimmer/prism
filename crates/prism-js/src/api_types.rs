@@ -4,7 +4,8 @@ use prism_ir::{
     ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, DerivedPlanStatus, EdgeKind,
     EdgeOrigin, EffectiveTaskStatus, ExecutorClass, GitExecutionStatus, GitIntegrationEvidence,
     GitIntegrationMode, GitIntegrationStatus, Language, NodeKind, NodeRefKind, PlanKind,
-    PlanNodeKind, PlanOperatorState, PlanScope, PlanStatus, Span, TaskLifecycleStatus,
+    PlanNodeKind, PlanOperatorState, PlanScope, PlanStatus, ReviewVerdict, Span,
+    TaskLifecycleStatus,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;
@@ -1578,6 +1579,51 @@ pub struct ArtifactRiskView {
     pub contracts: Vec<ContractPacketView>,
     pub contract_review_notes: Vec<String>,
     pub promoted_summaries: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactReviewView {
+    pub id: String,
+    pub artifact_id: String,
+    pub verdict: ReviewVerdict,
+    pub summary: String,
+    pub ts: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskEvidenceArtifactStatusView {
+    pub artifact: ArtifactView,
+    pub reviews: Vec<ArtifactReviewView>,
+    pub latest_review: Option<ArtifactReviewView>,
+    pub latest_review_verdict: Option<ReviewVerdict>,
+    pub pending_review: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskEvidenceStatusView {
+    pub task_id: String,
+    pub artifacts: Vec<TaskEvidenceArtifactStatusView>,
+    pub blockers: Vec<BlockerView>,
+    pub pending_review_count: usize,
+    pub approved_artifact_count: usize,
+    pub rejected_artifact_count: usize,
+    pub missing_validations: Vec<String>,
+    pub stale_artifact_ids: Vec<String>,
+    pub review_required: bool,
+    pub has_approved_artifact: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskReviewStatusView {
+    pub task_id: String,
+    pub artifacts: Vec<TaskEvidenceArtifactStatusView>,
+    pub pending_review_count: usize,
+    pub approved_artifact_count: usize,
+    pub rejected_artifact_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

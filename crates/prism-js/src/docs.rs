@@ -1471,6 +1471,43 @@ type ArtifactRiskView = {
   promotedSummaries: string[];
 };
 
+type ArtifactReviewView = {
+  id: string;
+  artifactId: string;
+  verdict: "Approved" | "ChangesRequested" | "Rejected";
+  summary: string;
+  ts: number;
+};
+
+type TaskEvidenceArtifactStatusView = {
+  artifact: ArtifactView;
+  reviews: ArtifactReviewView[];
+  latestReview: ArtifactReviewView | null;
+  latestReviewVerdict: "Approved" | "ChangesRequested" | "Rejected" | null;
+  pendingReview: boolean;
+};
+
+type TaskEvidenceStatusView = {
+  taskId: string;
+  artifacts: TaskEvidenceArtifactStatusView[];
+  blockers: BlockerView[];
+  pendingReviewCount: number;
+  approvedArtifactCount: number;
+  rejectedArtifactCount: number;
+  missingValidations: string[];
+  staleArtifactIds: string[];
+  reviewRequired: boolean;
+  hasApprovedArtifact: boolean;
+};
+
+type TaskReviewStatusView = {
+  taskId: string;
+  artifacts: TaskEvidenceArtifactStatusView[];
+  pendingReviewCount: number;
+  approvedArtifactCount: number;
+  rejectedArtifactCount: number;
+};
+
 type CoordinationInboxView = {
   plan: PlanView | null;
   planV2: CoordinationPlanV2View | null;

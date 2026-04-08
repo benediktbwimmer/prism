@@ -131,6 +131,7 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
                     r#"
 return {{
   blockers: prism.blockers("{task_id}"),
+  taskEvidenceStatus: prism.taskEvidenceStatus("{task_id}"),
   pendingReviews: prism.pendingReviews("{plan_id}"),
 }};
 "#
@@ -155,6 +156,14 @@ return {{
     assert_eq!(
         envelope["result"]["blockers"][0]["causes"][1]["source"],
         Value::String("artifact_state".to_string())
+    );
+    assert_eq!(
+        envelope["result"]["taskEvidenceStatus"]["pendingReviewCount"],
+        Value::Number(1.into())
+    );
+    assert_eq!(
+        envelope["result"]["taskEvidenceStatus"]["reviewRequired"],
+        Value::Bool(true)
     );
     assert_eq!(
         envelope["result"]["pendingReviews"]

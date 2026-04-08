@@ -426,6 +426,18 @@ pub(crate) fn query_method_specs() -> Vec<(
             "Explain why a coordination task is blocked.",
         ),
         (
+            "taskEvidenceStatus",
+            "coordination",
+            Some("artifacts"),
+            "Summarize coordination artifact, review, blocker, and validation posture for one task.",
+        ),
+        (
+            "taskReviewStatus",
+            "coordination",
+            Some("artifacts"),
+            "Summarize coordination review posture for one task.",
+        ),
+        (
             "policyViolations",
             "coordination",
             Some("workflow"),

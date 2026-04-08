@@ -4,25 +4,26 @@ use prism_curator::{
 };
 use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
-    AnchorRefView, ArtifactRiskView, ArtifactView, BlockerCauseView, BlockerView, ChangeImpactView,
-    ClaimView, CoChangeView, ConceptBindingMetadataView, ConceptCurationHintsView,
-    ConceptDecodeLensView, ConceptPacketTruncationView, ConceptPacketVerbosityView,
-    ConceptPacketView, ConceptProvenanceView, ConceptPublicationStatusView, ConceptPublicationView,
-    ConceptRelationDirectionView, ConceptRelationKindView, ConceptRelationView,
-    ConceptResolutionView, ConceptScopeView, ConflictView, ContractCompatibilityView,
-    ContractGuaranteeStrengthView, ContractGuaranteeView, ContractHealthSignalsView,
-    ContractHealthStatusView, ContractHealthView, ContractKindView, ContractPacketView,
-    ContractResolutionView, ContractStabilityView, ContractStatusView, ContractTargetView,
-    ContractValidationView, CoordinationPlanV2View, CoordinationTaskLifecycleView,
-    CoordinationTaskV2View, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
-    CuratorProposalView, DriftCandidateView, EdgeView, GitExecutionPolicyView,
-    GitPreflightReportView, GitPublishReportView, MemoryEntryView, MemoryEventView, NodeIdView,
-    NodeRefView, PlanActivityView, PlanBindingView, PlanChildrenV2View, PlanListEntryView,
-    PlanNodeStatusCountsView, PlanSchedulingView, PlanSummaryView, PlanView,
-    PolicyViolationRecordView, PolicyViolationView, QueryDiagnostic, ScoredMemoryView,
-    TaskExecutorPolicyView, TaskGitExecutionView, TaskIntentView, TaskRiskView,
-    TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, ValidationRefView,
-    WorkspaceRevisionView,
+    AnchorRefView, ArtifactReviewView, ArtifactRiskView, ArtifactView, BlockerCauseView,
+    BlockerView, ChangeImpactView, ClaimView, CoChangeView, ConceptBindingMetadataView,
+    ConceptCurationHintsView, ConceptDecodeLensView, ConceptPacketTruncationView,
+    ConceptPacketVerbosityView, ConceptPacketView, ConceptProvenanceView,
+    ConceptPublicationStatusView, ConceptPublicationView, ConceptRelationDirectionView,
+    ConceptRelationKindView, ConceptRelationView, ConceptResolutionView, ConceptScopeView,
+    ConflictView, ContractCompatibilityView, ContractGuaranteeStrengthView, ContractGuaranteeView,
+    ContractHealthSignalsView, ContractHealthStatusView, ContractHealthView, ContractKindView,
+    ContractPacketView, ContractResolutionView, ContractStabilityView, ContractStatusView,
+    ContractTargetView, ContractValidationView, CoordinationPlanV2View,
+    CoordinationTaskLifecycleView, CoordinationTaskV2View, CoordinationTaskView, CuratorJobView,
+    CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView,
+    GitExecutionPolicyView, GitPreflightReportView, GitPublishReportView, MemoryEntryView,
+    MemoryEventView, NodeIdView, NodeRefView, PlanActivityView, PlanBindingView,
+    PlanChildrenV2View, PlanListEntryView, PlanNodeStatusCountsView, PlanSchedulingView,
+    PlanSummaryView, PlanView, PolicyViolationRecordView, PolicyViolationView, QueryDiagnostic,
+    ScoredMemoryView, TaskEvidenceArtifactStatusView, TaskEvidenceStatusView,
+    TaskExecutorPolicyView, TaskGitExecutionView, TaskIntentView, TaskReviewStatusView,
+    TaskRiskView, TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView,
+    ValidationRefView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_query::{
@@ -32,7 +33,8 @@ use prism_query::{
     ContractGuaranteeStrength, ContractHealth, ContractHealthSignals, ContractHealthStatus,
     ContractKind, ContractPacket, ContractResolution, ContractStability, ContractStatus,
     ContractTarget, ContractValidation, CoordinationPlanV2, CoordinationTaskV2, DriftCandidate,
-    PlanActivity, PlanListEntry, PlanNodeStatusCounts, PlanSummary, Prism, TaskIntent, TaskRisk,
+    PlanActivity, PlanListEntry, PlanNodeStatusCounts, PlanSummary, Prism,
+    TaskEvidenceArtifactStatus, TaskEvidenceStatus, TaskIntent, TaskReviewStatus, TaskRisk,
     TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
@@ -1068,6 +1070,71 @@ pub(crate) fn artifact_risk_view(
             .collect(),
         contract_review_notes: value.contract_review_notes,
         promoted_summaries,
+    }
+}
+
+pub(crate) fn artifact_review_view(
+    value: prism_coordination::ArtifactReview,
+) -> ArtifactReviewView {
+    ArtifactReviewView {
+        id: value.id.0.to_string(),
+        artifact_id: value.artifact.0.to_string(),
+        verdict: value.verdict,
+        summary: value.summary,
+        ts: value.meta.ts,
+    }
+}
+
+pub(crate) fn task_evidence_artifact_status_view(
+    value: TaskEvidenceArtifactStatus,
+) -> TaskEvidenceArtifactStatusView {
+    TaskEvidenceArtifactStatusView {
+        artifact: artifact_view(value.artifact),
+        reviews: value
+            .reviews
+            .into_iter()
+            .map(artifact_review_view)
+            .collect(),
+        latest_review: value.latest_review.map(artifact_review_view),
+        latest_review_verdict: value.latest_review_verdict,
+        pending_review: value.pending_review,
+    }
+}
+
+pub(crate) fn task_evidence_status_view(value: TaskEvidenceStatus) -> TaskEvidenceStatusView {
+    TaskEvidenceStatusView {
+        task_id: value.task_id.0.to_string(),
+        artifacts: value
+            .artifacts
+            .into_iter()
+            .map(task_evidence_artifact_status_view)
+            .collect(),
+        blockers: value.blockers.into_iter().map(blocker_view).collect(),
+        pending_review_count: value.pending_review_count,
+        approved_artifact_count: value.approved_artifact_count,
+        rejected_artifact_count: value.rejected_artifact_count,
+        missing_validations: value.missing_validations,
+        stale_artifact_ids: value
+            .stale_artifact_ids
+            .into_iter()
+            .map(|artifact_id| artifact_id.0.to_string())
+            .collect(),
+        review_required: value.review_required,
+        has_approved_artifact: value.has_approved_artifact,
+    }
+}
+
+pub(crate) fn task_review_status_view(value: TaskReviewStatus) -> TaskReviewStatusView {
+    TaskReviewStatusView {
+        task_id: value.task_id.0.to_string(),
+        artifacts: value
+            .artifacts
+            .into_iter()
+            .map(task_evidence_artifact_status_view)
+            .collect(),
+        pending_review_count: value.pending_review_count,
+        approved_artifact_count: value.approved_artifact_count,
+        rejected_artifact_count: value.rejected_artifact_count,
     }
 }
 

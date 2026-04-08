@@ -52,8 +52,8 @@ use crate::{
     recent_patches_from_events, relations_view, resolve_concepts_for_session, result_decode_error,
     runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
     spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_intent_view, task_risk_view, task_validation_recipe_view,
-    tool_catalog_views_with_features, tool_schema_view_with_features,
+    task_evidence_status_view, task_intent_view, task_review_status_view, task_risk_view,
+    task_validation_recipe_view, tool_catalog_views_with_features, tool_schema_view_with_features,
     validate_tool_input_value_with_features, validation_context_view_cached,
     validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
     weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
@@ -1274,10 +1274,12 @@ impl QueryExecution {
                 }
                 "blockers" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                    let blockers = self.prism.blockers(
-                        &CoordinationTaskId::new(args.task_id.clone()),
-                        current_timestamp(),
-                    );
+                    let task_id = CoordinationTaskId::new(args.task_id.clone());
+                    let blockers = self
+                        .prism
+                        .task_evidence_status(&task_id, current_timestamp())
+                        .map(|status| status.blockers)
+                        .unwrap_or_else(|| self.prism.blockers(&task_id, current_timestamp()));
                     if !blockers.is_empty() {
                         self.push_diagnostic(
                             "task_blocked",
@@ -1318,6 +1320,28 @@ impl QueryExecution {
                     }
                     Ok(serde_json::to_value(
                         blockers.into_iter().map(blocker_view).collect::<Vec<_>>(),
+                    )?)
+                }
+                "taskEvidenceStatus" => {
+                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .task_evidence_status(
+                                &CoordinationTaskId::new(args.task_id),
+                                current_timestamp(),
+                            )
+                            .map(task_evidence_status_view),
+                    )?)
+                }
+                "taskReviewStatus" => {
+                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .task_review_status(
+                                &CoordinationTaskId::new(args.task_id),
+                                current_timestamp(),
+                            )
+                            .map(task_review_status_view),
                     )?)
                 }
                 "pendingReviews" => {

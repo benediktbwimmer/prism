@@ -1167,6 +1167,12 @@ const __prismBase = Object.freeze({
   blockers(taskId) {
     return __prismHost("blockers", { taskId });
   },
+  taskEvidenceStatus(taskId) {
+    return __prismHost("taskEvidenceStatus", { taskId });
+  },
+  taskReviewStatus(taskId) {
+    return __prismHost("taskReviewStatus", { taskId });
+  },
   pendingReviews(planId) {
     return __prismHost("pendingReviews", planId == null ? {} : { planId });
   },

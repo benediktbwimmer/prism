@@ -350,6 +350,10 @@ impl<'a> CoordinationQueryEngine<'a> {
             .iter()
             .filter(|artifact| artifact.pending_review)
             .count();
+        let review_required = task_risk.review_required
+            || blockers
+                .iter()
+                .any(|blocker| is_task_review_gate(blocker.kind));
         let approved_artifact_count = artifact_statuses
             .iter()
             .filter(|artifact| {
@@ -380,7 +384,7 @@ impl<'a> CoordinationQueryEngine<'a> {
             rejected_artifact_count,
             missing_validations,
             stale_artifact_ids: task_risk.stale_artifact_ids,
-            review_required: task_risk.review_required,
+            review_required,
             has_approved_artifact: task_risk.has_approved_artifact,
         })
     }

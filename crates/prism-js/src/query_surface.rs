@@ -346,6 +346,8 @@ pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
         method!("prism.claims", "claims(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ClaimView[];", PrismSurfaceTypeRef::ArrayOfNamed("ClaimView")),
         method!("prism.conflicts", "conflicts(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ConflictView[];", PrismSurfaceTypeRef::ArrayOfNamed("ConflictView")),
         method!("prism.blockers", "blockers(taskId: string): BlockerView[];", PrismSurfaceTypeRef::ArrayOfNamed("BlockerView")),
+        method!("prism.taskEvidenceStatus", "taskEvidenceStatus(taskId: string): TaskEvidenceStatusView | null;", PrismSurfaceTypeRef::NullableNamed("TaskEvidenceStatusView")),
+        method!("prism.taskReviewStatus", "taskReviewStatus(taskId: string): TaskReviewStatusView | null;", PrismSurfaceTypeRef::NullableNamed("TaskReviewStatusView")),
         method!("prism.pendingReviews", "pendingReviews(planId?: string): ArtifactView[];", PrismSurfaceTypeRef::ArrayOfNamed("ArtifactView")),
         method!("prism.artifacts", "artifacts(taskId: string): ArtifactView[];", PrismSurfaceTypeRef::ArrayOfNamed("ArtifactView")),
         method!("prism.policyViolations", "policyViolations(input?: { planId?: string; taskId?: string; limit?: number }): PolicyViolationRecordView[];", PrismSurfaceTypeRef::ArrayOfNamed("PolicyViolationRecordView"), PrismRecordArgBundle { bundle_name: "policyViolations", arg_name: "input", arg_index: 0, allowed_keys: POLICY_VIOLATIONS_KEYS }),
