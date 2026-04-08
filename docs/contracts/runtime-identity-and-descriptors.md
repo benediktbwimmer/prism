@@ -154,7 +154,7 @@ This distinction matters especially for future cross-repo coordination.
 ## 9. Relationship to the authority backend
 
 Runtime descriptor semantics must not depend on whether the active authority backend is Git shared
-refs or a future PostgreSQL backend.
+refs or a DB-backed backend.
 
 The backend may store descriptors differently.
 The meaning of publication, clearing, discovery, and freshness must remain the same.

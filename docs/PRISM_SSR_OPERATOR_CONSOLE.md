@@ -98,11 +98,11 @@ The SSR console should be built from four layers:
 3. lightweight client enhancement for charts
 4. optional htmx for write-capable forms, actions, and polling fragments
 
-The daemon remains the single serving surface.
+The PRISM Service remains the single serving surface.
 
 ### 4.1 Server-side rendering
 
-PRISM should render the HTML on the daemon side using existing read models and projection logic.
+PRISM should render the HTML on the service side using existing read models and projection logic.
 
 The server owns:
 
@@ -175,8 +175,8 @@ Optional future routes:
 - `/console/memory/{id}`
 - `/console/repo`
 
-This route family should be same-origin with the daemon and should reuse the same authentication and
-principal binding as the React console.
+This route family should be same-origin with the PRISM Service and should reuse the same
+authentication and principal binding as the React console.
 
 ---
 

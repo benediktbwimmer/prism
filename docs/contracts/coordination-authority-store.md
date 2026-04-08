@@ -15,9 +15,10 @@ The abstraction exists to make three things true at the same time:
 
 - the coordination kernel depends on one concrete transactional protocol instead of a spread of
   storage-specific helpers
-- the current Git shared-ref implementation remains first-class and defines the initial semantics
-- a future PostgreSQL-backed authority backend can be added later without rewriting the rest of the
-  coordination stack
+- the first production-grade release path can use a DB-backed authority family without rewriting
+  the rest of the coordination stack
+- the current Git shared-ref implementation remains a first-class backend and compatibility target
+  rather than a special-case side path
 
 The abstraction is intentionally **high-level**. It does not try to unify Git refs and SQL rows at
 an implementation level. It defines the coordination semantics that PRISM needs:
@@ -30,8 +31,8 @@ an implementation level. It defines the coordination semantics that PRISM needs:
 - retained authoritative history
 - authority diagnostics and provenance
 
-This is the seam that lets the rest of PRISM stop caring whether the active authority backend is Git
-shared refs or a future PostgreSQL service.
+This is the seam that lets the rest of PRISM stop caring whether the active authority backend is a
+DB-backed store or Git shared refs.
 
 One rule must remain explicit:
 
@@ -122,8 +123,10 @@ The target layering should be:
    - authority diagnostics
 
 3. **Authority backend implementation**
-   - Git shared refs backend first
-   - PostgreSQL backend later
+   - `DbCoordinationAuthorityStore`
+     - `PostgresCoordinationDb`
+     - `SqliteCoordinationDb`
+   - `GitCoordinationAuthorityStore`
 
 4. **Service-owned coordination materialization / runtime services**
 - service-owned coordination read models
@@ -134,7 +137,8 @@ The target layering should be:
 The key rule is:
 
 - the coordination kernel and the product surfaces depend on the **Coordination Authority Store**
-- only backend adapters know whether authority is implemented with shared refs or PostgreSQL
+- only backend adapters know whether authority is implemented by the DB-backed family or by Git
+  shared refs
 - service-owned coordination read models and checkpoints remain downstream of the authority
   interface
 - the concrete local persistence seam for eventual reads lives in
@@ -471,33 +475,54 @@ of `CoordinationAuthorityStore::diagnostics(...)`.
 
 ---
 
-## 10. Future PostgreSQL backend mapping
+## 10. DB-backed backend mapping
 
-A PostgreSQL backend should implement the same semantic contract as a true authority backend.
+The first release-oriented authority family should be DB-backed.
 
-### 10.1 Current state
+That family should still satisfy the same semantic contract as any other true authority backend.
 
-- eventual: read from local SQLite materialization if the runtime still keeps one
-- strong: read directly from PostgreSQL inside a transaction or from a committed snapshot view
+### 10.1 Backend family shape
 
-### 10.2 Transactions
+The intended layering is:
 
-- apply the mutation inside one SQL transaction
+- `CoordinationAuthorityStore`
+  - `DbCoordinationAuthorityStore`
+    - `SqliteCoordinationDb`
+    - `PostgresCoordinationDb`
+
+The point is to share one DB-backed implementation model where SQLite and Postgres are close
+variants, rather than making product code care about two different SQL backends.
+
+### 10.2 Current state
+
+- eventual: read from previously verified service-owned coordination materialization when that
+  layer is enabled
+- strong: read directly from the active DB-backed authority implementation inside a transaction or
+  from a committed snapshot view
+
+### 10.3 Transactions
+
+- apply the mutation inside one DB transaction
 - commit atomically
 - return the resulting authority stamp and post-commit state
 
-### 10.3 History
+### 10.4 History
 
 - serve object and transaction history from durable tables or history projections
 - map retention to explicit history-window metadata
 
-### 10.4 Runtime descriptors
+### 10.5 Runtime descriptors
 
 - store runtime descriptors in ordinary authority tables
 - expose them through the same query and diagnostics contract
 
-The point is not to force PostgreSQL to imitate Git. The point is to let both backends satisfy the
-same coordination semantics.
+### 10.6 Deployment defaults
+
+- SQLite is the single-instance or local-service DB-backed authority option
+- Postgres is the multi-instance or hosted production DB-backed authority option
+
+The point is not to force DB-backed authority to imitate Git. The point is to let both backend
+families satisfy the same coordination semantics.
 
 ---
 
@@ -505,9 +530,11 @@ same coordination semantics.
 
 This abstraction enables a future where PRISM can:
 
-- keep Git shared refs as the default repo-native backend
-- add a hosted PostgreSQL-backed backend later
-- migrate authority state between the two by explicit snapshot import/export and retained-history
+- ship a DB-backed authority family first
+- use SQLite for single-instance service deployments
+- use Postgres for hosted or multi-instance deployments
+- keep Git shared refs as a serious later or advanced repo-native backend
+- migrate authority state between backends by explicit snapshot import/export and retained-history
   windows
 
 The cutover rule must stay strict:
@@ -536,4 +563,4 @@ The end-state rule for PRISM coordination should be:
 
 Everything else in the runtime may remain optimized, cached, materialized, or disposable.
 But no product surface should need to know whether authority currently comes from Git shared refs
-or a future PostgreSQL service.
+or a DB-backed authority service.

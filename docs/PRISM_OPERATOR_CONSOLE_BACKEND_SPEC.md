@@ -9,15 +9,15 @@ Scope: backend contract for the first operator console UI
 ## 1. Summary
 
 PRISM should expose a versioned HTTP backend for a bundled React operator console served directly
-from the local daemon.
+from the PRISM Service.
 
 The V1 backend is intentionally simple:
 
-- a React SPA is bundled into the Rust binaries and served same-origin by `prism-mcp`
+- a React SPA is bundled into the Rust binaries and served same-origin by the PRISM Service
 - the UI reads from polling-friendly REST endpoints under `/api/v1/**`
 - the UI mutates state through one `POST /api/v1/mutate` endpoint
 - UI-triggered mutations must execute through the exact same host mutation path as MCP-triggered
-  mutations, so audit behavior, policy enforcement, Git execution, and shared-coordination
+  mutations, so audit behavior, policy enforcement, authority-store execution, and coordination
   publication stay identical
 - SSE, WebSockets, and the legacy dashboard HTTP surface are removed from the target design
 
@@ -39,7 +39,7 @@ Out of scope for V1:
 - concepts and semantic memory browsing
 - shell flight recorder
 - browser-push transport such as SSE or WebSockets
-- remote multi-user auth flows
+- third-party SaaS auth integrations beyond the core PRISM principal and service session model
 
 ---
 
@@ -47,7 +47,7 @@ Out of scope for V1:
 
 ### 3.1 Same-origin bundled product surface
 
-The daemon should serve:
+The PRISM Service should serve:
 
 - the embedded SPA shell and static assets
 - the operator-console REST API
@@ -77,9 +77,9 @@ but it should not emit MCP call-log noise for ordinary browser polling.
 
 A human operator is just another principal in the coordination fabric.
 
-When the UI requests a mutation, the daemon must:
+When the UI requests a mutation, the PRISM Service must:
 
-- resolve the active local operator principal
+- resolve the effective operator principal
 - construct the same mutation context an MCP-triggered mutation would use
 - execute the same host mutation path
 - emit the same mutation audit records and downstream coordination publications
@@ -105,9 +105,9 @@ The backend does not need optimistic mutation deltas or browser-push confirmatio
 
 The operator console backend must preserve PRISM's existing authority planes.
 
-### 4.1 Shared coordination refs
+### 4.1 Coordination authority backend
 
-Shared coordination refs remain authoritative for:
+The active coordination authority backend remains authoritative for:
 
 - plans
 - tasks
@@ -115,6 +115,8 @@ Shared coordination refs remain authoritative for:
 - handoffs and reservations
 - runtime descriptors
 - shared coordination indexes
+
+The backend may be DB-backed or Git-backed, but the UI must not care which one is active.
 
 ### 4.2 Repo-published `.prism/state`
 
@@ -137,7 +139,20 @@ Local runtime state remains authoritative for:
 - detailed local journals
 - runtime-serving accelerators
 
-### 4.4 UI read-model role
+### 4.4 Service auth and browser sessions
+
+The browser UI should authenticate against the PRISM Service, not against individual runtimes.
+
+The preferred identity model is:
+
+- the effective UI operator identity is a PRISM `principal_id`
+- the service may verify that identity through a signed challenge or device-style local flow
+- the service may also support optional service-managed identities that map onto PRISM principals
+
+Regardless of login mode, browser sessions are transport state over one PRISM principal and one
+capability context.
+
+### 4.5 UI read-model role
 
 Every `/api/v1/**` response is a derived serving view over those authority planes.
 
@@ -192,8 +207,8 @@ Must include:
 
 - workspace root
 - daemon health summary
-- active local operator principal id
-- active local operator display label when available
+- effective operator principal id
+- effective operator display label when available
 - current runtime id
 - current worktree id
 - current branch ref

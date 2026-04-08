@@ -23,13 +23,17 @@ PRISM coordination should be built around one hard rule:
 
 Everything else exists to make that authority usable at speed and at scale:
 
-- local SQLite materializations
-- startup checkpoints
-- the PRISM Service
-- local activity timelines and flight recorder data
+- service-owned coordination materialization
+- service-owned checkpoints and read acceleration
+- the PRISM Service as the required coordination host
+- runtime-local activity timelines and flight recorder data
 
-Those layers matter operationally, but they must remain optimizations. Removing them must make the
-system slower or less observable, not less correct.
+The service is required for interactive coordination participation, but it must remain a host
+around the authority plane rather than becoming authority itself.
+
+Service-owned materialization, checkpoints, and runtime-local observability layers remain
+optimizations. Removing those optimization layers must make the system slower or less observable,
+not less correct.
 
 This document freezes the target architecture implied by that rule.
 
@@ -37,7 +41,7 @@ This document freezes the target architecture implied by that rule.
 
 ## 2. Architectural Thesis
 
-PRISM should treat coordination as a self-sufficient kernel with optional runtime services around
+PRISM should treat coordination as a self-sufficient kernel with one required service host around
 it.
 
 The model is:
@@ -45,18 +49,18 @@ The model is:
 1. one configured authority backend holds current authoritative coordination state
 2. that backend exposes retained authoritative history according to its retention contract
 3. the coordination kernel is sufficient for coordination correctness
-4. the PRISM Service makes reads, writes, and event execution practical without
-   becoming authority
-5. the local runtime provides liveness sensing, local caching, and observability
+4. the PRISM Service is the required coordination host for reads, writes, materialization, and
+   runtime participation without becoming authority
+5. the local runtime provides liveness sensing, runtime-local operational state, and observability
 6. cognition and graph-backed understanding are optional enrichers, never a requirement for
    coordination correctness
 
 This lets PRISM remain:
 
-- correct without a central database
+- correct without the service becoming the authority plane
 - portable across worktrees and machines
 - restart-safe
-- compatible with offline or degraded operation
+- compatible with local-service and hosted-service deployments
 - scalable through optimization layers that do not become hidden authority
 
 ---
@@ -70,13 +74,13 @@ Required goals:
 - make all local runtime state disposable
 - allow high-quality operation without requiring cognition
 - preserve tamper evidence and explicit identity attribution for every authoritative state change
-- support fast local reads through derived materializations
-- support scale through poll/read/write coalescing and the optional PRISM Service
+- support fast service-local reads through derived materializations
+- support scale through poll, read, and write coalescing in the required PRISM Service
 - avoid introducing consistency traps through hidden cache shortcuts
 
 Required non-goals:
 
-- no mandatory PostgreSQL or central database for coordination correctness
+- no mandatory Git authority backend for the first robust release
 - no more than one active authoritative store for the same coordination root
 - no unverified shared-coordination reads
 - no separate explicit append-only coordination event log embedded in git payloads
@@ -104,9 +108,14 @@ That includes:
 
 SQLite, startup checkpoints, and local runtime memory are never authoritative.
 
-In the current default deployment, Git shared refs are that backend.
-Other backends may exist later, but only one may be authoritative for a coordination root at a
-time.
+The current implemented repo-native backend is Git shared refs, but the first production release
+path should be DB-backed:
+
+- SQLite for single-instance or local-service deployments
+- Postgres for hosted or multi-instance deployments
+- Git shared refs as a serious later or advanced backend
+
+Only one backend may be authoritative for a coordination root at a time.
 
 ### 4.2 History rule
 
@@ -155,10 +164,10 @@ What must not be lost:
 
 ### 4.5 Optimization rule
 
-The PRISM Service, caches, checkpoints, and materialized read models must remain
-optimization layers.
+Service-owned caches, checkpoints, and materialized read models must remain optimization layers.
 
-If an optimization disappears, PRISM must degrade safely to direct shared-ref behavior.
+The service itself is required for interactive coordination participation, but it must still fail
+cleanly as a host around the authority backend rather than becoming authority itself.
 
 ---
 
@@ -186,25 +195,29 @@ The coordination kernel should not require:
 - semantic filesystem understanding
 - local SQLite
 
-### 5.2 Git authority adapter
+### 5.2 Authority backend adapters
 
-The git authority adapter is the bridge from kernel semantics to the shared-ref substrate.
+Authority backend adapters are the bridge from kernel semantics to the active authority substrate.
 
-It owns:
+The initial shipping family should be DB-backed:
 
-- ref-head discovery
-- fetch
-- compare-and-swap push
-- manifest verification
-- identity and signature verification
-- history reconstruction from git
+- SQLite-backed authority for single-instance deployments
+- Postgres-backed authority for hosted or multi-instance deployments
 
-The coordination kernel may depend on this adapter for authoritative IO without embedding git
-details into policy logic.
+The currently implemented Git adapter remains important as a repo-native backend and future
+advanced option.
+
+Backend adapters own:
+
+- current-state IO
+- transaction execution
+- retained-history reconstruction
+- descriptor publication and discovery
+- verification and provenance checks appropriate to that backend
 
 ### 5.3 PRISM Service
 
-PRISM should use one stateless service shape:
+PRISM should use one service shape:
 
 - the PRISM Service
 
@@ -212,26 +225,29 @@ This service is operational, not authoritative.
 
 It should own:
 
-- namespace-wide shared-ref polling
-- fetch and manifest verification
+- authority access and refresh orchestration
+- service-owned coordination materialization and checkpoints
 - verified snapshot caching and fanout
-- strong-read coalescing
-- write coalescing and CAS publication
+- strong-read and eventual-read brokering
+- write coalescing and mutation brokering
 - event-engine execution
 - local runtime notifications and cache delivery
+- service-hosted UI serving and browser-session auth handling
 
 These responsibilities share the same prerequisites:
 
-- fresh verified shared-ref state
-- current materialized coordination view
-- CAS publication machinery
-- conflict retry
+- fresh verified authority state
+- current service-owned coordination materialization
+- mutation protocol machinery
+- conflict handling and retry
 
 Splitting them into separate long-lived services would duplicate logic and introduce more internal
 state boundaries without improving correctness.
 
-The service must remain stateless or near-stateless. If it disappears, PRISM must fall back to
-direct shared-ref behavior.
+The service should remain lean and role-oriented, but it is not stateless: service-owned
+coordination materialization is part of its normal operation. If it disappears, interactive
+coordination participation should fail clearly rather than falling back to runtime-owned
+coordination behavior.
 
 ### 5.4 Service descriptors and hosted runtimes
 
@@ -274,7 +290,6 @@ They include:
 - file-write sensing
 - `prism run` command sensing
 - lease renewal scheduling
-- local read materialization
 - local diagnostics and observability
 
 ### 5.6 Cognition enrichers
@@ -1059,7 +1074,7 @@ From this target architecture, the most important implementation direction is:
 1. keep removing correctness dependencies from local runtime state
 2. remove lenient shared-coordination import behavior
 3. collapse polling into one namespace-wide remote head check
-4. introduce the PRISM Service as the single stateless optimization service
+4. introduce the PRISM Service as the single required coordination host
 5. coalesce polling and strong reads per logical repo
 6. shard hot write paths cleanly
 7. add configurable write coalescing over CAS publishes
@@ -1074,7 +1089,8 @@ These changes improve scale without changing authority.
 
 The final architecture should be understood in one sentence:
 
-- one configured authority backend is truth; the PRISM Service and local SQLite are optimization
-  layers that must remain disposable; Git shared refs are the current default backend
+- one configured authority backend is truth; the PRISM Service is the required host around that
+  truth; service-owned materialization and local runtime state remain disposable; DB-backed
+  authority is the current release path and Git shared refs remain an implemented backend
 
 That is the target PRISM should implement against.

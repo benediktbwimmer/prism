@@ -2,7 +2,7 @@
 
 Status: in progress
 Audience: coordination, query, storage, runtime, MCP, CLI, UI, auth, and service maintainers
-Scope: the sequential implementation order for finishing the service-backed coordination platform, then the full native spec engine, then the remaining richer PRISM Service roles
+Scope: the sequential implementation order for finishing the service-backed coordination platform, establishing the DB-backed release path, then the full native spec engine, then the remaining richer PRISM Service roles
 
 ---
 
@@ -13,8 +13,10 @@ PRISM should complete its next major implementation era in one foundation-first 
 1. finish the coordination abstractions fully
 2. cut the codebase over to a service-backed coordination platform
 3. freeze coordination as the new platform
-4. build the full native spec engine on top of that stable platform
-5. implement the remaining richer PRISM Service roles on top of those settled seams
+4. make the DB-backed authority family the release-oriented backend path on top of that stable
+   platform
+5. build the full native spec engine on top of that stable platform
+6. implement the remaining richer PRISM Service roles on top of those settled seams
 
 This roadmap exists to prevent:
 
@@ -28,9 +30,15 @@ The core rule is:
 
 - build the foundations fully before building the next layer that depends on them
 
+The release-oriented backend ordering is also explicit:
+
+- DB-backed authority first
+- Git-backed authority remains important, but is not the critical path to the first robust release
+
 This roadmap now assumes the accepted decision in:
 
 - [../adrs/2026-04-08-service-owned-coordination-materialization.md](../adrs/2026-04-08-service-owned-coordination-materialization.md)
+- [../adrs/2026-04-08-db-backed-coordination-authority-first.md](../adrs/2026-04-08-db-backed-coordination-authority-first.md)
 
 ## 2. Status
 
@@ -51,7 +59,7 @@ Current phase checklist:
 - [ ] Phase 12: implement SpecCoverageView fully
 - [ ] Phase 13: implement explicit spec-to-coordination sync actions
 - [ ] Phase 14: expose the spec engine fully through CLI, MCP, and UI
-- [ ] Phase 15: implement the remaining PRISM Service roles and deployment modes
+- [ ] Phase 15: implement the remaining PRISM Service roles and release deployment modes
 
 Current active phase:
 
@@ -79,6 +87,7 @@ That means:
 
 - finish the coordination seams first
 - then finish the service-backed coordination platform
+- then make SQLite and Postgres the release-oriented authority family on top of it
 - then finish the full spec engine on top of it
 - then expand the remaining richer service roles
 
@@ -392,19 +401,23 @@ Exit criteria:
 
 - the spec engine is first-class and usable as the feature-intent layer
 
-### Phase 15: Implement the remaining PRISM Service roles and deployment modes
+### Phase 15: Implement the remaining PRISM Service roles and release deployment modes
 
 Implement in order:
 
-1. service shell
-2. authority sync role
-3. read broker role
-4. mutation broker role
-5. runtime gateway role
-6. later event engine role
+1. release-oriented DB-backed authority family
+   - SQLite single-instance deployment
+   - Postgres hosted or multi-instance deployment
+2. service shell
+3. authority sync role
+4. read broker role
+5. mutation broker role
+6. runtime gateway role
+7. later event engine role
 
 Exit criteria:
 
+- the release-oriented deployment path uses the DB-backed authority family cleanly
 - the service is built on the settled lower seams and stays thin rather than becoming a hidden
   authority blob
 
@@ -419,6 +432,8 @@ This ordering is driven by real dependency structure:
 - spec coverage depends on both SpecQueryEngine and CoordinationQueryEngine
 - spec sync depends on mutation, query, and provenance seams being stable
 - service-backed runtime participation depends on service-owned coordination materialization
+- release-oriented deployment depends on the DB-backed authority family landing on the settled
+  coordination seams
 - remaining richer service roles depend on all of the above being stable enough not to absorb
   missing architecture
 
@@ -449,4 +464,4 @@ The implementation order to stake the project on is:
 8. freeze service-backed coordination platform
 9. full spec engine
 10. full spec-coordination coverage and sync
-11. remaining richer PRISM service roles
+11. DB-backed release deployment and remaining richer PRISM service roles

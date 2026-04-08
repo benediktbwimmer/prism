@@ -50,6 +50,7 @@ The service shell owns:
 - lifecycle and process management
 - configuration
 - transport endpoints
+- bundled browser UI serving and browser-session plumbing
 - auth and trust plumbing
 - role wiring
 - observability and resource management
@@ -114,6 +115,12 @@ The same service shape should support:
 
 These are deployment modes of one service shape, not separate products.
 
+The same service shape should support:
+
+- local service with SQLite authority
+- local or hosted service with Postgres authority
+- local or hosted service with Git authority later when that backend is selected
+
 One service process may serve:
 
 - many repos
@@ -154,6 +161,8 @@ The intended answers are:
 - service-owned persisted eventual state -> materialized store
 - orchestration, coalescing, or scheduling -> service role
 - transport and runtime connectivity -> runtime gateway
+- browser UI, browser session handling, and admin surfaces -> service shell plus service
+  capability contract
 
 ## 10. Minimum implementation bar
 
