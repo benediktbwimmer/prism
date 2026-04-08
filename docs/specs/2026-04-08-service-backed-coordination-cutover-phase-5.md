@@ -248,6 +248,9 @@ Current progress:
   snapshot path as other product surfaces, while worktree and session overlay counts remain
   intentionally runtime-local because they report live runtime/session bindings rather than
   service-owned eventual coordination materialization
+- the old `CoordinationPersistenceBackend` snapshot/materialization compatibility helpers are now
+  test-only instead of part of the live crate surface, so persistence-path compatibility no longer
+  leaks into production code shape
 
 Exit criteria:
 

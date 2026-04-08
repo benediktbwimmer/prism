@@ -27,6 +27,7 @@ use crate::coordination_materialized_store::{
     StoreBackedCoordinationMaterializedStore,
 };
 use crate::coordination_mutation_error::CoordinationAuthorityMutationError;
+#[cfg(test)]
 use crate::coordination_reads::{
     load_eventual_coordination_plan_state_for_root as load_eventual_plan_state_for_root,
     load_eventual_coordination_snapshot_for_root as load_eventual_snapshot_for_root,
@@ -340,6 +341,7 @@ where
 pub(crate) trait CoordinationPersistenceBackend:
     CoordinationJournal + CoordinationCheckpointStore
 {
+    #[cfg(test)]
     fn persist_coordination_authoritative_state_for_root(
         &mut self,
         root: &Path,
@@ -364,6 +366,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         Ok(result)
     }
 
+    #[cfg(test)]
     fn load_eventual_coordination_snapshot_for_root(
         &mut self,
         root: &Path,
@@ -372,6 +375,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         load_eventual_snapshot_for_root(root)
     }
 
+    #[cfg(test)]
     fn load_eventual_coordination_snapshot_v2_for_root(
         &mut self,
         root: &Path,
@@ -380,6 +384,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         load_eventual_snapshot_v2_for_root(root)
     }
 
+    #[cfg(test)]
     fn load_eventual_coordination_plan_state_for_root(
         &mut self,
         root: &Path,
@@ -388,6 +393,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         load_eventual_plan_state_for_root(root)
     }
 
+    #[cfg(test)]
     fn persist_coordination_snapshot_for_root(
         &mut self,
         root: &Path,
@@ -400,6 +406,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         )
     }
 
+    #[cfg(test)]
     fn persist_coordination_state_for_root(
         &mut self,
         root: &Path,
