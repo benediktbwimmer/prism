@@ -5275,7 +5275,8 @@ impl QueryHost {
                         ))
                     })
                     .collect::<Result<Vec<_>>>()?;
-                Ok(json!({
+                Ok(attach_coordination_transaction_metadata(
+                    json!({
                     "id": plan_id.0,
                     "planId": plan_id.0,
                     "plan": plan_view_from_v2(
@@ -5285,7 +5286,9 @@ impl QueryHost {
                     ),
                     "taskIdsByClientId": bootstrap.task_ids_by_client_id,
                     "tasks": tasks,
-                }))
+                    }),
+                    &bootstrap,
+                ))
             }
             CoordinationMutationKindInput::PlanCreate => {
                 let payload: crate::PlanCreatePayload = serde_json::from_value(args.payload)?;

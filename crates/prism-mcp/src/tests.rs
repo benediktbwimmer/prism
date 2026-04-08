@@ -2819,6 +2819,54 @@ fn workflow_update_surfaces_transaction_metadata_in_state() {
 }
 
 #[test]
+fn plan_bootstrap_surfaces_transaction_metadata_in_state() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let bootstrapped = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanBootstrap,
+                payload: json!({
+                    "plan": {
+                        "title": "Bootstrap metadata coverage",
+                        "goal": "Bootstrap metadata coverage"
+                    },
+                    "tasks": [{
+                        "clientId": "task-alpha",
+                        "title": "Edit alpha",
+                        "anchors": [{
+                            "type": "node",
+                            "crateName": "demo",
+                            "path": "demo::alpha",
+                            "kind": "function"
+                        }]
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .expect("plan bootstrap should succeed");
+
+    assert_eq!(
+        bootstrapped.state["outcome"],
+        Value::String("Committed".to_string())
+    );
+    assert!(
+        bootstrapped.state["commit"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= 1
+    );
+    assert!(
+        bootstrapped.state["commit"]["lastEventId"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty())
+    );
+}
+
+#[test]
 fn mcp_exposes_policy_violations_through_prism_query() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());

@@ -346,8 +346,9 @@ What remains incomplete is the actual protocol convergence:
 - unsupported `intent_metadata` and `optimistic_preconditions`
 - incomplete explicit result taxonomy
 - service-backed downstream follow-through is not finished yet
-- some convenience mutation surfaces now attach canonical protocol `outcome` and `commit` metadata,
-  but `host_mutations` still owns too much lowering and response shaping
+- some convenience mutation surfaces, including `plan_create`, `plan_bootstrap`, `task_create`,
+  and task `update`, now attach canonical protocol `outcome` and `commit` metadata, but
+  `host_mutations` still owns too much lowering and response shaping
 - no clearly finished service-backed mutation model yet
 
 The next Phase 4 slice should therefore focus on protocol type/result convergence first, not on
