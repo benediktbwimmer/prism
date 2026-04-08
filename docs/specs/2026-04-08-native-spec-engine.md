@@ -359,17 +359,22 @@ PRISM must not, by default:
 - mark authoritative tasks complete solely because a local checklist item is checked
 - derive authoritative plan truth directly from branch-local spec state
 
-### 6.11 Explicit sync model and provenance
+### 6.11 Explicit agent-driven sync model and provenance
 
 If users want stronger coordination integration, PRISM should support explicit sync actions later.
 
+Crucially, PRISM does not deterministically "compile" a flat markdown checklist into a complex
+coordination DAG. Topology, artifact requirements, and review injection require semantic understanding.
+Therefore, the sync boundary is natively an **agentic action**.
+
 Examples:
 
-- create plan or task skeletons from a spec
-- sync spec milestones into task summaries
-- sync task completion into spec checklist items
+- an agent reads a spec and creates a plan or task DAG via `coordination_transaction`
+- an agent syncs spec milestones into task summaries
+- a human or agent updates checklist status based on completed tasks
 
-These must be explicit user-visible actions, not silent background coupling.
+These must be explicit actions mapping feature intent to the execution graph, not silent background
+coupling by the PRISM daemon.
 
 Whenever PRISM explicitly creates or syncs coordination objects from a spec, it should record sync
 provenance that can identify at least:

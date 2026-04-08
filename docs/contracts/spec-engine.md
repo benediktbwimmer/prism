@@ -177,7 +177,11 @@ Coverage is not authoritative coordination truth by itself.
 
 ## 12. Sync provenance semantics
 
-When PRISM explicitly creates or syncs coordination objects from a spec, it must retain
+Because translating a flat markdown checklist into an explicit coordination DAG requires semantic
+understanding, PRISM does not automatically "compile" specs into coordination state. Syncing is an
+explicit, typically agent-driven action.
+
+When an agent or human explicitly creates or syncs coordination objects from a spec, PRISM must retain
 queryable sync provenance.
 
 The minimum sync provenance must identify:
