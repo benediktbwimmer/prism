@@ -65,6 +65,8 @@ Current phase spec:
   [../specs/2026-04-08-coordination-query-engine-phase-3.md](../specs/2026-04-08-coordination-query-engine-phase-3.md)
 - Phase 4 completed:
   [../specs/2026-04-08-coordination-mutation-protocol-phase-4.md](../specs/2026-04-08-coordination-mutation-protocol-phase-4.md)
+- Phase 5 in progress:
+  [../specs/2026-04-08-service-backed-coordination-cutover-phase-5.md](../specs/2026-04-08-service-backed-coordination-cutover-phase-5.md)
 
 ## 3. Ordering thesis
 
