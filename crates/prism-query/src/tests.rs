@@ -2651,8 +2651,8 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
         session_id: None,
         instance_id: Some("instance:test".into()),
     }));
-    prism
-        .request_native_handoff(
+    let handoff = prism
+        .request_native_handoff_transaction(
             EventMeta {
                 id: EventId::new("coord:handoff:worktree-ready"),
                 ts: 3,
@@ -2670,6 +2670,12 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
             WorkspaceRevision::default(),
         )
         .unwrap();
+    assert_eq!(handoff.task_id, task.id);
+    assert!(handoff.transaction.commit.event_count >= 1);
+    assert_eq!(
+        handoff.transaction.authority_version.last_event_id,
+        handoff.transaction.commit.last_event_id
+    );
 
     prism.set_coordination_context(Some(CoordinationPersistContext {
         repo_id: "repo:test".into(),
@@ -2679,7 +2685,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
         instance_id: Some("instance:test".into()),
     }));
     let accepted = prism
-        .accept_native_handoff(
+        .accept_native_handoff_transaction(
             EventMeta {
                 id: EventId::new("coord:handoff-accept:worktree-ready"),
                 ts: 4,
@@ -2696,6 +2702,15 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
             },
         )
         .unwrap();
+    assert_eq!(accepted.task_id, task.id);
+    assert!(accepted.transaction.commit.event_count >= 1);
+    assert_eq!(
+        accepted.transaction.authority_version.last_event_id,
+        accepted.transaction.commit.last_event_id
+    );
+    let accepted = prism
+        .coordination_task(&accepted.task_id)
+        .expect("accepted task should remain queryable");
     assert_eq!(accepted.worktree_id.as_deref(), Some("worktree:b"));
     let projected = prism
         .coordination_task(&task.id)

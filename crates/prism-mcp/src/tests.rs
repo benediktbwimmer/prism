@@ -2905,6 +2905,77 @@ fn workflow_update_surfaces_transaction_metadata_in_state() {
 }
 
 #[test]
+fn handoff_surfaces_transaction_metadata_in_state() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "title": "Handoff metadata", "goal": "Handoff metadata" }),
+                task_id: None,
+            },
+        )
+        .expect("plan creation should succeed");
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .expect("task creation should succeed");
+
+    let handoff = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Handoff,
+                payload: json!({
+                    "taskId": task.state["id"].as_str().unwrap(),
+                    "summary": "Hand off to another agent"
+                }),
+                task_id: None,
+            },
+        )
+        .expect("handoff should succeed");
+
+    assert_eq!(handoff.state["outcome"], Value::String("Committed".to_string()));
+    assert!(
+        handoff.state["commit"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= 1
+    );
+    assert!(
+        handoff.state["authorityVersion"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= handoff.state["commit"]["eventCount"]
+                .as_u64()
+                .unwrap_or_default()
+    );
+    assert!(
+        handoff.state["authorityVersion"]["lastEventId"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty())
+    );
+}
+
+#[test]
 fn task_create_surfaces_transaction_metadata_in_state() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());

@@ -5579,7 +5579,7 @@ impl QueryHost {
             }
             CoordinationMutationKindInput::Handoff => {
                 let payload: crate::HandoffPayload = serde_json::from_value(args.payload)?;
-                let task = prism.request_native_handoff(
+                let result = prism.request_native_handoff_transaction(
                     meta,
                     HandoffInput {
                         task_id: CoordinationTaskId::new(payload.task_id),
@@ -5589,7 +5589,14 @@ impl QueryHost {
                     },
                     prism.workspace_revision(),
                 )?;
-                Ok(serde_json::to_value(coordination_task_view(task))?)
+                let task = prism
+                    .coordination_task(&result.task_id)
+                    .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))?;
+                Ok(attach_coordination_transaction_metadata(
+                    workspace_root,
+                    serde_json::to_value(coordination_task_view(task))?,
+                    &result.transaction,
+                ))
             }
             CoordinationMutationKindInput::Resume => {
                 let payload: TaskResumePayload = serde_json::from_value(args.payload)?;
@@ -5607,7 +5614,7 @@ impl QueryHost {
                         ));
                     }
                 }
-                let task = prism.resume_native_task(
+                let result = prism.resume_native_task_transaction(
                     meta,
                     TaskResumeInput {
                         task_id: CoordinationTaskId::new(payload.task_id),
@@ -5616,7 +5623,14 @@ impl QueryHost {
                         branch_ref: execution.branch_ref.clone(),
                     },
                 )?;
-                Ok(serde_json::to_value(coordination_task_view(task))?)
+                let task = prism
+                    .coordination_task(&result.task_id)
+                    .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))?;
+                Ok(attach_coordination_transaction_metadata(
+                    workspace_root,
+                    serde_json::to_value(coordination_task_view(task))?,
+                    &result.transaction,
+                ))
             }
             CoordinationMutationKindInput::Reclaim => {
                 let payload: TaskReclaimPayload = serde_json::from_value(args.payload)?;
@@ -5634,7 +5648,7 @@ impl QueryHost {
                         ));
                     }
                 }
-                let task = prism.reclaim_native_task(
+                let result = prism.reclaim_native_task_transaction(
                     meta,
                     TaskReclaimInput {
                         task_id: CoordinationTaskId::new(payload.task_id),
@@ -5643,7 +5657,14 @@ impl QueryHost {
                         branch_ref: execution.branch_ref.clone(),
                     },
                 )?;
-                Ok(serde_json::to_value(coordination_task_view(task))?)
+                let task = prism
+                    .coordination_task(&result.task_id)
+                    .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))?;
+                Ok(attach_coordination_transaction_metadata(
+                    workspace_root,
+                    serde_json::to_value(coordination_task_view(task))?,
+                    &result.transaction,
+                ))
             }
             CoordinationMutationKindInput::HandoffAccept => {
                 let payload: HandoffAcceptPayload = serde_json::from_value(args.payload)?;
@@ -5661,7 +5682,7 @@ impl QueryHost {
                         ));
                     }
                 }
-                let task = prism.accept_native_handoff(
+                let result = prism.accept_native_handoff_transaction(
                     meta,
                     HandoffAcceptInput {
                         task_id: CoordinationTaskId::new(payload.task_id),
@@ -5670,7 +5691,14 @@ impl QueryHost {
                         branch_ref: execution.branch_ref.clone(),
                     },
                 )?;
-                Ok(serde_json::to_value(coordination_task_view(task))?)
+                let task = prism
+                    .coordination_task(&result.task_id)
+                    .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))?;
+                Ok(attach_coordination_transaction_metadata(
+                    workspace_root,
+                    serde_json::to_value(coordination_task_view(task))?,
+                    &result.transaction,
+                ))
             }
         }
     }

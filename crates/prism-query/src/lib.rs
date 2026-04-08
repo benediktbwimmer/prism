@@ -876,63 +876,154 @@ impl Prism {
         self.finalize_live_coordination_mutation(snapshot, result)
     }
 
+    pub fn request_native_handoff_transaction(
+        &self,
+        meta: EventMeta,
+        input: HandoffInput,
+        _current_revision: WorkspaceRevision,
+    ) -> Result<NativeTaskMutationResult> {
+        let task_id = input.task_id.clone();
+        let transaction = self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::TaskHandoff {
+                    task: CoordinationTransactionTaskRef::Id(task_id.clone()),
+                    to_agent: input.to_agent,
+                    summary: input.summary,
+                    base_revision: input.base_revision,
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?;
+        Ok(NativeTaskMutationResult {
+            task_id,
+            transaction,
+        })
+    }
+
     pub fn request_native_handoff(
         &self,
         meta: EventMeta,
         input: HandoffInput,
         current_revision: WorkspaceRevision,
     ) -> Result<CoordinationTask> {
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| {
-                runtime.handoff(meta, input, current_revision)
-            });
-        let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        let result = self.request_native_handoff_transaction(meta, input, current_revision)?;
+        self.coordination_task(&result.task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+    }
+
+    pub fn accept_native_handoff_transaction(
+        &self,
+        meta: EventMeta,
+        mut input: HandoffAcceptInput,
+    ) -> Result<NativeTaskMutationResult> {
+        if let Some(context) = self.coordination_context() {
+            input.worktree_id = Some(context.worktree_id);
+            input.branch_ref = context.branch_ref;
+        }
+        let task_id = input.task_id.clone();
+        let transaction = self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::TaskHandoffAccept {
+                    task: CoordinationTransactionTaskRef::Id(task_id.clone()),
+                    agent: input.agent,
+                    worktree_id: input.worktree_id,
+                    branch_ref: input.branch_ref,
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?;
+        Ok(NativeTaskMutationResult {
+            task_id,
+            transaction,
+        })
     }
 
     pub fn accept_native_handoff(
         &self,
         meta: EventMeta,
-        mut input: HandoffAcceptInput,
+        input: HandoffAcceptInput,
     ) -> Result<CoordinationTask> {
+        let result = self.accept_native_handoff_transaction(meta, input)?;
+        self.coordination_task(&result.task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+    }
+
+    pub fn resume_native_task_transaction(
+        &self,
+        meta: EventMeta,
+        mut input: TaskResumeInput,
+    ) -> Result<NativeTaskMutationResult> {
         if let Some(context) = self.coordination_context() {
             input.worktree_id = Some(context.worktree_id);
             input.branch_ref = context.branch_ref;
         }
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| runtime.accept_handoff(meta, input));
-        let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        let task_id = input.task_id.clone();
+        let transaction = self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::TaskResume {
+                    task: CoordinationTransactionTaskRef::Id(task_id.clone()),
+                    agent: input.agent,
+                    worktree_id: input.worktree_id,
+                    branch_ref: input.branch_ref,
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?;
+        Ok(NativeTaskMutationResult {
+            task_id,
+            transaction,
+        })
     }
 
     pub fn resume_native_task(
         &self,
         meta: EventMeta,
-        mut input: TaskResumeInput,
+        input: TaskResumeInput,
     ) -> Result<CoordinationTask> {
+        let result = self.resume_native_task_transaction(meta, input)?;
+        self.coordination_task(&result.task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+    }
+
+    pub fn reclaim_native_task_transaction(
+        &self,
+        meta: EventMeta,
+        mut input: TaskReclaimInput,
+    ) -> Result<NativeTaskMutationResult> {
         if let Some(context) = self.coordination_context() {
             input.worktree_id = Some(context.worktree_id);
             input.branch_ref = context.branch_ref;
         }
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| runtime.resume_task(meta, input));
-        let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        let task_id = input.task_id.clone();
+        let transaction = self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::TaskReclaim {
+                    task: CoordinationTransactionTaskRef::Id(task_id.clone()),
+                    agent: input.agent,
+                    worktree_id: input.worktree_id,
+                    branch_ref: input.branch_ref,
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?;
+        Ok(NativeTaskMutationResult {
+            task_id,
+            transaction,
+        })
     }
 
     pub fn reclaim_native_task(
         &self,
         meta: EventMeta,
-        mut input: TaskReclaimInput,
+        input: TaskReclaimInput,
     ) -> Result<CoordinationTask> {
-        if let Some(context) = self.coordination_context() {
-            input.worktree_id = Some(context.worktree_id);
-            input.branch_ref = context.branch_ref;
-        }
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| runtime.reclaim_task(meta, input));
-        let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        let result = self.reclaim_native_task_transaction(meta, input)?;
+        self.coordination_task(&result.task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
     }
 
     pub fn heartbeat_native_task(

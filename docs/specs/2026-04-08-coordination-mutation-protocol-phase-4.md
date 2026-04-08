@@ -44,9 +44,9 @@ Current state:
 - [ ] deterministic rejection categories and codes are formalized fully
 - [ ] optimistic preconditions and authority-base conflict handling are implemented coherently
 - [x] explicit transaction outcome and commit metadata now flow through the protocol result
-- [ ] authoritative commit-result metadata is unified across mutation surfaces
+- [x] authoritative commit-result metadata is unified across the current coordination mutation surfaces
 - [ ] local materialization follow-through is explicitly downstream of authoritative commit
-- [ ] legacy convenience mutation semantics are fully reduced to protocol adapters
+- [x] current coordination convenience mutation semantics are reduced to protocol adapters
 
 Current slice notes:
 
@@ -80,6 +80,13 @@ Current slice notes:
   - `expectedEventCount`
   - `expectedLastEventId`
   unsupported optimistic-precondition fields still reject at input-shape validation
+- the remaining coordination convenience actions now lower through the same transaction engine:
+  - `handoff`
+  - `resume`
+  - `reclaim`
+  - `handoff_accept`
+  and surface the same committed metadata envelope instead of mutating coordination state through
+  separate live-runtime paths
 
 ## 3. Related roadmap
 
@@ -299,6 +306,13 @@ Exit criteria:
 Exit criteria:
 
 - the repo has one dominant authoritative coordination write path
+
+Progress:
+
+- [x] `plan_create`, `plan_update`, `plan_archive`, `plan_bootstrap`, `task_create`, and
+  workflow `update` already lower through query-layer transaction adapters
+- [x] `handoff`, `resume`, `reclaim`, and `handoff_accept` now also lower through the same
+  transaction engine and surface protocol commit metadata at the MCP boundary
 
 ## 9. Validation
 

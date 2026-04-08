@@ -133,6 +133,30 @@ pub enum CoordinationTransactionMutation {
         kind: CoordinationDependencyKind,
         base_revision: WorkspaceRevision,
     },
+    TaskHandoff {
+        task: CoordinationTransactionTaskRef,
+        to_agent: Option<AgentId>,
+        summary: String,
+        base_revision: WorkspaceRevision,
+    },
+    TaskHandoffAccept {
+        task: CoordinationTransactionTaskRef,
+        agent: Option<AgentId>,
+        worktree_id: Option<String>,
+        branch_ref: Option<String>,
+    },
+    TaskResume {
+        task: CoordinationTransactionTaskRef,
+        agent: Option<AgentId>,
+        worktree_id: Option<String>,
+        branch_ref: Option<String>,
+    },
+    TaskReclaim {
+        task: CoordinationTransactionTaskRef,
+        agent: Option<AgentId>,
+        worktree_id: Option<String>,
+        branch_ref: Option<String>,
+    },
 }
 
 impl CoordinationTransactionMutation {
@@ -144,6 +168,10 @@ impl CoordinationTransactionMutation {
             Self::TaskCreate { .. } => "task_create",
             Self::TaskUpdate { .. } => "task_update",
             Self::DependencyCreate { .. } => "dependency_create",
+            Self::TaskHandoff { .. } => "task_handoff",
+            Self::TaskHandoffAccept { .. } => "task_handoff_accept",
+            Self::TaskResume { .. } => "task_resume",
+            Self::TaskReclaim { .. } => "task_reclaim",
         }
     }
 }
@@ -787,6 +815,17 @@ fn validate_transaction_identity(
                     &declared_task_client_ids,
                 )?;
             }
+            CoordinationTransactionMutation::TaskHandoff { task, .. }
+            | CoordinationTransactionMutation::TaskHandoffAccept { task, .. }
+            | CoordinationTransactionMutation::TaskResume { task, .. }
+            | CoordinationTransactionMutation::TaskReclaim { task, .. } => {
+                validate_task_ref(
+                    coordination_runtime,
+                    task,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+            }
         }
     }
 
@@ -1277,6 +1316,99 @@ fn apply_coordination_transaction(
                     base_revision,
                     meta.ts,
                 )?;
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+            }
+            CoordinationTransactionMutation::TaskHandoff {
+                task,
+                to_agent,
+                summary,
+                base_revision,
+            } => {
+                let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
+                let updated = coordination_runtime.handoff(
+                    step_meta,
+                    prism_coordination::HandoffInput {
+                        task_id: task_id.clone(),
+                        to_agent,
+                        summary,
+                        base_revision: base_revision.clone(),
+                    },
+                    base_revision,
+                )?;
+                touch_plan(
+                    &mut touched_plan_ids,
+                    &mut touched_plan_seen,
+                    updated.plan.clone(),
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+            }
+            CoordinationTransactionMutation::TaskHandoffAccept {
+                task,
+                agent,
+                worktree_id,
+                branch_ref,
+            } => {
+                let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
+                let updated = coordination_runtime.accept_handoff(
+                    step_meta,
+                    prism_coordination::HandoffAcceptInput {
+                        task_id: task_id.clone(),
+                        agent,
+                        worktree_id,
+                        branch_ref,
+                    },
+                )?;
+                touch_plan(
+                    &mut touched_plan_ids,
+                    &mut touched_plan_seen,
+                    updated.plan.clone(),
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+            }
+            CoordinationTransactionMutation::TaskResume {
+                task,
+                agent,
+                worktree_id,
+                branch_ref,
+            } => {
+                let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
+                let updated = coordination_runtime.resume_task(
+                    step_meta,
+                    prism_coordination::TaskResumeInput {
+                        task_id: task_id.clone(),
+                        agent,
+                        worktree_id,
+                        branch_ref,
+                    },
+                )?;
+                touch_plan(
+                    &mut touched_plan_ids,
+                    &mut touched_plan_seen,
+                    updated.plan.clone(),
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+            }
+            CoordinationTransactionMutation::TaskReclaim {
+                task,
+                agent,
+                worktree_id,
+                branch_ref,
+            } => {
+                let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
+                let updated = coordination_runtime.reclaim_task(
+                    step_meta,
+                    prism_coordination::TaskReclaimInput {
+                        task_id: task_id.clone(),
+                        agent,
+                        worktree_id,
+                        branch_ref,
+                    },
+                )?;
+                touch_plan(
+                    &mut touched_plan_ids,
+                    &mut touched_plan_seen,
+                    updated.plan.clone(),
+                );
                 touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
             }
         }
