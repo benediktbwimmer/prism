@@ -638,13 +638,10 @@ fn refresh_prism_snapshot_with_guard(
         let assisted_lease_started = Instant::now();
         match maybe_auto_heartbeat_assisted_leases(root, next.prism_arc().as_ref(), store) {
             Ok(true) => {
-                let prism = next.prism_arc();
-                next_state.replace_coordination_runtime(
-                    prism.coordination_snapshot(),
-                    prism.runtime_descriptors(),
-                );
                 let republish_started = Instant::now();
-                next = next_state.publish_generation(
+                next = publish_local_assisted_lease_overlay_generation(
+                    &mut next_state,
+                    &next.prism_arc(),
                     published_workspace_revision.clone(),
                     coordination_context.clone(),
                 );
@@ -732,6 +729,22 @@ fn refresh_prism_snapshot_with_guard(
         observed,
         breakdown,
     })
+}
+
+fn publish_local_assisted_lease_overlay_generation(
+    runtime_state: &mut WorkspaceRuntimeState,
+    prism: &Arc<Prism>,
+    workspace_revision: prism_ir::WorkspaceRevision,
+    coordination_context: Option<prism_store::CoordinationPersistContext>,
+) -> WorkspacePublishedGeneration {
+    // Assisted lease heartbeats are a local liveness overlay, not authoritative coordination.
+    // Republish the runtime generation with the live overlay snapshot, but do not treat it as a
+    // service-backed current-state application or materialization write.
+    runtime_state.replace_coordination_runtime(
+        prism.coordination_snapshot(),
+        prism.runtime_descriptors(),
+    );
+    runtime_state.publish_generation(workspace_revision, coordination_context)
 }
 
 #[derive(Debug, Clone)]

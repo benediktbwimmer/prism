@@ -233,6 +233,9 @@ Current progress:
 - the live-prism workspace indexer startup constructor now also uses the same protected-state
   fallback helper directly, instead of spelling out its own startup-only protected-vs-live
   coordination snapshot rule
+- the remaining fs-watch assisted-lease republish path is now an explicit local-overlay helper in
+  the watch layer, rather than an inline runtime coordination replacement that looks like another
+  service-backed current-state path
 
 Exit criteria:
 
