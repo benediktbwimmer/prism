@@ -79,7 +79,7 @@ Current phase spec:
   [../specs/2026-04-09-trust-family-centralization-phase-6.md](../specs/2026-04-09-trust-family-centralization-phase-6.md)
 - Phase 7 completed:
   [../specs/2026-04-09-coordination-platform-freeze-phase-7.md](../specs/2026-04-09-coordination-platform-freeze-phase-7.md)
-- Phase 8 in progress:
+- Phase 8 completed:
   [../specs/2026-04-09-spec-engine-source-parser-identity-phase-8.md](../specs/2026-04-09-spec-engine-source-parser-identity-phase-8.md)
 
 ## 3. Ordering thesis

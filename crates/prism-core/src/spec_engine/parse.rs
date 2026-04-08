@@ -1,12 +1,13 @@
-use std::fs;
 use std::collections::BTreeMap;
+use std::fs;
+use std::process::Command;
 
 use serde_yaml::{Mapping, Value};
 
 use super::types::{
     DiscoveredSpecSource, ParsedSpecDocument, SpecChecklistIdentitySource, SpecChecklistItem,
-    SpecChecklistRequirementLevel, SpecDeclaredStatus, SpecParseDiagnostic,
-    SpecParseDiagnosticKind,
+    SpecChecklistRequirementLevel, SpecDeclaredStatus, SpecDependency, SpecParseDiagnostic,
+    SpecParseDiagnosticKind, SpecSourceMetadata, ParsedSpecSet,
 };
 
 pub fn parse_spec_source(
@@ -67,10 +68,17 @@ pub fn parse_spec_source(
             ),
         )
     })?;
+    let dependencies = parse_dependencies(source, &frontmatter, &spec_id)?;
     let checklist_items = extract_checklist_items(body, &spec_id);
+    let source_metadata = SpecSourceMetadata {
+        repo_relative_path: source.repo_relative_path.clone(),
+        content_digest: blake3::hash(contents.as_bytes()).to_hex().to_string(),
+        git_revision: detect_git_revision(source),
+    };
 
     Ok(ParsedSpecDocument {
         source: source.clone(),
+        source_metadata,
         frontmatter,
         body: body.to_owned(),
         spec_id,
@@ -78,7 +86,43 @@ pub fn parse_spec_source(
         status,
         created,
         checklist_items,
+        dependencies,
     })
+}
+
+pub fn parse_spec_sources(sources: &[DiscoveredSpecSource]) -> ParsedSpecSet {
+    let mut parsed = Vec::new();
+    let mut diagnostics = Vec::new();
+
+    for source in sources {
+        match parse_spec_source(source) {
+            Ok(document) => parsed.push(document),
+            Err(diagnostic) => diagnostics.push(diagnostic),
+        }
+    }
+
+    let mut first_seen_by_id = BTreeMap::<String, std::path::PathBuf>::new();
+    for document in &parsed {
+        if let Some(first_path) = first_seen_by_id.get(&document.spec_id) {
+            diagnostics.push(SpecParseDiagnostic {
+                source_path: document.source.repo_relative_path.clone(),
+                kind: SpecParseDiagnosticKind::DuplicateSpecId,
+                field: Some("id".to_owned()),
+                message: format!(
+                    "spec id `{}` is already declared by {}",
+                    document.spec_id,
+                    first_path.display()
+                ),
+            });
+        } else {
+            first_seen_by_id.insert(
+                document.spec_id.clone(),
+                document.source.repo_relative_path.clone(),
+            );
+        }
+    }
+
+    ParsedSpecSet { parsed, diagnostics }
 }
 
 fn split_frontmatter(source: &str) -> Result<(&str, &str), SpecParseDiagnosticKind> {
@@ -154,6 +198,59 @@ fn required_string_field(
     Ok(trimmed.to_owned())
 }
 
+fn parse_dependencies(
+    source: &DiscoveredSpecSource,
+    frontmatter: &Mapping,
+    spec_id: &str,
+) -> Result<Vec<SpecDependency>, SpecParseDiagnostic> {
+    let key = Value::String("depends_on".to_owned());
+    let Some(value) = frontmatter.get(&key) else {
+        return Ok(Vec::new());
+    };
+    let sequence = value.as_sequence().ok_or_else(|| {
+        build_diagnostic(
+            source,
+            SpecParseDiagnosticKind::InvalidFieldType,
+            Some("depends_on"),
+            "spec frontmatter field `depends_on` must be a YAML sequence of strings".to_owned(),
+        )
+    })?;
+
+    let mut dependencies = Vec::with_capacity(sequence.len());
+    for entry in sequence {
+        let Some(dependency_id) = entry.as_str() else {
+            return Err(build_diagnostic(
+                source,
+                SpecParseDiagnosticKind::InvalidFieldType,
+                Some("depends_on"),
+                "spec dependency entries must be strings".to_owned(),
+            ));
+        };
+        let dependency_id = dependency_id.trim();
+        if dependency_id.is_empty() {
+            return Err(build_diagnostic(
+                source,
+                SpecParseDiagnosticKind::InvalidDependency,
+                Some("depends_on"),
+                "spec dependency entries must not be empty".to_owned(),
+            ));
+        }
+        if dependency_id == spec_id {
+            return Err(build_diagnostic(
+                source,
+                SpecParseDiagnosticKind::InvalidDependency,
+                Some("depends_on"),
+                format!("spec `{spec_id}` must not depend on itself"),
+            ));
+        }
+        dependencies.push(SpecDependency {
+            spec_id: dependency_id.to_owned(),
+        });
+    }
+
+    Ok(dependencies)
+}
+
 fn build_diagnostic(
     source: &DiscoveredSpecSource,
     kind: SpecParseDiagnosticKind,
@@ -165,6 +262,24 @@ fn build_diagnostic(
         kind,
         field: field.map(str::to_owned),
         message,
+    }
+}
+
+fn detect_git_revision(source: &DiscoveredSpecSource) -> Option<String> {
+    let parent = source.absolute_path.parent()?;
+    let output = Command::new("git")
+        .current_dir(parent)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let revision = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    if revision.is_empty() {
+        None
+    } else {
+        Some(revision)
     }
 }
 
@@ -352,7 +467,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::parse_spec_source;
+    use super::{parse_spec_source, parse_spec_sources};
     use crate::spec_engine::{
         discover_spec_sources, SpecChecklistIdentitySource, SpecChecklistRequirementLevel,
         SpecDeclaredStatus, SpecParseDiagnosticKind,
@@ -397,6 +512,12 @@ mod tests {
         assert_eq!(parsed.created, "2026-04-09");
         assert_eq!(parsed.body, "\n# Summary\n");
         assert!(parsed.checklist_items.is_empty());
+        assert!(parsed.dependencies.is_empty());
+        assert_eq!(
+            parsed.source_metadata.repo_relative_path,
+            PathBuf::from(".prism/specs/2026-04-09-sample.md")
+        );
+        assert_eq!(parsed.source_metadata.content_digest.len(), 64);
     }
 
     #[test]
@@ -545,5 +666,64 @@ mod tests {
             .map(|item| (item.label.clone(), item.item_id.clone()))
             .collect::<BTreeMap<_, _>>();
         assert_eq!(first_ids, second_ids);
+    }
+
+    #[test]
+    fn parse_spec_source_preserves_dependency_order_and_rejects_self_dependency() {
+        let root = temp_repo("dependencies");
+        write_spec(
+            &root,
+            ".prism/specs/2026-04-09-sample.md",
+            "---\nid: spec:sample\ntitle: Sample Spec\nstatus: draft\ncreated: 2026-04-09\ndepends_on:\n  - spec:alpha\n  - spec:beta\n---\n",
+        );
+
+        let discovered = discover_spec_sources(&root).unwrap();
+        let parsed = parse_spec_source(&discovered[0]).unwrap();
+        assert_eq!(
+            parsed
+                .dependencies
+                .iter()
+                .map(|dependency| dependency.spec_id.clone())
+                .collect::<Vec<_>>(),
+            vec!["spec:alpha".to_owned(), "spec:beta".to_owned()]
+        );
+
+        write_spec(
+            &root,
+            ".prism/specs/2026-04-09-self.md",
+            "---\nid: spec:self\ntitle: Self Spec\nstatus: draft\ncreated: 2026-04-09\ndepends_on:\n  - spec:self\n---\n",
+        );
+        let discovered = discover_spec_sources(&root).unwrap();
+        let self_source = discovered
+            .iter()
+            .find(|source| {
+                source.repo_relative_path == PathBuf::from(".prism/specs/2026-04-09-self.md")
+            })
+            .unwrap();
+        let diagnostic = parse_spec_source(self_source).unwrap_err();
+        assert_eq!(diagnostic.kind, SpecParseDiagnosticKind::InvalidDependency);
+    }
+
+    #[test]
+    fn parse_spec_sources_reports_duplicate_spec_ids() {
+        let root = temp_repo("duplicate-spec-ids");
+        write_spec(
+            &root,
+            ".prism/specs/2026-04-09-a.md",
+            "---\nid: spec:duplicate\ntitle: First\nstatus: draft\ncreated: 2026-04-09\n---\n",
+        );
+        write_spec(
+            &root,
+            ".prism/specs/2026-04-09-b.md",
+            "---\nid: spec:duplicate\ntitle: Second\nstatus: draft\ncreated: 2026-04-09\n---\n",
+        );
+
+        let discovered = discover_spec_sources(&root).unwrap();
+        let parsed = parse_spec_sources(&discovered);
+        assert_eq!(parsed.parsed.len(), 2);
+        assert!(parsed
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.kind == SpecParseDiagnosticKind::DuplicateSpecId));
     }
 }

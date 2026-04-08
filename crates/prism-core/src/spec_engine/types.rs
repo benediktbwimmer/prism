@@ -81,9 +81,22 @@ pub struct SpecChecklistItem {
     pub line_number: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpecDependency {
+    pub spec_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpecSourceMetadata {
+    pub repo_relative_path: PathBuf,
+    pub content_digest: String,
+    pub git_revision: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParsedSpecDocument {
     pub source: DiscoveredSpecSource,
+    pub source_metadata: SpecSourceMetadata,
     pub frontmatter: Mapping,
     pub body: String,
     pub spec_id: String,
@@ -91,6 +104,13 @@ pub struct ParsedSpecDocument {
     pub status: SpecDeclaredStatus,
     pub created: String,
     pub checklist_items: Vec<SpecChecklistItem>,
+    pub dependencies: Vec<SpecDependency>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParsedSpecSet {
+    pub parsed: Vec<ParsedSpecDocument>,
+    pub diagnostics: Vec<SpecParseDiagnostic>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -101,6 +121,8 @@ pub enum SpecParseDiagnosticKind {
     MissingRequiredField,
     InvalidFieldType,
     InvalidStatus,
+    InvalidDependency,
+    DuplicateSpecId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

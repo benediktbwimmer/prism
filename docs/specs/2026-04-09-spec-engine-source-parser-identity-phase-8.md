@@ -1,6 +1,6 @@
 # Spec Engine Source, Parser, and Identity Phase 8
 
-Status: in_progress
+Status: completed
 Audience: spec-engine, query, MCP, CLI, docs, and repo-integration maintainers
 Scope: complete roadmap Phase 8 by implementing configurable spec discovery, markdown-plus-frontmatter parsing, stable repo-local spec identity, checklist extraction, dependency parsing, and source metadata capture
 
@@ -32,10 +32,10 @@ Current state:
 - [x] the broader native spec engine design doc exists
 - [x] configurable spec-root resolution exists in code
 - [x] markdown-plus-frontmatter spec parsing exists in code
-- [ ] stable repo-unique `spec_id` validation does not yet exist in code
+- [x] stable repo-unique `spec_id` validation exists in code
 - [x] checklist extraction and stable checklist identity exist in code
 - [x] checklist requirement-level parsing exists in code
-- [ ] dependency parsing and source metadata capture do not yet exist in code
+- [x] dependency parsing and source metadata capture exist in code
 
 Current slice notes:
 
@@ -49,6 +49,9 @@ Current slice notes:
 - Slice 3 now extracts markdown checklist items with section context, supports explicit
   `<!-- id: ... -->` identity annotations, generates deterministic fallback ids, and parses
   `[info]` item markers plus `(informational)` heading suffixes into effective requirement levels
+- Slice 4 now parses `depends_on`, captures source metadata including a deterministic content digest
+  and nullable git revision, and validates duplicate repo-local `spec_id` declarations in the
+  batch parser surface
 
 ## 3. Related roadmap
 
@@ -283,6 +286,14 @@ Exit criteria:
 
 - parsed spec records contain the inputs later phases need for materialization and sync provenance
 
+Slice 4 landed with:
+
+- `depends_on` parsing with preserved input order
+- early diagnostics for invalid dependency entries and self-dependencies
+- source metadata capture with repo-relative path, deterministic content digest, and nullable git
+  revision
+- batch-level duplicate `spec_id` diagnostics across discovered spec files
+
 ## 9. Validation
 
 Minimum validation for this phase:
@@ -315,11 +326,11 @@ Phase 8 is complete only when:
 - [x] Add configurable spec-root resolution
 - [x] Add deterministic spec discovery
 - [x] Add markdown/frontmatter parser and schema validation
-- [ ] Add stable `spec_id` validation
+- [x] Add stable `spec_id` validation
 - [x] Add checklist extraction and stable checklist identity
 - [x] Add checklist requirement-level parsing
-- [ ] Add dependency parsing
-- [ ] Add source path and revision metadata capture
+- [x] Add dependency parsing
+- [x] Add source path and revision metadata capture
 - [ ] Validate changed crates and direct downstream dependents
 - [ ] Update roadmap/spec status as slices land
 
@@ -333,3 +344,10 @@ This phase should leave PRISM with one reliable answer to:
 
 Later phases can then build materialization, querying, coverage, and sync on top of that stable
 parser layer instead of mixing parsing and product integration together.
+
+Current assessment:
+
+- complete
+- the parser and identity layer now exposes deterministic source discovery, normalized parsed
+  records, structured diagnostics, checklist identity, dependency capture, and source metadata
+- the next correct move is Phase 9: local spec materialization
