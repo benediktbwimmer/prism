@@ -52,6 +52,8 @@ Current slice notes:
   seam, so CLI and MCP no longer depend on shared-ref helpers directly for those surfaces
 - the Git-backed implementation now exposes retained shared-ref manifest history through the
   authority-store seam
+- startup-checkpoint authority metadata and the legacy published-plan sync path now also route
+  through authority-store-facing wrappers instead of direct shared-ref helpers
 - the Git-backed implementation still needs broader transaction adoption, explicit
   indeterminate-outcome handling, and live-sync/watch cutover in later slices
 

@@ -14,11 +14,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::coordination_authority_store::{
-    CoordinationAuthorityStore, CoordinationReadRequest, CoordinationStateView,
-    GitSharedRefsCoordinationAuthorityStore,
+    CoordinationAuthorityStore, CoordinationDerivedStateMode, CoordinationReadRequest,
+    CoordinationStateView, CoordinationTransactionBase, CoordinationTransactionRequest,
+    CoordinationTransactionStatus, GitSharedRefsCoordinationAuthorityStore,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
-use crate::shared_coordination_ref::sync_shared_coordination_ref_state;
 use crate::tracked_snapshot::{
     remove_obsolete_legacy_tracked_authority_artifacts, tracked_snapshot_authority_active,
     TrackedSnapshotPublishContext,
@@ -126,12 +126,13 @@ pub(crate) fn sync_repo_published_plan_state_observed<O>(
     root: &Path,
     snapshot: &CoordinationSnapshot,
     canonical_snapshot_v2: &CoordinationSnapshotV2,
-    publish: Option<&TrackedSnapshotPublishContext>,
+    _publish: Option<&TrackedSnapshotPublishContext>,
     mut observe_phase: O,
 ) -> Result<()>
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
+    let authority_store = GitSharedRefsCoordinationAuthorityStore::new(root);
     observe_phase(
         "mutation.coordination.publishedPlans.writeLogs",
         Duration::ZERO,
@@ -169,8 +170,28 @@ where
     observe_published_plan_step(
         &mut observe_phase,
         "mutation.coordination.publishedPlans.syncSharedCoordinationRef",
-        |_| json!({}),
-        || sync_shared_coordination_ref_state(root, snapshot, canonical_snapshot_v2, publish),
+        |result: &crate::coordination_authority_store::CoordinationTransactionResult| {
+            json!({
+                "committed": result.committed,
+                "status": format!("{:?}", result.status),
+            })
+        },
+        || match authority_store.apply_transaction(CoordinationTransactionRequest {
+            base: CoordinationTransactionBase::LatestStrong,
+            session_id: None,
+            snapshot: snapshot.clone(),
+            canonical_snapshot_v2: canonical_snapshot_v2.clone(),
+            appended_events: Vec::new(),
+            derived_state_mode: CoordinationDerivedStateMode::Inline,
+        })? {
+            result if matches!(result.status, CoordinationTransactionStatus::Committed) => {
+                Ok(result)
+            }
+            result => Err(anyhow::anyhow!(
+                "authority-store syncSharedCoordinationRef did not commit successfully: {:?}",
+                result.status
+            )),
+        },
     )?;
     observe_published_plan_step(
         &mut observe_phase,

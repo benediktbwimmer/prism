@@ -1,12 +1,15 @@
 use std::path::Path;
 
 use anyhow::{anyhow, Result};
+use prism_store::CoordinationStartupCheckpointAuthority;
 
 use crate::coordination_authority_store::{
     CoordinationAuthorityBackendDetails, CoordinationAuthorityStore,
-    CoordinationDiagnosticsRequest, CoordinationTransactionBase,
-    GitSharedRefsCoordinationAuthorityStore, RuntimeDescriptorPublishRequest,
+    CoordinationDiagnosticsRequest, CoordinationReadRequest, CoordinationStateView,
+    CoordinationTransactionBase, GitSharedRefsCoordinationAuthorityStore,
+    RuntimeDescriptorPublishRequest,
 };
+use crate::coordination_reads::CoordinationReadConsistency;
 use crate::shared_coordination_ref::{
     build_local_runtime_descriptor_for_current_state, SharedCoordinationRefDiagnostics,
 };
@@ -38,4 +41,24 @@ pub fn sync_live_runtime_descriptor(root: &Path) -> Result<()> {
         "runtime descriptor publication did not commit successfully: {:?}",
         result.status
     ))
+}
+
+pub(crate) fn shared_coordination_startup_authority(
+    root: &Path,
+) -> Result<Option<CoordinationStartupCheckpointAuthority>> {
+    let store = GitSharedRefsCoordinationAuthorityStore::new(root);
+    let authority = store
+        .read_current(CoordinationReadRequest {
+            consistency: CoordinationReadConsistency::Strong,
+            view: CoordinationStateView::Summary,
+        })?
+        .authority;
+    Ok(authority.map(|authority| CoordinationStartupCheckpointAuthority {
+        ref_name: authority
+            .provenance
+            .ref_name
+            .unwrap_or_else(|| "shared-coordination".to_string()),
+        head_commit: authority.provenance.head_commit,
+        manifest_digest: authority.provenance.manifest_digest,
+    }))
 }
