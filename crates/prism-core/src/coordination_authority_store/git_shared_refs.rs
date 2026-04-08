@@ -17,7 +17,8 @@ use super::types::{
 use crate::coordination_reads::CoordinationReadConsistency;
 use crate::coordination_startup_checkpoint::coordination_startup_authority;
 use crate::shared_coordination_ref::{
-    load_shared_coordination_ref_state_authoritative, shared_coordination_ref_diagnostics,
+    clear_runtime_descriptor_record, load_shared_coordination_ref_state_authoritative,
+    publish_runtime_descriptor_record, shared_coordination_ref_diagnostics,
     sync_shared_coordination_ref_state,
 };
 use crate::tracked_snapshot::publish_context_from_coordination_events;
@@ -147,20 +148,68 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
 
     fn publish_runtime_descriptor(
         &self,
-        _request: RuntimeDescriptorPublishRequest,
+        request: RuntimeDescriptorPublishRequest,
     ) -> Result<CoordinationTransactionResult> {
-        Err(anyhow!(
-            "runtime descriptor publication is not wired through CoordinationAuthorityStore yet"
-        ))
+        let current_authority = self.authority_stamp()?;
+        if let CoordinationTransactionBase::ExpectedAuthorityStamp(expected) = &request.base {
+            if current_authority.as_ref() != Some(expected) {
+                return Ok(CoordinationTransactionResult {
+                    status: CoordinationTransactionStatus::Conflict,
+                    committed: false,
+                    authority: current_authority,
+                    snapshot: self.load_current_state()?,
+                    persisted: None,
+                    conflict: Some(CoordinationConflictInfo {
+                        reason: "authority stamp no longer matches the current shared-ref head"
+                            .to_string(),
+                    }),
+                    diagnostics: Vec::new(),
+                });
+            }
+        }
+        publish_runtime_descriptor_record(&self.root, &request.descriptor)?;
+        Ok(CoordinationTransactionResult {
+            status: CoordinationTransactionStatus::Committed,
+            committed: true,
+            authority: self.authority_stamp()?,
+            snapshot: self.load_current_state()?,
+            persisted: None,
+            conflict: None,
+            diagnostics: Vec::new(),
+        })
     }
 
     fn clear_runtime_descriptor(
         &self,
-        _request: RuntimeDescriptorClearRequest,
+        request: RuntimeDescriptorClearRequest,
     ) -> Result<CoordinationTransactionResult> {
-        Err(anyhow!(
-            "runtime descriptor clearing is not wired through CoordinationAuthorityStore yet"
-        ))
+        let current_authority = self.authority_stamp()?;
+        if let CoordinationTransactionBase::ExpectedAuthorityStamp(expected) = &request.base {
+            if current_authority.as_ref() != Some(expected) {
+                return Ok(CoordinationTransactionResult {
+                    status: CoordinationTransactionStatus::Conflict,
+                    committed: false,
+                    authority: current_authority,
+                    snapshot: self.load_current_state()?,
+                    persisted: None,
+                    conflict: Some(CoordinationConflictInfo {
+                        reason: "authority stamp no longer matches the current shared-ref head"
+                            .to_string(),
+                    }),
+                    diagnostics: Vec::new(),
+                });
+            }
+        }
+        clear_runtime_descriptor_record(&self.root, &request.runtime_id)?;
+        Ok(CoordinationTransactionResult {
+            status: CoordinationTransactionStatus::Committed,
+            committed: true,
+            authority: self.authority_stamp()?,
+            snapshot: self.load_current_state()?,
+            persisted: None,
+            conflict: None,
+            diagnostics: Vec::new(),
+        })
     }
 
     fn list_runtime_descriptors(

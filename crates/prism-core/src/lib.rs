@@ -3,6 +3,7 @@ mod checkpoint_materializer;
 mod concept_events;
 mod concept_relation_events;
 mod contract_events;
+mod coordination_authority_api;
 mod coordination_authority_store;
 mod coordination_persistence;
 mod coordination_reads;
@@ -133,15 +134,15 @@ pub use protected_state::operators::{
     ProtectedStateTrustImportReport, ProtectedStateVerifyReport,
 };
 pub use published_plans::regenerate_repo_published_plan_artifacts;
+pub use coordination_authority_api::{
+    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor,
+};
 pub use session::{
     CoordinationPlanState, FsRefreshStatus, PersistedObservedChangeCheckpointResult,
     WorkspaceFsRefreshOutcome, WorkspaceRefreshBreakdown, WorkspaceRefreshWork, WorkspaceSession,
     WorkspaceSnapshotRevisions,
 };
-pub use shared_coordination_ref::{
-    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor,
-    SharedCoordinationRefDiagnostics,
-};
+pub use shared_coordination_ref::SharedCoordinationRefDiagnostics;
 pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use snapshot_artifact_repair::regenerate_repo_snapshot_derived_artifacts;
 pub use snapshot_restoration::{

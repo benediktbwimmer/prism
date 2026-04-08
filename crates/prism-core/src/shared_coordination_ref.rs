@@ -930,15 +930,17 @@ pub(crate) fn sync_shared_coordination_ref_state(
     Ok(())
 }
 
-pub fn sync_live_runtime_descriptor(root: &Path) -> Result<()> {
+pub(crate) fn publish_runtime_descriptor_record(
+    root: &Path,
+    descriptor: &RuntimeDescriptor,
+) -> Result<()> {
     if !git_repo_available(root) {
         return Ok(());
     }
     let mut desired_state = load_shared_coordination_ref_state_authoritative(root)?
         .unwrap_or_else(empty_shared_coordination_ref_state);
     let existing = desired_state.runtime_descriptors.clone();
-    let local = local_runtime_descriptor(root, None, Some(&existing))?;
-    desired_state.runtime_descriptors = overlay_records(&existing, &[local], |descriptor| {
+    desired_state.runtime_descriptors = overlay_records(&existing, std::slice::from_ref(descriptor), |descriptor| {
         descriptor.runtime_id.as_str()
     });
     sync_shared_coordination_ref_family_state(root, &desired_state, None)?;
@@ -947,6 +949,37 @@ pub fn sync_live_runtime_descriptor(root: &Path) -> Result<()> {
         authoritative_shared_coordination_state_key(root)?,
     );
     Ok(())
+}
+
+pub(crate) fn clear_runtime_descriptor_record(root: &Path, runtime_id: &str) -> Result<()> {
+    if !git_repo_available(root) {
+        return Ok(());
+    }
+    let mut desired_state = load_shared_coordination_ref_state_authoritative(root)?
+        .unwrap_or_else(empty_shared_coordination_ref_state);
+    desired_state
+        .runtime_descriptors
+        .retain(|descriptor| descriptor.runtime_id != runtime_id);
+    sync_shared_coordination_ref_family_state(root, &desired_state, None)?;
+    record_observed_shared_coordination_head(
+        root,
+        authoritative_shared_coordination_state_key(root)?,
+    );
+    Ok(())
+}
+
+pub(crate) fn build_local_runtime_descriptor_for_current_state(
+    root: &Path,
+) -> Result<RuntimeDescriptor> {
+    let existing = load_shared_coordination_ref_state_authoritative(root)?
+        .map(|state| state.runtime_descriptors)
+        .unwrap_or_default();
+    local_runtime_descriptor(root, None, Some(&existing))
+}
+
+pub fn sync_live_runtime_descriptor(root: &Path) -> Result<()> {
+    let local = build_local_runtime_descriptor_for_current_state(root)?;
+    publish_runtime_descriptor_record(root, &local)
 }
 
 fn sync_shared_coordination_ref_family_state(
