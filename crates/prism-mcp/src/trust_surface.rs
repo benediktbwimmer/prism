@@ -4,9 +4,14 @@ use prism_core::{
     AuthenticatedPrincipal, CoordinationAuthorityMutationError,
     CoordinationAuthorityMutationStatus, CoordinationAuthorityStore, CoordinationReadConsistency,
     CoordinationReadRequest, CoordinationStateView, GitSharedRefsCoordinationAuthorityStore,
-    WorktreeMode, WorktreeMutatorSlotError, WorktreeRegistrationRecord,
+    ProtectedStateStreamReport, SharedCoordinationRefDiagnostics, WorktreeMode,
+    WorktreeMutatorSlotError, WorktreeRegistrationRecord,
 };
 use prism_ir::EventId;
+use prism_js::{
+    RuntimeDescriptorCapabilityView, RuntimeDiscoveryModeView, RuntimeSharedCoordinationRefView,
+    RuntimeSharedCoordinationRuntimeDescriptorView,
+};
 use prism_query::{
     CoordinationTransactionError, CoordinationTransactionProtocolIndeterminate,
     CoordinationTransactionProtocolRejection, CoordinationTransactionProtocolState,
@@ -15,7 +20,10 @@ use rmcp::model::ErrorData as McpError;
 use serde::Serialize;
 use serde_json::{json, Value};
 
-use crate::{CoordinationMutationResult, MutationViolationView, PrismMutationBridgeExecutionArgs};
+use crate::{
+    CoordinationMutationResult, MutationViolationView, PrismMutationBridgeExecutionArgs,
+    ProtectedStateStreamView,
+};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -200,6 +208,68 @@ pub(crate) fn mutation_bridge_execution_mismatch_error(
     )
 }
 
+pub(crate) fn protected_state_stream_view(
+    report: ProtectedStateStreamReport,
+) -> ProtectedStateStreamView {
+    ProtectedStateStreamView {
+        stream: report.stream,
+        stream_id: report.stream_id,
+        protected_path: report.protected_path,
+        verification_status: report.verification_status,
+        last_verified_event_id: report.last_verified_event_id,
+        last_verified_entry_hash: report.last_verified_entry_hash,
+        trust_bundle_id: report.trust_bundle_id,
+        diagnostic_code: report.diagnostic_code,
+        diagnostic_summary: report.diagnostic_summary,
+        repair_hint: report.repair_hint,
+    }
+}
+
+pub(crate) fn runtime_shared_coordination_ref_view(
+    value: SharedCoordinationRefDiagnostics,
+) -> RuntimeSharedCoordinationRefView {
+    RuntimeSharedCoordinationRefView {
+        ref_name: value.ref_name,
+        head_commit: value.head_commit,
+        history_depth: value.history_depth,
+        max_history_commits: value.max_history_commits,
+        snapshot_file_count: value.snapshot_file_count,
+        verification_status: value.verification_status,
+        authoritative_hydration_allowed: value.authoritative_hydration_allowed,
+        degraded: value.degraded,
+        verification_error: value.verification_error,
+        repair_hint: value.repair_hint,
+        current_manifest_digest: value.current_manifest_digest,
+        last_verified_manifest_digest: value.last_verified_manifest_digest,
+        previous_manifest_digest: value.previous_manifest_digest,
+        last_successful_publish_at: value.last_successful_publish_at,
+        last_successful_publish_retry_count: value.last_successful_publish_retry_count,
+        publish_retry_budget: value.publish_retry_budget,
+        compacted_head: value.compacted_head,
+        needs_compaction: value.needs_compaction,
+        compaction_status: value.compaction_status,
+        compaction_mode: value.compaction_mode,
+        last_compacted_at: value.last_compacted_at,
+        compaction_previous_head_commit: value.compaction_previous_head_commit,
+        compaction_previous_history_depth: value.compaction_previous_history_depth,
+        archive_boundary_manifest_digest: value.archive_boundary_manifest_digest,
+        summary_published_at: value.summary_published_at,
+        summary_freshness_status: value.summary_freshness_status,
+        authoritative_fallback_required: value.authoritative_fallback_required,
+        freshness_reason: value.freshness_reason,
+        lagging_task_shard_refs: value.lagging_task_shard_refs,
+        lagging_claim_shard_refs: value.lagging_claim_shard_refs,
+        lagging_runtime_refs: value.lagging_runtime_refs,
+        newest_authoritative_ref_at: value.newest_authoritative_ref_at,
+        runtime_descriptor_count: value.runtime_descriptor_count,
+        runtime_descriptors: value
+            .runtime_descriptors
+            .into_iter()
+            .map(runtime_shared_coordination_runtime_descriptor_view)
+            .collect(),
+    }
+}
+
 pub(crate) fn coordination_authority_protocol_state(
     authority_error: &CoordinationAuthorityMutationError,
 ) -> CoordinationTransactionProtocolState {
@@ -364,6 +434,51 @@ fn coordination_transaction_authority_stamp_view(workspace_root: Option<&Path>) 
     .ok()
 }
 
+fn runtime_shared_coordination_runtime_descriptor_view(
+    value: prism_coordination::RuntimeDescriptor,
+) -> RuntimeSharedCoordinationRuntimeDescriptorView {
+    RuntimeSharedCoordinationRuntimeDescriptorView {
+        runtime_id: value.runtime_id,
+        repo_id: value.repo_id,
+        worktree_id: value.worktree_id,
+        principal_id: value.principal_id,
+        instance_started_at: value.instance_started_at,
+        last_seen_at: value.last_seen_at,
+        branch_ref: value.branch_ref,
+        checked_out_commit: value.checked_out_commit,
+        capabilities: value
+            .capabilities
+            .into_iter()
+            .map(|capability| match capability {
+                prism_coordination::RuntimeDescriptorCapability::CoordinationRefPublisher => {
+                    RuntimeDescriptorCapabilityView::CoordinationRefPublisher
+                }
+                prism_coordination::RuntimeDescriptorCapability::BoundedPeerReads => {
+                    RuntimeDescriptorCapabilityView::BoundedPeerReads
+                }
+                prism_coordination::RuntimeDescriptorCapability::BundleExports => {
+                    RuntimeDescriptorCapabilityView::BundleExports
+                }
+            })
+            .collect(),
+        discovery_mode: match value.discovery_mode {
+            prism_coordination::RuntimeDiscoveryMode::None => RuntimeDiscoveryModeView::None,
+            prism_coordination::RuntimeDiscoveryMode::LanDirect => {
+                RuntimeDiscoveryModeView::LanDirect
+            }
+            prism_coordination::RuntimeDiscoveryMode::PublicUrl => {
+                RuntimeDiscoveryModeView::PublicUrl
+            }
+            prism_coordination::RuntimeDiscoveryMode::Full => RuntimeDiscoveryModeView::Full,
+        },
+        peer_endpoint: value.peer_endpoint,
+        public_endpoint: value.public_endpoint,
+        peer_transport_identity: value.peer_transport_identity,
+        blob_snapshot_head: value.blob_snapshot_head,
+        export_policy: value.export_policy,
+    }
+}
+
 fn worktree_mode_label(mode: WorktreeMode) -> &'static str {
     match mode {
         WorktreeMode::Human => "human",
@@ -394,7 +509,8 @@ fn coordination_protocol_violation(
 #[cfg(test)]
 mod tests {
     use prism_core::{
-        CoordinationAuthorityMutationError, WorktreeMode, WorktreeRegistrationRecord,
+        CoordinationAuthorityMutationError, ProtectedStateStreamReport,
+        SharedCoordinationRefDiagnostics, WorktreeMode, WorktreeRegistrationRecord,
     };
     use prism_ir::{EventId, PrincipalKind};
     use prism_query::CoordinationTransactionError;
@@ -406,6 +522,7 @@ mod tests {
         mutation_auth_missing_error, mutation_bridge_execution_mismatch_error,
         mutation_bridge_execution_requires_agent_worktree_error, mutation_capability_denied_error,
         mutation_worktree_mode_mismatch_error, mutation_worktree_unregistered_error,
+        protected_state_stream_view, runtime_shared_coordination_ref_view,
     };
 
     #[test]
@@ -635,5 +752,90 @@ mod tests {
         assert_eq!(data["code"], "mutation_worktree_mode_mismatch");
         assert_eq!(data["worktreeMode"], "agent");
         assert_eq!(data["requiredWorktreeMode"], "human");
+    }
+
+    #[test]
+    fn protected_state_stream_view_preserves_trust_fields() {
+        let view = protected_state_stream_view(ProtectedStateStreamReport {
+            stream: "repo_concept_events".to_string(),
+            stream_id: "concepts:events".to_string(),
+            protected_path: ".prism/concepts/events.jsonl".to_string(),
+            verification_status: "Verified".to_string(),
+            last_verified_event_id: Some("event:1".to_string()),
+            last_verified_entry_hash: Some("hash:1".to_string()),
+            trust_bundle_id: Some("bundle:1".to_string()),
+            diagnostic_code: Some("ok".to_string()),
+            diagnostic_summary: Some("verified".to_string()),
+            repair_hint: None,
+        });
+        assert_eq!(view.stream_id, "concepts:events");
+        assert_eq!(view.verification_status, "Verified");
+        assert_eq!(view.trust_bundle_id.as_deref(), Some("bundle:1"));
+    }
+
+    #[test]
+    fn runtime_shared_coordination_ref_view_preserves_descriptor_trust_fields() {
+        let view = runtime_shared_coordination_ref_view(SharedCoordinationRefDiagnostics {
+            ref_name: "refs/prism/coordination".to_string(),
+            head_commit: Some("abc123".to_string()),
+            history_depth: 3,
+            max_history_commits: 64,
+            snapshot_file_count: 5,
+            verification_status: "verified".to_string(),
+            authoritative_hydration_allowed: true,
+            degraded: false,
+            verification_error: None,
+            repair_hint: Some("none".to_string()),
+            current_manifest_digest: Some("digest:1".to_string()),
+            last_verified_manifest_digest: Some("digest:1".to_string()),
+            previous_manifest_digest: None,
+            last_successful_publish_at: Some(1),
+            last_successful_publish_retry_count: 0,
+            publish_retry_budget: 3,
+            compacted_head: false,
+            needs_compaction: false,
+            compaction_status: "clean".to_string(),
+            compaction_mode: None,
+            last_compacted_at: None,
+            compaction_previous_head_commit: None,
+            compaction_previous_history_depth: None,
+            archive_boundary_manifest_digest: None,
+            summary_published_at: Some(1),
+            summary_freshness_status: "current".to_string(),
+            authoritative_fallback_required: false,
+            freshness_reason: None,
+            lagging_task_shard_refs: 0,
+            lagging_claim_shard_refs: 0,
+            lagging_runtime_refs: 0,
+            newest_authoritative_ref_at: Some(1),
+            runtime_descriptor_count: 1,
+            runtime_descriptors: vec![prism_coordination::RuntimeDescriptor {
+                runtime_id: "runtime:1".to_string(),
+                repo_id: "repo:1".to_string(),
+                worktree_id: "worktree:1".to_string(),
+                principal_id: "principal:1".to_string(),
+                instance_started_at: 1,
+                last_seen_at: 2,
+                branch_ref: Some("main".to_string()),
+                checked_out_commit: Some("abc123".to_string()),
+                capabilities: vec![
+                    prism_coordination::RuntimeDescriptorCapability::CoordinationRefPublisher,
+                ],
+                discovery_mode: prism_coordination::RuntimeDiscoveryMode::PublicUrl,
+                peer_endpoint: Some("http://peer".to_string()),
+                public_endpoint: Some("https://public".to_string()),
+                peer_transport_identity: Some("transport:1".to_string()),
+                blob_snapshot_head: Some("blob:1".to_string()),
+                export_policy: Some("manual".to_string()),
+            }],
+        });
+        assert_eq!(view.verification_status, "verified");
+        assert_eq!(view.summary_freshness_status, "current");
+        assert_eq!(view.runtime_descriptors.len(), 1);
+        assert_eq!(view.runtime_descriptors[0].runtime_id, "runtime:1");
+        assert_eq!(
+            view.runtime_descriptors[0].discovery_mode,
+            prism_js::RuntimeDiscoveryModeView::PublicUrl
+        );
     }
 }

@@ -19,13 +19,11 @@ use prism_js::{
     ConnectionInfoView, ProjectionAuthorityPlaneView, ProjectionClassView,
     ProjectionFreshnessStateView, ProjectionMaterializationStateView, ProjectionReadModelView,
     RuntimeAssistedLeaseRenewalView, RuntimeBoundaryRegionView, RuntimeCoordinationLagView,
-    RuntimeCoordinationSurfaceLagItemView, RuntimeDescriptorCapabilityView,
-    RuntimeDiscoveryModeView, RuntimeDomainFreshnessView, RuntimeFreshnessView, RuntimeHealthView,
-    RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
-    RuntimeMaterializationView, RuntimeOverlayScopeView, RuntimeProcessView,
-    RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView,
-    RuntimeSharedCoordinationRefView, RuntimeSharedCoordinationRuntimeDescriptorView,
-    RuntimeStatusView,
+    RuntimeCoordinationSurfaceLagItemView, RuntimeDomainFreshnessView, RuntimeFreshnessView,
+    RuntimeHealthView, RuntimeLogEventView, RuntimeMaterializationCoverageView,
+    RuntimeMaterializationItemView, RuntimeMaterializationView, RuntimeOverlayScopeView,
+    RuntimeProcessView, RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView,
+    RuntimeSharedCoordinationRefView, RuntimeStatusView,
 };
 use prism_projections::{
     ProjectionAuthorityPlane, ProjectionClass, ProjectionFreshnessState,
@@ -46,6 +44,7 @@ use crate::runtime_state::{
     process_is_live, read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord, RuntimeState,
 };
 use crate::serving_projection_models::runtime_projection_scopes;
+use crate::trust_surface::runtime_shared_coordination_ref_view;
 use crate::workspace_diagnostics::WorkspaceDiagnosticsConfig;
 use crate::{QueryHost, RuntimeLogArgs, RuntimeTimelineArgs};
 
@@ -460,96 +459,6 @@ fn runtime_status_details_from_inputs(
     };
     let scopes = runtime_scopes_from_inputs(inputs, &freshness);
     Ok((freshness, shared_coordination_ref, scopes))
-}
-
-fn runtime_shared_coordination_ref_view(
-    value: prism_core::SharedCoordinationRefDiagnostics,
-) -> RuntimeSharedCoordinationRefView {
-    RuntimeSharedCoordinationRefView {
-        ref_name: value.ref_name,
-        head_commit: value.head_commit,
-        history_depth: value.history_depth,
-        max_history_commits: value.max_history_commits,
-        snapshot_file_count: value.snapshot_file_count,
-        verification_status: value.verification_status,
-        authoritative_hydration_allowed: value.authoritative_hydration_allowed,
-        degraded: value.degraded,
-        verification_error: value.verification_error,
-        repair_hint: value.repair_hint,
-        current_manifest_digest: value.current_manifest_digest,
-        last_verified_manifest_digest: value.last_verified_manifest_digest,
-        previous_manifest_digest: value.previous_manifest_digest,
-        last_successful_publish_at: value.last_successful_publish_at,
-        last_successful_publish_retry_count: value.last_successful_publish_retry_count,
-        publish_retry_budget: value.publish_retry_budget,
-        compacted_head: value.compacted_head,
-        needs_compaction: value.needs_compaction,
-        compaction_status: value.compaction_status,
-        compaction_mode: value.compaction_mode,
-        last_compacted_at: value.last_compacted_at,
-        compaction_previous_head_commit: value.compaction_previous_head_commit,
-        compaction_previous_history_depth: value.compaction_previous_history_depth,
-        archive_boundary_manifest_digest: value.archive_boundary_manifest_digest,
-        summary_published_at: value.summary_published_at,
-        summary_freshness_status: value.summary_freshness_status,
-        authoritative_fallback_required: value.authoritative_fallback_required,
-        freshness_reason: value.freshness_reason,
-        lagging_task_shard_refs: value.lagging_task_shard_refs,
-        lagging_claim_shard_refs: value.lagging_claim_shard_refs,
-        lagging_runtime_refs: value.lagging_runtime_refs,
-        newest_authoritative_ref_at: value.newest_authoritative_ref_at,
-        runtime_descriptor_count: value.runtime_descriptor_count,
-        runtime_descriptors: value
-            .runtime_descriptors
-            .into_iter()
-            .map(runtime_shared_coordination_runtime_descriptor_view)
-            .collect(),
-    }
-}
-
-fn runtime_shared_coordination_runtime_descriptor_view(
-    value: prism_coordination::RuntimeDescriptor,
-) -> RuntimeSharedCoordinationRuntimeDescriptorView {
-    RuntimeSharedCoordinationRuntimeDescriptorView {
-        runtime_id: value.runtime_id,
-        repo_id: value.repo_id,
-        worktree_id: value.worktree_id,
-        principal_id: value.principal_id,
-        instance_started_at: value.instance_started_at,
-        last_seen_at: value.last_seen_at,
-        branch_ref: value.branch_ref,
-        checked_out_commit: value.checked_out_commit,
-        capabilities: value
-            .capabilities
-            .into_iter()
-            .map(|capability| match capability {
-                prism_coordination::RuntimeDescriptorCapability::CoordinationRefPublisher => {
-                    RuntimeDescriptorCapabilityView::CoordinationRefPublisher
-                }
-                prism_coordination::RuntimeDescriptorCapability::BoundedPeerReads => {
-                    RuntimeDescriptorCapabilityView::BoundedPeerReads
-                }
-                prism_coordination::RuntimeDescriptorCapability::BundleExports => {
-                    RuntimeDescriptorCapabilityView::BundleExports
-                }
-            })
-            .collect(),
-        discovery_mode: match value.discovery_mode {
-            prism_coordination::RuntimeDiscoveryMode::None => RuntimeDiscoveryModeView::None,
-            prism_coordination::RuntimeDiscoveryMode::LanDirect => {
-                RuntimeDiscoveryModeView::LanDirect
-            }
-            prism_coordination::RuntimeDiscoveryMode::PublicUrl => {
-                RuntimeDiscoveryModeView::PublicUrl
-            }
-            prism_coordination::RuntimeDiscoveryMode::Full => RuntimeDiscoveryModeView::Full,
-        },
-        peer_endpoint: value.peer_endpoint,
-        public_endpoint: value.public_endpoint,
-        peer_transport_identity: value.peer_transport_identity,
-        blob_snapshot_head: value.blob_snapshot_head,
-        export_policy: value.export_policy,
-    }
 }
 
 fn runtime_assisted_lease_renewal_view() -> RuntimeAssistedLeaseRenewalView {

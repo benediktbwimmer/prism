@@ -10,6 +10,7 @@ use std::time::Instant;
 
 use crate::file_queries::file_read;
 use crate::query_types::{parse_plan_scope, parse_plan_status};
+use crate::trust_surface::protected_state_stream_view;
 use crate::ui_read_models::{filtered_plan_entries_from_snapshot, PlansResourceSort};
 use crate::{
     anchor_resource_view_links, capabilities_resource_uri, capabilities_resource_value,
@@ -34,12 +35,12 @@ use crate::{
     CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
     EventResourcePayload, FeatureFlagsView, FileResourcePayload, InferredEdgeRecordView,
     LineageResourcePayload, MemoryResourcePayload, PlanResourcePayload, PlansResourcePayload,
-    ProtectedStateResourcePayload, ProtectedStateStreamView, QueryExecution, QueryHost,
-    ResourceSchemaCatalogPayload, RuntimeCapabilitiesView, SearchArgs, SearchResourcePayload,
-    SessionLimitsView, SessionRepairActionView, SessionResourcePayload, SessionState,
-    SessionTaskView, SessionView, SessionWorkView, SymbolResourcePayload, TaskHeartbeatAdvice,
-    TaskResourcePayload, VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
+    ProtectedStateResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload,
+    RuntimeCapabilitiesView, SearchArgs, SearchResourcePayload, SessionLimitsView,
+    SessionRepairActionView, SessionResourcePayload, SessionState, SessionTaskView, SessionView,
+    SessionWorkView, SymbolResourcePayload, TaskHeartbeatAdvice, TaskResourcePayload,
+    VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -232,18 +233,7 @@ impl QueryHost {
                 .count();
             let streams = reports
                 .into_iter()
-                .map(|report| ProtectedStateStreamView {
-                    stream: report.stream,
-                    stream_id: report.stream_id,
-                    protected_path: report.protected_path,
-                    verification_status: report.verification_status,
-                    last_verified_event_id: report.last_verified_event_id,
-                    last_verified_entry_hash: report.last_verified_entry_hash,
-                    trust_bundle_id: report.trust_bundle_id,
-                    diagnostic_code: report.diagnostic_code,
-                    diagnostic_summary: report.diagnostic_summary,
-                    repair_hint: report.repair_hint,
-                })
+                .map(protected_state_stream_view)
                 .collect::<Vec<_>>();
             let related_resources = dedupe_resource_link_views(vec![
                 instructions_resource_view_link(),

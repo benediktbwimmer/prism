@@ -271,6 +271,14 @@ Exit criteria:
 - trust-family semantics are visible in one coherent shape across the main coordination and
   service-backed runtime surfaces
 
+Current progress:
+
+- protected-state resource stream views now route through shared `trust_surface` builders instead
+  of constructing trust-heavy verification payloads directly inside `host_resources.rs`
+- shared-coordination-ref runtime status diagnostics now also route through shared
+  `trust_surface` builders, including runtime descriptor capability and discovery-mode projection,
+  instead of keeping a second local formatter in `runtime_views.rs`
+
 ## 9. Validation
 
 Minimum validation for this phase:
