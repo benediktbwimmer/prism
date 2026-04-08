@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use axum::{http::StatusCode, Json};
 use prism_core::{
     AuthenticatedPrincipal, CoordinationAuthorityMutationError,
     CoordinationAuthorityMutationStatus, CoordinationAuthorityStore, CoordinationReadConsistency,
@@ -204,6 +205,33 @@ pub(crate) fn mutation_bridge_execution_mismatch_error(
             "receivedWorktreeId": bridge_execution.worktree_id,
             "receivedAgentLabel": bridge_execution.agent_label,
             "nextAction": "Call `prism_bridge_adopt` again so the bridge reattaches to the current registered worktree lane.",
+        })),
+    )
+}
+
+pub(crate) fn peer_runtime_auth_failed_response(
+    credential_id: &str,
+    error: &str,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(json!({
+            "code": "peer_runtime_auth_failed",
+            "message": error,
+            "credentialId": credential_id,
+        })),
+    )
+}
+
+pub(crate) fn peer_runtime_capability_denied_response(
+    credential_id: &str,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::FORBIDDEN,
+        Json(json!({
+            "code": "peer_runtime_capability_denied",
+            "message": "credential lacks read_peer_runtime capability",
+            "credentialId": credential_id,
         })),
     )
 }
@@ -521,6 +549,7 @@ mod tests {
         coordination_query_protocol_result, mutation_auth_failed_error,
         mutation_auth_missing_error, mutation_bridge_execution_mismatch_error,
         mutation_bridge_execution_requires_agent_worktree_error, mutation_capability_denied_error,
+        peer_runtime_auth_failed_response, peer_runtime_capability_denied_response,
         mutation_worktree_mode_mismatch_error, mutation_worktree_unregistered_error,
         protected_state_stream_view, runtime_shared_coordination_ref_view,
     };
@@ -837,5 +866,19 @@ mod tests {
             view.runtime_descriptors[0].discovery_mode,
             prism_js::RuntimeDiscoveryModeView::PublicUrl
         );
+    }
+
+    #[test]
+    fn peer_runtime_auth_error_payloads_use_stable_shape() {
+        let (status, body) =
+            peer_runtime_auth_failed_response("credential:test", "invalid signature");
+        assert_eq!(status, axum::http::StatusCode::UNAUTHORIZED);
+        assert_eq!(body.0["code"], "peer_runtime_auth_failed");
+        assert_eq!(body.0["credentialId"], "credential:test");
+
+        let (status, body) = peer_runtime_capability_denied_response("credential:test");
+        assert_eq!(status, axum::http::StatusCode::FORBIDDEN);
+        assert_eq!(body.0["code"], "peer_runtime_capability_denied");
+        assert_eq!(body.0["credentialId"], "credential:test");
     }
 }

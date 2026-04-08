@@ -21,6 +21,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::remote_runtime_query_error;
 use crate::runtime_views::runtime_status;
+use crate::trust_surface::{
+    peer_runtime_auth_failed_response, peer_runtime_capability_denied_response,
+};
 use crate::{QueryHost, QueryLanguage};
 
 const PEER_QUERY_TIMEOUT: Duration = Duration::from_secs(20);
@@ -131,14 +134,7 @@ fn authenticate_peer_read(
             &request.principal_token,
         )
         .map_err(|error| {
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(serde_json::json!({
-                    "code": "peer_runtime_auth_failed",
-                    "message": error.to_string(),
-                    "credentialId": request.credential_id,
-                })),
-            )
+            peer_runtime_auth_failed_response(&request.credential_id, &error.to_string())
         })?;
     if !authenticated
         .credential
@@ -149,13 +145,8 @@ fn authenticate_peer_read(
             .capabilities
             .contains(&CredentialCapability::ReadPeerRuntime)
     {
-        return Err((
-            StatusCode::FORBIDDEN,
-            Json(serde_json::json!({
-                "code": "peer_runtime_capability_denied",
-                "message": "credential lacks read_peer_runtime capability",
-                "credentialId": request.credential_id,
-            })),
+        return Err(peer_runtime_capability_denied_response(
+            &request.credential_id,
         ));
     }
     Ok(())

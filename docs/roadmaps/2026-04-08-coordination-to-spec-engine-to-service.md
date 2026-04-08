@@ -50,7 +50,7 @@ Current phase checklist:
 - [x] Phase 3: implement Coordination Query Engine fully
 - [x] Phase 4: implement Transactional Coordination Mutation Protocol fully
 - [x] Phase 5: cut over service-backed coordination runtime and product surfaces
-- [ ] Phase 6: trust-family cleanup and centralization
+- [x] Phase 6: trust-family cleanup and centralization
 - [ ] Phase 7: freeze coordination as the base platform
 - [ ] Phase 8: implement spec engine source, parser, and identity model
 - [ ] Phase 9: implement spec local materialization
@@ -63,7 +63,7 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 6: trust-family cleanup and centralization
+- Phase 7: freeze coordination as the base platform
 
 Current phase spec:
 
@@ -75,7 +75,7 @@ Current phase spec:
   [../specs/2026-04-08-coordination-mutation-protocol-phase-4.md](../specs/2026-04-08-coordination-mutation-protocol-phase-4.md)
 - Phase 5 completed:
   [../specs/2026-04-08-service-backed-coordination-cutover-phase-5.md](../specs/2026-04-08-service-backed-coordination-cutover-phase-5.md)
-- Phase 6 in progress:
+- Phase 6 completed:
   [../specs/2026-04-09-trust-family-centralization-phase-6.md](../specs/2026-04-09-trust-family-centralization-phase-6.md)
 
 ## 3. Ordering thesis

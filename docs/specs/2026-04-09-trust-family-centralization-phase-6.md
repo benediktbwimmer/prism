@@ -1,6 +1,6 @@
 # Trust Family Centralization Phase 6
 
-Status: in progress
+Status: completed
 Audience: coordination, service, runtime, identity, authz, provenance, diagnostics, and UI maintainers
 Scope: complete roadmap Phase 6 by centralizing the trust-family contracts into the live coordination and service-backed runtime paths
 
@@ -31,10 +31,12 @@ Current state:
 
 - [x] trust-family contracts exist
 - [x] authority-store and mutation-protocol result shapes already carry some trust metadata
-- [ ] trust metadata is not yet centralized behind one shared code path
-- [ ] capability checks still rely on scattered call-site interpretation
-- [ ] provenance envelope construction is not yet shared enough across coordination surfaces
-- [ ] verification and freshness state are not yet surfaced consistently through the same boundary
+- [x] trust metadata is now centralized behind shared service-facing helpers where live
+  coordination/runtime paths depend on it
+- [x] capability checks no longer rely on scattered coordination/service call-site interpretation
+- [x] provenance envelope construction is shared across the main coordination mutation surfaces
+- [x] verification and freshness state now surface through shared boundary helpers on the live
+  service-facing paths touched in this phase
 
 Current slice notes:
 
@@ -64,8 +66,8 @@ Current slice notes:
   - scope-to-origin mapping
   - manual packet provenance construction
   - default provenance filling on update/retire flows
-- that first slice reduces duplicated trust metadata shaping in `server_surface.rs` and
-  `host_mutations.rs`, but broader provenance and verification/freshness convergence still remain
+- broader provenance and verification/freshness convergence now also routes through shared
+  service-facing helpers instead of remaining a separate later slice
 
 ## 3. Related roadmap
 
@@ -278,6 +280,9 @@ Current progress:
 - shared-coordination-ref runtime status diagnostics now also route through shared
   `trust_surface` builders, including runtime descriptor capability and discovery-mode projection,
   instead of keeping a second local formatter in `runtime_views.rs`
+- peer-runtime read authentication and capability-denial responses now also route through
+  `trust_surface` instead of keeping a second inline service-auth payload formatter in
+  `peer_runtime_router.rs`
 
 ## 9. Validation
 
@@ -309,13 +314,13 @@ Phase 6 is complete only when:
 
 ## 11. Implementation checklist
 
-- [ ] Audit live trust-family metadata and duplicate builders
+- [x] Audit live trust-family metadata and duplicate builders
 - [x] Centralize the first shared MCP trust-surface helpers
-- [ ] Centralize repeated capability checks
-- [ ] Centralize provenance and verification/freshness construction
-- [ ] Cut diagnostics/service surfaces over to the shared trust-family boundary
-- [ ] Validate changed crates and direct downstream dependents
-- [ ] Update roadmap/spec status as slices land
+- [x] Centralize repeated capability checks
+- [x] Centralize provenance and verification/freshness construction
+- [x] Cut diagnostics/service surfaces over to the shared trust-family boundary
+- [x] Validate changed crates and direct downstream dependents
+- [x] Update roadmap/spec status as slices land
 
 ## 12. Current implementation status
 
@@ -332,3 +337,10 @@ That means this phase should mostly be:
 - shared envelope and checker introduction
 
 not another broad architectural rewrite.
+
+Final assessment:
+
+- completed
+- the remaining trust-related direct error payloads are intentional bridge-local or transport-local
+  surfaces, not a second live coordination/service trust vocabulary
+- later work should build on these shared trust boundaries rather than reopen Phase 6
