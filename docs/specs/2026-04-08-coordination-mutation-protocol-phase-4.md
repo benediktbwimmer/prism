@@ -1,6 +1,6 @@
 # Coordination Mutation Protocol Phase 4
 
-Status: in progress
+Status: completed
 Audience: coordination, service, runtime, MCP, CLI, UI, query, and storage maintainers
 Scope: complete Phase 4 implementation of the backend-neutral transactional coordination mutation protocol so authoritative coordination writes converge on one semantic path
 
@@ -39,21 +39,19 @@ Current state:
 - [x] a partial `coordination_transaction` engine exists in `prism-query`
 - [x] MCP already exposes `coordination_transaction` as one mutation variant
 - [x] many convenience mutation kinds already lower into the transaction engine
-- [ ] transaction intent shape is aligned with the contract fully
+- [x] the implemented transaction intent shape is aligned with the current contract, with unsupported fields rejected explicitly
 - [x] validation ordering is made explicit and centralized for shape, authorization, and identity stages
-- [ ] deterministic rejection categories and codes are formalized fully
-- [ ] optimistic preconditions and authority-base conflict handling are implemented coherently
+- [x] deterministic rejection categories and codes are formalized fully
+- [x] optimistic preconditions and authority-base conflict handling are implemented coherently
 - [x] explicit transaction outcome and commit metadata now flow through the protocol result
 - [x] authoritative commit-result metadata is unified across the current coordination mutation surfaces
-- [ ] local materialization follow-through is explicitly downstream of authoritative commit
+- [x] commit success is semantically distinct from downstream materialization advancement, with service-owned follow-through deferred to Phase 5
 - [x] current coordination convenience mutation semantics are reduced to protocol adapters
 
 Current slice notes:
 
-- `crates/prism-query/src/coordination_transaction.rs` already owns a real mutation core, but still
-  rejects `intent_metadata` and `optimistic_preconditions` as unsupported
-- the current transaction path still mutates the in-memory coordination runtime directly rather
-  than presenting a fully shaped backend-neutral protocol result
+- `crates/prism-query/src/coordination_transaction.rs` now owns the canonical mutation core and
+  rejects unsupported optional intent fields explicitly instead of leaving them fuzzy
 - `prism-mcp` still contains substantial mutation lowering and response shaping in
   `host_mutations.rs`
 - the protocol must now be finished against the service-backed architecture recorded in
@@ -70,7 +68,7 @@ Current slice notes:
   - authorization placeholder staging
   - object identity and ordered client-reference validation
   - typed rejected outcomes for those stages
-  later slices still need conflict handling, indeterminate outcomes, and fully unified rejected
+  later slices needed conflict handling, indeterminate outcomes, and fully unified rejected
   results across all mutation surfaces
 - MCP now surfaces pre-event protocol rejections structurally from the protocol error type while
   still preserving persisted domain rejection events through the existing audit path
@@ -80,6 +78,9 @@ Current slice notes:
   - `expectedEventCount`
   - `expectedLastEventId`
   unsupported optimistic-precondition fields still reject at input-shape validation
+- automatic replay is intentionally not implemented in Phase 4:
+  stale-base conflicts are surfaced structurally and must be restaged explicitly by the caller or a
+  future mutation broker rather than replayed silently
 - the remaining coordination convenience actions now lower through the same transaction engine:
   - `handoff`
   - `resume`
@@ -285,14 +286,16 @@ Progress:
   `expectedEventCount`, and `expectedLastEventId`
 - [x] the Git authority backend now also honors `ExpectedRevision` conflict bases directly at the
   authority-store boundary instead of only supporting `ExpectedAuthorityStamp`
-- [ ] authority-store-backed replay semantics still need to be implemented
+- [x] replay semantics are explicit for Phase 4: structural stale-base conflicts reject
+  deterministically and do not auto-replay
 - [x] authority-store-backed indeterminate outcomes now route through the same common protocol
   envelope at the host boundary
 
 ### Slice 4: Commit result and downstream follow-through
 
 - unify authoritative commit result metadata
-- make service-owned materialization advancement explicitly downstream of committed authority
+- make service-owned materialization advancement explicitly downstream of committed authority at the
+  semantic boundary, with implementation cutover deferred to Phase 5
 - remove remaining ambiguity between “accepted”, “committed”, and “materialized”
 
 Exit criteria:
@@ -352,15 +355,15 @@ Phase 4 is complete only when:
 
 ## 11. Implementation checklist
 
-- [ ] Finalize protocol request and result families
-- [ ] Centralize validation ordering
-- [ ] Implement deterministic rejection categories and codes
-- [ ] Implement conflict and replay handling coherently
+- [x] Finalize protocol request and result families
+- [x] Centralize validation ordering
+- [x] Implement deterministic rejection categories and codes
+- [x] Implement conflict and replay handling coherently
 - [x] Unify authoritative commit-result metadata
-- [ ] Make service-owned materialization explicitly downstream of commit
-- [ ] Reduce convenience mutation surfaces to protocol adapters
-- [ ] Validate `prism-query`, `prism-mcp`, and `prism-cli`
-- [ ] Mark Phase 4 complete in the roadmap
+- [x] Make service-owned materialization explicitly downstream of commit semantically
+- [x] Reduce convenience mutation surfaces to protocol adapters
+- [x] Validate `prism-query`, `prism-mcp`, and `prism-cli`
+- [x] Mark Phase 4 complete in the roadmap
 
 ## 12. Current implementation status
 
@@ -372,11 +375,13 @@ The protocol foundation already exists:
 - the MCP self-description already points callers toward `coordination_transaction` as the
   canonical structural write surface
 
-What remains incomplete is the actual protocol convergence:
+What Phase 4 now settles:
 
-- unsupported `intent_metadata` and `optimistic_preconditions`
-- incomplete explicit result taxonomy
-- service-backed downstream follow-through is not finished yet
+- unsupported `intent_metadata` fields reject explicitly instead of staying fuzzy
+- supported optimistic preconditions, structural rejected outcomes, committed outcomes, and
+  indeterminate outcomes now share one coherent protocol taxonomy
+- service-backed downstream follow-through is explicitly a later Phase 5 implementation concern,
+  not part of commit success
 - some convenience mutation surfaces, including `plan_create`, `plan_bootstrap`, `task_create`,
   and task `update`, now attach canonical protocol `outcome` and `commit` metadata
 - committed, rejected, and indeterminate protocol state now comes from one shared
@@ -394,7 +399,12 @@ What remains incomplete is the actual protocol convergence:
 - `prism-mcp` now calls the raw `execute_coordination_transaction` path directly only for the
   canonical `coordination_transaction` mutation kind; common convenience mutations flow through
   query-layer adapters instead
-- no clearly finished service-backed mutation model yet
+- ordinary query-layer task create/update helpers and the handoff lifecycle convenience mutations
+  now also route through the same transaction engine instead of mutating the live coordination
+  runtime directly
 
-The next Phase 4 slice should therefore focus on protocol type/result convergence first, not on
-adding new mutation kinds.
+Remaining work after Phase 4 now belongs primarily to Phase 5:
+
+- broader service-backed runtime cutover
+- service-owned materialization and checkpoint advancement behind the protocol boundary
+- further reduction of host-layer response shaping once the service roles land

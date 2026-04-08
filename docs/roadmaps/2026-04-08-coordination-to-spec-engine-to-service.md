@@ -40,7 +40,7 @@ Current phase checklist:
 - [x] Phase 1: implement Coordination Authority Store fully
 - [x] Phase 2: implement Coordination Materialized Store fully
 - [x] Phase 3: implement Coordination Query Engine fully
-- [ ] Phase 4: implement Transactional Coordination Mutation Protocol fully
+- [x] Phase 4: implement Transactional Coordination Mutation Protocol fully
 - [ ] Phase 5: cut over service-backed coordination runtime and product surfaces
 - [ ] Phase 6: trust-family cleanup and centralization
 - [ ] Phase 7: freeze coordination as the base platform
@@ -55,7 +55,7 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 4: implement Transactional Coordination Mutation Protocol fully
+- Phase 5: cut over service-backed coordination runtime and product surfaces
 
 Current phase spec:
 
@@ -63,7 +63,7 @@ Current phase spec:
   [../specs/2026-04-08-coordination-materialized-store-phase-2.md](../specs/2026-04-08-coordination-materialized-store-phase-2.md)
 - Phase 3 completed:
   [../specs/2026-04-08-coordination-query-engine-phase-3.md](../specs/2026-04-08-coordination-query-engine-phase-3.md)
-- Phase 4 in progress:
+- Phase 4 completed:
   [../specs/2026-04-08-coordination-mutation-protocol-phase-4.md](../specs/2026-04-08-coordination-mutation-protocol-phase-4.md)
 
 ## 3. Ordering thesis
@@ -218,6 +218,16 @@ Migration target:
 Exit criteria:
 
 - all coordination writes happen through one explicit transactional protocol
+
+Current assessment:
+
+- completed at the mutation-protocol layer
+- committed, rejected, indeterminate, and stale-base conflict outcomes now flow through one
+  protocol story
+- current coordination mutation surfaces and ordinary query-layer task create/update helpers now
+  route through the transaction engine instead of parallel live-runtime mutation paths
+- automatic replay remains intentionally unsupported in Phase 4; stale-base conflicts reject
+  structurally and must be restaged explicitly by a caller or later mutation broker
 
 ### Phase 5: Cut over the service-backed coordination runtime and product surfaces to those four seams
 
