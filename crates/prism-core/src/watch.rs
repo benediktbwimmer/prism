@@ -28,6 +28,9 @@ use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, info, warn};
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
+use crate::coordination_authority_api::{
+    poll_coordination_authority_live_sync, CoordinationAuthorityLiveSync,
+};
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::curator::{enqueue_curator_for_observed_async, CuratorHandleRef};
@@ -41,10 +44,6 @@ use crate::protected_state::runtime_sync::{
 use crate::protected_state::streams::{classify_protected_repo_relative_path, ProtectedRepoStream};
 use crate::session::{
     WorkspaceRefreshBreakdown, WorkspaceRefreshResult, WorkspaceRefreshState, WorkspaceSession,
-};
-use crate::shared_coordination_ref::{
-    poll_shared_coordination_ref_live_sync, SharedCoordinationRefLiveSync,
-    SharedCoordinationRefState,
 };
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::current_timestamp;
@@ -1219,8 +1218,8 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
     if !coordination_enabled {
         return Ok(());
     }
-    let SharedCoordinationRefLiveSync::Changed(shared) =
-        poll_shared_coordination_ref_live_sync(root)?
+    let CoordinationAuthorityLiveSync::Changed(shared) =
+        poll_coordination_authority_live_sync(root)?
     else {
         return Ok(());
     };
@@ -1247,7 +1246,7 @@ fn apply_shared_coordination_ref_watch_state(
     refresh_lock: &Arc<Mutex<()>>,
     loaded_workspace_revision: &Arc<AtomicU64>,
     coordination_runtime_revision: &Arc<AtomicU64>,
-    shared: &SharedCoordinationRefState,
+    shared: &crate::CoordinationCurrentState,
 ) -> Result<()> {
     let _guard = refresh_lock
         .lock()
@@ -1372,7 +1371,7 @@ mod tests {
     use std::sync::atomic::Ordering;
     use std::sync::{Mutex, OnceLock};
 
-    use crate::shared_coordination_ref::SharedCoordinationRefState;
+    use crate::CoordinationCurrentState;
     use crate::util::current_timestamp;
     use crate::workspace_identity::coordination_persist_context_for_root;
     use crate::{
@@ -1581,7 +1580,7 @@ mod tests {
             &session.refresh_lock,
             &session.loaded_workspace_revision,
             &session.coordination_runtime_revision,
-            &SharedCoordinationRefState {
+            &CoordinationCurrentState {
                 snapshot: Default::default(),
                 canonical_snapshot_v2: Default::default(),
                 runtime_descriptors: Vec::new(),

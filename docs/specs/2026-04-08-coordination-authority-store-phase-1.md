@@ -38,7 +38,7 @@ Current state:
 - [x] retained history families implemented through the new seam
 - [x] runtime descriptor publication and discovery implemented through the new seam
 - [x] authority diagnostics and metadata exposed through the new seam
-- [ ] direct product-facing shared-ref authority calls removed or redirected
+- [x] direct product-facing shared-ref authority calls removed or redirected
 
 Current slice notes:
 
@@ -54,8 +54,10 @@ Current slice notes:
   authority-store seam
 - startup-checkpoint authority metadata and the legacy published-plan sync path now also route
   through authority-store-facing wrappers instead of direct shared-ref helpers
-- the Git-backed implementation still needs broader transaction adoption, explicit
-  indeterminate-outcome handling, and live-sync/watch cutover in later slices
+- watch and indexer live-sync paths now depend on the authority façade instead of importing
+  shared-ref helpers directly
+- the Git-backed implementation still needs broader transaction adoption and explicit
+  indeterminate-outcome handling in later slices
 
 ## 3. Related roadmap
 

@@ -19,6 +19,7 @@ use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::info;
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
+use crate::coordination_authority_api::initialize_coordination_authority_live_sync;
 use crate::curator::{CuratorHandle, CuratorHandleRef};
 use crate::indexer::PendingFileParse;
 use crate::local_principal_registry::ensure_local_principal_registry_snapshot;
@@ -26,7 +27,6 @@ use crate::observed_change_tracker::ObservedChangeTracker;
 use crate::protected_state::runtime_sync::sync_repo_protected_state;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
 use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession};
-use crate::shared_coordination_ref::initialize_shared_coordination_ref_live_sync;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{persisted_file_hash, workspace_walk};
 use crate::watch::{
@@ -172,7 +172,7 @@ pub(crate) fn build_workspace_session(
             Arc::clone(&loaded_workspace_revision),
             coordination_enabled,
         )?);
-        initialize_shared_coordination_ref_live_sync(&root)?;
+        initialize_coordination_authority_live_sync(&root)?;
         let shared_coordination_ref_watch = Some(spawn_shared_coordination_ref_watch(
             root.clone(),
             Arc::clone(&published_generation),

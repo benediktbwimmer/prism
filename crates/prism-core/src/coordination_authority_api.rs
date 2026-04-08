@@ -11,8 +11,16 @@ use crate::coordination_authority_store::{
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use crate::shared_coordination_ref::{
-    build_local_runtime_descriptor_for_current_state, SharedCoordinationRefDiagnostics,
+    build_local_runtime_descriptor_for_current_state, initialize_shared_coordination_ref_live_sync,
+    poll_shared_coordination_ref_live_sync, SharedCoordinationRefDiagnostics,
+    SharedCoordinationRefLiveSync,
 };
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum CoordinationAuthorityLiveSync {
+    Unchanged,
+    Changed(crate::CoordinationCurrentState),
+}
 
 pub fn shared_coordination_ref_diagnostics(
     root: &Path,
@@ -61,4 +69,23 @@ pub(crate) fn shared_coordination_startup_authority(
         head_commit: authority.provenance.head_commit,
         manifest_digest: authority.provenance.manifest_digest,
     }))
+}
+
+pub(crate) fn initialize_coordination_authority_live_sync(root: &Path) -> Result<()> {
+    initialize_shared_coordination_ref_live_sync(root)
+}
+
+pub(crate) fn poll_coordination_authority_live_sync(
+    root: &Path,
+) -> Result<CoordinationAuthorityLiveSync> {
+    Ok(match poll_shared_coordination_ref_live_sync(root)? {
+        SharedCoordinationRefLiveSync::Unchanged => CoordinationAuthorityLiveSync::Unchanged,
+        SharedCoordinationRefLiveSync::Changed(shared) => {
+            CoordinationAuthorityLiveSync::Changed(crate::CoordinationCurrentState {
+                snapshot: shared.snapshot,
+                canonical_snapshot_v2: shared.canonical_snapshot_v2,
+                runtime_descriptors: shared.runtime_descriptors,
+            })
+        }
+    })
 }
