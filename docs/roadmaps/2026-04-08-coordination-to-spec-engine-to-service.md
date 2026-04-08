@@ -77,6 +77,8 @@ Current phase spec:
   [../specs/2026-04-08-service-backed-coordination-cutover-phase-5.md](../specs/2026-04-08-service-backed-coordination-cutover-phase-5.md)
 - Phase 6 completed:
   [../specs/2026-04-09-trust-family-centralization-phase-6.md](../specs/2026-04-09-trust-family-centralization-phase-6.md)
+- Phase 7 in progress:
+  [../specs/2026-04-09-coordination-platform-freeze-phase-7.md](../specs/2026-04-09-coordination-platform-freeze-phase-7.md)
 
 ## 3. Ordering thesis
 
