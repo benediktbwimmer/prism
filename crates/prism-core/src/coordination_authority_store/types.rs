@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
 use prism_coordination::{
-    CoordinationEvent, CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor,
+    CoordinationEvent, CoordinationSnapshot, CoordinationSnapshotV2, EventExecutionRecord,
+    RuntimeDescriptor,
 };
-use prism_ir::SessionId;
+use prism_ir::{EventExecutionId, SessionId};
 use prism_store::CoordinationPersistResult;
 
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
@@ -22,6 +23,7 @@ pub struct CoordinationAuthorityCapabilities {
     pub supports_eventual_reads: bool,
     pub supports_transactions: bool,
     pub supports_runtime_descriptors: bool,
+    pub supports_event_execution_records: bool,
     pub supports_retained_history: bool,
     pub supports_diagnostics: bool,
 }
@@ -182,6 +184,19 @@ pub struct RuntimeDescriptorClearRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RuntimeDescriptorQuery {
     pub consistency: CoordinationReadConsistency,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventExecutionRecordAuthorityQuery {
+    pub consistency: CoordinationReadConsistency,
+    pub event_execution_id: Option<EventExecutionId>,
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EventExecutionRecordWriteResult {
+    pub authority: Option<CoordinationAuthorityStamp>,
+    pub record: EventExecutionRecord,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

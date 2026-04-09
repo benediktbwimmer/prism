@@ -1,12 +1,13 @@
 use anyhow::Result;
-use prism_coordination::RuntimeDescriptor;
+use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
 
 use super::types::{
     CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics, CoordinationCurrentState,
     CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
     CoordinationReadEnvelope, CoordinationReadRequest, CoordinationTransactionRequest,
-    CoordinationTransactionResult, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
-    RuntimeDescriptorQuery,
+    CoordinationTransactionResult, EventExecutionRecordAuthorityQuery,
+    EventExecutionRecordWriteResult, RuntimeDescriptorClearRequest,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 
 pub trait CoordinationAuthorityStore: Send + Sync {
@@ -36,6 +37,16 @@ pub trait CoordinationAuthorityStore: Send + Sync {
         &self,
         request: RuntimeDescriptorQuery,
     ) -> Result<CoordinationReadEnvelope<Vec<RuntimeDescriptor>>>;
+
+    fn read_event_execution_records(
+        &self,
+        request: EventExecutionRecordAuthorityQuery,
+    ) -> Result<CoordinationReadEnvelope<Vec<EventExecutionRecord>>>;
+
+    fn upsert_event_execution_record(
+        &self,
+        record: EventExecutionRecord,
+    ) -> Result<EventExecutionRecordWriteResult>;
 
     fn read_history(
         &self,

@@ -28,6 +28,7 @@ an implementation level. It defines the coordination semantics that PRISM needs:
   behind a separate materialized-store seam
 - transactional mutation
 - runtime descriptor publication and discovery
+- authoritative event-execution record storage and reads
 - retained authoritative history
 - authority diagnostics and provenance
 
@@ -81,6 +82,7 @@ The Coordination Authority Store should become the single contractual answer to:
 - how mutations become authoritative
 - how history is queried
 - how runtime descriptors are published and discovered
+- how authoritative event-execution records are read and stored
 - how authority metadata and diagnostics are surfaced
 
 That includes identity attribution, capability-gated writes, provenance, and verification posture,
@@ -120,6 +122,7 @@ The target layering should be:
    - transactional mutation commit/reject
    - retained authoritative history
    - runtime descriptor publication/discovery
+   - authoritative event-execution record storage/reads
    - authority diagnostics
 
 3. **Authority backend implementation**
@@ -200,6 +203,14 @@ The abstraction must support publishing and reading runtime descriptors explicit
 Local descriptor caches or indexes may still exist, but they are derived views over authority data,
 not separate channels.
 
+### 5.6 Event-execution records are authority data in a dedicated namespace
+
+Event-execution records are authoritative facts once persisted, but they are not hot coordination
+summary state.
+
+The abstraction must therefore support storing and reading them explicitly while keeping them in a
+dedicated authority namespace rather than embedding them into the plan/task summary snapshot.
+
 ---
 
 ## 6. Proposed interface shape
@@ -236,6 +247,16 @@ pub trait CoordinationAuthorityStore {
         &self,
         request: RuntimeDescriptorQuery,
     ) -> Result<CoordinationReadEnvelope<Vec<RuntimeDescriptor>>>;
+
+    fn read_event_execution_records(
+        &self,
+        request: EventExecutionRecordAuthorityQuery,
+    ) -> Result<CoordinationReadEnvelope<Vec<EventExecutionRecord>>>;
+
+    fn upsert_event_execution_record(
+        &self,
+        record: EventExecutionRecord,
+    ) -> Result<EventExecutionRecordWriteResult>;
 
     fn read_history(
         &self,

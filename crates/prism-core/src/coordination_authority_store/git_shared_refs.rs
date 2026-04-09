@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
-use prism_coordination::RuntimeDescriptor;
+use anyhow::{anyhow, Result};
+use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
 
 use super::traits::CoordinationAuthorityStore;
 use super::types::{
@@ -11,8 +11,9 @@ use super::types::{
     CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
     CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
     CoordinationTransactionBase, CoordinationTransactionRequest, CoordinationTransactionResult,
-    CoordinationTransactionStatus, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
-    RuntimeDescriptorQuery,
+    CoordinationTransactionStatus, EventExecutionRecordAuthorityQuery,
+    EventExecutionRecordWriteResult, RuntimeDescriptorClearRequest,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use crate::shared_coordination_ref::{
@@ -186,6 +187,7 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
             supports_eventual_reads: true,
             supports_transactions: true,
             supports_runtime_descriptors: true,
+            supports_event_execution_records: false,
             supports_retained_history: true,
             supports_diagnostics: true,
         }
@@ -323,6 +325,29 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
             request.consistency,
             authority,
             value,
+        ))
+    }
+
+    fn read_event_execution_records(
+        &self,
+        request: EventExecutionRecordAuthorityQuery,
+    ) -> Result<CoordinationReadEnvelope<Vec<EventExecutionRecord>>> {
+        Ok(CoordinationReadEnvelope::unavailable(
+            request.consistency,
+            self.authority_stamp()?,
+            Some(
+                "event execution records are not supported by the git shared-refs authority backend"
+                    .to_string(),
+            ),
+        ))
+    }
+
+    fn upsert_event_execution_record(
+        &self,
+        _record: EventExecutionRecord,
+    ) -> Result<EventExecutionRecordWriteResult> {
+        Err(anyhow!(
+            "event execution records are not supported by the git shared-refs authority backend"
         ))
     }
 

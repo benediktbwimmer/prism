@@ -3,11 +3,11 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use prism_coordination::{
     coordination_snapshot_from_events, CoordinationSnapshot, CoordinationSnapshotV2,
-    RuntimeDescriptor,
+    EventExecutionRecord, RuntimeDescriptor,
 };
 use prism_store::{
-    CoordinationCheckpointStore, CoordinationJournal, CoordinationMutationLogEntry,
-    CoordinationPersistBatch, CoordinationStartupCheckpoint,
+    CoordinationCheckpointStore, CoordinationEventExecutionStore, CoordinationJournal,
+    CoordinationMutationLogEntry, CoordinationPersistBatch, CoordinationStartupCheckpoint,
     CoordinationStartupCheckpointAuthority, SqliteStore,
 };
 
@@ -19,8 +19,9 @@ use super::types::{
     CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
     CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
     CoordinationTransactionBase, CoordinationTransactionRequest, CoordinationTransactionResult,
-    CoordinationTransactionStatus, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
-    RuntimeDescriptorQuery,
+    CoordinationTransactionStatus, EventExecutionRecordAuthorityQuery,
+    EventExecutionRecordWriteResult, RuntimeDescriptorClearRequest,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
 use crate::coordination_snapshot_sanitization::sanitize_persisted_coordination_snapshot;
@@ -271,6 +272,7 @@ impl CoordinationAuthorityStore for SqliteCoordinationAuthorityStore {
             supports_eventual_reads: false,
             supports_transactions: true,
             supports_runtime_descriptors: true,
+            supports_event_execution_records: true,
             supports_retained_history: true,
             supports_diagnostics: true,
         }
@@ -446,6 +448,40 @@ impl CoordinationAuthorityStore for SqliteCoordinationAuthorityStore {
         }
     }
 
+    fn read_event_execution_records(
+        &self,
+        request: EventExecutionRecordAuthorityQuery,
+    ) -> Result<CoordinationReadEnvelope<Vec<EventExecutionRecord>>> {
+        let mut store = self.open_store()?;
+        let authority = self.authority_stamp_from_store(&mut store)?;
+        let records = match request.event_execution_id.as_ref() {
+            Some(event_execution_id) => store
+                .load_event_execution_record(event_execution_id)?
+                .into_iter()
+                .collect(),
+            None => store.load_event_execution_records(&prism_store::EventExecutionRecordQuery {
+                limit: request.limit,
+            })?,
+        };
+        Ok(CoordinationReadEnvelope::verified_current(
+            request.consistency,
+            authority,
+            records,
+        ))
+    }
+
+    fn upsert_event_execution_record(
+        &self,
+        record: EventExecutionRecord,
+    ) -> Result<EventExecutionRecordWriteResult> {
+        let mut store = self.open_store()?;
+        store.save_event_execution_record(&record)?;
+        Ok(EventExecutionRecordWriteResult {
+            authority: self.authority_stamp_from_store(&mut store)?,
+            record,
+        })
+    }
+
     fn read_history(
         &self,
         request: CoordinationHistoryRequest,
@@ -502,10 +538,14 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use prism_coordination::{
-        CoordinationEvent, CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor,
-        RuntimeDiscoveryMode,
+        CoordinationEvent, CoordinationSnapshot, CoordinationSnapshotV2, EventExecutionOwner,
+        EventExecutionRecord, RuntimeDescriptor, RuntimeDiscoveryMode,
     };
-    use prism_ir::{CoordinationEventKind, EventActor, EventId, EventMeta};
+    use prism_ir::{
+        CoordinationEventKind, EventActor, EventExecutionId, EventExecutionStatus, EventId,
+        EventMeta, EventTriggerKind, PlanId, PrincipalActor, PrincipalAuthorityId, PrincipalId,
+        PrincipalKind, SessionId,
+    };
 
     use super::*;
     use crate::coordination_authority_store::CoordinationDerivedStateMode;
@@ -580,6 +620,35 @@ mod tests {
             artifact: None,
             review: None,
             metadata: serde_json::Value::Null,
+        }
+    }
+
+    fn event_execution_record(id: &str, claimed_at: u64) -> EventExecutionRecord {
+        EventExecutionRecord {
+            id: EventExecutionId::new(id),
+            trigger_kind: EventTriggerKind::RecurringPlanTick,
+            trigger_target: Some(prism_ir::NodeRef::plan(PlanId::new("plan:test"))),
+            hook_id: Some("hook:test".to_string()),
+            hook_version_digest: Some("sha256:test".to_string()),
+            authoritative_revision: Some(1),
+            status: EventExecutionStatus::Claimed,
+            owner: Some(EventExecutionOwner {
+                principal: Some(PrincipalActor {
+                    authority_id: PrincipalAuthorityId::new("authority:test"),
+                    principal_id: PrincipalId::new("principal:test"),
+                    kind: Some(PrincipalKind::Agent),
+                    name: Some("principal:test".to_string()),
+                }),
+                session_id: Some(SessionId::new("session:test")),
+                worktree_id: Some("worktree:test".to_string()),
+                service_instance_id: Some("service:test".to_string()),
+            }),
+            claimed_at,
+            started_at: None,
+            finished_at: None,
+            expires_at: Some(claimed_at + 30),
+            summary: Some("tick".to_string()),
+            metadata: serde_json::json!({ "attempt": 1 }),
         }
     }
 
@@ -710,6 +779,34 @@ mod tests {
                 "authority revision no longer matches the current sqlite state: expected `0`, found `1`"
             )
         );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn sqlite_authority_round_trips_event_execution_records() {
+        let root = temp_root();
+        let store = SqliteCoordinationAuthorityStore::new(&root, temp_db_path(&root));
+        let record = event_execution_record("event-exec:sqlite:1", 100);
+
+        let persisted = store
+            .upsert_event_execution_record(record.clone())
+            .expect("event execution record write should succeed");
+        assert_eq!(persisted.record, record);
+        assert!(
+            persisted.authority.is_none()
+                || persisted.authority.as_ref().map(|value| value.backend_kind)
+                    == Some(CoordinationAuthorityBackendKind::Sqlite)
+        );
+
+        let records = store
+            .read_event_execution_records(EventExecutionRecordAuthorityQuery {
+                consistency: CoordinationReadConsistency::Strong,
+                event_execution_id: Some(record.id.clone()),
+                limit: None,
+            })
+            .expect("event execution record read should succeed");
+        assert_eq!(records.value.unwrap_or_default(), vec![record]);
 
         let _ = fs::remove_dir_all(root);
     }

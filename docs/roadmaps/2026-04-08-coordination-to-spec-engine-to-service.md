@@ -103,7 +103,7 @@ Current phase spec:
   [../specs/2026-04-09-event-engine-foundation-phase-15.md](../specs/2026-04-09-event-engine-foundation-phase-15.md)
 - Phase 15 event-execution model slice completed:
   [../specs/2026-04-09-event-execution-record-model-phase-15.md](../specs/2026-04-09-event-execution-record-model-phase-15.md)
-- Phase 15 event-execution storage slice active:
+- Phase 15 event-execution storage slice completed:
   [../specs/2026-04-09-event-execution-authority-storage-phase-15.md](../specs/2026-04-09-event-execution-authority-storage-phase-15.md)
 
 ## 3. Ordering thesis
