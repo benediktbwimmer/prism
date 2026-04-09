@@ -6,8 +6,8 @@ use anyhow::Result;
 use prism_coordination::{CoordinationSnapshot, EventExecutionOwner};
 use prism_core::{
     CoordinationAuthorityStoreProvider, CoordinationReadConsistency,
-    EventExecutionRecordAuthorityQuery,
-    EventExecutionTransitionRequest, EventExecutionTransitionResult,
+    EventExecutionRecordAuthorityQuery, EventExecutionTransitionRequest,
+    EventExecutionTransitionResult,
 };
 
 use crate::host_mutations::WorkspaceMutationBroker;
@@ -51,7 +51,7 @@ impl WorkspaceEventEngine {
     pub(crate) fn read_authoritative_snapshot(&self) -> Result<Option<CoordinationSnapshot>> {
         Ok(self
             .authority_store_provider
-            .open(&self.workspace_root)?
+            .open_snapshot(&self.workspace_root)?
             .read_snapshot(CoordinationReadConsistency::Strong)?
             .value)
     }
@@ -272,7 +272,7 @@ mod tests {
             .push(recurring_plan("plan:recurring", 100, 7));
         prism_core::configured_coordination_authority_store_provider(&root)
             .expect("authority store provider")
-            .open(&root)
+            .open_snapshot(&root)
             .expect("authority store")
             .replace_current_state(prism_core::CoordinationReplaceCurrentStateRequest {
                 base: prism_core::CoordinationTransactionBase::LatestStrong,
@@ -325,7 +325,7 @@ mod tests {
             .push(recurring_plan("plan:recurring", 100, 7));
         prism_core::configured_coordination_authority_store_provider(&root)
             .expect("authority store provider")
-            .open(&root)
+            .open_snapshot(&root)
             .expect("authority store")
             .replace_current_state(prism_core::CoordinationReplaceCurrentStateRequest {
                 base: prism_core::CoordinationTransactionBase::LatestStrong,

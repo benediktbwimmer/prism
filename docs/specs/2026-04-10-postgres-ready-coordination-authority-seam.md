@@ -1,6 +1,6 @@
 # Postgres-Ready Coordination Authority Seam
 
-Status: approved
+Status: implemented
 Audience: coordination, storage, runtime, query, MCP, CLI, and service maintainers
 Scope: harden the SQL-only coordination authority abstraction so the primary seam is the real future Postgres contract rather than a lightly cleaned-up SQLite-era contract
 
@@ -31,6 +31,14 @@ This is the last persistence-contract cleanup that should happen before the shar
 substrate starts building on the authority layer.
 
 ## 2. Goals
+
+Progress note (2026-04-10):
+
+- implementation landed by splitting the hot authority trait from snapshot/recovery operations,
+  adding explicit provider access for the secondary snapshot seam, removing full-state payloads
+  from normal authority transaction results, and migrating snapshot consumers onto the explicit
+  secondary interface
+- SQLite and the Postgres stub now compile against the same split contract
 
 ### 2.1 Make the main authority trait the real future backend contract
 

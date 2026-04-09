@@ -132,7 +132,8 @@ pub(crate) fn sync_repo_published_plan_state_observed<O>(
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
-    let authority_store = configured_coordination_authority_store_provider(root)?.open(root)?;
+    let authority_store =
+        configured_coordination_authority_store_provider(root)?.open_snapshot(root)?;
     observe_phase(
         "mutation.coordination.publishedPlans.writeLogs",
         Duration::ZERO,
@@ -214,7 +215,7 @@ where
 pub(crate) fn load_authoritative_coordination_snapshot(
     root: &Path,
 ) -> Result<Option<CoordinationSnapshot>> {
-    let store = configured_coordination_authority_store_provider(root)?.open(root)?;
+    let store = configured_coordination_authority_store_provider(root)?.open_snapshot(root)?;
     Ok(store
         .read_snapshot(CoordinationReadConsistency::Strong)?
         .value)
@@ -223,7 +224,7 @@ pub(crate) fn load_authoritative_coordination_snapshot(
 pub(crate) fn load_authoritative_coordination_snapshot_v2(
     root: &Path,
 ) -> Result<Option<CoordinationSnapshotV2>> {
-    let store = configured_coordination_authority_store_provider(root)?.open(root)?;
+    let store = configured_coordination_authority_store_provider(root)?.open_snapshot(root)?;
     Ok(store
         .read_snapshot_v2(CoordinationReadConsistency::Strong)?
         .value)

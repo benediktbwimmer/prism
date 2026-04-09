@@ -52,7 +52,7 @@ Current phase checklist:
 - [x] Phase 0: freeze sequencing and spec boundaries
 - [x] Phase 1: implement the coordination artifact/review model
 - [x] Phase 2: refactor the coordination authority abstraction and persistence contract
-- [ ] Phase 3: harden the SQL authority seam for Postgres
+- [x] Phase 3: harden the SQL authority seam for Postgres
 - [ ] Phase 4: implement the shared execution substrate core
 - [ ] Phase 5: move warm-state validation onto the shared execution substrate
 - [ ] Phase 6: add `Action` as a first-class graph leaf on the shared execution substrate
@@ -63,14 +63,14 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 3: harden the SQL authority seam for Postgres
+- Phase 4: implement the shared execution substrate core
 
 Current implementation note (2026-04-09):
 
 - Phase 1 is landed across `prism-coordination`, `prism-query`, `prism-core`, `prism-mcp`, and `prism-js`
 - Phase 2 is landed with the SQL-only authority cutover, removing `git_shared_refs` as a supported authority backend and collapsing the normal authority mutation path to DB append semantics
-- the next blocking work is Phase 3: split the hot authority contract from snapshot and recovery operations so Postgres can implement the same seam cleanly
-- the shared execution substrate remains blocked on that seam hardening because it should not build on a still-leaky storage contract
+- Phase 3 is landed by splitting the hot authority contract from snapshot and recovery operations, adding an explicit secondary snapshot seam, and removing full-state payloads from normal authority write results
+- the next blocking work is Phase 4: implement the shared execution substrate core against that stabilized authority contract
 
 ## 3. Ordering thesis
 

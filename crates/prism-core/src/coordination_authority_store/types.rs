@@ -167,7 +167,6 @@ pub struct CoordinationTransactionResult {
     pub status: CoordinationTransactionStatus,
     pub committed: bool,
     pub authority: Option<CoordinationAuthorityStamp>,
-    pub snapshot: Option<CoordinationCurrentState>,
     pub persisted: Option<CoordinationPersistResult>,
     pub conflict: Option<CoordinationConflictInfo>,
     pub diagnostics: Vec<CoordinationTransactionDiagnostic>,

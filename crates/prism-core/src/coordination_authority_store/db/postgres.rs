@@ -6,15 +6,16 @@ use prism_coordination::{
 };
 
 use super::store::DbCoordinationAuthorityStore;
-use super::traits::CoordinationAuthorityDb;
+use super::traits::{CoordinationAuthorityDb, CoordinationAuthoritySnapshotDb};
 use crate::coordination_authority_store::{
     CoordinationAppendRequest, CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
-    CoordinationAuthorityStore, CoordinationAuthoritySummary, CoordinationDiagnosticsRequest,
-    CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
-    CoordinationReplaceCurrentStateRequest, CoordinationTransactionResult,
-    EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
-    EventExecutionTransitionRequest, EventExecutionTransitionResult, RuntimeDescriptorClearRequest,
-    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    CoordinationAuthoritySnapshotStore, CoordinationAuthorityStore, CoordinationAuthoritySummary,
+    CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
+    CoordinationReadEnvelope, CoordinationReplaceCurrentStateRequest,
+    CoordinationTransactionResult, EventExecutionRecordAuthorityQuery,
+    EventExecutionRecordWriteResult, EventExecutionTransitionRequest,
+    EventExecutionTransitionResult, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
+    RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use crate::published_plans::HydratedCoordinationPlanState;
@@ -58,20 +59,6 @@ impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
         Err(self.not_implemented())
     }
 
-    fn read_snapshot(
-        &self,
-        _consistency: CoordinationReadConsistency,
-    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshot>> {
-        Err(self.not_implemented())
-    }
-
-    fn read_snapshot_v2(
-        &self,
-        _consistency: CoordinationReadConsistency,
-    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>> {
-        Err(self.not_implemented())
-    }
-
     fn read_summary(
         &self,
         _consistency: CoordinationReadConsistency,
@@ -82,13 +69,6 @@ impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
     fn append_events(
         &self,
         _request: CoordinationAppendRequest,
-    ) -> Result<CoordinationTransactionResult> {
-        Err(self.not_implemented())
-    }
-
-    fn replace_current_state(
-        &self,
-        _request: CoordinationReplaceCurrentStateRequest,
     ) -> Result<CoordinationTransactionResult> {
         Err(self.not_implemented())
     }
@@ -150,10 +130,41 @@ impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
     }
 }
 
+impl CoordinationAuthoritySnapshotDb for PostgresCoordinationAuthorityDb {
+    fn read_snapshot(
+        &self,
+        _consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshot>> {
+        Err(self.not_implemented())
+    }
+
+    fn read_snapshot_v2(
+        &self,
+        _consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>> {
+        Err(self.not_implemented())
+    }
+
+    fn replace_current_state(
+        &self,
+        _request: CoordinationReplaceCurrentStateRequest,
+    ) -> Result<CoordinationTransactionResult> {
+        Err(self.not_implemented())
+    }
+}
+
 pub(crate) fn open_postgres_coordination_authority_store(
     root: &Path,
     connection_url: &str,
 ) -> Result<Box<dyn CoordinationAuthorityStore>> {
+    let db = PostgresCoordinationAuthorityDb::open(root, connection_url)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_postgres_coordination_authority_snapshot_store(
+    root: &Path,
+    connection_url: &str,
+) -> Result<Box<dyn CoordinationAuthoritySnapshotStore>> {
     let db = PostgresCoordinationAuthorityDb::open(root, connection_url)?;
     Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
 }

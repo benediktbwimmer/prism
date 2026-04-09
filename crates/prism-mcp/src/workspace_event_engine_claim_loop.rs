@@ -158,9 +158,7 @@ impl WorkspaceEventEngine {
         &self,
         request: &EventTriggerClaimLoopRequest,
     ) -> Result<Vec<EventTriggerClaimLoopCandidate>> {
-        let snapshot = self
-            .read_authoritative_snapshot()?
-            .unwrap_or_default();
+        let snapshot = self.read_authoritative_snapshot()?.unwrap_or_default();
         let mut candidates: Vec<_> = snapshot
             .plans
             .iter()

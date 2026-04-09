@@ -4,9 +4,11 @@ use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 
 use super::db::{
-    open_postgres_coordination_authority_store, open_sqlite_coordination_authority_store,
+    open_postgres_coordination_authority_snapshot_store,
+    open_postgres_coordination_authority_store, open_sqlite_coordination_authority_snapshot_store,
+    open_sqlite_coordination_authority_store,
 };
-use super::traits::CoordinationAuthorityStore;
+use super::traits::{CoordinationAuthoritySnapshotStore, CoordinationAuthorityStore};
 use crate::PrismPaths;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,6 +41,13 @@ impl CoordinationAuthorityStoreProvider {
 
     pub fn open(&self, root: &Path) -> Result<Box<dyn CoordinationAuthorityStore>> {
         open_coordination_authority_store(root, &self.config)
+    }
+
+    pub fn open_snapshot(
+        &self,
+        root: &Path,
+    ) -> Result<Box<dyn CoordinationAuthoritySnapshotStore>> {
+        open_coordination_authority_snapshot_store(root, &self.config)
     }
 }
 
@@ -190,10 +199,30 @@ pub fn open_coordination_authority_store(
     }
 }
 
+pub fn open_coordination_authority_snapshot_store(
+    root: &Path,
+    config: &CoordinationAuthorityBackendConfig,
+) -> Result<Box<dyn CoordinationAuthoritySnapshotStore>> {
+    match config {
+        CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
+            open_sqlite_coordination_authority_snapshot_store(root, db_path)
+        }
+        CoordinationAuthorityBackendConfig::Postgres { connection_url } => {
+            open_postgres_coordination_authority_snapshot_store(root, connection_url)
+        }
+    }
+}
+
 pub fn open_default_coordination_authority_store(
     root: &Path,
 ) -> Result<Box<dyn CoordinationAuthorityStore>> {
     default_coordination_authority_store_provider().open(root)
+}
+
+pub fn open_default_coordination_authority_snapshot_store(
+    root: &Path,
+) -> Result<Box<dyn CoordinationAuthoritySnapshotStore>> {
+    default_coordination_authority_store_provider().open_snapshot(root)
 }
 
 #[cfg(test)]
