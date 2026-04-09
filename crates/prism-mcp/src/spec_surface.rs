@@ -17,7 +17,7 @@ where
         .workspace_root()
         .ok_or_else(|| anyhow!("native spec reads require a workspace-backed host"))?;
     let surface = WorkspaceSpecSurface::new(root);
-    surface.with_query_engine(Some(host.current_prism().coordination_snapshot()), f)
+    surface.with_query_engine(Some(host.current_prism().coordination_snapshot_v2()), f)
 }
 
 pub(crate) fn list_specs(host: &QueryHost) -> Result<Vec<SpecListEntryView>> {

@@ -14,7 +14,8 @@ use crate::executor_routing::task_executor_policy;
 use crate::git_execution::TaskGitExecution;
 use crate::types::{
     AcceptanceCriterion, Artifact, ArtifactReview, CoordinationEvent, CoordinationPolicy,
-    CoordinationSnapshot, CoordinationTask, LeaseHolder, Plan, PlanScheduling, WorkClaim,
+    CoordinationSnapshot, CoordinationSpecRef, CoordinationTask, CoordinationTaskSpecRef,
+    LeaseHolder, Plan, PlanScheduling, WorkClaim,
 };
 
 pub const COORDINATION_SCHEMA_V2: u64 = 2;
@@ -51,6 +52,8 @@ pub struct CanonicalPlanRecord {
     pub tags: Vec<String>,
     #[serde(default)]
     pub created_from: Option<String>,
+    #[serde(default)]
+    pub spec_refs: Vec<CoordinationSpecRef>,
     #[serde(default)]
     pub metadata: Value,
     #[serde(default)]
@@ -105,6 +108,8 @@ pub struct CanonicalTaskRecord {
     pub priority: Option<u8>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub spec_refs: Vec<CoordinationTaskSpecRef>,
     #[serde(default)]
     pub metadata: Value,
     #[serde(default)]
@@ -244,6 +249,7 @@ impl CanonicalPlanRecord {
             scheduling: plan.scheduling.clone(),
             tags: plan.tags.clone(),
             created_from: plan.created_from.clone(),
+            spec_refs: plan.spec_refs.clone(),
             metadata: plan.metadata.clone(),
             operator_state: legacy_plan_status_to_operator_state(plan.status),
         }
@@ -277,6 +283,7 @@ impl CanonicalTaskRecord {
             base_revision: task.base_revision.clone(),
             priority: task.priority,
             tags: task.tags.clone(),
+            spec_refs: task.spec_refs.clone(),
             metadata: canonical_task_metadata(task),
             git_execution: task.git_execution.clone(),
         }
@@ -485,6 +492,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: None,
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -560,10 +568,12 @@ mod tests {
         let v2 = snapshot.to_canonical_snapshot_v2();
         assert_eq!(v2.schema_version, COORDINATION_SCHEMA_V2);
         assert_eq!(v2.plans[0].operator_state, PlanOperatorState::Archived);
+        assert_eq!(v2.plans[0].spec_refs.len(), 0);
         assert_eq!(v2.tasks[0].id, TaskId::new("coord-task:demo"));
         assert_eq!(v2.tasks[0].parent_plan_id, PlanId::new("plan:demo"));
         assert_eq!(v2.tasks[0].lifecycle_status, TaskLifecycleStatus::Active);
         assert_eq!(v2.tasks[0].estimated_minutes, 25);
+        assert_eq!(v2.tasks[0].spec_refs.len(), 0);
         assert_eq!(v2.dependencies.len(), 3);
         assert_eq!(v2.dependencies[0].source.kind, NodeRefKind::Task);
         assert_eq!(v2.dependencies[0].target.kind, NodeRefKind::Task);

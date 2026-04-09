@@ -35,6 +35,7 @@ The first internal follow-through slice under this phase is:
 - [2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md](./2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md)
 - [2026-04-09-canonical-task-handoff-follow-through-phase-6.md](./2026-04-09-canonical-task-handoff-follow-through-phase-6.md)
 - [2026-04-09-canonical-read-surface-follow-through-phase-6.md](./2026-04-09-canonical-read-surface-follow-through-phase-6.md)
+- [2026-04-09-canonical-spec-linkage-follow-through-phase-6.md](./2026-04-09-canonical-spec-linkage-follow-through-phase-6.md)
 
 ## 2. Required changes
 
@@ -68,6 +69,8 @@ The first internal follow-through slice under this phase is:
   as the primary live coordination model in `prism-coordination`
 - move runtime/query/authority code toward `CoordinationSnapshotV2` as the authoritative
   coordination state shape
+- make spec linkage first-class on canonical plan/task records instead of keeping it only on the
+  legacy plan/task projection
 - cut reader-side query and MCP task/plan metadata consumers over to canonical v2 task and plan
   helpers before touching deeper mutation or watch paths
 - move pending-handoff semantics into canonical task records so assisted-lease and task-brief

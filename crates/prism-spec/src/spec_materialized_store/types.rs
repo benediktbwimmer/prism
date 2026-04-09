@@ -1,6 +1,6 @@
 use crate::ParsedSpecDocument;
 use crate::SpecChecklistItem;
-use prism_coordination::CoordinationSnapshot;
+use prism_coordination::CoordinationSnapshotV2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpecMaterializedBackendKind {
@@ -106,7 +106,7 @@ pub struct StoredSpecSyncProvenanceRecord {
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpecMaterializedReplaceRequest {
     pub parsed: Vec<ParsedSpecDocument>,
-    pub coordination: Option<CoordinationSnapshot>,
+    pub coordination: Option<CoordinationSnapshotV2>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

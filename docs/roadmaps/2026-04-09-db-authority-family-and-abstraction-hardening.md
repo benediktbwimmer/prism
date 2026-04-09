@@ -75,6 +75,7 @@ Current phase spec:
 - [../specs/2026-04-09-canonical-read-surface-follow-through-phase-6.md](../specs/2026-04-09-canonical-read-surface-follow-through-phase-6.md)
 - [../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md](../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-spec-linkage-follow-through-phase-6.md](../specs/2026-04-09-canonical-spec-linkage-follow-through-phase-6.md)
 
 Current assessment:
 
@@ -181,7 +182,11 @@ Latest checkpoint:
   ready-task helpers, plan activity/discovery no longer reload legacy plan/task records, MCP
   plan-resource and runtime-overlay reads use `CoordinationSnapshotV2`, and the broker no longer
   exposes the legacy snapshot as part of the current coordination surface
-- the remaining Phase 6 work is the deeper purge of active-path `CoordinationSnapshot` / legacy
+- the canonical spec-linkage follow-through is complete; spec refs are now first-class on
+  canonical plan/task records, the spec materialization path now consumes
+  `CoordinationSnapshotV2`, and workspace-backed CLI/MCP spec reads no longer depend on the
+  legacy snapshot surface
+- the next Phase 6 work is the deeper purge of active-path `CoordinationSnapshot` / legacy
   coordination-model dependencies that still exist under `prism-coordination`, `prism-query`,
   `prism-mcp` host mutation/runtime paths, and adjacent materialization code
 

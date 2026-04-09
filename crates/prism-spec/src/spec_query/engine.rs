@@ -226,14 +226,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use prism_coordination::{
-        CoordinationPolicy, CoordinationSnapshot, CoordinationTask, CoordinationTaskSpecRef, Plan,
-        PlanScheduling, TaskGitExecution,
-    };
-    use prism_ir::{
-        CoordinationTaskId, CoordinationTaskStatus, PlanId, PlanKind, PlanNodeKind, PlanScope,
-        PlanStatus, WorkspaceRevision,
-    };
+    use prism_coordination::{CoordinationSnapshotV2, CoordinationTaskSpecRef};
 
     use crate::{
         discover_spec_sources, parse_spec_sources, SpecMaterializedReplaceRequest,
@@ -262,6 +255,67 @@ mod tests {
         let path = root.join(relative_path);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(path, contents).unwrap();
+    }
+
+    fn canonical_plan_with_spec_refs() -> prism_coordination::CanonicalPlanRecord {
+        prism_coordination::CanonicalPlanRecord {
+            id: prism_ir::PlanId::new("plan:alpha"),
+            parent_plan_id: None,
+            title: "Ship alpha".into(),
+            goal: "Ship alpha".into(),
+            scope: prism_ir::PlanScope::Repo,
+            kind: prism_ir::PlanKind::TaskExecution,
+            policy: prism_coordination::CoordinationPolicy::default(),
+            scheduling: prism_coordination::PlanScheduling::default(),
+            tags: Vec::new(),
+            created_from: None,
+            spec_refs: Vec::new(),
+            metadata: serde_json::Value::Null,
+            operator_state: prism_ir::PlanOperatorState::None,
+        }
+    }
+
+    fn canonical_task_with_spec_refs(
+        id: &str,
+        source_revision: &str,
+        covered_checklist_items: Vec<String>,
+    ) -> prism_coordination::CanonicalTaskRecord {
+        prism_coordination::CanonicalTaskRecord {
+            id: prism_ir::TaskId::new(id),
+            parent_plan_id: prism_ir::PlanId::new("plan:alpha"),
+            title: id.into(),
+            summary: None,
+            lifecycle_status: prism_ir::TaskLifecycleStatus::Pending,
+            estimated_minutes: 0,
+            executor: prism_ir::TaskExecutorPolicy::default(),
+            assignee: None,
+            pending_handoff_to: None,
+            session: None,
+            lease_holder: None,
+            lease_started_at: None,
+            lease_refreshed_at: None,
+            lease_stale_at: None,
+            lease_expires_at: None,
+            worktree_id: None,
+            branch_ref: None,
+            anchors: Vec::new(),
+            bindings: Default::default(),
+            acceptance: Vec::new(),
+            validation_refs: Vec::new(),
+            base_revision: prism_ir::WorkspaceRevision::default(),
+            priority: None,
+            tags: Vec::new(),
+            spec_refs: vec![CoordinationTaskSpecRef {
+                spec_id: "spec:a".into(),
+                source_path: ".prism/specs/2026-04-09-a.md".into(),
+                source_revision: Some(source_revision.into()),
+                sync_kind: "task".into(),
+                covered_checklist_items,
+                covered_sections: Vec::new(),
+            }],
+            metadata: serde_json::Value::Null,
+            git_execution: prism_coordination::TaskGitExecution::default(),
+        }
     }
 
     fn materialized_query_engine(
@@ -393,113 +447,26 @@ mod tests {
         store
             .replace_materialization(SpecMaterializedReplaceRequest {
                 parsed: parsed_documents,
-                coordination: Some(CoordinationSnapshot {
-                    plans: vec![Plan {
-                        id: PlanId::new("plan:alpha"),
-                        goal: "Ship alpha".into(),
-                        title: "Ship alpha".into(),
-                        status: PlanStatus::Active,
-                        policy: CoordinationPolicy::default(),
-                        scope: PlanScope::Repo,
-                        kind: PlanKind::TaskExecution,
-                        revision: 1,
-                        scheduling: PlanScheduling::default(),
-                        tags: Vec::new(),
-                        created_from: None,
-                        spec_refs: Vec::new(),
-                        metadata: serde_json::Value::Null,
-                    }],
+                coordination: Some(CoordinationSnapshotV2 {
+                    plans: vec![canonical_plan_with_spec_refs()],
                     tasks: vec![
-                        CoordinationTask {
-                            id: CoordinationTaskId::new("coord-task:current"),
-                            plan: PlanId::new("plan:alpha"),
-                            kind: PlanNodeKind::Edit,
-                            title: "Implement alpha".into(),
-                            summary: None,
-                            status: CoordinationTaskStatus::Ready,
-                            published_task_status: None,
-                            assignee: None,
-                            pending_handoff_to: None,
-                            session: None,
-                            lease_holder: None,
-                            lease_started_at: None,
-                            lease_refreshed_at: None,
-                            lease_stale_at: None,
-                            lease_expires_at: None,
-                            worktree_id: None,
-                            branch_ref: None,
-                            anchors: Vec::new(),
-                            bindings: Default::default(),
-                            depends_on: Vec::new(),
-                            coordination_depends_on: Vec::new(),
-                            integrated_depends_on: Vec::new(),
-                            acceptance: Vec::new(),
-                            validation_refs: Vec::new(),
-                            is_abstract: false,
-                            base_revision: WorkspaceRevision::default(),
-                            priority: None,
-                            tags: Vec::new(),
-                            spec_refs: vec![CoordinationTaskSpecRef {
-                                spec_id: "spec:a".into(),
-                                source_path: ".prism/specs/2026-04-09-a.md".into(),
-                                source_revision: Some("current-revision".into()),
-                                sync_kind: "task".into(),
-                                covered_checklist_items: vec!["spec:a::checklist::item-1".into()],
-                                covered_sections: Vec::new(),
-                            }],
-                            metadata: serde_json::Value::Null,
-                            git_execution: TaskGitExecution::default(),
-                        },
-                        CoordinationTask {
-                            id: CoordinationTaskId::new("coord-task:stale"),
-                            plan: PlanId::new("plan:alpha"),
-                            kind: PlanNodeKind::Edit,
-                            title: "Review alpha".into(),
-                            summary: None,
-                            status: CoordinationTaskStatus::Ready,
-                            published_task_status: None,
-                            assignee: None,
-                            pending_handoff_to: None,
-                            session: None,
-                            lease_holder: None,
-                            lease_started_at: None,
-                            lease_refreshed_at: None,
-                            lease_stale_at: None,
-                            lease_expires_at: None,
-                            worktree_id: None,
-                            branch_ref: None,
-                            anchors: Vec::new(),
-                            bindings: Default::default(),
-                            depends_on: Vec::new(),
-                            coordination_depends_on: Vec::new(),
-                            integrated_depends_on: Vec::new(),
-                            acceptance: Vec::new(),
-                            validation_refs: Vec::new(),
-                            is_abstract: false,
-                            base_revision: WorkspaceRevision::default(),
-                            priority: None,
-                            tags: Vec::new(),
-                            spec_refs: vec![CoordinationTaskSpecRef {
-                                spec_id: "spec:a".into(),
-                                source_path: ".prism/specs/2026-04-09-a.md".into(),
-                                source_revision: Some("definitely-stale".into()),
-                                sync_kind: "task".into(),
-                                covered_checklist_items: vec!["spec:a::checklist::item-2".into()],
-                                covered_sections: Vec::new(),
-                            }],
-                            metadata: serde_json::Value::Null,
-                            git_execution: TaskGitExecution::default(),
-                        },
+                        canonical_task_with_spec_refs(
+                            "coord-task:current",
+                            "current-revision",
+                            vec!["spec:a::checklist::item-1".into()],
+                        ),
+                        canonical_task_with_spec_refs(
+                            "coord-task:stale",
+                            "definitely-stale",
+                            vec!["spec:a::checklist::item-2".into()],
+                        ),
                     ],
-                    claims: Vec::new(),
-                    artifacts: Vec::new(),
-                    reviews: Vec::new(),
-                    events: Vec::new(),
                     next_plan: 2,
                     next_task: 3,
                     next_claim: 1,
                     next_artifact: 1,
                     next_review: 1,
+                    ..CoordinationSnapshotV2::default()
                 }),
             })
             .unwrap();

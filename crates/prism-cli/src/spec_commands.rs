@@ -74,7 +74,7 @@ where
     F: FnOnce(&dyn SpecQueryEngine) -> Result<T>,
 {
     let surface = WorkspaceSpecSurface::new(session.root());
-    surface.with_query_engine(Some(session.prism().coordination_snapshot()), f)
+    surface.with_query_engine(Some(session.prism().coordination_snapshot_v2()), f)
 }
 
 fn render_spec_list(entries: &[prism_core::SpecListEntry]) -> String {
