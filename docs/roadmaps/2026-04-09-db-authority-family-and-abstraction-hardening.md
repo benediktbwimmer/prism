@@ -66,7 +66,7 @@ Current active phase:
 
 Current phase spec:
 
-- [../specs/2026-04-09-sqlite-default-authority-semantics-follow-through-phase-4.md](../specs/2026-04-09-sqlite-default-authority-semantics-follow-through-phase-4.md)
+- [../specs/2026-04-09-coordination-startup-authority-naming-follow-through-phase-4.md](../specs/2026-04-09-coordination-startup-authority-naming-follow-through-phase-4.md)
 
 Current assessment:
 
@@ -113,6 +113,9 @@ Latest checkpoint:
   Git authority explicitly, backend-neutral persistence tests now assert SQLite-first authority and
   materialization semantics directly, and the full workspace test suite is green again on the
   SQLite-default path
+- the startup-checkpoint authority naming follow-through is complete; backend-neutral startup
+  checkpoint provenance now resolves through coordination-authority-named helpers instead of
+  shared-ref-shaped naming in the checkpoint and authority API layers
 
 ## 3. Ordering thesis
 

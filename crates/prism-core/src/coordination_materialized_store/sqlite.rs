@@ -18,7 +18,7 @@ use super::types::{
 };
 use crate::coordination_startup_checkpoint::{
     load_persisted_coordination_plan_state, load_persisted_coordination_snapshot,
-    load_persisted_coordination_snapshot_v2, save_shared_coordination_startup_checkpoint,
+    load_persisted_coordination_snapshot_v2, save_coordination_startup_checkpoint,
 };
 use crate::prism_paths::PrismPaths;
 
@@ -228,7 +228,7 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
         request: CoordinationStartupCheckpointWriteRequest,
     ) -> Result<CoordinationMaterializedWriteResult> {
         let mut store = self.open_store()?;
-        save_shared_coordination_startup_checkpoint(
+        save_coordination_startup_checkpoint(
             &self.root,
             &mut store,
             &request.snapshot,

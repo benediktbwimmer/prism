@@ -303,8 +303,8 @@ This file should become a consumer of authority, not part of the authority backe
 
 #### Current call sites to replace
 
-- `62`: `save_shared_coordination_startup_checkpoint(...)`
-- `141`: `coordination_startup_authority(...)`
+- `62`: `save_coordination_startup_checkpoint(...)`
+- `141`: `resolve_coordination_startup_checkpoint_authority(...)`
 
 #### Required change
 
@@ -312,7 +312,8 @@ This module should remain local-checkpoint-focused, but authority metadata shoul
 backend-neutral authority stamp / startup authority query.
 
 The startup checkpoint must stop depending on `shared_coordination_startup_authority(...)`
-directly.
+directly and instead resolve authority provenance through the backend-neutral startup-checkpoint
+authority helper path.
 
 ### H. `crates/prism-core/src/watch.rs`
 

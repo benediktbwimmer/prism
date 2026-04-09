@@ -7,7 +7,7 @@ use prism_store::{
     CoordinationStartupCheckpointAuthority,
 };
 
-use crate::coordination_authority_api::shared_coordination_startup_authority;
+use crate::coordination_authority_api::coordination_startup_checkpoint_authority;
 use crate::coordination_snapshot_sanitization::sanitize_persisted_coordination_snapshot;
 use crate::published_plans::{
     merge_shared_coordination_into_snapshot, HydratedCoordinationPlanState,
@@ -59,7 +59,7 @@ where
     Ok(Some(snapshot_v2_from_checkpoint(checkpoint, None)?))
 }
 
-pub(crate) fn save_shared_coordination_startup_checkpoint<S>(
+pub(crate) fn save_coordination_startup_checkpoint<S>(
     root: &Path,
     store: &mut S,
     snapshot: &CoordinationSnapshot,
@@ -69,7 +69,7 @@ pub(crate) fn save_shared_coordination_startup_checkpoint<S>(
 where
     S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
 {
-    let authority = coordination_startup_authority(root)?;
+    let authority = resolve_coordination_startup_checkpoint_authority(root)?;
     let mut checkpoint_snapshot = sanitize_persisted_coordination_snapshot(snapshot.clone());
     checkpoint_snapshot.events.clear();
     let checkpoint_canonical_snapshot_v2 = checkpoint_snapshot.to_canonical_snapshot_v2();
@@ -137,11 +137,11 @@ fn hydrated_plan_state_from_checkpoint(
     })
 }
 
-pub(crate) fn coordination_startup_authority(
+pub(crate) fn resolve_coordination_startup_checkpoint_authority(
     root: &Path,
 ) -> Result<CoordinationStartupCheckpointAuthority> {
     Ok(
-        shared_coordination_startup_authority(root)?.unwrap_or_else(|| {
+        coordination_startup_checkpoint_authority(root)?.unwrap_or_else(|| {
             CoordinationStartupCheckpointAuthority {
                 ref_name: "local-worktree".to_string(),
                 head_commit: None,

@@ -4163,7 +4163,7 @@ mod tests {
         )
     }
 
-    fn save_shared_coordination_startup_checkpoint<S>(
+    fn save_coordination_startup_checkpoint<S>(
         root: &Path,
         store: &mut S,
         snapshot: &CoordinationSnapshot,
@@ -4172,7 +4172,7 @@ mod tests {
     where
         S: CoordinationCheckpointStore + prism_store::CoordinationJournal + ?Sized,
     {
-        crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint(
+        crate::coordination_startup_checkpoint::save_coordination_startup_checkpoint(
             root,
             store,
             snapshot,
@@ -4671,7 +4671,7 @@ mod tests {
         let snapshot = sample_snapshot_for("plan:checkpoint-save", "coord-task:checkpoint-save");
         let mut store = MemoryStore::default();
 
-        save_shared_coordination_startup_checkpoint(&root, &mut store, &snapshot, None).unwrap();
+        save_coordination_startup_checkpoint(&root, &mut store, &snapshot, None).unwrap();
 
         let checkpoint = store
             .load_coordination_startup_checkpoint()
