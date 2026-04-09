@@ -1,6 +1,6 @@
 # Event Engine Foundation Phase 15
 
-Status: in progress
+Status: completed
 Audience: service, coordination, scheduling, MCP, runtime, and future automation maintainers
 Scope: establish the first explicit event-engine role inside the service-hosted architecture without hiding event execution inside the service shell or generic host helpers
 
@@ -98,6 +98,11 @@ Exit criteria:
 
 - no new event-engine behavior lands in generic shell or host helpers
 
+Current assessment:
+
+- there are not yet live event-engine entry points to migrate
+- the explicit owner and host accessor now provide the required landing zone for later event work
+
 ## 7. Validation
 
 Minimum validation for this slice:
@@ -117,6 +122,6 @@ This spec is complete when:
 ## 9. Implementation checklist
 
 - [x] Introduce the event-engine owner
-- [ ] Centralize event-engine entry points
-- [ ] Validate affected crates and direct downstream dependents
-- [ ] Update roadmap/spec status as slices land
+- [x] Centralize event-engine entry points
+- [x] Validate affected crates and direct downstream dependents
+- [x] Update roadmap/spec status as slices land
