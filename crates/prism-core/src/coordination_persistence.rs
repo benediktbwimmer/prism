@@ -16,14 +16,14 @@ use prism_store::{
 };
 use serde_json::{json, Value};
 
+use crate::coordination_materialized_store::{
+    CoordinationReadModelsWriteRequest, CoordinationStartupCheckpointWriteRequest,
+    StoreBackedCoordinationMaterializedStore,
+};
 use crate::coordination_authority_store::{
     CoordinationAuthorityStore, CoordinationDerivedStateMode, CoordinationTransactionBase,
     CoordinationTransactionRequest, CoordinationTransactionResult, CoordinationTransactionStatus,
     GitSharedRefsCoordinationAuthorityStore,
-};
-use crate::coordination_materialized_store::{
-    CoordinationReadModelsWriteRequest, CoordinationStartupCheckpointWriteRequest,
-    StoreBackedCoordinationMaterializedStore,
 };
 #[cfg(test)]
 use crate::coordination_materialized_store::{

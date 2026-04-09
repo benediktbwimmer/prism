@@ -36,6 +36,10 @@ pub enum Command {
         #[command(subcommand)]
         command: DocsCommand,
     },
+    Specs {
+        #[command(subcommand)]
+        command: SpecsCommand,
+    },
     Project {
         target: String,
         #[arg(long)]
@@ -325,6 +329,15 @@ pub enum DocsCommand {
     },
 }
 
+#[derive(Subcommand)]
+pub enum SpecsCommand {
+    List,
+    Show { spec_id: String },
+    SyncBrief { spec_id: String },
+    Coverage { spec_id: String },
+    SyncProvenance { spec_id: String },
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum DocsBundleArg {
     Zip,
@@ -479,7 +492,7 @@ mod tests {
     use super::{
         AuthAssuranceArg, AuthCommand, Cli, Command, DocsBundleArg, DocsCommand, McpCommand,
         PrincipalCommand, PrismRuntimeModeArg, ProtectedStateCommand, ProtectedStateTrustCommand,
-        WorktreeCommand,
+        SpecsCommand, WorktreeCommand,
     };
     use crate::worktree_commands::WorktreeModeArg;
 
@@ -702,6 +715,42 @@ mod tests {
                 assert_eq!(output_dir, PathBuf::from("out/prism"));
                 assert_eq!(bundle, Some(DocsBundleArg::TarGz));
             }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn specs_list_parses() {
+        let cli = Cli::parse_from(["prism", "specs", "list"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Specs {
+                command: SpecsCommand::List,
+            } => {}
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn specs_show_parses() {
+        let cli = Cli::parse_from(["prism", "specs", "show", "spec:alpha"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Specs {
+                command: SpecsCommand::Show { spec_id },
+            } => assert_eq!(spec_id, "spec:alpha"),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn specs_sync_brief_parses() {
+        let cli = Cli::parse_from(["prism", "specs", "sync-brief", "spec:alpha"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Specs {
+                command: SpecsCommand::SyncBrief { spec_id },
+            } => assert_eq!(spec_id, "spec:alpha"),
             _ => panic!("unexpected command"),
         }
     }

@@ -8,6 +8,7 @@ license.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 prism-core = { path = "../prism-core" }
+prism-coordination = { path = "../prism-coordination" }
 prism-ir = { path = "../prism-ir" }
 prism-memory = { path = "../prism-memory" }
 prism-query = { path = "../prism-query" }

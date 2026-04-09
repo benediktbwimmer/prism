@@ -149,7 +149,7 @@ pub use prism_spec::{
     SpecMaterializedCapabilities, SpecMaterializedClearRequest, SpecMaterializedReadEnvelope,
     SpecMaterializedReplaceRequest, SpecMaterializedStore, SpecMaterializedWriteResult,
     SpecMetadataView, SpecParseDiagnostic, SpecParseDiagnosticKind, SpecQueryEngine,
-    SpecQueryLookup, SpecRootResolution, SpecRootSource, SpecSourceMetadata,
+    SpecQueryLookup, SpecRootResolution, SpecRootSource, SpecSourceMetadata, SpecSyncBriefView,
     SpecSyncProvenanceView, SqliteSpecMaterializedStore, StoredSpecChecklistItemRecord,
     StoredSpecChecklistPosture, StoredSpecCoverageRecord, StoredSpecDependencyPosture,
     StoredSpecDependencyRecord, StoredSpecStatusRecord, StoredSpecSyncProvenanceRecord,
