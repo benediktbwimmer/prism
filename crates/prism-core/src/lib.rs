@@ -76,12 +76,13 @@ use session_bootstrap::{
 };
 
 pub use admission::AdmissionBusyError;
+#[allow(deprecated)]
 pub use coordination_authority_api::{
     coordination_authority_diagnostics, coordination_authority_diagnostics_with_provider,
-    git_shared_coordination_ref_diagnostics, publish_local_runtime_descriptor,
-    publish_local_runtime_descriptor_with_provider, shared_coordination_ref_diagnostics,
-    shared_coordination_ref_diagnostics_with_provider, sync_live_runtime_descriptor,
-    sync_live_runtime_descriptor_with_provider,
+    git_shared_coordination_ref_diagnostics, git_shared_coordination_ref_diagnostics_with_provider,
+    publish_local_runtime_descriptor, publish_local_runtime_descriptor_with_provider,
+    shared_coordination_ref_diagnostics, shared_coordination_ref_diagnostics_with_provider,
+    sync_live_runtime_descriptor, sync_live_runtime_descriptor_with_provider,
 };
 pub use coordination_authority_store::{
     configured_coordination_authority_store_provider,

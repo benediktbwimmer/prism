@@ -66,7 +66,7 @@ Current active phase:
 
 Current phase spec:
 
-- [../specs/2026-04-09-authority-compatibility-edge-follow-through-phase-4.md](../specs/2026-04-09-authority-compatibility-edge-follow-through-phase-4.md)
+- [../specs/2026-04-09-authority-sync-and-legacy-alias-demotion-follow-through-phase-4.md](../specs/2026-04-09-authority-sync-and-legacy-alias-demotion-follow-through-phase-4.md)
 
 Current assessment:
 
@@ -129,6 +129,10 @@ Latest checkpoint:
   `shared_coordination_ref` response-field access is now isolated behind one helper and
   backend-neutral session guidance now talks about coordination authority rather than the shared
   coordination ref
+- the authority-sync and legacy-alias demotion follow-through is complete; backend-neutral
+  authority-sync wording no longer mentions a shared-ref refresh lock, and the remaining
+  shared-ref diagnostics helpers are now explicit deprecated compatibility aliases behind preferred
+  Git-named exports
 
 ## 3. Ordering thesis
 

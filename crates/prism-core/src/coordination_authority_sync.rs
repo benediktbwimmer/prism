@@ -150,7 +150,7 @@ pub(crate) fn apply_coordination_authority_current_state(
 ) -> Result<()> {
     let _guard = refresh_lock
         .lock()
-        .expect("shared coordination ref refresh lock poisoned");
+        .expect("coordination authority refresh lock poisoned");
 
     let local_workspace_revision = store
         .lock()

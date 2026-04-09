@@ -442,6 +442,10 @@ CLI diagnostics and public URL update flows should call:
 
 No CLI command should need to know that the current backend is Git shared refs.
 
+Where Git-specific compatibility helpers remain for public API stability, the preferred exported
+surface should still use explicit Git naming and legacy shared-ref helper names should remain only
+as deprecated compatibility aliases.
+
 ### N. `crates/prism-mcp/src/runtime_views.rs`
 
 #### Current call sites to replace

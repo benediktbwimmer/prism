@@ -42,13 +42,13 @@ pub fn coordination_authority_diagnostics_with_provider(
 pub fn git_shared_coordination_ref_diagnostics(
     root: &Path,
 ) -> Result<Option<SharedCoordinationRefDiagnostics>> {
-    shared_coordination_ref_diagnostics_with_provider(
+    git_shared_coordination_ref_diagnostics_with_provider(
         root,
         &configured_coordination_authority_store_provider(root)?,
     )
 }
 
-pub fn shared_coordination_ref_diagnostics_with_provider(
+pub fn git_shared_coordination_ref_diagnostics_with_provider(
     root: &Path,
     provider: &CoordinationAuthorityStoreProvider,
 ) -> Result<Option<SharedCoordinationRefDiagnostics>> {
@@ -61,7 +61,16 @@ pub fn shared_coordination_ref_diagnostics_with_provider(
     }
 }
 
+#[deprecated(note = "use git_shared_coordination_ref_diagnostics_with_provider")]
+pub fn shared_coordination_ref_diagnostics_with_provider(
+    root: &Path,
+    provider: &CoordinationAuthorityStoreProvider,
+) -> Result<Option<SharedCoordinationRefDiagnostics>> {
+    git_shared_coordination_ref_diagnostics_with_provider(root, provider)
+}
+
 #[allow(dead_code)]
+#[deprecated(note = "use git_shared_coordination_ref_diagnostics")]
 pub fn shared_coordination_ref_diagnostics(
     root: &Path,
 ) -> Result<Option<SharedCoordinationRefDiagnostics>> {
