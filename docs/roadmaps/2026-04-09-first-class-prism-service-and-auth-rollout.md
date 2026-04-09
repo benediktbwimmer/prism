@@ -2,7 +2,7 @@
 
 Status: in progress
 Audience: service, runtime, MCP, CLI, UI, auth, storage, and deployment maintainers
-Scope: implementing the first-class PRISM Service, explicit auth and session model, UI decoupling, browser-mediated human approvals, and the DB-backed authority-first read path
+Scope: implementing the first-class PRISM Service, UI and MCP ownership split, the DB-backed authority-first read path, then the explicit auth and approval model on top of that usable dogfooding base
 
 ---
 
@@ -13,13 +13,20 @@ PRISM has accepted a new architectural center of gravity:
 - `prism service` is a first-class product surface
 - the MCP daemon is the worktree-local runtime and MCP server only
 - the browser UI is served by the PRISM Service
-- service participation uses explicit service and runtime sessions
-- browser-session human approvals use `service_mediated_human`
 - DB-backed authority reads go directly to the authority backend by default
 - separate coordination materialization is disabled by default for DB-backed authority
+- explicit service and runtime sessions plus browser-mediated human approvals are follow-through
+  work on top of that first-class service base
 
 This roadmap exists to turn that accepted architecture into shipped behavior without smearing the
 work across unrelated event-engine or broader platform items.
+
+The sequencing is intentional:
+
+- first make the service explicit and usable
+- then simplify the DB-backed read path
+- then reach a dogfooding-ready checkpoint
+- only after that land the fuller auth, session, and approval model
 
 This roadmap depends on:
 
@@ -38,12 +45,13 @@ Current phase checklist:
 - [ ] Phase 1: make `prism service` a first-class lifecycle surface
 - [ ] Phase 2: move UI serving fully under the service
 - [ ] Phase 3: implement service endpoint selection and machine-local service state
-- [ ] Phase 4: implement explicit service auth and machine-wide service sessions
-- [ ] Phase 5: implement runtime-session issuance and capability-gated repo enrollment
-- [ ] Phase 6: implement `service_mediated_human` approval flow and provenance
-- [ ] Phase 7: cut MCP daemon over to runtime-only ownership and bridge-managed launch
-- [ ] Phase 8: simplify DB-backed coordination reads to authority-first by default
-- [ ] Phase 9: implement SQLite versus Postgres deployment posture and startup diagnostics
+- [ ] Phase 4: cut MCP daemon over to runtime-only ownership and bridge-managed launch
+- [ ] Phase 5: simplify DB-backed coordination reads to authority-first by default
+- [ ] Phase 6: implement SQLite versus Postgres deployment posture and startup diagnostics
+- [ ] Phase 7: dogfooding-ready service checkpoint
+- [ ] Phase 8: implement explicit service auth and machine-wide service sessions
+- [ ] Phase 9: implement runtime-session issuance and capability-gated repo enrollment
+- [ ] Phase 10: implement `service_mediated_human` approval flow and provenance
 
 Current active phase:
 
@@ -56,17 +64,18 @@ This work should be sequential.
 The service cannot become first-class cleanly if:
 
 - lifecycle is still implied by MCP
-- auth is still transport-shaped instead of session-shaped
-- UI approval semantics are not frozen
+- UI and daemon ownership are still smeared together
 - DB-backed read behavior still depends on old materialization assumptions
+- auth hardening is allowed to block the first usable service shape
 
 The right order is:
 
 1. freeze semantics
 2. make the service explicit
-3. make auth explicit
-4. make the UI and MCP boundaries explicit
-5. then simplify the DB-backed runtime path against that settled service model
+3. make the UI and MCP boundaries explicit
+4. simplify the DB-backed runtime path against that settled service model
+5. reach a dogfooding-ready checkpoint
+6. then harden auth, sessions, and human approval semantics on that explicit base
 
 ## 4. Phases
 
@@ -137,7 +146,69 @@ Exit criteria:
 
 - local and hosted service discovery are deterministic and explicit
 
-### Phase 4: Implement explicit service auth and machine-wide service sessions
+### Phase 4: Cut MCP daemon over to runtime-only ownership and bridge-managed launch
+
+Implement:
+
+- MCP daemon as worktree-local runtime plus MCP server only
+- optional `prism runtime` alias to `prism mcp`
+- bridge-managed daemon launch and restart
+- `prism://startup` surfacing daemon restart and missing service clearly
+- no implicit login and no implicit service boot
+
+Exit criteria:
+
+- the MCP daemon is clearly a runtime, not the service host
+- bridge UX is smooth without hiding the real service control points
+
+### Phase 5: Simplify DB-backed coordination reads to authority-first by default
+
+Implement:
+
+- DB-backed strong reads directly from the authority backend
+- DB-backed eventual reads collapsing to the same authority path by default
+- separate coordination materialization disabled by default for SQLite and Postgres authority
+- optional future Postgres-only materialization remaining behind explicit config
+
+Exit criteria:
+
+- the standard DB-backed read path no longer depends on redundant coordination materialization
+- freshness is surfaced honestly without exposing storage jargon as the primary UX
+
+### Phase 6: Implement SQLite versus Postgres deployment posture and startup diagnostics
+
+Implement:
+
+- `PRISM_POSTGRES_DSN` backend selection
+- SQLite fallback when it is absent
+- loud startup warning for SQLite single-instance topology
+- explicit multi-instance guidance that Postgres is required
+
+Exit criteria:
+
+- deployment posture is explicit in startup behavior and docs
+- local single-machine and hosted multi-instance modes are cleanly separated
+
+### Phase 7: Dogfooding-ready service checkpoint
+
+Target outcome:
+
+- `prism service` is a real explicit host
+- the UI is served by the service
+- the MCP daemon is runtime-only
+- bridge-managed MCP lifecycle is smooth
+- DB-backed authority reads directly from authority by default
+- SQLite local mode and Postgres hosted mode are explicit
+
+This checkpoint intentionally allows PRISM to be usable for dogfooding before the full auth model
+lands.
+
+Exit criteria:
+
+- PRISM can be used seriously for local dogfooding through the service-backed path without waiting
+  for the full auth and attestation rollout
+
+### Phase 8: Implement explicit service auth and machine-wide service sessions
 
 Implement:
 
@@ -152,7 +223,7 @@ Exit criteria:
 - service participation no longer relies on vague local trust assumptions
 - runtimes and MCP can reuse a machine-wide service session without holding the principal key
 
-### Phase 5: Implement runtime-session issuance and capability-gated repo enrollment
+### Phase 9: Implement runtime-session issuance and capability-gated repo enrollment
 
 Implement:
 
@@ -166,7 +237,7 @@ Exit criteria:
 - runtimes are no longer treated as roots of trust
 - auto-registration is explicit and policy-controlled
 
-### Phase 6: Implement `service_mediated_human` approval flow and provenance
+### Phase 10: Implement `service_mediated_human` approval flow and provenance
 
 Implement:
 
@@ -185,58 +256,16 @@ Exit criteria:
 - ordinary UI human approvals are smooth
 - audit trails remain principal-attributed and service-attributed
 
-### Phase 7: Cut MCP daemon over to runtime-only ownership and bridge-managed launch
-
-Implement:
-
-- MCP daemon as worktree-local runtime plus MCP server only
-- optional `prism runtime` alias to `prism mcp`
-- bridge-managed daemon launch and restart
-- `prism://startup` surfacing daemon restart, missing login, and missing service clearly
-- no implicit login and no implicit service boot
-
-Exit criteria:
-
-- the MCP daemon is clearly a runtime, not the service host
-- bridge UX is smooth without hiding the real auth and service control points
-
-### Phase 8: Simplify DB-backed coordination reads to authority-first by default
-
-Implement:
-
-- DB-backed strong reads directly from the authority backend
-- DB-backed eventual reads collapsing to the same authority path by default
-- separate coordination materialization disabled by default for SQLite and Postgres authority
-- optional future Postgres-only materialization remaining behind explicit config
-
-Exit criteria:
-
-- the standard DB-backed read path no longer depends on redundant coordination materialization
-- freshness is surfaced honestly without exposing storage jargon as the primary UX
-
-### Phase 9: Implement SQLite versus Postgres deployment posture and startup diagnostics
-
-Implement:
-
-- `PRISM_POSTGRES_DSN` backend selection
-- SQLite fallback when it is absent
-- loud startup warning for SQLite single-instance topology
-- explicit multi-instance guidance that Postgres is required
-
-Exit criteria:
-
-- deployment posture is explicit in startup behavior and docs
-- local single-machine and hosted multi-instance modes are cleanly separated
-
 ## 5. Dependency logic
 
 This rollout is topological:
 
 - lifecycle must be explicit before clients can depend on it
-- endpoint and auth semantics must be explicit before runtime registration is hardened
-- UI approval semantics depend on the settled auth/session model
 - MCP runtime-only ownership depends on the service being first-class
 - DB-backed read simplification depends on the settled service boundary and deployment model
+- a dogfooding-ready checkpoint should exist before the heavier auth work lands
+- runtime registration hardening depends on the later auth/session model
+- UI approval semantics depend on the later auth/session model
 
 ## 6. Anti-patterns to avoid
 
@@ -260,4 +289,4 @@ This roadmap is complete when:
 - service and runtime sessions are explicit
 - `service_mediated_human` is implemented and auditable
 - DB-backed authority-first reads are the standard path
-- SQLite and Postgres deployment posture is explicit and enforceable
+- PRISM was already usable for dogfooding before the auth-only phases completed
