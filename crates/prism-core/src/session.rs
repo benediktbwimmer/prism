@@ -48,13 +48,13 @@ use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::concept_events::append_repo_concept_event;
 use crate::concept_relation_events::append_repo_concept_relation_event;
 use crate::contract_events::append_repo_contract_event;
+use crate::coordination_authority_store::{
+    configured_coordination_authority_store_provider,
+    coordination_materialization_enabled_by_default, CoordinationAuthorityBackendKind,
+    CoordinationAuthorityStamp,
+};
 use crate::coordination_authority_sync::{
     apply_service_backed_coordination_current_state, sync_coordination_authority_update,
-};
-use crate::coordination_authority_store::{
-    configured_coordination_authority_store_provider, coordination_materialization_enabled_by_default,
-    CoordinationAuthorityBackendKind, CoordinationAuthorityStamp, CoordinationReadRequest,
-    CoordinationStateView,
 };
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
@@ -2067,7 +2067,9 @@ impl WorkspaceSession {
         }
         Ok(self
             .read_coordination_current_state_from_authority()?
-            .map(|state| prism_coordination::coordination_read_model_from_snapshot(&state.snapshot)))
+            .map(|state| {
+                prism_coordination::coordination_read_model_from_snapshot(&state.snapshot)
+            }))
     }
 
     pub fn load_coordination_queue_read_model(&self) -> Result<Option<CoordinationQueueReadModel>> {
@@ -2096,7 +2098,9 @@ impl WorkspaceSession {
                 .and_then(|authority| authority_revision_from_stamp(&authority)));
         }
         let store = SqliteCoordinationMaterializedStore::new(&self.root);
-        let metadata_revision = store.read_metadata()?.startup_checkpoint_coordination_revision;
+        let metadata_revision = store
+            .read_metadata()?
+            .startup_checkpoint_coordination_revision;
         if metadata_revision.is_some() {
             return Ok(metadata_revision);
         }
@@ -2214,21 +2218,16 @@ impl WorkspaceSession {
         let provider = configured_coordination_authority_store_provider(&self.root)?;
         Ok(provider
             .open(&self.root)?
-            .read_current(CoordinationReadRequest {
-                consistency: CoordinationReadConsistency::Eventual,
-                view: CoordinationStateView::PlanState,
-            })?
-            .value)
+            .read_plan_state(CoordinationReadConsistency::Eventual)?
+            .value
+            .map(Into::into))
     }
 
     fn read_coordination_authority_stamp(&self) -> Result<Option<CoordinationAuthorityStamp>> {
         let provider = configured_coordination_authority_store_provider(&self.root)?;
         Ok(provider
             .open(&self.root)?
-            .read_current(CoordinationReadRequest {
-                consistency: CoordinationReadConsistency::Eventual,
-                view: CoordinationStateView::PlanState,
-            })?
+            .read_summary(CoordinationReadConsistency::Eventual)?
             .authority)
     }
 

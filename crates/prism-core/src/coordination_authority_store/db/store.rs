@@ -3,14 +3,17 @@ use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
 
 use super::traits::CoordinationAuthorityDb;
 use crate::coordination_authority_store::{
-    CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
-    CoordinationAuthorityStore, CoordinationCurrentState, CoordinationDiagnosticsRequest,
+    CoordinationAppendRequest, CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
+    CoordinationAuthorityStore, CoordinationAuthoritySummary, CoordinationDiagnosticsRequest,
     CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
-    CoordinationReadRequest, CoordinationTransactionRequest, CoordinationTransactionResult,
+    CoordinationReplaceCurrentStateRequest, CoordinationTransactionResult,
     EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
     EventExecutionTransitionRequest, EventExecutionTransitionResult, RuntimeDescriptorClearRequest,
     RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
+use crate::coordination_reads::CoordinationReadConsistency;
+use crate::published_plans::HydratedCoordinationPlanState;
+use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
 
 pub(crate) struct DbCoordinationAuthorityStore<Db> {
     db: Db,
@@ -30,18 +33,46 @@ where
         self.db.capabilities()
     }
 
-    fn read_current(
+    fn read_plan_state(
         &self,
-        request: CoordinationReadRequest,
-    ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>> {
-        self.db.read_current(request)
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<HydratedCoordinationPlanState>> {
+        self.db.read_plan_state(consistency)
     }
 
-    fn apply_transaction(
+    fn read_snapshot(
         &self,
-        request: CoordinationTransactionRequest,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshot>> {
+        self.db.read_snapshot(consistency)
+    }
+
+    fn read_snapshot_v2(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>> {
+        self.db.read_snapshot_v2(consistency)
+    }
+
+    fn read_summary(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationAuthoritySummary>> {
+        self.db.read_summary(consistency)
+    }
+
+    fn append_events(
+        &self,
+        request: CoordinationAppendRequest,
     ) -> Result<CoordinationTransactionResult> {
-        self.db.apply_transaction(request)
+        self.db.append_events(request)
+    }
+
+    fn replace_current_state(
+        &self,
+        request: CoordinationReplaceCurrentStateRequest,
+    ) -> Result<CoordinationTransactionResult> {
+        self.db.replace_current_state(request)
     }
 
     fn publish_runtime_descriptor(

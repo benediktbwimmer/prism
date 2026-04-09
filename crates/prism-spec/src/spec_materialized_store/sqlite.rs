@@ -830,6 +830,8 @@ pub(super) fn canonical_task_with_spec_refs(
         priority: None,
         tags: Vec::new(),
         spec_refs,
+        artifact_requirements: Vec::new(),
+        review_requirements: Vec::new(),
         metadata: serde_json::Value::Null,
         git_execution: prism_coordination::TaskGitExecution::default(),
     }
@@ -937,7 +939,9 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use prism_coordination::{CoordinationSnapshotV2, CoordinationSpecRef, CoordinationTaskSpecRef};
+    use prism_coordination::{
+        CoordinationSnapshotV2, CoordinationSpecRef, CoordinationTaskSpecRef,
+    };
 
     use super::SqliteSpecMaterializedStore;
     use crate::{

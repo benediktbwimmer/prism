@@ -4,9 +4,7 @@ use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
 use prism_coordination::TaskExecutorCaller;
-use prism_ir::{
-    AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId,
-};
+use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId};
 use prism_js::{
     ChangedFileView, ChangedSymbolView, ConceptDecodeView, ConceptPacketView, ConnectionInfoView,
     ContractPacketView, DiffHunkView, DiscoveryBundleView, EditContextView, FocusedBlockView,

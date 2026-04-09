@@ -63,19 +63,20 @@ impl From<HydratedCoordinationPlanState> for CoordinationCurrentState {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CoordinationStateView {
-    Snapshot,
-    SnapshotV2,
-    PlanState,
-    RuntimeDescriptors,
-    Summary,
+impl From<CoordinationCurrentState> for HydratedCoordinationPlanState {
+    fn from(value: CoordinationCurrentState) -> Self {
+        Self {
+            snapshot: value.snapshot,
+            canonical_snapshot_v2: value.canonical_snapshot_v2,
+            runtime_descriptors: value.runtime_descriptors,
+        }
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CoordinationReadRequest {
-    pub consistency: CoordinationReadConsistency,
-    pub view: CoordinationStateView,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoordinationAuthoritySummary {
+    pub has_current_state: bool,
+    pub runtime_descriptor_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -131,13 +132,17 @@ pub enum CoordinationTransactionBase {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct CoordinationTransactionRequest {
+pub struct CoordinationAppendRequest {
     pub base: CoordinationTransactionBase,
     pub session_id: Option<SessionId>,
-    pub snapshot: CoordinationSnapshot,
-    pub canonical_snapshot_v2: CoordinationSnapshotV2,
     pub appended_events: Vec<CoordinationEvent>,
     pub derived_state_mode: CoordinationDerivedStateMode,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CoordinationReplaceCurrentStateRequest {
+    pub base: CoordinationTransactionBase,
+    pub state: CoordinationCurrentState,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

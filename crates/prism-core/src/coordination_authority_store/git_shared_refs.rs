@@ -1,23 +1,27 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Result};
-use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
+use prism_coordination::{
+    coordination_snapshot_from_events, CoordinationSnapshot, CoordinationSnapshotV2,
+    EventExecutionRecord, RuntimeDescriptor,
+};
 
 use super::traits::CoordinationAuthorityStore;
 use super::types::{
-    CoordinationAuthorityBackendDetails, CoordinationAuthorityBackendKind,
-    CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
-    CoordinationAuthorityProvenance, CoordinationAuthorityStamp, CoordinationConflictInfo,
-    CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
-    CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
-    CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
-    CoordinationTransactionResult, CoordinationTransactionStatus,
-    EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
-    EventExecutionTransitionRequest, EventExecutionTransitionResult,
-    EventExecutionTransitionStatus, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
-    RuntimeDescriptorQuery,
+    CoordinationAppendRequest, CoordinationAuthorityBackendDetails,
+    CoordinationAuthorityBackendKind, CoordinationAuthorityCapabilities,
+    CoordinationAuthorityDiagnostics, CoordinationAuthorityProvenance, CoordinationAuthorityStamp,
+    CoordinationAuthoritySummary, CoordinationConflictInfo, CoordinationCurrentState,
+    CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
+    CoordinationReadEnvelope, CoordinationReplaceCurrentStateRequest, CoordinationTransactionBase,
+    CoordinationTransactionDiagnostic, CoordinationTransactionResult,
+    CoordinationTransactionStatus, EventExecutionRecordAuthorityQuery,
+    EventExecutionRecordWriteResult, EventExecutionTransitionRequest,
+    EventExecutionTransitionResult, EventExecutionTransitionStatus, RuntimeDescriptorClearRequest,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
+use crate::published_plans::HydratedCoordinationPlanState;
 use crate::shared_coordination_ref::{
     clear_runtime_descriptor_record, load_shared_coordination_ref_state_authoritative,
     load_shared_coordination_retained_history, load_shared_coordination_runtime_refs,
@@ -195,28 +199,85 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
         }
     }
 
-    fn read_current(
+    fn read_plan_state(
         &self,
-        request: CoordinationReadRequest,
-    ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>> {
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<HydratedCoordinationPlanState>> {
         let authority = self.authority_stamp()?;
         match self.load_current_state()? {
             Some(state) => Ok(CoordinationReadEnvelope::verified_current(
-                request.consistency,
+                consistency,
                 authority,
-                state,
+                state.into(),
             )),
             None => Ok(CoordinationReadEnvelope::unavailable(
-                request.consistency,
+                consistency,
                 authority,
                 None,
             )),
         }
     }
 
-    fn apply_transaction(
+    fn read_snapshot(
         &self,
-        request: CoordinationTransactionRequest,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshot>> {
+        let authority = self.authority_stamp()?;
+        match self.load_current_state()? {
+            Some(state) => Ok(CoordinationReadEnvelope::verified_current(
+                consistency,
+                authority,
+                state.snapshot,
+            )),
+            None => Ok(CoordinationReadEnvelope::unavailable(
+                consistency,
+                authority,
+                None,
+            )),
+        }
+    }
+
+    fn read_snapshot_v2(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>> {
+        let authority = self.authority_stamp()?;
+        match self.load_current_state()? {
+            Some(state) => Ok(CoordinationReadEnvelope::verified_current(
+                consistency,
+                authority,
+                state.canonical_snapshot_v2,
+            )),
+            None => Ok(CoordinationReadEnvelope::unavailable(
+                consistency,
+                authority,
+                None,
+            )),
+        }
+    }
+
+    fn read_summary(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationAuthoritySummary>> {
+        let authority = self.authority_stamp()?;
+        let current_state = self.load_current_state()?;
+        Ok(CoordinationReadEnvelope::verified_current(
+            consistency,
+            authority,
+            CoordinationAuthoritySummary {
+                has_current_state: current_state.is_some(),
+                runtime_descriptor_count: current_state
+                    .as_ref()
+                    .map(|state| state.runtime_descriptors.len())
+                    .unwrap_or(0),
+            },
+        ))
+    }
+
+    fn append_events(
+        &self,
+        request: CoordinationAppendRequest,
     ) -> Result<CoordinationTransactionResult> {
         let current_authority = self.authority_stamp()?;
         let current_state = self.load_current_state()?;
@@ -225,12 +286,51 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
         {
             return Ok(result);
         }
+        let next_snapshot = coordination_snapshot_from_events(
+            &request.appended_events,
+            current_state.as_ref().map(|state| state.snapshot.clone()),
+        )
+        .unwrap_or_default();
+        let next_canonical_snapshot_v2 = next_snapshot.to_canonical_snapshot_v2();
         let publish_context = publish_context_from_coordination_events(&request.appended_events);
         if let Err(error) = sync_shared_coordination_ref_state(
             &self.root,
-            &request.snapshot,
-            &request.canonical_snapshot_v2,
+            &next_snapshot,
+            &next_canonical_snapshot_v2,
             publish_context.as_ref(),
+        ) {
+            if transport_outcome_uncertain(&error) {
+                return self.indeterminate_transaction_result(&error);
+            }
+            return Err(error);
+        }
+        Ok(CoordinationTransactionResult {
+            status: CoordinationTransactionStatus::Committed,
+            committed: true,
+            authority: self.authority_stamp()?,
+            snapshot: self.load_current_state()?,
+            persisted: None,
+            conflict: None,
+            diagnostics: Vec::new(),
+        })
+    }
+
+    fn replace_current_state(
+        &self,
+        request: CoordinationReplaceCurrentStateRequest,
+    ) -> Result<CoordinationTransactionResult> {
+        let current_authority = self.authority_stamp()?;
+        let current_state = self.load_current_state()?;
+        if let Some(result) =
+            self.validate_transaction_base(&request.base, &current_authority, &current_state)
+        {
+            return Ok(result);
+        }
+        if let Err(error) = sync_shared_coordination_ref_state(
+            &self.root,
+            &request.state.snapshot,
+            &request.state.canonical_snapshot_v2,
+            None,
         ) {
             if transport_outcome_uncertain(&error) {
                 return self.indeterminate_transaction_result(&error);
@@ -430,10 +530,10 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
-
     use super::*;
-    use crate::coordination_authority_store::CoordinationDerivedStateMode;
+    use crate::coordination_authority_store::{
+        CoordinationAppendRequest, CoordinationDerivedStateMode,
+    };
 
     static NEXT_TEMP_REPO: AtomicU64 = AtomicU64::new(0);
 
@@ -464,14 +564,10 @@ mod tests {
         assert!(status.success(), "git {:?} should succeed", args);
     }
 
-    fn default_transaction_request(
-        base: CoordinationTransactionBase,
-    ) -> CoordinationTransactionRequest {
-        CoordinationTransactionRequest {
+    fn default_transaction_request(base: CoordinationTransactionBase) -> CoordinationAppendRequest {
+        CoordinationAppendRequest {
             base,
             session_id: None,
-            snapshot: CoordinationSnapshot::default(),
-            canonical_snapshot_v2: CoordinationSnapshotV2::default(),
             appended_events: Vec::new(),
             derived_state_mode: CoordinationDerivedStateMode::Inline,
         }
@@ -483,7 +579,7 @@ mod tests {
         let store = GitSharedRefsCoordinationAuthorityStore::new(&root);
 
         let result = store
-            .apply_transaction(default_transaction_request(
+            .append_events(default_transaction_request(
                 CoordinationTransactionBase::ExpectedRevision(1),
             ))
             .expect("authority transaction should return a conflict result");
@@ -506,7 +602,7 @@ mod tests {
         let store = GitSharedRefsCoordinationAuthorityStore::new(&root);
 
         let result = store
-            .apply_transaction(default_transaction_request(
+            .append_events(default_transaction_request(
                 CoordinationTransactionBase::ExpectedRevision(0),
             ))
             .expect("authority transaction should succeed");

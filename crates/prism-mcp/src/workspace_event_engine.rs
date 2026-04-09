@@ -78,7 +78,10 @@ pub(crate) fn service_event_execution_owner(
         principal: None,
         session_id: None,
         worktree_id: Some(worktree_fingerprint.clone()),
-        service_instance_id: Some(format!("service:{}:{worktree_fingerprint}", std::process::id())),
+        service_instance_id: Some(format!(
+            "service:{}:{worktree_fingerprint}",
+            std::process::id()
+        )),
     }
 }
 
@@ -98,15 +101,15 @@ mod tests {
     };
     use serde_json::json;
 
+    use crate::tests_support::{
+        host_with_session, index_workspace_session_with_shared_runtime, temp_workspace,
+    };
     use crate::workspace_event_engine_claim_loop::{
         EventTriggerClaimLoopRequest, EventTriggerClaimOutcome, EventTriggerClaimSkipReason,
     };
     use crate::workspace_event_engine_execution_loop::{
         EventTriggerExecutionAction, EventTriggerExecutionPassOutcome,
         EventTriggerExecutionPassRequest,
-    };
-    use crate::tests_support::{
-        host_with_session, index_workspace_session_with_shared_runtime, temp_workspace,
     };
 
     fn event_execution_record(id: &str, claimed_at: u64) -> EventExecutionRecord {

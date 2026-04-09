@@ -16,10 +16,9 @@ use anyhow::{anyhow, bail, Context, Result};
 use prism_core::{
     configured_coordination_authority_store_provider,
     coordination_authority_diagnostics_with_provider,
-    coordination_materialization_enabled_by_default, resolve_coordination_authority_store_provider,
-    publish_local_runtime_descriptor,
-    CoordinationAuthorityBackendConfig, CoordinationAuthorityBackendDetails, PrismPaths,
-    PrismRuntimeMode,
+    coordination_materialization_enabled_by_default, publish_local_runtime_descriptor,
+    resolve_coordination_authority_store_provider, CoordinationAuthorityBackendConfig,
+    CoordinationAuthorityBackendDetails, PrismPaths, PrismRuntimeMode,
 };
 
 use crate::cli::{CoordinationAuthorityBackendArg, McpCommand};
@@ -283,11 +282,8 @@ pub(crate) fn start_with_options(root: &Path, options: DaemonStartOptions) -> Re
 pub(crate) fn restart_with_options(root: &Path, options: DaemonRestartOptions) -> Result<()> {
     let paths = McpPaths::for_root(root)?;
     let restart_nonce = next_restart_nonce();
-    let Some(startup_marker) = StartupMarkerGuard::try_create(
-        &paths.startup_marker,
-        "restart",
-        Some(&restart_nonce),
-    )?
+    let Some(startup_marker) =
+        StartupMarkerGuard::try_create(&paths.startup_marker, "restart", Some(&restart_nonce))?
     else {
         let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
         println!("runtime startup already in progress");

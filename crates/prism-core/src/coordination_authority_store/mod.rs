@@ -6,8 +6,8 @@ mod traits;
 mod types;
 
 pub use factory::{
-    coordination_materialization_enabled_by_default, coordination_materialization_enabled_for_root,
     configured_coordination_authority_store_provider,
+    coordination_materialization_enabled_by_default, coordination_materialization_enabled_for_root,
     default_coordination_authority_store_provider, open_coordination_authority_store,
     open_default_coordination_authority_store, resolve_coordination_authority_store_provider,
     CoordinationAuthorityBackendConfig, CoordinationAuthorityStoreProvider,
@@ -16,14 +16,15 @@ pub use git_shared_refs::GitSharedRefsCoordinationAuthorityStore;
 pub use sqlite::SqliteCoordinationAuthorityStore;
 pub use traits::CoordinationAuthorityStore;
 pub use types::{
-    CoordinationAuthorityBackendDetails, CoordinationAuthorityBackendKind,
-    CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
-    CoordinationAuthorityProvenance, CoordinationAuthorityStamp, CoordinationConflictInfo,
-    CoordinationCurrentState, CoordinationDerivedStateMode, CoordinationDiagnosticsRequest,
-    CoordinationHistoryEntry, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
-    CoordinationReadEnvelope, CoordinationReadRequest, CoordinationStateView,
-    CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
-    CoordinationTransactionResult, CoordinationTransactionStatus, EventExecutionOwnerExpectation,
+    CoordinationAppendRequest, CoordinationAuthorityBackendDetails,
+    CoordinationAuthorityBackendKind, CoordinationAuthorityCapabilities,
+    CoordinationAuthorityDiagnostics, CoordinationAuthorityProvenance, CoordinationAuthorityStamp,
+    CoordinationAuthoritySummary, CoordinationConflictInfo, CoordinationCurrentState,
+    CoordinationDerivedStateMode, CoordinationDiagnosticsRequest, CoordinationHistoryEntry,
+    CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
+    CoordinationReplaceCurrentStateRequest, CoordinationTransactionBase,
+    CoordinationTransactionDiagnostic, CoordinationTransactionResult,
+    CoordinationTransactionStatus, EventExecutionOwnerExpectation,
     EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
     EventExecutionTransitionKind, EventExecutionTransitionPreconditions,
     EventExecutionTransitionRequest, EventExecutionTransitionResult,

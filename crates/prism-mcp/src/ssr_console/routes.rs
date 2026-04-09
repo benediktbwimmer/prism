@@ -587,8 +587,9 @@ fn render_plans_workspace(host: &QueryHost, query: PlansQuery) -> Result<String>
                 "<div class=\"console-empty\">No plan matches the current filters.</div>"
                     .to_string()
             }),
-        (None, None) => "<div class=\"console-empty\">No plan matches the current filters.</div>"
-            .to_string(),
+        (None, None) => {
+            "<div class=\"console-empty\">No plan matches the current filters.</div>".to_string()
+        }
     };
     Ok(format!(
         "<section id=\"console-plans-workspace\" class=\"console-layout console-layout--two\">\

@@ -82,12 +82,10 @@ pub(crate) fn handle(root: &Path, command: ServiceCommand) -> Result<()> {
             println!("enrolled_at_ms = {}", record.enrolled_at_ms);
             Ok(())
         }
-        ServiceCommand::Status => {
-            mcp::status_with_coordination_authority_override(
-                root,
-                Some(service_coordination_authority_backend(root)?),
-            )
-        }
+        ServiceCommand::Status => mcp::status_with_coordination_authority_override(
+            root,
+            Some(service_coordination_authority_backend(root)?),
+        ),
         ServiceCommand::Health => mcp::handle(root, McpCommand::Health),
     }
 }
@@ -161,9 +159,15 @@ fn authority_backend_arg(
     config: &CoordinationAuthorityBackendConfig,
 ) -> crate::cli::CoordinationAuthorityBackendArg {
     match config {
-        CoordinationAuthorityBackendConfig::GitSharedRefs => crate::cli::CoordinationAuthorityBackendArg::GitSharedRefs,
-        CoordinationAuthorityBackendConfig::Sqlite { .. } => crate::cli::CoordinationAuthorityBackendArg::Sqlite,
-        CoordinationAuthorityBackendConfig::Postgres { .. } => crate::cli::CoordinationAuthorityBackendArg::Postgres,
+        CoordinationAuthorityBackendConfig::GitSharedRefs => {
+            crate::cli::CoordinationAuthorityBackendArg::GitSharedRefs
+        }
+        CoordinationAuthorityBackendConfig::Sqlite { .. } => {
+            crate::cli::CoordinationAuthorityBackendArg::Sqlite
+        }
+        CoordinationAuthorityBackendConfig::Postgres { .. } => {
+            crate::cli::CoordinationAuthorityBackendArg::Postgres
+        }
     }
 }
 
@@ -243,7 +247,10 @@ mod tests {
         assert_eq!(translated.runtime_mode, PrismRuntimeMode::CoordinationOnly);
         assert!(translated.ui);
         assert_eq!(translated.http_bind.as_deref(), Some("127.0.0.1:43123"));
-        assert_eq!(translated.shared_runtime_uri.as_deref(), Some("http://runtime.example"));
+        assert_eq!(
+            translated.shared_runtime_uri.as_deref(),
+            Some("http://runtime.example")
+        );
         assert!(translated.coordination_authority_backend.is_none());
         assert!(translated.coordination_authority_sqlite_db.is_none());
         assert!(translated.coordination_authority_postgres_url.is_none());
@@ -263,10 +270,16 @@ mod tests {
 
         assert!(translated.kill_bridges);
         assert!(translated.start.ui);
-        assert_eq!(translated.start.http_bind.as_deref(), Some("127.0.0.1:43123"));
+        assert_eq!(
+            translated.start.http_bind.as_deref(),
+            Some("127.0.0.1:43123")
+        );
         assert!(translated.start.coordination_authority_backend.is_none());
         assert!(translated.start.coordination_authority_sqlite_db.is_none());
-        assert!(translated.start.coordination_authority_postgres_url.is_none());
+        assert!(translated
+            .start
+            .coordination_authority_postgres_url
+            .is_none());
     }
 
     #[test]

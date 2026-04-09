@@ -386,24 +386,13 @@ pub(crate) fn review_blockers(
                 )
             })
             .and_then(|requirement| {
-                active_artifact_for_requirement(
-                    state,
-                    task,
-                    &requirement.artifact_requirement_ref,
-                )
+                active_artifact_for_requirement(state, task, &requirement.artifact_requirement_ref)
             })
             .map(|artifact| artifact.id.clone());
         if pending_artifact.is_none()
-            && task
-                .review_requirements
-                .iter()
-                .all(|requirement| {
-                    review_requirement_satisfied(
-                        state,
-                        task,
-                        &requirement.client_review_requirement_id,
-                    )
-                })
+            && task.review_requirements.iter().all(|requirement| {
+                review_requirement_satisfied(state, task, &requirement.client_review_requirement_id)
+            })
         {
             return Vec::new();
         }

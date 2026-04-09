@@ -80,11 +80,12 @@ impl WorkspaceEventEngine {
         request: EventTriggerClaimLoopRequest,
     ) -> Result<EventTriggerClaimLoopResult> {
         let candidates = self.due_trigger_candidates(&request)?;
-        let existing_records = self.read_event_execution_records(EventExecutionRecordAuthorityQuery {
-            consistency: CoordinationReadConsistency::Strong,
-            event_execution_id: None,
-            limit: None,
-        })?;
+        let existing_records =
+            self.read_event_execution_records(EventExecutionRecordAuthorityQuery {
+                consistency: CoordinationReadConsistency::Strong,
+                event_execution_id: None,
+                limit: None,
+            })?;
         let owner = service_event_execution_owner(self.workspace_root());
         let mut outcomes = Vec::with_capacity(candidates.len());
 

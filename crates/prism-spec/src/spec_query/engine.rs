@@ -313,6 +313,8 @@ mod tests {
                 covered_checklist_items,
                 covered_sections: Vec::new(),
             }],
+            artifact_requirements: Vec::new(),
+            review_requirements: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: prism_coordination::TaskGitExecution::default(),
         }

@@ -14,9 +14,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::coordination_authority_store::{
-    configured_coordination_authority_store_provider, CoordinationDerivedStateMode,
-    CoordinationReadRequest, CoordinationStateView, CoordinationTransactionBase,
-    CoordinationTransactionRequest, CoordinationTransactionStatus,
+    configured_coordination_authority_store_provider, CoordinationCurrentState,
+    CoordinationReplaceCurrentStateRequest, CoordinationTransactionBase,
+    CoordinationTransactionStatus,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use crate::tracked_snapshot::{
@@ -73,7 +73,7 @@ pub(crate) struct PublishedPlanIndexEntry {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct HydratedCoordinationPlanState {
+pub struct HydratedCoordinationPlanState {
     pub(crate) snapshot: CoordinationSnapshot,
     pub(crate) canonical_snapshot_v2: CoordinationSnapshotV2,
     pub(crate) runtime_descriptors: Vec<RuntimeDescriptor>,
@@ -176,13 +176,18 @@ where
                 "status": format!("{:?}", result.status),
             })
         },
-        || match authority_store.apply_transaction(CoordinationTransactionRequest {
+        || match authority_store.replace_current_state(CoordinationReplaceCurrentStateRequest {
             base: CoordinationTransactionBase::LatestStrong,
-            session_id: None,
-            snapshot: snapshot.clone(),
-            canonical_snapshot_v2: canonical_snapshot_v2.clone(),
-            appended_events: Vec::new(),
-            derived_state_mode: CoordinationDerivedStateMode::Inline,
+            state: CoordinationCurrentState {
+                snapshot: snapshot.clone(),
+                canonical_snapshot_v2: canonical_snapshot_v2.clone(),
+                runtime_descriptors: authority_store
+                    .list_runtime_descriptors(crate::RuntimeDescriptorQuery {
+                        consistency: CoordinationReadConsistency::Strong,
+                    })?
+                    .value
+                    .unwrap_or_default(),
+            },
         })? {
             result if matches!(result.status, CoordinationTransactionStatus::Committed) => {
                 Ok(result)
@@ -211,12 +216,8 @@ pub(crate) fn load_authoritative_coordination_snapshot(
 ) -> Result<Option<CoordinationSnapshot>> {
     let store = configured_coordination_authority_store_provider(root)?.open(root)?;
     Ok(store
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Strong,
-            view: CoordinationStateView::Snapshot,
-        })?
-        .value
-        .map(|state| state.snapshot))
+        .read_snapshot(CoordinationReadConsistency::Strong)?
+        .value)
 }
 
 pub(crate) fn load_authoritative_coordination_snapshot_v2(
@@ -224,12 +225,8 @@ pub(crate) fn load_authoritative_coordination_snapshot_v2(
 ) -> Result<Option<CoordinationSnapshotV2>> {
     let store = configured_coordination_authority_store_provider(root)?.open(root)?;
     Ok(store
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Strong,
-            view: CoordinationStateView::SnapshotV2,
-        })?
-        .value
-        .map(|state| state.canonical_snapshot_v2))
+        .read_snapshot_v2(CoordinationReadConsistency::Strong)?
+        .value)
 }
 
 pub(crate) fn load_authoritative_coordination_plan_state(
@@ -237,16 +234,8 @@ pub(crate) fn load_authoritative_coordination_plan_state(
 ) -> Result<Option<HydratedCoordinationPlanState>> {
     let store = configured_coordination_authority_store_provider(root)?.open(root)?;
     Ok(store
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Strong,
-            view: CoordinationStateView::PlanState,
-        })?
-        .value
-        .map(|state| HydratedCoordinationPlanState {
-            canonical_snapshot_v2: state.canonical_snapshot_v2,
-            snapshot: state.snapshot,
-            runtime_descriptors: state.runtime_descriptors,
-        }))
+        .read_plan_state(CoordinationReadConsistency::Strong)?
+        .value)
 }
 
 pub(crate) fn merge_shared_coordination_into_snapshot(

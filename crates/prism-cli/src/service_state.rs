@@ -162,7 +162,9 @@ fn load_configured_service_endpoint(path: PathBuf) -> Result<Option<String>> {
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error).with_context(|| format!("failed to read {}", path.display())),
+        Err(error) => {
+            return Err(error).with_context(|| format!("failed to read {}", path.display()))
+        }
     };
     let config: WorkspaceServiceConfigFile = serde_json::from_slice(&bytes)
         .with_context(|| format!("failed to parse {}", path.display()))?;
@@ -177,7 +179,9 @@ fn read_optional_trimmed_file(path: &Path) -> Result<Option<String>> {
     let value = match fs::read_to_string(path) {
         Ok(value) => value,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error).with_context(|| format!("failed to read {}", path.display())),
+        Err(error) => {
+            return Err(error).with_context(|| format!("failed to read {}", path.display()))
+        }
     };
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -189,7 +193,8 @@ fn read_optional_trimmed_file(path: &Path) -> Result<Option<String>> {
 
 fn write_json<T: Serialize>(path: PathBuf, value: &T) -> Result<()> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).with_context(|| format!("failed to create {}", parent.display()))?;
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
     }
     let bytes = serde_json::to_vec_pretty(value).context("failed to serialize service state")?;
     fs::write(&path, bytes).with_context(|| format!("failed to write {}", path.display()))
@@ -199,7 +204,9 @@ fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<Option<T>> {
     let bytes = match fs::read(path) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error).with_context(|| format!("failed to read {}", path.display())),
+        Err(error) => {
+            return Err(error).with_context(|| format!("failed to read {}", path.display()))
+        }
     };
     let value = serde_json::from_slice(&bytes)
         .with_context(|| format!("failed to parse {}", path.display()))?;
@@ -213,7 +220,8 @@ fn service_state_dir(paths: &PrismPaths) -> PathBuf {
 fn service_local_endpoint_path(paths: &PrismPaths) -> Result<PathBuf> {
     let path = service_state_dir(paths).join(LOCAL_ENDPOINT_FILE_NAME);
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).with_context(|| format!("failed to create {}", parent.display()))?;
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
     }
     Ok(path)
 }
@@ -221,7 +229,8 @@ fn service_local_endpoint_path(paths: &PrismPaths) -> Result<PathBuf> {
 fn service_enrolled_repos_path(paths: &PrismPaths) -> Result<PathBuf> {
     let path = service_state_dir(paths).join(ENROLLED_REPOS_FILE_NAME);
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).with_context(|| format!("failed to create {}", parent.display()))?;
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
     }
     Ok(path)
 }
@@ -254,17 +263,13 @@ mod tests {
             updated_at_ms: 1,
         };
 
-        let resolved = resolve_service_endpoint_from_inputs(
-            Some("http://example.invalid"),
-            Some(&local),
-        );
+        let resolved =
+            resolve_service_endpoint_from_inputs(Some("http://example.invalid"), Some(&local));
         assert!(resolved.is_err());
-        assert!(
-            resolved
-                .unwrap_err()
-                .to_string()
-                .contains("configured PRISM service endpoint")
-        );
+        assert!(resolved
+            .unwrap_err()
+            .to_string()
+            .contains("configured PRISM service endpoint"));
     }
 
     #[test]
@@ -277,12 +282,10 @@ mod tests {
 
         let resolved = resolve_service_endpoint_from_inputs(None, Some(&local));
         assert!(resolved.is_err());
-        assert!(
-            resolved
-                .unwrap_err()
-                .to_string()
-                .contains("machine-local PRISM service endpoint")
-        );
+        assert!(resolved
+            .unwrap_err()
+            .to_string()
+            .contains("machine-local PRISM service endpoint"));
     }
 
     #[test]

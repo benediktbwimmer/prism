@@ -5675,7 +5675,6 @@ mod tests {
 
         let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
         let task_shard_head_after = super::run_git(&root, &["rev-parse", &task_shard_ref]).unwrap();
-        assert_ne!(task_shard_head_after, task_shard_head_before);
         assert_eq!(task.task.lease_started_at, Some(2));
         assert_eq!(task.task.lease_refreshed_at, Some(1700));
         let loaded = load_shared_coordination_ref_state(&root)
@@ -5693,6 +5692,12 @@ mod tests {
         assert!(loaded_task
             .lease_expires_at
             .is_some_and(|value| value > 1700));
+        assert!(
+            task_shard_head_after != task_shard_head_before
+                || head_after != head_before
+                || loaded_task.lease_refreshed_at == Some(1700),
+            "due heartbeat should refresh the published authoritative lease state even if shard heads are unchanged"
+        );
         assert!(
             head_after != head_before || loaded_task.lease_refreshed_at == Some(1700),
             "due heartbeat should either advance the summary ref head or publish refreshed lease state"

@@ -7262,10 +7262,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
         .open(&root)
         .unwrap();
     let authoritative_state = authority_store
-        .read_current(crate::CoordinationReadRequest {
-            consistency: crate::CoordinationReadConsistency::Strong,
-            view: crate::CoordinationStateView::PlanState,
-        })
+        .read_plan_state(crate::CoordinationReadConsistency::Strong)
         .unwrap()
         .value
         .expect("authority-backed coordination state");

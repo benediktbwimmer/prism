@@ -141,8 +141,7 @@ impl WorkspaceRuntimeState {
         coordination_context: Option<CoordinationPersistContext>,
         intent_override: Option<IntentIndex>,
     ) -> WorkspacePublishedGeneration {
-        let prism =
-            Prism::with_shared_history_outcomes_coordination_projections_and_query_state_v2(
+        let prism = Prism::with_shared_history_outcomes_coordination_projections_and_query_state_v2(
             Arc::clone(&self.graph),
             Arc::clone(&self.history),
             Arc::clone(&self.outcomes),

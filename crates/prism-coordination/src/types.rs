@@ -112,7 +112,9 @@ fn default_requirement_min_count() -> u16 {
     1
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactRequirementKind {
     CodeChange,
@@ -122,7 +124,9 @@ pub enum ArtifactRequirementKind {
     Note,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactEvidenceType {
     GitCommit,
@@ -133,7 +137,9 @@ pub enum ArtifactEvidenceType {
     Note,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ReviewerClass {
     Agent,
@@ -555,8 +561,7 @@ pub struct PlanCreateInput {
     pub status: Option<PlanStatus>,
     pub policy: Option<CoordinationPolicy>,
     pub spec_refs: Vec<CoordinationSpecRef>,
-
-            }
+}
 
 #[derive(Debug, Clone)]
 pub struct PlanUpdateInput {
@@ -566,8 +571,7 @@ pub struct PlanUpdateInput {
     pub goal: Option<String>,
     pub policy: Option<CoordinationPolicy>,
     pub spec_refs: Option<Vec<CoordinationSpecRef>>,
-
-            }
+}
 
 #[derive(Debug, Clone)]
 pub struct TaskCreateInput {

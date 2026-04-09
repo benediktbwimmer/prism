@@ -10,9 +10,9 @@ use serde_json::{json, Value};
 
 use crate::blockers::{completion_blockers, completion_policy_blockers};
 use crate::evidence::{
-    normalize_artifact_requirements, normalize_review_requirements, resolve_artifact_requirement_id,
-    resolve_review_requirement_id, review_requirement_for_task, reviewer_class,
-    reviewer_class_allowed,
+    normalize_artifact_requirements, normalize_review_requirements,
+    resolve_artifact_requirement_id, resolve_review_requirement_id, review_requirement_for_task,
+    reviewer_class, reviewer_class_allowed,
 };
 use crate::executor_routing::{
     executor_mismatch_reasons, task_executor_policy, TaskExecutorCaller,
@@ -1035,24 +1035,23 @@ pub(crate) fn propose_artifact_mutation(
             violations,
         ));
     }
-    let artifact_requirement_id = resolve_artifact_requirement_id(
-        &task,
-        input.artifact_requirement_id.as_deref(),
-    )
-    .map_err(|error| {
-        invalid_artifact_requirement_rejection(
-            state,
-            &meta,
-            "artifact proposal rejected",
-            task.plan.clone(),
-            task.id.clone(),
-            None,
-            json!({
-                "error": error.to_string(),
-                "artifactRequirementId": input.artifact_requirement_id,
-            }),
-        )
-    })?;
+    let artifact_requirement_id =
+        resolve_artifact_requirement_id(&task, input.artifact_requirement_id.as_deref()).map_err(
+            |error| {
+                invalid_artifact_requirement_rejection(
+                    state,
+                    &meta,
+                    "artifact proposal rejected",
+                    task.plan.clone(),
+                    task.id.clone(),
+                    None,
+                    json!({
+                        "error": error.to_string(),
+                        "artifactRequirementId": input.artifact_requirement_id,
+                    }),
+                )
+            },
+        )?;
     state.next_artifact += 1;
     let id = prism_ir::ArtifactId::new(new_prefixed_id("artifact"));
     let artifact = Artifact {
@@ -1748,8 +1747,8 @@ pub(crate) fn create_task_mutation(
             }
         }
     }
-    let artifact_requirements = normalize_artifact_requirements(input.artifact_requirements).map_err(
-        |error| {
+    let artifact_requirements = normalize_artifact_requirements(input.artifact_requirements)
+        .map_err(|error| {
             invalid_artifact_requirement_rejection(
                 state,
                 &meta,
@@ -1759,8 +1758,7 @@ pub(crate) fn create_task_mutation(
                 None,
                 json!({ "error": error.to_string() }),
             )
-        },
-    )?;
+        })?;
     let review_requirements =
         normalize_review_requirements(&artifact_requirements, input.review_requirements).map_err(
             |error| {
@@ -2035,8 +2033,9 @@ pub(crate) fn update_task_mutation_with_options(
                 json!({ "error": error.to_string() }),
             )
         })?;
-    let artifact_requirements =
-        next_artifact_requirements.as_ref().unwrap_or(&previous.artifact_requirements);
+    let artifact_requirements = next_artifact_requirements
+        .as_ref()
+        .unwrap_or(&previous.artifact_requirements);
     let next_review_requirements = match input.review_requirements.clone() {
         Some(review_requirements) => Some(
             normalize_review_requirements(artifact_requirements, review_requirements).map_err(

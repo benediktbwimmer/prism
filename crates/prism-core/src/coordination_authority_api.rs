@@ -6,8 +6,8 @@ use prism_store::CoordinationStartupCheckpointAuthority;
 use crate::coordination_authority_store::{
     configured_coordination_authority_store_provider, CoordinationAuthorityBackendDetails,
     CoordinationAuthorityBackendKind, CoordinationAuthorityDiagnostics,
-    CoordinationAuthorityStoreProvider, CoordinationDiagnosticsRequest, CoordinationReadRequest,
-    CoordinationStateView, CoordinationTransactionBase, RuntimeDescriptorPublishRequest,
+    CoordinationAuthorityStoreProvider, CoordinationDiagnosticsRequest,
+    CoordinationTransactionBase, RuntimeDescriptorPublishRequest,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use crate::shared_coordination_ref::{
@@ -113,10 +113,7 @@ pub(crate) fn coordination_startup_checkpoint_authority_with_provider(
 ) -> Result<Option<CoordinationStartupCheckpointAuthority>> {
     let store = provider.open(root)?;
     let authority = store
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Strong,
-            view: CoordinationStateView::Summary,
-        })?
+        .read_summary(CoordinationReadConsistency::Strong)?
         .authority;
     Ok(
         authority.map(|authority| CoordinationStartupCheckpointAuthority {

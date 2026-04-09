@@ -1,19 +1,23 @@
 use std::path::Path;
 
 use anyhow::{anyhow, Result};
-use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
+use prism_coordination::{
+    CoordinationSnapshot, CoordinationSnapshotV2, EventExecutionRecord, RuntimeDescriptor,
+};
 
 use super::store::DbCoordinationAuthorityStore;
 use super::traits::CoordinationAuthorityDb;
 use crate::coordination_authority_store::{
-    CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
-    CoordinationAuthorityStore, CoordinationCurrentState, CoordinationDiagnosticsRequest,
+    CoordinationAppendRequest, CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
+    CoordinationAuthorityStore, CoordinationAuthoritySummary, CoordinationDiagnosticsRequest,
     CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
-    CoordinationReadRequest, CoordinationTransactionRequest, CoordinationTransactionResult,
+    CoordinationReplaceCurrentStateRequest, CoordinationTransactionResult,
     EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
     EventExecutionTransitionRequest, EventExecutionTransitionResult, RuntimeDescriptorClearRequest,
     RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
+use crate::coordination_reads::CoordinationReadConsistency;
+use crate::published_plans::HydratedCoordinationPlanState;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PostgresCoordinationAuthorityDb {
@@ -47,16 +51,44 @@ impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
         }
     }
 
-    fn read_current(
+    fn read_plan_state(
         &self,
-        _request: CoordinationReadRequest,
-    ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>> {
+        _consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<HydratedCoordinationPlanState>> {
         Err(self.not_implemented())
     }
 
-    fn apply_transaction(
+    fn read_snapshot(
         &self,
-        _request: CoordinationTransactionRequest,
+        _consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshot>> {
+        Err(self.not_implemented())
+    }
+
+    fn read_snapshot_v2(
+        &self,
+        _consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>> {
+        Err(self.not_implemented())
+    }
+
+    fn read_summary(
+        &self,
+        _consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationAuthoritySummary>> {
+        Err(self.not_implemented())
+    }
+
+    fn append_events(
+        &self,
+        _request: CoordinationAppendRequest,
+    ) -> Result<CoordinationTransactionResult> {
+        Err(self.not_implemented())
+    }
+
+    fn replace_current_state(
+        &self,
+        _request: CoordinationReplaceCurrentStateRequest,
     ) -> Result<CoordinationTransactionResult> {
         Err(self.not_implemented())
     }

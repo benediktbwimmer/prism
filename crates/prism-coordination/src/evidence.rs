@@ -18,7 +18,10 @@ pub(crate) fn normalize_artifact_requirements(
     let mut seen = BTreeSet::new();
     let mut normalized = Vec::with_capacity(requirements.len());
     for mut requirement in requirements {
-        let id = requirement.client_artifact_requirement_id.trim().to_string();
+        let id = requirement
+            .client_artifact_requirement_id
+            .trim()
+            .to_string();
         if id.is_empty() {
             return Err(anyhow!(
                 "artifact requirements must include a non-empty client_artifact_requirement_id"
@@ -112,7 +115,10 @@ pub(crate) fn resolve_review_requirement_id(
     artifact_requirement_id: &str,
     review_requirement_id: Option<&str>,
 ) -> Result<String> {
-    match review_requirement_id.map(str::trim).filter(|value| !value.is_empty()) {
+    match review_requirement_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         Some(id) => {
             let Some(requirement) = task
                 .review_requirements
@@ -136,7 +142,9 @@ pub(crate) fn resolve_review_requirement_id(
             let matches = task
                 .review_requirements
                 .iter()
-                .filter(|requirement| requirement.artifact_requirement_ref == artifact_requirement_id)
+                .filter(|requirement| {
+                    requirement.artifact_requirement_ref == artifact_requirement_id
+                })
                 .collect::<Vec<_>>();
             match matches.as_slice() {
                 [requirement] => Ok(requirement.client_review_requirement_id.clone()),
@@ -157,9 +165,9 @@ pub(crate) fn artifact_requirement_for_task<'a>(
     task: &'a CoordinationTask,
     artifact_requirement_id: &str,
 ) -> Option<&'a ArtifactRequirement> {
-    task.artifact_requirements.iter().find(|requirement| {
-        requirement.client_artifact_requirement_id == artifact_requirement_id
-    })
+    task.artifact_requirements
+        .iter()
+        .find(|requirement| requirement.client_artifact_requirement_id == artifact_requirement_id)
 }
 
 pub(crate) fn review_requirement_for_task<'a>(
@@ -176,17 +184,17 @@ pub(crate) fn artifacts_for_requirement_lineage<'a>(
     task: &CoordinationTask,
     artifact_requirement_id: &str,
 ) -> Vec<&'a Artifact> {
-    let normalized_requirement_id = normalize_artifact_requirement_id_for_comparison(
-        task,
-        artifact_requirement_id,
-    );
+    let normalized_requirement_id =
+        normalize_artifact_requirement_id_for_comparison(task, artifact_requirement_id);
     let mut artifacts = state
         .artifacts
         .values()
         .filter(|artifact| artifact.task == task.id)
         .filter(|artifact| {
-            normalize_artifact_requirement_id_for_comparison(task, &artifact.artifact_requirement_id)
-                == normalized_requirement_id
+            normalize_artifact_requirement_id_for_comparison(
+                task,
+                &artifact.artifact_requirement_id,
+            ) == normalized_requirement_id
         })
         .collect::<Vec<_>>();
     artifacts.sort_by(|left, right| left.id.0.cmp(&right.id.0));
@@ -225,7 +233,10 @@ pub(crate) fn review_requirement_satisfied(
     else {
         return false;
     };
-    if !matches!(active_artifact.status, ArtifactStatus::Approved | ArtifactStatus::Merged) {
+    if !matches!(
+        active_artifact.status,
+        ArtifactStatus::Approved | ArtifactStatus::Merged
+    ) {
         return false;
     }
     approved_reviews_for_requirement(state, active_artifact, review_requirement).len()
@@ -262,7 +273,8 @@ pub(crate) fn reviewer_class(actor: &EventActor) -> ReviewerClass {
         EventActor::System => ReviewerClass::System,
         EventActor::CI => ReviewerClass::Ci,
         EventActor::GitAuthor { .. } => ReviewerClass::External,
-        EventActor::Principal(principal) => match principal.kind.unwrap_or(PrincipalKind::External) {
+        EventActor::Principal(principal) => match principal.kind.unwrap_or(PrincipalKind::External)
+        {
             PrincipalKind::Human => ReviewerClass::Human,
             PrincipalKind::Service => ReviewerClass::Service,
             PrincipalKind::Agent => ReviewerClass::Agent,
@@ -300,7 +312,10 @@ fn approved_reviews_for_requirement<'a>(
         })
         .filter(|review| review.verdict == prism_ir::ReviewVerdict::Approved)
         .filter(|review| {
-            reviewer_class_allowed(Some(review_requirement), review.reviewer_class.unwrap_or(ReviewerClass::External))
+            reviewer_class_allowed(
+                Some(review_requirement),
+                review.reviewer_class.unwrap_or(ReviewerClass::External),
+            )
         })
         .collect::<Vec<_>>();
     reviews.sort_by(|left, right| {

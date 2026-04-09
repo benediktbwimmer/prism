@@ -4,9 +4,9 @@ use axum::{http::StatusCode, Json};
 use prism_core::{
     configured_coordination_authority_store_provider, AuthenticatedPrincipal,
     CoordinationAuthorityMutationError, CoordinationAuthorityMutationStatus,
-    CoordinationAuthorityStoreProvider, CoordinationReadConsistency, CoordinationReadRequest,
-    CoordinationStateView, ProtectedStateStreamReport, SharedCoordinationRefDiagnostics,
-    WorktreeMode, WorktreeMutatorSlotError, WorktreeRegistrationRecord,
+    CoordinationAuthorityStoreProvider, CoordinationReadConsistency, ProtectedStateStreamReport,
+    SharedCoordinationRefDiagnostics, WorktreeMode, WorktreeMutatorSlotError,
+    WorktreeRegistrationRecord,
 };
 use prism_ir::EventId;
 use prism_js::{
@@ -457,10 +457,7 @@ fn coordination_transaction_authority_stamp_view(
         .or_else(|| configured_coordination_authority_store_provider(workspace_root).ok())?;
     let store = provider.open(workspace_root).ok()?;
     let authority = store
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Strong,
-            view: CoordinationStateView::Summary,
-        })
+        .read_summary(CoordinationReadConsistency::Strong)
         .ok()?
         .authority?;
     serde_json::to_value(AuthorityStampView {

@@ -1,13 +1,13 @@
 use prism_ir::{
-    ArtifactStatus, ClaimStatus, CoordinationEventKind, CoordinationTaskId, PlanId,
-    CoordinationTaskStatus, PlanOperatorState,
+    ArtifactStatus, ClaimStatus, CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus,
+    PlanId, PlanOperatorState,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    CoordinationDerivations, CoordinationSnapshotV2,
     types::{Artifact, CoordinationSnapshot, PolicyViolation, PolicyViolationRecord, WorkClaim},
+    CoordinationDerivations, CoordinationSnapshotV2,
 };
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -283,7 +283,10 @@ fn upsert_or_remove_by_plan_id(
     next: Option<PlanId>,
 ) {
     if let Some(next) = next {
-        if let Some(existing) = active_plan_ids.iter_mut().find(|existing| **existing == *plan_id) {
+        if let Some(existing) = active_plan_ids
+            .iter_mut()
+            .find(|existing| **existing == *plan_id)
+        {
             *existing = next;
         } else {
             active_plan_ids.push(next);
@@ -389,9 +392,7 @@ fn policy_violation_record_from_event(
 
 fn canonical_task_is_in_review(task: &crate::CanonicalTaskRecord) -> bool {
     matches!(
-        task.metadata
-            .get("legacy_phase")
-            .and_then(Value::as_str),
+        task.metadata.get("legacy_phase").and_then(Value::as_str),
         Some("in_review" | "validating")
     )
 }

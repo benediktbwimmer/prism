@@ -1,9 +1,7 @@
 use prism_ir::{ArtifactStatus, ClaimStatus, CoordinationTaskId, TaskId};
 use serde::{Deserialize, Serialize};
 
-use crate::types::{
-    Artifact, CoordinationEvent, CoordinationSnapshot, WorkClaim,
-};
+use crate::types::{Artifact, CoordinationEvent, CoordinationSnapshot, WorkClaim};
 use crate::CoordinationSnapshotV2;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
