@@ -87,6 +87,7 @@ mod resource_schemas;
 mod resource_trace;
 mod resources;
 mod runtime_freshness_surface;
+mod runtime_gateway;
 mod runtime_state;
 mod runtime_views;
 mod schema_examples;
@@ -159,6 +160,7 @@ use read_broker::{
 use request_envelope::*;
 use resource_schemas::*;
 use resources::*;
+use runtime_gateway::WorkspaceRuntimeGateway;
 use runtime_state::*;
 use schema_examples::*;
 use self_description::*;
@@ -1166,6 +1168,11 @@ impl QueryHost {
     ) -> Option<&Arc<WorkspaceAuthoritySyncOwner>> {
         self.workspace_service_shell()
             .map(|shell| shell.authority_sync_owner())
+    }
+
+    pub(crate) fn workspace_runtime_gateway(&self) -> Option<&Arc<WorkspaceRuntimeGateway>> {
+        self.workspace_service_shell()
+            .map(|shell| shell.runtime_gateway())
     }
 
     pub(crate) fn workspace_authority_store_provider(

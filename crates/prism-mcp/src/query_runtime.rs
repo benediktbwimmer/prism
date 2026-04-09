@@ -1949,13 +1949,21 @@ return prism.file(__prismFileAroundArgs.path).around({
             }
         };
         let code = format!("const __prismRemoteArgs = {serialized_args}; {code}");
-        let remote = execute_remote_prism_query_with_provider(
-            root,
-            self.host.workspace_authority_store_provider(),
-            &args.runtime_id,
-            &code,
-            QueryLanguage::Ts,
-        )?;
+        let remote = if let Some(runtime_gateway) = self.host.workspace_runtime_gateway() {
+            runtime_gateway.execute_remote_prism_query(
+                &args.runtime_id,
+                &code,
+                QueryLanguage::Ts,
+            )?
+        } else {
+            execute_remote_prism_query_with_provider(
+                root,
+                self.host.workspace_authority_store_provider(),
+                &args.runtime_id,
+                &code,
+                QueryLanguage::Ts,
+            )?
+        };
         self.diagnostics
             .lock()
             .expect("diagnostics lock poisoned")

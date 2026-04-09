@@ -13,6 +13,7 @@ use crate::features::PrismMcpFeatures;
 use crate::host_mutations::WorkspaceMutationBroker;
 use crate::mcp_call_log::McpCallLogStore;
 use crate::read_broker::WorkspaceReadBroker;
+use crate::runtime_gateway::WorkspaceRuntimeGateway;
 use crate::session_seed::{load_session_seed, PersistedSessionSeed};
 use crate::workspace_host::{WorkspaceRuntimeBinding, WorkspaceRuntimeHost};
 use crate::workspace_runtime::WorkspaceAuthoritySyncOwner;
@@ -23,6 +24,7 @@ pub(crate) struct WorkspaceServiceShell {
     authority_sync_owner: Arc<WorkspaceAuthoritySyncOwner>,
     read_broker: Arc<WorkspaceReadBroker>,
     mutation_broker: Arc<WorkspaceMutationBroker>,
+    runtime_gateway: Arc<WorkspaceRuntimeGateway>,
     authority_store_provider: CoordinationAuthorityStoreProvider,
     restored_session_seed: Option<PersistedSessionSeed>,
 }
@@ -53,6 +55,10 @@ impl WorkspaceServiceShell {
             &workspace_runtime_binding,
         )));
         let mutation_broker = Arc::new(WorkspaceMutationBroker);
+        let runtime_gateway = Arc::new(WorkspaceRuntimeGateway::new(
+            workspace.root().to_path_buf(),
+            authority_store_provider.clone(),
+        ));
         if features.coordination_layer_enabled() {
             if let Err(error) = sync_live_runtime_descriptor_with_provider(
                 workspace.root(),
@@ -77,6 +83,7 @@ impl WorkspaceServiceShell {
             authority_sync_owner,
             read_broker,
             mutation_broker,
+            runtime_gateway,
             authority_store_provider,
             restored_session_seed,
         }
@@ -96,6 +103,10 @@ impl WorkspaceServiceShell {
 
     pub(crate) fn mutation_broker(&self) -> &Arc<WorkspaceMutationBroker> {
         &self.mutation_broker
+    }
+
+    pub(crate) fn runtime_gateway(&self) -> &Arc<WorkspaceRuntimeGateway> {
+        &self.runtime_gateway
     }
 
     pub(crate) fn authority_store_provider(&self) -> &CoordinationAuthorityStoreProvider {
