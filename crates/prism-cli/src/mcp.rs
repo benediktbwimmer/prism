@@ -32,6 +32,23 @@ const DEFAULT_HTTP_BIND_HOST: &str = "127.0.0.1";
 const STABLE_HTTP_PORT_BASE: u16 = 41_000;
 const STABLE_HTTP_PORT_RANGE: u16 = 20_000;
 
+pub(crate) struct DaemonStartOptions {
+    pub(crate) no_coordination: bool,
+    pub(crate) internal_developer: bool,
+    pub(crate) runtime_mode: PrismRuntimeMode,
+    pub(crate) ui: bool,
+    pub(crate) http_bind: Option<String>,
+    pub(crate) shared_runtime_uri: Option<String>,
+    pub(crate) coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
+    pub(crate) coordination_authority_sqlite_db: Option<PathBuf>,
+    pub(crate) coordination_authority_postgres_url: Option<String>,
+}
+
+pub(crate) struct DaemonRestartOptions {
+    pub(crate) kill_bridges: bool,
+    pub(crate) start: DaemonStartOptions,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum McpProcessKind {
     Daemon,
@@ -167,7 +184,6 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             no_coordination,
             internal_developer,
             runtime_mode,
-            ui,
             shared_runtime_uri,
             coordination_authority_backend,
             coordination_authority_sqlite_db,
@@ -179,7 +195,6 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             no_coordination,
             internal_developer,
             runtime_mode.into(),
-            ui,
             shared_runtime_uri,
             coordination_authority_backend,
             coordination_authority_sqlite_db,
@@ -191,26 +206,24 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             no_coordination,
             internal_developer,
             runtime_mode,
-            ui,
             http_bind,
             shared_runtime_uri,
             coordination_authority_backend,
             coordination_authority_sqlite_db,
             coordination_authority_postgres_url,
-        } => start(
+        } => start_with_options(
             &root,
-            no_coordination,
-            internal_developer,
-            runtime_mode.into(),
-            ui,
-            http_bind,
-            shared_runtime_uri,
-            coordination_authority_backend,
-            coordination_authority_sqlite_db,
-            coordination_authority_postgres_url,
-            "start",
-            None,
-            None,
+            DaemonStartOptions {
+                no_coordination,
+                internal_developer,
+                runtime_mode: runtime_mode.into(),
+                ui: false,
+                http_bind,
+                shared_runtime_uri,
+                coordination_authority_backend,
+                coordination_authority_sqlite_db,
+                coordination_authority_postgres_url,
+            },
         ),
         McpCommand::Stop { kill_bridges } => stop(&root, kill_bridges),
         McpCommand::Restart {
@@ -218,46 +231,81 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             no_coordination,
             internal_developer,
             runtime_mode,
-            ui,
             http_bind,
             shared_runtime_uri,
             coordination_authority_backend,
             coordination_authority_sqlite_db,
             coordination_authority_postgres_url,
-        } => {
-            let paths = McpPaths::for_root(&root)?;
-            let restart_nonce = next_restart_nonce();
-            let Some(startup_marker) = StartupMarkerGuard::try_create(
-                &paths.startup_marker,
-                "restart",
-                Some(&restart_nonce),
-            )?
-            else {
-                let uri = wait_for_healthy_uri(&root, &paths, DEFAULT_HEALTH_PATH)?;
-                println!("daemon startup already in progress");
-                println!("uri: {uri}");
-                return status(&root);
-            };
-            stop_impl(&root, kill_bridges, false)?;
-            start(
-                &root,
-                no_coordination,
-                internal_developer,
-                runtime_mode.into(),
-                ui,
-                http_bind,
-                shared_runtime_uri,
-                coordination_authority_backend,
-                coordination_authority_sqlite_db,
-                coordination_authority_postgres_url,
-                "restart",
-                Some(&restart_nonce),
-                Some(startup_marker),
-            )
-        }
+        } => restart_with_options(
+            &root,
+            DaemonRestartOptions {
+                kill_bridges,
+                start: DaemonStartOptions {
+                    no_coordination,
+                    internal_developer,
+                    runtime_mode: runtime_mode.into(),
+                    ui: false,
+                    http_bind,
+                    shared_runtime_uri,
+                    coordination_authority_backend,
+                    coordination_authority_sqlite_db,
+                    coordination_authority_postgres_url,
+                },
+            },
+        ),
         McpCommand::Health => health(&root),
         McpCommand::Logs { lines } => logs(&root, lines),
     }
+}
+
+pub(crate) fn start_with_options(root: &Path, options: DaemonStartOptions) -> Result<()> {
+    start(
+        root,
+        options.no_coordination,
+        options.internal_developer,
+        options.runtime_mode,
+        options.ui,
+        options.http_bind,
+        options.shared_runtime_uri,
+        options.coordination_authority_backend,
+        options.coordination_authority_sqlite_db,
+        options.coordination_authority_postgres_url,
+        "start",
+        None,
+        None,
+    )
+}
+
+pub(crate) fn restart_with_options(root: &Path, options: DaemonRestartOptions) -> Result<()> {
+    let paths = McpPaths::for_root(root)?;
+    let restart_nonce = next_restart_nonce();
+    let Some(startup_marker) = StartupMarkerGuard::try_create(
+        &paths.startup_marker,
+        "restart",
+        Some(&restart_nonce),
+    )?
+    else {
+        let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
+        println!("daemon startup already in progress");
+        println!("uri: {uri}");
+        return status(root);
+    };
+    stop_impl(root, options.kill_bridges, false)?;
+    start(
+        root,
+        options.start.no_coordination,
+        options.start.internal_developer,
+        options.start.runtime_mode,
+        options.start.ui,
+        options.start.http_bind,
+        options.start.shared_runtime_uri,
+        options.start.coordination_authority_backend,
+        options.start.coordination_authority_sqlite_db,
+        options.start.coordination_authority_postgres_url,
+        "restart",
+        Some(&restart_nonce),
+        Some(startup_marker),
+    )
 }
 
 fn bridge(
@@ -265,7 +313,6 @@ fn bridge(
     no_coordination: bool,
     internal_developer: bool,
     runtime_mode: PrismRuntimeMode,
-    ui: bool,
     shared_runtime_uri: Option<String>,
     coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
     coordination_authority_sqlite_db: Option<PathBuf>,
@@ -281,7 +328,6 @@ fn bridge(
         no_coordination,
         internal_developer,
         runtime_mode,
-        ui,
         shared_runtime_uri.as_deref(),
         coordination_authority_backend,
         coordination_authority_sqlite_db.as_deref(),
@@ -777,7 +823,6 @@ fn bridge_exec_args(
     no_coordination: bool,
     internal_developer: bool,
     runtime_mode: PrismRuntimeMode,
-    ui: bool,
     shared_runtime_uri: Option<&str>,
     coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
     coordination_authority_sqlite_db: Option<&Path>,
@@ -802,9 +847,6 @@ fn bridge_exec_args(
     if runtime_mode != PrismRuntimeMode::Full {
         args.push(OsString::from("--runtime-mode"));
         args.push(OsString::from(runtime_mode_cli_value(runtime_mode)));
-    }
-    if ui {
-        args.push(OsString::from("--ui"));
     }
     if let Some(shared_runtime_uri) = shared_runtime_uri {
         args.push(OsString::from("--shared-runtime-uri"));
@@ -2307,7 +2349,6 @@ mod tests {
             false,
             true,
             PrismRuntimeMode::Full,
-            false,
             None,
             None,
             None,
@@ -2344,7 +2385,6 @@ mod tests {
             true,
             false,
             PrismRuntimeMode::Full,
-            false,
             None,
             None,
             None,
@@ -2362,7 +2402,7 @@ mod tests {
     }
 
     #[test]
-    fn bridge_exec_args_forward_runtime_mode_and_ui() {
+    fn bridge_exec_args_forward_runtime_mode() {
         let root = temp_root("bridge-exec-runtime-mode");
         let paths = McpPaths::for_root(&root).unwrap();
         let args = bridge_exec_args(
@@ -2371,7 +2411,6 @@ mod tests {
             false,
             false,
             PrismRuntimeMode::CoordinationOnly,
-            true,
             None,
             None,
             None,
@@ -2390,7 +2429,6 @@ mod tests {
                     "coordination_only".to_string(),
                 ]
         }));
-        assert!(args.contains(&"--ui".to_string()));
         fs::remove_dir_all(root).ok();
     }
 
@@ -2404,7 +2442,6 @@ mod tests {
             false,
             false,
             PrismRuntimeMode::Full,
-            false,
             None,
             Some(CoordinationAuthorityBackendArg::Sqlite),
             Some(Path::new("service-authority.db")),

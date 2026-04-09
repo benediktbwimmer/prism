@@ -3,61 +3,119 @@ use std::path::Path;
 use anyhow::Result;
 
 use crate::cli::{McpCommand, ServiceCommand};
-use crate::mcp;
+use crate::mcp::{self, DaemonRestartOptions, DaemonStartOptions};
 
 pub(crate) fn handle(root: &Path, command: ServiceCommand) -> Result<()> {
-    mcp::handle(root, translate(command))
-}
-
-fn translate(command: ServiceCommand) -> McpCommand {
     match command {
         ServiceCommand::Up {
             no_coordination,
             internal_developer,
             runtime_mode,
-            ui,
             http_bind,
             shared_runtime_uri,
             coordination_authority_backend,
             coordination_authority_sqlite_db,
             coordination_authority_postgres_url,
-        } => McpCommand::Start {
-            no_coordination,
-            internal_developer,
-            runtime_mode,
-            ui,
-            http_bind,
-            shared_runtime_uri,
-            coordination_authority_backend,
-            coordination_authority_sqlite_db,
-            coordination_authority_postgres_url,
-        },
-        ServiceCommand::Stop { kill_bridges } => McpCommand::Stop { kill_bridges },
+        } => mcp::start_with_options(
+            root,
+            DaemonStartOptions {
+                no_coordination,
+                internal_developer,
+                runtime_mode: runtime_mode.into(),
+                ui: true,
+                http_bind,
+                shared_runtime_uri,
+                coordination_authority_backend,
+                coordination_authority_sqlite_db,
+                coordination_authority_postgres_url,
+            },
+        ),
+        ServiceCommand::Stop { kill_bridges } => mcp::handle(root, McpCommand::Stop { kill_bridges }),
         ServiceCommand::Restart {
             no_coordination,
             internal_developer,
             runtime_mode,
-            ui,
             http_bind,
             shared_runtime_uri,
             coordination_authority_backend,
             coordination_authority_sqlite_db,
             coordination_authority_postgres_url,
             kill_bridges,
-        } => McpCommand::Restart {
+        } => mcp::restart_with_options(
+            root,
+            DaemonRestartOptions {
+                kill_bridges,
+                start: DaemonStartOptions {
+                    no_coordination,
+                    internal_developer,
+                    runtime_mode: runtime_mode.into(),
+                    ui: true,
+                    http_bind,
+                    shared_runtime_uri,
+                    coordination_authority_backend,
+                    coordination_authority_sqlite_db,
+                    coordination_authority_postgres_url,
+                },
+            },
+        ),
+        ServiceCommand::Status => mcp::handle(root, McpCommand::Status),
+        ServiceCommand::Health => mcp::handle(root, McpCommand::Health),
+    }
+}
+
+fn start_options(command: ServiceCommand) -> Option<DaemonStartOptions> {
+    match command {
+        ServiceCommand::Up {
             no_coordination,
             internal_developer,
             runtime_mode,
-            ui,
+            http_bind,
+            shared_runtime_uri,
+            coordination_authority_backend,
+            coordination_authority_sqlite_db,
+            coordination_authority_postgres_url,
+        } => Some(DaemonStartOptions {
+            no_coordination,
+            internal_developer,
+            runtime_mode: runtime_mode.into(),
+            ui: true,
+            http_bind,
+            shared_runtime_uri,
+            coordination_authority_backend,
+            coordination_authority_sqlite_db,
+            coordination_authority_postgres_url,
+        }),
+        _ => None,
+    }
+}
+
+fn restart_options(command: ServiceCommand) -> Option<DaemonRestartOptions> {
+    match command {
+        ServiceCommand::Restart {
+            no_coordination,
+            internal_developer,
+            runtime_mode,
             http_bind,
             shared_runtime_uri,
             coordination_authority_backend,
             coordination_authority_sqlite_db,
             coordination_authority_postgres_url,
             kill_bridges,
-        },
-        ServiceCommand::Status => McpCommand::Status,
-        ServiceCommand::Health => McpCommand::Health,
+        } => Some(DaemonRestartOptions {
+            kill_bridges,
+            start: DaemonStartOptions {
+                no_coordination,
+                internal_developer,
+                runtime_mode: runtime_mode.into(),
+                ui: true,
+                http_bind,
+                shared_runtime_uri,
+                coordination_authority_backend,
+                coordination_authority_sqlite_db,
+                coordination_authority_postgres_url,
+            },
+        }),
+        _ => None,
     }
 }
 
@@ -65,55 +123,66 @@ fn translate(command: ServiceCommand) -> McpCommand {
 mod tests {
     use std::path::PathBuf;
 
-    use crate::cli::{CoordinationAuthorityBackendArg, McpCommand, PrismRuntimeModeArg, ServiceCommand};
+    use prism_core::PrismRuntimeMode;
 
-    use super::translate;
+    use crate::cli::{CoordinationAuthorityBackendArg, PrismRuntimeModeArg, ServiceCommand};
+
+    use super::{restart_options, start_options};
 
     #[test]
-    fn service_up_translates_to_mcp_start() {
-        let translated = translate(ServiceCommand::Up {
+    fn service_up_builds_service_start_options() {
+        let translated = start_options(ServiceCommand::Up {
             no_coordination: false,
             internal_developer: true,
-            runtime_mode: PrismRuntimeModeArg::CoordinationOnly,
-            ui: true,
+            runtime_mode: crate::cli::PrismRuntimeModeArg::CoordinationOnly,
             http_bind: Some("127.0.0.1:43123".to_string()),
             shared_runtime_uri: Some("http://runtime.example".to_string()),
             coordination_authority_backend: Some(CoordinationAuthorityBackendArg::Postgres),
             coordination_authority_sqlite_db: Some(PathBuf::from("service-authority.db")),
             coordination_authority_postgres_url: Some("postgres://example".to_string()),
-        });
+        })
+        .expect("expected service start options");
 
-        match translated {
-            McpCommand::Start {
-                internal_developer,
-                runtime_mode,
-                ui,
-                http_bind,
-                shared_runtime_uri,
-                coordination_authority_backend,
-                coordination_authority_sqlite_db,
-                coordination_authority_postgres_url,
-                ..
-            } => {
-                assert!(internal_developer);
-                assert_eq!(runtime_mode, PrismRuntimeModeArg::CoordinationOnly);
-                assert!(ui);
-                assert_eq!(http_bind.as_deref(), Some("127.0.0.1:43123"));
-                assert_eq!(shared_runtime_uri.as_deref(), Some("http://runtime.example"));
-                assert_eq!(
-                    coordination_authority_backend,
-                    Some(CoordinationAuthorityBackendArg::Postgres)
-                );
-                assert_eq!(
-                    coordination_authority_sqlite_db,
-                    Some(PathBuf::from("service-authority.db"))
-                );
-                assert_eq!(
-                    coordination_authority_postgres_url.as_deref(),
-                    Some("postgres://example")
-                );
-            }
-            _ => panic!("unexpected command"),
-        }
+        assert!(translated.internal_developer);
+        assert_eq!(translated.runtime_mode, PrismRuntimeMode::CoordinationOnly);
+        assert!(translated.ui);
+        assert_eq!(translated.http_bind.as_deref(), Some("127.0.0.1:43123"));
+        assert_eq!(translated.shared_runtime_uri.as_deref(), Some("http://runtime.example"));
+        assert_eq!(
+            translated.coordination_authority_backend,
+            Some(CoordinationAuthorityBackendArg::Postgres)
+        );
+        assert_eq!(
+            translated.coordination_authority_sqlite_db,
+            Some(PathBuf::from("service-authority.db"))
+        );
+        assert_eq!(
+            translated.coordination_authority_postgres_url.as_deref(),
+            Some("postgres://example")
+        );
+    }
+
+    #[test]
+    fn service_restart_builds_service_restart_options() {
+        let translated = restart_options(ServiceCommand::Restart {
+            no_coordination: false,
+            internal_developer: false,
+            runtime_mode: PrismRuntimeModeArg::Full,
+            http_bind: Some("127.0.0.1:43123".to_string()),
+            shared_runtime_uri: None,
+            coordination_authority_backend: Some(CoordinationAuthorityBackendArg::Sqlite),
+            coordination_authority_sqlite_db: Some(PathBuf::from("service-authority.db")),
+            coordination_authority_postgres_url: None,
+            kill_bridges: true,
+        })
+        .expect("expected service restart options");
+
+        assert!(translated.kill_bridges);
+        assert!(translated.start.ui);
+        assert_eq!(translated.start.http_bind.as_deref(), Some("127.0.0.1:43123"));
+        assert_eq!(
+            translated.start.coordination_authority_backend,
+            Some(CoordinationAuthorityBackendArg::Sqlite)
+        );
     }
 }

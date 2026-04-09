@@ -224,8 +224,6 @@ pub enum McpCommand {
         internal_developer: bool,
         #[arg(long = "runtime-mode", value_enum, default_value_t = PrismRuntimeModeArg::Full)]
         runtime_mode: PrismRuntimeModeArg,
-        #[arg(long, default_value_t = false)]
-        ui: bool,
         #[arg(long = "shared-runtime-uri")]
         shared_runtime_uri: Option<String>,
         #[arg(long = "coordination-authority-backend", value_enum)]
@@ -246,8 +244,6 @@ pub enum McpCommand {
         internal_developer: bool,
         #[arg(long = "runtime-mode", value_enum, default_value_t = PrismRuntimeModeArg::Full)]
         runtime_mode: PrismRuntimeModeArg,
-        #[arg(long, default_value_t = false)]
-        ui: bool,
         #[arg(long = "http-bind")]
         http_bind: Option<String>,
         #[arg(long = "shared-runtime-uri")]
@@ -274,8 +270,6 @@ pub enum McpCommand {
         internal_developer: bool,
         #[arg(long = "runtime-mode", value_enum, default_value_t = PrismRuntimeModeArg::Full)]
         runtime_mode: PrismRuntimeModeArg,
-        #[arg(long, default_value_t = false)]
-        ui: bool,
         #[arg(long = "http-bind")]
         http_bind: Option<String>,
         #[arg(long = "shared-runtime-uri")]
@@ -309,8 +303,6 @@ pub enum ServiceCommand {
         internal_developer: bool,
         #[arg(long = "runtime-mode", value_enum, default_value_t = PrismRuntimeModeArg::Full)]
         runtime_mode: PrismRuntimeModeArg,
-        #[arg(long, default_value_t = false)]
-        ui: bool,
         #[arg(long = "http-bind")]
         http_bind: Option<String>,
         #[arg(long = "shared-runtime-uri")]
@@ -337,8 +329,6 @@ pub enum ServiceCommand {
         internal_developer: bool,
         #[arg(long = "runtime-mode", value_enum, default_value_t = PrismRuntimeModeArg::Full)]
         runtime_mode: PrismRuntimeModeArg,
-        #[arg(long, default_value_t = false)]
-        ui: bool,
         #[arg(long = "http-bind")]
         http_bind: Option<String>,
         #[arg(long = "shared-runtime-uri")]
@@ -599,7 +589,6 @@ mod tests {
                         no_coordination,
                         internal_developer,
                         runtime_mode,
-                        ui,
                         http_bind,
                         shared_runtime_uri,
                         coordination_authority_backend,
@@ -612,7 +601,6 @@ mod tests {
                 assert!(!no_coordination);
                 assert!(!internal_developer);
                 assert_eq!(runtime_mode, PrismRuntimeModeArg::Full);
-                assert!(!ui);
                 assert!(http_bind.is_none());
                 assert!(shared_runtime_uri.is_none());
                 assert!(coordination_authority_backend.is_none());
@@ -635,7 +623,6 @@ mod tests {
                         no_coordination,
                         internal_developer,
                         runtime_mode,
-                        ui,
                         http_bind,
                         shared_runtime_uri,
                         coordination_authority_backend,
@@ -647,7 +634,6 @@ mod tests {
                 assert!(!no_coordination);
                 assert!(!internal_developer);
                 assert_eq!(runtime_mode, PrismRuntimeModeArg::Full);
-                assert!(!ui);
                 assert!(http_bind.is_none());
                 assert!(shared_runtime_uri.is_none());
                 assert!(coordination_authority_backend.is_none());
@@ -703,6 +689,11 @@ mod tests {
             } => {}
             _ => panic!("unexpected command"),
         }
+    }
+
+    #[test]
+    fn service_up_rejects_no_ui_flag() {
+        assert!(Cli::try_parse_from(["prism", "service", "up", "--no-ui"]).is_err());
     }
 
     #[test]
@@ -773,15 +764,8 @@ mod tests {
     }
 
     #[test]
-    fn mcp_restart_ui_flag_is_opt_in() {
-        let cli = Cli::parse_from(["prism", "mcp", "restart", "--ui"]);
-        assert!(cli.root.is_none());
-        match cli.command {
-            Command::Mcp {
-                command: McpCommand::Restart { ui, .. },
-            } => assert!(ui),
-            _ => panic!("unexpected command"),
-        }
+    fn mcp_restart_rejects_ui_flag() {
+        assert!(Cli::try_parse_from(["prism", "mcp", "restart", "--ui"]).is_err());
     }
 
     #[test]
@@ -836,27 +820,8 @@ mod tests {
     }
 
     #[test]
-    fn mcp_bridge_runtime_mode_and_ui_flags_parse() {
-        let cli = Cli::parse_from([
-            "prism",
-            "mcp",
-            "bridge",
-            "--runtime-mode",
-            "coordination_only",
-            "--ui",
-        ]);
-        match cli.command {
-            Command::Mcp {
-                command:
-                    McpCommand::Bridge {
-                        runtime_mode, ui, ..
-                    },
-            } => {
-                assert_eq!(runtime_mode, PrismRuntimeModeArg::CoordinationOnly);
-                assert!(ui);
-            }
-            _ => panic!("unexpected command"),
-        }
+    fn mcp_bridge_rejects_ui_flag() {
+        assert!(Cli::try_parse_from(["prism", "mcp", "bridge", "--ui"]).is_err());
     }
 
     #[test]
@@ -909,6 +874,11 @@ mod tests {
             }
             _ => panic!("unexpected command"),
         }
+    }
+
+    #[test]
+    fn mcp_start_rejects_ui_flag() {
+        assert!(Cli::try_parse_from(["prism", "mcp", "start", "--ui"]).is_err());
     }
 
     #[test]

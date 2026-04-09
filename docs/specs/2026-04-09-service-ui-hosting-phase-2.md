@@ -1,6 +1,6 @@
 # Service UI Hosting Phase 2
 
-Status: approved
+Status: completed
 Audience: service, UI, MCP, CLI, runtime, and deployment maintainers
 Scope: move browser UI serving under the first-class `prism service` surface and stop treating the MCP daemon as the UI host
 
@@ -15,10 +15,17 @@ The goal is to make the service, not the MCP daemon, the place that owns browser
 
 This slice should:
 
-- make `prism service up` the primary path for starting the browser UI host
-- stop requiring `prism mcp ... --ui` as the way to get the UI
+- make `prism service up` the only CLI path for starting the browser UI host
+- remove `prism mcp ... --ui` as a supported product surface
 - move UI-serving lifecycle framing under the service surface
-- preserve current runtime and MCP behavior while the deeper runtime-only cutover is still pending
+- keep the current host-process reuse internal-only while the public ownership hard-cuts to the
+  service surface
+
+That cutover has landed:
+
+- `prism service up` and `prism service restart` now always host the UI
+- public `prism mcp bridge|start|restart` no longer accept `--ui`
+- service-owned UI hosting is now the only public CLI story
 
 This slice should not:
 
@@ -52,48 +59,47 @@ This spec follows:
 This slice includes:
 
 - explicit service-lifecycle handling for UI hosting
-- CLI behavior that makes service-hosted UI the primary surface
-- compatibility handling for existing `mcp --ui` workflows while the cutover is incomplete
+- CLI behavior that makes service-hosted UI the only public surface
+- removal of public MCP UI-hosting flags and parser paths
 
 This slice does not include:
 
-- final removal of all MCP UI flags
 - browser auth or session work
 - runtime-session or repo-enrollment work
 
 ## 5. Design constraints
 
 - The browser UI should be framed as a service capability, not an MCP daemon feature.
-- If compatibility shims remain, they should point users toward `prism service` rather than keep
-  reinforcing `prism mcp --ui` as the primary model.
-- This slice may still reuse the current host process internally, but user-facing ownership must
-  shift to the service surface.
+- This is a hard cutover, not a deprecation period. Public MCP CLI paths must stop accepting
+  UI-hosting flags in this slice.
+- This slice may still reuse the current host process internally, but that reuse must stay an
+  implementation detail rather than a user-facing compatibility surface.
 
 ## 6. Implementation slices
 
-### Slice 1: Make service lifecycle own UI flags
+### Slice 1: Make service lifecycle own UI hosting
 
-- add explicit UI-hosting behavior to the service lifecycle path
+- make `prism service up` and `prism service restart` always host the UI
 - keep that behavior out of ad hoc CLI dispatch branches
 
 Exit criteria:
 
 - the service path, not the MCP path, owns the main UI-serving intent
 
-### Slice 2: Add compatibility guidance for MCP UI usage
+### Slice 2: Remove public MCP UI-hosting flags
 
-- preserve current functionality where necessary
-- route help text and status text toward `prism service`
+- remove `--ui` parsing from public MCP bridge/start/restart commands
+- update tests so MCP CLI treats UI-hosting as unsupported
 
 Exit criteria:
 
-- compatibility remains, but the product story points to the service
+- the MCP daemon is no longer a public UI host at the CLI surface
 
 ### Slice 3: Validate service-hosted UI startup behavior
 
 - ensure service lifecycle commands still report healthy startup clearly
-- validate that UI-serving behavior still comes up through the current host path during this
-  transitional slice
+- validate that UI-serving behavior still comes up through the current host path while the public
+  ownership is now service-only
 
 Exit criteria:
 
@@ -112,13 +118,13 @@ Minimum validation for this slice:
 
 This spec is complete when:
 
-- `prism service` is the primary UI-hosting lifecycle surface
-- the CLI no longer frames the MCP daemon as the canonical UI host
-- compatibility with existing behavior is preserved where still required
+- `prism service` is the sole UI-hosting lifecycle surface
+- public MCP CLI commands no longer accept UI-hosting flags
+- the CLI no longer frames the MCP daemon as a UI host
 
 ## 9. Implementation checklist
 
-- [ ] Make service lifecycle own the UI-hosting intent
-- [ ] Add compatibility guidance for legacy `mcp --ui` usage
-- [ ] Validate service-hosted UI startup behavior
-- [ ] Update roadmap and spec status after landing
+- [x] Make service lifecycle own UI hosting
+- [x] Remove public MCP UI-hosting flags
+- [x] Validate service-hosted UI startup behavior
+- [x] Update roadmap and spec status after landing
