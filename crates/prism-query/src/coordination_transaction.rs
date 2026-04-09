@@ -467,10 +467,7 @@ impl Prism {
             parse_optimistic_preconditions(input.optimistic_preconditions.as_ref())?;
         self.coordination_transaction(|coordination_runtime| {
             validate_transaction_identity(coordination_runtime, &input)?;
-            validate_transaction_conflict(
-                coordination_runtime,
-                optimistic_preconditions.as_ref(),
-            )?;
+            validate_transaction_conflict(coordination_runtime, optimistic_preconditions.as_ref())?;
             apply_coordination_transaction(coordination_runtime, meta.clone(), input)
                 .map_err(CoordinationTransactionError::domain)
         })
@@ -495,7 +492,9 @@ impl Prism {
         mutate: F,
     ) -> std::result::Result<T, CoordinationTransactionError>
     where
-        F: FnOnce(&mut CoordinationRuntimeState) -> std::result::Result<T, CoordinationTransactionError>,
+        F: FnOnce(
+            &mut CoordinationRuntimeState,
+        ) -> std::result::Result<T, CoordinationTransactionError>,
     {
         let mut runtime = self
             .materialized_runtime
@@ -650,7 +649,9 @@ fn parse_optimistic_preconditions(
                         "coordination_transaction optimisticPreconditions.expectedEventCount must be a non-negative integer",
                     ));
                 };
-                let Some(parsed) = number.as_u64().and_then(|value| usize::try_from(value).ok())
+                let Some(parsed) = number
+                    .as_u64()
+                    .and_then(|value| usize::try_from(value).ok())
                 else {
                     return Err(CoordinationTransactionError::rejected(
                         CoordinationTransactionValidationStage::InputShape,
@@ -738,10 +739,7 @@ fn validate_transaction_identity(
     let mut seen_task_client_ids = BTreeSet::new();
     for mutation in &input.mutations {
         match mutation {
-            CoordinationTransactionMutation::PlanCreate {
-                client_plan_id,
-                ..
-            } => {
+            CoordinationTransactionMutation::PlanCreate { client_plan_id, .. } => {
                 if let Some(client_plan_id) = client_plan_id {
                     seen_plan_client_ids.insert(client_plan_id.clone());
                 }
@@ -1033,6 +1031,7 @@ fn apply_coordination_transaction(
                         goal,
                         status,
                         policy,
+                        spec_refs: Vec::new(),
                     },
                 )?;
                 if let Some(scheduling) = scheduling {
@@ -1068,6 +1067,7 @@ fn apply_coordination_transaction(
                             goal,
                             status,
                             policy: policy.map(|patch| merge_policy(existing_plan.policy, patch)),
+                            spec_refs: None,
                         },
                     )?;
                 }
@@ -1098,6 +1098,7 @@ fn apply_coordination_transaction(
                             goal: None,
                             status: Some(PlanStatus::Abandoned),
                             policy: None,
+                            spec_refs: None,
                         },
                     )?;
                     archive_meta = EventMeta {
@@ -1116,6 +1117,7 @@ fn apply_coordination_transaction(
                             goal: None,
                             status: Some(PlanStatus::Archived),
                             policy: None,
+                            spec_refs: None,
                         },
                     )?;
                 }
@@ -1171,6 +1173,7 @@ fn apply_coordination_transaction(
                         )?,
                         acceptance,
                         base_revision: base_revision.clone(),
+                        spec_refs: Vec::new(),
                     },
                 )?;
                 if let Some(client_task_id) = client_task_id {
@@ -1238,6 +1241,7 @@ fn apply_coordination_transaction(
                     priority,
                     tags,
                     completion_context,
+                    spec_refs: None,
                 };
                 if is_authoritative_git_execution_only_update(&update_input) {
                     coordination_runtime.update_task_authoritative_only(
@@ -1312,6 +1316,7 @@ fn apply_coordination_transaction(
                         priority: None,
                         tags: None,
                         completion_context: None,
+                        spec_refs: None,
                     },
                     base_revision,
                     meta.ts,

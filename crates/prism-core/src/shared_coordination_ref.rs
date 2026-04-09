@@ -4257,6 +4257,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -4289,6 +4290,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -4324,6 +4326,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -4356,6 +4359,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution {
                 status: prism_ir::GitExecutionStatus::CoordinationPublished,
@@ -4513,6 +4517,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -4545,6 +4550,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution {
                 status: prism_ir::GitExecutionStatus::CoordinationPublished,
@@ -4743,6 +4749,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -4775,6 +4782,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution {
                 status: prism_ir::GitExecutionStatus::CoordinationPublished,
@@ -4867,6 +4875,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -4899,6 +4908,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -5076,6 +5086,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -5108,6 +5119,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -5274,6 +5286,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -5306,6 +5319,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -5510,6 +5524,7 @@ mod tests {
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
+                        spec_refs: Vec::new(),
                     },
                 )?;
                 Ok::<_, anyhow::Error>((plan_id, task.id))
@@ -5597,6 +5612,7 @@ mod tests {
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
+                        spec_refs: Vec::new(),
                     },
                 )?;
                 Ok::<_, anyhow::Error>(task.id)

@@ -1,6 +1,6 @@
 # Spec Coordination Linking And Sync Provenance Phase 11
 
-Status: draft
+Status: in progress
 Audience: coordination, spec-engine, query, MCP, CLI, and storage maintainers
 Scope: complete roadmap Phase 11 by adding explicit typed spec-link fields to authoritative coordination objects and deriving local spec sync-provenance records from those links plus local spec state
 
@@ -27,7 +27,9 @@ It establishes the typed linkage and provenance substrate those later phases req
 Current state:
 
 - [x] Phase 10 `SpecQueryEngine` is complete
-- [ ] plans and tasks do not yet carry explicit typed spec links
+- [x] plans and tasks now carry explicit typed spec links
+- [x] coordination replay and mutation surfaces preserve typed plan/task spec links
+- [ ] high-level transaction mutation families do not yet accept authored spec links
 - [ ] local sync-provenance storage exists but is not populated from coordination
 - [ ] no authoritative-to-local derivation path exists for spec sync provenance
 - [ ] coordination-plus-spec join queries still lack real linkage data
@@ -39,6 +41,10 @@ Current slice notes:
   channel
 - local sync provenance should be derived from authoritative links where possible rather than
   mutated independently as a parallel source of truth
+- Slice 1 is complete on this branch: the coordination domain, replay path, and direct mutation
+  inputs now all understand typed plan/task spec links
+- the next remaining work is Slice 2 completion for authored transaction inputs, followed by Slice 3
+  sync-provenance derivation in `prism-spec`
 
 ## 3. Related roadmap
 
@@ -173,6 +179,10 @@ Exit criteria:
 
 - authoritative coordination objects can carry explicit typed spec links
 
+Status:
+
+- [x] complete
+
 ### Slice 2: Thread spec links through mutation surfaces
 
 - extend canonical transaction inputs and convenience mutation adapters to accept spec links
@@ -181,6 +191,11 @@ Exit criteria:
 Exit criteria:
 
 - explicit plan/task creation and update flows can write authoritative spec links
+
+Status:
+
+- [ ] lower-level coordination mutation inputs are updated
+- [ ] high-level transaction mutation families still need explicit spec-link fields
 
 ### Slice 3: Derive local sync provenance from authoritative links
 
@@ -208,6 +223,8 @@ Important regression checks:
 - old coordination snapshots deserialize cleanly with default empty spec links
 - new links survive event replay and read-model generation
 - local sync-provenance derivation does not invent links when coordination has none
+- direct downstream `prism-query` and `prism-core` suites stay green after the new required fields
+  are added
 
 ## 10. Completion criteria
 

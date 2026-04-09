@@ -190,6 +190,7 @@ fn apply_plan_patch(plan: &mut Plan, metadata: &Value) {
         && !patch_is_set(metadata, "title")
         && !patch_is_set(metadata, "status")
         && !patch_is_set(metadata, "policy")
+        && !patch_is_set(metadata, "specRefs")
     {
         return;
     }
@@ -211,6 +212,11 @@ fn apply_plan_patch(plan: &mut Plan, metadata: &Value) {
     if patch_is_set(metadata, "policy") {
         if let Some(policy) = metadata_path(metadata, &["patchValues", "policy"]) {
             plan.policy = policy;
+        }
+    }
+    if patch_is_set(metadata, "specRefs") {
+        if let Some(spec_refs) = metadata_path(metadata, &["patchValues", "specRefs"]) {
+            plan.spec_refs = spec_refs;
         }
     }
 }
@@ -362,6 +368,11 @@ fn apply_task_patch(task: &mut CoordinationTask, metadata: &Value) {
             task.tags = tags;
         }
     }
+    if patch_is_set(metadata, "specRefs") {
+        if let Some(spec_refs) = metadata_path(metadata, &["patchValues", "specRefs"]) {
+            task.spec_refs = spec_refs;
+        }
+    }
     if task.bindings.anchors.is_empty() && !task.anchors.is_empty() {
         task.bindings.anchors = task.anchors.clone();
     }
@@ -376,6 +387,9 @@ fn merge_stored_plan_metadata(plan: &mut Plan, stored: Plan) {
     plan.revision = stored.revision;
     plan.tags = stored.tags;
     plan.created_from = stored.created_from;
+    if !stored.spec_refs.is_empty() {
+        plan.spec_refs = stored.spec_refs;
+    }
     plan.metadata = stored.metadata;
 }
 
@@ -407,6 +421,9 @@ fn merge_stored_task_metadata(task: &mut CoordinationTask, stored: CoordinationT
     }
     if !stored.tags.is_empty() {
         task.tags = stored.tags;
+    }
+    if !stored.spec_refs.is_empty() {
+        task.spec_refs = stored.spec_refs;
     }
     if stored.git_execution != crate::TaskGitExecution::default() {
         task.git_execution = stored.git_execution;

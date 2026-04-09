@@ -740,10 +740,8 @@ fn publish_local_assisted_lease_overlay_generation(
     // Assisted lease heartbeats are a local liveness overlay, not authoritative coordination.
     // Republish the runtime generation with the live overlay snapshot, but do not treat it as a
     // service-backed current-state application or materialization write.
-    runtime_state.replace_coordination_runtime(
-        prism.coordination_snapshot(),
-        prism.runtime_descriptors(),
-    );
+    runtime_state
+        .replace_coordination_runtime(prism.coordination_snapshot(), prism.runtime_descriptors());
     runtime_state.publish_generation(workspace_revision, coordination_context)
 }
 
@@ -1605,6 +1603,7 @@ mod tests {
                         lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
                         ..CoordinationPolicy::default()
                     }),
+                    spec_refs: Vec::new(),
                 },
             )
             .unwrap();
@@ -1629,6 +1628,7 @@ mod tests {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision: prism_ir::WorkspaceRevision::default(),
+                    spec_refs: Vec::new(),
                 },
             )
             .unwrap();
@@ -1714,6 +1714,7 @@ mod tests {
                         lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
                         ..CoordinationPolicy::default()
                     }),
+                    spec_refs: Vec::new(),
                 },
             )
             .unwrap();
@@ -1739,6 +1740,7 @@ mod tests {
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         base_revision: prism_ir::WorkspaceRevision::default(),
+                        spec_refs: Vec::new(),
                     },
                 )
                 .unwrap();

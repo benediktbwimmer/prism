@@ -5862,6 +5862,7 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision: base_revision.clone(),
+                    spec_refs: Vec::new(),
                 },
             )?;
             let task_id = task.id.clone();
@@ -6036,6 +6037,7 @@ fn repo_plan_state_hydrates_from_workspace_sqlite_without_shared_runtime_db() {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision,
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok((plan_id, task.id))
@@ -6164,6 +6166,7 @@ fn repo_published_plans_do_not_write_tracked_snapshot_manifest() {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision,
+                    spec_refs: Vec::new(),
                 },
             )?;
             anyhow::Ok(())
@@ -6311,6 +6314,7 @@ fn coordination_publication_does_not_republish_existing_tracked_snapshot_manifes
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision,
+            spec_refs: Vec::new(),
                 },
             )?;
             anyhow::Ok(())
@@ -6387,6 +6391,7 @@ fn repo_published_plans_hydrate_from_tracked_snapshots_without_plan_logs() {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision,
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok((plan_id, task.id))
@@ -6468,6 +6473,7 @@ fn repo_published_plans_ignore_tampered_legacy_streams_once_snapshot_authority_e
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision,
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok((plan_id, task.id))
@@ -6546,6 +6552,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision,
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok((plan_id, task.id))
@@ -6573,6 +6580,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
                 goal: "Persisted snapshot should remain authoritative".into(),
                 status: None,
                 policy: None,
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -6600,6 +6608,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision,
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -6704,6 +6713,7 @@ fn derived_published_plan_mirrors_do_not_override_replayed_task_backed_authored_
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision,
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok((plan_id, task.id))
@@ -6795,6 +6805,7 @@ fn refresh_fs_ignores_external_derived_plan_mirror_edits_without_source_changes(
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision,
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok((plan_id, task.id))
@@ -6856,6 +6867,7 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
                 goal: "Exercise backend-neutral coordination persistence".into(),
                 status: None,
                 policy: Default::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -6886,6 +6898,7 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
                     graph_version: 1,
                     git_commit: None,
                 },
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -6980,6 +6993,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
                 goal: "Exercise incremental read-model persistence".into(),
                 status: None,
                 policy: None,
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -7010,6 +7024,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
                     graph_version: 1,
                     git_commit: None,
                 },
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -7055,6 +7070,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
                 priority: None,
                 tags: None,
                 completion_context: None,
+                spec_refs: None,
             },
             prism_ir::WorkspaceRevision {
                 graph_version: 1,
@@ -7240,6 +7256,7 @@ fn coordination_session_materializes_read_models_off_request_path() {
                         graph_version: 1,
                         git_commit: None,
                     },
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok::<_, anyhow::Error>(())
@@ -7349,6 +7366,7 @@ fn coordination_strong_reads_do_not_materialize_runtime_local_state() {
                         graph_version: 1,
                         git_commit: None,
                     },
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok::<_, anyhow::Error>(())
@@ -7358,7 +7376,10 @@ fn coordination_strong_reads_do_not_materialize_runtime_local_state() {
     {
         let mut store = session.store.lock().expect("workspace store lock poisoned");
         assert!(store.load_coordination_read_model().unwrap().is_none());
-        assert!(store.load_coordination_queue_read_model().unwrap().is_none());
+        assert!(store
+            .load_coordination_queue_read_model()
+            .unwrap()
+            .is_none());
         assert!(
             prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(
                 &mut *store,
@@ -7384,7 +7405,10 @@ fn coordination_strong_reads_do_not_materialize_runtime_local_state() {
             "strong reads must not backfill coordination read models into the worktree store"
         );
         assert!(
-            store.load_coordination_queue_read_model().unwrap().is_none(),
+            store
+                .load_coordination_queue_read_model()
+                .unwrap()
+                .is_none(),
             "strong reads must not backfill coordination queue models into the worktree store"
         );
         assert!(
@@ -7454,6 +7478,7 @@ fn coordination_materialized_store_can_clear_local_materialization() {
                         graph_version: 1,
                         git_commit: None,
                     },
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok::<_, anyhow::Error>(())
@@ -7544,6 +7569,7 @@ fn coordination_read_models_ignore_stale_persisted_shared_runtime_cache() {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision: prism_ir::WorkspaceRevision::default(),
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok::<_, anyhow::Error>(())
@@ -7657,6 +7683,7 @@ fn coordination_journal_recovers_after_restart_without_read_model_flush() {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision: prism_ir::WorkspaceRevision::default(),
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok::<_, anyhow::Error>(())
@@ -7716,6 +7743,7 @@ fn authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row() {
                 goal: "Prefer event-backed continuity load".into(),
                 status: None,
                 policy: Default::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -7743,6 +7771,7 @@ fn authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -7916,6 +7945,7 @@ fn eventual_coordination_snapshot_preserves_authoritative_task_lease_fields() {
                 goal: "Preserve durable lease facts".into(),
                 status: None,
                 policy: Default::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -7943,6 +7973,7 @@ fn eventual_coordination_snapshot_preserves_authoritative_task_lease_fields() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -8064,6 +8095,7 @@ fn checkpoint_materialization_preserves_authoritative_task_lease_fields() {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision: prism.workspace_revision(),
+                    spec_refs: Vec::new(),
                 },
             )?;
             let task = prism.heartbeat_native_task(
@@ -8208,6 +8240,7 @@ fn repo_published_plan_snapshot_persists_task_status_updates_after_cutover() {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision,
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok((plan_id, task.id))
@@ -8249,6 +8282,7 @@ fn repo_published_plan_snapshot_persists_task_status_updates_after_cutover() {
                     priority: None,
                     tags: None,
                     completion_context: None,
+                    spec_refs: None,
                 },
                 prism.workspace_revision(),
                 3,
@@ -8420,6 +8454,7 @@ fn completing_last_task_persists_plan_completion_in_tracked_snapshot() {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision,
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok((plan_id, task.id))
@@ -8462,6 +8497,7 @@ fn completing_last_task_persists_plan_completion_in_tracked_snapshot() {
                     priority: None,
                     tags: None,
                     completion_context: None,
+                    spec_refs: None,
                 },
                 prism.workspace_revision(),
                 3,
@@ -8545,6 +8581,7 @@ fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision: base_revision.clone(),
+                    spec_refs: Vec::new(),
                 },
             )?;
             let (claim_id, _conflicts, _claim) = prism.acquire_native_claim(
@@ -8610,6 +8647,7 @@ fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
                     priority: None,
                     tags: None,
                     completion_context: Some(prism_coordination::TaskCompletionContext::default()),
+                    spec_refs: None,
                 },
                 prism.workspace_revision(),
                 4,
@@ -8729,6 +8767,7 @@ fn repo_published_plan_snapshot_skips_runtime_handoff_deltas() {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision,
+                    spec_refs: Vec::new(),
                 },
             )?;
             Ok((plan_id, task.id))
