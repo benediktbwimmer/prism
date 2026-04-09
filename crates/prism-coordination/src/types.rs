@@ -108,6 +108,68 @@ pub struct AcceptanceCriterion {
     pub anchors: Vec<AnchorRef>,
 }
 
+fn default_requirement_min_count() -> u16 {
+    1
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactRequirementKind {
+    CodeChange,
+    TestEvidence,
+    ExternalEvidence,
+    Attestation,
+    Note,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactEvidenceType {
+    GitCommit,
+    GitRange,
+    GitRef,
+    ExternalRun,
+    Attestation,
+    Note,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewerClass {
+    Agent,
+    Human,
+    Service,
+    System,
+    Ci,
+    External,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactRequirement {
+    pub client_artifact_requirement_id: String,
+    pub kind: ArtifactRequirementKind,
+    #[serde(default = "default_requirement_min_count")]
+    pub min_count: u16,
+    #[serde(default)]
+    pub evidence_types: Vec<ArtifactEvidenceType>,
+    #[serde(default)]
+    pub stale_after_graph_change: bool,
+    #[serde(default)]
+    pub required_validations: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewRequirement {
+    pub client_review_requirement_id: String,
+    pub artifact_requirement_ref: String,
+    #[serde(default)]
+    pub allowed_reviewer_classes: Vec<ReviewerClass>,
+    #[serde(default = "default_requirement_min_count")]
+    pub min_review_count: u16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CoordinationSpecRef {
@@ -208,6 +270,10 @@ pub struct CoordinationTask {
     #[serde(default)]
     pub spec_refs: Vec<CoordinationTaskSpecRef>,
     #[serde(default)]
+    pub artifact_requirements: Vec<ArtifactRequirement>,
+    #[serde(default)]
+    pub review_requirements: Vec<ReviewRequirement>,
+    #[serde(default)]
     pub metadata: Value,
     #[serde(default)]
     pub git_execution: TaskGitExecution,
@@ -301,10 +367,14 @@ pub enum PolicyViolationCode {
     CrossPlanDependency,
     StaleRevision,
     ClaimConflict,
+    ArtifactRequired,
     ReviewRequired,
     RiskReviewRequired,
     ValidationRequired,
     ArtifactStale,
+    InvalidArtifactRequirement,
+    InvalidReviewRequirement,
+    ReviewerClassNotAllowed,
     IncompletePlanTasks,
     ActivePlanClaims,
     ClaimNotOwned,
@@ -346,6 +416,8 @@ pub struct Artifact {
     pub id: ArtifactId,
     pub task: CoordinationTaskId,
     #[serde(default)]
+    pub artifact_requirement_id: String,
+    #[serde(default)]
     pub worktree_id: Option<String>,
     #[serde(default)]
     pub branch_ref: Option<String>,
@@ -367,6 +439,10 @@ pub struct Artifact {
 pub struct ArtifactReview {
     pub id: ReviewId,
     pub artifact: ArtifactId,
+    #[serde(default)]
+    pub review_requirement_id: String,
+    #[serde(default)]
+    pub reviewer_class: Option<ReviewerClass>,
     pub verdict: ReviewVerdict,
     pub summary: String,
     pub meta: EventMeta,
@@ -403,6 +479,7 @@ pub struct TaskBlocker {
 pub enum BlockerKind {
     Dependency,
     ClaimConflict,
+    ArtifactRequired,
     ReviewRequired,
     RiskReviewRequired,
     ValidationRequired,
@@ -478,7 +555,8 @@ pub struct PlanCreateInput {
     pub status: Option<PlanStatus>,
     pub policy: Option<CoordinationPolicy>,
     pub spec_refs: Vec<CoordinationSpecRef>,
-}
+
+            }
 
 #[derive(Debug, Clone)]
 pub struct PlanUpdateInput {
@@ -488,7 +566,8 @@ pub struct PlanUpdateInput {
     pub goal: Option<String>,
     pub policy: Option<CoordinationPolicy>,
     pub spec_refs: Option<Vec<CoordinationSpecRef>>,
-}
+
+            }
 
 #[derive(Debug, Clone)]
 pub struct TaskCreateInput {
@@ -506,6 +585,8 @@ pub struct TaskCreateInput {
     pub acceptance: Vec<AcceptanceCriterion>,
     pub base_revision: WorkspaceRevision,
     pub spec_refs: Vec<CoordinationTaskSpecRef>,
+    pub artifact_requirements: Vec<ArtifactRequirement>,
+    pub review_requirements: Vec<ReviewRequirement>,
 }
 
 #[derive(Debug, Clone)]
@@ -533,6 +614,8 @@ pub struct TaskUpdateInput {
     pub priority: Option<Option<u8>>,
     pub tags: Option<Vec<String>>,
     pub spec_refs: Option<Vec<CoordinationTaskSpecRef>>,
+    pub artifact_requirements: Option<Vec<ArtifactRequirement>>,
+    pub review_requirements: Option<Vec<ReviewRequirement>>,
     pub completion_context: Option<TaskCompletionContext>,
 }
 
@@ -595,6 +678,7 @@ pub struct ClaimAcquireInput {
 #[derive(Debug, Clone)]
 pub struct ArtifactProposeInput {
     pub task_id: CoordinationTaskId,
+    pub artifact_requirement_id: Option<String>,
     pub anchors: Vec<AnchorRef>,
     pub diff_ref: Option<String>,
     pub evidence: Vec<EventId>,
@@ -615,6 +699,7 @@ pub struct ArtifactSupersedeInput {
 #[derive(Debug, Clone)]
 pub struct ArtifactReviewInput {
     pub artifact_id: ArtifactId,
+    pub review_requirement_id: Option<String>,
     pub verdict: ReviewVerdict,
     pub summary: String,
     pub required_validations: Vec<String>,

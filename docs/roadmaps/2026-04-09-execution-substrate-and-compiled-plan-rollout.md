@@ -1,6 +1,6 @@
 # Execution Substrate And Compiled Plan Rollout
 
-Status: proposed
+Status: in progress
 Audience: coordination, execution, validation, runtime, MCP, CLI, UI, and workflow-authoring maintainers
 Scope: sequencing the artifact/review model, the shared execution substrate, validation, actions, graph dataflow, native reusable plans, and finally JS/TS-authored compiled plans
 
@@ -44,7 +44,7 @@ This roadmap depends on:
 
 Current phase checklist:
 
-- [ ] Phase 0: freeze sequencing and spec boundaries
+- [x] Phase 0: freeze sequencing and spec boundaries
 - [ ] Phase 1: implement the coordination artifact/review model
 - [ ] Phase 2: implement the shared execution substrate core
 - [ ] Phase 3: move warm-state validation onto the shared execution substrate
@@ -56,7 +56,12 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 0: freeze sequencing and spec boundaries
+- Phase 1: implement the coordination artifact/review model
+
+Current implementation note (2026-04-09):
+
+- the coordination-core portion of Phase 1 is landed in `prism-coordination`
+- remaining Phase 1 work is the public-surface follow-through in query, MCP, and JS-facing views
 
 ## 3. Ordering thesis
 

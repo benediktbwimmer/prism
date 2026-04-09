@@ -4,6 +4,9 @@ use prism_ir::{
     WorkspaceRevision,
 };
 
+use crate::evidence::{
+    active_artifact_for_requirement, artifact_requirement_satisfied, review_requirement_satisfied,
+};
 use crate::helpers::{dedupe_conflicts, dedupe_strings, simulate_conflicts};
 use crate::lease::claim_blocks_new_work_with_runtime_descriptors;
 use crate::state::CoordinationState;
@@ -42,17 +45,36 @@ pub(crate) fn completion_policy_blockers(
     let Some(plan) = state.plans.get(&task.plan) else {
         return Vec::new();
     };
-    let approved_artifacts = state
-        .artifacts
-        .values()
-        .filter(|artifact| artifact.task == task.id)
-        .filter(|artifact| {
-            matches!(
-                artifact.status,
-                ArtifactStatus::Approved | ArtifactStatus::Merged
-            )
-        })
-        .collect::<Vec<_>>();
+    let approved_artifacts = if task.artifact_requirements.is_empty() {
+        state
+            .artifacts
+            .values()
+            .filter(|artifact| artifact.task == task.id)
+            .filter(|artifact| {
+                matches!(
+                    artifact.status,
+                    ArtifactStatus::Approved | ArtifactStatus::Merged
+                )
+            })
+            .collect::<Vec<_>>()
+    } else {
+        task.artifact_requirements
+            .iter()
+            .filter_map(|requirement| {
+                active_artifact_for_requirement(
+                    state,
+                    task,
+                    &requirement.client_artifact_requirement_id,
+                )
+            })
+            .filter(|artifact| {
+                matches!(
+                    artifact.status,
+                    ArtifactStatus::Approved | ArtifactStatus::Merged
+                )
+            })
+            .collect::<Vec<_>>()
+    };
     let mut blockers = Vec::new();
 
     if plan.policy.stale_after_graph_change {
@@ -317,6 +339,101 @@ pub(crate) fn review_blockers(
     state: &CoordinationState,
     task: &CoordinationTask,
 ) -> Vec<TaskBlocker> {
+    if !task.artifact_requirements.is_empty() {
+        let blockers = task
+            .artifact_requirements
+            .iter()
+            .filter(|requirement| {
+                !artifact_requirement_satisfied(
+                    state,
+                    task,
+                    &requirement.client_artifact_requirement_id,
+                )
+            })
+            .map(|requirement| TaskBlocker {
+                kind: BlockerKind::ArtifactRequired,
+                summary: format!(
+                    "task requires artifact `{}` before completion",
+                    requirement.client_artifact_requirement_id
+                ),
+                related_task_id: Some(task.id.clone()),
+                related_artifact_id: None,
+                risk_score: None,
+                validation_checks: requirement.required_validations.clone(),
+                causes: vec![BlockerCause {
+                    source: BlockerCauseSource::PlanPolicy,
+                    code: Some("artifact_requirement_missing".to_string()),
+                    acceptance_label: Some(requirement.client_artifact_requirement_id.clone()),
+                    threshold_metric: Some("artifact_requirement".to_string()),
+                    threshold_value: None,
+                    observed_value: None,
+                }],
+            })
+            .collect::<Vec<_>>();
+        if !blockers.is_empty() {
+            return blockers;
+        }
+    }
+    if !task.review_requirements.is_empty() {
+        let pending_artifact = task
+            .review_requirements
+            .iter()
+            .find(|requirement| {
+                !review_requirement_satisfied(
+                    state,
+                    task,
+                    &requirement.client_review_requirement_id,
+                )
+            })
+            .and_then(|requirement| {
+                active_artifact_for_requirement(
+                    state,
+                    task,
+                    &requirement.artifact_requirement_ref,
+                )
+            })
+            .map(|artifact| artifact.id.clone());
+        if pending_artifact.is_none()
+            && task
+                .review_requirements
+                .iter()
+                .all(|requirement| {
+                    review_requirement_satisfied(
+                        state,
+                        task,
+                        &requirement.client_review_requirement_id,
+                    )
+                })
+        {
+            return Vec::new();
+        }
+        return vec![TaskBlocker {
+            kind: BlockerKind::ReviewRequired,
+            summary: "task requires declared review requirements to be satisfied".to_string(),
+            related_task_id: Some(task.id.clone()),
+            related_artifact_id: pending_artifact,
+            risk_score: None,
+            validation_checks: Vec::new(),
+            causes: vec![
+                BlockerCause {
+                    source: BlockerCauseSource::PlanPolicy,
+                    code: Some("review_requirement_missing".to_string()),
+                    acceptance_label: None,
+                    threshold_metric: Some("review_requirement".to_string()),
+                    threshold_value: None,
+                    observed_value: None,
+                },
+                BlockerCause {
+                    source: BlockerCauseSource::ArtifactState,
+                    code: Some("active_lineage_review_unsatisfied".to_string()),
+                    acceptance_label: None,
+                    threshold_metric: None,
+                    threshold_value: None,
+                    observed_value: None,
+                },
+            ],
+        }];
+    }
     let Some(plan) = state.plans.get(&task.plan) else {
         return Vec::new();
     };

@@ -13,9 +13,9 @@ use crate::canonical_graph_traversal::CanonicalCoordinationGraph;
 use crate::executor_routing::task_executor_policy;
 use crate::git_execution::TaskGitExecution;
 use crate::types::{
-    AcceptanceCriterion, Artifact, ArtifactReview, CoordinationEvent, CoordinationPolicy,
-    CoordinationSnapshot, CoordinationSpecRef, CoordinationTask, CoordinationTaskSpecRef,
-    LeaseHolder, Plan, PlanScheduling, WorkClaim,
+    AcceptanceCriterion, Artifact, ArtifactRequirement, ArtifactReview, CoordinationEvent,
+    CoordinationPolicy, CoordinationSnapshot, CoordinationSpecRef, CoordinationTask,
+    CoordinationTaskSpecRef, LeaseHolder, Plan, PlanScheduling, ReviewRequirement, WorkClaim,
 };
 
 pub const COORDINATION_SCHEMA_V2: u64 = 2;
@@ -110,6 +110,10 @@ pub struct CanonicalTaskRecord {
     pub tags: Vec<String>,
     #[serde(default)]
     pub spec_refs: Vec<CoordinationTaskSpecRef>,
+    #[serde(default)]
+    pub artifact_requirements: Vec<ArtifactRequirement>,
+    #[serde(default)]
+    pub review_requirements: Vec<ReviewRequirement>,
     #[serde(default)]
     pub metadata: Value,
     #[serde(default)]
@@ -284,6 +288,8 @@ impl CanonicalTaskRecord {
             priority: task.priority,
             tags: task.tags.clone(),
             spec_refs: task.spec_refs.clone(),
+            artifact_requirements: task.artifact_requirements.clone(),
+            review_requirements: task.review_requirements.clone(),
             metadata: canonical_task_metadata(task),
             git_execution: task.git_execution.clone(),
         }
@@ -493,6 +499,8 @@ mod tests {
             priority: None,
             tags: Vec::new(),
             spec_refs: Vec::new(),
+            artifact_requirements: Vec::new(),
+            review_requirements: Vec::new(),
             metadata: Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -551,6 +559,8 @@ mod tests {
                 priority: Some(3),
                 tags: vec!["v2".into()],
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 metadata: json!({"estimatedMinutes": 25}),
                 git_execution: TaskGitExecution::default(),
             }],
@@ -627,6 +637,8 @@ mod tests {
                 priority: None,
                 tags: Vec::new(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 metadata: Value::Null,
                 git_execution: TaskGitExecution::default(),
             }],

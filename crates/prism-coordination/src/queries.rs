@@ -4,6 +4,7 @@ use prism_ir::{
 };
 use serde_json::Value;
 
+use crate::evidence::unsatisfied_review_artifacts;
 use crate::helpers::{
     anchors_overlap, conflict_between, dedupe_conflicts, editor_capacity_conflicts,
     plan_policy_for_task, simulate_conflicts,
@@ -169,26 +170,30 @@ impl CoordinationStore {
     pub fn pending_reviews(&self, plan_id: Option<&PlanId>) -> Vec<Artifact> {
         let state = self.state.read().expect("coordination store lock poisoned");
         let mut artifacts = state
-            .artifacts
+            .tasks
             .values()
-            .filter(|artifact| {
-                matches!(
-                    artifact.status,
-                    ArtifactStatus::Proposed | ArtifactStatus::InReview
-                )
-            })
-            .filter(|artifact| {
-                plan_id.map_or(true, |plan_id| {
+            .filter(|task| plan_id.is_none_or(|plan_id| &task.plan == plan_id))
+            .flat_map(|task| {
+                if task.review_requirements.is_empty() {
                     state
-                        .tasks
-                        .get(&artifact.task)
-                        .map(|task| &task.plan == plan_id)
-                        .unwrap_or(false)
-                })
+                        .artifacts
+                        .values()
+                        .filter(move |artifact| artifact.task == task.id)
+                        .filter(|artifact| {
+                            matches!(
+                                artifact.status,
+                                ArtifactStatus::Proposed | ArtifactStatus::InReview
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                } else {
+                    unsatisfied_review_artifacts(&state, task)
+                }
             })
             .cloned()
             .collect::<Vec<_>>();
         artifacts.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+        artifacts.dedup_by(|left, right| left.id == right.id);
         artifacts
     }
 

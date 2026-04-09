@@ -146,6 +146,8 @@ fn task_lease_state_extends_from_matching_runtime_descriptor() {
         priority: None,
         tags: Vec::new(),
         spec_refs: Vec::new(),
+        artifact_requirements: Vec::new(),
+        review_requirements: Vec::new(),
         metadata: serde_json::Value::Null,
         git_execution: TaskGitExecution::default(),
     };
@@ -198,6 +200,8 @@ fn task_lease_state_rejects_newer_runtime_instance_for_same_worktree() {
         priority: None,
         tags: Vec::new(),
         spec_refs: Vec::new(),
+        artifact_requirements: Vec::new(),
+        review_requirements: Vec::new(),
         metadata: serde_json::Value::Null,
         git_execution: TaskGitExecution::default(),
     };
@@ -224,6 +228,7 @@ fn create_task_rejects_duplicate_logical_dependency_edges_across_legacy_buckets(
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -245,6 +250,8 @@ fn create_task_rejects_duplicate_logical_dependency_edges_across_legacy_buckets(
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -267,6 +274,8 @@ fn create_task_rejects_duplicate_logical_dependency_edges_across_legacy_buckets(
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap_err();
@@ -288,6 +297,7 @@ fn claim_conflicts_block_hard_exclusive_overlap() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -312,6 +322,8 @@ fn claim_conflicts_block_hard_exclusive_overlap() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -382,6 +394,7 @@ fn blockers_distinguish_coordination_and_integration_dependency_thresholds() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -403,6 +416,8 @@ fn blockers_distinguish_coordination_and_integration_dependency_thresholds() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -424,6 +439,8 @@ fn blockers_distinguish_coordination_and_integration_dependency_thresholds() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -445,6 +462,8 @@ fn blockers_distinguish_coordination_and_integration_dependency_thresholds() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -496,6 +515,9 @@ fn blockers_distinguish_coordination_and_integration_dependency_thresholds() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             revision(),
             11,
@@ -548,6 +570,9 @@ fn blockers_distinguish_coordination_and_integration_dependency_thresholds() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             revision(),
             13,
@@ -574,6 +599,7 @@ fn expired_task_requires_resume_for_same_principal() {
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -595,6 +621,8 @@ fn expired_task_requires_resume_for_same_principal() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -627,6 +655,9 @@ fn expired_task_requires_resume_for_same_principal() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             revision(),
             8000,
@@ -685,6 +716,9 @@ fn expired_task_requires_resume_for_same_principal() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             revision(),
             8001,
@@ -705,6 +739,7 @@ fn stale_task_requires_reclaim_for_different_principal() {
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -726,6 +761,8 @@ fn stale_task_requires_reclaim_for_different_principal() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -758,6 +795,9 @@ fn stale_task_requires_reclaim_for_different_principal() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             revision(),
             1905,
@@ -799,6 +839,7 @@ fn expired_claim_can_be_renewed_by_same_principal() {
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -820,6 +861,8 @@ fn expired_claim_can_be_renewed_by_same_principal() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -828,7 +871,7 @@ fn expired_claim_can_be_renewed_by_same_principal() {
             principal_meta("event:claim", 3, "local", "agent:a", "session:a"),
             prism_ir::SessionId::new("session:a"),
             ClaimAcquireInput {
-                task_id: Some(task_id),
+                task_id: Some(task_id.clone()),
                 anchors: task.anchors.clone(),
                 capability: prism_ir::Capability::Edit,
                 mode: Some(prism_ir::ClaimMode::HardExclusive),
@@ -867,6 +910,7 @@ fn claim_renewal_before_due_without_extension_is_noop() {
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -888,6 +932,8 @@ fn claim_renewal_before_due_without_extension_is_noop() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -896,7 +942,7 @@ fn claim_renewal_before_due_without_extension_is_noop() {
             principal_meta("event:claim", 3, "local", "agent:a", "session:a"),
             prism_ir::SessionId::new("session:a"),
             ClaimAcquireInput {
-                task_id: Some(task_id),
+                task_id: Some(task_id.clone()),
                 anchors: task.anchors.clone(),
                 capability: prism_ir::Capability::Edit,
                 mode: Some(prism_ir::ClaimMode::HardExclusive),
@@ -940,6 +986,7 @@ fn claim_renewal_with_meaningful_ttl_extension_still_persists() {
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -961,6 +1008,8 @@ fn claim_renewal_with_meaningful_ttl_extension_still_persists() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -969,7 +1018,7 @@ fn claim_renewal_with_meaningful_ttl_extension_still_persists() {
             principal_meta("event:claim", 3, "local", "agent:a", "session:a"),
             prism_ir::SessionId::new("session:a"),
             ClaimAcquireInput {
-                task_id: Some(task_id),
+                task_id: Some(task_id.clone()),
                 anchors: task.anchors.clone(),
                 capability: prism_ir::Capability::Edit,
                 mode: Some(prism_ir::ClaimMode::HardExclusive),
@@ -1014,6 +1063,7 @@ fn stale_claim_no_longer_blocks_new_acquire() {
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -1035,6 +1085,8 @@ fn stale_claim_no_longer_blocks_new_acquire() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -1093,6 +1145,7 @@ fn review_policy_gates_completion_but_not_ready_work() {
                     ..CoordinationPolicy::default()
                 }),
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -1117,6 +1170,8 @@ fn review_policy_gates_completion_but_not_ready_work() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -1162,6 +1217,9 @@ fn review_policy_gates_completion_but_not_ready_work() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             prism_ir::WorkspaceRevision {
                 graph_version: 1,
@@ -1176,6 +1234,7 @@ fn review_policy_gates_completion_but_not_ready_work() {
             meta("event:4", 4),
             ArtifactProposeInput {
                 task_id: task_id.clone(),
+                artifact_requirement_id: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 diff_ref: Some("patch:1".to_string()),
                 evidence: Vec::new(),
@@ -1200,6 +1259,7 @@ fn review_policy_gates_completion_but_not_ready_work() {
             meta("event:5", 5),
             ArtifactReviewInput {
                 artifact_id,
+                review_requirement_id: None,
                 verdict: prism_ir::ReviewVerdict::Approved,
                 summary: "looks good".to_string(),
                 required_validations: Vec::new(),
@@ -1241,7 +1301,10 @@ fn review_policy_gates_completion_but_not_ready_work() {
                     tags: None,
                     completion_context: Some(TaskCompletionContext::default()),
                     spec_refs: None,
-                },
+                artifact_requirements: None,
+                review_requirements: None,
+
+            },
                 prism_ir::WorkspaceRevision {
                     graph_version: 1,
                     git_commit: None,
@@ -1269,6 +1332,7 @@ fn incremental_coordination_read_model_matches_snapshot_rebuild() {
                     ..CoordinationPolicy::default()
                 }),
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -1290,6 +1354,8 @@ fn incremental_coordination_read_model_matches_snapshot_rebuild() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -1325,6 +1391,9 @@ fn incremental_coordination_read_model_matches_snapshot_rebuild() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             revision(),
             3,
@@ -1335,7 +1404,7 @@ fn incremental_coordination_read_model_matches_snapshot_rebuild() {
             meta("event:claim", 4),
             prism_ir::SessionId::new("session:a"),
             ClaimAcquireInput {
-                task_id: Some(task_id.clone()),
+                task_id: Some(task.id.clone()),
                 anchors: task.anchors.clone(),
                 capability: prism_ir::Capability::Edit,
                 mode: Some(prism_ir::ClaimMode::SoftExclusive),
@@ -1353,6 +1422,7 @@ fn incremental_coordination_read_model_matches_snapshot_rebuild() {
             meta("event:artifact", 5),
             ArtifactProposeInput {
                 task_id: task_id.clone(),
+                artifact_requirement_id: None,
                 anchors: task.anchors.clone(),
                 diff_ref: Some("patch:main".to_string()),
                 evidence: Vec::new(),
@@ -1394,6 +1464,9 @@ fn incremental_coordination_read_model_matches_snapshot_rebuild() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             revision(),
             6,
@@ -1425,6 +1498,7 @@ fn incremental_coordination_queue_read_model_matches_snapshot_rebuild() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -1446,6 +1520,8 @@ fn incremental_coordination_queue_read_model_matches_snapshot_rebuild() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -1499,6 +1575,7 @@ fn incremental_coordination_queue_read_model_matches_snapshot_rebuild() {
             meta("event:artifact", 6),
             ArtifactProposeInput {
                 task_id,
+                artifact_requirement_id: None,
                 anchors: task.anchors.clone(),
                 diff_ref: Some("patch:feature".to_string()),
                 evidence: Vec::new(),
@@ -1541,6 +1618,7 @@ fn edit_capacity_limit_blocks_extra_claims() {
                     ..CoordinationPolicy::default()
                 }),
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -1565,6 +1643,8 @@ fn edit_capacity_limit_blocks_extra_claims() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -1641,6 +1721,7 @@ fn approving_stale_artifact_is_rejected() {
                     ..CoordinationPolicy::default()
                 }),
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -1665,6 +1746,8 @@ fn approving_stale_artifact_is_rejected() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -1673,6 +1756,7 @@ fn approving_stale_artifact_is_rejected() {
             meta("event:3", 3),
             ArtifactProposeInput {
                 task_id,
+                artifact_requirement_id: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 diff_ref: Some("patch:1".to_string()),
                 evidence: Vec::new(),
@@ -1698,6 +1782,7 @@ fn approving_stale_artifact_is_rejected() {
             meta("event:4", 4),
             ArtifactReviewInput {
                 artifact_id,
+                review_requirement_id: None,
                 verdict: prism_ir::ReviewVerdict::Approved,
                 summary: "approve stale patch".to_string(),
                 required_validations: Vec::new(),
@@ -1727,6 +1812,7 @@ fn validation_policy_requires_approved_artifact_checks() {
                     ..CoordinationPolicy::default()
                 }),
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -1751,6 +1837,8 @@ fn validation_policy_requires_approved_artifact_checks() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -1759,6 +1847,7 @@ fn validation_policy_requires_approved_artifact_checks() {
             meta("event:3", 3),
             ArtifactProposeInput {
                 task_id: task_id.clone(),
+                artifact_requirement_id: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 diff_ref: Some("patch:1".to_string()),
                 evidence: Vec::new(),
@@ -1784,6 +1873,7 @@ fn validation_policy_requires_approved_artifact_checks() {
             meta("event:4", 4),
             ArtifactReviewInput {
                 artifact_id: artifact_id.clone(),
+                review_requirement_id: None,
                 verdict: prism_ir::ReviewVerdict::Approved,
                 summary: "missing validation".to_string(),
                 required_validations: vec!["test:main_integration".to_string()],
@@ -1802,6 +1892,7 @@ fn validation_policy_requires_approved_artifact_checks() {
             meta("event:5", 5),
             ArtifactReviewInput {
                 artifact_id,
+                review_requirement_id: None,
                 verdict: prism_ir::ReviewVerdict::Approved,
                 summary: "validated".to_string(),
                 required_validations: vec!["test:main_integration".to_string()],
@@ -1848,7 +1939,10 @@ fn validation_policy_requires_approved_artifact_checks() {
                         ..TaskCompletionContext::default()
                     }),
                     spec_refs: None,
-                },
+                artifact_requirements: None,
+                review_requirements: None,
+
+            },
                 prism_ir::WorkspaceRevision {
                     graph_version: 1,
                     git_commit: None,
@@ -1859,6 +1953,470 @@ fn validation_policy_requires_approved_artifact_checks() {
             .status,
         prism_ir::CoordinationTaskStatus::Completed
     );
+}
+
+#[test]
+fn declared_artifact_requirements_block_completion_until_satisfied() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                title: "Artifact-gated task".to_string(),
+                goal: "Artifact-gated task".to_string(),
+                status: None,
+                policy: None,
+                spec_refs: Vec::new(),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id,
+                title: "Produce patch artifact".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+                spec_refs: Vec::new(),
+                artifact_requirements: vec![ArtifactRequirement {
+                    client_artifact_requirement_id: "impl_patch".to_string(),
+                    kind: ArtifactRequirementKind::CodeChange,
+                    min_count: 1,
+                    evidence_types: vec![ArtifactEvidenceType::GitCommit],
+                    stale_after_graph_change: true,
+                    required_validations: Vec::new(),
+                }],
+                review_requirements: Vec::new(),
+            },
+        )
+        .unwrap();
+
+    assert!(store
+        .update_task(
+            meta("event:3", 3),
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                kind: None,
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                published_task_status: None,
+                git_execution: None,
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: Some(revision()),
+                priority: None,
+                tags: None,
+                completion_context: Some(TaskCompletionContext::default()),
+                spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+            },
+            revision(),
+            3,
+        )
+        .is_err());
+
+    store
+        .propose_artifact(
+            meta("event:4", 4),
+            ArtifactProposeInput {
+                task_id: task_id.clone(),
+                artifact_requirement_id: Some("impl_patch".to_string()),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                diff_ref: Some("patch:impl".to_string()),
+                evidence: Vec::new(),
+                base_revision: revision(),
+                current_revision: revision(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        store
+            .update_task(
+                meta("event:5", 5),
+                TaskUpdateInput {
+                    task_id,
+                    kind: None,
+                    status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                    published_task_status: None,
+                    git_execution: None,
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    title: None,
+                    summary: None,
+                    anchors: None,
+                    bindings: None,
+                    depends_on: None,
+                    coordination_depends_on: None,
+                    integrated_depends_on: None,
+                    acceptance: None,
+                    validation_refs: None,
+                    is_abstract: None,
+                    base_revision: Some(revision()),
+                    priority: None,
+                    tags: None,
+                    completion_context: Some(TaskCompletionContext::default()),
+                    spec_refs: None,
+                    artifact_requirements: None,
+                    review_requirements: None,
+                },
+                revision(),
+                5,
+            )
+            .unwrap()
+            .status,
+        prism_ir::CoordinationTaskStatus::Completed
+    );
+}
+
+#[test]
+fn pending_reviews_follow_declared_review_requirement_active_heads() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                title: "Review-gated task".to_string(),
+                goal: "Review-gated task".to_string(),
+                status: None,
+                policy: None,
+                spec_refs: Vec::new(),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Implement and review".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+                spec_refs: Vec::new(),
+                artifact_requirements: vec![ArtifactRequirement {
+                    client_artifact_requirement_id: "impl_patch".to_string(),
+                    kind: ArtifactRequirementKind::CodeChange,
+                    min_count: 1,
+                    evidence_types: vec![ArtifactEvidenceType::GitCommit],
+                    stale_after_graph_change: true,
+                    required_validations: Vec::new(),
+                }],
+                review_requirements: vec![ReviewRequirement {
+                    client_review_requirement_id: "impl_patch_review".to_string(),
+                    artifact_requirement_ref: "impl_patch".to_string(),
+                    allowed_reviewer_classes: vec![ReviewerClass::Agent],
+                    min_review_count: 1,
+                }],
+            },
+        )
+        .unwrap();
+
+    let (artifact_a, _) = store
+        .propose_artifact(
+            meta("event:3", 3),
+            ArtifactProposeInput {
+                task_id: task_id.clone(),
+                artifact_requirement_id: Some("impl_patch".to_string()),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                diff_ref: Some("patch:a".to_string()),
+                evidence: Vec::new(),
+                base_revision: revision(),
+                current_revision: revision(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(store.pending_reviews(Some(&plan_id)).len(), 1);
+
+    store
+        .review_artifact(
+            meta("event:4", 4),
+            ArtifactReviewInput {
+                artifact_id: artifact_a.clone(),
+                review_requirement_id: Some("impl_patch_review".to_string()),
+                verdict: prism_ir::ReviewVerdict::ChangesRequested,
+                summary: "needs changes".to_string(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+            },
+            revision(),
+        )
+        .unwrap();
+
+    let (artifact_b, _) = store
+        .propose_artifact(
+            meta("event:5", 5),
+            ArtifactProposeInput {
+                task_id: task_id.clone(),
+                artifact_requirement_id: Some("impl_patch".to_string()),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                diff_ref: Some("patch:b".to_string()),
+                evidence: Vec::new(),
+                base_revision: revision(),
+                current_revision: revision(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap();
+    store
+        .supersede_artifact(
+            meta("event:6", 6),
+            ArtifactSupersedeInput {
+                artifact_id: artifact_a,
+            },
+        )
+        .unwrap();
+
+    let pending = store.pending_reviews(Some(&plan_id));
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0].id, artifact_b);
+
+    store
+        .review_artifact(
+            meta("event:7", 7),
+            ArtifactReviewInput {
+                artifact_id: artifact_b,
+                review_requirement_id: Some("impl_patch_review".to_string()),
+                verdict: prism_ir::ReviewVerdict::Approved,
+                summary: "approved".to_string(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+            },
+            revision(),
+        )
+        .unwrap();
+
+    assert!(store.pending_reviews(Some(&plan_id)).is_empty());
+}
+
+#[test]
+fn review_requirement_enforces_allowed_reviewer_classes() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                title: "Reviewer class gate".to_string(),
+                goal: "Reviewer class gate".to_string(),
+                status: None,
+                policy: None,
+                spec_refs: Vec::new(),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id,
+                title: "Restricted review".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+                spec_refs: Vec::new(),
+                artifact_requirements: vec![ArtifactRequirement {
+                    client_artifact_requirement_id: "impl_patch".to_string(),
+                    kind: ArtifactRequirementKind::CodeChange,
+                    min_count: 1,
+                    evidence_types: vec![ArtifactEvidenceType::GitCommit],
+                    stale_after_graph_change: true,
+                    required_validations: Vec::new(),
+                }],
+                review_requirements: vec![ReviewRequirement {
+                    client_review_requirement_id: "human_review".to_string(),
+                    artifact_requirement_ref: "impl_patch".to_string(),
+                    allowed_reviewer_classes: vec![ReviewerClass::Human],
+                    min_review_count: 1,
+                }],
+            },
+        )
+        .unwrap();
+    let (artifact_id, _) = store
+        .propose_artifact(
+            meta("event:3", 3),
+            ArtifactProposeInput {
+                task_id,
+                artifact_requirement_id: Some("impl_patch".to_string()),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                diff_ref: Some("patch:human-only".to_string()),
+                evidence: Vec::new(),
+                base_revision: revision(),
+                current_revision: revision(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap();
+
+    assert!(store
+        .review_artifact(
+            meta("event:4", 4),
+            ArtifactReviewInput {
+                artifact_id,
+                review_requirement_id: Some("human_review".to_string()),
+                verdict: prism_ir::ReviewVerdict::Approved,
+                summary: "agent review".to_string(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+            },
+            revision(),
+        )
+        .is_err());
+}
+
+#[test]
+fn task_update_rejects_artifact_requirement_changes_that_break_review_requirements() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                title: "Reject invalid requirement update".to_string(),
+                goal: "Reject invalid requirement update".to_string(),
+                status: None,
+                policy: None,
+                spec_refs: Vec::new(),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id,
+                title: "Keep review refs valid".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+                spec_refs: Vec::new(),
+                artifact_requirements: vec![ArtifactRequirement {
+                    client_artifact_requirement_id: "impl_patch".to_string(),
+                    kind: ArtifactRequirementKind::CodeChange,
+                    min_count: 1,
+                    evidence_types: vec![ArtifactEvidenceType::GitCommit],
+                    stale_after_graph_change: true,
+                    required_validations: Vec::new(),
+                }],
+                review_requirements: vec![ReviewRequirement {
+                    client_review_requirement_id: "impl_review".to_string(),
+                    artifact_requirement_ref: "impl_patch".to_string(),
+                    allowed_reviewer_classes: vec![ReviewerClass::Agent],
+                    min_review_count: 1,
+                }],
+            },
+        )
+        .unwrap();
+
+    assert!(store
+        .update_task(
+            meta("event:3", 3),
+            TaskUpdateInput {
+                task_id,
+                kind: None,
+                status: None,
+                published_task_status: None,
+                git_execution: None,
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: None,
+                priority: None,
+                tags: None,
+                completion_context: None,
+                spec_refs: None,
+                artifact_requirements: Some(vec![ArtifactRequirement {
+                    client_artifact_requirement_id: "replacement_patch".to_string(),
+                    kind: ArtifactRequirementKind::CodeChange,
+                    min_count: 1,
+                    evidence_types: vec![ArtifactEvidenceType::GitCommit],
+                    stale_after_graph_change: true,
+                    required_validations: Vec::new(),
+                }]),
+                review_requirements: None,
+            },
+            revision(),
+            3,
+        )
+        .is_err());
 }
 
 #[test]
@@ -1876,6 +2434,7 @@ fn validation_policy_accepts_completion_context_validated_checks_without_approve
                     ..CoordinationPolicy::default()
                 }),
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -1900,6 +2459,8 @@ fn validation_policy_accepts_completion_context_validated_checks_without_approve
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -1938,7 +2499,10 @@ fn validation_policy_accepts_completion_context_validated_checks_without_approve
                         ..TaskCompletionContext::default()
                     }),
                     spec_refs: None,
-                },
+                artifact_requirements: None,
+                review_requirements: None,
+
+            },
                 prism_ir::WorkspaceRevision {
                     graph_version: 1,
                     git_commit: None,
@@ -1966,6 +2530,7 @@ fn risk_threshold_requires_review_before_completion() {
                     ..CoordinationPolicy::default()
                 }),
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -1990,6 +2555,8 @@ fn risk_threshold_requires_review_before_completion() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2026,6 +2593,9 @@ fn risk_threshold_requires_review_before_completion() {
                     ..TaskCompletionContext::default()
                 }),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             prism_ir::WorkspaceRevision {
                 graph_version: 1,
@@ -2048,6 +2618,7 @@ fn invalid_task_transition_is_rejected() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -2072,6 +2643,8 @@ fn invalid_task_transition_is_rejected() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2107,6 +2680,9 @@ fn invalid_task_transition_is_rejected() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             prism_ir::WorkspaceRevision {
                 graph_version: 1,
@@ -2135,6 +2711,7 @@ fn stale_claim_and_artifact_mutations_are_rejected() {
                     ..CoordinationPolicy::default()
                 }),
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -2159,6 +2736,8 @@ fn stale_claim_and_artifact_mutations_are_rejected() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2196,6 +2775,7 @@ fn stale_claim_and_artifact_mutations_are_rejected() {
             meta("event:4", 4),
             ArtifactProposeInput {
                 task_id,
+                artifact_requirement_id: None,
                 anchors: task.anchors,
                 diff_ref: Some("patch:1".to_string()),
                 evidence: Vec::new(),
@@ -2232,6 +2812,7 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -2256,6 +2837,8 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2294,6 +2877,7 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
                 goal: None,
                 policy: None,
                 spec_refs: None,
+
             },
         )
         .unwrap_err();
@@ -2354,6 +2938,9 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             prism_ir::WorkspaceRevision {
                 graph_version: 1,
@@ -2372,6 +2959,7 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
                 goal: None,
                 policy: None,
                 spec_refs: None,
+
             },
         )
         .unwrap();
@@ -2390,6 +2978,7 @@ fn completing_last_task_auto_completes_task_execution_plan() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -2411,6 +3000,8 @@ fn completing_last_task_auto_completes_task_execution_plan() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2443,6 +3034,9 @@ fn completing_last_task_auto_completes_task_execution_plan() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             revision(),
             3,
@@ -2474,6 +3068,7 @@ fn completing_one_of_multiple_tasks_keeps_plan_active() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -2495,6 +3090,8 @@ fn completing_one_of_multiple_tasks_keeps_plan_active() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2516,6 +3113,8 @@ fn completing_one_of_multiple_tasks_keeps_plan_active() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2548,6 +3147,9 @@ fn completing_one_of_multiple_tasks_keeps_plan_active() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             revision(),
             4,
@@ -2576,6 +3178,7 @@ fn releasing_last_active_claim_auto_completes_plan() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -2597,6 +3200,8 @@ fn releasing_last_active_claim_auto_completes_plan() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2605,7 +3210,7 @@ fn releasing_last_active_claim_auto_completes_plan() {
             meta("event:3", 3),
             prism_ir::SessionId::new("session:a"),
             ClaimAcquireInput {
-                task_id: Some(task_id.clone()),
+                task_id: Some(task.id.clone()),
                 anchors: task.anchors.clone(),
                 capability: prism_ir::Capability::Edit,
                 mode: Some(prism_ir::ClaimMode::SoftExclusive),
@@ -2649,6 +3254,9 @@ fn releasing_last_active_claim_auto_completes_plan() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             revision(),
             4,
@@ -2691,6 +3299,7 @@ fn closed_plan_rejects_new_task_and_records_violation() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -2704,6 +3313,7 @@ fn closed_plan_rejects_new_task_and_records_violation() {
                 goal: None,
                 policy: None,
                 spec_refs: None,
+
             },
         )
         .unwrap();
@@ -2729,6 +3339,8 @@ fn closed_plan_rejects_new_task_and_records_violation() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap_err();
@@ -2756,6 +3368,7 @@ fn archived_plan_transition_requires_terminal_status_and_stays_closed() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -2770,6 +3383,7 @@ fn archived_plan_transition_requires_terminal_status_and_stays_closed() {
                 goal: None,
                 policy: None,
                 spec_refs: None,
+
             },
         )
         .unwrap_err();
@@ -2787,6 +3401,7 @@ fn archived_plan_transition_requires_terminal_status_and_stays_closed() {
                 goal: None,
                 policy: None,
                 spec_refs: None,
+
             },
         )
         .unwrap();
@@ -2802,6 +3417,7 @@ fn archived_plan_transition_requires_terminal_status_and_stays_closed() {
                 goal: None,
                 policy: None,
                 spec_refs: None,
+
             },
         )
         .unwrap();
@@ -2825,6 +3441,8 @@ fn archived_plan_transition_requires_terminal_status_and_stays_closed() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap_err();
@@ -2852,6 +3470,7 @@ fn plan_update_events_record_patch_metadata() {
                 status: Some(prism_ir::PlanStatus::Draft),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -2866,6 +3485,7 @@ fn plan_update_events_record_patch_metadata() {
                 goal: Some("Refined goal".to_string()),
                 policy: None,
                 spec_refs: None,
+
             },
         )
         .unwrap();
@@ -2898,6 +3518,7 @@ fn draft_plan_hides_ready_work_until_activation() {
                 status: Some(prism_ir::PlanStatus::Draft),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -2924,6 +3545,8 @@ fn draft_plan_hides_ready_work_until_activation() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2949,6 +3572,7 @@ fn draft_plan_hides_ready_work_until_activation() {
                 goal: None,
                 policy: None,
                 spec_refs: None,
+
             },
         )
         .unwrap();
@@ -2980,6 +3604,7 @@ fn task_update_events_record_sparse_patch_metadata() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -3004,6 +3629,8 @@ fn task_update_events_record_sparse_patch_metadata() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3039,6 +3666,9 @@ fn task_update_events_record_sparse_patch_metadata() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             prism_ir::WorkspaceRevision {
                 graph_version: 1,
@@ -3072,6 +3702,7 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
                 status: Some(prism_ir::PlanStatus::Draft),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -3085,6 +3716,7 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
                 goal: Some("Refined goal".to_string()),
                 policy: None,
                 spec_refs: None,
+
             },
         )
         .unwrap();
@@ -3109,6 +3741,8 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3133,6 +3767,8 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3167,6 +3803,9 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             prism_ir::WorkspaceRevision {
                 graph_version: 1,
@@ -3218,6 +3857,7 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
                 status: Some(prism_ir::PlanStatus::Draft),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -3231,6 +3871,7 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
                 goal: Some("Refined goal".to_string()),
                 policy: None,
                 spec_refs: None,
+
             },
         )
         .unwrap();
@@ -3255,6 +3896,8 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3289,6 +3932,9 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             prism_ir::WorkspaceRevision {
                 graph_version: 1,
@@ -3398,6 +4044,8 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
         priority: Some(4),
         tags: vec!["native".to_string(), "preserve".to_string()],
         spec_refs: Vec::new(),
+        artifact_requirements: Vec::new(),
+        review_requirements: Vec::new(),
         metadata: serde_json::json!({ "source": "native-node" }),
         git_execution: crate::TaskGitExecution::default(),
     })
@@ -3455,6 +4103,7 @@ fn snapshot_load_replays_handoff_events() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -3479,6 +4128,8 @@ fn snapshot_load_replays_handoff_events() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3543,6 +4194,7 @@ fn snapshot_replay_reconstructs_continuity_state_from_events() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -3564,6 +4216,8 @@ fn snapshot_replay_reconstructs_continuity_state_from_events() {
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3600,6 +4254,7 @@ fn snapshot_replay_reconstructs_continuity_state_from_events() {
             meta("event:artifact", 5),
             ArtifactProposeInput {
                 task_id,
+                artifact_requirement_id: None,
                 anchors: task.anchors.clone(),
                 diff_ref: Some("patch:1".into()),
                 evidence: Vec::new(),
@@ -3618,6 +4273,7 @@ fn snapshot_replay_reconstructs_continuity_state_from_events() {
             meta("event:artifact:review", 6),
             ArtifactReviewInput {
                 artifact_id: artifact_id.clone(),
+                review_requirement_id: None,
                 verdict: prism_ir::ReviewVerdict::Approved,
                 summary: "approved".into(),
                 required_validations: Vec::new(),
@@ -3655,6 +4311,7 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -3679,6 +4336,8 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3739,6 +4398,9 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             prism_ir::WorkspaceRevision {
                 graph_version: 1,
@@ -3926,6 +4588,7 @@ fn claim_ownership_is_enforced_and_audited() {
                 status: None,
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -3950,6 +4613,8 @@ fn claim_ownership_is_enforced_and_audited() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -4031,6 +4696,7 @@ fn heartbeat_task_refreshes_active_lease_for_same_principal() {
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -4052,6 +4718,8 @@ fn heartbeat_task_refreshes_active_lease_for_same_principal() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -4084,6 +4752,7 @@ fn heartbeat_task_before_due_is_noop() {
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -4105,6 +4774,8 @@ fn heartbeat_task_before_due_is_noop() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -4136,6 +4807,7 @@ fn stale_task_heartbeat_requires_resume() {
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -4157,6 +4829,8 @@ fn stale_task_heartbeat_requires_resume() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -4196,6 +4870,7 @@ fn claim_acquisition_rejects_executor_mismatch_for_routed_task() {
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -4217,6 +4892,8 @@ fn claim_acquisition_rejects_executor_mismatch_for_routed_task() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -4284,6 +4961,7 @@ fn task_start_rejects_executor_mismatch() {
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
                 spec_refs: Vec::new(),
+
             },
         )
         .unwrap();
@@ -4305,6 +4983,8 @@ fn task_start_rejects_executor_mismatch() {
                 acceptance: Vec::new(),
                 base_revision: revision(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -4359,6 +5039,9 @@ fn task_start_rejects_executor_mismatch() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
+
             },
             revision(),
             3,
