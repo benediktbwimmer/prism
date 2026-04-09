@@ -11,6 +11,7 @@ Scope: sequencing the artifact/review model, the shared execution substrate, val
 PRISM now has several tightly related but still distinct bodies of work:
 
 - implement the coordination artifact/review model
+- refactor the coordination authority abstraction and persistence contract
 - implement one shared execution substrate
 - move warm-state validation onto that substrate
 - add `Action` as a first-class machine-work leaf
@@ -28,6 +29,7 @@ This roadmap exists to sequence those items so that:
 The ordering principle is:
 
 - stabilize the coordination and execution model first
+- remove snapshot-shaped authority coupling before more systems build on it
 - then stabilize graph dataflow and reusable native plan semantics
 - only then build the JS/TS compiler and SDK on top of that settled target
 
@@ -46,22 +48,24 @@ Current phase checklist:
 
 - [x] Phase 0: freeze sequencing and spec boundaries
 - [x] Phase 1: implement the coordination artifact/review model
-- [ ] Phase 2: implement the shared execution substrate core
-- [ ] Phase 3: move warm-state validation onto the shared execution substrate
-- [ ] Phase 4: add `Action` as a first-class graph leaf on the shared execution substrate
-- [ ] Phase 5: implement graph-wide typed inputs, outputs, and bindings
-- [ ] Phase 6: implement reusable native plan definitions and instantiation
-- [ ] Phase 7: implement JS/TS-authored compiled plans and the workflow-authoring SDK
-- [ ] Phase 8: evaluate whether fast runtime-executed machine-only subgraphs are warranted
+- [ ] Phase 2: refactor the coordination authority abstraction and persistence contract
+- [ ] Phase 3: implement the shared execution substrate core
+- [ ] Phase 4: move warm-state validation onto the shared execution substrate
+- [ ] Phase 5: add `Action` as a first-class graph leaf on the shared execution substrate
+- [ ] Phase 6: implement graph-wide typed inputs, outputs, and bindings
+- [ ] Phase 7: implement reusable native plan definitions and instantiation
+- [ ] Phase 8: implement JS/TS-authored compiled plans and the workflow-authoring SDK
+- [ ] Phase 9: evaluate whether fast runtime-executed machine-only subgraphs are warranted
 
 Current active phase:
 
-- Phase 2: implement the shared execution substrate core
+- Phase 2: refactor the coordination authority abstraction and persistence contract
 
 Current implementation note (2026-04-09):
 
 - Phase 1 is landed across `prism-coordination`, `prism-query`, `prism-core`, `prism-mcp`, and `prism-js`
-- the next execution work should start from the Phase 2 shared-substrate spec rather than extending the old placeholder evidence model
+- the next blocking work is replacing the snapshot-shaped authority seam before the shared execution substrate and later graph/runtime work build on the wrong persistence contract
+- the Phase 2 target spec is [../specs/2026-04-09-coordination-authority-abstraction-and-storage-refactor.md](../specs/2026-04-09-coordination-authority-abstraction-and-storage-refactor.md)
 
 ## 3. Ordering thesis
 
@@ -73,12 +77,13 @@ it will churn every time the graph, execution, evidence, or dataflow semantics s
 The right order is:
 
 1. land durable artifact and review semantics first
-2. build the shared execution substrate next
-3. prove that substrate with warm-state validation
-4. widen it to `Action`
-5. add graph-wide dataflow and bindings once the node set is real
-6. add reusable native plan definitions and instantiation against that settled graph model
-7. only then add JS/TS authoring and compilation to PRISM-native IR
+2. replace the snapshot-shaped authority contract with a storage-strategy-neutral authority seam
+3. build the shared execution substrate next
+4. prove that substrate with warm-state validation
+5. widen it to `Action`
+6. add graph-wide dataflow and bindings once the node set is real
+7. add reusable native plan definitions and instantiation against that settled graph model
+8. only then add JS/TS authoring and compilation to PRISM-native IR
 
 Event-trigger work is intentionally out of the critical path for this roadmap.
 
@@ -94,10 +99,11 @@ in parallel once the dependency edge is clear.
 These phase transitions are blocking and should not be inverted:
 
 - Phase 1 before Phase 2
-- Phase 2 before Phases 3 and 4
-- Phases 3 and 4 before Phase 5
-- Phase 5 before Phase 6
+- Phase 2 before Phase 3
+- Phase 3 before Phases 4 and 5
+- Phases 4 and 5 before Phase 6
 - Phase 6 before Phase 7
+- Phase 7 before Phase 8
 
 ### 4.2 Safe parallel lanes
 
@@ -106,23 +112,29 @@ The following work can proceed in parallel without violating the architecture:
 - During Phase 1:
   - artifact/review storage work and artifact/review query-surface work can proceed in parallel once the contract mapping is frozen
 - During Phase 2:
+  - authority trait and type redesign
+  - SQLite event-log plus projection schema design
+  - authority call-site inventory and migration planning
+  - history and export compatibility shaping
+  can proceed in parallel if they converge on one non-snapshot authority contract
+- During Phase 3:
   - execution-record storage
   - runner contract definition
   - runtime routing plumbing
   - capability-class plumbing
   can proceed in parallel if they share one settled substrate spec
-- During late Phase 2 / early Phase 3:
-  - the Phase 3 validation spec and the Phase 4 Actions spec can be prepared in parallel
-- During Phase 5:
+- During late Phase 3 / early Phase 4:
+  - the Phase 4 validation spec and the Phase 5 Actions spec can be prepared in parallel
+- During Phase 6:
   - task/action/review binding semantics
   - typed value/reference representation
   - query/UI read-model shaping for bound inputs and outputs
   can proceed in parallel once the dataflow contract is frozen
-- During Phase 6:
+- During Phase 7:
   - native reusable-plan definition semantics
   - plan-instance lineage and provenance work
   can proceed in parallel once plan-definition versus plan-instance boundaries are fixed
-- During Phase 7:
+- During Phase 8:
   - CLI-first compiler surface
   - workflow-authoring SDK surface
   - compiler provenance and artifact-pin metadata
@@ -145,6 +157,7 @@ Create or update the implementation-target specs that this roadmap will drive.
 This includes:
 
 - one spec for the coordination artifact/review model implementation slice
+- one spec for the coordination authority abstraction and storage-contract refactor
 - one spec for the shared execution substrate core
 - one spec for warm-state validation on the substrate
 - one spec for first-class `Action`
@@ -180,7 +193,34 @@ Status note (2026-04-09):
 - complete
 - declared artifact and review requirements now round-trip through coordination mutations, canonical/shared-query surfaces, MCP payloads, and JS-facing views
 
-### Phase 2: Implement the shared execution substrate core
+### Phase 2: Refactor the coordination authority abstraction and persistence contract
+
+Implement the authority-contract refactor described in:
+
+- [../specs/2026-04-09-coordination-authority-abstraction-and-storage-refactor.md](../specs/2026-04-09-coordination-authority-abstraction-and-storage-refactor.md)
+
+This phase should settle:
+
+- replacement of snapshot-shaped authority reads and writes with a storage-strategy-neutral contract
+- authoritative append semantics for coordination mutations
+- shaped current-state authority reads and retention-aware history reads
+- typed current-state projections as the target storage model for hot reads
+- the migration of core product call sites away from whole-snapshot authority semantics
+
+This phase should explicitly exclude:
+
+- implementing the shared execution substrate itself
+- shipping Postgres as a production backend
+- changing coordination-domain semantics unrelated to the authority contract
+
+Exit criteria:
+
+- no product-facing authority write path requires a caller-built full coordination snapshot
+- no hot current-state product read path depends on loading the full coordination snapshot by default
+- SQLite remains functional behind the new seam
+- Postgres can be implemented later without emulating snapshot-shaped authority semantics
+
+### Phase 3: Implement the shared execution substrate core
 
 Implement the common lower layer described in:
 
@@ -205,7 +245,7 @@ Exit criteria:
 - PRISM has one shared execution core that can host multiple semantic entrypoints
 - validation and Actions can both target it without inventing parallel stacks
 
-### Phase 3: Move warm-state validation onto the shared execution substrate
+### Phase 4: Move warm-state validation onto the shared execution substrate
 
 Implement the validation-specific integration described in:
 
@@ -223,7 +263,7 @@ Exit criteria:
 - warm-state validation no longer uses a bespoke execution stack
 - validation semantics remain special, but execution plumbing is shared
 
-### Phase 4: Add `Action` as a first-class graph leaf
+### Phase 5: Add `Action` as a first-class graph leaf
 
 Implement the graph and lifecycle model described in:
 
@@ -241,7 +281,7 @@ Exit criteria:
 - PRISM has an explicit machine-work leaf type
 - machine execution no longer has to hide behind task overloading or event-only semantics
 
-### Phase 5: Implement graph-wide typed inputs, outputs, and bindings
+### Phase 6: Implement graph-wide typed inputs, outputs, and bindings
 
 Implement the graph dataflow model described in:
 
@@ -259,7 +299,7 @@ Exit criteria:
 - PRISM graph nodes can exchange typed data explicitly
 - downstream execution no longer depends on ad hoc hidden shared-state lookup
 
-### Phase 6: Implement reusable native plan definitions and instantiation
+### Phase 7: Implement reusable native plan definitions and instantiation
 
 Build on Phase 5 to add:
 
@@ -278,7 +318,7 @@ Exit criteria:
 - PRISM-native reusable plans exist before the compiler targets them
 - the plan instance model is stable enough to pin compiled artifacts to it
 
-### Phase 7: Implement JS/TS-authored compiled plans and the workflow-authoring SDK
+### Phase 8: Implement JS/TS-authored compiled plans and the workflow-authoring SDK
 
 Implement the authoring layer described in:
 
@@ -300,7 +340,7 @@ Exit criteria:
 - humans and agents can author plans in JS/TS and compile them into PRISM-native IR
 - service, query, and UI layers remain IR-driven rather than workflow-code-driven
 
-### Phase 8: Evaluate fast runtime-executed machine-only subgraphs
+### Phase 9: Evaluate fast runtime-executed machine-only subgraphs
 
 Only after the previous phases land should PRISM evaluate whether demand justifies:
 
@@ -320,17 +360,18 @@ Exit criteria:
 
 The roadmap should produce useful dogfooding value before the compiler lands.
 
-### Checkpoint A: After Phase 3
+### Checkpoint A: After Phase 4
 
 PRISM should already have:
 
 - the real artifact/review evidence model
+- a non-snapshot authority contract
 - a shared execution substrate
 - warm-state validation on top of it
 
 That is enough to dogfood validation seriously.
 
-### Checkpoint B: After Phase 4
+### Checkpoint B: After Phase 5
 
 PRISM should additionally have:
 
@@ -338,7 +379,7 @@ PRISM should additionally have:
 
 That is enough to dogfood machine-executed graph leaves without waiting for JS/TS authoring.
 
-### Checkpoint C: After Phase 6
+### Checkpoint C: After Phase 7
 
 PRISM should additionally have:
 
@@ -363,16 +404,18 @@ Avoid the following:
 PRISM should execute this program in a foundation-first order:
 
 1. artifact and review model
-2. shared execution substrate
-3. warm-state validation
-4. Actions
-5. graph dataflow and bindings
-6. native reusable plan definitions
-7. JS/TS-authored compiled plans
+2. coordination authority abstraction and storage-contract refactor
+3. shared execution substrate
+4. warm-state validation
+5. Actions
+6. graph dataflow and bindings
+7. native reusable plan definitions
+8. JS/TS-authored compiled plans
 
 That order gives PRISM the strongest result with the least churn:
 
 - durable evidence first
-- one execution model second
+- stable authority and persistence semantics second
+- one execution model third
 - graph semantics before authoring ergonomics
 - compiler last, targeting a stable native IR instead of forcing the IR to chase the compiler
