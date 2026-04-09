@@ -52,6 +52,7 @@ mod shared_runtime_backend;
 mod snapshot_artifact_repair;
 mod snapshot_restoration;
 mod spec_engine;
+mod spec_materialized_store;
 mod tracked_snapshot;
 mod util;
 mod validation_feedback;
@@ -169,6 +170,12 @@ pub use spec_engine::{
     SpecChecklistItem, SpecChecklistRequirementLevel, SpecDeclaredStatus, SpecDependency,
     SpecParseDiagnostic, SpecParseDiagnosticKind, SpecRootResolution, SpecRootSource,
     SpecSourceMetadata,
+};
+pub use spec_materialized_store::{
+    MaterializedSpecRecord, SpecMaterializationMetadata, SpecMaterializedBackendKind,
+    SpecMaterializedCapabilities, SpecMaterializedClearRequest, SpecMaterializedReadEnvelope,
+    SpecMaterializedReplaceRequest, SpecMaterializedStore, SpecMaterializedWriteResult,
+    SqliteSpecMaterializedStore, StoredSpecDependencyRecord,
 };
 pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,

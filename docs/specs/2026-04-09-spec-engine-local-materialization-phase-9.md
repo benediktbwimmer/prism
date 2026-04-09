@@ -1,6 +1,6 @@
 # Spec Engine Local Materialization Phase 9
 
-Status: draft
+Status: in_progress
 Audience: spec-engine, storage, query, MCP, CLI, and docs maintainers
 Scope: complete roadmap Phase 9 by implementing the local persistent materialization layer for parsed spec state, including spec records, checklist items, dependency edges, derived local status state, source metadata, and the persistence scaffolding that later phases will use for coverage and sync provenance
 
@@ -30,12 +30,12 @@ This phase does not yet make the full spec engine user-facing.
 Current state:
 
 - [x] Phase 8 parser and identity layer is complete
-- [ ] no spec materialized-store seam exists in code
-- [ ] parsed specs are not yet persisted locally
-- [ ] checklist items are not yet persisted locally
-- [ ] dependency edges are not yet persisted locally
+- [x] a spec materialized-store seam exists in code
+- [x] parsed specs are persisted locally
+- [x] checklist items are persisted locally
+- [x] dependency edges are persisted locally
 - [ ] derived local spec status is not yet persisted locally
-- [ ] source metadata is not yet persisted locally
+- [x] source metadata is persisted locally
 - [ ] coverage and sync provenance storage scaffolding is not yet present
 
 Current slice notes:
@@ -43,6 +43,10 @@ Current slice notes:
 - Phase 8 established deterministic parsed spec records with structured diagnostics
 - Phase 9 should persist those records without mixing query logic or coordination joins into the
   storage seam
+- Slice 1 introduced a named worktree-local `SpecMaterializedStore` seam and SQLite schema families
+  for persisted spec records, checklist items, dependencies, and store metadata
+- Slice 2 now replaces persisted local spec state from one parsed batch and reloads specs,
+  checklist items, dependencies, and source metadata deterministically
 
 ## 3. Related roadmap
 
@@ -191,6 +195,13 @@ Exit criteria:
 
 - one store seam exists for local spec materialization
 
+Slice 1 landed with:
+
+- one named `SpecMaterializedStore` trait
+- one SQLite-backed `SqliteSpecMaterializedStore`
+- explicit schema families for spec records, checklist items, dependencies, and metadata
+- clear and replace entry points
+
 ### Slice 2: Parsed-batch replacement and source metadata persistence
 
 - persist parsed spec records, checklist items, dependency edges, and source metadata
@@ -200,6 +211,13 @@ Exit criteria:
 Exit criteria:
 
 - parsed Phase 8 output can be materialized and reloaded deterministically
+
+Slice 2 landed with:
+
+- parsed-batch replacement of persisted spec records
+- persisted checklist items and dependency edges
+- persisted source metadata including repo-relative path, digest, and nullable git revision
+- reload helpers for specs, checklist items, dependencies, and store metadata
 
 ### Slice 3: Derived local status persistence
 
@@ -247,11 +265,11 @@ Phase 9 is complete only when:
 
 ## 11. Implementation checklist
 
-- [ ] Add a local spec materialized-store seam
-- [ ] Add persistent spec-record storage
-- [ ] Add persistent checklist-item storage
-- [ ] Add persistent dependency-edge storage
-- [ ] Add persistent source metadata storage
+- [x] Add a local spec materialized-store seam
+- [x] Add persistent spec-record storage
+- [x] Add persistent checklist-item storage
+- [x] Add persistent dependency-edge storage
+- [x] Add persistent source metadata storage
 - [ ] Add derived local status persistence
 - [ ] Add coverage storage scaffolding
 - [ ] Add sync-provenance storage scaffolding
