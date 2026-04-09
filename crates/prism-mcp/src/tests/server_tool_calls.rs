@@ -741,6 +741,7 @@ async fn mcp_server_auto_resumes_stale_same_principal_task_on_update() {
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
+                        spec_refs: Vec::new(),
                     },
                 )?;
                 Ok((plan_id, task.id))
@@ -894,6 +895,7 @@ async fn mcp_server_auto_resumes_stale_same_principal_ready_task_on_update() {
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
+                        spec_refs: Vec::new(),
                     },
                 )?;
                 Ok((plan_id, task.id))
@@ -1011,6 +1013,7 @@ async fn mcp_server_auto_resumes_stale_same_worktree_executor_task_on_update() {
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
+                        spec_refs: Vec::new(),
                     },
                 )?;
                 Ok((plan_id, task.id))
@@ -1163,6 +1166,7 @@ async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_i
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
+                        spec_refs: Vec::new(),
                     },
                 )?;
                 Ok((plan_id, task.id))

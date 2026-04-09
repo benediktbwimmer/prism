@@ -1959,6 +1959,7 @@ mod tests {
             base_revision: prism_ir::WorkspaceRevision::default(),
             priority: None,
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: prism_coordination::TaskGitExecution {
                 status: prism_ir::GitExecutionStatus::CoordinationPublished,

@@ -19,11 +19,12 @@ use prism_coordination::{
     GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
 };
 use prism_core::{
-    CoordinationAuthorityMutationError, default_workspace_shared_runtime, hydrate_workspace_session,
+    default_workspace_shared_runtime, hydrate_workspace_session,
     hydrate_workspace_session_with_options, index_workspace_session,
-    index_workspace_session_with_curator, index_workspace_session_with_options, PrismPaths,
-    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
-    ValidationFeedbackVerdict, WorkspaceSessionOptions,
+    index_workspace_session_with_curator, index_workspace_session_with_options,
+    CoordinationAuthorityMutationError, PrismPaths, SharedRuntimeBackend,
+    ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
+    WorkspaceSessionOptions,
 };
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CandidateEdge, CandidateMemory,
@@ -714,6 +715,7 @@ fn git_execution_start_auto_resumes_stale_same_principal_task() {
                         coordination_depends_on: Vec::new(),
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
+                        spec_refs: Vec::new(),
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
@@ -862,6 +864,7 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
                         coordination_depends_on: Vec::new(),
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
+                        spec_refs: Vec::new(),
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
@@ -2611,7 +2614,10 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
         .unwrap();
     assert!(rejected.rejected);
     assert!(!rejected.event_ids.is_empty());
-    assert_eq!(rejected.state["outcome"], Value::String("Rejected".to_string()));
+    assert_eq!(
+        rejected.state["outcome"],
+        Value::String("Rejected".to_string())
+    );
     assert_eq!(
         rejected.state["rejection"]["stage"],
         Value::String("domain".to_string())
@@ -2671,8 +2677,14 @@ fn mcp_returns_structured_protocol_rejections_before_any_coordination_event() {
     assert!(rejected.rejected);
     assert!(rejected.event_ids.is_empty());
     assert_eq!(rejected.violations.len(), 1);
-    assert_eq!(rejected.violations[0].code, "unsupported_optimistic_preconditions");
-    assert_eq!(rejected.state["outcome"], Value::String("Rejected".to_string()));
+    assert_eq!(
+        rejected.violations[0].code,
+        "unsupported_optimistic_preconditions"
+    );
+    assert_eq!(
+        rejected.state["outcome"],
+        Value::String("Rejected".to_string())
+    );
     assert_eq!(
         rejected.state["rejection"]["stage"],
         Value::String("input_shape".to_string())
@@ -2702,7 +2714,10 @@ fn mcp_returns_structured_authority_indeterminate_before_any_coordination_event(
     assert!(!result.rejected);
     assert!(result.event_ids.is_empty());
     assert_eq!(result.violations.len(), 0);
-    assert_eq!(result.state["outcome"], Value::String("Indeterminate".to_string()));
+    assert_eq!(
+        result.state["outcome"],
+        Value::String("Indeterminate".to_string())
+    );
     assert_eq!(
         result.state["indeterminate"]["reasonCode"],
         Value::String("shared_ref_transport_uncertain".to_string())
@@ -2725,7 +2740,10 @@ fn mcp_returns_structured_authority_conflicts_before_any_coordination_event() {
     assert!(result.event_ids.is_empty());
     assert_eq!(result.violations.len(), 1);
     assert_eq!(result.violations[0].code, "authority_transaction_conflict");
-    assert_eq!(result.state["outcome"], Value::String("Rejected".to_string()));
+    assert_eq!(
+        result.state["outcome"],
+        Value::String("Rejected".to_string())
+    );
     assert_eq!(
         result.state["rejection"]["stage"],
         Value::String("commit".to_string())
@@ -2807,18 +2825,19 @@ fn plan_create_surfaces_transaction_metadata_in_state() {
         )
         .expect("plan creation should succeed");
 
-    assert_eq!(created.state["outcome"], Value::String("Committed".to_string()));
+    assert_eq!(
+        created.state["outcome"],
+        Value::String("Committed".to_string())
+    );
     assert!(
         created.state["commit"]["eventCount"]
             .as_u64()
             .unwrap_or_default()
             >= 1
     );
-    assert!(
-        created.state["commit"]["lastEventId"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty())
-    );
+    assert!(created.state["commit"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
     assert_eq!(
         created.state["authorityVersion"]["eventCount"]
             .as_u64()
@@ -2882,7 +2901,10 @@ fn workflow_update_surfaces_transaction_metadata_in_state() {
         )
         .expect("workflow update should succeed");
 
-    assert_eq!(updated.state["outcome"], Value::String("Committed".to_string()));
+    assert_eq!(
+        updated.state["outcome"],
+        Value::String("Committed".to_string())
+    );
     assert!(
         updated.state["commit"]["eventCount"]
             .as_u64()
@@ -2897,11 +2919,9 @@ fn workflow_update_surfaces_transaction_metadata_in_state() {
                 .as_u64()
                 .unwrap_or_default()
     );
-    assert!(
-        updated.state["authorityVersion"]["lastEventId"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty())
-    );
+    assert!(updated.state["authorityVersion"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
 }
 
 #[test]
@@ -2953,7 +2973,10 @@ fn handoff_surfaces_transaction_metadata_in_state() {
         )
         .expect("handoff should succeed");
 
-    assert_eq!(handoff.state["outcome"], Value::String("Committed".to_string()));
+    assert_eq!(
+        handoff.state["outcome"],
+        Value::String("Committed".to_string())
+    );
     assert!(
         handoff.state["commit"]["eventCount"]
             .as_u64()
@@ -2968,11 +2991,9 @@ fn handoff_surfaces_transaction_metadata_in_state() {
                 .as_u64()
                 .unwrap_or_default()
     );
-    assert!(
-        handoff.state["authorityVersion"]["lastEventId"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty())
-    );
+    assert!(handoff.state["authorityVersion"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
 }
 
 #[test]
@@ -3011,18 +3032,19 @@ fn task_create_surfaces_transaction_metadata_in_state() {
         )
         .expect("task creation should succeed");
 
-    assert_eq!(created.state["outcome"], Value::String("Committed".to_string()));
+    assert_eq!(
+        created.state["outcome"],
+        Value::String("Committed".to_string())
+    );
     assert!(
         created.state["commit"]["eventCount"]
             .as_u64()
             .unwrap_or_default()
             >= 1
     );
-    assert!(
-        created.state["commit"]["lastEventId"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty())
-    );
+    assert!(created.state["commit"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
     assert!(
         created.state["authorityVersion"]["eventCount"]
             .as_u64()
@@ -3074,11 +3096,9 @@ fn plan_bootstrap_surfaces_transaction_metadata_in_state() {
             .unwrap_or_default()
             >= 1
     );
-    assert!(
-        bootstrapped.state["commit"]["lastEventId"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty())
-    );
+    assert!(bootstrapped.state["commit"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
     assert!(
         bootstrapped.state["authorityVersion"]["eventCount"]
             .as_u64()
@@ -12852,6 +12872,7 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
                     stale_after_graph_change: true,
                     ..CoordinationPolicy::default()
                 }),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -12879,6 +12900,7 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -12957,6 +12979,7 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
                     lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
                     ..CoordinationPolicy::default()
                 }),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -12981,6 +13004,7 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -13073,6 +13097,7 @@ fn compact_task_brief_suppresses_heartbeat_instruction_when_local_assistance_is_
                     lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
                     ..CoordinationPolicy::default()
                 }),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -13097,6 +13122,7 @@ fn compact_task_brief_suppresses_heartbeat_instruction_when_local_assistance_is_
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -13168,6 +13194,7 @@ fn compact_task_brief_exposes_authoritative_task_lease_without_claim_holders() {
                 goal: "Show task lease holder".into(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: Some(CoordinationPolicy::default()),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -13192,6 +13219,7 @@ fn compact_task_brief_exposes_authoritative_task_lease_without_claim_holders() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24161,6 +24189,7 @@ fn plan_queries_surface_activity_without_task_journal_replay() {
                 coordination_depends_on: Vec::new(),
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
+                spec_refs: Vec::new(),
                 base_revision: prism.workspace_revision(),
             },
         )
@@ -24495,6 +24524,7 @@ fn session_resource_surfaces_stale_current_task_context() {
                     stale_after_graph_change: true,
                     ..CoordinationPolicy::default()
                 }),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24522,6 +24552,7 @@ fn session_resource_surfaces_stale_current_task_context() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24630,6 +24661,7 @@ fn session_resource_derives_coordination_binding_from_coord_task_id_for_stale_re
                     stale_after_graph_change: true,
                     ..CoordinationPolicy::default()
                 }),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24656,6 +24688,7 @@ fn session_resource_derives_coordination_binding_from_coord_task_id_for_stale_re
                 coordination_depends_on: Vec::new(),
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
+                spec_refs: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
             },
         )
@@ -24737,6 +24770,7 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
                     lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
                     ..CoordinationPolicy::default()
                 }),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24761,6 +24795,7 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24823,6 +24858,7 @@ fn session_resource_surfaces_publish_failed_repair_action() {
                 goal: "Retry shared publish".into(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24857,6 +24893,7 @@ fn session_resource_surfaces_publish_failed_repair_action() {
         base_revision: prism_ir::WorkspaceRevision::default(),
         priority: None,
         tags: Vec::new(),
+        spec_refs: Vec::new(),
         metadata: serde_json::Value::Null,
         git_execution: prism_coordination::TaskGitExecution {
             status: prism_ir::GitExecutionStatus::PublishFailed,

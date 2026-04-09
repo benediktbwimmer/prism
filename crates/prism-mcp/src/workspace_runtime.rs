@@ -2511,6 +2511,7 @@ mod tests {
                 scheduling: PlanScheduling::default(),
                 tags: Vec::new(),
                 created_from: None,
+                spec_refs: Vec::new(),
                 metadata: Value::Null,
             }],
             tasks: vec![CoordinationTask {
@@ -2542,6 +2543,7 @@ mod tests {
                 base_revision: WorkspaceRevision::default(),
                 priority: None,
                 tags: Vec::new(),
+                spec_refs: Vec::new(),
                 metadata: Value::Null,
                 git_execution: TaskGitExecution::default(),
             }],

@@ -1341,7 +1341,6 @@ impl QueryHost {
     }
 }
 
-
 fn strip_internal_developer_api_reference(markdown: &str) -> String {
     const METHOD_LINES: &[&str] = &[
         "  runtimeStatus(): RuntimeStatusView;",

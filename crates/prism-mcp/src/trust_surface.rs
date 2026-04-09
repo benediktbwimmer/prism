@@ -549,8 +549,8 @@ mod tests {
         coordination_query_protocol_result, mutation_auth_failed_error,
         mutation_auth_missing_error, mutation_bridge_execution_mismatch_error,
         mutation_bridge_execution_requires_agent_worktree_error, mutation_capability_denied_error,
-        peer_runtime_auth_failed_response, peer_runtime_capability_denied_response,
         mutation_worktree_mode_mismatch_error, mutation_worktree_unregistered_error,
+        peer_runtime_auth_failed_response, peer_runtime_capability_denied_response,
         protected_state_stream_view, runtime_shared_coordination_ref_view,
     };
 

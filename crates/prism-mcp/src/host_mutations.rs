@@ -471,6 +471,7 @@ fn maybe_advance_auto_pr_integration_from_review(
             priority: None,
             tags: None,
             completion_context: None,
+            spec_refs: None,
         },
         prism.workspace_revision(),
         current_timestamp(),
@@ -788,6 +789,7 @@ fn maybe_observe_target_integration(
             priority: None,
             tags: None,
             completion_context: None,
+            spec_refs: None,
         },
         prism.workspace_revision(),
         current_timestamp(),
@@ -862,6 +864,7 @@ fn maybe_link_review_artifact_to_task_git_execution(
             priority: None,
             tags: None,
             completion_context: None,
+            spec_refs: None,
         },
         prism.workspace_revision(),
         current_timestamp(),
@@ -1269,6 +1272,7 @@ fn coordination_transaction_task_update(
         } else {
             completion_context
         },
+        spec_refs: None,
     })
 }
 
@@ -4335,6 +4339,7 @@ impl QueryHost {
                         priority: None,
                         tags: None,
                         completion_context: None,
+                        spec_refs: None,
                     },
                     prism.workspace_revision(),
                     current_timestamp(),
@@ -4455,6 +4460,7 @@ impl QueryHost {
                         priority: None,
                         tags: None,
                         completion_context: None,
+                        spec_refs: None,
                     },
                     prism.workspace_revision(),
                     current_timestamp(),
@@ -4510,6 +4516,7 @@ impl QueryHost {
                         priority: None,
                         tags: None,
                         completion_context: None,
+                        spec_refs: None,
                     },
                     prism.workspace_revision(),
                     current_timestamp(),
@@ -4565,6 +4572,7 @@ impl QueryHost {
                         priority: None,
                         tags: None,
                         completion_context: None,
+                        spec_refs: None,
                     },
                     prism.workspace_revision(),
                     current_timestamp(),
@@ -4630,6 +4638,7 @@ impl QueryHost {
                         priority: None,
                         tags: None,
                         completion_context: Some(TaskCompletionContext::default()),
+                        spec_refs: None,
                     },
                     prism.workspace_revision(),
                     current_timestamp(),
@@ -5035,6 +5044,7 @@ impl QueryHost {
                                     status: payload.status.map(convert_plan_status),
                                     policy: convert_policy(payload.policy)?,
                                     scheduling: convert_plan_scheduling(payload.scheduling),
+                                    spec_refs: Vec::new(),
                                 })
                             }
                             CoordinationTransactionMutationPayload::PlanUpdate(payload) => {
@@ -5047,6 +5057,7 @@ impl QueryHost {
                                     scheduling: coordination_plan_scheduling_patch(
                                         payload.scheduling,
                                     ),
+                                    spec_refs: None,
                                 })
                             }
                             CoordinationTransactionMutationPayload::PlanArchive(payload) => {
@@ -5065,6 +5076,7 @@ impl QueryHost {
                                         .map(AgentId::new)
                                         .or_else(|| execution.assignee.clone())
                                         .or_else(|| session.current_agent()),
+                                    spec_refs: Vec::new(),
                                     session: Some(session.session_id()),
                                     worktree_id: execution.worktree_id.clone(),
                                     branch_ref: execution.branch_ref.clone(),
@@ -5290,6 +5302,7 @@ impl QueryHost {
                             workspace_root,
                             payload.anchors.unwrap_or_default(),
                         )?,
+                        spec_refs: Vec::new(),
                         depends_on: payload
                             .depends_on
                             .unwrap_or_default()

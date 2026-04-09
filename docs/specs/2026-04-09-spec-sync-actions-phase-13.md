@@ -42,6 +42,9 @@ Current slice notes:
 - the first cut should prefer small, composable actions over one giant “compile spec” mutation
 - Slice 1 is complete on this branch: `SpecQueryEngine` now exposes `sync_brief(spec_id)` with
   spec metadata, required checklist items, coverage posture, and linked coordination refs
+- Slice 2 is complete on this branch: `prism-query` now exposes explicit spec-aware plan/task
+  creation helpers that route through the canonical coordination transaction protocol and attach
+  typed spec refs automatically
 
 ## 3. Related roadmap
 
@@ -157,6 +160,10 @@ Exit criteria:
 - callers can create authoritative coordination with spec linkage without manually hand-building
   every link field
 
+Status:
+
+- [x] complete
+
 ### Slice 3: Validate sync-action behavior end to end
 
 - verify the actions preserve typed spec links
@@ -194,8 +201,8 @@ This phase is complete only when:
 ## 11. Implementation checklist
 
 - [x] Add a deterministic sync-brief query surface
-- [ ] Add explicit plan/task sync actions
-- [ ] Preserve exact checklist-item and revision provenance
+- [x] Add explicit plan/task sync actions
+- [x] Preserve exact checklist-item and revision provenance
 - [ ] Validate end-to-end coverage/provenance refresh after sync
 - [ ] Validate affected crates and direct downstream dependents
 - [ ] Update roadmap/spec status as slices land

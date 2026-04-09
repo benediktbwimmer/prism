@@ -25,9 +25,9 @@ use anyhow::{anyhow, Result};
 use prism_coordination::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     CoordinationConflict, CoordinationRuntimeState, CoordinationSnapshot, CoordinationSnapshotV2,
-    CoordinationTask, HandoffAcceptInput, HandoffInput, LeaseHeartbeatDueState, LeaseState,
-    PlanScheduling, RuntimeDescriptor, TaskCreateInput, TaskReclaimInput, TaskResumeInput,
-    TaskUpdateInput, WorkClaim,
+    CoordinationSpecRef, CoordinationTask, CoordinationTaskSpecRef, HandoffAcceptInput,
+    HandoffInput, LeaseHeartbeatDueState, LeaseState, PlanScheduling, RuntimeDescriptor,
+    TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
@@ -150,6 +150,22 @@ pub struct NativePlanMutationResult {
 pub struct NativeTaskMutationResult {
     pub task_id: CoordinationTaskId,
     pub transaction: CoordinationTransactionResult,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeSpecPlanCreateInput {
+    pub title: String,
+    pub goal: String,
+    pub status: Option<PlanStatus>,
+    pub policy: Option<prism_coordination::CoordinationPolicy>,
+    pub scheduling: Option<PlanScheduling>,
+    pub spec_ref: CoordinationSpecRef,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeSpecTaskCreateInput {
+    pub task: TaskCreateInput,
+    pub spec_ref: CoordinationTaskSpecRef,
 }
 
 #[derive(Debug, Clone)]
@@ -1180,6 +1196,43 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
         scheduling: Option<prism_coordination::PlanScheduling>,
     ) -> Result<NativePlanMutationResult> {
+        self.create_native_plan_with_spec_refs_transaction(
+            meta,
+            title,
+            goal,
+            status,
+            policy,
+            scheduling,
+            Vec::new(),
+        )
+    }
+
+    pub fn create_native_plan_from_spec_transaction(
+        &self,
+        meta: EventMeta,
+        input: NativeSpecPlanCreateInput,
+    ) -> Result<NativePlanMutationResult> {
+        self.create_native_plan_with_spec_refs_transaction(
+            meta,
+            input.title,
+            input.goal,
+            input.status,
+            input.policy,
+            input.scheduling,
+            vec![input.spec_ref],
+        )
+    }
+
+    fn create_native_plan_with_spec_refs_transaction(
+        &self,
+        meta: EventMeta,
+        title: String,
+        goal: String,
+        status: Option<prism_ir::PlanStatus>,
+        policy: Option<prism_coordination::CoordinationPolicy>,
+        scheduling: Option<prism_coordination::PlanScheduling>,
+        spec_refs: Vec<CoordinationSpecRef>,
+    ) -> Result<NativePlanMutationResult> {
         let transaction = self.execute_coordination_transaction(
             meta,
             CoordinationTransactionInput {
@@ -1190,7 +1243,7 @@ impl Prism {
                     status,
                     policy,
                     scheduling,
-                    spec_refs: Vec::new(),
+                    spec_refs,
                 }],
                 ..CoordinationTransactionInput::default()
             },
@@ -1411,6 +1464,24 @@ impl Prism {
     }
 
     pub fn create_native_task_transaction(
+        &self,
+        meta: EventMeta,
+        input: TaskCreateInput,
+    ) -> Result<NativeTaskMutationResult> {
+        self.create_native_task_with_spec_refs_transaction(meta, input)
+    }
+
+    pub fn create_native_task_from_spec_transaction(
+        &self,
+        meta: EventMeta,
+        input: NativeSpecTaskCreateInput,
+    ) -> Result<NativeTaskMutationResult> {
+        let mut task = input.task;
+        task.spec_refs.push(input.spec_ref);
+        self.create_native_task_with_spec_refs_transaction(meta, task)
+    }
+
+    fn create_native_task_with_spec_refs_transaction(
         &self,
         meta: EventMeta,
         mut input: TaskCreateInput,

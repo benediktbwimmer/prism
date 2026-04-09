@@ -1,9 +1,9 @@
 use prism_coordination::{
     Artifact, ArtifactProposeInput, CoordinationPolicy, CoordinationSnapshot,
-    CoordinationSnapshotV2, CoordinationStore, CoordinationTask, HandoffInput, LeaseHolder,
-    LeaseState, Plan, PlanCreateInput, PlanScheduling, RuntimeDescriptor, RuntimeDiscoveryMode,
-    TaskCompletionContext, TaskCreateInput, TaskExecutorCaller, TaskGitExecution, TaskUpdateInput,
-    WorkClaim,
+    CoordinationSnapshotV2, CoordinationSpecRef, CoordinationStore, CoordinationTask,
+    CoordinationTaskSpecRef, HandoffInput, LeaseHolder, LeaseState, Plan, PlanCreateInput,
+    PlanScheduling, RuntimeDescriptor, RuntimeDiscoveryMode, TaskCompletionContext,
+    TaskCreateInput, TaskExecutorCaller, TaskGitExecution, TaskUpdateInput, WorkClaim,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
@@ -27,7 +27,8 @@ use serde_json::json;
 use super::{
     CoordinationTransactionError, CoordinationTransactionInput, CoordinationTransactionMutation,
     CoordinationTransactionPlanRef, CoordinationTransactionRejectionCategory,
-    CoordinationTransactionValidationStage, Prism,
+    CoordinationTransactionValidationStage, NativeSpecPlanCreateInput, NativeSpecTaskCreateInput,
+    Prism,
 };
 
 #[test]
@@ -2782,6 +2783,106 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
         instance_id: Some("instance:test".into()),
     }));
     assert!(prism.ready_tasks(&plan_id, 10).is_empty());
+}
+
+#[test]
+fn spec_sync_create_helpers_attach_typed_spec_refs() {
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        CoordinationSnapshot::default(),
+        ProjectionIndex::default(),
+    );
+
+    let plan = prism
+        .create_native_plan_from_spec_transaction(
+            EventMeta {
+                id: EventId::new("coord:plan:spec-sync"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            NativeSpecPlanCreateInput {
+                title: "Ship alpha".into(),
+                goal: "Ship alpha".into(),
+                status: Some(PlanStatus::Active),
+                policy: None,
+                scheduling: None,
+                spec_ref: CoordinationSpecRef {
+                    spec_id: "spec:alpha".into(),
+                    source_path: ".prism/specs/2026-04-09-alpha.md".into(),
+                    source_revision: Some("rev-plan".into()),
+                },
+            },
+        )
+        .expect("spec-linked plan create should succeed");
+
+    let task = prism
+        .create_native_task_from_spec_transaction(
+            EventMeta {
+                id: EventId::new("coord:task:spec-sync"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            NativeSpecTaskCreateInput {
+                task: TaskCreateInput {
+                    plan_id: plan.plan_id.clone(),
+                    title: "Implement alpha".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision::default(),
+                    spec_refs: Vec::new(),
+                },
+                spec_ref: CoordinationTaskSpecRef {
+                    spec_id: "spec:alpha".into(),
+                    source_path: ".prism/specs/2026-04-09-alpha.md".into(),
+                    source_revision: Some("rev-task".into()),
+                    sync_kind: "task".into(),
+                    covered_checklist_items: vec!["spec:alpha::checklist::item-1".into()],
+                    covered_sections: Vec::new(),
+                },
+            },
+        )
+        .expect("spec-linked task create should succeed");
+
+    let snapshot = prism.coordination_snapshot();
+    let plan_record = snapshot
+        .plans
+        .iter()
+        .find(|candidate| candidate.id == plan.plan_id)
+        .expect("created plan should exist");
+    assert_eq!(plan_record.spec_refs.len(), 1);
+    assert_eq!(plan_record.spec_refs[0].spec_id, "spec:alpha");
+    assert_eq!(
+        plan_record.spec_refs[0].source_revision.as_deref(),
+        Some("rev-plan")
+    );
+
+    let task_record = snapshot
+        .tasks
+        .iter()
+        .find(|candidate| candidate.id == task.task_id)
+        .expect("created task should exist");
+    assert_eq!(task_record.spec_refs.len(), 1);
+    assert_eq!(task_record.spec_refs[0].spec_id, "spec:alpha");
+    assert_eq!(
+        task_record.spec_refs[0].covered_checklist_items,
+        vec!["spec:alpha::checklist::item-1"]
+    );
 }
 
 #[test]
