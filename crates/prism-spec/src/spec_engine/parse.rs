@@ -5,20 +5,21 @@ use std::process::Command;
 use serde_yaml::{Mapping, Value};
 
 use super::types::{
-    DiscoveredSpecSource, ParsedSpecDocument, SpecChecklistIdentitySource, SpecChecklistItem,
-    SpecChecklistRequirementLevel, SpecDeclaredStatus, SpecDependency, SpecParseDiagnostic,
-    SpecParseDiagnosticKind, SpecSourceMetadata, ParsedSpecSet,
+    DiscoveredSpecSource, ParsedSpecDocument, ParsedSpecSet, SpecChecklistIdentitySource,
+    SpecChecklistItem, SpecChecklistRequirementLevel, SpecDeclaredStatus, SpecDependency,
+    SpecParseDiagnostic, SpecParseDiagnosticKind, SpecSourceMetadata,
 };
 
 pub fn parse_spec_source(
     source: &DiscoveredSpecSource,
 ) -> Result<ParsedSpecDocument, SpecParseDiagnostic> {
-    let contents = fs::read_to_string(&source.absolute_path).map_err(|error| SpecParseDiagnostic {
-        source_path: source.repo_relative_path.clone(),
-        kind: SpecParseDiagnosticKind::MissingFrontmatter,
-        field: None,
-        message: format!("failed to read spec source: {error}"),
-    })?;
+    let contents =
+        fs::read_to_string(&source.absolute_path).map_err(|error| SpecParseDiagnostic {
+            source_path: source.repo_relative_path.clone(),
+            kind: SpecParseDiagnosticKind::MissingFrontmatter,
+            field: None,
+            message: format!("failed to read spec source: {error}"),
+        })?;
     let (frontmatter_text, body) = split_frontmatter(&contents).map_err(|kind| {
         let message = match kind {
             SpecParseDiagnosticKind::MissingFrontmatter => {
@@ -29,12 +30,7 @@ pub fn parse_spec_source(
             }
             _ => "unexpected frontmatter parse error".to_owned(),
         };
-        build_diagnostic(
-            source,
-            kind,
-            None,
-            message,
-        )
+        build_diagnostic(source, kind, None, message)
     })?;
 
     let frontmatter_value: Value = serde_yaml::from_str(frontmatter_text).map_err(|error| {
@@ -122,7 +118,10 @@ pub fn parse_spec_sources(sources: &[DiscoveredSpecSource]) -> ParsedSpecSet {
         }
     }
 
-    ParsedSpecSet { parsed, diagnostics }
+    ParsedSpecSet {
+        parsed,
+        diagnostics,
+    }
 }
 
 fn split_frontmatter(source: &str) -> Result<(&str, &str), SpecParseDiagnosticKind> {
@@ -298,7 +297,10 @@ fn extract_checklist_items(body: &str, spec_id: &str) -> Vec<SpecChecklistItem> 
     for (line_index, line) in body.lines().enumerate() {
         let trimmed = line.trim_start();
         if let Some((level, title, default_requirement_level)) = parse_heading(trimmed) {
-            while sections.last().is_some_and(|section| section.level >= level) {
+            while sections
+                .last()
+                .is_some_and(|section| section.level >= level)
+            {
                 sections.pop();
             }
             sections.push(SectionContext {
@@ -333,15 +335,15 @@ fn extract_checklist_items(body: &str, spec_id: &str) -> Vec<SpecChecklistItem> 
             explicit_id
         {
             (
-                format!("{spec_id}::checklist::{}", normalize_identity_fragment(&explicit_id)),
+                format!(
+                    "{spec_id}::checklist::{}",
+                    normalize_identity_fragment(&explicit_id)
+                ),
                 SpecChecklistIdentitySource::Explicit,
                 Some(explicit_id),
             )
         } else {
-            let mut fragments = vec![
-                normalize_identity_fragment(spec_id),
-                "checklist".to_owned(),
-            ];
+            let mut fragments = vec![normalize_identity_fragment(spec_id), "checklist".to_owned()];
             fragments.extend(
                 section_path
                     .iter()
@@ -384,10 +386,7 @@ fn parse_heading(line: &str) -> Option<(usize, String, SpecChecklistRequirementL
         return None;
     }
     let informational_suffix = "(informational)";
-    if title
-        .to_ascii_lowercase()
-        .ends_with(informational_suffix)
-    {
+    if title.to_ascii_lowercase().ends_with(informational_suffix) {
         let suffix_start = title.len() - informational_suffix.len();
         return Some((
             hashes,
@@ -403,9 +402,11 @@ fn parse_heading(line: &str) -> Option<(usize, String, SpecChecklistRequirementL
 }
 
 fn parse_checklist_line(line: &str) -> Option<(bool, &str)> {
-    let marker = ["- [ ] ", "- [x] ", "- [X] ", "* [ ] ", "* [x] ", "* [X] ", "+ [ ] ", "+ [x] ", "+ [X] "]
-        .into_iter()
-        .find(|candidate| line.starts_with(candidate))?;
+    let marker = [
+        "- [ ] ", "- [x] ", "- [X] ", "* [ ] ", "* [x] ", "* [X] ", "+ [ ] ", "+ [x] ", "+ [X] ",
+    ]
+    .into_iter()
+    .find(|candidate| line.starts_with(candidate))?;
     let checked = matches!(marker.as_bytes()[3], b'x' | b'X');
     Some((checked, &line[marker.len()..]))
 }
@@ -527,10 +528,7 @@ mod tests {
 
         let discovered = discover_spec_sources(&root).unwrap();
         let diagnostic = parse_spec_source(&discovered[0]).unwrap_err();
-        assert_eq!(
-            diagnostic.kind,
-            SpecParseDiagnosticKind::MissingFrontmatter
-        );
+        assert_eq!(diagnostic.kind, SpecParseDiagnosticKind::MissingFrontmatter);
         assert_eq!(
             diagnostic.source_path,
             PathBuf::from(".prism/specs/2026-04-09-sample.md")

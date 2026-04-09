@@ -17,9 +17,7 @@ struct RepoSpecEngineConfig {
 }
 
 pub fn resolve_spec_root(root: &Path) -> Result<SpecRootResolution> {
-    let repo_root = root
-        .canonicalize()
-        .unwrap_or_else(|_| root.to_path_buf());
+    let repo_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let config_path = repo_root.join(SPEC_ENGINE_CONFIG_PATH);
     if !config_path.exists() {
         let configured_root = PathBuf::from(DEFAULT_SPEC_ROOT);
@@ -35,8 +33,8 @@ pub fn resolve_spec_root(root: &Path) -> Result<SpecRootResolution> {
         .with_context(|| format!("failed to read {}", config_path.display()))?;
     let config: RepoSpecEngineConfig = serde_json::from_slice(&config_bytes)
         .with_context(|| format!("failed to parse {}", config_path.display()))?;
-    let configured_root =
-        normalize_repo_relative_directory(Path::new(config.root.trim())).with_context(|| {
+    let configured_root = normalize_repo_relative_directory(Path::new(config.root.trim()))
+        .with_context(|| {
             format!(
                 "invalid spec root in {}",
                 Path::new(SPEC_ENGINE_CONFIG_PATH).display()
@@ -52,9 +50,7 @@ pub fn resolve_spec_root(root: &Path) -> Result<SpecRootResolution> {
 }
 
 pub fn discover_spec_sources(root: &Path) -> Result<Vec<DiscoveredSpecSource>> {
-    let repo_root = root
-        .canonicalize()
-        .unwrap_or_else(|_| root.to_path_buf());
+    let repo_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let resolution = resolve_spec_root(root)?;
     if !resolution.absolute_root.exists() {
         return Ok(Vec::new());
@@ -80,7 +76,12 @@ pub fn discover_spec_sources(root: &Path) -> Result<Vec<DiscoveredSpecSource>> {
         if !entry.file_type().is_file() {
             continue;
         }
-        if entry.path().extension().and_then(|extension| extension.to_str()) != Some("md") {
+        if entry
+            .path()
+            .extension()
+            .and_then(|extension| extension.to_str())
+            != Some("md")
+        {
             continue;
         }
         let absolute_path = entry.into_path();
@@ -125,7 +126,9 @@ fn normalize_repo_relative_directory(path: &Path) -> Result<PathBuf> {
     }
 
     if normalized.as_os_str().is_empty() {
-        return Err(anyhow!("spec root override must name a directory inside the repo"));
+        return Err(anyhow!(
+            "spec root override must name a directory inside the repo"
+        ));
     }
 
     Ok(normalized)
@@ -171,7 +174,10 @@ mod tests {
         assert_eq!(resolution.source, SpecRootSource::Default);
         assert_eq!(resolution.config_path, None);
         assert_eq!(resolution.configured_root, PathBuf::from(".prism/specs"));
-        assert_eq!(resolution.absolute_root, canonical_root.join(".prism/specs"));
+        assert_eq!(
+            resolution.absolute_root,
+            canonical_root.join(".prism/specs")
+        );
     }
 
     #[test]

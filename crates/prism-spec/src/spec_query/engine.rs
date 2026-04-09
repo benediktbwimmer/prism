@@ -70,7 +70,9 @@ where
         let Some(record) = specs.into_iter().find(|record| record.spec_id == spec_id) else {
             return Ok(SpecQueryLookup::NotFound);
         };
-        let status = statuses.into_iter().find(|status| status.spec_id == spec_id);
+        let status = statuses
+            .into_iter()
+            .find(|status| status.spec_id == spec_id);
         Ok(SpecQueryLookup::Found(SpecDocumentView { record, status }))
     }
 
@@ -218,7 +220,9 @@ mod tests {
         fs::write(path, contents).unwrap();
     }
 
-    fn materialized_query_engine(root: &PathBuf) -> MaterializedSpecQueryEngine<'static, SqliteSpecMaterializedStore> {
+    fn materialized_query_engine(
+        root: &PathBuf,
+    ) -> MaterializedSpecQueryEngine<'static, SqliteSpecMaterializedStore> {
         let discovered = discover_spec_sources(root).unwrap();
         let parsed = parse_spec_sources(&discovered);
         assert!(parsed.diagnostics.is_empty());
@@ -226,7 +230,10 @@ mod tests {
             &root.join(".tmp/spec-materialized.db"),
         )));
         store
-            .replace_materialization(SpecMaterializedReplaceRequest { parsed: parsed.parsed })
+            .replace_materialization(SpecMaterializedReplaceRequest {
+                parsed: parsed.parsed,
+                coordination: None,
+            })
             .unwrap();
         MaterializedSpecQueryEngine::new(store)
     }
@@ -302,7 +309,10 @@ mod tests {
         );
         let engine = materialized_query_engine(&root);
 
-        assert!(matches!(engine.spec("spec:missing").unwrap(), SpecQueryLookup::NotFound));
+        assert!(matches!(
+            engine.spec("spec:missing").unwrap(),
+            SpecQueryLookup::NotFound
+        ));
         assert!(matches!(
             engine.checklist_items("spec:missing").unwrap(),
             SpecQueryLookup::NotFound

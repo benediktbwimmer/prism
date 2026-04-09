@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
+use prism_coordination::CoordinationSnapshot;
 use rusqlite::{params, Connection};
 
 use super::traits::SpecMaterializedStore;
@@ -117,7 +118,10 @@ impl SqliteSpecMaterializedStore {
         Ok(())
     }
 
-    fn load_metadata_from_connection(&self, conn: &Connection) -> Result<SpecMaterializationMetadata> {
+    fn load_metadata_from_connection(
+        &self,
+        conn: &Connection,
+    ) -> Result<SpecMaterializationMetadata> {
         let coverage_record_count = conn.query_row(
             "SELECT COUNT(*) FROM spec_materialized_coverage",
             [],
@@ -180,13 +184,14 @@ impl SqliteSpecMaterializedStore {
         )?;
         let rows = stmt.query_map([], |row| {
             let section_path_json: String = row.get(6)?;
-            let section_path: Vec<String> = serde_json::from_str(&section_path_json).map_err(|error| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    section_path_json.len(),
-                    rusqlite::types::Type::Text,
-                    Box::new(error),
-                )
-            })?;
+            let section_path: Vec<String> =
+                serde_json::from_str(&section_path_json).map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        section_path_json.len(),
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })?;
             let requirement_level = match row.get::<_, String>(5)?.as_str() {
                 "informational" => SpecChecklistRequirementLevel::Informational,
                 _ => SpecChecklistRequirementLevel::Required,
@@ -212,7 +217,10 @@ impl SqliteSpecMaterializedStore {
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
-    fn load_dependencies_from_connection(&self, conn: &Connection) -> Result<Vec<StoredSpecDependencyRecord>> {
+    fn load_dependencies_from_connection(
+        &self,
+        conn: &Connection,
+    ) -> Result<Vec<StoredSpecDependencyRecord>> {
         let mut stmt = conn.prepare(
             "SELECT spec_id, position, dependency_spec_id
              FROM spec_materialized_dependencies
@@ -228,7 +236,10 @@ impl SqliteSpecMaterializedStore {
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
-    fn load_statuses_from_connection(&self, conn: &Connection) -> Result<Vec<StoredSpecStatusRecord>> {
+    fn load_statuses_from_connection(
+        &self,
+        conn: &Connection,
+    ) -> Result<Vec<StoredSpecStatusRecord>> {
         let mut stmt = conn.prepare(
             "SELECT spec_id, declared_status, checklist_posture, dependency_posture, overall_status
              FROM spec_materialized_status
@@ -488,6 +499,27 @@ impl SpecMaterializedStore for SqliteSpecMaterializedStore {
             )?;
         }
 
+        let derived_sync_provenance =
+            derive_sync_provenance_records(&request.parsed, request.coordination.as_ref());
+        for record in derived_sync_provenance {
+            tx.execute(
+                "INSERT INTO spec_materialized_sync_provenance (
+                    spec_id,
+                    target_coordination_ref,
+                    sync_kind,
+                    source_revision,
+                    covered_checklist_items_json
+                ) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    record.spec_id,
+                    record.target_coordination_ref,
+                    record.sync_kind,
+                    record.source_revision,
+                    serde_json::to_string(&record.covered_checklist_items)?,
+                ],
+            )?;
+        }
+
         tx.execute(
             "UPDATE spec_materialized_metadata
              SET materialized_at = ?1,
@@ -550,6 +582,73 @@ fn current_timestamp_millis() -> u64 {
         .duration_since(UNIX_EPOCH)
         .expect("system clock should be after unix epoch")
         .as_millis() as u64
+}
+
+fn derive_sync_provenance_records(
+    parsed: &[ParsedSpecDocument],
+    coordination: Option<&CoordinationSnapshot>,
+) -> Vec<StoredSpecSyncProvenanceRecord> {
+    let Some(coordination) = coordination else {
+        return Vec::new();
+    };
+
+    let known_spec_ids = parsed
+        .iter()
+        .map(|spec| spec.spec_id.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut seen = std::collections::BTreeSet::new();
+    let mut records = Vec::new();
+
+    for plan in &coordination.plans {
+        for spec_ref in &plan.spec_refs {
+            if !known_spec_ids.contains(spec_ref.spec_id.as_str()) {
+                continue;
+            }
+            let key = (
+                spec_ref.spec_id.clone(),
+                plan.id.0.clone(),
+                "plan".to_string(),
+                spec_ref.source_revision.clone(),
+                Vec::<String>::new(),
+            );
+            if seen.insert(key.clone()) {
+                records.push(StoredSpecSyncProvenanceRecord {
+                    spec_id: key.0,
+                    target_coordination_ref: key.1.to_string(),
+                    sync_kind: key.2,
+                    source_revision: key.3,
+                    covered_checklist_items: key.4,
+                });
+            }
+        }
+    }
+
+    for task in &coordination.tasks {
+        for spec_ref in &task.spec_refs {
+            if !known_spec_ids.contains(spec_ref.spec_id.as_str()) {
+                continue;
+            }
+            let covered_checklist_items = spec_ref.covered_checklist_items.clone();
+            let key = (
+                spec_ref.spec_id.clone(),
+                task.id.0.clone(),
+                spec_ref.sync_kind.clone(),
+                spec_ref.source_revision.clone(),
+                covered_checklist_items,
+            );
+            if seen.insert(key.clone()) {
+                records.push(StoredSpecSyncProvenanceRecord {
+                    spec_id: key.0,
+                    target_coordination_ref: key.1.to_string(),
+                    sync_kind: key.2,
+                    source_revision: key.3,
+                    covered_checklist_items: key.4,
+                });
+            }
+        }
+    }
+
+    records
 }
 
 fn derive_status_records(parsed: &[ParsedSpecDocument]) -> Vec<StoredSpecStatusRecord> {
@@ -654,11 +753,20 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use prism_coordination::{
+        CoordinationPolicy, CoordinationSnapshot, CoordinationSpecRef, CoordinationTask,
+        CoordinationTaskSpecRef, Plan, PlanScheduling, TaskGitExecution,
+    };
+    use prism_ir::{
+        CoordinationTaskId, CoordinationTaskStatus, PlanId, PlanKind, PlanNodeKind, PlanScope,
+        PlanStatus, WorkspaceRevision,
+    };
+
     use super::SqliteSpecMaterializedStore;
     use crate::{
         discover_spec_sources, parse_spec_sources, SpecMaterializedClearRequest,
-        SpecMaterializedReplaceRequest, SpecMaterializedStore,
-        StoredSpecChecklistPosture, StoredSpecDependencyPosture,
+        SpecMaterializedReplaceRequest, SpecMaterializedStore, StoredSpecChecklistPosture,
+        StoredSpecDependencyPosture,
     };
 
     static NEXT_TEMP_REPO: AtomicU64 = AtomicU64::new(0);
@@ -705,6 +813,7 @@ mod tests {
         let write_result = store
             .replace_materialization(SpecMaterializedReplaceRequest {
                 parsed: parsed.parsed.clone(),
+                coordination: None,
             })
             .unwrap();
         assert_eq!(write_result.metadata.spec_count, 2);
@@ -720,7 +829,10 @@ mod tests {
         let checklist_items = store.read_checklist_items().unwrap();
         assert_eq!(checklist_items.value.len(), 2);
         assert_eq!(checklist_items.value[0].spec_id, "spec:a");
-        assert_eq!(checklist_items.value[0].item.item_id, "spec:a::checklist::first");
+        assert_eq!(
+            checklist_items.value[0].item.item_id,
+            "spec:a::checklist::first"
+        );
 
         let dependencies = store.read_dependencies().unwrap();
         assert_eq!(dependencies.value.len(), 1);
@@ -754,6 +866,7 @@ mod tests {
         store
             .replace_materialization(SpecMaterializedReplaceRequest {
                 parsed: parsed.parsed,
+                coordination: None,
             })
             .unwrap();
 
@@ -767,5 +880,114 @@ mod tests {
         assert_eq!(store.read_status_records().unwrap().value.len(), 0);
         assert_eq!(store.read_coverage_records().unwrap().value.len(), 0);
         assert_eq!(store.read_sync_provenance_records().unwrap().value.len(), 0);
+    }
+
+    #[test]
+    fn sqlite_spec_materialized_store_derives_sync_provenance_from_coordination_links() {
+        let root = temp_repo("sync-provenance");
+        write_spec(
+            &root,
+            ".prism/specs/2026-04-09-a.md",
+            "---\nid: spec:a\ntitle: Alpha\nstatus: in_progress\ncreated: 2026-04-09\n---\n\n- [ ] implement <!-- id: item-1 -->\n",
+        );
+
+        let discovered = discover_spec_sources(&root).unwrap();
+        let parsed = parse_spec_sources(&discovered);
+        assert!(parsed.diagnostics.is_empty());
+
+        let store = SqliteSpecMaterializedStore::new(&root.join(".tmp/spec-materialized.db"));
+        store
+            .replace_materialization(SpecMaterializedReplaceRequest {
+                parsed: parsed.parsed,
+                coordination: Some(CoordinationSnapshot {
+                    plans: vec![Plan {
+                        id: PlanId::new("plan:alpha"),
+                        goal: "Ship alpha".into(),
+                        title: "Ship alpha".into(),
+                        status: PlanStatus::Active,
+                        policy: CoordinationPolicy::default(),
+                        scope: PlanScope::Repo,
+                        kind: PlanKind::TaskExecution,
+                        revision: 1,
+                        scheduling: PlanScheduling::default(),
+                        tags: Vec::new(),
+                        spec_refs: vec![CoordinationSpecRef {
+                            spec_id: "spec:a".into(),
+                            source_path: ".prism/specs/2026-04-09-a.md".into(),
+                            source_revision: Some("abc123".into()),
+                        }],
+                        created_from: None,
+                        metadata: serde_json::Value::Null,
+                    }],
+                    tasks: vec![CoordinationTask {
+                        id: CoordinationTaskId::new("coord-task:alpha"),
+                        plan: PlanId::new("plan:alpha"),
+                        kind: PlanNodeKind::Edit,
+                        title: "Implement alpha".into(),
+                        summary: None,
+                        status: CoordinationTaskStatus::Ready,
+                        published_task_status: None,
+                        assignee: None,
+                        pending_handoff_to: None,
+                        session: None,
+                        lease_holder: None,
+                        lease_started_at: None,
+                        lease_refreshed_at: None,
+                        lease_stale_at: None,
+                        lease_expires_at: None,
+                        worktree_id: None,
+                        branch_ref: None,
+                        anchors: Vec::new(),
+                        bindings: Default::default(),
+                        depends_on: Vec::new(),
+                        coordination_depends_on: Vec::new(),
+                        integrated_depends_on: Vec::new(),
+                        acceptance: Vec::new(),
+                        validation_refs: Vec::new(),
+                        is_abstract: false,
+                        base_revision: WorkspaceRevision::default(),
+                        priority: None,
+                        tags: Vec::new(),
+                        spec_refs: vec![CoordinationTaskSpecRef {
+                            spec_id: "spec:a".into(),
+                            source_path: ".prism/specs/2026-04-09-a.md".into(),
+                            source_revision: Some("def456".into()),
+                            sync_kind: "task".into(),
+                            covered_checklist_items: vec!["spec:a::checklist::item-1".into()],
+                            covered_sections: Vec::new(),
+                        }],
+                        metadata: serde_json::Value::Null,
+                        git_execution: TaskGitExecution::default(),
+                    }],
+                    claims: Vec::new(),
+                    artifacts: Vec::new(),
+                    reviews: Vec::new(),
+                    events: Vec::new(),
+                    next_plan: 2,
+                    next_task: 2,
+                    next_claim: 1,
+                    next_artifact: 1,
+                    next_review: 1,
+                }),
+            })
+            .unwrap();
+
+        let sync_provenance = store.read_sync_provenance_records().unwrap();
+        assert_eq!(sync_provenance.value.len(), 2);
+        assert_eq!(sync_provenance.value[0].spec_id, "spec:a");
+        assert_eq!(
+            sync_provenance.value[0].target_coordination_ref,
+            "coord-task:alpha"
+        );
+        assert_eq!(sync_provenance.value[0].sync_kind, "task");
+        assert_eq!(
+            sync_provenance.value[0].covered_checklist_items,
+            vec!["spec:a::checklist::item-1"]
+        );
+        assert_eq!(
+            sync_provenance.value[1].target_coordination_ref,
+            "plan:alpha"
+        );
+        assert_eq!(sync_provenance.value[1].sync_kind, "plan");
     }
 }

@@ -55,7 +55,7 @@ Current phase checklist:
 - [x] Phase 8: implement spec engine source, parser, and identity model
 - [x] Phase 9: implement spec local materialization
 - [x] Phase 10: implement SpecQueryEngine fully
-- [ ] Phase 11: implement explicit spec-coordination linking and sync provenance
+- [x] Phase 11: implement explicit spec-coordination linking and sync provenance
 - [ ] Phase 12: implement SpecCoverageView fully
 - [ ] Phase 13: implement explicit spec-to-coordination sync actions
 - [ ] Phase 14: expose the spec engine fully through CLI, MCP, and UI
@@ -63,7 +63,7 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 11: implement explicit spec-coordination linking and sync provenance
+- Phase 12: implement SpecCoverageView fully
 
 Current phase spec:
 
@@ -89,6 +89,8 @@ Current phase spec:
   [../specs/2026-04-09-spec-query-engine-phase-10.md](../specs/2026-04-09-spec-query-engine-phase-10.md)
 - Phase 11 active:
   [../specs/2026-04-09-spec-coordination-linking-and-sync-provenance-phase-11.md](../specs/2026-04-09-spec-coordination-linking-and-sync-provenance-phase-11.md)
+- Phase 12 active:
+  [../specs/2026-04-09-spec-coverage-phase-12.md](../specs/2026-04-09-spec-coverage-phase-12.md)
 
 ## 3. Ordering thesis
 

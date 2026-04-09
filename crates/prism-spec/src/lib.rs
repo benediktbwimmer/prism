@@ -1,6 +1,7 @@
 mod spec_engine;
 mod spec_materialized_store;
 mod spec_query;
+mod spec_refresh;
 
 pub use spec_engine::{
     discover_spec_sources, parse_spec_source, parse_spec_sources, resolve_spec_root,
@@ -22,3 +23,4 @@ pub use spec_query::{
     SpecDocumentView, SpecListEntry, SpecMetadataView, SpecQueryEngine, SpecQueryLookup,
     SpecSyncProvenanceView,
 };
+pub use spec_refresh::{refresh_spec_materialization, SpecMaterializationRefreshResult};

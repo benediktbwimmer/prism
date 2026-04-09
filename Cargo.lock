@@ -2317,6 +2317,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blake3",
+ "prism-coordination",
+ "prism-ir",
  "rusqlite",
  "serde",
  "serde_json",

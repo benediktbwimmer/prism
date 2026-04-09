@@ -1,6 +1,6 @@
 # Spec Coordination Linking And Sync Provenance Phase 11
 
-Status: in progress
+Status: completed
 Audience: coordination, spec-engine, query, MCP, CLI, and storage maintainers
 Scope: complete roadmap Phase 11 by adding explicit typed spec-link fields to authoritative coordination objects and deriving local spec sync-provenance records from those links plus local spec state
 
@@ -30,9 +30,9 @@ Current state:
 - [x] plans and tasks now carry explicit typed spec links
 - [x] coordination replay and mutation surfaces preserve typed plan/task spec links
 - [x] high-level transaction mutation families now accept authored spec links
-- [ ] local sync-provenance storage exists but is not populated from coordination
-- [ ] no authoritative-to-local derivation path exists for spec sync provenance
-- [ ] coordination-plus-spec join queries still lack real linkage data
+- [x] local sync-provenance storage is populated from authoritative coordination links
+- [x] a canonical repo-to-materialization refresh path now derives sync provenance from coordination
+- [x] spec queries now expose real linked-coordination provenance data
 
 Current slice notes:
 
@@ -45,7 +45,9 @@ Current slice notes:
   inputs now all understand typed plan/task spec links
 - Slice 2 is also complete on this branch: the canonical transaction mutation family and query-layer
   convenience adapters now carry authored spec links instead of defaulting them away
-- the next remaining work is Slice 3 sync-provenance derivation in `prism-spec`
+- Slice 3 is complete on this branch: `prism-spec` now derives sync provenance during canonical
+  materialization refresh instead of only in direct store tests
+- full coverage rollup still belongs to Phase 12 and remains intentionally separate
 
 ## 3. Related roadmap
 
@@ -208,6 +210,10 @@ Exit criteria:
 - local spec queries can explain which authoritative objects came from which spec revision and
   checklist identities
 
+Status:
+
+- [x] complete
+
 ## 9. Validation
 
 Minimum validation for this phase:
@@ -238,9 +244,9 @@ This phase is complete only when:
 
 ## 11. Implementation checklist
 
-- [ ] Add typed coordination-domain spec link fields
-- [ ] Thread spec links through transaction and convenience mutation inputs
-- [ ] Preserve backward-compatible serialization defaults
-- [ ] Derive local sync-provenance records from authoritative links
-- [ ] Validate affected crates and direct downstream dependents
-- [ ] Update roadmap/spec status as slices land
+- [x] Add typed coordination-domain spec link fields
+- [x] Thread spec links through transaction and convenience mutation inputs
+- [x] Preserve backward-compatible serialization defaults
+- [x] Derive local sync-provenance records from authoritative links
+- [x] Validate affected crates and direct downstream dependents
+- [x] Update roadmap/spec status as slices land
