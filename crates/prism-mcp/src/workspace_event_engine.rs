@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use prism_coordination::EventExecutionRecord;
 use prism_core::{
     CoordinationAuthorityStoreProvider, EventExecutionRecordAuthorityQuery,
     EventExecutionTransitionRequest, EventExecutionTransitionResult,
@@ -36,13 +35,21 @@ impl WorkspaceEventEngine {
     pub(crate) fn read_event_execution_records(
         &self,
         request: EventExecutionRecordAuthorityQuery,
-    ) -> Result<Vec<EventExecutionRecord>> {
+    ) -> Result<Vec<prism_coordination::EventExecutionRecord>> {
         Ok(self
             .authority_store_provider
             .open(&self.workspace_root)?
             .read_event_execution_records(request)?
             .value
             .unwrap_or_default())
+    }
+
+    pub(crate) fn workspace_root(&self) -> &std::path::Path {
+        &self.workspace_root
+    }
+
+    pub(crate) fn read_broker(&self) -> &WorkspaceReadBroker {
+        self._read_broker.as_ref()
     }
 
     pub(crate) fn apply_event_execution_transition(
@@ -57,18 +64,25 @@ impl WorkspaceEventEngine {
 
 #[cfg(test)]
 mod tests {
-    use prism_coordination::{EventExecutionOwner, EventExecutionRecord};
+    use prism_coordination::{CoordinationSnapshot, EventExecutionOwner, EventExecutionRecord, Plan};
     use prism_core::{
         EventExecutionOwnerExpectation, EventExecutionTransitionKind,
         EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
         EventExecutionTransitionStatus,
     };
     use prism_ir::{
-        EventExecutionId, EventExecutionStatus, EventTriggerKind, PlanId, PrincipalActor,
+        EventExecutionId, EventExecutionStatus, EventTriggerKind, PlanId, PlanStatus,
+        PrincipalActor,
         PrincipalAuthorityId, PrincipalId, PrincipalKind, SessionId,
     };
+    use serde_json::json;
 
-    use crate::tests_support::{host_with_session, temp_workspace};
+    use crate::workspace_event_engine_claim_loop::{
+        EventTriggerClaimLoopRequest, EventTriggerClaimOutcome, EventTriggerClaimSkipReason,
+    };
+    use crate::tests_support::{
+        host_with_session, index_workspace_session_with_shared_runtime, temp_workspace,
+    };
 
     fn event_execution_record(id: &str, claimed_at: u64) -> EventExecutionRecord {
         EventExecutionRecord {
@@ -152,5 +166,129 @@ mod tests {
         assert_eq!(stored.len(), 1);
         assert_eq!(stored[0].status, EventExecutionStatus::Running);
         assert_eq!(stored[0].started_at, Some(110));
+    }
+
+    fn recurring_plan(id: &str, due_at: u64, revision: u64) -> Plan {
+        Plan {
+            id: PlanId::new(id),
+            goal: "Recurring plan".to_string(),
+            title: "Recurring plan".to_string(),
+            status: PlanStatus::Active,
+            policy: prism_coordination::CoordinationPolicy::default(),
+            scope: prism_ir::PlanScope::Repo,
+            kind: prism_ir::PlanKind::TaskExecution,
+            revision,
+            scheduling: prism_coordination::PlanScheduling {
+                importance: 0,
+                urgency: 0,
+                manual_boost: 0,
+                due_at: Some(due_at),
+            },
+            tags: Vec::new(),
+            created_from: None,
+            spec_refs: Vec::new(),
+            metadata: json!({
+                "eventTrigger": {
+                    "kind": "recurring_plan_tick",
+                    "recurrencePolicy": "daily",
+                    "hookId": "hooks/recurring-plan",
+                    "hookVersionDigest": "sha256:recurring",
+                    "claimTtlSeconds": 45
+                }
+            }),
+        }
+    }
+
+    #[test]
+    fn workspace_event_engine_claims_due_recurring_plan_ticks_from_service_backed_state() {
+        let root = temp_workspace();
+        let session = index_workspace_session_with_shared_runtime(&root);
+        session
+            .mutate_coordination(|prism| {
+                let mut snapshot = CoordinationSnapshot::default();
+                snapshot.plans.push(recurring_plan("plan:recurring", 100, 7));
+                prism.replace_coordination_snapshot(snapshot);
+                Ok(())
+            })
+            .expect("coordination snapshot should persist");
+        session
+            .flush_materializations()
+            .expect("coordination materialization should flush");
+        let host = host_with_session(session);
+        let event_engine = host
+            .workspace_event_engine()
+            .cloned()
+            .expect("workspace event engine");
+
+        let result = event_engine
+            .claim_due_triggers(EventTriggerClaimLoopRequest {
+                now: 100,
+                limit: None,
+            })
+            .expect("claim loop should succeed");
+
+        assert_eq!(result.outcomes.len(), 1);
+        let EventTriggerClaimOutcome::Claimed { candidate, record } = &result.outcomes[0] else {
+            panic!("expected claimed outcome");
+        };
+        assert_eq!(candidate.plan_id, "plan:recurring");
+        assert_eq!(record.status, EventExecutionStatus::Claimed);
+        assert_eq!(record.authoritative_revision, Some(7));
+        assert_eq!(record.trigger_kind, EventTriggerKind::RecurringPlanTick);
+        assert_eq!(record.trigger_target.as_ref().map(|target| target.id.as_str()), Some("plan:recurring"));
+        assert_eq!(record.expires_at, Some(145));
+        assert_eq!(record.metadata["eventTrigger"]["recurrencePolicy"], "daily");
+    }
+
+    #[test]
+    fn workspace_event_engine_skips_due_recurring_plan_ticks_with_existing_execution() {
+        let root = temp_workspace();
+        let session = index_workspace_session_with_shared_runtime(&root);
+        session
+            .mutate_coordination(|prism| {
+                let mut snapshot = CoordinationSnapshot::default();
+                snapshot.plans.push(recurring_plan("plan:recurring", 100, 7));
+                prism.replace_coordination_snapshot(snapshot);
+                Ok(())
+            })
+            .expect("coordination snapshot should persist");
+        session
+            .flush_materializations()
+            .expect("coordination materialization should flush");
+        let host = host_with_session(session);
+        let event_engine = host
+            .workspace_event_engine()
+            .cloned()
+            .expect("workspace event engine");
+
+        let first = event_engine
+            .claim_due_triggers(EventTriggerClaimLoopRequest {
+                now: 100,
+                limit: None,
+            })
+            .expect("first claim loop should succeed");
+        assert!(matches!(
+            first.outcomes.first(),
+            Some(EventTriggerClaimOutcome::Claimed { .. })
+        ));
+
+        let second = event_engine
+            .claim_due_triggers(EventTriggerClaimLoopRequest {
+                now: 100,
+                limit: None,
+            })
+            .expect("second claim loop should succeed");
+
+        assert_eq!(second.outcomes.len(), 1);
+        let EventTriggerClaimOutcome::Skipped { candidate, reason } = &second.outcomes[0] else {
+            panic!("expected skipped outcome");
+        };
+        assert_eq!(candidate.plan_id, "plan:recurring");
+        assert_eq!(
+            reason,
+            &EventTriggerClaimSkipReason::ExistingExecution {
+                status: EventExecutionStatus::Claimed,
+            }
+        );
     }
 }

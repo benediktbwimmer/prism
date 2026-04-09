@@ -1,6 +1,6 @@
 # Event Trigger Claim Loop Phase 15
 
-Status: draft
+Status: completed
 Audience: service, coordination, event-engine, scheduling, MCP, and future automation maintainers
 Scope: add the first explicit service-owned event trigger scan and authoritative claim loop on top of the settled event-record transition model
 
@@ -17,7 +17,7 @@ path."
 This slice should:
 
 - define one explicit event-engine claim-loop owner path inside the service
-- read trigger candidates through the settled read and query seams
+- read trigger candidates through the settled service-backed read seam
 - deduplicate claim attempts against existing authoritative event-execution records
 - claim new execution attempts through authoritative event-record transitions
 
@@ -133,8 +133,8 @@ This spec is complete when:
 
 ## 9. Implementation checklist
 
-- [ ] Define event-engine claim-loop input and result types
-- [ ] Query due trigger candidates and active executions through settled seams
-- [ ] Apply authoritative claim transitions through the event-engine owner
-- [ ] Validate affected crates and direct downstream dependents
-- [ ] Update roadmap and spec status as slices land
+- [x] Define event-engine claim-loop input and result types
+- [x] Query due trigger candidates and active executions through settled seams
+- [x] Apply authoritative claim transitions through the event-engine owner
+- [x] Validate affected crates and direct downstream dependents
+- [x] Update roadmap and spec status as slices land
