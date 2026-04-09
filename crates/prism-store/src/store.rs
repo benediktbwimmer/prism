@@ -94,6 +94,16 @@ pub struct CoordinationPersistResult {
     pub applied: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoordinationMutationLogEntry {
+    pub sequence: u64,
+    pub revision: u64,
+    pub expected_revision: Option<u64>,
+    pub inserted_events: usize,
+    pub applied: bool,
+    pub context: CoordinationPersistContext,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct CoordinationEventStream {
     pub fallback_snapshot: Option<CoordinationSnapshot>,
@@ -292,6 +302,10 @@ pub trait Store {
     fn load_latest_coordination_persist_context(
         &mut self,
     ) -> Result<Option<CoordinationPersistContext>>;
+    fn load_coordination_mutation_log(
+        &mut self,
+        limit: Option<usize>,
+    ) -> Result<Vec<CoordinationMutationLogEntry>>;
     fn commit_coordination_persist_batch(
         &mut self,
         batch: &CoordinationPersistBatch,
@@ -553,6 +567,13 @@ impl<T: Store + ?Sized> Store for MutexGuard<'_, T> {
         &mut self,
     ) -> Result<Option<CoordinationPersistContext>> {
         Store::load_latest_coordination_persist_context(&mut **self)
+    }
+
+    fn load_coordination_mutation_log(
+        &mut self,
+        limit: Option<usize>,
+    ) -> Result<Vec<CoordinationMutationLogEntry>> {
+        Store::load_coordination_mutation_log(&mut **self, limit)
     }
 
     fn commit_coordination_persist_batch(

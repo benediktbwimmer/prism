@@ -166,6 +166,13 @@ impl SqliteStore {
         outcome_patch_projection::load_patch_file_summaries(&self.conn, query)
     }
 
+    pub fn load_coordination_mutation_log(
+        &self,
+        limit: Option<usize>,
+    ) -> Result<Vec<crate::CoordinationMutationLogEntry>> {
+        coordination_mutations::load_mutation_log(&self.conn, limit)
+    }
+
     pub fn inspect_patch_path_identity(
         &mut self,
         root: &Path,
@@ -1056,6 +1063,13 @@ impl Store for SqliteStore {
         &mut self,
     ) -> Result<Option<crate::store::CoordinationPersistContext>> {
         coordination_mutations::load_latest_context(&self.conn)
+    }
+
+    fn load_coordination_mutation_log(
+        &mut self,
+        limit: Option<usize>,
+    ) -> Result<Vec<crate::store::CoordinationMutationLogEntry>> {
+        coordination_mutations::load_mutation_log(&self.conn, limit)
     }
 
     fn commit_coordination_persist_batch(

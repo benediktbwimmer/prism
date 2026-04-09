@@ -92,7 +92,7 @@ pub use coordination_authority_store::{
     CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
     CoordinationTransactionResult, CoordinationTransactionStatus,
     GitSharedRefsCoordinationAuthorityStore, RuntimeDescriptorClearRequest,
-    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery, SqliteCoordinationAuthorityStore,
 };
 pub use coordination_materialized_store::{
     CoordinationCompactionWriteRequest, CoordinationMaterializationMetadata,

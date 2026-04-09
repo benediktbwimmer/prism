@@ -39,7 +39,9 @@ Current state:
 - [x] spec-engine surfaces are complete enough that service work does not need to absorb that gap
 - [ ] DB-backed authority family is not yet the live release-oriented path
 - [x] product-facing authority-store construction no longer hardcodes Git store instantiation
-- [ ] the current host process still does not expose one explicit service shell and role owners
+- [x] the current host process now exposes an explicit workspace service shell plus initial
+  authority-sync, read-broker, and mutation-broker owners
+- [x] SQLite authority now exists behind the settled authority-store contract
 - [ ] runtime gateway and event engine remain future service work
 
 Current slice notes:
@@ -48,6 +50,10 @@ Current slice notes:
 - it does not try to finish runtime gateway, event engine, browser login, or hosted admin flows
 - the current `prism-mcp` daemon may remain the concrete host process in this slice if that is the
   cleanest path; the important change is explicit service role ownership, not crate theater
+- local SQLite authority now uses a repo-scoped authority DB path that is distinct from the
+  service-owned coordination materialization DB path
+- release-oriented backend selection is still incomplete; Git remains the default until Slice 5
+  lands
 
 ## 3. Related roadmap
 
@@ -247,9 +253,9 @@ This opening Phase 15 spec is complete only when:
 ## 11. Implementation checklist
 
 - [x] Introduce the DB-backed authority family seam
-- [ ] Implement SQLite authority through that seam
-- [ ] Introduce the service shell
-- [ ] Extract explicit authority-sync, read-broker, and mutation-broker owners
+- [x] Implement SQLite authority through that seam
+- [x] Introduce the service shell
+- [x] Extract explicit authority-sync, read-broker, and mutation-broker owners
 - [ ] Add release-oriented deployment configuration
 - [x] Validate affected crates and direct downstream dependents
 - [x] Update roadmap/spec status as slices land

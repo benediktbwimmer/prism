@@ -1,0 +1,716 @@
+use std::path::{Path, PathBuf};
+
+use anyhow::Result;
+use prism_coordination::{
+    coordination_snapshot_from_events, CoordinationSnapshot, CoordinationSnapshotV2,
+    RuntimeDescriptor,
+};
+use prism_store::{
+    CoordinationCheckpointStore, CoordinationJournal, CoordinationMutationLogEntry,
+    CoordinationPersistBatch, CoordinationStartupCheckpoint,
+    CoordinationStartupCheckpointAuthority, SqliteStore,
+};
+
+use super::traits::CoordinationAuthorityStore;
+use super::types::{
+    CoordinationAuthorityBackendDetails, CoordinationAuthorityBackendKind,
+    CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
+    CoordinationAuthorityProvenance, CoordinationAuthorityStamp, CoordinationConflictInfo,
+    CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
+    CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
+    CoordinationTransactionBase, CoordinationTransactionRequest, CoordinationTransactionResult,
+    CoordinationTransactionStatus, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
+    RuntimeDescriptorQuery,
+};
+use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
+use crate::coordination_snapshot_sanitization::sanitize_persisted_coordination_snapshot;
+use crate::util::current_timestamp;
+use crate::workspace_identity::{
+    coordination_persist_context_for_root, workspace_identity_for_root,
+};
+
+#[derive(Debug, Clone)]
+pub struct SqliteCoordinationAuthorityStore {
+    root: PathBuf,
+    db_path: PathBuf,
+}
+
+impl SqliteCoordinationAuthorityStore {
+    pub fn new(root: impl AsRef<Path>, db_path: impl AsRef<Path>) -> Self {
+        Self {
+            root: root.as_ref().to_path_buf(),
+            db_path: db_path.as_ref().to_path_buf(),
+        }
+    }
+
+    fn open_store(&self) -> Result<SqliteStore> {
+        SqliteStore::open(&self.db_path)
+    }
+
+    fn load_checkpoint(
+        &self,
+        store: &mut SqliteStore,
+    ) -> Result<Option<CoordinationStartupCheckpoint>> {
+        store.load_coordination_startup_checkpoint()
+    }
+
+    fn checkpoint_state(
+        &self,
+        checkpoint: CoordinationStartupCheckpoint,
+    ) -> CoordinationCurrentState {
+        let snapshot = checkpoint.snapshot;
+        let canonical_snapshot_v2 = checkpoint
+            .canonical_snapshot_v2
+            .unwrap_or_else(|| snapshot.to_canonical_snapshot_v2());
+        CoordinationCurrentState {
+            snapshot,
+            canonical_snapshot_v2,
+            runtime_descriptors: checkpoint.runtime_descriptors,
+        }
+    }
+
+    fn load_current_state_from_store(
+        &self,
+        store: &mut SqliteStore,
+    ) -> Result<Option<CoordinationCurrentState>> {
+        let revision = store.coordination_revision()?;
+        let checkpoint = self.load_checkpoint(store)?;
+        let stream = store.load_coordination_event_stream()?;
+        if let Some(snapshot) =
+            coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot)
+        {
+            let runtime_descriptors = checkpoint
+                .as_ref()
+                .map(|value| value.runtime_descriptors.clone())
+                .unwrap_or_default();
+            let canonical_snapshot_v2 = checkpoint
+                .as_ref()
+                .filter(|value| value.coordination_revision == revision)
+                .and_then(|value| value.canonical_snapshot_v2.clone())
+                .unwrap_or_else(|| snapshot.to_canonical_snapshot_v2());
+            return Ok(Some(CoordinationCurrentState {
+                canonical_snapshot_v2,
+                snapshot,
+                runtime_descriptors,
+            }));
+        }
+
+        match checkpoint {
+            Some(checkpoint) => Ok(Some(self.checkpoint_state(checkpoint))),
+            None => Ok(None),
+        }
+    }
+
+    fn authority_stamp_from_store(
+        &self,
+        store: &mut SqliteStore,
+    ) -> Result<Option<CoordinationAuthorityStamp>> {
+        let revision = store.coordination_revision()?;
+        let checkpoint = self.load_checkpoint(store)?;
+        if revision == 0 && checkpoint.is_none() {
+            return Ok(None);
+        }
+        let logical_repo_id = workspace_identity_for_root(&self.root).repo_id;
+        let snapshot_id = format!("sqlite-revision:{revision}");
+        let committed_at = checkpoint.as_ref().map(|value| value.materialized_at);
+        Ok(Some(CoordinationAuthorityStamp {
+            backend_kind: CoordinationAuthorityBackendKind::Sqlite,
+            logical_repo_id,
+            snapshot_id: snapshot_id.clone(),
+            transaction_id: Some(snapshot_id),
+            committed_at,
+            provenance: CoordinationAuthorityProvenance {
+                ref_name: Some("sqlite-authority".to_string()),
+                head_commit: None,
+                manifest_digest: None,
+            },
+        }))
+    }
+
+    fn conflict_transaction_result(
+        &self,
+        authority: Option<CoordinationAuthorityStamp>,
+        snapshot: Option<CoordinationCurrentState>,
+        reason: impl Into<String>,
+    ) -> CoordinationTransactionResult {
+        CoordinationTransactionResult {
+            status: CoordinationTransactionStatus::Conflict,
+            committed: false,
+            authority,
+            snapshot,
+            persisted: None,
+            conflict: Some(CoordinationConflictInfo {
+                reason: reason.into(),
+            }),
+            diagnostics: Vec::new(),
+        }
+    }
+
+    fn validate_transaction_base(
+        &self,
+        base: &CoordinationTransactionBase,
+        current_revision: u64,
+        current_authority: &Option<CoordinationAuthorityStamp>,
+        current_state: &Option<CoordinationCurrentState>,
+    ) -> Option<CoordinationTransactionResult> {
+        match base {
+            CoordinationTransactionBase::LatestStrong => None,
+            CoordinationTransactionBase::ExpectedRevision(expected_revision) => {
+                if current_revision == *expected_revision {
+                    return None;
+                }
+                Some(self.conflict_transaction_result(
+                    current_authority.clone(),
+                    current_state.clone(),
+                    format!(
+                        "authority revision no longer matches the current sqlite state: expected `{expected_revision}`, found `{current_revision}`"
+                    ),
+                ))
+            }
+            CoordinationTransactionBase::ExpectedAuthorityStamp(expected) => {
+                if current_authority.as_ref() == Some(expected) {
+                    return None;
+                }
+                Some(self.conflict_transaction_result(
+                    current_authority.clone(),
+                    current_state.clone(),
+                    "authority stamp no longer matches the current sqlite authority state",
+                ))
+            }
+        }
+    }
+
+    fn commit_expected_revision(
+        &self,
+        base: &CoordinationTransactionBase,
+        current_revision: u64,
+    ) -> Option<u64> {
+        match base {
+            CoordinationTransactionBase::LatestStrong => None,
+            CoordinationTransactionBase::ExpectedRevision(expected_revision) => {
+                Some(*expected_revision)
+            }
+            CoordinationTransactionBase::ExpectedAuthorityStamp(_) => Some(current_revision),
+        }
+    }
+
+    fn persist_current_state(
+        &self,
+        store: &mut SqliteStore,
+        revision: u64,
+        snapshot: &CoordinationSnapshot,
+        canonical_snapshot_v2: &CoordinationSnapshotV2,
+        runtime_descriptors: &[RuntimeDescriptor],
+    ) -> Result<()> {
+        let mut sanitized_snapshot = sanitize_persisted_coordination_snapshot(snapshot.clone());
+        sanitized_snapshot.events.clear();
+        store.save_coordination_startup_checkpoint(&CoordinationStartupCheckpoint {
+            version: CoordinationStartupCheckpoint::VERSION,
+            materialized_at: current_timestamp(),
+            coordination_revision: revision,
+            authority: CoordinationStartupCheckpointAuthority {
+                ref_name: "sqlite-authority".to_string(),
+                head_commit: None,
+                manifest_digest: None,
+            },
+            snapshot: sanitized_snapshot,
+            canonical_snapshot_v2: Some(canonical_snapshot_v2.clone()),
+            runtime_descriptors: runtime_descriptors.to_vec(),
+        })
+    }
+
+    fn transaction_result_from_store(
+        &self,
+        store: &mut SqliteStore,
+        persisted: Option<prism_store::CoordinationPersistResult>,
+    ) -> Result<CoordinationTransactionResult> {
+        Ok(CoordinationTransactionResult {
+            status: CoordinationTransactionStatus::Committed,
+            committed: true,
+            authority: self.authority_stamp_from_store(store)?,
+            snapshot: self.load_current_state_from_store(store)?,
+            persisted,
+            conflict: None,
+            diagnostics: Vec::new(),
+        })
+    }
+
+    fn conflict_from_revision_mismatch(
+        &self,
+        error: &anyhow::Error,
+        authority: Option<CoordinationAuthorityStamp>,
+        snapshot: Option<CoordinationCurrentState>,
+    ) -> Option<CoordinationTransactionResult> {
+        let message = error.to_string();
+        if message.contains("coordination revision mismatch") {
+            return Some(self.conflict_transaction_result(authority, snapshot, message));
+        }
+        None
+    }
+
+    fn history_entry_summary(entry: &CoordinationMutationLogEntry) -> String {
+        let scope = entry
+            .context
+            .branch_ref
+            .clone()
+            .unwrap_or_else(|| entry.context.worktree_id.clone());
+        if entry.applied {
+            format!(
+                "applied {} coordination event(s) for {scope}",
+                entry.inserted_events
+            )
+        } else {
+            format!("replayed coordination mutation for {scope}")
+        }
+    }
+}
+
+impl CoordinationAuthorityStore for SqliteCoordinationAuthorityStore {
+    fn capabilities(&self) -> CoordinationAuthorityCapabilities {
+        CoordinationAuthorityCapabilities {
+            supports_eventual_reads: false,
+            supports_transactions: true,
+            supports_runtime_descriptors: true,
+            supports_retained_history: true,
+            supports_diagnostics: true,
+        }
+    }
+
+    fn read_current(
+        &self,
+        request: CoordinationReadRequest,
+    ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>> {
+        let mut store = self.open_store()?;
+        let authority = self.authority_stamp_from_store(&mut store)?;
+        match self.load_current_state_from_store(&mut store)? {
+            Some(state) => Ok(CoordinationReadEnvelope::verified_current(
+                request.consistency,
+                authority,
+                state,
+            )),
+            None => Ok(CoordinationReadEnvelope {
+                consistency: request.consistency,
+                freshness: CoordinationReadFreshness::Unavailable,
+                authority,
+                value: None,
+                refresh_error: None,
+            }),
+        }
+    }
+
+    fn apply_transaction(
+        &self,
+        request: CoordinationTransactionRequest,
+    ) -> Result<CoordinationTransactionResult> {
+        let mut store = self.open_store()?;
+        let current_revision = store.coordination_revision()?;
+        let current_authority = self.authority_stamp_from_store(&mut store)?;
+        let current_state = self.load_current_state_from_store(&mut store)?;
+        if let Some(result) = self.validate_transaction_base(
+            &request.base,
+            current_revision,
+            &current_authority,
+            &current_state,
+        ) {
+            return Ok(result);
+        }
+        let persisted = match store.commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_persist_context_for_root(&self.root, request.session_id.as_ref()),
+            expected_revision: self.commit_expected_revision(&request.base, current_revision),
+            appended_events: request.appended_events.clone(),
+        }) {
+            Ok(persisted) => persisted,
+            Err(error) => {
+                if let Some(conflict) =
+                    self.conflict_from_revision_mismatch(&error, current_authority, current_state)
+                {
+                    return Ok(conflict);
+                }
+                return Err(error);
+            }
+        };
+        let runtime_descriptors = current_state
+            .as_ref()
+            .map(|state| state.runtime_descriptors.clone())
+            .unwrap_or_default();
+        self.persist_current_state(
+            &mut store,
+            persisted.revision,
+            &request.snapshot,
+            &request.canonical_snapshot_v2,
+            &runtime_descriptors,
+        )?;
+        self.transaction_result_from_store(&mut store, Some(persisted))
+    }
+
+    fn publish_runtime_descriptor(
+        &self,
+        request: RuntimeDescriptorPublishRequest,
+    ) -> Result<CoordinationTransactionResult> {
+        let mut store = self.open_store()?;
+        let current_revision = store.coordination_revision()?;
+        let current_authority = self.authority_stamp_from_store(&mut store)?;
+        let current_state = self.load_current_state_from_store(&mut store)?;
+        if let Some(result) = self.validate_transaction_base(
+            &request.base,
+            current_revision,
+            &current_authority,
+            &current_state,
+        ) {
+            return Ok(result);
+        }
+        let mut runtime_descriptors = current_state
+            .as_ref()
+            .map(|state| state.runtime_descriptors.clone())
+            .unwrap_or_default();
+        runtime_descriptors.retain(|value| value.runtime_id != request.descriptor.runtime_id);
+        runtime_descriptors.push(request.descriptor);
+        runtime_descriptors.sort_by(|left, right| left.runtime_id.cmp(&right.runtime_id));
+        let snapshot = current_state
+            .as_ref()
+            .map(|state| state.snapshot.clone())
+            .unwrap_or_default();
+        let canonical_snapshot_v2 = current_state
+            .as_ref()
+            .map(|state| state.canonical_snapshot_v2.clone())
+            .unwrap_or_else(|| snapshot.to_canonical_snapshot_v2());
+        self.persist_current_state(
+            &mut store,
+            current_revision,
+            &snapshot,
+            &canonical_snapshot_v2,
+            &runtime_descriptors,
+        )?;
+        self.transaction_result_from_store(&mut store, None)
+    }
+
+    fn clear_runtime_descriptor(
+        &self,
+        request: RuntimeDescriptorClearRequest,
+    ) -> Result<CoordinationTransactionResult> {
+        let mut store = self.open_store()?;
+        let current_revision = store.coordination_revision()?;
+        let current_authority = self.authority_stamp_from_store(&mut store)?;
+        let current_state = self.load_current_state_from_store(&mut store)?;
+        if let Some(result) = self.validate_transaction_base(
+            &request.base,
+            current_revision,
+            &current_authority,
+            &current_state,
+        ) {
+            return Ok(result);
+        }
+        let mut runtime_descriptors = current_state
+            .as_ref()
+            .map(|state| state.runtime_descriptors.clone())
+            .unwrap_or_default();
+        runtime_descriptors.retain(|value| value.runtime_id != request.runtime_id);
+        let snapshot = current_state
+            .as_ref()
+            .map(|state| state.snapshot.clone())
+            .unwrap_or_default();
+        let canonical_snapshot_v2 = current_state
+            .as_ref()
+            .map(|state| state.canonical_snapshot_v2.clone())
+            .unwrap_or_else(|| snapshot.to_canonical_snapshot_v2());
+        self.persist_current_state(
+            &mut store,
+            current_revision,
+            &snapshot,
+            &canonical_snapshot_v2,
+            &runtime_descriptors,
+        )?;
+        self.transaction_result_from_store(&mut store, None)
+    }
+
+    fn list_runtime_descriptors(
+        &self,
+        request: RuntimeDescriptorQuery,
+    ) -> Result<CoordinationReadEnvelope<Vec<RuntimeDescriptor>>> {
+        let mut store = self.open_store()?;
+        let authority = self.authority_stamp_from_store(&mut store)?;
+        match self.load_current_state_from_store(&mut store)? {
+            Some(state) => Ok(CoordinationReadEnvelope::verified_current(
+                request.consistency,
+                authority,
+                state.runtime_descriptors,
+            )),
+            None if matches!(request.consistency, CoordinationReadConsistency::Strong) => Ok(
+                CoordinationReadEnvelope::unavailable(request.consistency, authority, None),
+            ),
+            None => Ok(CoordinationReadEnvelope::verified_current(
+                request.consistency,
+                authority,
+                Vec::new(),
+            )),
+        }
+    }
+
+    fn read_history(
+        &self,
+        request: CoordinationHistoryRequest,
+    ) -> Result<CoordinationHistoryEnvelope> {
+        let store = self.open_store()?;
+        let entries = store
+            .load_coordination_mutation_log(request.limit.map(|value| value as usize))?
+            .into_iter()
+            .map(|entry| super::types::CoordinationHistoryEntry {
+                transaction_id: Some(format!("sqlite-mutation:{}", entry.sequence)),
+                snapshot_id: Some(format!("sqlite-revision:{}", entry.revision)),
+                committed_at: None,
+                summary: Self::history_entry_summary(&entry),
+            })
+            .collect::<Vec<_>>();
+        let truncated = request
+            .limit
+            .map(|limit| entries.len() as u64 >= limit)
+            .unwrap_or(false);
+        Ok(CoordinationHistoryEnvelope {
+            backend_kind: CoordinationAuthorityBackendKind::Sqlite,
+            entries,
+            truncated,
+        })
+    }
+
+    fn diagnostics(
+        &self,
+        _request: CoordinationDiagnosticsRequest,
+    ) -> Result<CoordinationAuthorityDiagnostics> {
+        let mut store = self.open_store()?;
+        let current_state = self.load_current_state_from_store(&mut store)?;
+        let coordination_revision = Some(store.coordination_revision()?);
+        Ok(CoordinationAuthorityDiagnostics {
+            backend_kind: CoordinationAuthorityBackendKind::Sqlite,
+            latest_authority: self.authority_stamp_from_store(&mut store)?,
+            runtime_descriptor_count: current_state
+                .as_ref()
+                .map(|state| state.runtime_descriptors.len())
+                .unwrap_or_default(),
+            backend_details: CoordinationAuthorityBackendDetails::Sqlite {
+                db_path: self.db_path.clone(),
+                coordination_revision,
+            },
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use prism_coordination::{
+        CoordinationEvent, CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor,
+        RuntimeDiscoveryMode,
+    };
+    use prism_ir::{CoordinationEventKind, EventActor, EventId, EventMeta};
+
+    use super::*;
+    use crate::coordination_authority_store::CoordinationDerivedStateMode;
+    use crate::CoordinationStateView;
+
+    static NEXT_TEMP_ROOT: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_root() -> PathBuf {
+        let nonce = NEXT_TEMP_ROOT.fetch_add(1, Ordering::Relaxed);
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("prism-sqlite-authority-{unique}-{nonce}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    fn temp_db_path(root: &Path) -> PathBuf {
+        root.join("coordination-authority.db")
+    }
+
+    fn default_transaction_request(
+        base: CoordinationTransactionBase,
+    ) -> CoordinationTransactionRequest {
+        CoordinationTransactionRequest {
+            base,
+            session_id: None,
+            snapshot: CoordinationSnapshot::default(),
+            canonical_snapshot_v2: CoordinationSnapshotV2::default(),
+            appended_events: Vec::new(),
+            derived_state_mode: CoordinationDerivedStateMode::Inline,
+        }
+    }
+
+    fn runtime_descriptor(runtime_id: &str) -> RuntimeDescriptor {
+        RuntimeDescriptor {
+            runtime_id: runtime_id.to_string(),
+            repo_id: "repo:test".to_string(),
+            worktree_id: "worktree:test".to_string(),
+            principal_id: "principal:test".to_string(),
+            instance_started_at: 1,
+            last_seen_at: 2,
+            branch_ref: Some("refs/heads/main".to_string()),
+            checked_out_commit: None,
+            capabilities: Vec::new(),
+            discovery_mode: RuntimeDiscoveryMode::None,
+            peer_endpoint: None,
+            public_endpoint: None,
+            peer_transport_identity: None,
+            blob_snapshot_head: None,
+            export_policy: None,
+        }
+    }
+
+    fn coordination_event(event_id: &str, ts: u64) -> CoordinationEvent {
+        CoordinationEvent {
+            meta: EventMeta {
+                id: EventId::new(event_id),
+                ts,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            kind: CoordinationEventKind::PlanCreated,
+            summary: "create plan".to_string(),
+            plan: None,
+            task: None,
+            claim: None,
+            artifact: None,
+            review: None,
+            metadata: serde_json::Value::Null,
+        }
+    }
+
+    #[test]
+    fn sqlite_authority_commits_and_reads_current_state() {
+        let root = temp_root();
+        let store = SqliteCoordinationAuthorityStore::new(&root, temp_db_path(&root));
+
+        let result = store
+            .apply_transaction(default_transaction_request(
+                CoordinationTransactionBase::ExpectedRevision(0),
+            ))
+            .expect("authority transaction should succeed");
+
+        assert_eq!(result.status, CoordinationTransactionStatus::Committed);
+        assert!(result.committed);
+        assert_eq!(
+            result.authority.as_ref().map(|value| value.backend_kind),
+            Some(CoordinationAuthorityBackendKind::Sqlite)
+        );
+        let current = store
+            .read_current(CoordinationReadRequest {
+                consistency: CoordinationReadConsistency::Strong,
+                view: CoordinationStateView::Summary,
+            })
+            .expect("current authority read should succeed");
+        assert_eq!(
+            current.freshness,
+            CoordinationReadFreshness::VerifiedCurrent
+        );
+        assert!(current.value.is_some());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn sqlite_authority_publishes_and_clears_runtime_descriptors() {
+        let root = temp_root();
+        let store = SqliteCoordinationAuthorityStore::new(&root, temp_db_path(&root));
+
+        let publish = store
+            .publish_runtime_descriptor(RuntimeDescriptorPublishRequest {
+                base: CoordinationTransactionBase::LatestStrong,
+                descriptor: runtime_descriptor("runtime:test"),
+            })
+            .expect("runtime descriptor publish should succeed");
+        assert!(publish.committed);
+        let listed = store
+            .list_runtime_descriptors(RuntimeDescriptorQuery {
+                consistency: CoordinationReadConsistency::Strong,
+            })
+            .expect("descriptor listing should succeed");
+        assert_eq!(listed.value.unwrap_or_default().len(), 1);
+
+        let cleared = store
+            .clear_runtime_descriptor(RuntimeDescriptorClearRequest {
+                base: CoordinationTransactionBase::LatestStrong,
+                runtime_id: "runtime:test".to_string(),
+            })
+            .expect("runtime descriptor clear should succeed");
+        assert!(cleared.committed);
+        let listed = store
+            .list_runtime_descriptors(RuntimeDescriptorQuery {
+                consistency: CoordinationReadConsistency::Strong,
+            })
+            .expect("descriptor listing should succeed after clear");
+        assert!(listed.value.unwrap_or_default().is_empty());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn sqlite_authority_records_retained_history() {
+        let root = temp_root();
+        let store = SqliteCoordinationAuthorityStore::new(&root, temp_db_path(&root));
+
+        store
+            .apply_transaction(default_transaction_request(
+                CoordinationTransactionBase::ExpectedRevision(0),
+            ))
+            .expect("authority transaction should succeed");
+
+        let history = store
+            .read_history(CoordinationHistoryRequest { limit: Some(10) })
+            .expect("history read should succeed");
+        assert_eq!(
+            history.backend_kind,
+            CoordinationAuthorityBackendKind::Sqlite
+        );
+        assert_eq!(history.entries.len(), 1);
+        assert!(history.entries[0].summary.contains("coordination"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn sqlite_authority_conflicts_when_expected_revision_is_stale() {
+        let root = temp_root();
+        let store = SqliteCoordinationAuthorityStore::new(&root, temp_db_path(&root));
+        let event = coordination_event("coordination:event:sqlite:1", 1);
+        let snapshot = CoordinationSnapshot {
+            events: vec![event.clone()],
+            ..CoordinationSnapshot::default()
+        };
+
+        store
+            .apply_transaction(CoordinationTransactionRequest {
+                base: CoordinationTransactionBase::ExpectedRevision(0),
+                session_id: None,
+                snapshot: snapshot.clone(),
+                canonical_snapshot_v2: snapshot.to_canonical_snapshot_v2(),
+                appended_events: vec![event],
+                derived_state_mode: CoordinationDerivedStateMode::Inline,
+            })
+            .expect("initial authority transaction should succeed");
+
+        let result = store
+            .apply_transaction(default_transaction_request(
+                CoordinationTransactionBase::ExpectedRevision(0),
+            ))
+            .expect("stale authority transaction should return a conflict result");
+
+        assert_eq!(result.status, CoordinationTransactionStatus::Conflict);
+        assert!(!result.committed);
+        assert_eq!(
+            result.conflict.as_ref().map(|value| value.reason.as_str()),
+            Some(
+                "authority revision no longer matches the current sqlite state: expected `0`, found `1`"
+            )
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+}

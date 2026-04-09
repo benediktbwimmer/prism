@@ -361,6 +361,7 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
             CoordinationAuthorityBackendDetails::GitSharedRefs(value) => {
                 value.runtime_descriptors.len()
             }
+            CoordinationAuthorityBackendDetails::Sqlite { .. } => 0,
             CoordinationAuthorityBackendDetails::Unavailable => 0,
         };
         Ok(CoordinationAuthorityDiagnostics {

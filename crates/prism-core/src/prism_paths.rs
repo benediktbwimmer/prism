@@ -62,6 +62,7 @@ pub struct PrismPaths {
     repo_prism_dir: PathBuf,
     repo_home_dir: PathBuf,
     coordination_materialization_dir: PathBuf,
+    coordination_authority_db_path: PathBuf,
     coordination_materialization_db_path: PathBuf,
     worktree_cache_dir: PathBuf,
     worktree_cache_db_path: PathBuf,
@@ -102,6 +103,7 @@ impl PrismPaths {
             home_root,
             repo_prism_dir: canonical_root.join(".prism"),
             coordination_materialization_dir: coordination_materialization_dir.clone(),
+            coordination_authority_db_path: coordination_materialization_dir.join("authority.db"),
             coordination_materialization_db_path: coordination_materialization_dir.join("state.db"),
             worktree_cache_dir: worktree_cache_dir.clone(),
             worktree_cache_db_path: worktree_cache_dir.join("state.db"),
@@ -225,6 +227,17 @@ impl PrismPaths {
             )
         })?;
         Ok(self.coordination_materialization_db_path.clone())
+    }
+
+    pub fn coordination_authority_db_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
+        fs::create_dir_all(&self.coordination_materialization_dir).with_context(|| {
+            format!(
+                "failed to create {}",
+                self.coordination_materialization_dir.display()
+            )
+        })?;
+        Ok(self.coordination_authority_db_path.clone())
     }
 
     pub fn worktree_cache_db_path(&self) -> Result<PathBuf> {

@@ -443,6 +443,15 @@ Implement in order:
 6. runtime gateway role
 7. later event engine role
 
+Current assessment:
+
+- partially implemented
+- initial service-shell, authority-sync, read-broker, and mutation-broker owners are already
+  explicit in code
+- SQLite authority now exists behind `CoordinationAuthorityStore` as the first DB-backed backend
+- remaining work is centered on release-oriented backend selection/configuration and then the
+  richer service roles
+
 Exit criteria:
 
 - the release-oriented deployment path uses the DB-backed authority family cleanly

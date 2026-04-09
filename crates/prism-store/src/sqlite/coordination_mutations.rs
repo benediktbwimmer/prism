@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
-use crate::store::CoordinationPersistContext;
+use crate::store::{CoordinationMutationLogEntry, CoordinationPersistContext};
 
 pub(super) fn append_mutation_tx(
     tx: &Transaction<'_>,
@@ -58,4 +58,44 @@ pub(super) fn load_latest_context(conn: &Connection) -> Result<Option<Coordinati
     )
     .optional()
     .map_err(Into::into)
+}
+
+pub(super) fn load_mutation_log(
+    conn: &Connection,
+    limit: Option<usize>,
+) -> Result<Vec<CoordinationMutationLogEntry>> {
+    let sql = if limit.is_some() {
+        "SELECT sequence, revision, expected_revision, inserted_events, applied, repo_id, worktree_id, branch_ref, session_id, instance_id
+         FROM coordination_mutation_log
+         ORDER BY sequence DESC
+         LIMIT ?1"
+    } else {
+        "SELECT sequence, revision, expected_revision, inserted_events, applied, repo_id, worktree_id, branch_ref, session_id, instance_id
+         FROM coordination_mutation_log
+         ORDER BY sequence DESC"
+    };
+    let mut statement = conn.prepare(sql)?;
+    let map_row = |row: &rusqlite::Row<'_>| {
+        Ok(CoordinationMutationLogEntry {
+            sequence: row.get::<_, i64>(0)? as u64,
+            revision: row.get::<_, i64>(1)? as u64,
+            expected_revision: row.get::<_, Option<i64>>(2)?.map(|value| value as u64),
+            inserted_events: row.get::<_, i64>(3)? as usize,
+            applied: row.get::<_, i64>(4)? != 0,
+            context: CoordinationPersistContext {
+                repo_id: row.get(5)?,
+                worktree_id: row.get(6)?,
+                branch_ref: row.get(7)?,
+                session_id: row.get(8)?,
+                instance_id: row.get(9)?,
+            },
+        })
+    };
+    let rows = if let Some(limit) = limit {
+        statement.query_map(params![limit as i64], map_row)?
+    } else {
+        statement.query_map([], map_row)?
+    };
+    rows.collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(Into::into)
 }

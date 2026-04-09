@@ -27,9 +27,9 @@ pub use sqlite::{
     SqliteStore,
 };
 pub use store::{
-    AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
-    CoordinationPersistContext, CoordinationPersistResult, IndexPersistBatch,
-    ProjectionMaterializationMetadata, Store, WorkspaceTreeDirectoryFingerprint,
+    AuxiliaryPersistBatch, CoordinationEventStream, CoordinationMutationLogEntry,
+    CoordinationPersistBatch, CoordinationPersistContext, CoordinationPersistResult,
+    IndexPersistBatch, ProjectionMaterializationMetadata, Store, WorkspaceTreeDirectoryFingerprint,
     WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
 };
 

@@ -2382,6 +2382,80 @@ fn sqlite_store_coordination_compaction_loads_suffix_events_after_compacted_sequ
 }
 
 #[test]
+fn sqlite_store_load_coordination_mutation_log_returns_latest_entries_first() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-coordination-mutation-log-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let mut store = SqliteStore::open(&path).unwrap();
+
+    let event = CoordinationEvent {
+        meta: EventMeta {
+            id: EventId::new("coordination:event:history:1"),
+            ts: 1,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+            execution_context: None,
+        },
+        kind: CoordinationEventKind::PlanCreated,
+        summary: "create plan".to_string(),
+        plan: None,
+        task: None,
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: serde_json::Value::Null,
+    };
+
+    store
+        .commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_context(),
+            expected_revision: Some(0),
+            appended_events: vec![event.clone()],
+        })
+        .unwrap();
+    store
+        .commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_context(),
+            expected_revision: Some(1),
+            appended_events: vec![CoordinationEvent {
+                meta: EventMeta {
+                    id: EventId::new("coordination:event:history:2"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: None,
+                    causation: None,
+                    execution_context: None,
+                },
+                summary: "update plan".to_string(),
+                ..event
+            }],
+        })
+        .unwrap();
+
+    let entries = store.load_coordination_mutation_log(Some(1)).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].revision, 2);
+    assert_eq!(entries[0].sequence, 2);
+    assert!(entries[0].applied);
+    assert_eq!(entries[0].context.repo_id, "repo:test");
+
+    let all_entries = store.load_coordination_mutation_log(None).unwrap();
+    assert_eq!(all_entries.len(), 2);
+    assert_eq!(all_entries[0].revision, 2);
+    assert_eq!(all_entries[1].revision, 1);
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
 fn sqlite_store_prunes_co_change_neighbors_to_top_k() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-projection-prune-test-{}.db",

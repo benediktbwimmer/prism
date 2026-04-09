@@ -30,6 +30,7 @@ pub fn shared_coordination_ref_diagnostics(
     })?;
     match diagnostics.backend_details {
         CoordinationAuthorityBackendDetails::GitSharedRefs(value) => Ok(Some(value)),
+        CoordinationAuthorityBackendDetails::Sqlite { .. } => Ok(None),
         CoordinationAuthorityBackendDetails::Unavailable => Ok(None),
     }
 }
@@ -62,10 +63,19 @@ pub(crate) fn shared_coordination_startup_authority(
         .authority;
     Ok(
         authority.map(|authority| CoordinationStartupCheckpointAuthority {
-            ref_name: authority
-                .provenance
-                .ref_name
-                .unwrap_or_else(|| "shared-coordination".to_string()),
+            ref_name: authority.provenance.ref_name.unwrap_or_else(|| {
+                match authority.backend_kind {
+                    crate::CoordinationAuthorityBackendKind::GitSharedRefs => {
+                        "shared-coordination".to_string()
+                    }
+                    crate::CoordinationAuthorityBackendKind::Sqlite => {
+                        "sqlite-authority".to_string()
+                    }
+                    crate::CoordinationAuthorityBackendKind::Postgres => {
+                        "postgres-authority".to_string()
+                    }
+                }
+            }),
             head_commit: authority.provenance.head_commit,
             manifest_digest: authority.provenance.manifest_digest,
         }),

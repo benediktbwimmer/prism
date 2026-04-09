@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use prism_coordination::{
     CoordinationEvent, CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor,
 };
@@ -11,6 +13,7 @@ use crate::shared_coordination_ref::SharedCoordinationRefDiagnostics;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CoordinationAuthorityBackendKind {
     GitSharedRefs,
+    Sqlite,
     Postgres,
 }
 
@@ -209,6 +212,10 @@ pub struct CoordinationDiagnosticsRequest {
 #[derive(Debug, Clone, PartialEq)]
 pub enum CoordinationAuthorityBackendDetails {
     GitSharedRefs(SharedCoordinationRefDiagnostics),
+    Sqlite {
+        db_path: PathBuf,
+        coordination_revision: Option<u64>,
+    },
     Unavailable,
 }
 

@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Result};
 
 use super::git_shared_refs::GitSharedRefsCoordinationAuthorityStore;
+use super::sqlite::SqliteCoordinationAuthorityStore;
 use super::traits::CoordinationAuthorityStore;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,9 +56,8 @@ pub fn open_coordination_authority_store(
         CoordinationAuthorityBackendConfig::GitSharedRefs => {
             Ok(Box::new(GitSharedRefsCoordinationAuthorityStore::new(root)))
         }
-        CoordinationAuthorityBackendConfig::Sqlite { db_path } => Err(anyhow!(
-            "sqlite-backed coordination authority is not implemented yet (configured db path: {})",
-            db_path.display()
+        CoordinationAuthorityBackendConfig::Sqlite { db_path } => Ok(Box::new(
+            SqliteCoordinationAuthorityStore::new(root, db_path),
         )),
         CoordinationAuthorityBackendConfig::Postgres { connection_url } => Err(anyhow!(
             "postgres-backed coordination authority is not implemented yet (configured connection: {})",
@@ -74,12 +74,29 @@ pub fn open_default_coordination_authority_store(
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::path::Path;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
         default_coordination_authority_store_provider, open_coordination_authority_store,
         CoordinationAuthorityBackendConfig, CoordinationAuthorityStoreProvider,
     };
+
+    static NEXT_TEMP_ROOT: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_root() -> std::path::PathBuf {
+        let nonce = NEXT_TEMP_ROOT.fetch_add(1, Ordering::Relaxed);
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("prism-authority-factory-{unique}-{nonce}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
 
     #[test]
     fn default_backend_config_is_git_shared_refs() {
@@ -100,33 +117,30 @@ mod tests {
 
     #[test]
     fn provider_opens_using_its_config() {
+        let root = temp_root();
         let provider =
             CoordinationAuthorityStoreProvider::new(CoordinationAuthorityBackendConfig::Sqlite {
-                db_path: Path::new("coordination-authority.db").to_path_buf(),
+                db_path: root.join("coordination-authority.db"),
             });
-        let error = match provider.open(Path::new(".")) {
-            Ok(_) => panic!("sqlite backend should not open yet"),
-            Err(error) => error,
-        };
-        assert!(error
-            .to_string()
-            .contains("sqlite-backed coordination authority is not implemented yet"));
+        let store = provider
+            .open(&root)
+            .expect("sqlite backend should now open");
+        assert!(store.capabilities().supports_transactions);
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
-    fn opening_sqlite_backend_is_explicitly_unimplemented() {
-        let error = match open_coordination_authority_store(
-            Path::new("."),
+    fn opening_sqlite_backend_returns_sqlite_store() {
+        let root = temp_root();
+        let store = open_coordination_authority_store(
+            &root,
             &CoordinationAuthorityBackendConfig::Sqlite {
-                db_path: Path::new("coordination-authority.db").to_path_buf(),
+                db_path: root.join("coordination-authority.db"),
             },
-        ) {
-            Ok(_) => panic!("sqlite backend should not open yet"),
-            Err(error) => error,
-        };
-        assert!(error
-            .to_string()
-            .contains("sqlite-backed coordination authority is not implemented yet"));
+        )
+        .expect("sqlite backend should open");
+        assert!(store.capabilities().supports_retained_history);
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

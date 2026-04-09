@@ -9,9 +9,9 @@ use crate::outcome_projection::{
     snapshot_from_events as outcome_snapshot_from_events,
 };
 use crate::store::{
-    AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
-    CoordinationPersistContext, CoordinationPersistResult, IndexPersistBatch, Store,
-    WorkspaceTreeSnapshot,
+    AuxiliaryPersistBatch, CoordinationEventStream, CoordinationMutationLogEntry,
+    CoordinationPersistBatch, CoordinationPersistContext, CoordinationPersistResult,
+    IndexPersistBatch, Store, WorkspaceTreeSnapshot,
 };
 use crate::CoordinationStartupCheckpoint;
 use prism_memory::{MemoryEvent, MemoryEventKind, OutcomeEvent};
@@ -36,6 +36,7 @@ pub struct MemoryStore {
     coordination_queue_read_model: Option<CoordinationQueueReadModel>,
     coordination_revision: u64,
     latest_coordination_context: Option<CoordinationPersistContext>,
+    coordination_mutation_log: Vec<CoordinationMutationLogEntry>,
 }
 
 impl Store for MemoryStore {
@@ -440,6 +441,20 @@ impl Store for MemoryStore {
         Ok(self.latest_coordination_context.clone())
     }
 
+    fn load_coordination_mutation_log(
+        &mut self,
+        limit: Option<usize>,
+    ) -> Result<Vec<CoordinationMutationLogEntry>> {
+        let entries = self
+            .coordination_mutation_log
+            .iter()
+            .rev()
+            .take(limit.unwrap_or(usize::MAX))
+            .cloned()
+            .collect();
+        Ok(entries)
+    }
+
     fn commit_coordination_persist_batch(
         &mut self,
         batch: &CoordinationPersistBatch,
@@ -454,6 +469,15 @@ impl Store for MemoryStore {
                             .any(|stored| stored.meta.id == event.meta.id)
                     })
                 {
+                    self.coordination_mutation_log
+                        .push(CoordinationMutationLogEntry {
+                            sequence: self.coordination_mutation_log.len() as u64 + 1,
+                            revision: current_revision,
+                            expected_revision: batch.expected_revision,
+                            inserted_events: 0,
+                            applied: false,
+                            context: batch.context.clone(),
+                        });
                     return Ok(CoordinationPersistResult {
                         revision: current_revision,
                         inserted_events: 0,
@@ -483,6 +507,15 @@ impl Store for MemoryStore {
 
         if inserted_events == 0 {
             self.latest_coordination_context = Some(batch.context.clone());
+            self.coordination_mutation_log
+                .push(CoordinationMutationLogEntry {
+                    sequence: self.coordination_mutation_log.len() as u64 + 1,
+                    revision: current_revision,
+                    expected_revision: batch.expected_revision,
+                    inserted_events,
+                    applied: false,
+                    context: batch.context.clone(),
+                });
             return Ok(CoordinationPersistResult {
                 revision: current_revision,
                 inserted_events,
@@ -492,6 +525,15 @@ impl Store for MemoryStore {
 
         self.latest_coordination_context = Some(batch.context.clone());
         self.coordination_revision += 1;
+        self.coordination_mutation_log
+            .push(CoordinationMutationLogEntry {
+                sequence: self.coordination_mutation_log.len() as u64 + 1,
+                revision: self.coordination_revision,
+                expected_revision: batch.expected_revision,
+                inserted_events,
+                applied: true,
+                context: batch.context.clone(),
+            });
         Ok(CoordinationPersistResult {
             revision: self.coordination_revision,
             inserted_events,

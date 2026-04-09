@@ -15,9 +15,9 @@ use prism_projections::{CoChangeDelta, ProjectionSnapshot, ValidationDelta};
 use crate::coordination_checkpoint::CoordinationStartupCheckpoint;
 use crate::graph::Graph;
 use crate::store::{
-    AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
-    CoordinationPersistContext, CoordinationPersistResult, IndexPersistBatch,
-    ProjectionMaterializationMetadata, Store, WorkspaceTreeSnapshot,
+    AuxiliaryPersistBatch, CoordinationEventStream, CoordinationMutationLogEntry,
+    CoordinationPersistBatch, CoordinationPersistContext, CoordinationPersistResult,
+    IndexPersistBatch, ProjectionMaterializationMetadata, Store, WorkspaceTreeSnapshot,
 };
 
 /// Synchronous runtime-authority operations that must remain durable across crash/restart.
@@ -31,6 +31,10 @@ pub trait CoordinationJournal {
     fn load_latest_coordination_persist_context(
         &mut self,
     ) -> Result<Option<CoordinationPersistContext>>;
+    fn load_coordination_mutation_log(
+        &mut self,
+        limit: Option<usize>,
+    ) -> Result<Vec<CoordinationMutationLogEntry>>;
     fn commit_coordination_persist_batch(
         &mut self,
         batch: &CoordinationPersistBatch,
@@ -167,6 +171,13 @@ impl<T: Store + ?Sized> CoordinationJournal for T {
         &mut self,
     ) -> Result<Option<CoordinationPersistContext>> {
         Store::load_latest_coordination_persist_context(self)
+    }
+
+    fn load_coordination_mutation_log(
+        &mut self,
+        limit: Option<usize>,
+    ) -> Result<Vec<CoordinationMutationLogEntry>> {
+        Store::load_coordination_mutation_log(self, limit)
     }
 
     fn commit_coordination_persist_batch(
