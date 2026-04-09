@@ -31,6 +31,8 @@ The contract must support answering:
 - which principal authorized this
 - which credential or authenticator was used when relevant
 - which runtime or worktree executed it when relevant
+- which service attested or mediated it when relevant
+- which browser or service session carried it when relevant
 - when
 - in which scope
 - from what source object, evidence, or authority base
@@ -46,6 +48,7 @@ The provenance model must preserve these rules:
    required.
 3. Promotion and publication must retain provenance to their source evidence.
 4. Authorship, execution lane, and transport or intermediary context must remain distinguishable.
+5. Delegated agent activity and service-mediated human activity must remain distinguishable.
 
 ## 4. Minimum provenance envelope
 
@@ -53,8 +56,12 @@ The contract should be able to represent, when relevant:
 
 - principal identity
 - credential or authenticator identity
+- service identity
+- authority class
 - runtime identity
 - worktree identity
+- browser session or service session identity
+- agent label or execution-lane label when relevant
 - repo or project scope
 - timestamp
 - source object or evidence references
@@ -68,6 +75,7 @@ Coordination uses provenance for:
 - authoritative commits
 - history and object timelines
 - review and artifact lineage
+- distinguishing agent-executed delegated machine activity from service-mediated human approvals
 
 Knowledge uses provenance for:
 
@@ -86,4 +94,5 @@ This contract is considered implemented only when:
 
 - durable coordination and knowledge objects can surface creator or publisher provenance
 - publication and promotion provenance is queryable
-- authorship and execution context remain distinguishable where relevant
+- authorship, execution context, service mediation, and authority class remain distinguishable where
+  relevant

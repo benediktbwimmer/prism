@@ -157,6 +157,7 @@ rather than requiring raw private-key download as the primary UX.
 PRISM must distinguish these authority classes:
 
 - `delegated_machine`
+- `service_mediated_human`
 - `human_attested`
 - `service_attested`
 
@@ -179,7 +180,42 @@ The proof must be:
 
 PRISM must not rely on reusable human elevation bearer tokens.
 
-### 10.3 Service attested
+### 10.3 Service-mediated human
+
+Service-mediated human actions are approved through an authenticated browser session and attested by
+the PRISM Service for one exact action.
+
+This class exists so that ordinary human-gated UI actions do not require a fresh local
+cryptographic human signature every time.
+
+The attestation must be bound to:
+
+- the authenticated `principal_id`
+- the service identity
+- the browser-session or auth-session identity
+- one canonical action digest
+- nonce and expiry
+
+This class is not equivalent to `human_attested`.
+It is the standard smooth UI approval path for human-gated actions that do not require the highest
+assurance.
+
+### 10.4 Human attested
+
+Human-attested actions require a one-shot approval proof bound to a canonical action digest and
+signed directly by the human principal.
+
+The proof must be:
+
+- scoped to one exact action
+- nonce-bound
+- audience-bound
+- expiry-bound
+- non-replayable
+
+PRISM must not rely on reusable human elevation bearer tokens.
+
+### 10.5 Service attested
 
 Service-attested actions require internal service-side attestation for one exact action.
 
@@ -191,6 +227,13 @@ Human or service attestation is not only for dangerous administration.
 
 Any mutation or operation whose policy explicitly requires human or service identity must use the
 required attestation class, including when the operation is an ordinary coordination mutation.
+
+In the common UI case, policy may allow either:
+
+- `service_mediated_human`
+- `human_attested`
+
+Higher-risk actions may require `human_attested` only.
 
 ## 12. Repo registration and enrollment
 
@@ -249,6 +292,7 @@ cannot silently escalate from delegated machine authority to human or service au
 This model provides a strong application-level distinction between:
 
 - delegated machine activity
+- service-mediated human actions
 - human-attested actions
 - service-attested actions
 

@@ -62,6 +62,7 @@ The contract must distinguish at least:
 The contract must also distinguish authority classes for actions:
 
 - `delegated_machine`
+- `service_mediated_human`
 - `human_attested`
 - `service_attested`
 
@@ -121,8 +122,14 @@ The service must not infer mutation authority merely because:
 When policy requires stronger authority than delegated machine execution, the mutation must also
 require the appropriate attestation class:
 
+- `service_mediated_human`
 - `human_attested`
 - `service_attested`
+
+Ordinary browser-session human approval should usually map to `service_mediated_human`, not to a
+raw `human_attested` signature.
+
+Higher-risk operations may require `human_attested` explicitly.
 
 ## 7. Runtime-local inspection rules
 
@@ -172,5 +179,6 @@ This contract is considered implemented only when:
 
 - strong reads and mutations are authorized distinctly
 - runtime-local inspection is authorized distinctly
-- human-attested and service-attested requirements are modeled explicitly when policy demands them
+- service-mediated-human, human-attested, and service-attested requirements are modeled explicitly
+  when policy demands them
 - service handlers no longer invent one-off policy checks for core coordination operations

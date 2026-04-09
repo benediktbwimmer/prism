@@ -34,6 +34,8 @@ The contract must distinguish at least:
 - authoritative published knowledge or repo-state manifests
 - authoritative coordination state transitions or equivalent backend attestations
 - runtime descriptors or other published runtime authority records when designated by contract
+- service-mediated-human attestation proofs over canonical action digests when policy requires
+  browser-session human approval
 - human-attestation proofs over canonical action digests when policy requires human authority
 - service-attestation proofs over canonical action digests when policy requires service authority
 - exported trust or verification bundles
@@ -49,11 +51,18 @@ At minimum, a valid signature should attest that:
 - a trusted signing authority or key attested that PRISM admitted or published that payload
 - the attested payload carries explicit identity and provenance metadata
 
-For human-attested or service-attested actions, a valid attestation should also attest that:
+For service-mediated-human, human-attested, or service-attested actions, a valid attestation should
+also attest that:
 
 - the approval was bound to one canonical action digest
 - the approval was nonce-bound and expiry-bound
 - the approval was not a general-purpose bearer elevation
+
+For `service_mediated_human`, the attestation should additionally bind:
+
+- the authenticated human principal identity
+- the browser or auth session identity
+- the service identity that mediated the approval
 
 Signatures do not by themselves prove:
 
@@ -103,8 +112,8 @@ Private signing keys must not be required for historical verification.
 
 PRISM must not model stronger human or service authority as a reusable bearer token by default.
 
-When policy requires `human_attested` or `service_attested` authority, the system should use a
-single-use or action-bound attestation over the canonical requested action.
+When policy requires `service_mediated_human`, `human_attested`, or `service_attested` authority,
+the system should use a single-use or action-bound attestation over the canonical requested action.
 
 ## 9. Relationship to authority
 

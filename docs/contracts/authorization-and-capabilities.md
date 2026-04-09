@@ -54,6 +54,7 @@ The shared minimum capability families must include:
 The shared authority classes must include:
 
 - `delegated_machine`
+- `service_mediated_human`
 - `human_attested`
 - `service_attested`
 
@@ -92,6 +93,10 @@ stronger human authority than ordinary coordination mutations.
 
 This stronger authority should be expressed through explicit attestation class, not reusable bearer
 elevation.
+
+For common browser-mediated human approvals, the preferred class is `service_mediated_human`.
+`human_attested` remains the higher-assurance class for actions that require direct human
+cryptographic approval.
 
 ## 7. Relationship to specialized contracts
 

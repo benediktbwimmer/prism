@@ -110,6 +110,7 @@ For policy and provenance purposes it must also be possible to distinguish the e
 class:
 
 - delegated machine
+- service-mediated human
 - human attested
 - service attested
 
