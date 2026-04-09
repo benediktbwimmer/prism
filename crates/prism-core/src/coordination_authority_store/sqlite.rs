@@ -20,12 +20,12 @@ use super::types::{
     CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
     CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
     CoordinationTransactionBase, CoordinationTransactionRequest, CoordinationTransactionResult,
-    CoordinationTransactionStatus,
-    EventExecutionOwnerExpectation, EventExecutionRecordAuthorityQuery,
-    EventExecutionRecordWriteResult, EventExecutionTransitionKind,
-    EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
-    EventExecutionTransitionResult, EventExecutionTransitionStatus,
-    RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    CoordinationTransactionStatus, EventExecutionOwnerExpectation,
+    EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
+    EventExecutionTransitionKind, EventExecutionTransitionPreconditions,
+    EventExecutionTransitionRequest, EventExecutionTransitionResult,
+    EventExecutionTransitionStatus, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
+    RuntimeDescriptorQuery, SqliteCoordinationAuthorityBackendDetails,
 };
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
 use crate::coordination_snapshot_sanitization::sanitize_persisted_coordination_snapshot;
@@ -357,7 +357,10 @@ impl SqliteCoordinationAuthorityStore {
     ) -> EventExecutionRecord {
         match transition {
             EventExecutionTransitionKind::Claim { record } => record,
-            EventExecutionTransitionKind::Start { started_at, summary } => {
+            EventExecutionTransitionKind::Start {
+                started_at,
+                summary,
+            } => {
                 let mut record = current.expect("validated current event record").clone();
                 record.status = EventExecutionStatus::Running;
                 record.started_at = Some(started_at);
@@ -611,9 +614,11 @@ impl CoordinationAuthorityStore for SqliteCoordinationAuthorityStore {
                 .load_event_execution_record(event_execution_id)?
                 .into_iter()
                 .collect(),
-            None => store.load_event_execution_records(&prism_store::EventExecutionRecordQuery {
-                limit: request.limit,
-            })?,
+            None => {
+                store.load_event_execution_records(&prism_store::EventExecutionRecordQuery {
+                    limit: request.limit,
+                })?
+            }
         };
         Ok(CoordinationReadEnvelope::verified_current(
             request.consistency,
@@ -700,10 +705,12 @@ impl CoordinationAuthorityStore for SqliteCoordinationAuthorityStore {
                 .as_ref()
                 .map(|state| state.runtime_descriptors.len())
                 .unwrap_or_default(),
-            backend_details: CoordinationAuthorityBackendDetails::Sqlite {
-                db_path: self.db_path.clone(),
-                coordination_revision,
-            },
+            backend_details: CoordinationAuthorityBackendDetails::Sqlite(
+                SqliteCoordinationAuthorityBackendDetails {
+                    db_path: self.db_path.clone(),
+                    coordination_revision,
+                },
+            ),
         })
     }
 }

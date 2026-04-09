@@ -5270,13 +5270,26 @@ impl QueryHost {
             CoordinationMutationKindInput::PlanUpdate => {
                 let payload: PlanUpdatePayload = serde_json::from_value(args.payload)?;
                 let plan_id = PlanId::new(payload.plan_id.clone());
+                let existing_policy = if payload.policy.is_some() {
+                    prism.coordination_plan_v2(&plan_id).map(|plan| {
+                        prism_coordination::CoordinationPolicy::from(plan.plan.policy.clone())
+                    })
+                } else {
+                    None
+                };
                 let result = prism.update_native_plan_with_scheduling_transaction(
                     meta,
                     &plan_id,
                     payload.title,
                     payload.status.map(convert_plan_status),
                     payload.goal,
-                    convert_policy(payload.policy)?,
+                    match (existing_policy, payload.policy) {
+                        (Some(existing), Some(policy)) => Some(
+                            crate::query_types::merge_policy_payload(existing, policy),
+                        ),
+                        (None, Some(policy)) => convert_policy(Some(policy))?,
+                        (_, None) => None,
+                    },
                     convert_plan_scheduling(payload.scheduling),
                 )?;
                 let plan = prism

@@ -11,7 +11,7 @@ const RECENT_QUERY_CAPACITY: usize = 128;
 pub(crate) struct DiagnosticsState {
     runtime_status: Mutex<Option<CachedRuntimeStatus>>,
     last_runtime_event: Mutex<Option<RuntimeLogEventView>>,
-    shared_coordination_ref: Mutex<Option<CachedSharedCoordinationRef>>,
+    coordination_authority_view: Mutex<Option<CachedCoordinationAuthorityView>>,
     recent_queries: Mutex<VecDeque<QueryLogEntryView>>,
 }
 
@@ -30,7 +30,7 @@ struct CachedRuntimeStatus {
 }
 
 #[derive(Debug, Clone)]
-struct CachedSharedCoordinationRef {
+struct CachedCoordinationAuthorityView {
     coordination_revision: u64,
     value: Option<RuntimeSharedCoordinationRefView>,
 }
@@ -43,10 +43,10 @@ impl DiagnosticsState {
         revisions: RuntimeStatusRevisionKey,
     ) {
         *self
-            .shared_coordination_ref
+            .coordination_authority_view
             .lock()
-            .expect("diagnostics shared coordination ref lock poisoned") =
-            Some(CachedSharedCoordinationRef {
+            .expect("diagnostics coordination authority view lock poisoned") =
+            Some(CachedCoordinationAuthorityView {
                 coordination_revision: revisions.coordination_revision,
                 value: runtime_status.shared_coordination_ref.clone(),
             });
@@ -91,18 +91,18 @@ impl DiagnosticsState {
             .lock()
             .expect("diagnostics runtime status lock poisoned") = None;
         *self
-            .shared_coordination_ref
+            .coordination_authority_view
             .lock()
-            .expect("diagnostics shared coordination ref lock poisoned") = None;
+            .expect("diagnostics coordination authority view lock poisoned") = None;
     }
 
-    pub(crate) fn shared_coordination_ref_for_revision(
+    pub(crate) fn coordination_authority_view_for_revision(
         &self,
         coordination_revision: u64,
     ) -> Option<Option<RuntimeSharedCoordinationRefView>> {
-        self.shared_coordination_ref
+        self.coordination_authority_view
             .lock()
-            .expect("diagnostics shared coordination ref lock poisoned")
+            .expect("diagnostics coordination authority view lock poisoned")
             .as_ref()
             .filter(|cached| cached.coordination_revision == coordination_revision)
             .map(|cached| cached.value.clone())

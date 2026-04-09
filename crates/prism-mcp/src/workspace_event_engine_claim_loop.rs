@@ -1,9 +1,10 @@
 use anyhow::Result;
 use prism_coordination::{EventExecutionOwner, EventExecutionRecord, Plan};
 use prism_core::{
-    CoordinationReadConsistency, EventExecutionOwnerExpectation, EventExecutionRecordAuthorityQuery,
-    EventExecutionTransitionKind, EventExecutionTransitionPreconditions,
-    EventExecutionTransitionRequest, EventExecutionTransitionStatus,
+    CoordinationReadConsistency, EventExecutionOwnerExpectation,
+    EventExecutionRecordAuthorityQuery, EventExecutionTransitionKind,
+    EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
+    EventExecutionTransitionStatus,
 };
 use prism_ir::{EventExecutionId, EventExecutionStatus, EventTriggerKind, NodeRef, Timestamp};
 use serde_json::Value;
@@ -34,7 +35,9 @@ pub(crate) struct EventTriggerClaimLoopCandidate {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum EventTriggerClaimSkipReason {
-    ExistingExecution { status: EventExecutionStatus },
+    ExistingExecution {
+        status: EventExecutionStatus,
+    },
     ActiveTargetExecution {
         event_execution_id: EventExecutionId,
         status: EventExecutionStatus,
@@ -114,17 +117,18 @@ impl WorkspaceEventEngine {
             }
 
             let record = candidate.claim_record(request.now, owner.clone());
-            let result = self.apply_event_execution_transition(EventExecutionTransitionRequest {
-                event_execution_id: candidate.event_execution_id.clone(),
-                preconditions: EventExecutionTransitionPreconditions {
-                    require_missing: true,
-                    expected_status: None,
-                    expected_owner: EventExecutionOwnerExpectation::Any,
-                },
-                transition: EventExecutionTransitionKind::Claim {
-                    record: record.clone(),
-                },
-            })?;
+            let result =
+                self.apply_event_execution_transition(EventExecutionTransitionRequest {
+                    event_execution_id: candidate.event_execution_id.clone(),
+                    preconditions: EventExecutionTransitionPreconditions {
+                        require_missing: true,
+                        expected_status: None,
+                        expected_owner: EventExecutionOwnerExpectation::Any,
+                    },
+                    transition: EventExecutionTransitionKind::Claim {
+                        record: record.clone(),
+                    },
+                })?;
 
             match result.status {
                 EventExecutionTransitionStatus::Applied => {
@@ -262,7 +266,6 @@ fn recurring_claim_metadata(candidate: &EventTriggerClaimLoopCandidate) -> Value
         }
     })
 }
-
 fn event_execution_is_active(record: &EventExecutionRecord) -> bool {
     matches!(
         record.status,

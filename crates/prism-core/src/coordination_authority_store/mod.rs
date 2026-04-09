@@ -1,3 +1,4 @@
+mod db;
 mod factory;
 mod git_shared_refs;
 mod sqlite;
@@ -21,10 +22,11 @@ pub use types::{
     CoordinationHistoryEntry, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
     CoordinationReadEnvelope, CoordinationReadRequest, CoordinationStateView,
     CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
-    CoordinationTransactionResult, CoordinationTransactionStatus,
+    CoordinationTransactionResult, CoordinationTransactionStatus, EventExecutionOwnerExpectation,
     EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
-    EventExecutionOwnerExpectation, EventExecutionTransitionKind,
-    EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
-    EventExecutionTransitionResult, EventExecutionTransitionStatus,
+    EventExecutionTransitionKind, EventExecutionTransitionPreconditions,
+    EventExecutionTransitionRequest, EventExecutionTransitionResult,
+    EventExecutionTransitionStatus, PostgresCoordinationAuthorityBackendDetails,
     RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    SqliteCoordinationAuthorityBackendDetails,
 };

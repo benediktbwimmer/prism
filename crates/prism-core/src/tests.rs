@@ -6616,8 +6616,16 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
         )
         .unwrap();
 
-    let loaded = crate::published_plans::load_authoritative_coordination_snapshot(&root).unwrap();
-    assert!(loaded.is_none());
+    let loaded = crate::published_plans::load_authoritative_coordination_snapshot(&root)
+        .unwrap()
+        .expect("authoritative coordination snapshot should come from the authority store");
+    assert!(loaded
+        .plans
+        .iter()
+        .any(|plan| plan.goal == "Published plan should stay mutable"));
+    assert!(loaded.tasks.iter().any(|task| {
+        task.title == "Published task should be available to mutations"
+    }));
 
     let _ = fs::remove_dir_all(root);
 }
@@ -6658,8 +6666,14 @@ fn authoritative_plan_state_ignores_unpublished_runtime_snapshot() {
     let snapshot = coordination.snapshot();
     assert!(snapshot.plans.is_empty());
     assert!(snapshot.tasks.is_empty());
-    let state = crate::published_plans::load_authoritative_coordination_plan_state(&root).unwrap();
-    assert!(state.is_none());
+    let state = crate::published_plans::load_authoritative_coordination_plan_state(&root)
+        .unwrap()
+        .expect("authoritative coordination plan state should come from the authority store");
+    assert!(state
+        .snapshot
+        .plans
+        .iter()
+        .any(|plan| plan.goal == "Published plan must exist in both runtimes"));
 
     let _ = fs::remove_dir_all(root);
 }
@@ -6922,16 +6936,18 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
     assert!(context.repo_id.starts_with("repo:"));
     assert!(context.worktree_id.starts_with("worktree:"));
     assert!(context.instance_id.is_some());
-    let read_model = store
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let mut materialized_store =
+        SqliteStore::open(paths.coordination_materialization_db_path().unwrap()).unwrap();
+    let read_model = materialized_store
         .load_coordination_read_model()
         .unwrap()
-        .expect("coordination read model should be persisted");
-    assert_eq!(read_model.active_plans.len(), 1);
+        .expect("coordination read model should be persisted in the coordination materialization store");
     assert_eq!(read_model.task_count, 1);
-    let queue_model = store
+    let queue_model = materialized_store
         .load_coordination_queue_read_model()
         .unwrap()
-        .expect("coordination queue read model should be persisted");
+        .expect("coordination queue read model should be persisted in the coordination materialization store");
     assert!(queue_model.pending_handoff_tasks.is_empty());
     assert!(queue_model.active_claims.is_empty());
     assert!(queue_model.pending_review_artifacts.is_empty());
@@ -7184,19 +7200,22 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
         )
         .unwrap();
 
-    let read_model = store
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let mut materialized_store =
+        SqliteStore::open(paths.coordination_materialization_db_path().unwrap()).unwrap();
+    let read_model = materialized_store
         .load_coordination_read_model()
         .unwrap()
-        .expect("incremental coordination read model should be persisted");
+        .expect("incremental coordination read model should be persisted in the coordination materialization store");
     let mut expected_read_model =
         prism_coordination::coordination_read_model_from_snapshot(&updated_snapshot);
     expected_read_model.revision = 2;
     assert_eq!(read_model, expected_read_model);
 
-    let queue_model = store
+    let queue_model = materialized_store
         .load_coordination_queue_read_model()
         .unwrap()
-        .expect("incremental coordination queue model should be persisted");
+        .expect("incremental coordination queue model should be persisted in the coordination materialization store");
     let mut expected_queue_model =
         prism_coordination::coordination_queue_read_model_from_snapshot(&updated_snapshot);
     expected_queue_model.revision = 2;
@@ -7275,20 +7294,14 @@ fn coordination_session_materializes_read_models_off_request_path() {
             .is_none());
     }
 
-    assert!(session.load_coordination_read_model().unwrap().is_none());
     let authoritative_revision = session.coordination_revision().unwrap();
-
-    assert!(session
-        .load_coordination_queue_read_model()
-        .unwrap()
-        .is_none());
 
     session.flush_materializations().unwrap();
 
     let mut worktree_store = SqliteStore::open(
         PrismPaths::for_workspace_root(&root)
             .unwrap()
-            .worktree_cache_db_path()
+            .coordination_materialization_db_path()
             .unwrap(),
     )
     .unwrap();
@@ -7397,9 +7410,10 @@ fn coordination_strong_reads_do_not_materialize_runtime_local_state() {
         .unwrap();
     assert_eq!(
         strong.freshness,
-        CoordinationReadFreshness::Unavailable,
-        "without shared-ref authority publish, the strong path should remain unavailable rather than backfilling local coordination state"
+        CoordinationReadFreshness::VerifiedCurrent,
+        "the SQLite-default authority backend should satisfy strong reads without requiring shared-ref publication"
     );
+    assert!(strong.value.is_some());
 
     {
         let mut store = session.store.lock().expect("workspace store lock poisoned");
@@ -7583,7 +7597,7 @@ fn coordination_materialized_store_migrates_legacy_worktree_cache_state() {
 }
 
 #[test]
-fn coordination_read_models_ignore_stale_persisted_shared_runtime_cache() {
+fn coordination_authority_state_ignores_stale_persisted_shared_runtime_cache() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -7665,32 +7679,22 @@ fn coordination_read_models_ignore_stale_persisted_shared_runtime_cache() {
         .save_coordination_queue_read_model(&stale_queue_model)
         .unwrap();
 
-    let read_model = session
-        .load_coordination_read_model()
+    let plan_state = session
+        .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Strong)
         .unwrap()
-        .expect("coordination read model should load from the local cache");
-    assert_eq!(read_model.active_plans.len(), 1);
-    assert_eq!(read_model.task_count, 1);
-
-    let queue_model = session
-        .load_coordination_queue_read_model()
-        .unwrap()
-        .expect("coordination queue model should load from the local cache");
-    assert_eq!(queue_model.pending_handoff_tasks.len(), 0);
+        .into_value()
+        .expect("strong coordination plan state should ignore the stale shared runtime cache");
+    assert_eq!(plan_state.snapshot.tasks.len(), 1);
     drop(shared_runtime_store);
     drop(session);
 
     let reloaded = index_workspace_session(&root).unwrap();
-    let reloaded_read_model = reloaded
-        .load_coordination_read_model()
+    let reloaded_plan_state = reloaded
+        .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Strong)
         .unwrap()
-        .expect("reloaded coordination read model should still prefer the local cache");
-    assert_eq!(reloaded_read_model.task_count, 1);
-    let reloaded_queue_model = reloaded
-        .load_coordination_queue_read_model()
-        .unwrap()
-        .expect("reloaded coordination queue model should still prefer the local cache");
-    assert_eq!(reloaded_queue_model.pending_handoff_tasks.len(), 0);
+        .into_value()
+        .expect("reloaded strong coordination plan state should ignore the stale shared runtime cache");
+    assert_eq!(reloaded_plan_state.snapshot.tasks.len(), 1);
 
     let _ = fs::remove_dir_all(root);
 }
@@ -8179,18 +8183,19 @@ fn checkpoint_materialization_preserves_authoritative_task_lease_fields() {
         .unwrap();
     flush_coordination_materializations(&session);
 
-    assert!(
-        crate::shared_coordination_ref::shared_coordination_startup_authority(&root)
+    let mut materialized_store = SqliteStore::open(
+        PrismPaths::for_workspace_root(&root)
             .unwrap()
-            .is_some()
-    );
-
-    let checkpoint = {
-        let mut store = session.store.lock().expect("workspace store lock poisoned");
-        prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(&mut *store)
-            .unwrap()
-            .expect("coordination startup checkpoint")
-    };
+            .coordination_materialization_db_path()
+            .unwrap(),
+    )
+    .unwrap();
+    let checkpoint = prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(
+        &mut materialized_store,
+    )
+    .unwrap()
+    .expect("coordination startup checkpoint");
+    assert!(!checkpoint.authority.ref_name.is_empty());
     let loaded_task = checkpoint
         .snapshot
         .tasks

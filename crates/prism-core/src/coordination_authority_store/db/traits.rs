@@ -1,7 +1,7 @@
 use anyhow::Result;
 use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
 
-use super::types::{
+use crate::coordination_authority_store::{
     CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics, CoordinationCurrentState,
     CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
     CoordinationReadEnvelope, CoordinationReadRequest, CoordinationTransactionRequest,
@@ -11,7 +11,7 @@ use super::types::{
     RuntimeDescriptorQuery,
 };
 
-pub trait CoordinationAuthorityStore: Send + Sync {
+pub(crate) trait CoordinationAuthorityDb: Send + Sync {
     fn capabilities(&self) -> CoordinationAuthorityCapabilities;
 
     fn read_current(

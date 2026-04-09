@@ -8,7 +8,7 @@ use crate::tests_support::{
     register_test_agent_worktree, register_test_human_worktree, response_json, server_with_node,
     temp_workspace, workspace_session_with_owner_credential,
 };
-use prism_coordination::TaskCreateInput;
+use prism_coordination::{TaskCreateInput, TaskUpdateInput};
 use prism_core::{
     default_workspace_shared_runtime, index_workspace_session,
     index_workspace_session_with_options, BootstrapOwnerInput, MintPrincipalRequest,
@@ -652,7 +652,7 @@ return {{
         1
     );
     assert_eq!(envelope["result"]["children"]["children"][0]["id"], task_id);
-    assert_eq!(envelope["result"]["ready"].as_array().unwrap().len(), 0);
+    assert_eq!(envelope["result"]["ready"].as_array().unwrap().len(), 1);
     assert_eq!(envelope["result"]["claims"].as_array().unwrap().len(), 0);
     assert_eq!(envelope["result"]["artifacts"].as_array().unwrap().len(), 1);
     assert!(envelope["result"]["taskBlastRadius"]["lineages"]
@@ -1155,7 +1155,7 @@ async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_i
                     TaskCreateInput {
                         plan_id: plan_id.clone(),
                         title: "Resume me through prism_mutate with require start".to_string(),
-                        status: Some(CoordinationTaskStatus::InProgress),
+                        status: Some(CoordinationTaskStatus::Ready),
                         assignee: None,
                         session: Some(prior_session.clone()),
                         worktree_id: None,
@@ -1168,6 +1168,44 @@ async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_i
                         base_revision: prism.workspace_revision(),
                         spec_refs: Vec::new(),
                     },
+                )?;
+                let task = prism.update_native_task(
+                    EventMeta {
+                        id: EventId::new("coordination:stale-resume-git-exec:update"),
+                        ts: stale_ts,
+                        actor: actor.clone(),
+                        correlation: None,
+                        causation: None,
+                        execution_context: execution_context.clone(),
+                    },
+                    TaskUpdateInput {
+                        task_id: task.id.clone(),
+                        kind: None,
+                        status: Some(CoordinationTaskStatus::InProgress),
+                        published_task_status: None,
+                        git_execution: None,
+                        assignee: None,
+                        session: Some(Some(prior_session.clone())),
+                        worktree_id: None,
+                        branch_ref: None,
+                        title: None,
+                        summary: None,
+                        anchors: None,
+                        bindings: None,
+                        depends_on: None,
+                        coordination_depends_on: None,
+                        integrated_depends_on: None,
+                        acceptance: None,
+                        validation_refs: None,
+                        is_abstract: None,
+                        base_revision: Some(prism.workspace_revision()),
+                        priority: None,
+                        tags: None,
+                        spec_refs: None,
+                        completion_context: None,
+                    },
+                    prism.workspace_revision(),
+                    stale_ts,
                 )?;
                 Ok((plan_id, task.id))
             },

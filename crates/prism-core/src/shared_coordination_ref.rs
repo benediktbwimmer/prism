@@ -3966,6 +3966,16 @@ mod tests {
         TEMP_TEST_DIRS.with(|state| state.borrow_mut().push(path.to_path_buf()));
     }
 
+    fn configure_git_shared_refs_authority(root: &Path) {
+        let prism_dir = root.join(".prism");
+        fs::create_dir_all(&prism_dir).unwrap();
+        fs::write(
+            prism_dir.join("service.json"),
+            r#"{"coordinationAuthority":{"backend":"git_shared_refs"}}"#,
+        )
+        .unwrap();
+    }
+
     fn temp_git_repo() -> PathBuf {
         let nonce = NEXT_TEMP_REPO.fetch_add(1, Ordering::Relaxed);
         let unique = SystemTime::now()
@@ -3994,6 +4004,7 @@ mod tests {
                 .join("remotes")
                 .join("origin"),
         );
+        configure_git_shared_refs_authority(&root);
         root
     }
 
@@ -4097,6 +4108,7 @@ mod tests {
             ],
         )
         .unwrap();
+        configure_git_shared_refs_authority(&root);
         root
     }
 
@@ -5346,7 +5358,7 @@ mod tests {
         let before_revision = session
             .coordination_runtime_revision
             .load(Ordering::Relaxed);
-        crate::watch::sync_shared_coordination_ref_watch_update(
+        crate::watch::sync_coordination_authority_watch_update(
             &root_a,
             &session.published_generation,
             &session.runtime_state,
@@ -5404,7 +5416,7 @@ mod tests {
         )
         .unwrap();
 
-        crate::watch::sync_shared_coordination_ref_watch_update(
+        crate::watch::sync_coordination_authority_watch_update(
             &root_a,
             &session.published_generation,
             &session.runtime_state,

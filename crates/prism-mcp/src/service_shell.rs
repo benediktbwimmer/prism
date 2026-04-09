@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use prism_agent::InferenceStore;
 use prism_core::{
-    sync_live_runtime_descriptor_with_provider, CoordinationAuthorityStoreProvider,
+    publish_local_runtime_descriptor_with_provider, CoordinationAuthorityStoreProvider,
     WorkspaceSession,
 };
 use prism_memory::SessionMemory;
@@ -68,14 +68,14 @@ impl WorkspaceServiceShell {
             Arc::clone(&mutation_broker),
         ));
         if features.coordination_layer_enabled() {
-            if let Err(error) = sync_live_runtime_descriptor_with_provider(
+            if let Err(error) = publish_local_runtime_descriptor_with_provider(
                 workspace.root(),
                 &authority_store_provider,
             ) {
                 debug!(
                     error = %error,
                     root = %workspace.root().display(),
-                    "failed to publish shared coordination runtime descriptor for workspace service shell"
+                    "failed to publish coordination authority runtime descriptor for workspace service shell"
                 );
             }
         }

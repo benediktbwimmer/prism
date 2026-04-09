@@ -77,8 +77,11 @@ use session_bootstrap::{
 
 pub use admission::AdmissionBusyError;
 pub use coordination_authority_api::{
-    shared_coordination_ref_diagnostics, shared_coordination_ref_diagnostics_with_provider,
-    sync_live_runtime_descriptor, sync_live_runtime_descriptor_with_provider,
+    coordination_authority_diagnostics, coordination_authority_diagnostics_with_provider,
+    git_shared_coordination_ref_diagnostics, publish_local_runtime_descriptor,
+    publish_local_runtime_descriptor_with_provider, shared_coordination_ref_diagnostics,
+    shared_coordination_ref_diagnostics_with_provider, sync_live_runtime_descriptor,
+    sync_live_runtime_descriptor_with_provider,
 };
 pub use coordination_authority_store::{
     configured_coordination_authority_store_provider,
@@ -92,13 +95,14 @@ pub use coordination_authority_store::{
     CoordinationHistoryEntry, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
     CoordinationReadEnvelope, CoordinationReadRequest, CoordinationStateView,
     CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
-    CoordinationTransactionResult, CoordinationTransactionStatus,
+    CoordinationTransactionResult, CoordinationTransactionStatus, EventExecutionOwnerExpectation,
     EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
-    EventExecutionOwnerExpectation, EventExecutionTransitionKind,
-    EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
-    EventExecutionTransitionResult, EventExecutionTransitionStatus,
-    GitSharedRefsCoordinationAuthorityStore, RuntimeDescriptorClearRequest,
-    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery, SqliteCoordinationAuthorityStore,
+    EventExecutionTransitionKind, EventExecutionTransitionPreconditions,
+    EventExecutionTransitionRequest, EventExecutionTransitionResult,
+    EventExecutionTransitionStatus, GitSharedRefsCoordinationAuthorityStore,
+    PostgresCoordinationAuthorityBackendDetails, RuntimeDescriptorClearRequest,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    SqliteCoordinationAuthorityBackendDetails, SqliteCoordinationAuthorityStore,
 };
 pub use coordination_materialized_store::{
     CoordinationCompactionWriteRequest, CoordinationMaterializationMetadata,

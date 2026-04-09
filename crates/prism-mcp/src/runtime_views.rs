@@ -12,8 +12,8 @@ use prism_core::runtime_engine::{
     WorkspaceRuntimeQueueSnapshot,
 };
 use prism_core::{
-    assisted_lease_renewal_diagnostics, shared_coordination_ref_diagnostics, PrismPaths,
-    WorkspaceSession,
+    assisted_lease_renewal_diagnostics, coordination_authority_diagnostics,
+    CoordinationAuthorityBackendDetails, PrismPaths, WorkspaceSession,
 };
 use prism_js::{
     ConnectionInfoView, ProjectionAuthorityPlaneView, ProjectionClassView,
@@ -42,7 +42,7 @@ use crate::runtime_state::{
     process_is_live, read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord, RuntimeState,
 };
 use crate::serving_projection_models::runtime_projection_scopes;
-use crate::trust_surface::runtime_shared_coordination_ref_view;
+use crate::trust_surface::runtime_coordination_authority_view;
 use crate::workspace_diagnostics::WorkspaceDiagnosticsConfig;
 use crate::{QueryHost, RuntimeLogArgs, RuntimeTimelineArgs};
 
@@ -158,13 +158,13 @@ pub(crate) fn refresh_cached_runtime_status(host: &QueryHost) -> Result<RuntimeS
     };
     let runtime_state = read_runtime_state(inputs.root)?;
     let last_runtime_event = latest_runtime_state_event_view(runtime_state.as_ref());
-    let cached_shared_coordination_ref = host
+    let cached_coordination_authority_view = host
         .diagnostics_state()
-        .shared_coordination_ref_for_revision(inputs.loaded_coordination_revision);
+        .coordination_authority_view_for_revision(inputs.loaded_coordination_revision);
     let status = runtime_status_from_inputs(
         &inputs,
         runtime_state.as_ref(),
-        cached_shared_coordination_ref,
+        cached_coordination_authority_view,
     )?;
     host.diagnostics_state().update_runtime_status(
         status.clone(),
@@ -217,13 +217,13 @@ pub(crate) fn refresh_cached_runtime_status_for_config(
     };
     let runtime_state = read_runtime_state(inputs.root)?;
     let last_runtime_event = latest_runtime_state_event_view(runtime_state.as_ref());
-    let cached_shared_coordination_ref = config
+    let cached_coordination_authority_view = config
         .diagnostics_state
-        .shared_coordination_ref_for_revision(inputs.loaded_coordination_revision);
+        .coordination_authority_view_for_revision(inputs.loaded_coordination_revision);
     let status = runtime_status_from_inputs(
         &inputs,
         runtime_state.as_ref(),
-        cached_shared_coordination_ref,
+        cached_coordination_authority_view,
     )?;
     config.diagnostics_state.update_runtime_status(
         status.clone(),
@@ -377,7 +377,7 @@ fn workspace_root(host: &QueryHost) -> Result<&Path> {
 fn runtime_status_from_inputs(
     inputs: &RuntimeStatusInputs<'_>,
     runtime_state: Option<&RuntimeState>,
-    cached_shared_coordination_ref: Option<Option<RuntimeSharedCoordinationRefView>>,
+    cached_coordination_authority_view: Option<Option<RuntimeSharedCoordinationRefView>>,
 ) -> Result<RuntimeStatusView> {
     let paths = RuntimePaths::for_root(inputs.root)?;
     let state_processes = runtime_state
@@ -395,10 +395,10 @@ fn runtime_status_from_inputs(
     let bridge_counts = classify_bridges(&bridges, &connected_bridge_pids);
     let connection =
         daemon_connection_info(inputs.root, &paths, &daemons, process_error.as_deref())?;
-    let (freshness, shared_coordination_ref, scopes) = match runtime_status_details_from_inputs(
+    let (freshness, coordination_authority_view, scopes) = match runtime_status_details_from_inputs(
         inputs,
         runtime_state,
-        cached_shared_coordination_ref,
+        cached_coordination_authority_view,
     ) {
         Ok(details) => details,
         Err(error) => {
@@ -440,7 +440,7 @@ fn runtime_status_from_inputs(
             .collect(),
         process_error,
         assisted_lease_renewal: runtime_assisted_lease_renewal_view(),
-        shared_coordination_ref,
+        shared_coordination_ref: coordination_authority_view,
         scopes,
         freshness,
     })
@@ -449,20 +449,26 @@ fn runtime_status_from_inputs(
 fn runtime_status_details_from_inputs(
     inputs: &RuntimeStatusInputs<'_>,
     runtime_state: Option<&RuntimeState>,
-    cached_shared_coordination_ref: Option<Option<RuntimeSharedCoordinationRefView>>,
+    cached_coordination_authority_view: Option<Option<RuntimeSharedCoordinationRefView>>,
 ) -> Result<(
     RuntimeFreshnessView,
     Option<RuntimeSharedCoordinationRefView>,
     RuntimeScopesView,
 )> {
     let freshness = runtime_freshness_from_inputs(inputs, runtime_state)?;
-    let shared_coordination_ref = match cached_shared_coordination_ref {
+    let coordination_authority_view = match cached_coordination_authority_view {
         Some(value) => value,
-        None => shared_coordination_ref_diagnostics(inputs.root)?
-            .map(runtime_shared_coordination_ref_view),
+        None => match coordination_authority_diagnostics(inputs.root)?.backend_details {
+            CoordinationAuthorityBackendDetails::GitSharedRefs(value) => {
+                Some(runtime_coordination_authority_view(value))
+            }
+            CoordinationAuthorityBackendDetails::Sqlite(_)
+            | CoordinationAuthorityBackendDetails::Postgres(_)
+            | CoordinationAuthorityBackendDetails::Unavailable => None,
+        },
     };
     let scopes = runtime_scopes_from_inputs(inputs, &freshness);
-    Ok((freshness, shared_coordination_ref, scopes))
+    Ok((freshness, coordination_authority_view, scopes))
 }
 
 fn runtime_assisted_lease_renewal_view() -> RuntimeAssistedLeaseRenewalView {

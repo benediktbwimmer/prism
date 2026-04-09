@@ -84,7 +84,9 @@ pub(crate) fn service_event_execution_owner(
 
 #[cfg(test)]
 mod tests {
-    use prism_coordination::{CoordinationSnapshot, EventExecutionOwner, EventExecutionRecord, Plan};
+    use prism_coordination::{
+        CoordinationSnapshot, EventExecutionOwner, EventExecutionRecord, Plan,
+    };
     use prism_core::{
         EventExecutionOwnerExpectation, EventExecutionTransitionKind,
         EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
@@ -92,8 +94,7 @@ mod tests {
     };
     use prism_ir::{
         EventExecutionId, EventExecutionStatus, EventTriggerKind, PlanId, PlanStatus,
-        PrincipalActor,
-        PrincipalAuthorityId, PrincipalId, PrincipalKind, SessionId,
+        PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalKind, SessionId,
     };
     use serde_json::json;
 
@@ -260,7 +261,9 @@ mod tests {
         session
             .mutate_coordination(|prism| {
                 let mut snapshot = CoordinationSnapshot::default();
-                snapshot.plans.push(recurring_plan("plan:recurring", 100, 7));
+                snapshot
+                    .plans
+                    .push(recurring_plan("plan:recurring", 100, 7));
                 prism.replace_coordination_snapshot(snapshot);
                 Ok(())
             })
@@ -289,7 +292,13 @@ mod tests {
         assert_eq!(record.status, EventExecutionStatus::Claimed);
         assert_eq!(record.authoritative_revision, Some(7));
         assert_eq!(record.trigger_kind, EventTriggerKind::RecurringPlanTick);
-        assert_eq!(record.trigger_target.as_ref().map(|target| target.id.as_str()), Some("plan:recurring"));
+        assert_eq!(
+            record
+                .trigger_target
+                .as_ref()
+                .map(|target| target.id.as_str()),
+            Some("plan:recurring")
+        );
         assert_eq!(record.expires_at, Some(145));
         assert_eq!(record.metadata["eventTrigger"]["recurrencePolicy"], "daily");
     }
@@ -301,7 +310,9 @@ mod tests {
         session
             .mutate_coordination(|prism| {
                 let mut snapshot = CoordinationSnapshot::default();
-                snapshot.plans.push(recurring_plan("plan:recurring", 100, 7));
+                snapshot
+                    .plans
+                    .push(recurring_plan("plan:recurring", 100, 7));
                 prism.replace_coordination_snapshot(snapshot);
                 Ok(())
             })

@@ -1220,11 +1220,11 @@ mod tests {
     use super::*;
     use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
-    use prism_coordination::CoordinationPolicy;
-    use prism_ir::{EventActor, EventId, EventMeta, TaskId};
+    use serde_json::json;
     use tower::util::ServiceExt;
 
-    use crate::tests_support::temp_workspace;
+    use crate::tests_support::{temp_workspace, test_session};
+    use crate::{CoordinationMutationKindInput, PrismCoordinationArgs};
     use prism_core::index_workspace_session;
 
     fn console_state_from_root(root: &std::path::Path) -> PrismConsoleState {
@@ -1244,23 +1244,30 @@ mod tests {
         let state = console_state_from_root(&root);
         let plan_id = state
             .host
-            .current_prism()
-            .create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:console-plan-markdown"),
-                    ts: 1,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:console-plan-markdown")),
-                    causation: None,
-                    execution_context: None,
+            .store_coordination(
+                test_session(&state.host).as_ref(),
+                PrismCoordinationArgs {
+                    kind: CoordinationMutationKindInput::PlanCreate,
+                    payload: json!({
+                        "title": "Console markdown export",
+                        "goal": "Make plan markdown available from the SSR plans page."
+                    }),
+                    task_id: None,
                 },
-                "Console markdown export".into(),
-                "Make plan markdown available from the SSR plans page.".into(),
-                None,
-                Some(CoordinationPolicy::default()),
             )
             .unwrap();
-        (state, plan_id.0.to_string())
+        if let Some(workspace) = state.host.workspace_session() {
+            workspace
+                .flush_materializations()
+                .expect("plan create should flush materializations for markdown reads");
+        }
+        (
+            state,
+            plan_id.state["id"]
+                .as_str()
+                .expect("plan create should return an id")
+                .to_string(),
+        )
     }
 
     #[tokio::test]

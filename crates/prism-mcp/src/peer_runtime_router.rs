@@ -19,12 +19,14 @@ use serde::{Deserialize, Serialize};
 use crate::remote_runtime_query_error;
 use crate::runtime_gateway::{
     ensure_outbound_query_size, resolve_remote_runtime_target_for_root,
-    validate_incoming_peer_query_request, MAX_PEER_QUERY_CODE_CHARS,
+    validate_incoming_peer_query_request,
 };
 use crate::runtime_views::runtime_status;
 use crate::{QueryHost, QueryLanguage};
 
 const PEER_QUERY_TIMEOUT: Duration = Duration::from_secs(20);
+pub(crate) const MAX_PEER_QUERY_CODE_CHARS: usize =
+    crate::runtime_gateway::MAX_PEER_QUERY_CODE_CHARS;
 
 #[derive(Clone)]
 pub(crate) struct PeerRuntimeAppState {
@@ -190,10 +192,10 @@ pub(crate) fn execute_remote_prism_query_with_provider(
             "remote_runtime_descriptor_stale",
             Some(runtime_id),
             format!(
-                "shared coordination resolved runtime `{runtime_id}`, but the peer responded as `{}`",
+                "published runtime descriptor for `{runtime_id}` no longer matches the live peer response `{}`",
                 payload.runtime_id
             ),
-            "Refresh shared coordination so the runtime descriptor matches the live peer, or target the newer runtime id.",
+            "Refresh coordination authority runtime descriptors so the published runtime descriptor matches the live peer, or target the newer runtime id.",
         ));
     }
     Ok(RemotePrismQueryResult {
@@ -222,7 +224,7 @@ fn query_peer_runtime_endpoint(
                 "remote_runtime_unreachable",
                 Some(runtime_id),
                 format!("failed to contact peer runtime `{runtime_id}` at {endpoint}: {error}"),
-                "Check the peer endpoint or public URL in shared coordination, then retry. If the peer is offline, fall back to local reads.",
+                "Check the peer endpoint or public URL in the coordination authority, then retry. If the peer is offline, fall back to local reads.",
             ),
             retryable: true,
         })?;
@@ -256,7 +258,7 @@ fn query_peer_runtime_endpoint(
         };
         let next_action = match mapped_code {
             "remote_runtime_descriptor_stale" => {
-                "Refresh shared coordination so the runtime descriptor matches the live peer, or pick a different runtime id."
+                "Refresh coordination authority runtime descriptors so the published runtime descriptor matches the live peer, or pick a different runtime id."
             }
             "remote_runtime_capability_denied" => {
                 "Use a credential with `read_peer_runtime`, or query the local runtime instead."
@@ -322,7 +324,6 @@ fn resolve_local_peer_read_credential(root: &Path) -> Result<LocalPeerReadCreden
         principal_token: profile.principal_token.clone(),
     })
 }
-
 fn service_error(message: impl Into<String>) -> (StatusCode, Json<serde_json::Value>) {
     (
         StatusCode::SERVICE_UNAVAILABLE,
@@ -345,7 +346,7 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use prism_core::{
         default_workspace_shared_runtime, hydrate_workspace_session_with_options, local_runtime_id,
-        sync_live_runtime_descriptor, BootstrapOwnerInput, CredentialProfile, CredentialsFile,
+        publish_local_runtime_descriptor, BootstrapOwnerInput, CredentialProfile, CredentialsFile,
         MintPrincipalRequest, PrismPaths, WorkspaceSessionOptions,
     };
     use prism_ir::{CredentialCapability, PrincipalKind};
@@ -462,7 +463,7 @@ mod tests {
             .unwrap();
         std::fs::create_dir_all(uri_path.parent().unwrap()).unwrap();
         std::fs::write(&uri_path, "http://127.0.0.1:52695/mcp").unwrap();
-        sync_live_runtime_descriptor(&root).unwrap();
+        publish_local_runtime_descriptor(&root).unwrap();
         let owner_auth = session
             .authenticate_principal_credential(
                 &owner.credential.credential_id,
@@ -540,7 +541,7 @@ mod tests {
             .unwrap();
         std::fs::create_dir_all(uri_path.parent().unwrap()).unwrap();
         std::fs::write(&uri_path, "http://127.0.0.1:52695/mcp").unwrap();
-        sync_live_runtime_descriptor(&root).unwrap();
+        publish_local_runtime_descriptor(&root).unwrap();
         let owner_auth = session
             .authenticate_principal_credential(
                 &owner.credential.credential_id,
@@ -613,7 +614,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn execute_remote_prism_query_resolves_runtime_id_from_shared_ref() {
+    async fn execute_remote_prism_query_resolves_runtime_id_from_published_runtime_descriptor() {
         let _guard = credentials_test_lock();
         let root = init_git_workspace("task/peer-runtime-client");
         let session = peer_runtime_session(&root);
@@ -664,7 +665,7 @@ mod tests {
             .unwrap();
         std::fs::create_dir_all(uri_path.parent().unwrap()).unwrap();
         std::fs::write(&uri_path, format!("http://{addr}/mcp")).unwrap();
-        sync_live_runtime_descriptor(&root).unwrap();
+        publish_local_runtime_descriptor(&root).unwrap();
 
         let runtime_id = local_runtime_id(&root);
         let root_for_query = root.clone();
@@ -749,7 +750,7 @@ mod tests {
         std::fs::create_dir_all(public_url_path.parent().unwrap()).unwrap();
         std::fs::write(&uri_path, format!("http://{addr}/mcp")).unwrap();
         std::fs::write(&public_url_path, "http://127.0.0.1:9/peer/query\n").unwrap();
-        sync_live_runtime_descriptor(&root).unwrap();
+        publish_local_runtime_descriptor(&root).unwrap();
 
         let runtime_id = local_runtime_id(&root);
         let root_for_query = root.clone();
@@ -832,7 +833,7 @@ mod tests {
             .unwrap();
         std::fs::create_dir_all(uri_path.parent().unwrap()).unwrap();
         std::fs::write(&uri_path, format!("http://{addr}/mcp")).unwrap();
-        sync_live_runtime_descriptor(&root).unwrap();
+        publish_local_runtime_descriptor(&root).unwrap();
 
         let runtime_id = local_runtime_id(&root);
         let query_session = local_host.peer_query_session();

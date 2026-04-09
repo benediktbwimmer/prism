@@ -471,7 +471,7 @@ pub struct WorkspaceSession {
     pub(crate) fs_snapshot: Arc<Mutex<WorkspaceTreeSnapshot>>,
     pub(crate) watch: Option<WatchHandle>,
     pub(crate) protected_state_watch: Option<WatchHandle>,
-    pub(crate) shared_coordination_ref_watch: Option<WatchHandle>,
+    pub(crate) coordination_authority_watch: Option<WatchHandle>,
     pub(crate) curator: Option<CuratorHandle>,
     pub(crate) checkpoint_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) coordination_enabled: bool,
@@ -2057,9 +2057,15 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        Ok(SqliteCoordinationMaterializedStore::new(&self.root)
-            .read_metadata()?
-            .startup_checkpoint_coordination_revision)
+        let store = SqliteCoordinationMaterializedStore::new(&self.root);
+        let metadata_revision = store.read_metadata()?.startup_checkpoint_coordination_revision;
+        if metadata_revision.is_some() {
+            return Ok(metadata_revision);
+        }
+        Ok(store
+            .read_startup_checkpoint()?
+            .value
+            .map(|checkpoint| checkpoint.coordination_revision))
     }
 
     pub fn load_tracked_coordination_snapshot_revision(&self) -> Result<Option<u64>> {
@@ -3087,7 +3093,7 @@ impl Drop for WorkspaceSession {
             let _ = watch.stop.send(WatchMessage::Stop);
             let _ = watch.handle.join();
         }
-        if let Some(watch) = self.shared_coordination_ref_watch.take() {
+        if let Some(watch) = self.coordination_authority_watch.take() {
             let _ = watch.stop.send(WatchMessage::Stop);
             let _ = watch.handle.join();
         }

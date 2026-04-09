@@ -4,8 +4,8 @@ use prism_coordination::{
     CoordinationEvent, CoordinationSnapshot, CoordinationSnapshotV2, EventExecutionOwner,
     EventExecutionRecord, RuntimeDescriptor,
 };
-use prism_ir::{EventExecutionId, SessionId};
 use prism_ir::EventExecutionStatus;
+use prism_ir::{EventExecutionId, SessionId};
 use prism_store::CoordinationPersistResult;
 
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
@@ -298,14 +298,32 @@ pub struct CoordinationDiagnosticsRequest {
     pub include_backend_details: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SqliteCoordinationAuthorityBackendDetails {
+    pub db_path: PathBuf,
+    pub coordination_revision: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PostgresCoordinationAuthorityBackendDetails {
+    pub connection_url: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum CoordinationAuthorityBackendDetails {
     GitSharedRefs(SharedCoordinationRefDiagnostics),
-    Sqlite {
-        db_path: PathBuf,
-        coordination_revision: Option<u64>,
-    },
+    Sqlite(SqliteCoordinationAuthorityBackendDetails),
+    Postgres(PostgresCoordinationAuthorityBackendDetails),
     Unavailable,
+}
+
+impl CoordinationAuthorityBackendDetails {
+    pub fn as_git_shared_refs(&self) -> Option<&SharedCoordinationRefDiagnostics> {
+        match self {
+            Self::GitSharedRefs(value) => Some(value),
+            Self::Sqlite(_) | Self::Postgres(_) | Self::Unavailable => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

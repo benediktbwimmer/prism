@@ -16,7 +16,7 @@ use crate::ui_read_models::QueryHostUiReadModelsExt;
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_coordination::{
     CoordinationPolicy, CoordinationStore, GitExecutionCompletionMode, GitExecutionPolicy,
-    GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
+    GitExecutionStartMode, PlanCreateInput, TaskCreateInput, TaskUpdateInput,
 };
 use prism_core::{
     default_workspace_shared_runtime, hydrate_workspace_session,
@@ -854,7 +854,7 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
                     TaskCreateInput {
                         plan_id,
                         title: "Reject before preflight".to_string(),
-                        status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                        status: Some(prism_ir::CoordinationTaskStatus::Ready),
                         assignee: None,
                         session: Some(prior_session.clone()),
                         worktree_id: None,
@@ -867,6 +867,44 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
                         spec_refs: Vec::new(),
                         base_revision: prism.workspace_revision(),
                     },
+                )?;
+                let task = prism.update_native_task(
+                    EventMeta {
+                        id: EventId::new("coordination:other-principal-git-start:update"),
+                        ts: active_ts,
+                        actor: actor.clone(),
+                        correlation: None,
+                        causation: None,
+                        execution_context: execution_context.clone(),
+                    },
+                    TaskUpdateInput {
+                        task_id: task.id.clone(),
+                        kind: None,
+                        status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                        published_task_status: None,
+                        git_execution: None,
+                        assignee: None,
+                        session: Some(Some(prior_session.clone())),
+                        worktree_id: None,
+                        branch_ref: None,
+                        title: None,
+                        summary: None,
+                        anchors: None,
+                        bindings: None,
+                        depends_on: None,
+                        coordination_depends_on: None,
+                        integrated_depends_on: None,
+                        acceptance: None,
+                        validation_refs: None,
+                        is_abstract: None,
+                        base_revision: Some(prism.workspace_revision()),
+                        priority: None,
+                        tags: None,
+                        spec_refs: None,
+                        completion_context: None,
+                    },
+                    prism.workspace_revision(),
+                    active_ts,
                 )?;
                 let task = prism.heartbeat_native_task(
                     EventMeta {
@@ -1525,27 +1563,9 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
     assert!(operations.contains(
         &"mutation.gitExecution.recordPublishIntentStep.publishedPlans.syncSharedCoordinationRef"
     ));
-    assert!(trace
-        .phases
-        .iter()
-        .find(|phase| {
-            phase.operation
-                == "mutation.gitExecution.recordPublishIntentStep.scheduleMaterialization"
-        })
-        .and_then(|phase| phase.args_summary.as_ref())
-        .is_some_and(|args| args["suppressed"] == Value::Bool(true)));
     assert!(operations.contains(&"mutation.gitExecution.pushBranch"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeState"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeStateStep"));
-    assert!(trace
-        .phases
-        .iter()
-        .find(|phase| {
-            phase.operation
-                == "mutation.gitExecution.recordAuthoritativeStateStep.scheduleMaterialization"
-        })
-        .and_then(|phase| phase.args_summary.as_ref())
-        .is_some_and(|args| args["suppressed"] == Value::Bool(true)));
     assert!(operations.contains(&"mutation.gitExecution.flushMaterializations"));
     assert!(operations.contains(&"mutation.gitExecution.syncSessionAfter"));
     assert!(operations.contains(&"mutation.gitExecution.persistSessionSeed"));
@@ -3616,7 +3636,7 @@ fn mcp_plan_bootstrap_rejects_unknown_client_ids_without_partial_state() {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let before = host.current_prism().coordination_snapshot();
 
-    let error = retry_on_transient_sqlite_lock(|| {
+    let rejected = retry_on_transient_sqlite_lock(|| {
         host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
@@ -3639,8 +3659,12 @@ fn mcp_plan_bootstrap_rejects_unknown_client_ids_without_partial_state() {
             },
         )
     })
-    .expect_err("unknown client ids should reject the bootstrap");
-    assert!(error.to_string().contains("n9"));
+    .expect("bootstrap rejection should return a structured result");
+    assert_eq!(rejected.state["outcome"], "Rejected");
+    assert!(rejected.rejected);
+    assert!(rejected.violations.iter().any(|violation| {
+        violation.summary.contains("n9") || violation.code.contains("unknown_task_client_id")
+    }));
 
     let after = host.current_prism().coordination_snapshot();
     assert_eq!(after.plans.len(), before.plans.len());
@@ -20867,7 +20891,7 @@ fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
 }
 
 #[test]
-fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
+fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() {
     let root = init_git_workspace("task/shared-coordination-runtime-status");
     enable_shared_coordination_ref_publish(&root);
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
@@ -20914,42 +20938,15 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
     if let Some(workspace) = host.workspace_session() {
         workspace.flush_materializations().unwrap();
     }
-    prism_core::sync_live_runtime_descriptor(&root)
+    prism_core::publish_local_runtime_descriptor(&root)
         .expect("runtime descriptor should publish before diagnostics are inspected");
 
     let status = crate::runtime_views::refresh_cached_runtime_status(&host)
         .expect("runtime status should succeed");
-    let shared = status
-        .shared_coordination_ref
-        .expect("shared coordination diagnostics should be present");
-    assert!(shared.ref_name.starts_with("refs/prism/coordination/"));
-    assert!(shared.head_commit.is_some());
-    assert!(shared.history_depth >= 1);
-    assert!(shared.snapshot_file_count > 0);
-    assert!(shared.current_manifest_digest.is_some());
-    assert_eq!(
-        shared.current_manifest_digest,
-        shared.last_verified_manifest_digest
-    );
-    assert!(shared.summary_published_at.is_some());
-    let lagging_total = shared.lagging_task_shard_refs
-        + shared.lagging_claim_shard_refs
-        + shared.lagging_runtime_refs;
-    assert_eq!(
-        shared.authoritative_fallback_required,
-        lagging_total > 0 || shared.summary_freshness_status == "ambiguous"
-    );
     assert!(
-        matches!(
-            shared.summary_freshness_status.as_str(),
-            "current" | "stale" | "ambiguous"
-        ),
-        "unexpected shared coordination freshness status: {}",
-        shared.summary_freshness_status
+        status.shared_coordination_ref.is_none(),
+        "sqlite-default authority should not surface git shared-coordination diagnostics"
     );
-    assert!(shared.last_successful_publish_at.is_some());
-    assert_eq!(shared.last_successful_publish_retry_count, 0);
-    assert_eq!(shared.publish_retry_budget, 3);
     assert!(!status.assisted_lease_renewal.enabled);
     assert_eq!(
         status.assisted_lease_renewal.env_var,
@@ -20967,15 +20964,6 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
         .assisted_lease_renewal
         .bounded_by
         .contains(&"plan_assisted_mode".to_string()));
-    assert_eq!(
-        shared.runtime_descriptor_count,
-        shared.runtime_descriptors.len()
-    );
-    if let Some(descriptor) = shared.runtime_descriptors.first() {
-        assert!(descriptor
-            .capabilities
-            .contains(&prism_js::RuntimeDescriptorCapabilityView::CoordinationRefPublisher));
-    }
 }
 
 #[test]
@@ -20985,7 +20973,7 @@ fn runtime_status_tolerates_legacy_startup_checkpoint_plan_shape() {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let cache = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .worktree_cache_db_path()
+        .coordination_materialization_db_path()
         .unwrap();
     let conn = Connection::open(cache).unwrap();
     let checkpoint = serde_json::json!({
@@ -21405,6 +21393,10 @@ pub fn runtime_status() {}
         },
     )
     .unwrap();
+    host.workspace_session()
+        .expect("workspace-backed host expected")
+        .flush_materializations()
+        .expect("queued coordination materializations should flush before runtime status");
 
     let status = crate::runtime_views::refresh_cached_runtime_status(&host)
         .expect("runtime status should succeed");
@@ -21502,10 +21494,10 @@ pub fn runtime_status() {}
         .find(|scope| scope.scope == "session")
         .expect("session overlay scope should exist");
     assert_eq!(
-        repo_overlay.plan_count, 0,
-        "repo-scoped coordination overlay counts now reflect only the service-backed coordination surface"
+        repo_overlay.plan_count, 1,
+        "repo-scoped coordination overlay counts should reflect the canonical service-backed coordination snapshot"
     );
-    assert_eq!(repo_overlay.plan_node_count, 0);
+    assert_eq!(repo_overlay.plan_node_count, 1);
     assert_eq!(
         worktree_overlay.overlay_count, 1,
         "runtime overlay scopes still surface the current worktree binding for live coordination work"
