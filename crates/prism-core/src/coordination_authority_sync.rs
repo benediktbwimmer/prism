@@ -84,7 +84,7 @@ pub(crate) fn apply_service_backed_coordination_current_state(
     let materialization = CoordinationMaterialization {
         authoritative_revision,
         snapshot: current_state.snapshot.clone(),
-        canonical_snapshot_v2: Some(current_state.canonical_snapshot_v2.clone()),
+        canonical_snapshot_v2: current_state.canonical_snapshot_v2.clone(),
         runtime_descriptors: Some(current_state.runtime_descriptors.clone()),
         publish_context,
     };

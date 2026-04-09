@@ -78,6 +78,7 @@ Current phase spec:
 - [../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-spec-linkage-follow-through-phase-6.md](../specs/2026-04-09-canonical-spec-linkage-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-runtime-publish-state-follow-through-phase-6.md](../specs/2026-04-09-canonical-runtime-publish-state-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-materialization-envelope-follow-through-phase-6.md](../specs/2026-04-09-canonical-materialization-envelope-follow-through-phase-6.md)
 
 Current assessment:
 
@@ -195,6 +196,10 @@ Latest checkpoint:
 - the canonical runtime publish-state follow-through is complete; runtime-state and `Prism`
   publication paths now carry canonical coordination snapshots as first-class state, and the
   shared coordination-transaction path refreshes cached canonical state before immediate v2 reads
+- the canonical materialization-envelope follow-through is complete; checkpoint and adjacent
+  persistence code now require canonical coordination state on production materialization
+  envelopes instead of treating it as an optional fallback derived from the legacy continuity
+  snapshot
 - the next Phase 6 work remains the deeper purge of active-path `CoordinationSnapshot` /
   legacy coordination-model dependencies that still exist under the mutation engine,
   transaction/runtime paths, and adjacent materialization code

@@ -565,7 +565,7 @@ impl CoordinationAuthorityDb for SqliteCoordinationAuthorityDb {
             &CoordinationMaterialization {
                 authoritative_revision: persisted.revision,
                 snapshot: request.snapshot.clone(),
-                canonical_snapshot_v2: Some(request.canonical_snapshot_v2.clone()),
+                canonical_snapshot_v2: request.canonical_snapshot_v2.clone(),
                 runtime_descriptors: Some(preserved_runtime_descriptors),
                 publish_context: publish_context_from_coordination_events(&request.appended_events),
             },
