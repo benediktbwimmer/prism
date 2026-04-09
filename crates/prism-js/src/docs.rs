@@ -649,7 +649,7 @@ type RuntimeFreshnessView = {
   lastRefreshFullRebuildCount?: number;
   lastRefreshWorkspaceReloaded?: boolean;
   lastWorkspaceBuildMs?: number;
-  lastRuntimeReadyMs?: number;
+  lastDaemonReadyMs?: number;
   materialization: RuntimeMaterializationView;
   domains: RuntimeDomainFreshnessView[];
   activeCommand?: string;

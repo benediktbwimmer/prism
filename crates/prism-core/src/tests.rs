@@ -7465,6 +7465,7 @@ fn coordination_materialized_store_can_clear_local_materialization() {
     crate::CoordinationMaterializedStore::write_startup_checkpoint(
         &store,
         crate::CoordinationStartupCheckpointWriteRequest {
+            authoritative_revision: 0,
             legacy_snapshot: snapshot.clone(),
             canonical_snapshot_v2: snapshot.to_canonical_snapshot_v2(),
             runtime_descriptors: Vec::new(),
@@ -8199,16 +8200,16 @@ fn checkpoint_materialization_preserves_authoritative_task_lease_fields() {
         .unwrap();
     flush_coordination_materializations(&session);
 
-    let mut materialized_store = SqliteStore::open(
+    let mut authority_store = SqliteStore::open(
         PrismPaths::for_workspace_root(&root)
             .unwrap()
-            .coordination_materialization_db_path()
+            .coordination_authority_db_path()
             .unwrap(),
     )
     .unwrap();
     let checkpoint =
         prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(
-            &mut materialized_store,
+            &mut authority_store,
         )
         .unwrap()
         .expect("coordination startup checkpoint");

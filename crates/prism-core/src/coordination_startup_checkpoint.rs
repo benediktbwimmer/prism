@@ -60,13 +60,34 @@ pub(crate) fn save_coordination_startup_checkpoint<S>(
 where
     S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
 {
+    save_coordination_startup_checkpoint_with_revision(
+        root,
+        store,
+        snapshot,
+        canonical_snapshot_v2,
+        runtime_descriptors,
+        store.coordination_revision()?,
+    )
+}
+
+pub(crate) fn save_coordination_startup_checkpoint_with_revision<S>(
+    root: &Path,
+    store: &mut S,
+    snapshot: &CoordinationSnapshot,
+    canonical_snapshot_v2: &CoordinationSnapshotV2,
+    runtime_descriptors: Option<&[RuntimeDescriptor]>,
+    authoritative_revision: u64,
+) -> Result<()>
+where
+    S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
+{
     let authority = resolve_coordination_startup_checkpoint_authority(root)?;
     let mut checkpoint_snapshot = sanitize_persisted_coordination_snapshot(snapshot.clone());
     checkpoint_snapshot.events.clear();
     store.save_coordination_startup_checkpoint(&CoordinationStartupCheckpoint {
         version: CoordinationStartupCheckpoint::VERSION,
         materialized_at: current_timestamp(),
-        coordination_revision: store.coordination_revision()?,
+        coordination_revision: authoritative_revision,
         authority,
         snapshot: checkpoint_snapshot.clone(),
         canonical_snapshot_v2: canonical_snapshot_v2.clone(),

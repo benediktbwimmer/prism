@@ -274,6 +274,7 @@ impl SqliteCoordinationAuthorityDb {
         )?;
         SqliteCoordinationMaterializedStore::new(&self.root).write_startup_checkpoint(
             CoordinationStartupCheckpointWriteRequest {
+                authoritative_revision: revision,
                 legacy_snapshot: snapshot,
                 canonical_snapshot_v2,
                 runtime_descriptors,

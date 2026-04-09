@@ -260,7 +260,7 @@ fn canonical_plan_node_status_counts(
 
 fn compatibility_plan_status(status: DerivedPlanStatus) -> PlanStatus {
     match status {
-        DerivedPlanStatus::Pending => PlanStatus::Draft,
+        DerivedPlanStatus::Pending => PlanStatus::Active,
         DerivedPlanStatus::Active => PlanStatus::Active,
         DerivedPlanStatus::Blocked => PlanStatus::Blocked,
         DerivedPlanStatus::BrokenDependency => PlanStatus::Blocked,

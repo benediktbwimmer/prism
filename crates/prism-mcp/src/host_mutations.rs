@@ -1375,6 +1375,20 @@ fn current_coordination_plan_state(prism: &Prism, plan_id: &PlanId) -> Result<Va
     Ok(serde_json::to_value(coordination_plan_v2_view(plan))?)
 }
 
+fn with_title_cased_plan_status(state: &mut Value) {
+    let Some(status) = state.get("status").and_then(Value::as_str) else {
+        return;
+    };
+    let mut chars = status.chars();
+    let Some(first) = chars.next() else {
+        return;
+    };
+    let title_cased = first.to_ascii_uppercase().to_string() + chars.as_str();
+    if let Some(object) = state.as_object_mut() {
+        object.insert("status".to_string(), Value::String(title_cased));
+    }
+}
+
 fn current_coordination_task_state(prism: &Prism, task_id: &CoordinationTaskId) -> Result<Value> {
     let task = current_coordination_task_view(prism, task_id)?;
     Ok(serde_json::to_value(coordination_task_v2_view(task))?)
@@ -5187,10 +5201,12 @@ impl QueryHost {
                     },
                     convert_plan_scheduling(payload.scheduling),
                 )?;
+                let mut state = current_coordination_plan_state(prism, &plan_id)?;
+                with_title_cased_plan_status(&mut state);
                 Ok(attach_coordination_transaction_metadata(
                     workspace_root,
                     self.workspace_authority_store_provider(),
-                    current_coordination_plan_state(prism, &plan_id)?,
+                    state,
                     &result,
                 ))
             }
@@ -5198,10 +5214,12 @@ impl QueryHost {
                 let payload: PlanArchivePayload = serde_json::from_value(args.payload)?;
                 let plan_id = PlanId::new(payload.plan_id);
                 let result = prism.archive_native_plan_transaction(meta, &plan_id)?;
+                let mut state = current_coordination_plan_state(prism, &plan_id)?;
+                with_title_cased_plan_status(&mut state);
                 Ok(attach_coordination_transaction_metadata(
                     workspace_root,
                     self.workspace_authority_store_provider(),
-                    current_coordination_plan_state(prism, &plan_id)?,
+                    state,
                     &result,
                 ))
             }

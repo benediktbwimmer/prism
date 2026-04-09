@@ -57,7 +57,11 @@ pub fn default_coordination_authority_store_provider() -> CoordinationAuthorityS
 pub fn coordination_materialization_enabled_by_default(
     config: &CoordinationAuthorityBackendConfig,
 ) -> bool {
-    matches!(config, CoordinationAuthorityBackendConfig::GitSharedRefs)
+    matches!(
+        config,
+        CoordinationAuthorityBackendConfig::GitSharedRefs
+            | CoordinationAuthorityBackendConfig::Sqlite { .. }
+    )
 }
 
 pub fn coordination_materialization_enabled_for_root(root: &Path) -> Result<bool> {

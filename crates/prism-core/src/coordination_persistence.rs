@@ -22,6 +22,8 @@ use crate::coordination_authority_store::{
     CoordinationTransactionBase, CoordinationTransactionRequest, CoordinationTransactionResult,
     CoordinationTransactionStatus,
 };
+#[cfg(test)]
+use crate::coordination_authority_store::{CoordinationReadRequest, CoordinationStateView};
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
@@ -34,6 +36,7 @@ use crate::coordination_reads::{
     load_eventual_coordination_plan_state_for_root as load_eventual_plan_state_for_root,
     load_eventual_coordination_snapshot_for_root as load_eventual_snapshot_for_root,
     load_eventual_coordination_snapshot_v2_for_root as load_eventual_snapshot_v2_for_root,
+    CoordinationReadConsistency,
 };
 #[cfg(test)]
 use crate::published_plans::{sync_repo_published_plans, HydratedCoordinationPlanState};
@@ -284,6 +287,7 @@ where
                 let _ = store;
                 SqliteCoordinationMaterializedStore::new(root).write_startup_checkpoint(
                     CoordinationStartupCheckpointWriteRequest {
+                        authoritative_revision,
                         legacy_snapshot: repo_semantic_snapshot.clone(),
                         canonical_snapshot_v2: derived.canonical_snapshot_v2.clone(),
                         runtime_descriptors: Vec::new(),
@@ -452,9 +456,43 @@ pub(crate) trait CoordinationPersistenceBackend:
             expected_revision: None,
             appended_events,
         })?;
+        let provider = configured_coordination_authority_store_provider(root)?;
+        if !matches!(
+            provider.config(),
+            crate::CoordinationAuthorityBackendConfig::GitSharedRefs
+        ) || coordination_authority_publication_enabled(root)
+        {
+            let authority_store = provider.open(root)?;
+            let existing_authority_events = authority_store
+                .read_current(CoordinationReadRequest {
+                    consistency: CoordinationReadConsistency::Strong,
+                    view: CoordinationStateView::PlanState,
+                })?
+                .value
+                .map(|state| state.snapshot.events)
+                .unwrap_or_default();
+            let authority_appended_events =
+                coordination_event_delta(&existing_authority_events, &snapshot.events);
+            let transaction = authority_store.apply_transaction(CoordinationTransactionRequest {
+                base: CoordinationTransactionBase::LatestStrong,
+                session_id: None,
+                snapshot: snapshot.clone(),
+                canonical_snapshot_v2: canonical_snapshot_v2.clone(),
+                appended_events: authority_appended_events.clone(),
+                derived_state_mode: CoordinationDerivedStateMode::Inline,
+            })?;
+            if !matches!(transaction.status, CoordinationTransactionStatus::Committed) {
+                return Err(authority_transaction_error(
+                    &transaction,
+                    "coordination authority transaction did not commit successfully",
+                )
+                .into());
+            }
+        }
         sync_repo_published_plans(root, snapshot, canonical_snapshot_v2, None)?;
         SqliteCoordinationMaterializedStore::new(root).write_startup_checkpoint(
             CoordinationStartupCheckpointWriteRequest {
+                authoritative_revision: result.revision,
                 legacy_snapshot: snapshot.clone(),
                 canonical_snapshot_v2: canonical_snapshot_v2.clone(),
                 runtime_descriptors: Vec::new(),
@@ -560,6 +598,24 @@ pub(crate) trait CoordinationPersistenceBackend:
         };
         let authority_publication_enabled = coordination_authority_publication_enabled(root);
         let provider = configured_coordination_authority_store_provider(root)?;
+        let local_expected_revision = self.coordination_revision()?;
+        let local_result = observe_coordination_step(
+            &mut observe_phase,
+            "mutation.coordination.commitPersistBatch",
+            |result: &CoordinationPersistResult| {
+                json!({
+                    "applied": result.applied,
+                    "appendedEventCount": appended_events.len(),
+                })
+            },
+            || {
+                self.commit_coordination_persist_batch(&CoordinationPersistBatch {
+                    context: coordination_persist_context_for_root(root, session_id),
+                    expected_revision: Some(local_expected_revision),
+                    appended_events: appended_events.to_vec(),
+                })
+            },
+        )?;
         let result = if matches!(
             provider.config(),
             crate::CoordinationAuthorityBackendConfig::GitSharedRefs
@@ -575,23 +631,7 @@ pub(crate) trait CoordinationPersistenceBackend:
                 true,
                 None,
             );
-            observe_coordination_step(
-                &mut observe_phase,
-                "mutation.coordination.commitPersistBatch",
-                |result: &CoordinationPersistResult| {
-                    json!({
-                        "applied": result.applied,
-                        "appendedEventCount": appended_events.len(),
-                    })
-                },
-                || {
-                    self.commit_coordination_persist_batch(&CoordinationPersistBatch {
-                        context: coordination_persist_context_for_root(root, session_id),
-                        expected_revision: Some(expected_revision),
-                        appended_events: appended_events.to_vec(),
-                    })
-                },
-            )?
+            local_result
         } else {
             let transaction = persist_authority_transaction_observed(
                 root,
@@ -607,7 +647,7 @@ pub(crate) trait CoordinationPersistenceBackend:
                     transaction.persisted.unwrap_or(CoordinationPersistResult {
                         revision: expected_revision.saturating_add(1),
                         inserted_events: appended_events.len(),
-                        applied: true,
+                        applied: local_result.applied,
                     })
                 }
                 _ => {

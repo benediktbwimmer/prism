@@ -18,7 +18,7 @@ use super::types::{
 };
 use crate::coordination_startup_checkpoint::{
     load_persisted_coordination_plan_state, load_persisted_coordination_snapshot,
-    load_persisted_coordination_snapshot_v2, save_coordination_startup_checkpoint,
+    load_persisted_coordination_snapshot_v2, save_coordination_startup_checkpoint_with_revision,
 };
 use crate::prism_paths::PrismPaths;
 
@@ -44,7 +44,14 @@ impl SqliteCoordinationMaterializedStore {
         let checkpoint = store.load_coordination_startup_checkpoint()?;
         let read_model = store.load_coordination_read_model()?;
         let queue_read_model = store.load_coordination_queue_read_model()?;
-        let coordination_revision = Some(store.coordination_revision()?);
+        let coordination_revision = checkpoint
+            .as_ref()
+            .map(|value| value.coordination_revision)
+            .into_iter()
+            .chain(read_model.as_ref().map(|value| value.revision))
+            .chain(queue_read_model.as_ref().map(|value| value.revision))
+            .max()
+            .or(Some(store.coordination_revision()?));
 
         Ok(CoordinationMaterializationMetadata {
             backend_kind: CoordinationMaterializedBackendKind::Sqlite,
@@ -223,12 +230,13 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
         request: CoordinationStartupCheckpointWriteRequest,
     ) -> Result<CoordinationMaterializedWriteResult> {
         let mut store = self.open_store()?;
-        save_coordination_startup_checkpoint(
+        save_coordination_startup_checkpoint_with_revision(
             &self.root,
             &mut store,
             &request.legacy_snapshot,
             &request.canonical_snapshot_v2,
             Some(&request.runtime_descriptors),
+            request.authoritative_revision,
         )?;
         Ok(CoordinationMaterializedWriteResult {
             metadata: self.load_metadata_from_store(&mut store)?,

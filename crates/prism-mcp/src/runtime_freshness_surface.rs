@@ -138,7 +138,7 @@ mod tests {
             last_refresh_full_rebuild_count: None,
             last_refresh_workspace_reloaded: None,
             last_workspace_build_ms: None,
-            last_runtime_ready_ms: None,
+            last_daemon_ready_ms: None,
             materialization: RuntimeMaterializationView {
                 workspace: RuntimeMaterializationItemView {
                     status: status.to_string(),

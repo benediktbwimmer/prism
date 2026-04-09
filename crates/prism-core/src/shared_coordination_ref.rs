@@ -5463,9 +5463,15 @@ mod tests {
             .unwrap();
         assert_eq!(
             eventual_before.freshness,
-            CoordinationReadFreshness::Unavailable
+            CoordinationReadFreshness::VerifiedCurrent
         );
-        assert!(eventual_before.value.is_none());
+        let eventual_before_title = eventual_before
+            .value
+            .as_ref()
+            .and_then(|state| state.snapshot.tasks.first())
+            .map(|task| task.title.as_str())
+            .unwrap();
+        assert_eq!(eventual_before_title, "ship it");
 
         let strong_initial = session
             .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Strong)
@@ -5487,9 +5493,15 @@ mod tests {
             .unwrap();
         assert_eq!(
             eventual_after_initial.freshness,
-            CoordinationReadFreshness::Unavailable
+            CoordinationReadFreshness::VerifiedCurrent
         );
-        assert!(eventual_after_initial.value.is_none());
+        let eventual_after_initial_title = eventual_after_initial
+            .value
+            .as_ref()
+            .and_then(|state| state.snapshot.tasks.first())
+            .map(|task| task.title.as_str())
+            .unwrap();
+        assert_eq!(eventual_after_initial_title, "ship it");
     }
 
     #[test]

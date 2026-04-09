@@ -496,6 +496,7 @@ where
         Some(materialization.authoritative_revision),
     )?;
     materialized_store.write_startup_checkpoint(CoordinationStartupCheckpointWriteRequest {
+        authoritative_revision: materialization.authoritative_revision,
         legacy_snapshot: repo_semantic_snapshot,
         canonical_snapshot_v2,
         runtime_descriptors: materialization

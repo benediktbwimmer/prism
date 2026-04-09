@@ -44,7 +44,10 @@ const MUTATION_REFRESH_WAIT_TIMEOUT: Duration = Duration::from_millis(1500);
 const MUTATION_REFRESH_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 
 use crate::admission::AdmissionBusyError;
-use crate::checkpoint_materializer::CheckpointMaterializerHandle;
+use crate::checkpoint_materializer::{
+    persist_coordination_materialization, CheckpointMaterializerHandle,
+    CoordinationMaterialization,
+};
 use crate::concept_events::append_repo_concept_event;
 use crate::concept_relation_events::append_repo_concept_relation_event;
 use crate::contract_events::append_repo_contract_event;
@@ -1959,8 +1962,14 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(0);
         }
-        let store = self.store.lock().expect("workspace store lock poisoned");
-        Store::coordination_revision(&store)
+        let persisted_revision = {
+            let store = self.store.lock().expect("workspace store lock poisoned");
+            Store::coordination_revision(&store)?
+        };
+        Ok(self
+            .read_coordination_authority_stamp()?
+            .and_then(|authority| authority_revision_from_stamp(&authority))
+            .unwrap_or(persisted_revision))
     }
 
     pub fn coordination_runtime_revision(&self) -> Result<u64> {
@@ -2014,9 +2023,12 @@ impl WorkspaceSession {
             consistency,
             || {
                 if materialization_enabled {
-                    return Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+                    if let Some(snapshot) = SqliteCoordinationMaterializedStore::new(&self.root)
                         .read_legacy_snapshot()?
-                        .value);
+                        .value
+                    {
+                        return Ok(Some(snapshot));
+                    }
                 }
                 Ok(self
                     .read_coordination_current_state_from_authority()?
@@ -2035,9 +2047,12 @@ impl WorkspaceSession {
             consistency,
             || {
                 if materialization_enabled {
-                    return Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+                    if let Some(snapshot_v2) = SqliteCoordinationMaterializedStore::new(&self.root)
                         .read_snapshot_v2()?
-                        .value);
+                        .value
+                    {
+                        return Ok(Some(snapshot_v2));
+                    }
                 }
                 Ok(self
                     .read_coordination_current_state_from_authority()?
@@ -2052,9 +2067,15 @@ impl WorkspaceSession {
             return Ok(None);
         }
         if self.coordination_materialization_enabled()? {
-            return Ok(SqliteCoordinationMaterializedStore::new(&self.root)
-                .read_effective_read_model()?
-                .value);
+            let materialized_store = SqliteCoordinationMaterializedStore::new(&self.root);
+            if let Some(model) = materialized_store.read_effective_read_model()?.value {
+                return Ok(Some(model));
+            }
+            return Ok(self
+                .read_coordination_current_state_from_authority()?
+                .map(|state| {
+                    prism_coordination::coordination_read_model_from_snapshot(&state.snapshot)
+                }));
         }
         Ok(self
             .read_coordination_current_state_from_authority()?
@@ -2068,9 +2089,15 @@ impl WorkspaceSession {
             return Ok(None);
         }
         if self.coordination_materialization_enabled()? {
-            return Ok(SqliteCoordinationMaterializedStore::new(&self.root)
-                .read_effective_queue_read_model()?
-                .value);
+            let materialized_store = SqliteCoordinationMaterializedStore::new(&self.root);
+            if let Some(model) = materialized_store.read_effective_queue_read_model()?.value {
+                return Ok(Some(model));
+            }
+            return Ok(self
+                .read_coordination_current_state_from_authority()?
+                .map(|state| {
+                    prism_coordination::coordination_queue_read_model_from_snapshot(&state.snapshot)
+                }));
         }
         Ok(self
             .read_coordination_current_state_from_authority()?
@@ -2129,16 +2156,18 @@ impl WorkspaceSession {
             consistency,
             || {
                 if materialization_enabled {
-                    return Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+                    if let Some(value) = SqliteCoordinationMaterializedStore::new(&self.root)
                         .read_plan_state()?
                         .value
-                        .map(|value| {
-                            CoordinationPlanState::from(HydratedCoordinationPlanState {
+                    {
+                        return Ok(Some(CoordinationPlanState::from(
+                            HydratedCoordinationPlanState {
                                 snapshot: value.legacy_snapshot,
                                 canonical_snapshot_v2: value.canonical_snapshot_v2,
                                 runtime_descriptors: value.runtime_descriptors,
-                            })
-                        }));
+                            },
+                        )));
+                    }
                 }
                 Ok(self
                     .read_coordination_current_state_from_authority()?
@@ -2203,17 +2232,26 @@ impl WorkspaceSession {
         ))
     }
 
-    fn read_coordination_current_state_from_authority(
+    fn read_coordination_current_state_from_authority_with_consistency(
         &self,
+        consistency: CoordinationReadConsistency,
     ) -> Result<Option<crate::CoordinationCurrentState>> {
         let provider = configured_coordination_authority_store_provider(&self.root)?;
         Ok(provider
             .open(&self.root)?
             .read_current(CoordinationReadRequest {
-                consistency: CoordinationReadConsistency::Eventual,
+                consistency,
                 view: CoordinationStateView::PlanState,
             })?
             .value)
+    }
+
+    fn read_coordination_current_state_from_authority(
+        &self,
+    ) -> Result<Option<crate::CoordinationCurrentState>> {
+        self.read_coordination_current_state_from_authority_with_consistency(
+            CoordinationReadConsistency::Eventual,
+        )
     }
 
     fn read_coordination_authority_stamp(&self) -> Result<Option<CoordinationAuthorityStamp>> {
@@ -2931,6 +2969,7 @@ impl WorkspaceSession {
         if let Some(materializer) = &self.checkpoint_materializer {
             materializer.flush()?;
         }
+        self.ensure_coordination_materialization_state()?;
         let wait_started = Instant::now();
         while self.repo_projection_sync_pending.load(Ordering::Acquire) {
             if wait_started.elapsed() > Duration::from_secs(5) {
@@ -2941,6 +2980,51 @@ impl WorkspaceSession {
             thread::sleep(Duration::from_millis(10));
         }
         Ok(())
+    }
+
+    fn ensure_coordination_materialization_state(&self) -> Result<()> {
+        if !self.coordination_enabled || !self.coordination_materialization_enabled()? {
+            return Ok(());
+        }
+
+        let materialized_store = SqliteCoordinationMaterializedStore::new(&self.root);
+        let authoritative_revision = self
+            .read_coordination_authority_stamp()?
+            .and_then(|authority| authority_revision_from_stamp(&authority))
+            .unwrap_or_else(|| self.coordination_runtime_revision.load(Ordering::Relaxed));
+        let startup_checkpoint = materialized_store.read_startup_checkpoint()?;
+        let read_model = materialized_store.read_read_model()?;
+        let queue_read_model = materialized_store.read_queue_read_model()?;
+        let startup_revision = startup_checkpoint
+            .value
+            .as_ref()
+            .map(|checkpoint| checkpoint.coordination_revision);
+        let read_model_revision = read_model.value.as_ref().map(|value| value.revision);
+        let queue_read_model_revision = queue_read_model.value.as_ref().map(|value| value.revision);
+        if startup_revision == Some(authoritative_revision)
+            && read_model_revision == Some(authoritative_revision)
+            && queue_read_model_revision == Some(authoritative_revision)
+        {
+            return Ok(());
+        }
+
+        let Some(current_state) = self.read_coordination_current_state_from_authority_with_consistency(
+            CoordinationReadConsistency::Strong,
+        )? else {
+            return Ok(());
+        };
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        persist_coordination_materialization(
+            &self.root,
+            &mut *store,
+            &CoordinationMaterialization {
+                authoritative_revision,
+                snapshot: current_state.snapshot,
+                canonical_snapshot_v2: current_state.canonical_snapshot_v2,
+                runtime_descriptors: Some(current_state.runtime_descriptors),
+                publish_context: None,
+            },
+        )
     }
 
     pub fn persist_runtime_startup_checkpoint(&self) -> Result<()> {

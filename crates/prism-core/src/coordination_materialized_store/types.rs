@@ -65,6 +65,7 @@ impl<T> CoordinationMaterializedReadEnvelope<T> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoordinationStartupCheckpointWriteRequest {
+    pub authoritative_revision: u64,
     pub legacy_snapshot: CoordinationSnapshot,
     pub canonical_snapshot_v2: CoordinationSnapshotV2,
     pub runtime_descriptors: Vec<RuntimeDescriptor>,
