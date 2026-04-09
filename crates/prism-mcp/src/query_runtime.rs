@@ -215,7 +215,7 @@ struct TaskQuerySubject {
 fn resolve_task_query_subject(prism: &Prism, task_id: &str) -> Option<TaskQuerySubject> {
     let coordination_task_id = CoordinationTaskId::new(task_id.to_string());
     prism
-        .coordination_task(&coordination_task_id)
+        .coordination_task_v2_by_coordination_id(&coordination_task_id)
         .map(|_| TaskQuerySubject {
             coordination_task_id,
         })
@@ -223,8 +223,8 @@ fn resolve_task_query_subject(prism: &Prism, task_id: &str) -> Option<TaskQueryS
 
 fn task_query_subject_anchors(prism: &Prism, subject: &TaskQuerySubject) -> Vec<AnchorRef> {
     prism
-        .coordination_task(&subject.coordination_task_id)
-        .map(|task| task.anchors)
+        .coordination_task_v2_by_coordination_id(&subject.coordination_task_id)
+        .map(|task| task.task.anchors)
         .unwrap_or_default()
 }
 
@@ -1428,8 +1428,11 @@ impl QueryExecution {
                     Ok(serde_json::to_value(
                         resolve_task_query_subject(self.prism.as_ref(), &args.task_id).and_then(
                             |subject| {
-                                let task =
-                                    self.prism.coordination_task(&subject.coordination_task_id);
+                                let task = self
+                                    .prism
+                                    .coordination_task_v2_by_coordination_id(
+                                        &subject.coordination_task_id,
+                                    );
                                 let anchors =
                                     task_query_subject_anchors(self.prism.as_ref(), &subject);
                                 let mut risk = self.prism.task_risk(
@@ -1468,9 +1471,12 @@ impl QueryExecution {
                                 risk.review_required = risk.review_required
                                     || task
                                         .as_ref()
-                                        .and_then(|task| self.prism.coordination_plan(&task.plan))
+                                        .and_then(|task| {
+                                            self.prism
+                                                .coordination_plan_v2(&task.task.parent_plan_id)
+                                        })
                                         .and_then(|plan| {
-                                            plan.policy.review_required_above_risk_score
+                                            plan.plan.policy.review_required_above_risk_score
                                         })
                                         .map(|threshold| boosted_risk_score >= threshold)
                                         .unwrap_or(false);

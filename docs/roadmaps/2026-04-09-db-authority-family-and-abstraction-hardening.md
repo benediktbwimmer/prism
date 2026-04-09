@@ -69,6 +69,7 @@ Current active phase:
 Current phase spec:
 
 - [../specs/2026-04-09-coordination-v2-breaking-compatibility-removal-phase-6.md](../specs/2026-04-09-coordination-v2-breaking-compatibility-removal-phase-6.md)
+- [../specs/2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md](../specs/2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md)
 
 Current assessment:
 
@@ -143,9 +144,12 @@ Latest checkpoint:
 - the first Phase 6 breaking-cut implementation is in progress: authority-edge aliases are gone,
   the runtime-status field is now `coordinationAuthority`, and the live JS/MCP coordination surface
   now returns only v2 plan/task payloads
+- the reader-side query follow-through is now complete; `prism-query` risk, intent, and impact
+  readers plus adjacent MCP task-context/provenance readers now load canonical v2 task and plan
+  data instead of legacy plan/task projections where legacy-only fields are not required
 - the remaining Phase 6 work is the deeper purge of active-path `CoordinationSnapshot` / legacy
-  coordination-model dependencies that still exist under `prism-coordination`, `prism-query`, and
-  adjacent runtime materialization code
+  coordination-model dependencies that still exist under `prism-coordination`, `prism-query`,
+  `prism-mcp` host mutation/runtime paths, and adjacent materialization code
 
 ## 3. Ordering thesis
 

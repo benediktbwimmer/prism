@@ -30,6 +30,10 @@ This phase starts with the breaking product-surface cut, but it does not stop th
 phase also owns the follow-through to remove legacy coordination-model dependencies that remain on
 the active runtime path under `CoordinationSnapshot` after the surface break lands.
 
+The first internal follow-through slice under this phase is:
+
+- [2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md](./2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md)
+
 ## 2. Required changes
 
 ### 2.1 Authority edge
@@ -62,6 +66,8 @@ the active runtime path under `CoordinationSnapshot` after the surface break lan
   as the primary live coordination model in `prism-coordination`
 - move runtime/query/authority code toward `CoordinationSnapshotV2` as the authoritative
   coordination state shape
+- cut reader-side query and MCP task/plan metadata consumers over to canonical v2 task and plan
+  helpers before touching deeper mutation or watch paths
 - delete legacy-only translation helpers once no active runtime path depends on them
 - keep Git-shared-ref-specific compatibility only where it is part of the explicit Git backend,
   not in backend-neutral coordination code
@@ -78,6 +84,8 @@ the active runtime path under `CoordinationSnapshot` after the surface break lan
 - no production response schema uses `shared_coordination_ref`
 - no production response schema exposes `PlanView` or `CoordinationTaskView`
 - no live plan/task response path in MCP/query code uses compatibility status mappers
+- reader-side query and MCP task/plan metadata consumers use canonical v2 task and plan lookups
+  where legacy-only fields are not required
 - the roadmap clearly tracks any remaining `CoordinationSnapshot`-backed active-path dependencies
   still to be removed inside this phase
 - targeted tests for `prism-core`, `prism-js`, and `prism-mcp` pass
