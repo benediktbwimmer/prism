@@ -27,8 +27,8 @@ use super::types::{
     EventExecutionTransitionStatus, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
     RuntimeDescriptorQuery, SqliteCoordinationAuthorityBackendDetails,
 };
-use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
 use crate::coordination_persistence::repo_semantic_coordination_snapshot;
+use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
 use crate::util::current_timestamp;
 use crate::workspace_identity::{
     coordination_persist_context_for_root, workspace_identity_for_root,
@@ -445,7 +445,9 @@ fn merge_checkpoint_counters(
     snapshot.next_plan = snapshot.next_plan.max(checkpoint_snapshot.next_plan);
     snapshot.next_task = snapshot.next_task.max(checkpoint_snapshot.next_task);
     snapshot.next_claim = snapshot.next_claim.max(checkpoint_snapshot.next_claim);
-    snapshot.next_artifact = snapshot.next_artifact.max(checkpoint_snapshot.next_artifact);
+    snapshot.next_artifact = snapshot
+        .next_artifact
+        .max(checkpoint_snapshot.next_artifact);
     snapshot.next_review = snapshot.next_review.max(checkpoint_snapshot.next_review);
     snapshot
 }

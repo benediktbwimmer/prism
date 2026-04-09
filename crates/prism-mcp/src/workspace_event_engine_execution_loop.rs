@@ -51,11 +51,12 @@ impl WorkspaceEventEngine {
         request: EventTriggerExecutionPassRequest,
     ) -> Result<EventTriggerExecutionPassPlan> {
         let owner = service_event_execution_owner(self.workspace_root());
-        let mut records = self.read_event_execution_records(EventExecutionRecordAuthorityQuery {
-            consistency: CoordinationReadConsistency::Strong,
-            event_execution_id: None,
-            limit: None,
-        })?;
+        let mut records =
+            self.read_event_execution_records(EventExecutionRecordAuthorityQuery {
+                consistency: CoordinationReadConsistency::Strong,
+                event_execution_id: None,
+                limit: None,
+            })?;
         records.sort_by(|left, right| {
             left.claimed_at
                 .cmp(&right.claimed_at)
@@ -88,14 +89,13 @@ impl WorkspaceEventEngine {
                 });
                 continue;
             }
-            if request
-                .limit
-                .is_some_and(|limit| candidate_count >= limit)
-            {
+            if request.limit.is_some_and(|limit| candidate_count >= limit) {
                 break;
             }
             let action = match record.expires_at {
-                Some(expires_at) if expires_at <= request.now => EventTriggerExecutionAction::Expire,
+                Some(expires_at) if expires_at <= request.now => {
+                    EventTriggerExecutionAction::Expire
+                }
                 _ => EventTriggerExecutionAction::Start,
             };
             outcomes.push(EventTriggerExecutionPassOutcome::Candidate(

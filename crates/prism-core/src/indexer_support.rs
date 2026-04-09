@@ -11,7 +11,7 @@ use anyhow::Result;
 use prism_coordination::{CoordinationSnapshot, RuntimeDescriptor};
 use prism_curator::CuratorBackend;
 use prism_history::HistoryStore;
-use prism_ir::{EdgeKind, PrismRuntimeCapabilities};
+use prism_ir::{EdgeKind, PrismRuntimeCapabilities, PrismRuntimeMode};
 use prism_memory::OutcomeMemory;
 use prism_parser::LanguageAdapter;
 use prism_projections::{IntentIndex, ProjectionIndex};
@@ -26,7 +26,9 @@ use crate::local_principal_registry::ensure_local_principal_registry_snapshot;
 use crate::observed_change_tracker::ObservedChangeTracker;
 use crate::protected_state::runtime_sync::sync_repo_protected_state;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
-use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession};
+use crate::session::{
+    WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession, WorkspaceSessionFullRuntime,
+};
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{persisted_file_hash, workspace_walk};
 use crate::watch::{
@@ -57,22 +59,42 @@ pub(crate) fn build_workspace_session(
     backend: Option<Arc<dyn CuratorBackend>>,
 ) -> Result<WorkspaceSession> {
     let started = Instant::now();
-    let sync_protected_started = Instant::now();
-    sync_repo_protected_state(&root, &mut store, runtime_capabilities)?;
-    let sync_repo_protected_state_ms = sync_protected_started.elapsed().as_millis();
+    let coordination_only_runtime = matches!(
+        PrismRuntimeMode::from_capabilities(runtime_capabilities),
+        Some(PrismRuntimeMode::CoordinationOnly)
+    );
+    let sync_repo_protected_state_ms = if coordination_only_runtime {
+        0
+    } else {
+        let sync_protected_started = Instant::now();
+        sync_repo_protected_state(&root, &mut store, runtime_capabilities)?;
+        sync_protected_started.elapsed().as_millis()
+    };
     let workspace_revision_started = Instant::now();
     let workspace_revision = store.workspace_revision()?;
     let workspace_revision_ms = workspace_revision_started.elapsed().as_millis();
     let reopen_stores_started = Instant::now();
-    let cold_query_store = store.reopen_runtime_reader()?;
-    let curator_store = store.reopen_runtime_reader()?;
+    let cold_query_store = if coordination_only_runtime {
+        None
+    } else {
+        Some(store.reopen_runtime_reader()?)
+    };
+    let curator_store = if coordination_only_runtime {
+        None
+    } else {
+        Some(store.reopen_runtime_reader()?)
+    };
     let reopen_runtime_readers_ms = reopen_stores_started.elapsed().as_millis();
     let loaded_workspace_revision = Arc::new(AtomicU64::new(workspace_revision));
     let coordination_runtime_revision = Arc::new(AtomicU64::new(0));
     let store = Arc::new(Mutex::new(store));
-    let cold_query_store = Arc::new(Mutex::new(cold_query_store));
+    let cold_query_store = cold_query_store
+        .map(|store| Arc::new(Mutex::new(store)))
+        .unwrap_or_else(|| Arc::clone(&store));
     let load_principal_registry_started = Instant::now();
-    let principal_registry = {
+    let principal_registry = if coordination_only_runtime {
+        Default::default()
+    } else {
         let mut store = store.lock().expect("workspace store lock poisoned");
         ensure_local_principal_registry_snapshot(&root, &mut *store)?.unwrap_or_default()
     };
@@ -109,14 +131,16 @@ pub(crate) fn build_workspace_session(
     let _ = trust_cached_query_state;
     let publish_generation_ms = publish_generation_started.elapsed().as_millis();
     let attach_cold_backends_started = Instant::now();
-    WorkspaceSession::attach_cold_query_backends(
-        published_generation
-            .read()
-            .expect("workspace published generation lock poisoned")
-            .prism_arc()
-            .as_ref(),
-        &cold_query_store,
-    );
+    if !coordination_only_runtime {
+        WorkspaceSession::attach_cold_query_backends(
+            published_generation
+                .read()
+                .expect("workspace published generation lock poisoned")
+                .prism_arc()
+                .as_ref(),
+            &cold_query_store,
+        );
+    }
     let attach_cold_query_backends_ms = attach_cold_backends_started.elapsed().as_millis();
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());
@@ -132,18 +156,32 @@ pub(crate) fn build_workspace_session(
     let observed_change_tracker = Arc::new(Mutex::new(ObservedChangeTracker::default()));
     let worktree_mutator_slot = Arc::new(Mutex::new(None));
     let worktree_principal_binding = Arc::new(Mutex::new(None));
-    let checkpoint_materializer =
-        CheckpointMaterializerHandle::new(root.clone(), Arc::clone(&store));
+    let checkpoint_materializer = if coordination_only_runtime {
+        None
+    } else {
+        Some(CheckpointMaterializerHandle::new(
+            root.clone(),
+            Arc::clone(&store),
+        ))
+    };
     let load_curator_snapshot_ms = 0_u128;
-    let curator = CuratorHandle::new(
-        backend,
-        Arc::clone(&published_generation),
-        Arc::clone(&store),
-        Arc::new(Mutex::new(curator_store)),
-        Some(checkpoint_materializer.clone()),
-        Arc::clone(&refresh_lock),
-    );
-    let live_watches_enabled = !env_flag_enabled("PRISM_TEST_DISABLE_LIVE_WATCHERS");
+    let curator = if coordination_only_runtime {
+        None
+    } else {
+        Some(CuratorHandle::new(
+            backend,
+            Arc::clone(&published_generation),
+            Arc::clone(&store),
+            Arc::new(Mutex::new(curator_store.expect(
+                "curator store should exist outside coordination-only mode",
+            ))),
+            checkpoint_materializer.clone(),
+            Arc::clone(&refresh_lock),
+        ))
+    };
+    // Coordination-only mode intentionally stays off the workspace watch pipeline for now.
+    let live_watches_enabled =
+        !coordination_only_runtime && !env_flag_enabled("PRISM_TEST_DISABLE_LIVE_WATCHERS");
     let watch_started = Instant::now();
     let (watch, protected_state_watch, coordination_authority_watch) = if live_watches_enabled {
         let watch = Some(spawn_fs_watch(
@@ -156,9 +194,9 @@ pub(crate) fn build_workspace_session(
             Arc::clone(&refresh_state),
             Arc::clone(&loaded_workspace_revision),
             Arc::clone(&fs_snapshot),
-            Some(checkpoint_materializer.clone()),
+            checkpoint_materializer.clone(),
             coordination_enabled,
-            Some(CuratorHandleRef::from(&curator)),
+            curator.as_ref().map(CuratorHandleRef::from),
             Arc::clone(&observed_change_tracker),
             Arc::clone(&worktree_principal_binding),
         )?);
@@ -219,6 +257,23 @@ pub(crate) fn build_workspace_session(
         total_ms = started.elapsed().as_millis(),
         "built prism workspace session"
     );
+    let full_runtime = if coordination_only_runtime {
+        None
+    } else {
+        Some(WorkspaceSessionFullRuntime {
+            repo_projection_sync_pending: Arc::new(AtomicBool::new(false)),
+            repo_patch_provenance_sync_pending: Arc::new(AtomicBool::new(false)),
+            refresh_lock,
+            refresh_state,
+            fs_snapshot,
+            watch,
+            protected_state_watch,
+            coordination_authority_watch,
+            curator,
+            checkpoint_materializer,
+            observed_change_tracker,
+        })
+    };
     Ok(WorkspaceSession {
         root,
         published_generation,
@@ -229,22 +284,12 @@ pub(crate) fn build_workspace_session(
         hydrate_persisted_projections,
         hydrate_persisted_co_change,
         principal_registry: Arc::new(RwLock::new(principal_registry)),
-        repo_projection_sync_pending: Arc::new(AtomicBool::new(false)),
-        repo_patch_provenance_sync_pending: Arc::new(AtomicBool::new(false)),
-        refresh_lock,
-        refresh_state,
         loaded_workspace_revision,
         coordination_runtime_revision,
-        fs_snapshot,
-        watch,
-        protected_state_watch,
-        coordination_authority_watch,
-        curator: Some(curator),
-        checkpoint_materializer: Some(checkpoint_materializer),
+        full_runtime,
         coordination_enabled,
         worktree_mutator_slot,
         worktree_principal_binding,
-        observed_change_tracker,
     })
 }
 

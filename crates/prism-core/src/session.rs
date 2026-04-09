@@ -37,6 +37,7 @@ use prism_store::{PatchEventSummary, PatchFileSummary};
 use serde_json::{json, Value};
 use tracing::{info, warn};
 
+use crate::PrismPaths;
 pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
 
 pub(crate) const HOT_OUTCOME_HYDRATION_LIMIT: usize = 256;
@@ -63,7 +64,8 @@ use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
 use crate::coordination_persistence::{
-    coordination_event_delta, CoordinationDerivedPersistenceMode, CoordinationPersistenceBackend,
+    coordination_event_delta, CoordinationDerivedPersistenceMode,
+    CoordinationPersistenceBackend,
 };
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadResult};
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
@@ -460,6 +462,20 @@ impl WorkspaceRefreshState {
     }
 }
 
+pub(crate) struct WorkspaceSessionFullRuntime {
+    pub(crate) repo_projection_sync_pending: Arc<AtomicBool>,
+    pub(crate) repo_patch_provenance_sync_pending: Arc<AtomicBool>,
+    pub(crate) refresh_lock: Arc<Mutex<()>>,
+    pub(crate) refresh_state: Arc<WorkspaceRefreshState>,
+    pub(crate) fs_snapshot: Arc<Mutex<WorkspaceTreeSnapshot>>,
+    pub(crate) watch: Option<WatchHandle>,
+    pub(crate) protected_state_watch: Option<WatchHandle>,
+    pub(crate) coordination_authority_watch: Option<WatchHandle>,
+    pub(crate) curator: Option<CuratorHandle>,
+    pub(crate) checkpoint_materializer: Option<CheckpointMaterializerHandle>,
+    pub(crate) observed_change_tracker: SharedObservedChangeTracker,
+}
+
 pub struct WorkspaceSession {
     pub(crate) root: PathBuf,
     pub(crate) published_generation: Arc<RwLock<WorkspacePublishedGeneration>>,
@@ -470,55 +486,89 @@ pub struct WorkspaceSession {
     pub(crate) hydrate_persisted_projections: bool,
     pub(crate) hydrate_persisted_co_change: bool,
     pub(crate) principal_registry: Arc<RwLock<PrincipalRegistrySnapshot>>,
-    pub(crate) repo_projection_sync_pending: Arc<AtomicBool>,
-    pub(crate) repo_patch_provenance_sync_pending: Arc<AtomicBool>,
-    pub(crate) refresh_lock: Arc<Mutex<()>>,
-    pub(crate) refresh_state: Arc<WorkspaceRefreshState>,
     pub(crate) loaded_workspace_revision: Arc<AtomicU64>,
     pub(crate) coordination_runtime_revision: Arc<AtomicU64>,
-    pub(crate) fs_snapshot: Arc<Mutex<WorkspaceTreeSnapshot>>,
-    pub(crate) watch: Option<WatchHandle>,
-    pub(crate) protected_state_watch: Option<WatchHandle>,
-    pub(crate) coordination_authority_watch: Option<WatchHandle>,
-    pub(crate) curator: Option<CuratorHandle>,
-    pub(crate) checkpoint_materializer: Option<CheckpointMaterializerHandle>,
+    pub(crate) full_runtime: Option<WorkspaceSessionFullRuntime>,
     pub(crate) coordination_enabled: bool,
     pub(crate) worktree_mutator_slot: Arc<Mutex<Option<WorktreeMutatorSlotRecord>>>,
     pub(crate) worktree_principal_binding: Arc<Mutex<Option<BoundWorktreePrincipal>>>,
-    pub(crate) observed_change_tracker: SharedObservedChangeTracker,
 }
 
 impl WorkspaceSession {
+    pub(crate) fn full_runtime_state(&self) -> Option<&WorkspaceSessionFullRuntime> {
+        self.full_runtime.as_ref()
+    }
+
+    fn full_runtime_state_mut(&mut self) -> Option<&mut WorkspaceSessionFullRuntime> {
+        self.full_runtime.as_mut()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn refresh_lock_handle(&self) -> Option<&Arc<Mutex<()>>> {
+        self.full_runtime_state()
+            .map(|full_runtime| &full_runtime.refresh_lock)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn repo_projection_sync_pending_handle(&self) -> Option<&Arc<AtomicBool>> {
+        self.full_runtime_state()
+            .map(|full_runtime| &full_runtime.repo_projection_sync_pending)
+    }
+
+    pub fn coordination_only_runtime(&self) -> bool {
+        matches!(
+            prism_ir::PrismRuntimeMode::from_capabilities(self.prism_arc().runtime_capabilities()),
+            Some(prism_ir::PrismRuntimeMode::CoordinationOnly)
+        )
+    }
+
     pub fn bind_active_work_context(&self, work: ActiveWorkContextBinding) {
-        self.observed_change_tracker
+        let Some(full_runtime) = self.full_runtime_state() else {
+            return;
+        };
+        full_runtime
+            .observed_change_tracker
             .lock()
             .expect("observed change tracker lock poisoned")
             .set_active_work(work);
     }
 
     pub fn clear_active_work_context(&self) {
-        self.observed_change_tracker
+        let Some(full_runtime) = self.full_runtime_state() else {
+            return;
+        };
+        full_runtime
+            .observed_change_tracker
             .lock()
             .expect("observed change tracker lock poisoned")
             .clear_active_work();
     }
 
     pub fn active_work_context(&self) -> Option<ActiveWorkContextBinding> {
-        self.observed_change_tracker
+        self.full_runtime_state()?
+            .observed_change_tracker
             .lock()
             .expect("observed change tracker lock poisoned")
             .active_work()
     }
 
     pub fn flush_observed_changes(&self, trigger: ObservedChangeFlushTrigger) -> usize {
-        self.observed_change_tracker
+        let Some(full_runtime) = self.full_runtime_state() else {
+            return 0;
+        };
+        full_runtime
+            .observed_change_tracker
             .lock()
             .expect("observed change tracker lock poisoned")
             .flush(trigger)
     }
 
     pub fn take_flushed_observed_changes(&self) -> Vec<FlushedObservedChangeSet> {
-        self.observed_change_tracker
+        let Some(full_runtime) = self.full_runtime_state() else {
+            return Vec::new();
+        };
+        full_runtime
+            .observed_change_tracker
             .lock()
             .expect("observed change tracker lock poisoned")
             .take_flushed()
@@ -641,6 +691,8 @@ impl WorkspaceSession {
     fn lock_refresh_for_mutation(&self, reason: &'static str) -> MutexGuard<'_, ()> {
         let wait_started = Instant::now();
         let guard = self
+            .full_runtime_state()
+            .expect("workspace refresh lock unavailable in coordination-only mode")
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
@@ -659,7 +711,11 @@ impl WorkspaceSession {
         phase: &'static str,
         reason: &'static str,
     ) -> Result<Option<MutexGuard<'_, ()>>> {
-        match self.refresh_lock.try_lock() {
+        let refresh_lock = &self
+            .full_runtime_state()
+            .expect("workspace refresh lock unavailable in coordination-only mode")
+            .refresh_lock;
+        match refresh_lock.try_lock() {
             Ok(guard) => {
                 mutation_trace::record_phase(
                     phase,
@@ -701,8 +757,12 @@ impl WorkspaceSession {
         timeout: Duration,
     ) -> Result<Option<MutexGuard<'_, ()>>> {
         let wait_started = Instant::now();
+        let refresh_lock = &self
+            .full_runtime_state()
+            .expect("workspace refresh lock unavailable in coordination-only mode")
+            .refresh_lock;
         loop {
-            match self.refresh_lock.try_lock() {
+            match refresh_lock.try_lock() {
                 Ok(guard) => {
                     mutation_trace::record_phase(
                         phase,
@@ -870,6 +930,9 @@ impl WorkspaceSession {
     }
 
     pub fn publish_pending_repo_patch_provenance_for_active_work(&self) -> Result<Vec<EventId>> {
+        if self.coordination_only_runtime() {
+            return Ok(Vec::new());
+        }
         let Some(bound_principal) = self.bound_worktree_principal() else {
             return Ok(Vec::new());
         };
@@ -886,14 +949,20 @@ impl WorkspaceSession {
     }
 
     pub fn schedule_pending_repo_patch_provenance_for_active_work(&self) {
+        if self.coordination_only_runtime() {
+            return;
+        }
         let Some(bound_principal) = self.bound_worktree_principal() else {
             return;
         };
         let Some(active_work) = self.active_work_context() else {
             return;
         };
-        if self
-            .repo_patch_provenance_sync_pending
+        let pending_sync = &self
+            .full_runtime_state()
+            .expect("repo patch provenance state unavailable in coordination-only mode")
+            .repo_patch_provenance_sync_pending;
+        if pending_sync
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
             .is_err()
         {
@@ -902,7 +971,7 @@ impl WorkspaceSession {
         let root = self.root.clone();
         let prism = self.prism_arc();
         let runtime_state = Arc::clone(&self.runtime_state);
-        let pending = Arc::clone(&self.repo_patch_provenance_sync_pending);
+        let pending = Arc::clone(pending_sync);
         std::thread::Builder::new()
             .name("repo-patch-provenance-sync".to_string())
             .spawn(move || {
@@ -925,6 +994,12 @@ impl WorkspaceSession {
     }
 
     pub(crate) fn attach_cold_query_backends(prism: &Prism, store: &Arc<Mutex<SqliteStore>>) {
+        if matches!(
+            prism_ir::PrismRuntimeMode::from_capabilities(prism.runtime_capabilities()),
+            Some(prism_ir::PrismRuntimeMode::CoordinationOnly)
+        ) {
+            return;
+        }
         prism.set_history_backend(Some(Arc::new(StoreHistoryReadBackend::new(Arc::clone(
             store,
         )))));
@@ -1023,12 +1098,19 @@ impl WorkspaceSession {
         &self,
         dirty_paths_override: Option<Vec<PathBuf>>,
     ) -> Result<WorkspaceFsRefreshOutcome> {
+        let Some(full_runtime) = self.full_runtime_state() else {
+            return Ok(WorkspaceFsRefreshOutcome {
+                status: FsRefreshStatus::Clean,
+                observed: Vec::new(),
+                breakdown: WorkspaceRefreshBreakdown::default(),
+            });
+        };
         let now_ms = current_timestamp_millis();
-        let fs_fallback_due = self.refresh_state.should_run_fallback_check(now_ms);
+        let fs_fallback_due = full_runtime.refresh_state.should_run_fallback_check(now_ms);
         let has_scoped_override = dirty_paths_override
             .as_ref()
             .is_some_and(|dirty_paths| !dirty_paths.is_empty());
-        if !self.refresh_state.needs_refresh() && !fs_fallback_due && !has_scoped_override {
+        if !full_runtime.refresh_state.needs_refresh() && !fs_fallback_due && !has_scoped_override {
             return Ok(WorkspaceFsRefreshOutcome {
                 status: FsRefreshStatus::Clean,
                 observed: Vec::new(),
@@ -1037,19 +1119,21 @@ impl WorkspaceSession {
         }
         let dirty_paths = dirty_paths_override
             .clone()
-            .unwrap_or_else(|| self.refresh_state.dirty_paths_snapshot());
-        let refreshed = if (self.refresh_state.needs_refresh() || has_scoped_override)
+            .unwrap_or_else(|| full_runtime.refresh_state.dirty_paths_snapshot());
+        let refreshed = if (full_runtime.refresh_state.needs_refresh() || has_scoped_override)
             && !dirty_paths.is_empty()
         {
             self.refresh_with_trigger(ChangeTrigger::FsWatch, None, Some(dirty_paths))?
         } else {
             let known_snapshot = self
+                .full_runtime_state()
+                .expect("workspace snapshot unavailable in coordination-only mode")
                 .fs_snapshot
                 .lock()
                 .expect("workspace tree snapshot lock poisoned")
                 .clone();
             let plan = plan_full_refresh(&self.root, &known_snapshot)?;
-            if !self.refresh_state.needs_refresh() && plan.delta.is_empty() {
+            if !full_runtime.refresh_state.needs_refresh() && plan.delta.is_empty() {
                 return Ok(WorkspaceFsRefreshOutcome {
                     status: FsRefreshStatus::Clean,
                     observed: Vec::new(),
@@ -1072,13 +1156,16 @@ impl WorkspaceSession {
     }
 
     pub fn refresh_fs_nonblocking(&self) -> Result<FsRefreshStatus> {
-        let needs_refresh = self.refresh_state.needs_refresh();
+        let Some(full_runtime) = self.full_runtime_state() else {
+            return Ok(FsRefreshStatus::Clean);
+        };
+        let needs_refresh = full_runtime.refresh_state.needs_refresh();
         let now_ms = current_timestamp_millis();
-        let fs_fallback_due = self.refresh_state.should_run_fallback_check(now_ms);
+        let fs_fallback_due = full_runtime.refresh_state.should_run_fallback_check(now_ms);
         if !needs_refresh && !fs_fallback_due {
             return Ok(FsRefreshStatus::Clean);
         }
-        let dirty_paths = self.refresh_state.dirty_paths_snapshot();
+        let dirty_paths = full_runtime.refresh_state.dirty_paths_snapshot();
         let refreshed = self.try_refresh_with_trigger(
             ChangeTrigger::FsWatch,
             None,
@@ -1097,50 +1184,87 @@ impl WorkspaceSession {
     }
 
     pub fn needs_refresh(&self) -> bool {
-        self.refresh_state.needs_refresh()
+        self.full_runtime_state()
+            .map(|full_runtime| full_runtime.refresh_state.needs_refresh())
+            .unwrap_or(false)
     }
 
     pub fn pending_refresh_paths(&self) -> Vec<PathBuf> {
-        self.refresh_state.dirty_paths_snapshot()
+        self.full_runtime_state()
+            .map(|full_runtime| full_runtime.refresh_state.dirty_paths_snapshot())
+            .unwrap_or_default()
     }
 
     pub fn mark_fs_dirty_paths<I>(&self, paths: I) -> u64
     where
         I: IntoIterator<Item = PathBuf>,
     {
-        self.refresh_state.mark_fs_dirty_paths(paths)
+        let Some(full_runtime) = self.full_runtime_state() else {
+            let _ = paths.into_iter().count();
+            return 0;
+        };
+        full_runtime.refresh_state.mark_fs_dirty_paths(paths)
     }
 
     pub fn pending_refresh_path_requests(&self) -> Vec<WorkspaceRuntimePathRequest> {
-        self.refresh_state.dirty_path_requests_snapshot()
+        self.full_runtime_state()
+            .map(|full_runtime| full_runtime.refresh_state.dirty_path_requests_snapshot())
+            .unwrap_or_default()
     }
 
     pub fn scoped_refresh_paths_for_requests(
         &self,
         requests: &[WorkspaceRuntimePathRequest],
     ) -> Vec<PathBuf> {
-        self.refresh_state.scoped_dirty_paths_for_requests(requests)
+        self.full_runtime_state()
+            .map(|full_runtime| full_runtime.refresh_state.scoped_dirty_paths_for_requests(requests))
+            .unwrap_or_else(|| {
+                let _ = requests;
+                Vec::new()
+            })
     }
 
     pub fn observed_fs_revision(&self) -> u64 {
-        self.refresh_state.observed_fs_revision()
+        self.full_runtime_state()
+            .map(|full_runtime| full_runtime.refresh_state.observed_fs_revision())
+            .unwrap_or(0)
     }
 
     pub fn applied_fs_revision(&self) -> u64 {
-        self.refresh_state.applied_fs_revision()
+        self.full_runtime_state()
+            .map(|full_runtime| full_runtime.refresh_state.applied_fs_revision())
+            .unwrap_or(0)
     }
 
     pub fn last_refresh(&self) -> Option<WorkspaceLastRefresh> {
-        self.refresh_state.last_refresh()
+        self.full_runtime_state()
+            .and_then(|full_runtime| full_runtime.refresh_state.last_refresh())
     }
 
     pub fn is_fallback_check_due_now(&self) -> bool {
-        self.refresh_state
-            .fallback_check_due(current_timestamp_millis())
+        self.full_runtime_state()
+            .map(|full_runtime| {
+                full_runtime
+                    .refresh_state
+                    .fallback_check_due(current_timestamp_millis())
+            })
+            .unwrap_or(false)
     }
 
     pub fn workspace_materialization_summary(&self) -> WorkspaceMaterializationSummary {
+        if self.coordination_only_runtime() {
+            return WorkspaceMaterializationSummary {
+                known_files: 0,
+                known_directories: 0,
+                materialized_files: 0,
+                materialized_nodes: 0,
+                materialized_edges: 0,
+                boundaries: Vec::new(),
+            };
+        }
         let snapshot = self
+            .full_runtime_state()
+            .expect("workspace snapshot unavailable in coordination-only mode")
             .fs_snapshot
             .lock()
             .expect("workspace fs snapshot lock poisoned")
@@ -1150,7 +1274,18 @@ impl WorkspaceSession {
     }
 
     pub fn workspace_materialization_coverage(&self) -> WorkspaceMaterializationCoverage {
+        if self.coordination_only_runtime() {
+            return WorkspaceMaterializationCoverage {
+                known_files: 0,
+                known_directories: 0,
+                materialized_files: 0,
+                materialized_nodes: 0,
+                materialized_edges: 0,
+            };
+        }
         let snapshot = self
+            .full_runtime_state()
+            .expect("workspace snapshot unavailable in coordination-only mode")
             .fs_snapshot
             .lock()
             .expect("workspace fs snapshot lock poisoned")
@@ -1183,6 +1318,8 @@ impl WorkspaceSession {
         }
 
         let cached_snapshot = self
+            .full_runtime_state()
+            .expect("workspace snapshot unavailable in coordination-only mode")
             .fs_snapshot
             .lock()
             .expect("workspace tree snapshot lock poisoned")
@@ -1222,7 +1359,10 @@ impl WorkspaceSession {
                 || next_layout.workspace_manifest != current_layout.workspace_manifest
                 || next_layout.packages.len() != current_layout.packages.len(),
             Some(cached_snapshot.clone()),
-            self.checkpoint_materializer.clone(),
+            self.full_runtime_state()
+                .expect("checkpoint materializer state unavailable in coordination-only mode")
+                .checkpoint_materializer
+                .clone(),
             crate::WorkspaceSessionOptions {
                 runtime_mode: prism_ir::PrismRuntimeMode::from_capabilities(
                     current_prism.runtime_capabilities(),
@@ -1304,6 +1444,10 @@ impl WorkspaceSession {
     where
         I: IntoIterator<Item = PathBuf>,
     {
+        if self.coordination_only_runtime() {
+            let _ = paths.into_iter().count();
+            return Ok(false);
+        }
         let started = Instant::now();
         let guard = self.lock_refresh_for_mutation("ensurePathsDeep");
         self.ensure_paths_deep_with_guard(guard, paths, started)
@@ -1313,6 +1457,10 @@ impl WorkspaceSession {
     where
         I: IntoIterator<Item = PathBuf>,
     {
+        if self.coordination_only_runtime() {
+            let _ = paths.into_iter().count();
+            return Ok(Some(false));
+        }
         let started = Instant::now();
         let Some(guard) = self.try_lock_refresh_for_mutation("ensurePathsDeep")? else {
             return Ok(None);
@@ -1327,6 +1475,8 @@ impl WorkspaceSession {
         let persist_started = Instant::now();
         let snapshot = prism.outcome_snapshot();
         let result = self
+            .full_runtime_state()
+            .expect("checkpoint materializer state unavailable in coordination-only mode")
             .checkpoint_materializer
             .as_ref()
             .map(|materializer| materializer.enqueue_outcome_snapshot(snapshot.clone()))
@@ -1391,7 +1541,12 @@ impl WorkspaceSession {
 
     #[allow(dead_code)]
     pub(crate) fn try_recover_runtime_from_persisted_state(&self) -> Result<bool> {
-        let Ok(guard) = self.refresh_lock.try_lock() else {
+        let Ok(guard) = self
+            .full_runtime_state()
+            .expect("workspace refresh lock unavailable in coordination-only mode")
+            .refresh_lock
+            .try_lock()
+        else {
             return Ok(false);
         };
         self.recover_runtime_from_persisted_state_with_guard(guard)?;
@@ -1560,7 +1715,14 @@ impl WorkspaceSession {
     }
 
     pub fn record_runtime_refresh_observation(&self, path: &str, duration_ms: u64) {
-        self.refresh_state.record_runtime_refresh_observation(
+        if self.coordination_only_runtime() {
+            let _ = (path, duration_ms);
+            return;
+        }
+        self.full_runtime_state()
+            .expect("workspace refresh state unavailable in coordination-only mode")
+            .refresh_state
+            .record_runtime_refresh_observation(
             path,
             duration_ms,
             self.loaded_workspace_revision(),
@@ -1573,7 +1735,13 @@ impl WorkspaceSession {
         duration_ms: u64,
         work: WorkspaceRefreshWork,
     ) {
-        self.refresh_state
+        if self.coordination_only_runtime() {
+            let _ = (path, duration_ms, work);
+            return;
+        }
+        self.full_runtime_state()
+            .expect("workspace refresh state unavailable in coordination-only mode")
+            .refresh_state
             .record_runtime_refresh_observation_with_work(
                 path,
                 duration_ms,
@@ -1614,6 +1782,8 @@ impl WorkspaceSession {
     pub fn persist_episodic(&self, snapshot: &EpisodicMemorySnapshot) -> Result<()> {
         let persist_started = Instant::now();
         let result = self
+            .full_runtime_state()
+            .expect("checkpoint materializer state unavailable in coordination-only mode")
             .checkpoint_materializer
             .as_ref()
             .map(|materializer| materializer.enqueue_episodic_snapshot(snapshot.clone()))
@@ -1795,10 +1965,7 @@ impl WorkspaceSession {
     }
 
     pub fn append_concept_event(&self, event: ConceptEvent) -> Result<()> {
-        let guard = self
-            .refresh_lock
-            .lock()
-            .expect("workspace refresh lock poisoned");
+        let guard = self.lock_refresh_for_mutation("appendConceptEvent");
         self.append_concept_event_guarded(event, guard)
     }
 
@@ -1839,10 +2006,7 @@ impl WorkspaceSession {
     }
 
     pub fn append_contract_event(&self, event: ContractEvent) -> Result<()> {
-        let guard = self
-            .refresh_lock
-            .lock()
-            .expect("workspace refresh lock poisoned");
+        let guard = self.lock_refresh_for_mutation("appendContractEvent");
         self.append_contract_event_guarded(event, guard)
     }
 
@@ -1876,10 +2040,7 @@ impl WorkspaceSession {
     }
 
     pub fn append_concept_relation_event(&self, event: ConceptRelationEvent) -> Result<()> {
-        let guard = self
-            .refresh_lock
-            .lock()
-            .expect("workspace refresh lock poisoned");
+        let guard = self.lock_refresh_for_mutation("appendConceptRelationEvent");
         self.append_concept_relation_event_guarded(event, guard)
     }
 
@@ -1986,6 +2147,8 @@ impl WorkspaceSession {
     pub fn persist_inference(&self, snapshot: &InferenceSnapshot) -> Result<()> {
         let persist_started = Instant::now();
         let result = self
+            .full_runtime_state()
+            .expect("checkpoint materializer state unavailable in coordination-only mode")
             .checkpoint_materializer
             .as_ref()
             .map(|materializer| materializer.enqueue_inference_snapshot(snapshot.clone()))
@@ -2066,6 +2229,9 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
+        let authoritative_revision = self
+            .read_coordination_authority_stamp()?
+            .and_then(|authority| authority_revision_from_stamp(&authority));
         if self.coordination_materialization_enabled()? {
             let materialized_store = SqliteCoordinationMaterializedStore::new(&self.root);
             if let Some(model) = materialized_store.read_effective_read_model()?.value {
@@ -2074,13 +2240,23 @@ impl WorkspaceSession {
             return Ok(self
                 .read_coordination_current_state_from_authority()?
                 .map(|state| {
-                    prism_coordination::coordination_read_model_from_snapshot(&state.snapshot)
+                    let mut model =
+                        prism_coordination::coordination_read_model_from_snapshot(&state.snapshot);
+                    if let Some(revision) = authoritative_revision {
+                        model.revision = revision;
+                    }
+                    model
                 }));
         }
         Ok(self
             .read_coordination_current_state_from_authority()?
             .map(|state| {
-                prism_coordination::coordination_read_model_from_snapshot(&state.snapshot)
+                let mut model =
+                    prism_coordination::coordination_read_model_from_snapshot(&state.snapshot);
+                if let Some(revision) = authoritative_revision {
+                    model.revision = revision;
+                }
+                model
             }))
     }
 
@@ -2088,6 +2264,9 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
+        let authoritative_revision = self
+            .read_coordination_authority_stamp()?
+            .and_then(|authority| authority_revision_from_stamp(&authority));
         if self.coordination_materialization_enabled()? {
             let materialized_store = SqliteCoordinationMaterializedStore::new(&self.root);
             if let Some(model) = materialized_store.read_effective_queue_read_model()?.value {
@@ -2096,13 +2275,24 @@ impl WorkspaceSession {
             return Ok(self
                 .read_coordination_current_state_from_authority()?
                 .map(|state| {
-                    prism_coordination::coordination_queue_read_model_from_snapshot(&state.snapshot)
+                    let mut model = prism_coordination::coordination_queue_read_model_from_snapshot(
+                        &state.snapshot,
+                    );
+                    if let Some(revision) = authoritative_revision {
+                        model.revision = revision;
+                    }
+                    model
                 }));
         }
         Ok(self
             .read_coordination_current_state_from_authority()?
             .map(|state| {
-                prism_coordination::coordination_queue_read_model_from_snapshot(&state.snapshot)
+                let mut model =
+                    prism_coordination::coordination_queue_read_model_from_snapshot(&state.snapshot);
+                if let Some(revision) = authoritative_revision {
+                    model.revision = revision;
+                }
+                model
             }))
     }
 
@@ -2111,6 +2301,16 @@ impl WorkspaceSession {
             return Ok(None);
         }
         if !self.coordination_materialization_enabled()? {
+            let provider = configured_coordination_authority_store_provider(&self.root)?;
+            if matches!(
+                provider.config(),
+                crate::CoordinationAuthorityBackendConfig::Sqlite { .. }
+            ) {
+                let mut store = prism_store::SqliteStore::open(
+                    PrismPaths::for_workspace_root(&self.root)?.coordination_authority_db_path()?,
+                )?;
+                return prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint_revision(&mut store);
+            }
             return Ok(self
                 .read_coordination_authority_stamp()?
                 .and_then(|authority| authority_revision_from_stamp(&authority)));
@@ -2291,7 +2491,7 @@ impl WorkspaceSession {
             &self.runtime_state,
             &self.store,
             &self.cold_query_store,
-            &self.refresh_lock,
+            self.full_runtime_state().map(|full_runtime| &full_runtime.refresh_lock),
             &self.loaded_workspace_revision,
             &self.coordination_runtime_revision,
             self.coordination_enabled,
@@ -2357,12 +2557,24 @@ impl WorkspaceSession {
         )
     }
 
+    fn coordination_mutation_requires_refresh_lock(&self) -> bool {
+        let runtime_capabilities = self
+            .runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned")
+            .runtime_capabilities;
+        !matches!(
+            prism_ir::PrismRuntimeMode::from_capabilities(runtime_capabilities),
+            Some(prism_ir::PrismRuntimeMode::CoordinationOnly)
+        )
+    }
+
     fn mutate_coordination_with_session_guarded<T, F, O>(
         &self,
         session_id: Option<&SessionId>,
         mutate: F,
         observe_phase: O,
-        _guard: MutexGuard<'_, ()>,
+        _guard: Option<MutexGuard<'_, ()>>,
     ) -> Result<T>
     where
         F: FnOnce(&Prism) -> Result<T>,
@@ -2382,7 +2594,7 @@ impl WorkspaceSession {
         session_id: Option<&SessionId>,
         mutate: F,
         mut observe_phase: O,
-        _guard: MutexGuard<'_, ()>,
+        _guard: Option<MutexGuard<'_, ()>>,
         schedule_materialization: bool,
     ) -> Result<T>
     where
@@ -2484,7 +2696,8 @@ impl WorkspaceSession {
                 &self.loaded_workspace_revision,
                 Some(&self.coordination_runtime_revision),
                 if schedule_materialization {
-                    self.checkpoint_materializer.as_ref()
+                    self.full_runtime_state()
+                        .and_then(|full_runtime| full_runtime.checkpoint_materializer.as_ref())
                 } else {
                     None
                 },
@@ -2551,18 +2764,32 @@ impl WorkspaceSession {
                 "coordination is disabled for this workspace session"
             ));
         }
-        let lock_wait_started = Instant::now();
-        let guard = self
-            .refresh_lock
-            .lock()
-            .expect("workspace refresh lock poisoned");
-        observe_phase(
-            "mutation.coordination.waitRefreshLock",
-            lock_wait_started.elapsed(),
-            json!({}),
-            true,
-            None,
-        );
+        let guard = if self.coordination_mutation_requires_refresh_lock() {
+            let lock_wait_started = Instant::now();
+            let guard = self
+                .full_runtime_state()
+                .expect("workspace refresh lock unavailable in coordination-only mode")
+                .refresh_lock
+                .lock()
+                .expect("workspace refresh lock poisoned");
+            observe_phase(
+                "mutation.coordination.waitRefreshLock",
+                lock_wait_started.elapsed(),
+                json!({ "bypassed": false }),
+                true,
+                None,
+            );
+            Some(guard)
+        } else {
+            observe_phase(
+                "mutation.coordination.waitRefreshLock",
+                Duration::ZERO,
+                json!({ "bypassed": true }),
+                true,
+                None,
+            );
+            None
+        };
         self.mutate_coordination_with_session_guarded(session_id, mutate, observe_phase, guard)
     }
 
@@ -2596,12 +2823,17 @@ impl WorkspaceSession {
                 "coordination is disabled for this workspace session"
             ));
         }
-        let Some(guard) = self.try_lock_refresh_for_phase(
-            "mutation.coordination.waitRefreshLock",
-            "mutateCoordination",
-        )?
-        else {
-            return Ok(None);
+        let guard = if self.coordination_mutation_requires_refresh_lock() {
+            let Some(guard) = self.try_lock_refresh_for_phase(
+                "mutation.coordination.waitRefreshLock",
+                "mutateCoordination",
+            )?
+            else {
+                return Ok(None);
+            };
+            Some(guard)
+        } else {
+            None
         };
         self.mutate_coordination_with_session_guarded(session_id, mutate, observe_phase, guard)
             .map(Some)
@@ -2622,13 +2854,18 @@ impl WorkspaceSession {
                 "coordination is disabled for this workspace session"
             ));
         }
-        let Some(guard) = self.wait_lock_refresh_for_phase(
-            "mutation.coordination.waitRefreshLock",
-            "mutateCoordination",
-            MUTATION_REFRESH_WAIT_TIMEOUT,
-        )?
-        else {
-            return Ok(None);
+        let guard = if self.coordination_mutation_requires_refresh_lock() {
+            let Some(guard) = self.wait_lock_refresh_for_phase(
+                "mutation.coordination.waitRefreshLock",
+                "mutateCoordination",
+                MUTATION_REFRESH_WAIT_TIMEOUT,
+            )?
+            else {
+                return Ok(None);
+            };
+            Some(guard)
+        } else {
+            None
         };
         self.mutate_coordination_with_session_guarded(session_id, mutate, observe_phase, guard)
             .map(Some)
@@ -2649,13 +2886,18 @@ impl WorkspaceSession {
                 "coordination is disabled for this workspace session"
             ));
         }
-        let Some(guard) = self.wait_lock_refresh_for_phase(
-            "mutation.coordination.waitRefreshLock",
-            "mutateCoordination",
-            MUTATION_REFRESH_WAIT_TIMEOUT,
-        )?
-        else {
-            return Ok(None);
+        let guard = if self.coordination_mutation_requires_refresh_lock() {
+            let Some(guard) = self.wait_lock_refresh_for_phase(
+                "mutation.coordination.waitRefreshLock",
+                "mutateCoordination",
+                MUTATION_REFRESH_WAIT_TIMEOUT,
+            )?
+            else {
+                return Ok(None);
+            };
+            Some(guard)
+        } else {
+            None
         };
         self.mutate_coordination_with_session_guarded_with_options(
             session_id,
@@ -2668,17 +2910,17 @@ impl WorkspaceSession {
     }
 
     pub fn curator_snapshot(&self) -> Result<CuratorSnapshot> {
-        self.curator
-            .as_ref()
-            .map(CuratorHandle::snapshot)
+        self.full_runtime_state()
+            .and_then(|full_runtime| full_runtime.curator.as_ref())
+            .map(|curator| curator.snapshot())
             .transpose()
             .map(|snapshot| snapshot.unwrap_or_default())
     }
 
     #[cfg(test)]
     pub(crate) fn is_curator_snapshot_loaded(&self) -> bool {
-        self.curator
-            .as_ref()
+        self.full_runtime_state()
+            .and_then(|full_runtime| full_runtime.curator.as_ref())
             .map(|curator| {
                 curator
                     .state
@@ -2698,10 +2940,7 @@ impl WorkspaceSession {
         note: Option<String>,
         output: Option<String>,
     ) -> Result<()> {
-        let guard = self
-            .refresh_lock
-            .lock()
-            .expect("workspace refresh lock poisoned");
+        let guard = self.lock_refresh_for_mutation("setCuratorProposalState");
         self.set_curator_proposal_state_guarded(
             job_id,
             proposal_index,
@@ -2748,7 +2987,10 @@ impl WorkspaceSession {
         _guard: MutexGuard<'_, ()>,
     ) -> Result<()> {
         let mut store = self.store.lock().expect("workspace store lock poisoned");
-        let Some(curator) = &self.curator else {
+        let Some(curator) = self
+            .full_runtime_state()
+            .and_then(|full_runtime| full_runtime.curator.as_ref())
+        else {
             return Ok(());
         };
         let mut state = curator.state.lock().expect("curator state lock poisoned");
@@ -2775,7 +3017,10 @@ impl WorkspaceSession {
         proposal_state.task = task;
         proposal_state.note = note;
         proposal_state.output = output;
-        if let Some(materializer) = self.checkpoint_materializer.as_ref() {
+        if let Some(materializer) = self
+            .full_runtime_state()
+            .and_then(|full_runtime| full_runtime.checkpoint_materializer.as_ref())
+        {
             materializer.enqueue_curator_snapshot(state.snapshot.clone())?;
         } else {
             store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
@@ -2893,6 +3138,8 @@ impl WorkspaceSession {
         if !deltas.is_empty() {
             let materialize_started = Instant::now();
             let enqueue_result = self
+                .full_runtime_state()
+                .expect("checkpoint materializer state unavailable in coordination-only mode")
                 .checkpoint_materializer
                 .as_ref()
                 .map(|materializer| materializer.enqueue_validation_deltas(deltas.clone()))
@@ -2922,6 +3169,8 @@ impl WorkspaceSession {
         if let Some(snapshot) = episodic_snapshot {
             let materialize_started = Instant::now();
             let enqueue_result = self
+                .full_runtime_state()
+                .expect("checkpoint materializer state unavailable in coordination-only mode")
                 .checkpoint_materializer
                 .as_ref()
                 .map(|materializer| materializer.enqueue_episodic_snapshot(snapshot.clone()))
@@ -2938,6 +3187,8 @@ impl WorkspaceSession {
         if let Some(snapshot) = inference_snapshot {
             let materialize_started = Instant::now();
             let enqueue_result = self
+                .full_runtime_state()
+                .expect("checkpoint materializer state unavailable in coordination-only mode")
                 .checkpoint_materializer
                 .as_ref()
                 .map(|materializer| materializer.enqueue_inference_snapshot(snapshot.clone()))
@@ -2951,7 +3202,10 @@ impl WorkspaceSession {
             );
             enqueue_result?;
         }
-        if let Some(curator) = &self.curator {
+        if let Some(curator) = self
+            .full_runtime_state()
+            .and_then(|full_runtime| full_runtime.curator.as_ref())
+        {
             let curator_started = Instant::now();
             enqueue_curator_for_outcome_locked(curator, prism.as_ref(), &mut store, id.clone())?;
             mutation_trace::record_phase(
@@ -2966,12 +3220,18 @@ impl WorkspaceSession {
     }
 
     pub fn flush_materializations(&self) -> Result<()> {
-        if let Some(materializer) = &self.checkpoint_materializer {
+        let Some(full_runtime) = self.full_runtime_state() else {
+            return Ok(());
+        };
+        if let Some(materializer) = &full_runtime.checkpoint_materializer {
             materializer.flush()?;
         }
         self.ensure_coordination_materialization_state()?;
         let wait_started = Instant::now();
-        while self.repo_projection_sync_pending.load(Ordering::Acquire) {
+        while full_runtime
+            .repo_projection_sync_pending
+            .load(Ordering::Acquire)
+        {
             if wait_started.elapsed() > Duration::from_secs(5) {
                 return Err(anyhow!(
                     "timed out waiting for background PRISM doc sync to finish"
@@ -3028,14 +3288,22 @@ impl WorkspaceSession {
     }
 
     pub fn persist_runtime_startup_checkpoint(&self) -> Result<()> {
+        if self.coordination_only_runtime() {
+            return Ok(());
+        }
         crate::workspace_startup_checkpoint::persist_workspace_runtime_startup_checkpoint(self)
     }
 
     pub(crate) fn workspace_tree_snapshot(&self) -> prism_store::WorkspaceTreeSnapshot {
-        self.fs_snapshot
-            .lock()
-            .expect("workspace tree snapshot lock poisoned")
-            .clone()
+        self.full_runtime_state()
+            .map(|full_runtime| {
+                full_runtime
+                    .fs_snapshot
+                    .lock()
+                    .expect("workspace tree snapshot lock poisoned")
+                    .clone()
+            })
+            .unwrap_or_default()
     }
 
     fn append_outcome_guarded(&self, event: OutcomeEvent) -> Result<EventId> {
@@ -3067,6 +3335,8 @@ impl WorkspaceSession {
         if !deltas.is_empty() {
             let materialize_started = Instant::now();
             let enqueue_result = self
+                .full_runtime_state()
+                .expect("checkpoint materializer state unavailable in coordination-only mode")
                 .checkpoint_materializer
                 .as_ref()
                 .map(|materializer| materializer.enqueue_validation_deltas(deltas.clone()))
@@ -3093,7 +3363,10 @@ impl WorkspaceSession {
                 }
             }
         }
-        if let Some(curator) = &self.curator {
+        if let Some(curator) = self
+            .full_runtime_state()
+            .and_then(|full_runtime| full_runtime.curator.as_ref())
+        {
             let curator_started = Instant::now();
             enqueue_curator_for_outcome_locked(curator, prism.as_ref(), &mut store, id.clone())?;
             mutation_trace::record_phase(
@@ -3113,21 +3386,24 @@ impl WorkspaceSession {
         known_fingerprint: Option<WorkspaceTreeSnapshot>,
         dirty_paths_override: Option<Vec<PathBuf>>,
     ) -> Result<WorkspaceRefreshResult> {
-        let curator = self.curator.as_ref().map(CuratorHandleRef::from);
+        let full_runtime = self
+            .full_runtime_state()
+            .expect("workspace refresh state unavailable in coordination-only mode");
+        let curator = full_runtime.curator.as_ref().map(CuratorHandleRef::from);
         refresh_prism_snapshot(
             &self.root,
             &self.published_generation,
             &self.runtime_state,
             &self.store,
             &self.cold_query_store,
-            &self.refresh_lock,
-            &self.refresh_state,
+            &full_runtime.refresh_lock,
+            &full_runtime.refresh_state,
             &self.loaded_workspace_revision,
-            &self.fs_snapshot,
-            self.checkpoint_materializer.clone(),
+            &full_runtime.fs_snapshot,
+            full_runtime.checkpoint_materializer.clone(),
             self.coordination_enabled,
             curator.as_ref(),
-            &self.observed_change_tracker,
+            &full_runtime.observed_change_tracker,
             &self.worktree_principal_binding,
             trigger,
             known_fingerprint,
@@ -3141,20 +3417,23 @@ impl WorkspaceSession {
         known_fingerprint: Option<WorkspaceTreeSnapshot>,
         dirty_paths_override: Option<Vec<PathBuf>>,
     ) -> Result<Option<WorkspaceRefreshResult>> {
+        let full_runtime = self
+            .full_runtime_state()
+            .expect("workspace refresh state unavailable in coordination-only mode");
         try_refresh_prism_snapshot(
             &self.root,
             &self.published_generation,
             &self.runtime_state,
             &self.store,
             &self.cold_query_store,
-            &self.refresh_lock,
-            &self.refresh_state,
+            &full_runtime.refresh_lock,
+            &full_runtime.refresh_state,
             &self.loaded_workspace_revision,
-            &self.fs_snapshot,
-            self.checkpoint_materializer.clone(),
+            &full_runtime.fs_snapshot,
+            full_runtime.checkpoint_materializer.clone(),
             self.coordination_enabled,
-            self.curator.as_ref().map(CuratorHandleRef::from).as_ref(),
-            &self.observed_change_tracker,
+            full_runtime.curator.as_ref().map(CuratorHandleRef::from).as_ref(),
+            &full_runtime.observed_change_tracker,
             &self.worktree_principal_binding,
             trigger,
             known_fingerprint,
@@ -3258,46 +3537,58 @@ fn publish_pending_repo_patch_provenance(
 
 impl Drop for WorkspaceSession {
     fn drop(&mut self) {
-        let principal_registry = self
-            .principal_registry
-            .read()
-            .expect("principal registry lock poisoned")
-            .clone();
-        if let Some(watch) = self.watch.take() {
-            let _ = watch.stop.send(WatchMessage::Stop);
-            let _ = watch.handle.join();
+        let coordination_only_runtime = self.coordination_only_runtime();
+        let principal_registry = (!coordination_only_runtime).then(|| {
+            self.principal_registry
+                .read()
+                .expect("principal registry lock poisoned")
+                .clone()
+        });
+        if let Some(full_runtime) = self.full_runtime_state_mut() {
+            if let Some(watch) = full_runtime.watch.take() {
+                let _ = watch.stop.send(WatchMessage::Stop);
+                let _ = watch.handle.join();
+            }
+            if let Some(watch) = full_runtime.protected_state_watch.take() {
+                let _ = watch.stop.send(WatchMessage::Stop);
+                let _ = watch.handle.join();
+            }
+            if let Some(watch) = full_runtime.coordination_authority_watch.take() {
+                let _ = watch.stop.send(WatchMessage::Stop);
+                let _ = watch.handle.join();
+            }
         }
-        if let Some(watch) = self.protected_state_watch.take() {
-            let _ = watch.stop.send(WatchMessage::Stop);
-            let _ = watch.handle.join();
+        if !coordination_only_runtime {
+            if let Err(error) =
+                self.persist_flushed_observed_change_checkpoints(None, None, None, None)
+            {
+                warn!(error = %error, "failed to persist observed change checkpoints during workspace session shutdown");
+            }
+            if let Err(error) = self.flush_materializations() {
+                warn!(error = %error, "failed to flush workspace materializations during workspace session shutdown");
+            } else if let Err(error) = self.persist_runtime_startup_checkpoint() {
+                warn!(error = %error, "failed to persist workspace startup checkpoint during workspace session shutdown");
+            }
         }
-        if let Some(watch) = self.coordination_authority_watch.take() {
-            let _ = watch.stop.send(WatchMessage::Stop);
-            let _ = watch.handle.join();
+        if let Some(full_runtime) = self.full_runtime_state_mut() {
+            if let Some(mut curator) = full_runtime.curator.take() {
+                curator.stop();
+            }
+            if let Some(mut materializer) = full_runtime.checkpoint_materializer.take() {
+                materializer.stop();
+            }
         }
-        if let Err(error) = self.persist_flushed_observed_change_checkpoints(None, None, None, None)
-        {
-            warn!(error = %error, "failed to persist observed change checkpoints during workspace session shutdown");
-        }
-        if let Err(error) = self.flush_materializations() {
-            warn!(error = %error, "failed to flush workspace materializations during workspace session shutdown");
-        } else if let Err(error) = self.persist_runtime_startup_checkpoint() {
-            warn!(error = %error, "failed to persist workspace startup checkpoint during workspace session shutdown");
-        }
-        if let Some(mut curator) = self.curator.take() {
-            curator.stop();
-        }
-        if let Some(mut materializer) = self.checkpoint_materializer.take() {
-            materializer.stop();
-        }
-        if !principal_registry.principals.is_empty() || !principal_registry.credentials.is_empty() {
-            let persist_result =
-                prism_store::MaterializationStore::save_principal_registry_snapshot(
-                    &mut *self.store.lock().expect("workspace store lock poisoned"),
-                    &principal_registry,
-                );
-            if let Err(error) = persist_result {
-                warn!(error = %error, "failed to persist principal registry during workspace session shutdown");
+        if let Some(principal_registry) = principal_registry.as_ref() {
+            if !principal_registry.principals.is_empty() || !principal_registry.credentials.is_empty()
+            {
+                let persist_result =
+                    prism_store::MaterializationStore::save_principal_registry_snapshot(
+                        &mut *self.store.lock().expect("workspace store lock poisoned"),
+                        principal_registry,
+                    );
+                if let Err(error) = persist_result {
+                    warn!(error = %error, "failed to persist principal registry during workspace session shutdown");
+                }
             }
         }
     }

@@ -488,7 +488,8 @@ where
             legacy_snapshot: materialization.snapshot.clone(),
         })?;
     }
-    let repo_semantic_snapshot = repo_semantic_coordination_snapshot(materialization.snapshot.clone());
+    let repo_semantic_snapshot =
+        repo_semantic_coordination_snapshot(materialization.snapshot.clone());
     sync_coordination_snapshot_state(
         root,
         &repo_semantic_snapshot,

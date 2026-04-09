@@ -663,7 +663,7 @@ fn contract_validation_anchor_nodes(
         match anchor {
             AnchorRef::Node(node) => nodes.push(node),
             AnchorRef::Lineage(lineage) => nodes.extend(prism.current_nodes_for_lineage(&lineage)),
-            AnchorRef::File { .. } | AnchorRef::Kind { .. } => {}
+            AnchorRef::File { .. } | AnchorRef::WorkspacePath(_) | AnchorRef::Kind { .. } => {}
         }
     }
     nodes.sort_by(|left, right| {

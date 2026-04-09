@@ -4,13 +4,14 @@ use std::path::Path;
 use prism_coordination::{
     canonical_authoritative_task_holder, canonical_current_task_holder, canonical_task_lease_state,
     same_holder, CanonicalTaskRecord, GitExecutionCompletionMode, GitExecutionStartMode,
-    GitPreflightReport, GitPublishReport, HandoffAcceptInput, HandoffInput, LeaseState,
+    GitPreflightReport, GitPublishReport, HandoffAcceptInput, HandoffInput, LeaseHolder,
+    LeaseState,
     PolicyViolation, TaskCompletionContext, TaskGitExecution, TaskReclaimInput, TaskResumeInput,
     TaskUpdateInput,
 };
 use prism_core::{
     AdmissionBusyError, AuthenticatedPrincipal, CoordinationAuthorityMutationError,
-    CoordinationAuthorityMutationStatus, PrismPaths, ValidationFeedbackCategory,
+    CoordinationAuthorityMutationStatus, PrismPaths, PrismRuntimeMode, ValidationFeedbackCategory,
     ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceSession, WorktreeMode,
 };
 use prism_curator::{
@@ -1726,7 +1727,7 @@ fn maybe_auto_resume_stale_same_holder_task(
     let Some(lease_holder) = canonical_authoritative_task_holder(&task.task) else {
         return Ok(false);
     };
-    let current_holder = canonical_current_task_holder(meta, &task.task);
+    let current_holder = canonical_current_task_holder_with_execution(meta, &task.task, execution);
     if !same_holder(&lease_holder, &current_holder) {
         return Ok(false);
     }
@@ -1754,9 +1755,25 @@ fn maybe_auto_resume_stale_same_holder_task(
     Ok(true)
 }
 
+fn canonical_current_task_holder_with_execution(
+    meta: &EventMeta,
+    task: &CanonicalTaskRecord,
+    execution: &CoordinationExecutionBinding,
+) -> LeaseHolder {
+    let mut holder = canonical_current_task_holder(meta, task);
+    if holder.worktree_id.is_none() {
+        holder.worktree_id = execution.worktree_id.clone();
+    }
+    if holder.agent_id.is_none() {
+        holder.agent_id = execution.assignee.clone();
+    }
+    holder
+}
+
 fn ensure_git_execution_task_admissible(
     task: &CanonicalTaskRecord,
     meta: &EventMeta,
+    execution: &CoordinationExecutionBinding,
 ) -> Result<()> {
     let lease_state = canonical_task_lease_state(task, meta.ts);
     if matches!(lease_state, LeaseState::Unleased) {
@@ -1765,7 +1782,7 @@ fn ensure_git_execution_task_admissible(
     let Some(lease_holder) = canonical_authoritative_task_holder(task) else {
         return Ok(());
     };
-    let current_holder = canonical_current_task_holder(meta, task);
+    let current_holder = canonical_current_task_holder_with_execution(meta, task, execution);
     if matches!(lease_state, LeaseState::Active) && same_holder(&lease_holder, &current_holder) {
         return Ok(());
     }
@@ -1985,41 +2002,43 @@ impl QueryHost {
         self.sync_workspace_active_work_context(session);
         self.persist_flushed_observed_change_checkpoints(session, None)?;
 
-        let provenance = mutation_provenance(self, session, authenticated);
-        let event = OutcomeEvent {
-            meta: provenance.event_meta(
-                session.next_event_id("outcome"),
-                Some(work_id.clone()),
-                None,
-                current_timestamp(),
-            ),
-            anchors: Vec::new(),
-            kind: prism_memory::OutcomeKind::NoteAdded,
-            result: prism_memory::OutcomeResult::Success,
-            summary: summary
-                .clone()
-                .unwrap_or_else(|| format!("Declared work: {title}")),
-            evidence: Vec::new(),
-            metadata: json!({
-                "workDeclaration": {
-                    "title": title,
-                    "kind": kind,
-                    "parentWorkId": parent_work_id.clone(),
-                    "coordinationTaskId": coordination_task_id.clone(),
-                    "planId": plan_id.clone(),
-                    "planTitle": plan_title.clone(),
-                }
-            }),
-        };
-        if let Some(workspace) = self.workspace_session() {
-            workspace.append_outcome(event)?;
-            self.sync_workspace_revision(workspace)?;
-            workspace.persist_outcomes()?;
-            workspace.flush_materializations()?;
-        } else {
-            prism.apply_outcome_event_to_projections(&event);
-            let _ = prism.outcome_memory().store_event(event)?;
-            self.persist_outcomes()?;
+        if self.features.runtime_mode() != PrismRuntimeMode::CoordinationOnly {
+            let provenance = mutation_provenance(self, session, authenticated);
+            let event = OutcomeEvent {
+                meta: provenance.event_meta(
+                    session.next_event_id("outcome"),
+                    Some(work_id.clone()),
+                    None,
+                    current_timestamp(),
+                ),
+                anchors: Vec::new(),
+                kind: prism_memory::OutcomeKind::NoteAdded,
+                result: prism_memory::OutcomeResult::Success,
+                summary: summary
+                    .clone()
+                    .unwrap_or_else(|| format!("Declared work: {title}")),
+                evidence: Vec::new(),
+                metadata: json!({
+                    "workDeclaration": {
+                        "title": title,
+                        "kind": kind,
+                        "parentWorkId": parent_work_id.clone(),
+                        "coordinationTaskId": coordination_task_id.clone(),
+                        "planId": plan_id.clone(),
+                        "planTitle": plan_title.clone(),
+                    }
+                }),
+            };
+            if let Some(workspace) = self.workspace_session() {
+                workspace.append_outcome(event)?;
+                self.sync_workspace_revision(workspace)?;
+                workspace.persist_outcomes()?;
+                workspace.flush_materializations()?;
+            } else {
+                prism.apply_outcome_event_to_projections(&event);
+                let _ = prism.outcome_memory().store_event(event)?;
+                self.persist_outcomes()?;
+            }
         }
 
         self.persist_session_seed(session)?;
@@ -3409,8 +3428,11 @@ impl QueryHost {
                 now,
             );
         let admissibility_started = std::time::Instant::now();
-        let admissibility_result =
-            ensure_git_execution_task_admissible(&task.task, &admissibility_meta);
+        let admissibility_result = ensure_git_execution_task_admissible(
+            &task.task,
+            &admissibility_meta,
+            &coordination_execution_binding(self.workspace_root()),
+        );
         record_optional_trace_result(
             trace,
             "mutation.gitExecution.checkAdmissibility",
@@ -5193,9 +5215,9 @@ impl QueryHost {
                     payload.status.map(convert_plan_status),
                     payload.goal,
                     match (existing_policy, payload.policy) {
-                        (Some(existing), Some(policy)) => Some(
-                            crate::query_types::merge_policy_payload(existing, policy),
-                        ),
+                        (Some(existing), Some(policy)) => {
+                            Some(crate::query_types::merge_policy_payload(existing, policy))
+                        }
                         (None, Some(policy)) => convert_policy(Some(policy))?,
                         (_, None) => None,
                     },

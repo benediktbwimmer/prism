@@ -956,6 +956,7 @@ fn anchor_label(anchor: &AnchorRef) -> String {
         AnchorRef::Node(node) => format!("node:{}:{}:{}", node.crate_name, node.path, node.kind),
         AnchorRef::Lineage(lineage) => format!("lineage:{}", lineage.0),
         AnchorRef::File(file) => format!("file:{}", file.0),
+        AnchorRef::WorkspacePath(path) => format!("file_path:{path}"),
         AnchorRef::Kind(kind) => format!("kind:{kind}"),
     }
 }

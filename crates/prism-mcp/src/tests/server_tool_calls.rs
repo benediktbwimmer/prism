@@ -2381,11 +2381,9 @@ async fn mcp_server_accepts_relative_file_anchor_paths_in_coordination_only_mode
 
     assert_eq!(bootstrap["action"], "coordination");
     assert!(bootstrap["result"]["state"]["id"].as_str().is_some());
-    assert!(
-        bootstrap["result"]["state"]["taskIdsByClientId"]["t0"]
-            .as_str()
-            .is_some()
-    );
+    assert!(bootstrap["result"]["state"]["taskIdsByClientId"]["t0"]
+        .as_str()
+        .is_some());
 
     running.cancel().await.unwrap();
 }

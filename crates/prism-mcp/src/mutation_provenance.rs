@@ -50,21 +50,19 @@ impl MutationProvenance {
                 Self::fallback(workspace, session, prism)
             }
             MutationProvenanceMode::CoordinationAuthority => {
+                if let Some(authenticated) = authenticated {
+                    return Self::authenticated(workspace, session, prism, authenticated);
+                }
                 if let Some(workspace) = workspace {
                     if let Some(slot) = workspace.current_worktree_mutator_slot() {
-                        let credential_id = authenticated
-                            .map(|authenticated| &authenticated.credential.credential_id);
                         return Self::worktree_executor(
                             workspace,
                             session,
                             prism,
                             &slot,
-                            credential_id,
+                            None,
                         );
                     }
-                }
-                if let Some(authenticated) = authenticated {
-                    return Self::authenticated(workspace, session, prism, authenticated);
                 }
                 Self::fallback(workspace, session, prism)
             }

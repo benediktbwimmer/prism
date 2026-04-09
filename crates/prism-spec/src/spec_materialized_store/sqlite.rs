@@ -937,7 +937,9 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use prism_coordination::{CoordinationSnapshotV2, CoordinationSpecRef, CoordinationTaskSpecRef};
+    use prism_coordination::{
+        CoordinationSnapshotV2, CoordinationSpecRef, CoordinationTaskSpecRef,
+    };
 
     use super::SqliteSpecMaterializedStore;
     use crate::{

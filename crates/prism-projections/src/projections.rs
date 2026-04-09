@@ -958,7 +958,7 @@ impl ProjectionIndex {
             AnchorRef::Lineage(lineage) => {
                 self.node_to_lineage.values().any(|value| value == lineage)
             }
-            AnchorRef::File(_) | AnchorRef::Kind(_) => true,
+            AnchorRef::File(_) | AnchorRef::WorkspacePath(_) | AnchorRef::Kind(_) => true,
         }
     }
 }

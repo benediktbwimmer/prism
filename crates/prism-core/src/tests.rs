@@ -1249,7 +1249,8 @@ fn validation_feedback_writes_do_not_wait_for_refresh_lock() {
     )
     .unwrap();
     let _guard = session
-        .refresh_lock
+        .refresh_lock_handle()
+        .unwrap()
         .lock()
         .expect("workspace refresh lock poisoned");
 
@@ -1289,7 +1290,8 @@ fn try_append_outcome_defers_when_refresh_is_in_progress() {
 
     let session = index_workspace_session(&root).unwrap();
     let _guard = session
-        .refresh_lock
+        .refresh_lock_handle()
+        .unwrap()
         .lock()
         .expect("workspace refresh lock poisoned");
 
@@ -1328,7 +1330,8 @@ fn try_mutate_coordination_defers_when_refresh_is_in_progress() {
 
     let session = index_workspace_session(&root).unwrap();
     let _guard = session
-        .refresh_lock
+        .refresh_lock_handle()
+        .unwrap()
         .lock()
         .expect("workspace refresh lock poisoned");
 
@@ -1352,7 +1355,7 @@ fn mutate_coordination_with_wait_succeeds_after_refresh_lock_releases() {
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
-    let refresh_lock = Arc::clone(&session.refresh_lock);
+    let refresh_lock = Arc::clone(session.refresh_lock_handle().unwrap());
     let holder = thread::spawn(move || {
         let _guard = refresh_lock
             .lock()
@@ -1374,6 +1377,47 @@ fn mutate_coordination_with_wait_succeeds_after_refresh_lock_releases() {
     assert!(
         started.elapsed() >= Duration::from_millis(50),
         "bounded-wait coordination mutation should wait for the refresh lock"
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_only_mutation_does_not_wait_for_refresh_lock() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: prism_ir::PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    assert!(session.refresh_lock_handle().is_none());
+
+    let started = std::time::Instant::now();
+    let result = session
+        .mutate_coordination_with_session_wait_observed(
+            None,
+            |_| Ok::<_, anyhow::Error>(()),
+            |_operation, _duration, _args, _success, _error| {},
+        )
+        .unwrap();
+
+    assert!(result.is_some());
+    assert!(
+        started.elapsed() < Duration::from_millis(500),
+        "coordination-only mutations should bypass refresh-lock admission"
     );
 
     let _ = fs::remove_dir_all(root);
@@ -1468,7 +1512,8 @@ fn try_ensure_paths_deep_defers_when_refresh_is_in_progress() {
 
     let session = index_workspace_session(&root).unwrap();
     let _guard = session
-        .refresh_lock
+        .refresh_lock_handle()
+        .unwrap()
         .lock()
         .expect("workspace refresh lock poisoned");
 
@@ -1708,6 +1753,8 @@ fn fs_watch_refreshes_session_after_external_edit() {
     )
     .unwrap();
     session
+        .full_runtime_state()
+        .unwrap()
         .refresh_state
         .mark_fs_dirty_paths([root.join("src/lib.rs")]);
     let observed = session.refresh_fs().unwrap();
@@ -1771,6 +1818,8 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
 
     fs::write(root.join("src/lib.rs"), "pub fn beta() {}\n").unwrap();
     session
+        .full_runtime_state()
+        .unwrap()
         .refresh_state
         .mark_fs_dirty_paths([root.join("src/lib.rs")]);
     let observed = session.refresh_fs().unwrap();
@@ -2124,6 +2173,8 @@ fn binding_principal_backfills_repo_patch_events_for_active_work() {
 
     fs::write(root.join("src/lib.rs"), "pub fn beta() {}\n").unwrap();
     session
+        .full_runtime_state()
+        .unwrap()
         .refresh_state
         .mark_fs_dirty_paths([root.join("src/lib.rs")]);
     let observed = session.refresh_fs().unwrap();
@@ -2276,6 +2327,8 @@ fn fs_watch_refresh_enqueues_curator_with_patch_outcomes_and_projection_context(
     )
     .unwrap();
     session
+        .full_runtime_state()
+        .unwrap()
         .refresh_state
         .mark_fs_dirty_paths([root.join("src/lib.rs")]);
     let observed = session.refresh_fs().unwrap();
@@ -3183,7 +3236,7 @@ fn protected_state_watcher_imports_repo_memory_without_source_refresh() {
         &session.runtime_state,
         &session.store,
         &session.cold_query_store,
-        &session.refresh_lock,
+        session.refresh_lock_handle().unwrap(),
         &session.loaded_workspace_revision,
         session.coordination_enabled,
         &[
@@ -4034,7 +4087,7 @@ fn protected_state_watcher_imports_repo_concepts_without_source_refresh() {
         &session.runtime_state,
         &session.store,
         &session.cold_query_store,
-        &session.refresh_lock,
+        session.refresh_lock_handle().unwrap(),
         &session.loaded_workspace_revision,
         session.coordination_enabled,
         &[crate::protected_state::streams::ProtectedRepoStream::concept_events()],
@@ -6994,7 +7047,7 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
 }
 
 #[test]
-fn coordination_persistence_incrementally_updates_stored_read_models() {
+fn coordination_persistence_incremental_mutations_do_not_backfill_stored_read_models_on_sqlite_default() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -7062,6 +7115,11 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
         .persist_coordination_snapshot_for_root(&root, &initial_snapshot)
         .unwrap();
     assert_eq!(store.coordination_revision().unwrap(), 1);
+    crate::CoordinationMaterializedStore::clear_materialization(
+        &crate::SqliteCoordinationMaterializedStore::new(&root),
+        crate::CoordinationMaterializedClearRequest::all(),
+    )
+    .unwrap();
 
     coordination
         .update_task(
@@ -7211,29 +7269,42 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
     let paths = PrismPaths::for_workspace_root(&root).unwrap();
     let mut materialized_store =
         SqliteStore::open(paths.coordination_materialization_db_path().unwrap()).unwrap();
-    let read_model = materialized_store
+    assert!(
+        materialized_store.load_coordination_read_model().unwrap().is_none(),
+        "incremental authoritative sqlite mutations should not backfill local coordination read models by default"
+    );
+    assert!(
+        materialized_store
+            .load_coordination_queue_read_model()
+            .unwrap()
+            .is_none(),
+        "incremental authoritative sqlite mutations should not backfill local coordination queue models by default"
+    );
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let live_read_model = reloaded
         .load_coordination_read_model()
         .unwrap()
-        .expect("incremental coordination read model should be persisted in the coordination materialization store");
+        .expect("session should derive the current coordination read model from sqlite authority");
     let mut expected_read_model =
         prism_coordination::coordination_read_model_from_snapshot(&updated_snapshot);
     expected_read_model.revision = 2;
-    assert_eq!(read_model, expected_read_model);
+    assert_eq!(live_read_model, expected_read_model);
 
-    let queue_model = materialized_store
+    let live_queue_model = reloaded
         .load_coordination_queue_read_model()
         .unwrap()
-        .expect("incremental coordination queue model should be persisted in the coordination materialization store");
+        .expect("session should derive the current coordination queue model from sqlite authority");
     let mut expected_queue_model =
         prism_coordination::coordination_queue_read_model_from_snapshot(&updated_snapshot);
     expected_queue_model.revision = 2;
-    assert_eq!(queue_model, expected_queue_model);
+    assert_eq!(live_queue_model, expected_queue_model);
 
     let _ = fs::remove_dir_all(root);
 }
 
 #[test]
-fn coordination_session_materializes_read_models_off_request_path() {
+fn coordination_session_flush_keeps_read_models_unmaterialized_on_sqlite_default() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -7313,19 +7384,30 @@ fn coordination_session_materializes_read_models_off_request_path() {
             .unwrap(),
     )
     .unwrap();
-    let persisted_read_model = worktree_store
+    assert!(
+        worktree_store.load_coordination_read_model().unwrap().is_none(),
+        "sqlite-default authority should keep local coordination read models unmaterialized after flush"
+    );
+    assert!(
+        worktree_store
+            .load_coordination_queue_read_model()
+            .unwrap()
+            .is_none(),
+        "sqlite-default authority should keep local coordination queue models unmaterialized after flush"
+    );
+    let live_read_model = session
         .load_coordination_read_model()
         .unwrap()
-        .expect("persisted coordination read model should materialize after flush");
-    assert_eq!(persisted_read_model.active_plan_ids.len(), 1);
-    assert_eq!(persisted_read_model.task_count, 1);
-    assert_eq!(persisted_read_model.revision, authoritative_revision);
-    let persisted_queue_model = worktree_store
+        .expect("session should derive the live coordination read model from sqlite authority");
+    assert_eq!(live_read_model.active_plan_ids.len(), 1);
+    assert_eq!(live_read_model.task_count, 1);
+    assert_eq!(live_read_model.revision, authoritative_revision);
+    let live_queue_model = session
         .load_coordination_queue_read_model()
         .unwrap()
-        .expect("persisted coordination queue model should materialize after flush");
-    assert!(persisted_queue_model.pending_handoff_task_ids.is_empty());
-    assert_eq!(persisted_queue_model.revision, authoritative_revision);
+        .expect("session should derive the live coordination queue model from sqlite authority");
+    assert!(live_queue_model.pending_handoff_task_ids.is_empty());
+    assert_eq!(live_queue_model.revision, authoritative_revision);
     assert!(
         crate::tracked_snapshot::load_tracked_coordination_materialization_status(&root)
             .unwrap()
@@ -9079,10 +9161,13 @@ fn refresh_fs_nonblocking_defers_when_refresh_is_in_progress() {
 
     let session = index_workspace_session(&root).unwrap();
     session
+        .full_runtime_state()
+        .unwrap()
         .refresh_state
         .mark_fs_dirty_paths(std::iter::empty::<PathBuf>());
     let _guard = session
-        .refresh_lock
+        .refresh_lock_handle()
+        .unwrap()
         .lock()
         .expect("workspace refresh lock poisoned");
 
@@ -9105,7 +9190,8 @@ fn refresh_fs_nonblocking_keeps_clean_status_for_busy_fallback_probe() {
 
     let session = index_workspace_session(&root).unwrap();
     let _guard = session
-        .refresh_lock
+        .refresh_lock_handle()
+        .unwrap()
         .lock()
         .expect("workspace refresh lock poisoned");
 
@@ -9204,6 +9290,8 @@ fn refresh_fs_with_paths_consumes_only_scoped_dirty_paths() {
     let lib = root.join("src/lib.rs");
     let guide = root.join("docs/guide.md");
     session
+        .full_runtime_state()
+        .unwrap()
         .refresh_state
         .mark_fs_dirty_paths([lib.clone(), guide.clone()]);
 
@@ -9237,7 +9325,8 @@ fn recovery_rebuild_from_persisted_state_defers_when_refresh_is_in_progress() {
     )
     .unwrap();
     let _guard = session
-        .refresh_lock
+        .refresh_lock_handle()
+        .unwrap()
         .lock()
         .expect("workspace refresh lock poisoned");
 
@@ -9603,6 +9692,8 @@ fn refresh_fs_falls_back_to_full_reindex_for_out_of_root_watch_paths() {
     )
     .unwrap();
     session
+        .full_runtime_state()
+        .unwrap()
         .refresh_state
         .mark_fs_dirty_paths([std::env::temp_dir().join("editor-copy-created.md")]);
 
@@ -10543,6 +10634,8 @@ fn refresh_fs_preserves_live_projection_state_and_coordination_context() {
     )
     .unwrap();
     session
+        .full_runtime_state()
+        .unwrap()
         .refresh_state
         .mark_fs_dirty_paths([root.join("src/lib.rs")]);
 
@@ -10823,6 +10916,8 @@ fn refresh_fs_materializes_graph_snapshot_off_request_path() {
     )
     .unwrap();
     session
+        .full_runtime_state()
+        .unwrap()
         .refresh_state
         .mark_fs_dirty_paths([root.join("src/lib.rs")]);
     session.refresh_fs().unwrap();
@@ -11074,6 +11169,169 @@ fn coordination_only_runtime_bootstrap_skips_graph_and_knowledge_hydration() {
     assert!(prism.curated_concepts_snapshot().is_empty());
     assert!(prism.curated_contracts().is_empty());
     assert!(prism.concept_relations_snapshot().is_empty());
+    assert!(coordination_only.full_runtime_state().is_none());
+    assert!(
+        Arc::ptr_eq(&coordination_only.store, &coordination_only.cold_query_store),
+        "coordination-only bootstrap should not reopen a redundant cold runtime reader"
+    );
+    assert!(
+        coordination_only.workspace_tree_snapshot().files.is_empty(),
+        "coordination-only bootstrap should not retain workspace tree indexing state"
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_only_runtime_ignores_refresh_tracking_state() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() -> u32 { 7 }\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: prism_ir::PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .expect("coordination-only workspace session should bootstrap");
+
+    let revision = session.mark_fs_dirty_paths([root.join("src/lib.rs")]);
+    assert_eq!(revision, 0);
+    assert!(!session.needs_refresh());
+    assert!(session.pending_refresh_paths().is_empty());
+    assert!(session.pending_refresh_path_requests().is_empty());
+    assert_eq!(session.observed_fs_revision(), 0);
+    assert_eq!(session.applied_fs_revision(), 0);
+    assert!(session.last_refresh().is_none());
+    assert!(!session.is_fallback_check_due_now());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_only_runtime_skips_eager_principal_registry_load() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() -> u32 { 7 }\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: prism_ir::PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .expect("coordination-only workspace session should bootstrap");
+
+    assert!(
+        session.load_principal_registry().unwrap().is_none(),
+        "coordination-only startup should not eagerly hydrate principal registry state"
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_only_runtime_skips_workspace_side_state_and_shutdown_persistence() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() -> u32 { 7 }\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: prism_ir::PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .expect("coordination-only workspace session should bootstrap");
+
+    session.bind_active_work_context(crate::ActiveWorkContextBinding {
+        work_id: "work:coordination-only".to_string(),
+        kind: WorkContextKind::AdHoc,
+        title: "Coordination-only work".to_string(),
+        summary: Some("should stay out of workspace session state".to_string()),
+        parent_work_id: None,
+        coordination_task_id: Some("task:coordination-only".to_string()),
+        plan_id: None,
+        plan_title: None,
+    });
+    assert!(
+        session.active_work_context().is_none(),
+        "coordination-only runtime should not keep workspace-side active work bindings"
+    );
+
+    assert!(session.repo_projection_sync_pending_handle().is_none());
+    session
+        .flush_materializations()
+        .expect("coordination-only flush should be inert");
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let startup_checkpoint = paths.workspace_runtime_startup_checkpoint_path().unwrap();
+    assert!(!startup_checkpoint.exists());
+    session
+        .persist_runtime_startup_checkpoint()
+        .expect("coordination-only startup checkpoint persistence should be inert");
+    assert!(
+        !startup_checkpoint.exists(),
+        "coordination-only runtime should not persist workspace startup checkpoints"
+    );
+
+    *session.principal_registry.write().unwrap() = PrincipalRegistrySnapshot {
+        principals: vec![PrincipalProfile {
+            authority_id: PrincipalAuthorityId::new("local-daemon"),
+            principal_id: PrincipalId::new("principal:coordination-only"),
+            kind: PrincipalKind::Agent,
+            name: "coordination-only".to_string(),
+            role: None,
+            status: PrincipalStatus::Active,
+            created_at: 1,
+            updated_at: 1,
+            parent_principal_id: None,
+            profile: serde_json::Value::Null,
+        }],
+        credentials: vec![CredentialRecord {
+            credential_id: CredentialId::new("credential:coordination-only"),
+            authority_id: PrincipalAuthorityId::new("local-daemon"),
+            principal_id: PrincipalId::new("principal:coordination-only"),
+            token_verifier: "sha256:coordination-only".to_string(),
+            capabilities: vec![CredentialCapability::MutateCoordination],
+            status: CredentialStatus::Active,
+            created_at: 1,
+            last_used_at: None,
+            revoked_at: None,
+        }],
+    };
+    drop(session);
+
+    let mut store = SqliteStore::open(paths.worktree_cache_db_path().unwrap()).unwrap();
+    assert!(
+        store.load_principal_registry_snapshot().unwrap().is_none(),
+        "coordination-only shutdown should not persist cached principal registry state"
+    );
 
     let _ = fs::remove_dir_all(root);
 }

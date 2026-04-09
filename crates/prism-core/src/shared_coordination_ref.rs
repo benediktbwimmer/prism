@@ -4659,10 +4659,7 @@ mod tests {
             .load_coordination_startup_checkpoint()
             .unwrap()
             .expect("coordination startup checkpoint");
-        assert_eq!(
-            checkpoint.canonical_snapshot_v2,
-            canonical_snapshot_v2
-        );
+        assert_eq!(checkpoint.canonical_snapshot_v2, canonical_snapshot_v2);
     }
 
     #[test]
@@ -5364,7 +5361,7 @@ mod tests {
             &session.runtime_state,
             &session.store,
             &session.cold_query_store,
-            &session.refresh_lock,
+            session.refresh_lock_handle().unwrap(),
             &session.loaded_workspace_revision,
             &session.coordination_runtime_revision,
             session.coordination_enabled,
@@ -5422,7 +5419,7 @@ mod tests {
             &session.runtime_state,
             &session.store,
             &session.cold_query_store,
-            &session.refresh_lock,
+            session.refresh_lock_handle().unwrap(),
             &session.loaded_workspace_revision,
             &session.coordination_runtime_revision,
             session.coordination_enabled,

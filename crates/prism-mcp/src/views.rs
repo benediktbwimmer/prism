@@ -680,6 +680,10 @@ pub(crate) fn anchor_ref_view(
                 .file_path(file)
                 .map(|path| workspace_display_path(workspace_root, path)),
         },
+        AnchorRef::WorkspacePath(path) => AnchorRefView::File {
+            file_id: None,
+            path: Some(path),
+        },
         AnchorRef::Kind(kind) => AnchorRefView::Kind {
             kind: kind.to_string(),
         },

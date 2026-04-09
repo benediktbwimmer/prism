@@ -566,8 +566,8 @@ mod tests {
     use super::{
         AuthAssuranceArg, AuthCommand, Cli, Command, CoordinationAuthorityBackendArg,
         DocsBundleArg, DocsCommand, McpCommand, PrincipalCommand, PrismRuntimeModeArg,
-        ProtectedStateCommand, ProtectedStateTrustCommand, SpecsCommand, WorktreeCommand,
-        ServiceCommand,
+        ProtectedStateCommand, ProtectedStateTrustCommand, ServiceCommand, SpecsCommand,
+        WorktreeCommand,
     };
     use crate::worktree_commands::WorktreeModeArg;
 

@@ -570,6 +570,52 @@ fn resolve_anchor_file_path(path: &str, workspace_root: Option<&Path>) -> Result
     Ok(root.join(candidate))
 }
 
+fn normalize_workspace_relative_anchor_path(path: &str) -> Result<String> {
+    use std::path::Component;
+
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Err(anyhow!("file anchors require a non-empty `path`"));
+    }
+    let candidate = Path::new(trimmed);
+    if candidate.is_absolute() {
+        return Err(anyhow!(
+            "coordination-only mode only accepts workspace-relative file anchor paths when cognition is disabled"
+        ));
+    }
+
+    let mut normalized = Vec::new();
+    for component in candidate.components() {
+        match component {
+            Component::CurDir => {}
+            Component::Normal(segment) => normalized.push(
+                segment
+                    .to_str()
+                    .ok_or_else(|| {
+                        anyhow!("file anchors must be valid UTF-8 workspace-relative paths")
+                    })?
+                    .to_string(),
+            ),
+            Component::ParentDir => {
+                return Err(anyhow!(
+                    "coordination-only mode rejects file anchor paths that escape the workspace root"
+                ));
+            }
+            Component::RootDir | Component::Prefix(_) => {
+                return Err(anyhow!(
+                    "coordination-only mode only accepts workspace-relative file anchor paths when cognition is disabled"
+                ));
+            }
+        }
+    }
+
+    if normalized.is_empty() {
+        return Err(anyhow!("file anchors require a non-empty `path`"));
+    }
+
+    Ok(normalized.join("/"))
+}
+
 pub(crate) fn convert_anchors(
     prism: &Prism,
     workspace: Option<&WorkspaceSession>,
@@ -594,19 +640,19 @@ pub(crate) fn convert_anchors(
             AnchorRefInput::File { file_id, path } => {
                 let cognition_enabled = prism.runtime_capabilities().cognition_enabled();
                 if !cognition_enabled {
-                    match path.as_deref() {
-                        Some(path) if !Path::new(path.trim()).is_absolute() => {}
-                        Some(_) => {
-                            return Err(anyhow!(
-                                "coordination-only mode only accepts workspace-relative file anchor paths when cognition is disabled"
-                            ));
-                        }
-                        None => {
-                            return Err(anyhow!(
-                                "coordination-only mode only accepts relative file anchor `path` values when cognition is disabled"
-                            ));
-                        }
+                    if file_id.is_some() {
+                        return Err(anyhow!(
+                            "coordination-only mode only accepts relative file anchor `path` values when cognition is disabled"
+                        ));
                     }
+                    let path = path.ok_or_else(|| {
+                        anyhow!(
+                            "coordination-only mode only accepts relative file anchor `path` values when cognition is disabled"
+                        )
+                    })?;
+                    return Ok(AnchorRef::WorkspacePath(
+                        normalize_workspace_relative_anchor_path(&path)?,
+                    ));
                 }
                 let resolved_from_path = match path {
                     Some(path) => {

@@ -19,10 +19,10 @@ use prism_coordination::{
     GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
 };
 use prism_core::{
-    default_workspace_shared_runtime, hydrate_workspace_session,
+    default_workspace_session_options, default_workspace_shared_runtime, hydrate_workspace_session,
     hydrate_workspace_session_with_options, index_workspace_session,
     index_workspace_session_with_curator, index_workspace_session_with_options,
-    CoordinationAuthorityMutationError, PrismPaths, SharedRuntimeBackend,
+    BootstrapOwnerInput, CoordinationAuthorityMutationError, PrismPaths, SharedRuntimeBackend,
     ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
     WorkspaceSessionOptions,
 };
@@ -47,8 +47,9 @@ use prism_query::{
     ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptScope, ContractKind,
     ContractStability, ContractStatus,
 };
-use prism_store::{Graph, SqliteStore, Store};
-use rusqlite::Connection;
+use prism_store::{
+    CoordinationCheckpointStore, CoordinationStartupCheckpoint, Graph, SqliteStore, Store,
+};
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -14686,6 +14687,109 @@ fn restored_session_seed_rebinds_workspace_active_work_context() {
 }
 
 #[test]
+fn coordination_only_declare_work_stays_session_local() {
+    let root = temp_workspace();
+    let mut options = default_workspace_session_options(&root)
+        .expect("default workspace session options should resolve");
+    options.runtime_mode = prism_ir::PrismRuntimeMode::CoordinationOnly;
+    options.shared_runtime = SharedRuntimeBackend::Disabled;
+    options.hydrate_persisted_projections = false;
+    options.hydrate_persisted_co_change = false;
+    let workspace = index_workspace_session_with_options(&root, options)
+        .expect("coordination-only workspace session should index");
+    register_test_human_worktree(&root);
+    let issued = workspace
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: None,
+            name: "Test Owner".to_string(),
+            role: Some("test_owner".to_string()),
+        })
+        .expect("owner bootstrap should succeed");
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &issued.credential.credential_id,
+            &issued.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session_and_limits_and_features(
+        workspace,
+        QueryLimits::default(),
+        PrismMcpFeatures::full()
+            .with_runtime_mode(prism_ir::PrismRuntimeMode::CoordinationOnly)
+            .with_runtime_diagnostics_auto_refresh(false),
+    );
+
+    assert!(host.workspace_service_shell().is_none());
+
+    let declared = host
+        .declare_work_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Keep declared work out of outcome memory".to_string(),
+                kind: Some(WorkDeclarationKindInput::AdHoc),
+                summary: Some("Coordination-only should keep this session local.".to_string()),
+                parent_work_id: None,
+                coordination_task_id: None,
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("work should declare");
+
+    assert!(declared.work_id.starts_with("work:"));
+    assert!(
+        host.current_prism().outcome_snapshot().events.is_empty(),
+        "coordination-only declare_work should not append outcome-memory events"
+    );
+    assert!(!test_session(&host).notes.is_enabled());
+    assert!(!test_session(&host).inferred_edges.is_enabled());
+    assert!(
+        host.workspace_session()
+            .expect("workspace-backed host")
+            .active_work_context()
+            .is_none(),
+        "coordination-only should keep active work inside MCP session state"
+    );
+    let seed_path = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .mcp_session_seed_path()
+        .unwrap();
+    assert!(
+        !seed_path.exists(),
+        "coordination-only should not persist session seed state to disk"
+    );
+
+    let restarted_workspace = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: prism_ir::PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .expect("coordination-only workspace session should restart");
+    let restarted = QueryHost::with_session_and_limits_and_features(
+        restarted_workspace,
+        QueryLimits::default(),
+        PrismMcpFeatures::full()
+            .with_runtime_mode(prism_ir::PrismRuntimeMode::CoordinationOnly)
+            .with_runtime_diagnostics_auto_refresh(false),
+    );
+    let restored = restarted
+        .session_resource_value(test_session(&restarted).as_ref())
+        .expect("coordination-only session should load");
+    assert!(
+        restored.current_work.is_none(),
+        "coordination-only should not restore prior MCP session work from disk"
+    );
+    assert!(
+        restored.current_task.is_none(),
+        "coordination-only should not restore prior MCP session task bindings from disk"
+    );
+}
+
+#[test]
 fn restart_restores_coordination_task_binding_when_declared_work_exists() {
     let root = temp_workspace();
     let (workspace, credential) = workspace_session_with_owner_credential(&root);
@@ -16826,12 +16930,7 @@ return {
         status["coordinationMaterializationPath"]
             .as_str()
             .unwrap_or_default(),
-        PrismPaths::for_workspace_root(&root)
-            .unwrap()
-            .coordination_materialization_db_path()
-            .unwrap()
-            .display()
-            .to_string()
+        ""
     );
     assert_eq!(status["freshness"]["fsDirty"], false);
     assert!(
@@ -20975,12 +21074,51 @@ fn runtime_status_omits_git_coordination_authority_diagnostics_on_sqlite_default
     .expect("task create should succeed");
     if let Some(workspace) = host.workspace_session() {
         workspace.flush_materializations().unwrap();
+        let coordination_materialization_path = PrismPaths::for_workspace_root(workspace.root())
+            .unwrap()
+            .coordination_materialization_db_path()
+            .unwrap();
+        prism_core::CoordinationMaterializedStore::clear_materialization(
+            &prism_core::SqliteCoordinationMaterializedStore::new(workspace.root()),
+            prism_core::CoordinationMaterializedClearRequest {
+                clear_startup_checkpoint: true,
+                clear_read_models: true,
+                clear_compaction: true,
+            },
+        )
+        .expect(
+            "sqlite-default runtime status should not require local coordination materialization",
+        );
+        if coordination_materialization_path.exists() {
+            fs::remove_file(&coordination_materialization_path).unwrap();
+        }
+        host.store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Authority-backed follow-up mutation"
+                }),
+                task_id: None,
+            },
+        )
+        .expect(
+            "follow-up task create should still succeed without local coordination materialization",
+        );
+        workspace.flush_materializations().unwrap();
+        assert!(
+            !coordination_materialization_path.exists(),
+            "sqlite-default coordination mutations should not recreate local coordination materialization"
+        );
     }
     prism_core::publish_local_runtime_descriptor(&root)
         .expect("runtime descriptor should publish before diagnostics are inspected");
 
     let status = crate::runtime_views::refresh_cached_runtime_status(&host)
         .expect("runtime status should succeed");
+    assert!(status.coordination_materialization_path.is_none());
+    assert!(status.coordination_materialization_bytes.is_none());
     assert!(
         status.coordination_authority.is_none(),
         "sqlite-default authority should not surface git coordination-authority diagnostics"
@@ -21009,12 +21147,13 @@ fn runtime_status_tolerates_legacy_startup_checkpoint_plan_shape() {
     let root = temp_workspace();
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
-    let cache = PrismPaths::for_workspace_root(&root)
+    let authority_db = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .worktree_cache_db_path()
+        .coordination_authority_db_path()
         .unwrap();
-    let conn = Connection::open(cache).unwrap();
-    let checkpoint = serde_json::json!({
+    let canonical_snapshot_v2 =
+        prism_coordination::CoordinationSnapshot::default().to_canonical_snapshot_v2();
+    let checkpoint: CoordinationStartupCheckpoint = serde_json::from_value(serde_json::json!({
         "version": 4,
         "materialized_at": 123,
         "coordination_revision": 77,
@@ -21072,15 +21211,13 @@ fn runtime_status_tolerates_legacy_startup_checkpoint_plan_shape() {
             "next_artifact": 0,
             "next_review": 0
         },
-        "canonical_snapshot_v2": null,
+        "canonical_snapshot_v2": serde_json::to_value(&canonical_snapshot_v2).unwrap(),
         "runtime_descriptors": []
-    });
-    conn.execute(
-        "INSERT INTO snapshots(key, value) VALUES (?1, ?2)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        rusqlite::params!["coordination_startup_checkpoint", checkpoint.to_string()],
-    )
+    }))
     .unwrap();
+    let mut store = SqliteStore::open(authority_db).unwrap();
+    CoordinationCheckpointStore::save_coordination_startup_checkpoint(&mut store, &checkpoint)
+        .unwrap();
 
     host.diagnostics_state().invalidate_runtime_status();
     let status = crate::runtime_views::refresh_cached_runtime_status(&host)
@@ -24265,6 +24402,10 @@ return {{
     );
     assert_eq!(result.result["plan"]["activity"]["createdAt"], 10);
     assert_eq!(result.result["plan"]["activity"]["lastUpdatedAt"], 20);
+    assert_eq!(
+        result.result["plan"]["id"],
+        Value::from(plan_id.0.to_string())
+    );
 }
 
 #[test]
@@ -25641,6 +25782,55 @@ fn workspace_coordination_persistence_records_mcp_session_scope() {
     drop(store);
     drop(host);
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_only_anchor_conversion_persists_normalized_workspace_paths() {
+    let root = temp_workspace();
+    let mut options = default_workspace_session_options(&root).unwrap();
+    options.runtime_mode = prism_ir::PrismRuntimeMode::CoordinationOnly;
+    options.hydrate_persisted_projections = false;
+    options.hydrate_persisted_co_change = false;
+    let workspace = index_workspace_session_with_options(&root, options).unwrap();
+    let anchors = crate::query_types::convert_anchors(
+        workspace.prism().as_ref(),
+        Some(&workspace),
+        Some(workspace.root()),
+        vec![AnchorRefInput::File {
+            file_id: None,
+            path: Some("./src//lib.rs".to_string()),
+        }],
+    )
+    .expect("coordination-only anchor conversion should succeed");
+
+    assert_eq!(
+        anchors,
+        vec![AnchorRef::WorkspacePath("src/lib.rs".to_string())]
+    );
+}
+
+#[test]
+fn coordination_only_anchor_conversion_rejects_workspace_escape_paths() {
+    let root = temp_workspace();
+    let mut options = default_workspace_session_options(&root).unwrap();
+    options.runtime_mode = prism_ir::PrismRuntimeMode::CoordinationOnly;
+    options.hydrate_persisted_projections = false;
+    options.hydrate_persisted_co_change = false;
+    let workspace = index_workspace_session_with_options(&root, options).unwrap();
+    let error = crate::query_types::convert_anchors(
+        workspace.prism().as_ref(),
+        Some(&workspace),
+        Some(workspace.root()),
+        vec![AnchorRefInput::File {
+            file_id: None,
+            path: Some("../outside.rs".to_string()),
+        }],
+    )
+    .expect_err("coordination-only anchor conversion should reject workspace escapes");
+
+    assert!(error
+        .to_string()
+        .contains("rejects file anchor paths that escape the workspace root"));
 }
 
 #[test]

@@ -11,6 +11,8 @@ use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
 #[cfg(test)]
+use crate::coordination_persistence::repo_semantic_coordination_snapshot;
+#[cfg(test)]
 use crate::published_plans::HydratedCoordinationPlanState;
 #[cfg(test)]
 use anyhow::Result;
@@ -136,9 +138,12 @@ pub(crate) fn load_eventual_coordination_plan_state_for_root(
             view: CoordinationStateView::PlanState,
         })?
         .value
-        .map(|state| HydratedCoordinationPlanState {
-            snapshot: state.snapshot,
-            canonical_snapshot_v2: state.canonical_snapshot_v2,
-            runtime_descriptors: state.runtime_descriptors,
+        .map(|state| {
+            let snapshot = repo_semantic_coordination_snapshot(state.snapshot);
+            HydratedCoordinationPlanState {
+                canonical_snapshot_v2: snapshot.to_canonical_snapshot_v2(),
+                snapshot,
+                runtime_descriptors: state.runtime_descriptors,
+            }
         }))
 }

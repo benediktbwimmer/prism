@@ -1,8 +1,8 @@
 # Execution Substrate And Compiled Plan Rollout
 
 Status: proposed
-Audience: coordination, execution, validation, runtime, MCP, CLI, UI, and workflow-authoring maintainers
-Scope: sequencing the artifact/review model, the shared execution substrate, validation, actions, graph dataflow, native reusable plans, and finally JS/TS-authored compiled plans
+Audience: coordination, execution, validation, runtime, MCP, CLI, UI, and plan-authoring maintainers
+Scope: sequencing the artifact/review model, the shared execution substrate, validation, actions, graph dataflow, native reusable plans, explicit control constructs, selective materialization, and JS/TS-authored compiled plans
 
 ---
 
@@ -16,13 +16,15 @@ PRISM now has several tightly related but still distinct bodies of work:
 - add `Action` as a first-class machine-work leaf
 - add graph-wide dataflow and bindings
 - add reusable native plan definitions and instantiation
-- add JS/TS-authored workflows compiled into PRISM-native IR
+- add explicit control constructs, continue-as-new, and selective materialization
+- add JS/TS-authored Plans compiled into PRISM-native IR
 
 This roadmap exists to sequence those items so that:
 
 - foundational semantics land before authoring ergonomics
 - execution machinery stabilizes before the compiler targets it
 - graph dataflow lands before reusable plan authoring depends on it
+- explicit control and materialization semantics land before large machine-only plans depend on them
 - event-trigger work is explicitly postponed instead of muddying the critical path
 
 The ordering principle is:
@@ -50,9 +52,10 @@ Current phase checklist:
 - [ ] Phase 3: move warm-state validation onto the shared execution substrate
 - [ ] Phase 4: add `Action` as a first-class graph leaf on the shared execution substrate
 - [ ] Phase 5: implement graph-wide typed inputs, outputs, and bindings
-- [ ] Phase 6: implement reusable native plan definitions and instantiation
-- [ ] Phase 7: implement JS/TS-authored compiled plans and the workflow-authoring SDK
-- [ ] Phase 8: evaluate whether fast runtime-executed machine-only subgraphs are warranted
+- [ ] Phase 6: implement reusable native plan definitions, explicit control constructs, and continue-as-new
+- [ ] Phase 7: implement JS/TS-authored compiled Plans, compile-time reads, and the plan-authoring SDK
+- [ ] Phase 8: implement selective materialization for machine-only fan-outs
+- [ ] Phase 9: evaluate whether fast runtime-executed machine-only subgraphs are warranted
 
 Current active phase:
 
@@ -73,7 +76,9 @@ The right order is:
 4. widen it to `Action`
 5. add graph-wide dataflow and bindings once the node set is real
 6. add reusable native plan definitions and instantiation against that settled graph model
-7. only then add JS/TS authoring and compilation to PRISM-native IR
+7. add explicit native control and continuation semantics before large compiled Plans depend on them
+8. only then add JS/TS authoring and compilation to PRISM-native IR
+9. add selective materialization as part of the v1 machine-only execution story
 
 Event-trigger work is intentionally out of the critical path for this roadmap.
 
@@ -93,6 +98,7 @@ These phase transitions are blocking and should not be inverted:
 - Phases 3 and 4 before Phase 5
 - Phase 5 before Phase 6
 - Phase 6 before Phase 7
+- Phase 7 before Phase 8
 
 ### 4.2 Safe parallel lanes
 
@@ -115,21 +121,27 @@ The following work can proceed in parallel without violating the architecture:
   can proceed in parallel once the dataflow contract is frozen
 - During Phase 6:
   - native reusable-plan definition semantics
-  - plan-instance lineage and provenance work
+  - explicit control-construct IR semantics
+  - plan-instance lineage and continuation provenance work
   can proceed in parallel once plan-definition versus plan-instance boundaries are fixed
 - During Phase 7:
   - CLI-first compiler surface
-  - workflow-authoring SDK surface
+  - plan-authoring SDK surface
   - compiler provenance and artifact-pin metadata
+  - compile-time read provenance capture
   can proceed in parallel once the compiled IR target is frozen
+- During Phase 8:
+  - materialization policy semantics
+  - batched persistence boundaries
+  - aggregated result and failure-retention shaping
+  can proceed in parallel once Action execution and explicit control semantics are stable
 
 ### 4.3 Explicitly deferred work
 
 The following should remain out of scope until this roadmap reaches the appropriate phase:
 
 - event-trigger execution rollout beyond whatever substrate hooks are already needed
-- compiler-first workflow authoring before native dataflow and reusable plan semantics exist
-- fast runtime-executed machine-only subgraph execution as a required v1 path
+- compiler-first plan authoring before native dataflow and reusable plan semantics exist
 
 ## 5. Phases
 
@@ -144,8 +156,9 @@ This includes:
 - one spec for warm-state validation on the substrate
 - one spec for first-class `Action`
 - one spec for graph-wide dataflow and bindings
-- one spec for reusable native plan definitions and instantiation
-- one spec for JS/TS-authored compiled plans and the workflow-authoring SDK
+- one spec for reusable native plan definitions, explicit control constructs, and continue-as-new
+- one spec for JS/TS-authored compiled Plans, compile-time reads, and the plan-authoring SDK
+- one spec for selective materialization of machine-only fan-outs
 
 Exit criteria:
 
@@ -249,7 +262,7 @@ Exit criteria:
 - PRISM graph nodes can exchange typed data explicitly
 - downstream execution no longer depends on ad hoc hidden shared-state lookup
 
-### Phase 6: Implement reusable native plan definitions and instantiation
+### Phase 6: Implement reusable native plan definitions, explicit control constructs, and continue-as-new
 
 Build on Phase 5 to add:
 
@@ -257,18 +270,19 @@ Build on Phase 5 to add:
 - plan input schemas
 - instance binding of plan inputs into child nodes
 - reusable instantiation and lineage
-- later continue-as-new hooks if needed
+- explicit IR control constructs such as conditions, joins, bounded fan-out or fan-in, and loop-like control forms
+- continue-as-new as a first-class native Plan mechanism
 
 This phase should remain native-IR-first.
 
-It should not yet depend on JS/TS-authored workflow definitions.
+It should not yet depend on JS/TS-authored plan definitions.
 
 Exit criteria:
 
 - PRISM-native reusable plans exist before the compiler targets them
-- the plan instance model is stable enough to pin compiled artifacts to it
+- explicit control and continuation semantics are stable enough to pin compiled artifacts to them
 
-### Phase 7: Implement JS/TS-authored compiled plans and the workflow-authoring SDK
+### Phase 7: Implement JS/TS-authored compiled Plans, compile-time reads, and the plan-authoring SDK
 
 Implement the authoring layer described in:
 
@@ -276,9 +290,10 @@ Implement the authoring layer described in:
 
 This phase should settle:
 
-- workflow-authoring SDK surface
+- plan-authoring SDK surface
 - CLI-first compiler entrypoint
 - Rust-hosted JS/TS evaluation using the `prism-js` stack
+- compile-time reads against PRISM state, with explicit provenance capture
 - compiled artifact metadata, source maps, and artifact-pin provenance
 - lowering into the now-stable native plan/dataflow/action IR
 
@@ -288,16 +303,40 @@ remain secondary to the CLI-first path.
 Exit criteria:
 
 - humans and agents can author plans in JS/TS and compile them into PRISM-native IR
-- service, query, and UI layers remain IR-driven rather than workflow-code-driven
+- contextual compile is supported and provenance-rich when compile-time reads are used
+- service, query, and UI layers remain IR-driven rather than plan-code-driven
 
-### Phase 8: Evaluate fast runtime-executed machine-only subgraphs
+### Phase 8: Implement selective materialization for machine-only fan-outs
+
+Build on the shared execution substrate, Actions, and explicit control constructs to add:
+
+- full, batched, and aggregated materialization policy
+- explicit materialization boundaries for machine-only fan-outs
+- aggregated success summaries with individually retained failures where policy requires it
+- mixed materialization by outcome or action class where policy requires it
+- artifact or export pointers for detailed batch traces when durable summary state is enough
+- service-authoritative batched commits from runtime-executed machine-only work
+- replay-safe chunk boundaries for any selectively materialized machine-only execution
+
+This phase is part of the intended v1 scope because it is what keeps large operational and
+action-dense Plans from overwhelming the coordination store with low-value per-node writes.
+
+Exit criteria:
+
+- large machine-only fan-outs can execute without requiring full per-leaf coordination-state writes
+- policy can choose between full, batched, and aggregated persistence
+- policy can preserve failures, policy-critical evidence, and selected Action classes even when
+  success is aggregated
+- summary-heavy operational Plans are practical without abandoning authoritative provenance
+
+### Phase 9: Evaluate fast runtime-executed machine-only subgraphs
 
 Only after the previous phases land should PRISM evaluate whether demand justifies:
 
 - a fast runtime-executed lane for bounded machine-only subgraphs
 - append-log plus snapshot local execution state for that runtime hot path
 
-This phase is explicitly optional.
+This phase is explicitly optional and no longer part of the intended v1 scope.
 
 It should be skipped entirely unless real workloads justify it.
 
@@ -334,8 +373,20 @@ PRISM should additionally have:
 
 - graph dataflow and bindings
 - reusable native plan definitions and instantiation
+- explicit control constructs and continue-as-new
 
 That is enough to dogfood the real native workflow model before the compiler arrives.
+
+### Checkpoint D: After Phase 8
+
+PRISM should additionally have:
+
+- JS/TS-authored compiled Plans
+- compile-time reads
+- selective materialization for large machine-only fan-outs
+
+That is enough to dogfood the intended v1 plan model for both software-delivery and operational
+machine-work flows.
 
 ## 7. Anti-patterns
 
@@ -346,7 +397,8 @@ Avoid the following:
 - overloading `Task` to absorb machine-execution semantics that belong to `Action`
 - inventing one-off validation execution plumbing after the shared substrate exists
 - adding implicit dataflow through hidden shared state instead of explicit bindings
-- letting compiled workflow authoring redefine the native graph model instead of targeting it
+- letting compiled plan authoring redefine the native graph model instead of targeting it
+- treating selective materialization as permission to lose failure provenance or policy-critical evidence
 
 ## 8. Recommendation
 
@@ -357,12 +409,14 @@ PRISM should execute this program in a foundation-first order:
 3. warm-state validation
 4. Actions
 5. graph dataflow and bindings
-6. native reusable plan definitions
-7. JS/TS-authored compiled plans
+6. native reusable plan definitions plus explicit control and continue-as-new
+7. JS/TS-authored compiled Plans plus compile-time reads
+8. selective materialization for machine-only fan-outs
 
 That order gives PRISM the strongest result with the least churn:
 
 - durable evidence first
 - one execution model second
 - graph semantics before authoring ergonomics
-- compiler last, targeting a stable native IR instead of forcing the IR to chase the compiler
+- compiler after the native target stabilizes
+- selective materialization only after the execution and control semantics it depends on exist

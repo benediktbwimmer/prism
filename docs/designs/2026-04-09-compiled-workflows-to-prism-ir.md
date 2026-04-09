@@ -1,8 +1,8 @@
-# Compiled Workflows To PRISM IR
+# JS/TS-Authored Plans Compiled To PRISM IR
 
 Status: proposed design  
 Audience: coordination, service, runtime, query, MCP, CLI, UI, and extension maintainers  
-Scope: authoring workflows in JS or TS, compiling them into PRISM-native IR, and preserving a thin service with DB-backed authority
+Scope: authoring Plans in JS or TS, compiling them into PRISM-native IR, and preserving a thin service with DB-backed authority
 
 ---
 
@@ -10,14 +10,14 @@ Scope: authoring workflows in JS or TS, compiling them into PRISM-native IR, and
 
 PRISM should move toward:
 
-- authoring workflows or plan definitions in JS or TS
+- authoring Plans or plan definitions in JS or TS
 - compiling that authoring form into explicit PRISM-native IR
 - persisting, querying, rendering, and executing the compiled IR rather than executing authoring
   code directly in the service
 
 The core rule is:
 
-- workflows are authored as code
+- Plans are authored as code
 - plans are executed as compiled IR
 
 This gives PRISM:
@@ -28,13 +28,13 @@ This gives PRISM:
 - strong provenance over compiled artifacts
 - compiled IR as the reviewable and operational truth
 - lightweight service behavior
-- no arbitrary workflow code running in the service hot path
+- no arbitrary plan-authoring code running in the service hot path
 
 ## 2. Why this direction fits PRISM
 
 PRISM already wants all of the following:
 
-- reusable workflow definitions
+- reusable plan definitions
 - branching and fan-out or fan-in structure
 - typed inputs and outputs
 - graph-visible plans, tasks, actions, reviews, and evidence
@@ -42,12 +42,12 @@ PRISM already wants all of the following:
 - strong provenance and auditability
 - a thin service that does not become a user-code interpreter
 
-Compiled workflow IR is a strong answer because it resolves the tension between:
+Compiled plan IR is a strong answer because it resolves the tension between:
 
 - expressive authoring
 - explicit runtime inspectability
 
-without forcing PRISM to execute arbitrary user workflow code in the service.
+without forcing PRISM to execute arbitrary user plan-authoring code in the service.
 
 ## 3. Core stance
 
@@ -57,12 +57,12 @@ PRISM plans should remain explicit persisted IR artifacts.
 
 They should not become opaque runtime code objects.
 
-### 3.2 Workflow authoring can still be code-first
+### 3.2 Plan authoring can still be code-first
 
-Humans and agents should eventually be able to author workflows in a higher-level form such as:
+Humans and agents should eventually be able to author Plans in a higher-level form such as:
 
 - JS or TS plan-definition code
-- generated workflow code
+- generated plan code
 - perhaps later a declarative DSL
 
 That authoring layer is flexible and ergonomic.
@@ -71,8 +71,8 @@ That authoring layer is flexible and ergonomic.
 
 The PRISM Service should not:
 
-- interpret arbitrary workflow code directly
-- compile user workflow code in its hot path
+- interpret arbitrary authored plan code directly
+- compile user-authored plan code in its hot path
 - become a generic guest-code runtime
 
 The service should consume compiled IR plus associated provenance.
@@ -81,17 +81,17 @@ The service should consume compiled IR plus associated provenance.
 
 The long-term model should have three clear layers.
 
-### 4.1 Workflow authoring layer
+### 4.1 Plan authoring layer
 
 This is what humans or agents write.
 
 Examples:
 
-- reusable workflow definitions
+- reusable plan definitions
 - plan-definition code
-- generated workflow source derived from specs or templates
+- generated plan source derived from specs or templates
 
-### 4.2 Workflow compiler
+### 4.2 Plan compiler
 
 This runs in a runtime or another trusted compile environment.
 
@@ -120,12 +120,17 @@ PRISM already has a strong starting point for this through the existing `prism-j
 
 The long-term target should therefore be:
 
-- JS or TS workflow-definition code as the authored source
-- Rust-hosted evaluation of that source against a workflow-authoring SDK
+- JS or TS plan-definition code as the authored source
+- Rust-hosted evaluation of that source against a plan-authoring SDK
 - Rust capture and lowering into explicit PRISM-native IR
 
 This preserves the ergonomic “just write control flow” authoring model while keeping the compiled
 target explicit and service-safe.
+
+The point is to keep the authoring surface highly expressive:
+
+- arbitrary control flow is the compact way to describe the DAG that should exist
+- the compiler then turns that authored control flow into explicit PRISM-native IR
 
 ### 4.3 Compiler hosting model
 
@@ -138,7 +143,7 @@ The first delivery path should be a local CLI compile command.
 That path is the simplest way to:
 
 - prove the compiler model
-- iterate on authored workflow UX
+- iterate on authored plan UX
 - generate and inspect compiled IR locally
 - integrate with agent-driven planning before distributed compilation exists
 
@@ -154,13 +159,60 @@ That will be useful for:
 
 #### 4.3.3 Never the service hot path
 
-The service should not compile authored workflow code in its hot path.
+The service should not compile authored plan code in its hot path.
 
 The service may later accept compiled artifacts or ask a trusted runtime or compile environment to
-produce them, but it should remain IR-driven rather than becoming the place where guest workflow
-code is evaluated.
+produce them, but it should remain IR-driven rather than becoming the place where guest plan code
+is evaluated.
 
-### 4.4 Executable PRISM IR
+### 4.4 Shared SDK family
+
+PRISM should not invent a separate state interaction API just because code is running inside plan
+authoring, an Action, a validation runner, or an event hook.
+
+Instead, PRISM should expose one shared SDK family that reuses the exact underlying capability
+surface already provided by:
+
+- `prism_query`
+- `prism_mutate`
+
+That means the authored JS or TS environment should be built on the same native PRISM read and
+write capabilities, views, and mutation shapes that already power agent-facing interpreted code.
+
+This SDK family should cover at least:
+
+- plan authoring
+- Action runners
+- validation runners
+- event hooks or event jobs
+
+The strongest form of this rule is:
+
+- the authoring and execution SDK should verbatim reuse the same logical capability contracts that
+  back `prism_query` and `prism_mutate`
+- PRISM should not invent a second equivalent of signals, workflow queries, or workflow-only state
+  mutation channels
+- Actions, validation runners, and event hooks should read and write PRISM state through those same
+  underlying capability surfaces
+
+These surfaces do not all need the same ergonomic helpers.
+
+In particular:
+
+- plan authoring needs graph-construction helpers and optional compile-time reads
+- Action, validation, and event-hook authoring may need little or no extra DSL at all
+
+But all of them should be able to import the same read and write capability surface rather than
+learning a second PRISM-specific API.
+
+The resulting SDK family should therefore be understood as:
+
+- one native PRISM capability surface for reads and writes
+- a plan-authoring layer that adds graph-construction and compile-time helpers
+- runtime-execution layers for Actions, validation runners, and event hooks that mostly just import
+  those same capabilities directly
+
+### 4.5 Executable PRISM IR
 
 This is what the service and the query layers actually care about.
 
@@ -182,19 +234,19 @@ query, and execute.
 
 This design should keep three concepts distinct.
 
-### 5.1 Workflow definition
+### 5.1 Plan definition
 
 This is the authored source form.
 
 Examples:
 
-- JS or TS workflow-definition code
+- JS or TS plan-definition code
 - generated plan-definition source
-- later declarative workflow-definition input
+- later declarative plan-definition input
 
 ### 5.2 Compiled artifact
 
-This is the compiler output for a specific workflow definition revision and parameterization shape.
+This is the compiler output for a specific plan definition revision and parameterization shape.
 
 It contains:
 
@@ -203,7 +255,7 @@ It contains:
 - compiled artifact hash
 - explicit PRISM-native IR
 
-This is the reviewable and renderable workflow truth that PRISM should pin and inspect by default.
+This is the reviewable and renderable plan truth that PRISM should pin and inspect by default.
 
 ### 5.3 Plan instance
 
@@ -216,7 +268,33 @@ It carries:
 - produced outputs and evidence
 - lineage and provenance back to the compiled artifact and authored definition
 
-## 6. Control flow in compiled IR
+## 6. Compile-time reads
+
+Plan authoring should support compile-time reads from PRISM state as part of the intended v1 model.
+
+That means authored plan code may be able to inspect current state such as:
+
+- existing plans, tasks, artifacts, reviews, or validations
+- current runtime capabilities
+- current rollout or promotion posture
+- current spec coverage or related plan state
+
+Compile-time reads are powerful because they let the authored plan code describe the DAG compactly while
+still adapting the compiled result to current authoritative state.
+
+This also means the generated DAG may differ across compiles when compile-time reads are used.
+
+That is acceptable, but it must be explicit and provenance-rich.
+
+The compiled artifact should therefore capture not only source revision and compiler version, but
+also the declared compile-time read inputs that influenced the emitted IR.
+
+Two modes should remain available:
+
+- pure compile from source plus explicit parameters only
+- contextual compile from source plus explicit parameters plus declared compile-time PRISM reads
+
+## 7. Control flow in compiled IR
 
 Compiled IR does not need to mean that every possible branch is flattened into only static leaf
 nodes and plain edges.
@@ -227,6 +305,8 @@ The compiler may emit explicit IR-level control structures such as:
 - fan-out or fan-in constructs
 - joins
 - bounded map-like expansion constructs
+- loop-like control constructs with explicit carried state
+- explicit continue-as-new boundaries
 
 The key rule is that these remain:
 
@@ -236,10 +316,34 @@ The key rule is that these remain:
 - queryable
 - free of arbitrary guest code at execution time
 
-This keeps branching and richer workflow structure available without turning the service into a
-workflow-code interpreter.
+This keeps branching and richer plan structure available without turning the service into a
+plan-code interpreter.
 
-## 7. Why compile to PRISM-native IR instead of reusing a workflow state machine directly
+## 8. What PRISM borrows from Temporal, and what it rejects
+
+The important idea PRISM should borrow is:
+
+- author Plans as code because arbitrary control flow is a compact, expressive way to describe the
+  DAG that should exist
+
+PRISM should not import Temporal’s broader product model as-is.
+
+PRISM should explicitly reject as core concepts:
+
+- homogeneous workers that differ mostly by queue binding
+- task queues as the primary routing model
+- verbose worker configuration as the center of the execution model
+- signals between running workflow instances as a required coordination primitive
+- workflow queries as a separate special read channel
+
+PRISM does not need those because:
+
+- the service routes Actions intentionally using runtime descriptors and policy
+- runtimes claim Tasks because they know their own context best
+- Plans remain structural and compiled rather than long-lived actor objects
+- the shared PRISM read and write capability surface already covers state interaction needs
+
+## 9. Why compile to PRISM-native IR instead of reusing a workflow state machine directly
 
 PRISM should borrow the compiler architecture and the code-authored workflow idea aggressively.
 
@@ -256,7 +360,7 @@ The reason is that PRISM’s center of gravity is still:
 So the compiler target should remain PRISM-native and graph-shaped rather than replacing the graph
 with a generic workflow runtime abstraction.
 
-## 8. Relationship to existing PRISM designs
+## 10. Relationship to existing PRISM designs
 
 This design builds directly on:
 
@@ -271,22 +375,23 @@ The intended stack is:
 - graph-wide typed dataflow and parameterization
 - Actions as explicit machine-work nodes
 - shared execution substrate beneath Actions, validation, and event jobs
-- JS or TS-authored workflow definitions compiled into the native graph IR that these systems use
+- JS or TS-authored plan definitions compiled into the native graph IR that these systems use
 
-## 9. Compiler output requirements
+## 11. Compiler output requirements
 
 The compiled artifact should be explicit, stable, and inspectable.
 
 At minimum it should carry:
 
-- workflow definition id
-- workflow definition version
+- plan definition id
+- plan definition version
 - compiler version
 - source language
 - source files
 - source map or source-location mapping
 - compiled artifact hash
 - compiled IR payload
+- declared compile-time read inputs when contextual compile is used
 
 This gives PRISM:
 
@@ -295,23 +400,24 @@ This gives PRISM:
 - reviewable compiled output
 - query and UI affordances that can refer back to authored source
 
-## 10. Source and instance provenance
+## 12. Source and instance provenance
 
 PRISM should be able to answer:
 
-- which authored workflow definition produced this plan instance
+- which authored plan definition produced this plan instance
 - which source revision it came from
 - which compiler version produced the IR
 - which compiled artifact hash is pinned to this running or persisted graph
+- which compile-time reads affected the compiled result when contextual compile was used
 
 This is especially important for:
 
 - replay/debugging
 - upgrade safety
 - plan-template reuse
-- spec-to-workflow lineage
+- spec-to-plan lineage
 
-## 11. Relationship to the native spec engine
+## 13. Relationship to the native spec engine
 
 This direction makes the native spec engine stronger.
 
@@ -319,7 +425,7 @@ The future flow can become:
 
 1. a spec defines intent
 2. an agent reads structured spec data plus prose
-3. the agent authors workflow definition code or a higher-level plan definition
+3. the agent authors plan definition code or a higher-level plan definition
 4. the compiler emits explicit PRISM IR
 5. PRISM persists, queries, renders, and executes that IR
 6. coverage and sync provenance still link back to the spec
@@ -327,10 +433,10 @@ The future flow can become:
 That is a strong stack:
 
 - spec as native intent
-- workflow code as ergonomic authoring
+- plan code as ergonomic authoring
 - PRISM IR as deterministic execution substrate
 
-## 12. Why not replace the PRISM Service authority model with an append-log runtime
+## 14. Why not replace the PRISM Service authority model with an append-log runtime
 
 Compiled workflow authoring is highly compatible with PRISM.
 
@@ -347,12 +453,73 @@ suited for:
 
 So the long-term model should be:
 
-- compiled workflows are adopted
+- compiled Plans are adopted
 - DB-backed coordination authority remains the system truth
 
-## 13. Future optimization: runtime-executed machine-only subgraphs
+## 15. Selective materialization in v1 and future runtime-fast-lane optimization
 
-There is one important future optimization path that this design should explicitly preserve.
+PRISM v1 should include selective materialization for machine-only fan-outs and other action-dense
+subgraphs.
+
+The goal is to avoid overwhelming the coordination store with low-value per-leaf writes when policy
+only needs:
+
+- a summary
+- selected failures
+- durable evidence or aggregate outputs
+
+The materialization policy should therefore be able to distinguish at least:
+
+- full materialization
+- batched materialization
+- aggregated materialization
+
+This should remain explicit and policy-driven.
+
+The important lever here is the **materialization boundary**.
+
+That boundary determines where a machine-only subgraph must be committed back into authoritative
+coordination truth.
+
+Depending on policy, the materialization boundary may be:
+
+- each realized leaf
+- a bounded chunk
+- an aggregate summary
+
+In particular:
+
+- large machine-only fan-outs may execute mostly in runtime memory
+- runtimes may report batched or aggregated results back to the service
+- the service remains authoritative for the persisted coordination truth
+- failures and policy-critical evidence should still be retained individually when required
+
+Aggregation may compress success, but it must not erase information that later reasoning,
+inspection, or policy enforcement depends on.
+
+At minimum PRISM should leave room for preserving:
+
+- failures
+- policy violations
+- retry exhaustion
+- artifact-producing leaves
+- externally visible side effects
+- provenance anchors
+
+PRISM should also leave room for mixed materialization by outcome or action class.
+
+Examples:
+
+- successes aggregated, failures fully materialized
+- artifact-producing leaves fully materialized, routine successes aggregated
+- certain policy-tagged Actions always retained individually
+
+When detailed per-leaf results are compressed, the service should still be able to persist:
+
+- the aggregate durable result in coordination state
+- an artifact or export pointer to detailed batch traces or result sets when they are worth keeping
+
+There is also an additional future optimization path that this design should preserve.
 
 For plans or subgraphs that are:
 
@@ -361,7 +528,7 @@ For plans or subgraphs that are:
 - latency-sensitive
 - free of human or agent decisions in the middle
 
-PRISM may later support a fast runtime-executed subgraph lane.
+PRISM may later support a faster runtime-executed subgraph lane.
 
 The shape would be:
 
@@ -371,14 +538,17 @@ The shape would be:
 - the runtime executes that bundle locally with hot state
 - the service still records authoritative graph transitions and outputs
 
+Any chunk eligible for selective materialization should be replay-safe at the chunk boundary, not
+just at the individual leaf level.
+
 In that future mode, an append-log plus snapshot runtime-local execution state may be a strong
 optimization for the runtime hot path.
 
-This is explicitly a **future optimization goal only if demand justifies it**.
+This fast lane is explicitly a **future optimization goal only if demand justifies it**.
 
 It should not be a v1 requirement.
 
-## 14. Recommended boundaries
+## 16. Recommended boundaries
 
 PRISM should keep these boundaries strict:
 
@@ -408,9 +578,11 @@ The compiled IR should remain:
 - graph-shaped
 - queryable
 
-### 12.4 Future fast lanes remain optional
+### 12.4 Selective materialization is part of v1, fast lanes remain optional
 
-Runtime-executed machine-only subgraph optimization should remain:
+Selective materialization for machine-only fan-outs should be part of the v1 execution model.
+
+The later fast runtime-executed subgraph optimization should remain:
 
 - explicit
 - bounded
@@ -419,7 +591,7 @@ Runtime-executed machine-only subgraph optimization should remain:
 
 The service must still own coordination truth.
 
-## 15. Recommended rollout
+## 17. Recommended rollout
 
 ### Phase 1
 
@@ -427,7 +599,7 @@ Define the authoring-to-IR design and the compiled artifact metadata model.
 
 ### Phase 2
 
-Add a JS or TS workflow-definition authoring surface and compile it into PRISM-native IR.
+Add a JS or TS plan-definition authoring surface and compile it into PRISM-native IR.
 
 ### Phase 3
 
@@ -435,16 +607,16 @@ Teach PRISM to persist source-to-IR provenance and pin instances to compiled art
 
 ### Phase 4
 
-Integrate spec-driven planning with workflow-definition authoring and compilation.
+Integrate spec-driven planning with plan-definition authoring and compilation.
 
 ### Phase 5
 
 Only later, if demand justifies it, add a fast runtime-executed lane for bounded machine-only
 subgraphs.
 
-## 16. Recommendation
+## 18. Recommendation
 
-PRISM should evolve toward JS or TS-authored workflows compiled into explicit PRISM-native IR.
+PRISM should evolve toward JS or TS-authored Plans compiled into explicit PRISM-native IR.
 
 That gives PRISM:
 

@@ -1246,7 +1246,7 @@ pub(crate) fn sync_coordination_authority_watch_update(
         runtime_state,
         store,
         cold_query_store,
-        refresh_lock,
+        Some(refresh_lock),
         loaded_workspace_revision,
         coordination_runtime_revision,
         coordination_enabled,
@@ -1521,7 +1521,7 @@ mod tests {
             &session.runtime_state,
             &session.store,
             &session.cold_query_store,
-            &session.refresh_lock,
+            session.full_runtime_state().map(|full_runtime| &full_runtime.refresh_lock),
             &session.loaded_workspace_revision,
             &session.coordination_runtime_revision,
             &CoordinationCurrentState {
@@ -1735,11 +1735,7 @@ mod tests {
         let mut canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
         canonical_snapshot_v2.next_plan += 11;
         canonical_snapshot_v2.next_task += 5;
-        prism.replace_coordination_runtime(
-            snapshot,
-            canonical_snapshot_v2.clone(),
-            Vec::new(),
-        );
+        prism.replace_coordination_runtime(snapshot, canonical_snapshot_v2.clone(), Vec::new());
 
         let published = super::publish_local_assisted_lease_overlay_generation(
             &mut runtime_state,

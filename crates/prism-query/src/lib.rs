@@ -1763,6 +1763,7 @@ impl Prism {
                             .map(|node| node.id.clone()),
                     );
                 }
+                AnchorRef::WorkspacePath(_) => {}
                 AnchorRef::Kind(kind) => {
                     nodes.extend(
                         self.graph

@@ -1,6 +1,6 @@
 # Coordination-Only Lightweight Runtime Cutover
 
-Status: draft
+Status: implemented
 Audience: coordination, runtime, MCP, CLI, service, and workflow maintainers
 Scope: turn `coordination_only` into a truly lightweight coordination runtime with no FS indexing,
 graph hydration, knowledge storage, cognition-era anchor resolution, or adjacent runtime baggage
@@ -17,6 +17,19 @@ still constructs the normal `WorkspaceSession`, starts watch and service-shell i
 graph-backed file-anchor identity, routes coordination mutations through the shared workspace
 refresh lock, and keeps session and mutation behavior coupled to outcome- and memory-era runtime
 state.
+
+As of this revision, coordination-only now has a dedicated no-indexer bootstrap branch, the MCP
+session layer no longer allocates notes or inferred-edge stores in this mode, and the shared
+session refresh / observed-change APIs are inert in coordination-only. Active work context now
+stays in MCP session state instead of being mirrored into workspace-side observed-change tracking.
+Coordination-only startup also no longer eagerly hydrates principal registry state or attaches
+cold history / outcome backends to the published `Prism` handle. The shared `WorkspaceSession`
+API still remains, but the coordination-only path no longer allocates the full refresh, watch,
+curator, checkpoint-materialization, or observed-change backing state behind it. Coordination-only
+shutdown also no longer persists workspace startup checkpoints, observed-change checkpoints, or
+cached principal-registry state. MCP coordination-only sessions also no longer persist or restore
+session-seed state from disk, and bootstrap now reuses the primary workspace store instead of
+reopening a redundant cold runtime reader for this mode.
 
 This spec defines the cutover to a stricter model:
 
@@ -561,11 +574,13 @@ until the follow-up cleanup lands.
 
 ## 11. Implementation Checklist
 
-- [ ] Introduce coordination-native durable path anchors
-- [ ] Remove file-id resolution from coordination-only anchor handling
-- [ ] Add a lightweight coordination-only bootstrap/session path
-- [ ] Remove FS refresh admission from coordination-only coordination mutations
-- [ ] Remove watcher, curator, and observed-change baggage from coordination-only
-- [ ] Slim MCP session state for coordination-only
-- [ ] Remove protected-state resource exposure from coordination-only
-- [ ] Update docs and tests to match the cutover
+- [x] Introduce coordination-native durable path anchors
+- [x] Remove file-id resolution from coordination-only anchor handling
+- [x] Add a lightweight coordination-only bootstrap/session path
+- [x] Remove FS refresh admission from coordination-only coordination mutations
+- [x] Disable live watchers, curator, and checkpoint materialization in coordination-only
+- [x] Stop building the workspace service shell in coordination-only
+- [x] Slim MCP session state for coordination-only
+- [x] Remove protected-state resource exposure from coordination-only
+- [x] Keep `declare_work` session-local in coordination-only
+- [x] Update docs and tests to match the landed slice

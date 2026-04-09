@@ -3,12 +3,11 @@ use std::sync::Arc;
 use anyhow::Result;
 use prism_coordination::{
     coordination_queue_read_model_from_snapshot_v2, coordination_read_model_from_snapshot_v2,
-    CoordinationQueueReadModel, CoordinationReadModel,
-    CoordinationSnapshotV2,
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshotV2,
 };
 use prism_core::{
-    coordination_materialization_enabled_by_default,
-    configured_coordination_authority_store_provider, CoordinationAuthorityBackendKind,
+    configured_coordination_authority_store_provider,
+    coordination_materialization_enabled_by_default, CoordinationAuthorityBackendKind,
     CoordinationAuthorityStamp, CoordinationReadConsistency, CoordinationReadRequest,
     CoordinationStateView, WorkspaceSession,
 };
@@ -137,11 +136,13 @@ fn current_coordination_surface_from_authority(
         view: CoordinationStateView::PlanState,
     })?;
     let authority_revision = authority_revision_from_stamp(envelope.authority.as_ref());
-    let current_state = envelope.value.unwrap_or_else(|| prism_core::CoordinationCurrentState {
-        snapshot: prism_coordination::CoordinationSnapshot::default(),
-        canonical_snapshot_v2: CoordinationSnapshotV2::default(),
-        runtime_descriptors: Vec::new(),
-    });
+    let current_state = envelope
+        .value
+        .unwrap_or_else(|| prism_core::CoordinationCurrentState {
+            snapshot: prism_coordination::CoordinationSnapshot::default(),
+            canonical_snapshot_v2: CoordinationSnapshotV2::default(),
+            runtime_descriptors: Vec::new(),
+        });
     let snapshot_v2 = current_state.canonical_snapshot_v2;
     let read_model = coordination_read_model_from_snapshot_v2(&snapshot_v2);
     let queue_read_model = coordination_queue_read_model_from_snapshot_v2(&snapshot_v2);

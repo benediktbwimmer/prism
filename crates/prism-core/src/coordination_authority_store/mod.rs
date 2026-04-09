@@ -6,8 +6,8 @@ mod traits;
 mod types;
 
 pub use factory::{
-    coordination_materialization_enabled_by_default, coordination_materialization_enabled_for_root,
     configured_coordination_authority_store_provider,
+    coordination_materialization_enabled_by_default, coordination_materialization_enabled_for_root,
     default_coordination_authority_store_provider, open_coordination_authority_store,
     open_default_coordination_authority_store, resolve_coordination_authority_store_provider,
     CoordinationAuthorityBackendConfig, CoordinationAuthorityStoreProvider,

@@ -430,9 +430,12 @@ fn runtime_status_from_inputs(
         mcp_call_log_bytes: inputs.mcp_call_log_store.file_len(),
         cache_path: paths.runtime_cache_path.display().to_string(),
         cache_bytes: file_len(&paths.runtime_cache_path),
-        coordination_materialization_path: inputs
-            .coordination_materialization_enabled
-            .then(|| paths.coordination_materialization_path.display().to_string()),
+        coordination_materialization_path: inputs.coordination_materialization_enabled.then(|| {
+            paths
+                .coordination_materialization_path
+                .display()
+                .to_string()
+        }),
         coordination_materialization_bytes: inputs
             .coordination_materialization_enabled
             .then(|| file_len(&paths.coordination_materialization_path))
