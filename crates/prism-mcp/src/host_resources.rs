@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use prism_agent::EdgeId;
-use prism_coordination::CoordinationTask;
+use prism_coordination::CanonicalTaskRecord;
 use prism_core::diagnose_protected_state;
 use prism_ir::{AnchorRef, CoordinationTaskId, EventId, LineageId, NodeId, PlanId, TaskId};
 use prism_memory::{MemoryEventQuery, MemoryId};
@@ -1155,7 +1155,11 @@ pub(crate) fn session_task_view(
     });
     let coordination_task = coordination_task_id
         .as_ref()
-        .and_then(|task_id| prism.coordination_task(&CoordinationTaskId::new(task_id.clone())));
+        .and_then(|task_id| {
+            prism
+                .coordination_task_v2_by_coordination_id(&CoordinationTaskId::new(task_id.clone()))
+                .map(|task| task.task)
+        });
     let blockers = coordination_task_id
         .as_ref()
         .and_then(|task_id| {
@@ -1214,7 +1218,7 @@ struct SessionTaskContextSummary {
 fn session_task_context_summary(
     coordination_task_id: Option<&str>,
     replay_event_count: usize,
-    coordination_task: Option<&CoordinationTask>,
+    coordination_task: Option<&CanonicalTaskRecord>,
     blockers: &[prism_coordination::TaskBlocker],
     heartbeat_advice: Option<&TaskHeartbeatAdvice>,
 ) -> SessionTaskContextSummary {

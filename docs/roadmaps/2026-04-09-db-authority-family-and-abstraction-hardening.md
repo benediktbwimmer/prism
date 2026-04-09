@@ -70,6 +70,7 @@ Current phase spec:
 
 - [../specs/2026-04-09-coordination-v2-breaking-compatibility-removal-phase-6.md](../specs/2026-04-09-coordination-v2-breaking-compatibility-removal-phase-6.md)
 - [../specs/2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md](../specs/2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md)
 
 Current assessment:
 
@@ -147,6 +148,10 @@ Latest checkpoint:
 - the reader-side query follow-through is now complete; `prism-query` risk, intent, and impact
   readers plus adjacent MCP task-context/provenance readers now load canonical v2 task and plan
   data instead of legacy plan/task projections where legacy-only fields are not required
+- the canonical task handoff follow-through is complete; pending handoff is now first-class data
+  on canonical task records, derived v2 task status treats pending handoff as blocked, and the
+  task-brief, assisted-lease, and session-task readers no longer need legacy task lookups for
+  handoff or lease metadata
 - the remaining Phase 6 work is the deeper purge of active-path `CoordinationSnapshot` / legacy
   coordination-model dependencies that still exist under `prism-coordination`, `prism-query`,
   `prism-mcp` host mutation/runtime paths, and adjacent materialization code

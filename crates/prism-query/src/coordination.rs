@@ -40,6 +40,10 @@ impl Prism {
         CoordinationQueryEngine::new(self).coordination_task_v2(task_id)
     }
 
+    pub fn coordination_tasks_v2(&self) -> Vec<CoordinationTaskV2> {
+        CoordinationQueryEngine::new(self).coordination_tasks_v2()
+    }
+
     pub fn coordination_task_v2_by_coordination_id(
         &self,
         task_id: &CoordinationTaskId,

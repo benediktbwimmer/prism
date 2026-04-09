@@ -46,6 +46,8 @@ pub use git_execution::{
     GitPublishReport, TaskGitExecution,
 };
 pub use lease::{
+    canonical_task_heartbeat_due_state, canonical_task_heartbeat_due_state_with_runtime_descriptors,
+    canonical_task_lease_state, canonical_task_lease_state_with_runtime_descriptors,
     assisted_heartbeat_window, claim_heartbeat_due_state,
     claim_heartbeat_due_state_with_runtime_descriptors, claim_lease_state,
     claim_lease_state_with_runtime_descriptors, heartbeat_due_soon_window,

@@ -63,6 +63,33 @@ impl<'a> CoordinationQueryEngine<'a> {
         })
     }
 
+    pub(crate) fn coordination_tasks_v2(&self) -> Vec<CoordinationTaskV2> {
+        let snapshot = self.prism.coordination_snapshot_v2();
+        let Some(derivations) = snapshot.derive_statuses().ok() else {
+            return Vec::new();
+        };
+        let Ok(graph) = snapshot.graph() else {
+            return Vec::new();
+        };
+        let mut tasks = snapshot
+            .tasks
+            .iter()
+            .filter_map(|task| {
+                let derived = derivations.task_state(&task.id)?;
+                Some(CoordinationTaskV2 {
+                    task: task.clone(),
+                    status: derived.effective_status,
+                    graph_actionable: derived.graph_actionable,
+                    blocker_causes: derived.blocker_causes.clone(),
+                    dependencies: graph.dependency_targets(&NodeRef::task(task.id.clone())),
+                    dependents: graph.dependency_sources(&NodeRef::task(task.id.clone())),
+                })
+            })
+            .collect::<Vec<_>>();
+        tasks.sort_by(|left, right| left.task.id.0.cmp(&right.task.id.0));
+        tasks
+    }
+
     pub(crate) fn graph_actionable_tasks_v2(&self) -> Vec<CoordinationTaskV2> {
         let snapshot = self.prism.coordination_snapshot_v2();
         actionable_task_views_from_snapshot(&snapshot, snapshot.derive_statuses().ok(), None)
@@ -141,9 +168,9 @@ impl<'a> CoordinationQueryEngine<'a> {
             if risk.review_required && !risk.has_approved_artifact {
                 let threshold = self
                     .prism
-                    .coordination_task(task_id)
-                    .and_then(|task| self.prism.coordination_plan(&task.plan))
-                    .and_then(|plan| plan.policy.review_required_above_risk_score);
+                    .coordination_task_v2_by_coordination_id(task_id)
+                    .and_then(|task| self.prism.coordination_plan_v2(&task.task.parent_plan_id))
+                    .and_then(|plan| plan.plan.policy.review_required_above_risk_score);
                 blockers.push(TaskBlocker {
                     kind: prism_coordination::BlockerKind::RiskReviewRequired,
                     summary: format!(

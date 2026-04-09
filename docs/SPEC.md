@@ -1998,6 +1998,7 @@ interface CoordinationTaskV2View {
   estimatedMinutes: number;
   executor: TaskExecutorPolicyView;
   assignee?: string;
+  pendingHandoffTo?: string;
   session?: string;
   worktreeId?: string;
   branchRef?: string;

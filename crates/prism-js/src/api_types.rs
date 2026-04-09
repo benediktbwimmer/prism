@@ -1733,6 +1733,7 @@ pub struct CoordinationTaskV2View {
     pub estimated_minutes: u32,
     pub executor: TaskExecutorPolicyView,
     pub assignee: Option<String>,
+    pub pending_handoff_to: Option<String>,
     pub session: Option<String>,
     pub worktree_id: Option<String>,
     pub branch_ref: Option<String>,

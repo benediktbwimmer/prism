@@ -33,6 +33,7 @@ the active runtime path under `CoordinationSnapshot` after the surface break lan
 The first internal follow-through slice under this phase is:
 
 - [2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md](./2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md)
+- [2026-04-09-canonical-task-handoff-follow-through-phase-6.md](./2026-04-09-canonical-task-handoff-follow-through-phase-6.md)
 
 ## 2. Required changes
 
@@ -68,6 +69,8 @@ The first internal follow-through slice under this phase is:
   coordination state shape
 - cut reader-side query and MCP task/plan metadata consumers over to canonical v2 task and plan
   helpers before touching deeper mutation or watch paths
+- move pending-handoff semantics into canonical task records so assisted-lease and task-brief
+  readers do not need legacy task projections for that state
 - delete legacy-only translation helpers once no active runtime path depends on them
 - keep Git-shared-ref-specific compatibility only where it is part of the explicit Git backend,
   not in backend-neutral coordination code

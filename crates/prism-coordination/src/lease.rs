@@ -1,5 +1,6 @@
 use prism_ir::{EventActor, EventMeta, SessionId, Timestamp};
 
+use crate::canonical_graph::CanonicalTaskRecord;
 use crate::types::{
     CoordinationPolicy, CoordinationTask, LeaseHolder, RuntimeDescriptor, WorkClaim,
 };
@@ -115,8 +116,44 @@ pub fn task_lease_state(task: &CoordinationTask, now: Timestamp) -> LeaseState {
     task_lease_state_with_runtime_descriptors(task, &[], now)
 }
 
+pub fn canonical_task_lease_state(task: &CanonicalTaskRecord, now: Timestamp) -> LeaseState {
+    canonical_task_lease_state_with_runtime_descriptors(task, &[], now)
+}
+
 pub fn task_lease_state_with_runtime_descriptors(
     task: &CoordinationTask,
+    runtime_descriptors: &[RuntimeDescriptor],
+    now: Timestamp,
+) -> LeaseState {
+    let Some(expires_at) = task.lease_expires_at else {
+        return LeaseState::Unleased;
+    };
+    let anchor = task.lease_refreshed_at.or(task.lease_started_at);
+    let worktree_id = task.worktree_id.as_deref().or(task
+        .lease_holder
+        .as_ref()
+        .and_then(|holder| holder.worktree_id.as_deref()));
+    let effective_expires_at =
+        effective_absolute_deadline(anchor, Some(expires_at), runtime_descriptors, worktree_id)
+            .unwrap_or(expires_at);
+    if effective_expires_at < now {
+        return LeaseState::Expired;
+    }
+    let effective_stale_at = effective_absolute_deadline(
+        anchor,
+        task.lease_stale_at,
+        runtime_descriptors,
+        worktree_id,
+    )
+    .or(task.lease_stale_at);
+    if effective_stale_at.is_some_and(|stale_at| stale_at <= now) {
+        return LeaseState::Stale;
+    }
+    LeaseState::Active
+}
+
+pub fn canonical_task_lease_state_with_runtime_descriptors(
+    task: &CanonicalTaskRecord,
     runtime_descriptors: &[RuntimeDescriptor],
     now: Timestamp,
 ) -> LeaseState {
@@ -198,6 +235,14 @@ pub fn task_heartbeat_due_state(
     task_heartbeat_due_state_with_runtime_descriptors(task, policy, &[], now)
 }
 
+pub fn canonical_task_heartbeat_due_state(
+    task: &CanonicalTaskRecord,
+    policy: &CoordinationPolicy,
+    now: Timestamp,
+) -> LeaseHeartbeatDueState {
+    canonical_task_heartbeat_due_state_with_runtime_descriptors(task, policy, &[], now)
+}
+
 pub fn task_heartbeat_due_state_with_runtime_descriptors(
     task: &CoordinationTask,
     policy: &CoordinationPolicy,
@@ -206,6 +251,39 @@ pub fn task_heartbeat_due_state_with_runtime_descriptors(
 ) -> LeaseHeartbeatDueState {
     if !matches!(
         task_lease_state_with_runtime_descriptors(task, runtime_descriptors, now),
+        LeaseState::Active
+    ) {
+        return LeaseHeartbeatDueState::NotDue;
+    }
+    let Some(stale_at) = task.lease_stale_at else {
+        return LeaseHeartbeatDueState::NotDue;
+    };
+    let anchor = task.lease_refreshed_at.or(task.lease_started_at);
+    let worktree_id = task.worktree_id.as_deref().or(task
+        .lease_holder
+        .as_ref()
+        .and_then(|holder| holder.worktree_id.as_deref()));
+    let effective_stale_at =
+        effective_absolute_deadline(anchor, Some(stale_at), runtime_descriptors, worktree_id)
+            .unwrap_or(stale_at);
+    let remaining = effective_stale_at.saturating_sub(now);
+    if remaining <= 60 {
+        LeaseHeartbeatDueState::DueNow
+    } else if remaining <= heartbeat_due_soon_window(policy) {
+        LeaseHeartbeatDueState::DueSoon
+    } else {
+        LeaseHeartbeatDueState::NotDue
+    }
+}
+
+pub fn canonical_task_heartbeat_due_state_with_runtime_descriptors(
+    task: &CanonicalTaskRecord,
+    policy: &CoordinationPolicy,
+    runtime_descriptors: &[RuntimeDescriptor],
+    now: Timestamp,
+) -> LeaseHeartbeatDueState {
+    if !matches!(
+        canonical_task_lease_state_with_runtime_descriptors(task, runtime_descriptors, now),
         LeaseState::Active
     ) {
         return LeaseHeartbeatDueState::NotDue;

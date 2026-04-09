@@ -23,11 +23,13 @@ use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
-    CoordinationConflict, CoordinationRuntimeState, CoordinationSnapshot, CoordinationSnapshotV2,
-    CoordinationSpecRef, CoordinationTask, CoordinationTaskSpecRef, HandoffAcceptInput,
-    HandoffInput, LeaseHeartbeatDueState, LeaseState, PlanScheduling, RuntimeDescriptor,
-    TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
+    canonical_task_heartbeat_due_state_with_runtime_descriptors,
+    canonical_task_lease_state_with_runtime_descriptors, Artifact, ArtifactProposeInput,
+    ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput, CoordinationConflict,
+    CoordinationRuntimeState, CoordinationSnapshot, CoordinationSnapshotV2, CoordinationSpecRef,
+    CoordinationTask, CoordinationTaskSpecRef, HandoffAcceptInput, HandoffInput,
+    LeaseHeartbeatDueState, LeaseState, PlanScheduling, RuntimeDescriptor, TaskCreateInput,
+    TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
@@ -607,6 +609,14 @@ impl Prism {
         self.with_coordination_runtime(|runtime| runtime.task_lease_state(task, now))
     }
 
+    pub fn effective_canonical_task_lease_state(
+        &self,
+        task: &prism_coordination::CanonicalTaskRecord,
+        now: u64,
+    ) -> LeaseState {
+        canonical_task_lease_state_with_runtime_descriptors(task, &self.runtime_descriptors(), now)
+    }
+
     pub fn effective_claim_lease_state(&self, claim: &WorkClaim, now: u64) -> LeaseState {
         self.with_coordination_runtime(|runtime| runtime.claim_lease_state(claim, now))
     }
@@ -620,6 +630,20 @@ impl Prism {
         self.with_coordination_runtime(|runtime| {
             runtime.task_heartbeat_due_state(task, policy, now)
         })
+    }
+
+    pub fn effective_canonical_task_heartbeat_due_state(
+        &self,
+        task: &prism_coordination::CanonicalTaskRecord,
+        policy: &prism_coordination::CoordinationPolicy,
+        now: u64,
+    ) -> LeaseHeartbeatDueState {
+        canonical_task_heartbeat_due_state_with_runtime_descriptors(
+            task,
+            policy,
+            &self.runtime_descriptors(),
+            now,
+        )
     }
 
     pub fn effective_claim_heartbeat_due_state(
@@ -674,6 +698,30 @@ impl Prism {
     }
 
     pub fn task_has_active_local_assisted_lease(&self, task: &CoordinationTask, now: u64) -> bool {
+        let key = task.id.0.to_string();
+        let mut assisted = self
+            .local_assisted_leases
+            .write()
+            .expect("local assisted lease lock poisoned");
+        let Some(state) = assisted.tasks.get(&key).copied() else {
+            return false;
+        };
+        if now > state.local_until
+            || task
+                .lease_refreshed_at
+                .is_some_and(|refreshed_at| refreshed_at >= state.observed_at)
+        {
+            assisted.tasks.remove(&key);
+            return false;
+        }
+        true
+    }
+
+    pub fn canonical_task_has_active_local_assisted_lease(
+        &self,
+        task: &prism_coordination::CanonicalTaskRecord,
+        now: u64,
+    ) -> bool {
         let key = task.id.0.to_string();
         let mut assisted = self
             .local_assisted_leases

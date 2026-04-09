@@ -228,7 +228,7 @@ fn coordination_snapshot_v2_projects_legacy_snapshot_into_canonical_records() {
                 status: prism_ir::CoordinationTaskStatus::Ready,
                 published_task_status: None,
                 assignee: None,
-                pending_handoff_to: None,
+                pending_handoff_to: Some(AgentId::new("agent:handoff")),
                 session: None,
                 lease_holder: None,
                 lease_started_at: None,
@@ -271,6 +271,10 @@ fn coordination_snapshot_v2_projects_legacy_snapshot_into_canonical_records() {
     assert_eq!(snapshot_v2.tasks.len(), 1);
     assert_eq!(snapshot_v2.tasks[0].parent_plan_id, plan_id);
     assert_eq!(snapshot_v2.tasks[0].estimated_minutes, 12);
+    assert_eq!(
+        snapshot_v2.tasks[0].pending_handoff_to,
+        Some(AgentId::new("agent:handoff"))
+    );
     assert_eq!(snapshot_v2.dependencies.len(), 1);
     assert_eq!(
         snapshot_v2.dependencies[0].source.id,

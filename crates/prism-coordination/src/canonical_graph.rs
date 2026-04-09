@@ -74,6 +74,8 @@ pub struct CanonicalTaskRecord {
     #[serde(default)]
     pub assignee: Option<AgentId>,
     #[serde(default)]
+    pub pending_handoff_to: Option<AgentId>,
+    #[serde(default)]
     pub session: Option<prism_ir::SessionId>,
     #[serde(default)]
     pub lease_holder: Option<LeaseHolder>,
@@ -259,6 +261,7 @@ impl CanonicalTaskRecord {
             estimated_minutes: legacy_estimated_minutes(task),
             executor: task_executor_policy(task),
             assignee: task.assignee.clone(),
+            pending_handoff_to: task.pending_handoff_to.clone(),
             session: task.session.clone(),
             lease_holder: task.lease_holder.clone(),
             lease_started_at: task.lease_started_at,
@@ -466,6 +469,7 @@ mod tests {
             estimated_minutes: 0,
             executor: TaskExecutorPolicy::default(),
             assignee: None,
+            pending_handoff_to: None,
             session: None,
             lease_holder: None,
             lease_started_at: None,

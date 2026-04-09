@@ -345,6 +345,7 @@ mod tests {
                 allowed_principals: Vec::new(),
             },
             assignee: Some(AgentId::new("agent:test")),
+            pending_handoff_to: None,
             session: None,
             lease_holder: None::<LeaseHolder>,
             lease_started_at: None,
