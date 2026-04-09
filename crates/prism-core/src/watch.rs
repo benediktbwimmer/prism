@@ -740,8 +740,11 @@ fn publish_local_assisted_lease_overlay_generation(
     // Assisted lease heartbeats are a local liveness overlay, not authoritative coordination.
     // Republish the runtime generation with the live overlay snapshot, but do not treat it as a
     // service-backed current-state application or materialization write.
-    runtime_state
-        .replace_coordination_runtime(prism.coordination_snapshot(), prism.runtime_descriptors());
+    runtime_state.replace_coordination_runtime_with_snapshot_v2(
+        prism.coordination_snapshot(),
+        prism.coordination_snapshot_v2(),
+        prism.runtime_descriptors(),
+    );
     runtime_state.publish_generation(workspace_revision, coordination_context)
 }
 
@@ -1296,9 +1299,13 @@ mod tests {
         Event, EventKind,
     };
     use prism_coordination::{
-        CoordinationPolicy, CoordinationStore, PlanCreateInput, TaskCreateInput,
+        CoordinationPolicy, CoordinationSnapshot, CoordinationStore, PlanCreateInput,
+        TaskCreateInput,
     };
-    use prism_ir::{AgentId, EventActor, EventExecutionContext, EventId, EventMeta, SessionId};
+    use prism_ir::{
+        AgentId, EventActor, EventExecutionContext, EventId, EventMeta, SessionId,
+        WorkspaceRevision,
+    };
     use prism_query::Prism;
     use prism_store::{
         CoordinationJournal, Graph, IndexPersistBatch, MaterializationStore, MemoryStore,
@@ -1691,6 +1698,57 @@ mod tests {
         assert!(diagnostics
             .bounded_by
             .contains(&"recent_explicit_authenticated_activity"));
+    }
+
+    #[test]
+    fn assisted_overlay_publish_preserves_live_canonical_coordination_snapshot() {
+        let root = temp_root("watch-assisted-overlay-canonical");
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let session = index_workspace_session_with_options(
+            &root,
+            WorkspaceSessionOptions {
+                shared_runtime: SharedRuntimeBackend::Disabled,
+                ..WorkspaceSessionOptions::default()
+            },
+        )
+        .unwrap();
+        let mut runtime_state = session
+            .runtime_state
+            .lock()
+            .expect("runtime state lock poisoned")
+            .clone();
+        let prism = session.prism_arc();
+
+        let snapshot = CoordinationSnapshot::default();
+        let mut canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
+        canonical_snapshot_v2.next_plan += 11;
+        canonical_snapshot_v2.next_task += 5;
+        prism.replace_coordination_runtime_with_snapshot_v2(
+            snapshot,
+            canonical_snapshot_v2.clone(),
+            Vec::new(),
+        );
+
+        let published = super::publish_local_assisted_lease_overlay_generation(
+            &mut runtime_state,
+            &prism,
+            WorkspaceRevision::default(),
+            None,
+        );
+
+        assert_eq!(
+            published.prism_arc().coordination_snapshot_v2(),
+            canonical_snapshot_v2
+        );
+
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]

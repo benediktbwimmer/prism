@@ -79,6 +79,7 @@ Current phase spec:
 - [../specs/2026-04-09-canonical-spec-linkage-follow-through-phase-6.md](../specs/2026-04-09-canonical-spec-linkage-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-runtime-publish-state-follow-through-phase-6.md](../specs/2026-04-09-canonical-runtime-publish-state-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-materialization-envelope-follow-through-phase-6.md](../specs/2026-04-09-canonical-materialization-envelope-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-assisted-overlay-follow-through-phase-6.md](../specs/2026-04-09-canonical-assisted-overlay-follow-through-phase-6.md)
 
 Current assessment:
 
@@ -200,6 +201,9 @@ Latest checkpoint:
   persistence code now require canonical coordination state on production materialization
   envelopes instead of treating it as an optional fallback derived from the legacy continuity
   snapshot
+- the canonical assisted-overlay follow-through is complete; the local assisted-lease republish
+  path in `watch.rs` now preserves the live canonical coordination snapshot instead of
+  re-deriving it from the legacy continuity snapshot during overlay publish
 - the next Phase 6 work remains the deeper purge of active-path `CoordinationSnapshot` /
   legacy coordination-model dependencies that still exist under the mutation engine,
   transaction/runtime paths, and adjacent materialization code
