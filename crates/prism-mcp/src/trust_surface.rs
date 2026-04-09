@@ -11,7 +11,7 @@ use prism_core::{
 use prism_ir::EventId;
 use prism_js::{
     RuntimeDescriptorCapabilityView, RuntimeDiscoveryModeView, RuntimeSharedCoordinationRefView,
-    RuntimeSharedCoordinationRuntimeDescriptorView,
+    RuntimeSharedCoordinationRuntimeDescriptorView, RuntimeStatusView,
 };
 use prism_query::{
     CoordinationTransactionError, CoordinationTransactionProtocolIndeterminate,
@@ -296,6 +296,12 @@ pub(crate) fn runtime_coordination_authority_view(
             .map(runtime_shared_coordination_runtime_descriptor_view)
             .collect(),
     }
+}
+
+pub(crate) fn runtime_status_coordination_authority_view(
+    runtime_status: &RuntimeStatusView,
+) -> Option<RuntimeSharedCoordinationRefView> {
+    runtime_status.shared_coordination_ref.clone()
 }
 
 #[allow(dead_code)]

@@ -66,7 +66,7 @@ Current active phase:
 
 Current phase spec:
 
-- [../specs/2026-04-09-authority-publication-operation-naming-follow-through-phase-4.md](../specs/2026-04-09-authority-publication-operation-naming-follow-through-phase-4.md)
+- [../specs/2026-04-09-authority-compatibility-edge-follow-through-phase-4.md](../specs/2026-04-09-authority-compatibility-edge-follow-through-phase-4.md)
 
 Current assessment:
 
@@ -125,6 +125,10 @@ Latest checkpoint:
   coordination-authority language instead of shared-ref-shaped names, and git-execution tracing
   now distinguishes deferred materialization scheduling from suppressed inline materialization on
   the SQLite-default authority path
+- the authority-compatibility-edge follow-through is complete; legacy
+  `shared_coordination_ref` response-field access is now isolated behind one helper and
+  backend-neutral session guidance now talks about coordination authority rather than the shared
+  coordination ref
 
 ## 3. Ordering thesis
 

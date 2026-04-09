@@ -5,6 +5,8 @@ use prism_js::{
     QueryLogEntryView, RuntimeLogEventView, RuntimeSharedCoordinationRefView, RuntimeStatusView,
 };
 
+use crate::trust_surface::runtime_status_coordination_authority_view;
+
 const RECENT_QUERY_CAPACITY: usize = 128;
 
 #[derive(Debug, Default)]
@@ -48,7 +50,7 @@ impl DiagnosticsState {
             .expect("diagnostics coordination authority view lock poisoned") =
             Some(CachedCoordinationAuthorityView {
                 coordination_revision: revisions.coordination_revision,
-                value: runtime_status.shared_coordination_ref.clone(),
+                value: runtime_status_coordination_authority_view(&runtime_status),
             });
         *self
             .runtime_status

@@ -25152,16 +25152,23 @@ fn session_resource_surfaces_publish_failed_repair_action() {
     assert_eq!(current_task.context_status, "publish_failed");
     assert!(current_task
         .context_summary
-        .contains("shared coordination publication is incomplete"));
+        .contains("coordination authority publication is incomplete"));
     assert!(current_task
         .context_summary
         .contains("shared coordination ref push failed"));
     assert!(current_task
         .next_action
         .contains("Retry authoritative completion publication"));
+    assert!(current_task
+        .next_action
+        .contains("coordination authority records the completed state"));
     let repair = current_task
         .repair_action
         .expect("publish failed task should surface a repair action");
+    assert_eq!(
+        repair.label,
+        "Retry authoritative coordination publication for this task."
+    );
     assert_eq!(repair.tool, "prism_mutate");
     assert_eq!(repair.input["action"], "coordination");
     assert_eq!(repair.input["input"]["kind"], "update");

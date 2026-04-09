@@ -15,6 +15,7 @@ use prism_memory::OutcomeRecallQuery;
 use prism_query::PlanActivity;
 
 use crate::coordination_executor::current_executor_caller;
+use crate::trust_surface::runtime_status_coordination_authority_view;
 use crate::ui_identity::ui_operator_identity_view;
 use crate::ui_types::{
     GraphPlanTouchpointView, GraphTouchedNodeView, OverviewConceptSpotlightView,
@@ -643,7 +644,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
         let window_start = now.saturating_sub(UI_FLEET_LOOKBACK_SECONDS);
         let shared_runtime_descriptors = runtime_status(self)
             .ok()
-            .and_then(|runtime| runtime.shared_coordination_ref)
+            .and_then(|runtime| runtime_status_coordination_authority_view(&runtime))
             .map(|shared| shared.runtime_descriptors)
             .unwrap_or_default();
 

@@ -1264,7 +1264,7 @@ fn session_task_context_summary(
                 .last_publish
                 .as_ref()
                 .and_then(|publish| publish.failure.as_deref())
-                .unwrap_or("shared coordination publication is still pending");
+                .unwrap_or("coordination authority publication is still pending");
             let status = match task.git_execution.status {
                 prism_ir::GitExecutionStatus::PublishFailed => "publish_failed",
                 prism_ir::GitExecutionStatus::PublishPending => "publish_pending",
@@ -1273,9 +1273,9 @@ fn session_task_context_summary(
             let next_action = if task.git_execution.status
                 == prism_ir::GitExecutionStatus::PublishFailed
             {
-                "Retry authoritative completion publication for this task so the shared coordination ref records the completed state.".to_string()
+                "Retry authoritative completion publication for this task so coordination authority records the completed state.".to_string()
             } else {
-                "Finish the pending authoritative publication for this task so the shared coordination ref acknowledges completion.".to_string()
+                "Finish the pending authoritative publication for this task so coordination authority acknowledges completion.".to_string()
             };
             let repair_action = coordination_task_id.map(|task_id| SessionRepairActionView {
                 tool: "prism_mutate".to_string(),
@@ -1291,13 +1291,13 @@ fn session_task_context_summary(
                         }
                     }
                 }),
-                label: "Retry authoritative shared-coordination publication for this task."
+                label: "Retry authoritative coordination publication for this task."
                     .to_string(),
             });
             return SessionTaskContextSummary {
                 status,
                 summary: format!(
-                    "Task completion is not yet authoritative because shared coordination publication is incomplete: {failure}"
+                    "Task completion is not yet authoritative because coordination authority publication is incomplete: {failure}"
                 ),
                 next_action,
                 repair_action,
