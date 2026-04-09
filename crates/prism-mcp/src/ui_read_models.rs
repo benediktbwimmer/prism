@@ -1906,13 +1906,14 @@ fn ui_overview_coordination_summary(host: &QueryHost) -> Result<PrismOverviewCoo
     let now = current_timestamp();
     let read_model = host.current_coordination_read_model()?;
     let queue_model = host.current_coordination_queue_read_model()?;
-    let ready_task_count = ready_task_count_for_active_plans(&read_model.active_plans, |plan_id| {
-        if let Some(caller) = current_executor_caller(host.workspace_root(), None) {
-            prism.ready_tasks_for_executor_v2(plan_id, &caller).len()
-        } else {
-            prism.ready_tasks_v2(plan_id).len()
-        }
-    });
+    let ready_task_count =
+        ready_task_count_for_active_plans(&read_model.active_plan_ids, |plan_id| {
+            if let Some(caller) = current_executor_caller(host.workspace_root(), None) {
+                prism.ready_tasks_for_executor_v2(plan_id, &caller).len()
+            } else {
+                prism.ready_tasks_v2(plan_id).len()
+            }
+        });
     let recent_pending_reviews = read_model
         .pending_review_artifacts
         .iter()
@@ -1935,12 +1936,12 @@ fn ui_overview_coordination_summary(host: &QueryHost) -> Result<PrismOverviewCoo
 
     Ok(PrismOverviewCoordinationView {
         enabled: true,
-        active_plan_count: read_model.active_plans.len(),
+        active_plan_count: read_model.active_plan_ids.len(),
         task_count: read_model.task_count,
         ready_task_count,
         in_review_task_count: read_model.in_review_task_ids.len(),
         active_claim_count,
-        pending_handoff_count: queue_model.pending_handoff_tasks.len(),
+        pending_handoff_count: queue_model.pending_handoff_task_ids.len(),
         pending_review_count: read_model.pending_review_artifacts.len(),
         proposed_artifact_count: read_model.proposed_artifact_count,
         recent_pending_reviews,
@@ -1966,10 +1967,10 @@ fn ui_overview_coordination_queues(
     Ok(PrismOverviewCoordinationQueuesView {
         enabled: true,
         pending_handoffs: queue_model
-            .pending_handoff_tasks
+            .pending_handoff_task_ids
             .iter()
             .take(OVERVIEW_COORDINATION_HANDOFF_LIMIT)
-            .filter_map(|task| prism.coordination_task_v2(&TaskId::new(task.id.0.clone())))
+            .filter_map(|task_id| prism.coordination_task_v2(task_id))
             .map(coordination_task_v2_view)
             .collect(),
         active_claims: queue_model

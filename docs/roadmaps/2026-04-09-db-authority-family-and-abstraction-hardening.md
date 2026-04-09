@@ -73,6 +73,7 @@ Current phase spec:
 - [../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md)
 - [../specs/2026-04-09-host-mutation-canonical-follow-through-phase-6.md](../specs/2026-04-09-host-mutation-canonical-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-read-surface-follow-through-phase-6.md](../specs/2026-04-09-canonical-read-surface-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-read-model-follow-through-phase-6.md](../specs/2026-04-09-canonical-read-model-follow-through-phase-6.md)
 - [../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md](../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-spec-linkage-follow-through-phase-6.md](../specs/2026-04-09-canonical-spec-linkage-follow-through-phase-6.md)
@@ -186,9 +187,13 @@ Latest checkpoint:
   canonical plan/task records, the spec materialization path now consumes
   `CoordinationSnapshotV2`, and workspace-backed CLI/MCP spec reads no longer depend on the
   legacy snapshot surface
+- the canonical read-model follow-through is complete; coordination read and queue models now
+  derive from `CoordinationSnapshotV2`, broker and materialization fallback rebuilds no longer
+  need the legacy snapshot, and those read-model structs now carry canonical identifiers instead
+  of legacy plan/task payloads where only summary membership is needed
 - the next Phase 6 work is the deeper purge of active-path `CoordinationSnapshot` / legacy
-  coordination-model dependencies that still exist under `prism-coordination`, `prism-query`,
-  `prism-mcp` host mutation/runtime paths, and adjacent materialization code
+  coordination-model dependencies that still exist under incremental read-model seeds,
+  `prism-query`, `prism-mcp` host mutation/runtime paths, and adjacent materialization code
 
 ## 3. Ordering thesis
 

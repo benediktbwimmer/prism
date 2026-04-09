@@ -8,7 +8,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Result};
 use prism_agent::InferenceSnapshot;
 use prism_coordination::{
-    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
+    coordination_queue_read_model_from_snapshot_v2, coordination_read_model_from_snapshot_v2,
     CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor,
 };
 use prism_curator::CuratorSnapshot;
@@ -471,9 +471,13 @@ pub(crate) fn persist_coordination_materialization<T>(
 where
     T: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
 {
-    let mut read_model = coordination_read_model_from_snapshot(&materialization.snapshot);
+    let canonical_snapshot_v2 = materialization
+        .canonical_snapshot_v2
+        .clone()
+        .unwrap_or_else(|| materialization.snapshot.to_canonical_snapshot_v2());
+    let mut read_model = coordination_read_model_from_snapshot_v2(&canonical_snapshot_v2);
     read_model.revision = materialization.authoritative_revision;
-    let mut queue_model = coordination_queue_read_model_from_snapshot(&materialization.snapshot);
+    let mut queue_model = coordination_queue_read_model_from_snapshot_v2(&canonical_snapshot_v2);
     queue_model.revision = materialization.authoritative_revision;
     let materialized_store = SqliteCoordinationMaterializedStore::new(root);
     materialized_store.write_read_models(CoordinationReadModelsWriteRequest {
@@ -487,7 +491,7 @@ where
             snapshot: materialization.snapshot.clone(),
         })?;
     }
-    if let Some(canonical_snapshot_v2) = materialization.canonical_snapshot_v2.as_ref() {
+    if materialization.canonical_snapshot_v2.is_some() {
         let repo_semantic_snapshot =
             repo_semantic_coordination_snapshot(materialization.snapshot.clone());
         sync_coordination_snapshot_state(
@@ -498,7 +502,7 @@ where
         )?;
         materialized_store.write_startup_checkpoint(CoordinationStartupCheckpointWriteRequest {
             snapshot: repo_semantic_snapshot,
-            canonical_snapshot_v2: canonical_snapshot_v2.clone(),
+            canonical_snapshot_v2,
             runtime_descriptors: materialization
                 .runtime_descriptors
                 .clone()

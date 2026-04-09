@@ -1,15 +1,16 @@
-use prism_ir::{ArtifactStatus, ClaimStatus};
+use prism_ir::{ArtifactStatus, ClaimStatus, CoordinationTaskId, TaskId};
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
-    Artifact, CoordinationEvent, CoordinationSnapshot, CoordinationTask, WorkClaim,
+    Artifact, CoordinationEvent, CoordinationSnapshot, WorkClaim,
 };
+use crate::CoordinationSnapshotV2;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CoordinationQueueReadModel {
     #[serde(default)]
     pub revision: u64,
-    pub pending_handoff_tasks: Vec<CoordinationTask>,
+    pub pending_handoff_task_ids: Vec<TaskId>,
     pub active_claims: Vec<WorkClaim>,
     pub pending_review_artifacts: Vec<Artifact>,
 }
@@ -17,13 +18,19 @@ pub struct CoordinationQueueReadModel {
 pub fn coordination_queue_read_model_from_snapshot(
     snapshot: &CoordinationSnapshot,
 ) -> CoordinationQueueReadModel {
-    let mut pending_handoff_tasks = snapshot
+    coordination_queue_read_model_from_snapshot_v2(&snapshot.to_canonical_snapshot_v2())
+}
+
+pub fn coordination_queue_read_model_from_snapshot_v2(
+    snapshot: &CoordinationSnapshotV2,
+) -> CoordinationQueueReadModel {
+    let mut pending_handoff_task_ids = snapshot
         .tasks
         .iter()
         .filter(|task| task.pending_handoff_to.is_some())
-        .cloned()
+        .map(|task| task.id.clone())
         .collect::<Vec<_>>();
-    pending_handoff_tasks.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    pending_handoff_task_ids.sort_by(|left, right| left.0.cmp(&right.0));
 
     let mut active_claims = snapshot
         .claims
@@ -48,7 +55,7 @@ pub fn coordination_queue_read_model_from_snapshot(
 
     CoordinationQueueReadModel {
         revision: 0,
-        pending_handoff_tasks,
+        pending_handoff_task_ids,
         active_claims,
         pending_review_artifacts,
     }
@@ -80,7 +87,7 @@ pub fn coordination_queue_read_model_from_seed(
             | prism_ir::CoordinationEventKind::HandoffRequested
             | prism_ir::CoordinationEventKind::HandoffAccepted => {
                 refresh_pending_handoff_task(
-                    &mut model.pending_handoff_tasks,
+                    &mut model.pending_handoff_task_ids,
                     snapshot,
                     event.task.as_ref(),
                 );
@@ -107,8 +114,8 @@ pub fn coordination_queue_read_model_from_seed(
     }
 
     model
-        .pending_handoff_tasks
-        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+        .pending_handoff_task_ids
+        .sort_by(|left, right| left.0.cmp(&right.0));
     model
         .active_claims
         .sort_by(|left, right| left.id.0.cmp(&right.id.0));
@@ -119,21 +126,21 @@ pub fn coordination_queue_read_model_from_seed(
 }
 
 fn refresh_pending_handoff_task(
-    pending_handoff_tasks: &mut Vec<CoordinationTask>,
+    pending_handoff_task_ids: &mut Vec<TaskId>,
     snapshot: &CoordinationSnapshot,
-    task_id: Option<&prism_ir::CoordinationTaskId>,
+    task_id: Option<&CoordinationTaskId>,
 ) {
     let Some(task_id) = task_id else {
         return;
     };
     upsert_or_remove_task(
-        pending_handoff_tasks,
+        pending_handoff_task_ids,
         task_id,
         snapshot
             .tasks
             .iter()
             .find(|task| &task.id == task_id && task.pending_handoff_to.is_some())
-            .cloned(),
+            .map(|task| TaskId::new(task.id.0.clone())),
     );
 }
 
@@ -182,18 +189,21 @@ fn refresh_pending_review_artifact(
 }
 
 fn upsert_or_remove_task(
-    tasks: &mut Vec<CoordinationTask>,
-    task_id: &prism_ir::CoordinationTaskId,
-    next: Option<CoordinationTask>,
+    task_ids: &mut Vec<TaskId>,
+    task_id: &CoordinationTaskId,
+    next: Option<TaskId>,
 ) {
     if let Some(next) = next {
-        if let Some(existing) = tasks.iter_mut().find(|task| task.id == *task_id) {
+        if let Some(existing) = task_ids
+            .iter_mut()
+            .find(|existing| existing.0.as_str() == task_id.0.as_str())
+        {
             *existing = next;
         } else {
-            tasks.push(next);
+            task_ids.push(next);
         }
     } else {
-        tasks.retain(|task| task.id != *task_id);
+        task_ids.retain(|existing| existing.0.as_str() != task_id.0.as_str());
     }
 }
 

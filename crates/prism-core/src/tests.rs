@@ -6952,7 +6952,7 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
         .load_coordination_queue_read_model()
         .unwrap()
         .expect("coordination queue read model should be persisted in the coordination materialization store");
-    assert!(queue_model.pending_handoff_tasks.is_empty());
+    assert!(queue_model.pending_handoff_task_ids.is_empty());
     assert!(queue_model.active_claims.is_empty());
     assert!(queue_model.pending_review_artifacts.is_empty());
 
@@ -7313,14 +7313,14 @@ fn coordination_session_materializes_read_models_off_request_path() {
         .load_coordination_read_model()
         .unwrap()
         .expect("persisted coordination read model should materialize after flush");
-    assert_eq!(persisted_read_model.active_plans.len(), 1);
+    assert_eq!(persisted_read_model.active_plan_ids.len(), 1);
     assert_eq!(persisted_read_model.task_count, 1);
     assert_eq!(persisted_read_model.revision, authoritative_revision);
     let persisted_queue_model = worktree_store
         .load_coordination_queue_read_model()
         .unwrap()
         .expect("persisted coordination queue model should materialize after flush");
-    assert!(persisted_queue_model.pending_handoff_tasks.is_empty());
+    assert!(persisted_queue_model.pending_handoff_task_ids.is_empty());
     assert_eq!(persisted_queue_model.revision, authoritative_revision);
     assert!(
         crate::tracked_snapshot::load_tracked_coordination_materialization_status(&root)

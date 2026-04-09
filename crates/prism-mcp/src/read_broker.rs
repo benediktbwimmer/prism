@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use prism_coordination::{
-    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
-    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    coordination_queue_read_model_from_snapshot_v2, coordination_read_model_from_snapshot_v2,
+    CoordinationQueueReadModel, CoordinationReadModel,
     CoordinationSnapshotV2,
 };
 use prism_core::WorkspaceSession;
@@ -68,7 +68,6 @@ pub(crate) fn current_coordination_surface_for_workspace(
     workspace: Option<&WorkspaceSession>,
     prism: Arc<Prism>,
 ) -> Result<CurrentCoordinationSurface> {
-    let mut snapshot = CoordinationSnapshot::default();
     let mut snapshot_v2 = CoordinationSnapshotV2::default();
     let mut read_model = CoordinationReadModel::default();
     let mut queue_read_model = CoordinationQueueReadModel::default();
@@ -81,7 +80,6 @@ pub(crate) fn current_coordination_surface_for_workspace(
 
     if let Some(workspace) = workspace {
         if let Some(state) = workspace.load_coordination_plan_state()? {
-            snapshot = state.snapshot;
             snapshot_v2 = state.canonical_snapshot_v2;
         }
         tracked_snapshot_revision = workspace.load_tracked_coordination_snapshot_revision()?;
@@ -97,15 +95,14 @@ pub(crate) fn current_coordination_surface_for_workspace(
             loaded_queue_read_model = true;
         }
     } else {
-        snapshot = prism.coordination_snapshot();
         snapshot_v2 = prism.coordination_snapshot_v2();
     }
 
     if !loaded_read_model {
-        read_model = coordination_read_model_from_snapshot(&snapshot);
+        read_model = coordination_read_model_from_snapshot_v2(&snapshot_v2);
     }
     if !loaded_queue_read_model {
-        queue_read_model = coordination_queue_read_model_from_snapshot(&snapshot);
+        queue_read_model = coordination_queue_read_model_from_snapshot_v2(&snapshot_v2);
     }
 
     Ok(CurrentCoordinationSurface {

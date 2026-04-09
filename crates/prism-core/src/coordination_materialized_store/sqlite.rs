@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use prism_coordination::{
-    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
+    coordination_queue_read_model_from_snapshot_v2, coordination_read_model_from_snapshot_v2,
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
     CoordinationSnapshotV2,
 };
@@ -176,10 +176,10 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
                 Some(read_model),
             ));
         }
-        let snapshot = self.read_snapshot()?;
+        let snapshot = self.read_snapshot_v2()?;
         let metadata = snapshot.metadata.clone();
         let value = snapshot.value.map(|snapshot| {
-            let mut model = coordination_read_model_from_snapshot(&snapshot);
+            let mut model = coordination_read_model_from_snapshot_v2(&snapshot);
             model.revision = metadata.coordination_revision.unwrap_or_default();
             model
         });
@@ -202,10 +202,10 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
                 Some(queue_read_model),
             ));
         }
-        let snapshot = self.read_snapshot()?;
+        let snapshot = self.read_snapshot_v2()?;
         let metadata = snapshot.metadata.clone();
         let value = snapshot.value.map(|snapshot| {
-            let mut model = coordination_queue_read_model_from_snapshot(&snapshot);
+            let mut model = coordination_queue_read_model_from_snapshot_v2(&snapshot);
             model.revision = metadata.coordination_revision.unwrap_or_default();
             model
         });

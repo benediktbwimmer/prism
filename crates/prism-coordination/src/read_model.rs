@@ -1,19 +1,20 @@
 use prism_ir::{
-    ArtifactStatus, ClaimStatus, CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus,
-    PlanId, PlanStatus,
+    ArtifactStatus, ClaimStatus, CoordinationEventKind, CoordinationTaskId, PlanId,
+    CoordinationTaskStatus, PlanOperatorState,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::types::{
-    Artifact, CoordinationSnapshot, Plan, PolicyViolation, PolicyViolationRecord, WorkClaim,
+use crate::{
+    CoordinationDerivations, CoordinationSnapshotV2,
+    types::{Artifact, CoordinationSnapshot, PolicyViolation, PolicyViolationRecord, WorkClaim},
 };
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CoordinationReadModel {
     #[serde(default)]
     pub revision: u64,
-    pub active_plans: Vec<Plan>,
+    pub active_plan_ids: Vec<PlanId>,
     pub task_count: usize,
     pub in_review_task_ids: Vec<CoordinationTaskId>,
     pub active_claims: Vec<WorkClaim>,
@@ -25,24 +26,28 @@ pub struct CoordinationReadModel {
 pub fn coordination_read_model_from_snapshot(
     snapshot: &CoordinationSnapshot,
 ) -> CoordinationReadModel {
-    let mut active_plans = snapshot
+    coordination_read_model_from_snapshot_v2(&snapshot.to_canonical_snapshot_v2())
+}
+
+pub fn coordination_read_model_from_snapshot_v2(
+    snapshot: &CoordinationSnapshotV2,
+) -> CoordinationReadModel {
+    let derivations = CoordinationDerivations::derive(snapshot)
+        .expect("canonical coordination snapshot should validate before deriving read models");
+
+    let mut active_plan_ids = snapshot
         .plans
         .iter()
-        .filter(|plan| plan.status == PlanStatus::Active)
-        .cloned()
+        .filter(|plan| plan.operator_state == PlanOperatorState::None)
+        .map(|plan| plan.id.clone())
         .collect::<Vec<_>>();
-    active_plans.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    active_plan_ids.sort_by(|left, right| left.0.cmp(&right.0));
 
     let mut in_review_task_ids = snapshot
         .tasks
         .iter()
-        .filter(|task| {
-            matches!(
-                task.status,
-                CoordinationTaskStatus::InReview | CoordinationTaskStatus::Validating
-            )
-        })
-        .map(|task| task.id.clone())
+        .filter(|task| canonical_task_is_in_review(task))
+        .map(|task| CoordinationTaskId::new(task.id.0.clone()))
         .collect::<Vec<_>>();
     in_review_task_ids.sort_by(|left, right| left.0.cmp(&right.0));
 
@@ -77,39 +82,14 @@ pub fn coordination_read_model_from_snapshot(
         .events
         .iter()
         .filter(|event| event.kind == CoordinationEventKind::MutationRejected)
-        .filter_map(|event| {
-            let violations = event
-                .metadata
-                .get("violations")
-                .and_then(|value| {
-                    serde_json::from_value::<Vec<PolicyViolation>>(value.clone()).ok()
-                })
-                .unwrap_or_default();
-            if violations.is_empty() && event.metadata == Value::Null {
-                return None;
-            }
-            Some(PolicyViolationRecord {
-                event_id: event.meta.id.clone(),
-                ts: event.meta.ts,
-                summary: event.summary.clone(),
-                plan_id: event.plan.clone(),
-                task_id: event.task.clone(),
-                claim_id: event.claim.clone(),
-                artifact_id: event.artifact.clone(),
-                violations,
-            })
-        })
+        .filter_map(policy_violation_record_from_event)
         .collect::<Vec<_>>();
-    recent_violations.sort_by(|left, right| {
-        right
-            .ts
-            .cmp(&left.ts)
-            .then_with(|| left.event_id.0.cmp(&right.event_id.0))
-    });
+    sort_recent_violations(&mut recent_violations);
 
+    let _ = derivations;
     CoordinationReadModel {
         revision: 0,
-        active_plans,
+        active_plan_ids,
         task_count: snapshot.tasks.len(),
         in_review_task_ids,
         active_claims,
@@ -135,7 +115,7 @@ pub fn coordination_read_model_from_seed(
     for event in appended_events {
         match event.kind {
             CoordinationEventKind::PlanCreated | CoordinationEventKind::PlanUpdated => {
-                refresh_active_plan(&mut model.active_plans, snapshot, event.plan.as_ref());
+                refresh_active_plan(&mut model.active_plan_ids, snapshot, event.plan.as_ref());
             }
             CoordinationEventKind::TaskCreated
             | CoordinationEventKind::TaskAssigned
@@ -180,7 +160,7 @@ pub fn coordination_read_model_from_seed(
         .iter()
         .filter(|artifact| artifact.status == ArtifactStatus::Proposed)
         .count();
-    sort_active_plans(&mut model.active_plans);
+    sort_active_plans(&mut model.active_plan_ids);
     sort_task_ids(&mut model.in_review_task_ids);
     sort_active_claims(&mut model.active_claims);
     sort_pending_review_artifacts(&mut model.pending_review_artifacts);
@@ -189,17 +169,14 @@ pub fn coordination_read_model_from_seed(
 }
 
 pub fn ready_task_count_for_active_plans(
-    active_plans: &[Plan],
+    active_plan_ids: &[PlanId],
     ready_tasks_for_plan: impl Fn(&PlanId) -> usize,
 ) -> usize {
-    active_plans
-        .iter()
-        .map(|plan| ready_tasks_for_plan(&plan.id))
-        .sum()
+    active_plan_ids.iter().map(ready_tasks_for_plan).sum()
 }
 
 fn refresh_active_plan(
-    active_plans: &mut Vec<Plan>,
+    active_plan_ids: &mut Vec<PlanId>,
     snapshot: &CoordinationSnapshot,
     plan_id: Option<&PlanId>,
 ) {
@@ -207,13 +184,13 @@ fn refresh_active_plan(
         return;
     };
     upsert_or_remove_by_plan_id(
-        active_plans,
+        active_plan_ids,
         plan_id,
         snapshot
             .plans
             .iter()
-            .find(|plan| &plan.id == plan_id && plan.status == PlanStatus::Active)
-            .cloned(),
+            .find(|plan| &plan.id == plan_id && plan.status == prism_ir::PlanStatus::Active)
+            .map(|plan| plan.id.clone()),
     );
 }
 
@@ -287,23 +264,8 @@ fn upsert_recent_violation(
     recent_violations: &mut Vec<PolicyViolationRecord>,
     event: &crate::types::CoordinationEvent,
 ) {
-    let violations = event
-        .metadata
-        .get("violations")
-        .and_then(|value| serde_json::from_value::<Vec<PolicyViolation>>(value.clone()).ok())
-        .unwrap_or_default();
-    if violations.is_empty() && event.metadata == Value::Null {
+    let Some(next) = policy_violation_record_from_event(event) else {
         return;
-    }
-    let next = PolicyViolationRecord {
-        event_id: event.meta.id.clone(),
-        ts: event.meta.ts,
-        summary: event.summary.clone(),
-        plan_id: event.plan.clone(),
-        task_id: event.task.clone(),
-        claim_id: event.claim.clone(),
-        artifact_id: event.artifact.clone(),
-        violations,
     };
     if let Some(existing) = recent_violations
         .iter_mut()
@@ -315,15 +277,19 @@ fn upsert_recent_violation(
     }
 }
 
-fn upsert_or_remove_by_plan_id(active_plans: &mut Vec<Plan>, plan_id: &PlanId, next: Option<Plan>) {
+fn upsert_or_remove_by_plan_id(
+    active_plan_ids: &mut Vec<PlanId>,
+    plan_id: &PlanId,
+    next: Option<PlanId>,
+) {
     if let Some(next) = next {
-        if let Some(existing) = active_plans.iter_mut().find(|plan| plan.id == *plan_id) {
+        if let Some(existing) = active_plan_ids.iter_mut().find(|existing| **existing == *plan_id) {
             *existing = next;
         } else {
-            active_plans.push(next);
+            active_plan_ids.push(next);
         }
     } else {
-        active_plans.retain(|plan| plan.id != *plan_id);
+        active_plan_ids.retain(|existing| *existing != *plan_id);
     }
 }
 
@@ -373,8 +339,8 @@ fn upsert_or_remove_artifact(
     }
 }
 
-fn sort_active_plans(active_plans: &mut [Plan]) {
-    active_plans.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+fn sort_active_plans(active_plan_ids: &mut [PlanId]) {
+    active_plan_ids.sort_by(|left, right| left.0.cmp(&right.0));
 }
 
 fn sort_task_ids(task_ids: &mut [CoordinationTaskId]) {
@@ -396,4 +362,36 @@ fn sort_recent_violations(recent_violations: &mut [PolicyViolationRecord]) {
             .cmp(&left.ts)
             .then_with(|| left.event_id.0.cmp(&right.event_id.0))
     });
+}
+
+fn policy_violation_record_from_event(
+    event: &crate::types::CoordinationEvent,
+) -> Option<PolicyViolationRecord> {
+    let violations = event
+        .metadata
+        .get("violations")
+        .and_then(|value| serde_json::from_value::<Vec<PolicyViolation>>(value.clone()).ok())
+        .unwrap_or_default();
+    if violations.is_empty() && event.metadata == Value::Null {
+        return None;
+    }
+    Some(PolicyViolationRecord {
+        event_id: event.meta.id.clone(),
+        ts: event.meta.ts,
+        summary: event.summary.clone(),
+        plan_id: event.plan.clone(),
+        task_id: event.task.clone(),
+        claim_id: event.claim.clone(),
+        artifact_id: event.artifact.clone(),
+        violations,
+    })
+}
+
+fn canonical_task_is_in_review(task: &crate::CanonicalTaskRecord) -> bool {
+    matches!(
+        task.metadata
+            .get("legacy_phase")
+            .and_then(Value::as_str),
+        Some("in_review" | "validating")
+    )
 }
