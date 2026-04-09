@@ -311,12 +311,6 @@ pub enum ServiceCommand {
         http_bind: Option<String>,
         #[arg(long = "shared-runtime-uri")]
         shared_runtime_uri: Option<String>,
-        #[arg(long = "coordination-authority-backend", value_enum)]
-        coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
-        #[arg(long = "coordination-authority-sqlite-db")]
-        coordination_authority_sqlite_db: Option<PathBuf>,
-        #[arg(long = "coordination-authority-postgres-url")]
-        coordination_authority_postgres_url: Option<String>,
     },
     Stop {
         #[arg(
@@ -337,12 +331,6 @@ pub enum ServiceCommand {
         http_bind: Option<String>,
         #[arg(long = "shared-runtime-uri")]
         shared_runtime_uri: Option<String>,
-        #[arg(long = "coordination-authority-backend", value_enum)]
-        coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
-        #[arg(long = "coordination-authority-sqlite-db")]
-        coordination_authority_sqlite_db: Option<PathBuf>,
-        #[arg(long = "coordination-authority-postgres-url")]
-        coordination_authority_postgres_url: Option<String>,
         #[arg(
             long,
             default_value_t = false,
@@ -631,9 +619,6 @@ mod tests {
                         runtime_mode,
                         http_bind,
                         shared_runtime_uri,
-                        coordination_authority_backend,
-                        coordination_authority_sqlite_db,
-                        coordination_authority_postgres_url,
                     },
             } => {
                 assert!(!kill_bridges);
@@ -642,47 +627,29 @@ mod tests {
                 assert_eq!(runtime_mode, PrismRuntimeModeArg::Full);
                 assert!(http_bind.is_none());
                 assert!(shared_runtime_uri.is_none());
-                assert!(coordination_authority_backend.is_none());
-                assert!(coordination_authority_sqlite_db.is_none());
-                assert!(coordination_authority_postgres_url.is_none());
             }
             _ => panic!("unexpected command"),
         }
     }
 
     #[test]
-    fn service_up_coordination_authority_backend_flags_parse() {
-        let cli = Cli::parse_from([
+    fn service_up_rejects_authority_backend_flags() {
+        assert!(Cli::try_parse_from([
             "prism",
             "service",
             "up",
             "--coordination-authority-backend",
             "sqlite",
-            "--coordination-authority-sqlite-db",
-            "service-authority.db",
-        ]);
-        match cli.command {
-            Command::Service {
-                command:
-                    ServiceCommand::Up {
-                        coordination_authority_backend,
-                        coordination_authority_sqlite_db,
-                        coordination_authority_postgres_url,
-                        ..
-                    },
-            } => {
-                assert_eq!(
-                    coordination_authority_backend,
-                    Some(CoordinationAuthorityBackendArg::Sqlite)
-                );
-                assert_eq!(
-                    coordination_authority_sqlite_db,
-                    Some(PathBuf::from("service-authority.db"))
-                );
-                assert!(coordination_authority_postgres_url.is_none());
-            }
-            _ => panic!("unexpected command"),
-        }
+        ])
+        .is_err());
+        assert!(Cli::try_parse_from([
+            "prism",
+            "service",
+            "up",
+            "--coordination-authority-postgres-url",
+            "postgres://example",
+        ])
+        .is_err());
     }
 
     #[test]

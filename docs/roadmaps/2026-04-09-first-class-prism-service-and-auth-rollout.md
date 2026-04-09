@@ -47,19 +47,19 @@ Current phase checklist:
 - [x] Phase 3: implement service endpoint selection and machine-local service state
 - [x] Phase 4: cut MCP daemon over to runtime-only ownership and bridge-managed launch
 - [x] Phase 5: simplify DB-backed coordination reads to authority-first by default
-- [ ] Phase 6: implement SQLite versus Postgres deployment posture and startup diagnostics
-- [ ] Phase 7: dogfooding-ready service checkpoint
+- [x] Phase 6: implement SQLite versus Postgres deployment posture and startup diagnostics
+- [x] Phase 7: dogfooding-ready service checkpoint
 - [ ] Phase 8: implement explicit service auth and machine-wide service sessions
 - [ ] Phase 9: implement runtime-session issuance and capability-gated repo enrollment
 - [ ] Phase 10: implement `service_mediated_human` approval flow and provenance
 
 Current active phase:
 
-- Phase 6: implement SQLite versus Postgres deployment posture and startup diagnostics
+- Phase 8: implement explicit service auth and machine-wide service sessions
 
 Current phase spec:
 
-- [../specs/2026-04-09-sqlite-vs-postgres-deployment-posture-phase-6.md](../specs/2026-04-09-sqlite-vs-postgres-deployment-posture-phase-6.md)
+- [../specs/2026-04-09-service-auth-and-machine-sessions-phase-8.md](../specs/2026-04-09-service-auth-and-machine-sessions-phase-8.md)
 
 ## 3. Ordering thesis
 

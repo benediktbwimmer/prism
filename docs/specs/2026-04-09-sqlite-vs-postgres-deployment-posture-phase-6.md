@@ -1,6 +1,6 @@
 # SQLite Versus Postgres Deployment Posture Phase 6
 
-Status: not started
+Status: completed
 Audience: service, CLI, deployment, storage, and operations maintainers
 Scope: make backend selection explicit for the first-class PRISM Service, warn loudly for
 single-instance SQLite topology, and make Postgres selection the clear multi-instance path
@@ -21,6 +21,15 @@ This slice should:
 - warn loudly at service startup that SQLite mode is single-instance only
 - make it explicit in startup/help/health surfaces that multi-instance deployments must use
   Postgres
+
+That target has landed:
+
+- `prism service up` and `prism service restart` now derive authority backend from
+  `PRISM_POSTGRES_DSN`, otherwise hard-default to SQLite
+- the `prism service` surface no longer accepts backend-selection flags
+- service startup now warns loudly in SQLite mode that it is single-instance only and directs
+  multi-instance operators to `PRISM_POSTGRES_DSN`
+- service status now surfaces the effective coordination authority backend explicitly
 
 This slice should not:
 
@@ -125,7 +134,7 @@ This spec is complete when:
 
 ## 9. Implementation checklist
 
-- [ ] Centralize service backend selection
-- [ ] Add loud SQLite single-instance warnings
-- [ ] Align CLI and docs-facing messaging
-- [ ] Update roadmap and spec status after landing
+- [x] Centralize service backend selection
+- [x] Add loud SQLite single-instance warnings
+- [x] Align CLI and docs-facing messaging
+- [x] Update roadmap and spec status after landing

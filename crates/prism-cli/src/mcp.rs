@@ -15,9 +15,11 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{anyhow, bail, Context, Result};
 use prism_core::{
     configured_coordination_authority_store_provider,
-    coordination_authority_diagnostics, coordination_materialization_enabled_by_default,
+    coordination_authority_diagnostics_with_provider,
+    coordination_materialization_enabled_by_default, resolve_coordination_authority_store_provider,
     publish_local_runtime_descriptor,
-    CoordinationAuthorityBackendDetails, PrismPaths, PrismRuntimeMode,
+    CoordinationAuthorityBackendConfig, CoordinationAuthorityBackendDetails, PrismPaths,
+    PrismRuntimeMode,
 };
 
 use crate::cli::{CoordinationAuthorityBackendArg, McpCommand};
@@ -341,6 +343,13 @@ fn bridge(
 }
 
 fn status(root: &Path) -> Result<()> {
+    status_with_coordination_authority_override(root, None)
+}
+
+pub(crate) fn status_with_coordination_authority_override(
+    root: &Path,
+    override_config: Option<CoordinationAuthorityBackendConfig>,
+) -> Result<()> {
     let paths = McpPaths::for_root(root)?;
     let (processes, connection) = connection_snapshot_with_restart_grace(root, &paths)?;
     let daemons = select_kind(&processes, McpProcessKind::Daemon);
@@ -394,8 +403,20 @@ fn status(root: &Path) -> Result<()> {
             paths.runtime_cache_path.display()
         );
     }
-    let authority_diagnostics = coordination_authority_diagnostics(root)?;
-    let authority_store_provider = configured_coordination_authority_store_provider(root)?;
+    let authority_store_provider = match override_config {
+        Some(config) => resolve_coordination_authority_store_provider(root, Some(config))?,
+        None => configured_coordination_authority_store_provider(root)?,
+    };
+    let authority_diagnostics =
+        coordination_authority_diagnostics_with_provider(root, &authority_store_provider)?;
+    println!(
+        "coordination_authority_backend: {}",
+        match authority_store_provider.config() {
+            prism_core::CoordinationAuthorityBackendConfig::GitSharedRefs => "git_shared_refs",
+            prism_core::CoordinationAuthorityBackendConfig::Sqlite { .. } => "sqlite",
+            prism_core::CoordinationAuthorityBackendConfig::Postgres { .. } => "postgres",
+        }
+    );
     if coordination_materialization_enabled_by_default(authority_store_provider.config()) {
         if let Ok(metadata) = fs::metadata(&paths.coordination_materialization_path) {
             println!(
