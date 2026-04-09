@@ -175,7 +175,8 @@ pub use spec_materialized_store::{
     MaterializedSpecRecord, SpecMaterializationMetadata, SpecMaterializedBackendKind,
     SpecMaterializedCapabilities, SpecMaterializedClearRequest, SpecMaterializedReadEnvelope,
     SpecMaterializedReplaceRequest, SpecMaterializedStore, SpecMaterializedWriteResult,
-    SqliteSpecMaterializedStore, StoredSpecDependencyRecord,
+    SqliteSpecMaterializedStore, StoredSpecChecklistPosture, StoredSpecDependencyPosture,
+    StoredSpecDependencyRecord, StoredSpecStatusRecord,
 };
 pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,

@@ -3,7 +3,7 @@ use anyhow::Result;
 use super::types::{
     MaterializedSpecRecord, SpecMaterializationMetadata, SpecMaterializedCapabilities,
     SpecMaterializedClearRequest, SpecMaterializedReadEnvelope, SpecMaterializedReplaceRequest,
-    SpecMaterializedWriteResult, StoredSpecDependencyRecord,
+    SpecMaterializedWriteResult, StoredSpecDependencyRecord, StoredSpecStatusRecord,
 };
 use crate::SpecChecklistItem;
 
@@ -17,6 +17,10 @@ pub trait SpecMaterializedStore {
     fn read_dependencies(
         &self,
     ) -> Result<SpecMaterializedReadEnvelope<Vec<StoredSpecDependencyRecord>>>;
+
+    fn read_status_records(
+        &self,
+    ) -> Result<SpecMaterializedReadEnvelope<Vec<StoredSpecStatusRecord>>>;
 
     fn read_metadata(&self) -> Result<SpecMaterializationMetadata>;
 

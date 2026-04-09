@@ -7,5 +7,6 @@ pub use traits::SpecMaterializedStore;
 pub use types::{
     MaterializedSpecRecord, SpecMaterializationMetadata, SpecMaterializedBackendKind,
     SpecMaterializedCapabilities, SpecMaterializedClearRequest, SpecMaterializedReadEnvelope,
-    SpecMaterializedReplaceRequest, SpecMaterializedWriteResult, StoredSpecDependencyRecord,
+    SpecMaterializedReplaceRequest, SpecMaterializedWriteResult, StoredSpecChecklistPosture,
+    StoredSpecDependencyPosture, StoredSpecDependencyRecord, StoredSpecStatusRecord,
 };

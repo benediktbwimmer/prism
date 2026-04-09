@@ -7,12 +7,14 @@ use super::traits::SpecMaterializedStore;
 use super::types::{
     MaterializedSpecRecord, SpecMaterializationMetadata, SpecMaterializedBackendKind,
     SpecMaterializedCapabilities, SpecMaterializedClearRequest, SpecMaterializedReadEnvelope,
-    SpecMaterializedReplaceRequest, SpecMaterializedWriteResult, StoredSpecDependencyRecord,
+    SpecMaterializedReplaceRequest, SpecMaterializedWriteResult, StoredSpecChecklistPosture,
+    StoredSpecDependencyPosture, StoredSpecDependencyRecord, StoredSpecStatusRecord,
 };
 use crate::prism_paths::PrismPaths;
 use crate::util::current_timestamp_millis;
 use crate::{
-    SpecChecklistIdentitySource, SpecChecklistItem, SpecChecklistRequirementLevel,
+    ParsedSpecDocument, SpecChecklistIdentitySource, SpecChecklistItem,
+    SpecChecklistRequirementLevel, SpecDeclaredStatus,
 };
 
 pub struct SqliteSpecMaterializedStore {
@@ -66,6 +68,31 @@ impl SqliteSpecMaterializedStore {
                 PRIMARY KEY (spec_id, position)
             );
 
+            CREATE TABLE IF NOT EXISTS spec_materialized_status (
+                spec_id TEXT PRIMARY KEY,
+                declared_status TEXT NOT NULL,
+                checklist_posture TEXT NOT NULL,
+                dependency_posture TEXT NOT NULL,
+                overall_status TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS spec_materialized_coverage (
+                spec_id TEXT NOT NULL,
+                checklist_item_id TEXT NOT NULL,
+                coverage_kind TEXT NOT NULL,
+                coordination_ref TEXT,
+                PRIMARY KEY (spec_id, checklist_item_id, coverage_kind, coordination_ref)
+            );
+
+            CREATE TABLE IF NOT EXISTS spec_materialized_sync_provenance (
+                spec_id TEXT NOT NULL,
+                target_coordination_ref TEXT NOT NULL,
+                sync_kind TEXT NOT NULL,
+                source_revision TEXT,
+                covered_checklist_items_json TEXT NOT NULL,
+                PRIMARY KEY (spec_id, target_coordination_ref, sync_kind)
+            );
+
             CREATE TABLE IF NOT EXISTS spec_materialized_metadata (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 materialized_at INTEGER,
@@ -89,6 +116,16 @@ impl SqliteSpecMaterializedStore {
     }
 
     fn load_metadata_from_connection(&self, conn: &Connection) -> Result<SpecMaterializationMetadata> {
+        let coverage_record_count = conn.query_row(
+            "SELECT COUNT(*) FROM spec_materialized_coverage",
+            [],
+            |row| row.get::<_, i64>(0),
+        )? as usize;
+        let sync_provenance_record_count = conn.query_row(
+            "SELECT COUNT(*) FROM spec_materialized_sync_provenance",
+            [],
+            |row| row.get::<_, i64>(0),
+        )? as usize;
         let row = conn.query_row(
             "SELECT materialized_at, spec_count, checklist_item_count, dependency_count
              FROM spec_materialized_metadata
@@ -101,6 +138,8 @@ impl SqliteSpecMaterializedStore {
                     spec_count: row.get::<_, i64>(1)? as usize,
                     checklist_item_count: row.get::<_, i64>(2)? as usize,
                     dependency_count: row.get::<_, i64>(3)? as usize,
+                    coverage_record_count,
+                    sync_provenance_record_count,
                 })
             },
         )?;
@@ -180,6 +219,34 @@ impl SqliteSpecMaterializedStore {
         })?;
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
     }
+
+    fn load_statuses_from_connection(&self, conn: &Connection) -> Result<Vec<StoredSpecStatusRecord>> {
+        let mut stmt = conn.prepare(
+            "SELECT spec_id, declared_status, checklist_posture, dependency_posture, overall_status
+             FROM spec_materialized_status
+             ORDER BY spec_id",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            let checklist_posture = match row.get::<_, String>(2)?.as_str() {
+                "complete" => StoredSpecChecklistPosture::Complete,
+                _ => StoredSpecChecklistPosture::Incomplete,
+            };
+            let dependency_posture = match row.get::<_, String>(3)?.as_str() {
+                "complete" => StoredSpecDependencyPosture::Complete,
+                "incomplete" => StoredSpecDependencyPosture::Incomplete,
+                "missing" => StoredSpecDependencyPosture::Missing,
+                _ => StoredSpecDependencyPosture::Clear,
+            };
+            Ok(StoredSpecStatusRecord {
+                spec_id: row.get(0)?,
+                declared_status: row.get(1)?,
+                checklist_posture,
+                dependency_posture,
+                overall_status: row.get(4)?,
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
 }
 
 impl SpecMaterializedStore for SqliteSpecMaterializedStore {
@@ -215,6 +282,15 @@ impl SpecMaterializedStore for SqliteSpecMaterializedStore {
         Ok(SpecMaterializedReadEnvelope::new(metadata, value))
     }
 
+    fn read_status_records(
+        &self,
+    ) -> Result<SpecMaterializedReadEnvelope<Vec<StoredSpecStatusRecord>>> {
+        let conn = self.open_connection()?;
+        let metadata = self.load_metadata_from_connection(&conn)?;
+        let value = self.load_statuses_from_connection(&conn)?;
+        Ok(SpecMaterializedReadEnvelope::new(metadata, value))
+    }
+
     fn read_metadata(&self) -> Result<SpecMaterializationMetadata> {
         let conn = self.open_connection()?;
         self.load_metadata_from_connection(&conn)
@@ -228,6 +304,9 @@ impl SpecMaterializedStore for SqliteSpecMaterializedStore {
         let tx = conn.unchecked_transaction()?;
         tx.execute("DELETE FROM spec_materialized_checklist_items", [])?;
         tx.execute("DELETE FROM spec_materialized_dependencies", [])?;
+        tx.execute("DELETE FROM spec_materialized_coverage", [])?;
+        tx.execute("DELETE FROM spec_materialized_sync_provenance", [])?;
+        tx.execute("DELETE FROM spec_materialized_status", [])?;
         tx.execute("DELETE FROM spec_materialized_specs", [])?;
 
         let mut checklist_item_count = 0usize;
@@ -303,6 +382,34 @@ impl SpecMaterializedStore for SqliteSpecMaterializedStore {
             }
         }
 
+        let status_records = derive_status_records(&request.parsed);
+        for status in status_records {
+            tx.execute(
+                "INSERT INTO spec_materialized_status (
+                    spec_id,
+                    declared_status,
+                    checklist_posture,
+                    dependency_posture,
+                    overall_status
+                ) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    status.spec_id,
+                    status.declared_status,
+                    match status.checklist_posture {
+                        StoredSpecChecklistPosture::Complete => "complete",
+                        StoredSpecChecklistPosture::Incomplete => "incomplete",
+                    },
+                    match status.dependency_posture {
+                        StoredSpecDependencyPosture::Clear => "clear",
+                        StoredSpecDependencyPosture::Complete => "complete",
+                        StoredSpecDependencyPosture::Incomplete => "incomplete",
+                        StoredSpecDependencyPosture::Missing => "missing",
+                    },
+                    status.overall_status,
+                ],
+            )?;
+        }
+
         tx.execute(
             "UPDATE spec_materialized_metadata
              SET materialized_at = ?1,
@@ -336,6 +443,9 @@ impl SpecMaterializedStore for SqliteSpecMaterializedStore {
         if request.clear_dependencies {
             tx.execute("DELETE FROM spec_materialized_dependencies", [])?;
         }
+        tx.execute("DELETE FROM spec_materialized_coverage", [])?;
+        tx.execute("DELETE FROM spec_materialized_sync_provenance", [])?;
+        tx.execute("DELETE FROM spec_materialized_status", [])?;
         if request.clear_specs {
             tx.execute("DELETE FROM spec_materialized_specs", [])?;
         }
@@ -357,6 +467,101 @@ impl SpecMaterializedStore for SqliteSpecMaterializedStore {
     }
 }
 
+fn derive_status_records(parsed: &[ParsedSpecDocument]) -> Vec<StoredSpecStatusRecord> {
+    let checklist_complete = parsed
+        .iter()
+        .map(|spec| {
+            (
+                spec.spec_id.clone(),
+                spec.checklist_items.iter().all(|item| {
+                    item.checked
+                        || matches!(
+                            item.requirement_level,
+                            SpecChecklistRequirementLevel::Informational
+                        )
+                }),
+            )
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+
+    let mut declared_by_id = std::collections::BTreeMap::<String, SpecDeclaredStatus>::new();
+    for spec in parsed {
+        declared_by_id.insert(spec.spec_id.clone(), spec.status.clone());
+    }
+
+    parsed
+        .iter()
+        .map(|spec| {
+            let checklist_posture = if checklist_complete
+                .get(&spec.spec_id)
+                .copied()
+                .unwrap_or(false)
+            {
+                StoredSpecChecklistPosture::Complete
+            } else {
+                StoredSpecChecklistPosture::Incomplete
+            };
+
+            let dependency_posture = if spec.dependencies.is_empty() {
+                StoredSpecDependencyPosture::Clear
+            } else if spec
+                .dependencies
+                .iter()
+                .any(|dependency| !declared_by_id.contains_key(&dependency.spec_id))
+            {
+                StoredSpecDependencyPosture::Missing
+            } else if spec.dependencies.iter().all(|dependency| {
+                matches!(
+                    declared_by_id.get(&dependency.spec_id),
+                    Some(SpecDeclaredStatus::Completed | SpecDeclaredStatus::Superseded)
+                )
+            }) {
+                StoredSpecDependencyPosture::Complete
+            } else {
+                StoredSpecDependencyPosture::Incomplete
+            };
+
+            let overall_status = match spec.status {
+                SpecDeclaredStatus::Completed => "completed",
+                SpecDeclaredStatus::Superseded => "superseded",
+                SpecDeclaredStatus::Abandoned => "abandoned",
+                SpecDeclaredStatus::Blocked => "blocked",
+                SpecDeclaredStatus::Draft => {
+                    if matches!(
+                        dependency_posture,
+                        StoredSpecDependencyPosture::Missing
+                            | StoredSpecDependencyPosture::Incomplete
+                    ) {
+                        "blocked"
+                    } else {
+                        "draft"
+                    }
+                }
+                SpecDeclaredStatus::InProgress => {
+                    if matches!(
+                        dependency_posture,
+                        StoredSpecDependencyPosture::Missing
+                            | StoredSpecDependencyPosture::Incomplete
+                    ) {
+                        "blocked"
+                    } else {
+                        "in_progress"
+                    }
+                }
+            }
+            .to_owned();
+
+            StoredSpecStatusRecord {
+                spec_id: spec.spec_id.clone(),
+                declared_status: spec.status.as_str().to_owned(),
+                checklist_posture,
+                dependency_posture,
+                overall_status,
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -369,6 +574,7 @@ mod tests {
     use crate::{
         discover_spec_sources, parse_spec_sources, SpecMaterializedClearRequest,
         SpecMaterializedReplaceRequest, SpecMaterializedStore,
+        StoredSpecChecklistPosture, StoredSpecDependencyPosture,
     };
 
     static NEXT_TEMP_REPO: AtomicU64 = AtomicU64::new(0);
@@ -422,6 +628,8 @@ mod tests {
         assert_eq!(write_result.metadata.spec_count, 2);
         assert_eq!(write_result.metadata.checklist_item_count, 2);
         assert_eq!(write_result.metadata.dependency_count, 1);
+        assert_eq!(write_result.metadata.coverage_record_count, 0);
+        assert_eq!(write_result.metadata.sync_provenance_record_count, 0);
 
         let specs = store.read_specs().unwrap();
         assert_eq!(specs.value.len(), 2);
@@ -434,6 +642,18 @@ mod tests {
         let dependencies = store.read_dependencies().unwrap();
         assert_eq!(dependencies.value.len(), 1);
         assert_eq!(dependencies.value[0].dependency_spec_id, "spec:b");
+
+        let statuses = store.read_status_records().unwrap();
+        assert_eq!(statuses.value.len(), 2);
+        assert_eq!(statuses.value[0].spec_id, "spec:a");
+        assert_eq!(
+            statuses.value[0].checklist_posture,
+            StoredSpecChecklistPosture::Incomplete
+        );
+        assert_eq!(
+            statuses.value[0].dependency_posture,
+            StoredSpecDependencyPosture::Complete
+        );
     }
 
     #[test]
@@ -463,5 +683,6 @@ mod tests {
         assert_eq!(store.read_specs().unwrap().value.len(), 0);
         assert_eq!(store.read_checklist_items().unwrap().value.len(), 0);
         assert_eq!(store.read_dependencies().unwrap().value.len(), 0);
+        assert_eq!(store.read_status_records().unwrap().value.len(), 0);
     }
 }

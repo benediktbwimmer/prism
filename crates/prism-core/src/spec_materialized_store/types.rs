@@ -20,6 +20,8 @@ pub struct SpecMaterializationMetadata {
     pub spec_count: usize,
     pub checklist_item_count: usize,
     pub dependency_count: usize,
+    pub coverage_record_count: usize,
+    pub sync_provenance_record_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -51,6 +53,29 @@ pub struct StoredSpecDependencyRecord {
     pub spec_id: String,
     pub position: usize,
     pub dependency_spec_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StoredSpecChecklistPosture {
+    Complete,
+    Incomplete,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StoredSpecDependencyPosture {
+    Clear,
+    Complete,
+    Incomplete,
+    Missing,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredSpecStatusRecord {
+    pub spec_id: String,
+    pub declared_status: String,
+    pub checklist_posture: StoredSpecChecklistPosture,
+    pub dependency_posture: StoredSpecDependencyPosture,
+    pub overall_status: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -103,6 +128,8 @@ mod tests {
             spec_count: 2,
             checklist_item_count: 3,
             dependency_count: 4,
+            coverage_record_count: 0,
+            sync_provenance_record_count: 0,
         };
         let envelope = SpecMaterializedReadEnvelope::new(metadata.clone(), vec![1usize, 2usize]);
         assert_eq!(envelope.metadata, metadata);

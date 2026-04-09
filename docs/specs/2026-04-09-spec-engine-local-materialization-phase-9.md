@@ -1,6 +1,6 @@
 # Spec Engine Local Materialization Phase 9
 
-Status: in_progress
+Status: completed
 Audience: spec-engine, storage, query, MCP, CLI, and docs maintainers
 Scope: complete roadmap Phase 9 by implementing the local persistent materialization layer for parsed spec state, including spec records, checklist items, dependency edges, derived local status state, source metadata, and the persistence scaffolding that later phases will use for coverage and sync provenance
 
@@ -34,9 +34,9 @@ Current state:
 - [x] parsed specs are persisted locally
 - [x] checklist items are persisted locally
 - [x] dependency edges are persisted locally
-- [ ] derived local spec status is not yet persisted locally
+- [x] derived local spec status is persisted locally
 - [x] source metadata is persisted locally
-- [ ] coverage and sync provenance storage scaffolding is not yet present
+- [x] coverage and sync provenance storage scaffolding are present
 
 Current slice notes:
 
@@ -47,6 +47,10 @@ Current slice notes:
   for persisted spec records, checklist items, dependencies, and store metadata
 - Slice 2 now replaces persisted local spec state from one parsed batch and reloads specs,
   checklist items, dependencies, and source metadata deterministically
+- Slice 3 now persists one derived local status record per spec with declared status, checklist
+  posture, dependency posture, and overall local status
+- Slice 4 now includes empty coverage and sync-provenance storage families in the materialized
+  schema and folds them into the replace and clear lifecycle
 
 ## 3. Related roadmap
 
@@ -228,6 +232,13 @@ Exit criteria:
 
 - local status state is available from storage without reparsing raw markdown
 
+Slice 3 landed with:
+
+- persisted local status records keyed by `spec_id`
+- stored checklist and dependency posture values
+- deterministic overall local status derivation during parsed-batch replacement
+- reload helpers for derived local status records
+
 ### Slice 4: Coverage and sync-provenance scaffolding
 
 - add empty or placeholder storage families for coverage and sync provenance
@@ -236,6 +247,12 @@ Exit criteria:
 Exit criteria:
 
 - later phases can populate coverage and sync provenance without redesigning the store boundary
+
+Slice 4 landed with:
+
+- empty coverage and sync-provenance storage families in the SQLite schema
+- metadata accounting for both record families
+- replace and clear lifecycle support for both tables
 
 ## 9. Validation
 
@@ -270,9 +287,9 @@ Phase 9 is complete only when:
 - [x] Add persistent checklist-item storage
 - [x] Add persistent dependency-edge storage
 - [x] Add persistent source metadata storage
-- [ ] Add derived local status persistence
-- [ ] Add coverage storage scaffolding
-- [ ] Add sync-provenance storage scaffolding
+- [x] Add derived local status persistence
+- [x] Add coverage storage scaffolding
+- [x] Add sync-provenance storage scaffolding
 - [ ] Validate changed crates and direct downstream dependents
 - [ ] Update roadmap/spec status as slices land
 
@@ -286,3 +303,11 @@ This phase should leave PRISM with one reliable answer to:
 
 Phase 10 can then build the query surface on top of a real store instead of inventing a second
 parallel cache.
+
+Current assessment:
+
+- complete
+- Phase 9 now provides a stable local storage seam for parsed specs, checklist items, dependencies,
+  source metadata, derived local status, and the empty record families that later coverage and sync
+  work will populate
+- the next correct move is Phase 10: SpecQueryEngine
