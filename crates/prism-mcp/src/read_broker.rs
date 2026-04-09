@@ -6,7 +6,11 @@ use prism_coordination::{
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
     CoordinationSnapshotV2,
 };
-use prism_core::WorkspaceSession;
+use prism_core::{
+    configured_coordination_authority_store_provider, CoordinationAuthorityBackendConfig,
+    CoordinationAuthorityBackendKind, CoordinationReadConsistency, CoordinationReadRequest,
+    CoordinationAuthorityStamp, CoordinationStateView, WorkspaceSession,
+};
 use prism_query::Prism;
 
 use crate::workspace_host::WorkspaceRuntimeBinding;
@@ -73,6 +77,13 @@ pub(crate) fn current_coordination_surface_for_workspace(
     workspace: Option<&WorkspaceSession>,
     prism: Arc<Prism>,
 ) -> Result<CurrentCoordinationSurface> {
+    if let Some(workspace) = workspace {
+        let provider = configured_coordination_authority_store_provider(workspace.root())?;
+        if db_authority_reads_collapse_to_current(provider.config()) {
+            return current_coordination_surface_from_authority(workspace, &provider);
+        }
+    }
+
     let mut snapshot = CoordinationSnapshot::default();
     let mut snapshot_v2 = CoordinationSnapshotV2::default();
     let mut read_model = CoordinationReadModel::default();
@@ -123,4 +134,65 @@ pub(crate) fn current_coordination_surface_for_workspace(
         read_model_revision,
         queue_read_model_revision,
     })
+}
+
+fn db_authority_reads_collapse_to_current(config: &CoordinationAuthorityBackendConfig) -> bool {
+    matches!(
+        config,
+        CoordinationAuthorityBackendConfig::Sqlite { .. }
+            | CoordinationAuthorityBackendConfig::Postgres { .. }
+    )
+}
+
+fn current_coordination_surface_from_authority(
+    workspace: &WorkspaceSession,
+    provider: &prism_core::CoordinationAuthorityStoreProvider,
+) -> Result<CurrentCoordinationSurface> {
+    let store = provider.open(workspace.root())?;
+    let envelope = store.read_current(CoordinationReadRequest {
+        consistency: CoordinationReadConsistency::Eventual,
+        view: CoordinationStateView::PlanState,
+    })?;
+    let authority_revision = authority_revision_from_stamp(envelope.authority.as_ref());
+    let current_state = envelope.value.unwrap_or_else(|| prism_core::CoordinationCurrentState {
+        snapshot: CoordinationSnapshot::default(),
+        canonical_snapshot_v2: CoordinationSnapshotV2::default(),
+        runtime_descriptors: Vec::new(),
+    });
+    let snapshot = current_state.snapshot;
+    let snapshot_v2 = current_state.canonical_snapshot_v2;
+    let read_model = coordination_read_model_from_snapshot(&snapshot);
+    let queue_read_model = coordination_queue_read_model_from_snapshot(&snapshot);
+    Ok(CurrentCoordinationSurface {
+        snapshot,
+        snapshot_v2,
+        read_model,
+        queue_read_model,
+        tracked_snapshot_revision: authority_revision,
+        startup_checkpoint_revision: authority_revision,
+        read_model_revision: authority_revision,
+        queue_read_model_revision: authority_revision,
+    })
+}
+
+fn authority_revision_from_stamp(authority: Option<&CoordinationAuthorityStamp>) -> Option<u64> {
+    let authority = authority?;
+    match authority.backend_kind {
+        CoordinationAuthorityBackendKind::Sqlite => {
+            parse_authority_revision_token(&authority.snapshot_id, "sqlite-revision:")
+        }
+        CoordinationAuthorityBackendKind::Postgres => {
+            parse_authority_revision_token(&authority.snapshot_id, "postgres-revision:")
+        }
+        CoordinationAuthorityBackendKind::GitSharedRefs => None,
+    }
+}
+
+fn parse_authority_revision_token(snapshot_id: &str, prefix: &str) -> Option<u64> {
+    snapshot_id
+        .strip_prefix(prefix)?
+        .split(':')
+        .next()?
+        .parse()
+        .ok()
 }

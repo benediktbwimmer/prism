@@ -1,6 +1,6 @@
 # DB Authority-First Read Path Phase 5
 
-Status: approved
+Status: partially implemented
 Audience: service, coordination, query, runtime, MCP, CLI, and storage maintainers
 Scope: collapse the default DB-backed coordination read path onto the authoritative backend,
 disable separate coordination materialization by default for SQLite and Postgres authority, and
@@ -129,7 +129,7 @@ This spec is complete when:
 
 ## 9. Implementation checklist
 
-- [ ] Route DB-backed reads directly through authority
+- [x] Route DB-backed reads directly through authority
 - [ ] Disable default DB-backed coordination materialization
 - [ ] Align freshness and diagnostics surfaces
 - [ ] Update roadmap and spec status after landing

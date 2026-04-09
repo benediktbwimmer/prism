@@ -20937,6 +20937,15 @@ fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() 
     .expect("task create should succeed");
     if let Some(workspace) = host.workspace_session() {
         workspace.flush_materializations().unwrap();
+        prism_core::CoordinationMaterializedStore::clear_materialization(
+            &prism_core::SqliteCoordinationMaterializedStore::new(workspace.root()),
+            prism_core::CoordinationMaterializedClearRequest {
+                clear_startup_checkpoint: true,
+                clear_read_models: true,
+                clear_compaction: true,
+            },
+        )
+        .expect("sqlite-default runtime status should not require local coordination materialization");
     }
     prism_core::publish_local_runtime_descriptor(&root)
         .expect("runtime descriptor should publish before diagnostics are inspected");
