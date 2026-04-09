@@ -22,7 +22,7 @@ The right role for PRISM is:
 
 - coordinate when deployment-related work should happen
 - decide whether deployment preconditions are satisfied
-- orchestrate typed delivery jobs
+- orchestrate typed delivery work
 - track durable deployment evidence and rollout state
 - integrate deployment into the same spec, task, artifact, review, and provenance model
 
@@ -47,6 +47,7 @@ PRISM already models much of what deployment workflows need:
 - validation through warm-state validation and cold CI boundaries
 - durable provenance
 - event-triggered automation
+- explicit machine workflow steps through Actions
 
 That means deployment is not an alien extra system. It is a natural later stage in the same
 lifecycle.
@@ -109,7 +110,7 @@ PRISM should be able to orchestrate deployment workflows such as:
 - environment-specific follow-up tasks
 - notifications and escalation around deployment state
 
-This fits naturally with event jobs and typed delivery jobs.
+This fits naturally with Actions, event jobs, and the shared execution substrate.
 
 ### Deployment evidence and provenance
 
@@ -148,7 +149,7 @@ PRISM should not attempt to own:
 - provider-native rollout internals
 - low-level environment provisioning
 
-Instead, typed delivery jobs should call out to those real systems.
+Instead, typed delivery executions should call out to those real systems.
 
 Examples:
 
@@ -159,11 +160,15 @@ Examples:
 
 PRISM owns the orchestration and evidence, not the substrate.
 
-## Delivery job categories
+## Delivery execution categories
 
-PRISM should eventually add typed delivery-oriented job categories on top of the event job runner
-framework described in
-[2026-04-09-event-job-runners.md](./2026-04-09-event-job-runners.md).
+PRISM should eventually add typed delivery-oriented machine work on top of:
+
+- the shared execution substrate described in
+  [2026-04-09-shared-execution-substrate.md](./2026-04-09-shared-execution-substrate.md)
+- explicit `Action` nodes described in
+  [2026-04-09-actions-and-machine-work.md](./2026-04-09-actions-and-machine-work.md)
+- event jobs described in [2026-04-09-event-job-runners.md](./2026-04-09-event-job-runners.md)
 
 Likely categories include:
 
@@ -194,8 +199,10 @@ A typical future PRISM delivery flow could look like:
    - review passed
    - artifact exists
    - integration state acceptable
-3. The event or job framework creates a typed delivery job.
-4. The appropriate runner executes the deployment-oriented action against the real delivery system.
+3. PRISM creates either:
+   - an explicit delivery Action when the step should be graph-visible
+   - or an event job when the work is secondary orchestration
+4. The appropriate runner executes the deployment-oriented work against the real delivery system.
 5. PRISM records:
    - the delivery job outcome
    - deployment evidence
@@ -299,7 +306,7 @@ Examples:
 - check canary metrics threshold
 - require explicit human acknowledgment before proceeding
 
-These are natural event or job extensions.
+These are natural execution-substrate extensions and are often good Action candidates.
 
 ### Rollback orchestration
 
@@ -327,26 +334,32 @@ More concretely:
 - promotion, rollout, and rollback should be governed by explicit policy and capability checks
 - delivery should record structured evidence and provenance, not just loose logs or human memory
 
-## Relationship to the event job runner framework
+## Relationship to the shared execution substrate
 
-The event job runner framework is the natural foundation for this future.
+The shared execution substrate is the natural foundation for this future.
 
-Event jobs already provide:
+That substrate provides:
 
-- typed categories
+- typed runner categories
 - JS or TS runners
 - service-owned orchestration
 - policy enforcement
-- durable job state
+- durable execution state
 - structured results
 
-Delivery-oriented jobs should therefore be new typed categories in that framework, not a separate
-unrelated deployment subsystem.
+Delivery-oriented machine work should use that substrate through:
+
+- explicit Actions for important graph-visible workflow steps
+- event jobs for secondary notifications, orchestration reactions, and similar non-graph work
+
+This means PRISM does not need a separate unrelated deployment subsystem.
 
 ## Relationship to other PRISM docs
 
 This design builds directly on:
 
+- [2026-04-09-shared-execution-substrate.md](./2026-04-09-shared-execution-substrate.md)
+- [2026-04-09-actions-and-machine-work.md](./2026-04-09-actions-and-machine-work.md)
 - [2026-04-09-event-job-runners.md](./2026-04-09-event-job-runners.md)
 - `docs/contracts/event-engine.md`
 - `docs/contracts/service-architecture.md`
@@ -363,7 +376,7 @@ It should later inform contracts or specs around:
 
 ### Phase 1
 
-Implement event job runners for:
+Implement the shared execution substrate and event jobs for:
 
 - webhooks
 - notifications
@@ -371,7 +384,7 @@ Implement event job runners for:
 
 ### Phase 2
 
-Add delivery-oriented categories for:
+Add delivery-oriented Actions and event-job categories for:
 
 - deployment requests
 - rollout checks
@@ -406,7 +419,7 @@ of continuous delivery while explicitly leaving deployment substrates to the sys
 The right target is:
 
 - PRISM owns delivery orchestration, policy, and evidence
-- typed delivery jobs integrate with real deployment systems
+- typed delivery executions integrate with real deployment systems
 - warm validation and cold CI feed into promotion gates
 - rollout and rollback become first-class, queryable workflow stages
 - spec, execution, validation, review, and delivery all become parts of one coherent

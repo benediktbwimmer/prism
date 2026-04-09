@@ -1,0 +1,334 @@
+# PRISM Shared Execution Substrate
+
+Status: proposed design  
+Audience: coordination, service, runtime, query, MCP, CLI, UI, and extension maintainers  
+Scope: one shared execution substrate beneath Actions, warm-state validation, and event jobs
+
+---
+
+## 1. Summary
+
+PRISM should converge machine execution onto one shared execution substrate.
+
+That substrate should sit beneath three semantically distinct families:
+
+- `Action` execution
+- warm-state validation execution
+- event job execution
+
+The substrate should unify:
+
+- capability classes
+- runner model
+- service-side routing and orchestration
+- runtime-side execution
+- durable execution records
+- result envelopes
+- retries, timeout, and budget handling
+- provenance
+
+This does **not** mean that Actions, validation, and event jobs become the same object.
+
+The intended split is:
+
+- coordination semantics remain distinct
+- execution mechanics become shared
+
+## 2. Why this substrate should exist
+
+PRISM is already evolving toward a workflow DAG that includes:
+
+- human work
+- agent work
+- machine work
+
+Without a shared execution substrate, PRISM will drift toward:
+
+- one execution model for validation
+- another for event jobs
+- and later a third for build, deploy, rollout, or publish work
+
+That would duplicate:
+
+- runner configuration
+- capability policy
+- runtime routing
+- result normalization
+- provenance
+- retry and timeout semantics
+
+The shared execution substrate should prevent that fragmentation.
+
+## 3. Semantic families above the substrate
+
+The substrate is shared by several semantic entrypoints, but those entrypoints remain distinct.
+
+### 3.1 Actions
+
+Actions are explicit coordination-graph leaf nodes representing bounded machine-executed workflow
+steps.
+
+### 3.2 Validation executions
+
+Validation remains semantically special because it is tied to:
+
+- task correctness
+- completion gating
+- artifact evidence
+- warm-state runtime posture
+
+Validation execution should therefore share the substrate without being reduced to “just another
+action.”
+
+### 3.3 Event jobs
+
+Event jobs remain orchestration-driven machine work that is usually created by:
+
+- trigger evaluation
+- recurring schedules
+- service-side reactions
+
+Event jobs do not need to be explicit coordination-graph nodes in the common case.
+
+## 4. Core stance
+
+### 4.1 Unify execution mechanics, not domain semantics
+
+PRISM should unify:
+
+- how machine work is routed
+- how machine work is executed
+- how results are recorded
+- how provenance is modeled
+
+PRISM should not flatten:
+
+- `Action`
+- validation
+- event jobs
+
+into one semantically generic workflow object.
+
+### 4.2 Service routes, runtimes usually execute
+
+The service should generally:
+
+- evaluate state and policy
+- select execution targets
+- create durable execution records
+- route work
+- record results
+
+Runtimes should generally execute the substantial work.
+
+Service-executed work should remain a small, fixed set of built-in cases such as:
+
+- webhook dispatch
+- notifications
+- tiny internal maintenance work
+
+### 4.3 Typed runners, not arbitrary shell, are the semantic surface
+
+The substrate should use typed runners plus structured input and output envelopes.
+
+This does not forbid shell commands as an implementation detail of a runner. It does forbid making
+“run arbitrary command X” the primary semantic API.
+
+## 5. Shared substrate model
+
+The shared substrate should provide at least these concepts.
+
+### 5.1 Execution capability classes
+
+One capability vocabulary should be shared across the substrate.
+
+Examples:
+
+- `cargo:test`
+- `cargo:build`
+- `pytest`
+- `docker:publish`
+- `k8s:deploy`
+- `repo:script`
+
+Capability classes should remain:
+
+- runtime-defined or policy-defined data
+- queryable
+- extensible without recompiling PRISM
+
+### 5.2 Runtime capability posture
+
+Runtime posture should also be shared across execution families.
+
+At minimum:
+
+- `declared`
+- `provisional`
+- `verified`
+
+An optional later `stale` posture can be added without changing the overall model.
+
+### 5.3 Runner categories
+
+The substrate should support one runner model with semantic categories such as:
+
+- `validation_runner`
+- `action_runner`
+- `event_runner`
+
+These categories share the same execution contract while remaining distinguishable in policy,
+routing, and query/UI surfaces.
+
+### 5.4 Execution records
+
+Durable execution records should be first-class substrate objects.
+
+At minimum they should capture:
+
+- execution id
+- semantic family
+- runner category
+- runner kind
+- requested capability class
+- target scope
+- status
+- attempt count
+- created, started, and terminal timestamps
+- timeout or budget
+- compact structured result
+- provenance
+
+### 5.5 Structured result envelopes
+
+All substrate executions should return compact structured results rather than only raw logs.
+
+At minimum:
+
+- `status`
+- `summary`
+- `duration_ms`
+- optional typed detail fields
+- optional evidence or artifact refs
+- optional diagnostics refs
+
+Raw stdout, stderr, or verbose implementation detail should remain runtime-local or artifact-backed
+where appropriate.
+
+## 6. Service and runtime roles
+
+### 6.1 Service role
+
+The service should own:
+
+- routing
+- policy checks
+- execution record creation
+- retries and timeout policy
+- durable lifecycle transitions
+- compact result normalization
+- provenance
+
+### 6.2 Runtime role
+
+Runtimes should own:
+
+- actual execution of most substantial work
+- local toolchain and warm-state access
+- runner invocation
+- local telemetry and detailed logs
+- returning structured results to the service
+
+### 6.3 Transport
+
+The preferred target shape remains:
+
+- long-lived authenticated runtime connections to the service
+- low-latency dispatch
+- structured progress and result reporting
+
+The transport should remain an implementation detail beneath the substrate contract.
+
+## 7. Provenance and trust
+
+The substrate should preserve one coherent provenance model across execution families.
+
+At minimum, every execution should be attributable to:
+
+- who requested or authorized it
+- which service routed it
+- which runtime executed it when applicable
+- which runner kind handled it
+- which capability class or posture was relied upon
+
+## 8. Relationship to Actions
+
+Actions should be one semantic consumer of the substrate.
+
+An Action:
+
+- is a coordination-graph node
+- uses the substrate to execute
+- has graph-visible dependencies and lifecycle
+
+The substrate does not define the graph semantics of Action; it only powers the execution beneath
+them.
+
+## 9. Relationship to warm-state validation
+
+Warm-state validation semantics remain defined separately.
+
+The correction here is:
+
+- validation execution should use the shared substrate
+- validation should not keep a bespoke one-off execution stack
+
+Validation still remains special in semantics:
+
+- tied to task correctness
+- tied to completion gating
+- tied to warm-state runtime ownership
+
+## 10. Relationship to event jobs
+
+Event jobs should also use the substrate.
+
+The event engine should be understood primarily as:
+
+- trigger evaluation
+- recurring or reactive orchestration
+- creation and routing of event-driven executions
+
+It should not be understood as a separate general execution plane.
+
+## 11. Query and UI expectations
+
+The shared substrate should make it easy for query and UI surfaces to show:
+
+- what kind of execution occurred
+- whether it was validation, action, or event-driven work
+- where it ran
+- what capability class it used
+- whether it succeeded, failed, timed out, or was retried
+- what compact result or evidence it produced
+
+## 12. Recommendation
+
+PRISM should adopt one shared execution substrate beneath:
+
+- Actions
+- warm-state validation
+- event jobs
+
+The substrate should unify:
+
+- execution routing
+- capability classes and posture
+- runner contracts
+- durable execution records
+- retries and timeout semantics
+- structured result envelopes
+- provenance
+
+PRISM should preserve distinct semantics above that substrate rather than flattening everything into
+generic jobs.
