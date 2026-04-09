@@ -11,7 +11,7 @@ Scope: sequencing the artifact/review model, the shared execution substrate, val
 PRISM now has several tightly related but still distinct bodies of work:
 
 - implement the coordination artifact/review model
-- refactor the coordination authority abstraction and persistence contract
+- hard-cut PRISM to a SQL-only coordination authority model
 - implement one shared execution substrate
 - move warm-state validation onto that substrate
 - add `Action` as a first-class machine-work leaf
@@ -29,7 +29,7 @@ This roadmap exists to sequence those items so that:
 The ordering principle is:
 
 - stabilize the coordination and execution model first
-- remove snapshot-shaped authority coupling before more systems build on it
+- remove shared-ref authority support and snapshot-shaped authority coupling before more systems build on it
 - then stabilize graph dataflow and reusable native plan semantics
 - only then build the JS/TS compiler and SDK on top of that settled target
 
@@ -65,7 +65,7 @@ Current implementation note (2026-04-09):
 
 - Phase 1 is landed across `prism-coordination`, `prism-query`, `prism-core`, `prism-mcp`, and `prism-js`
 - the next blocking work is replacing the snapshot-shaped authority seam before the shared execution substrate and later graph/runtime work build on the wrong persistence contract
-- the Phase 2 target spec is [../specs/2026-04-09-coordination-authority-abstraction-and-storage-refactor.md](../specs/2026-04-09-coordination-authority-abstraction-and-storage-refactor.md)
+- the Phase 2 target spec is [../specs/2026-04-09-sql-only-coordination-authority-cutover.md](../specs/2026-04-09-sql-only-coordination-authority-cutover.md)
 
 ## 3. Ordering thesis
 
@@ -77,7 +77,7 @@ it will churn every time the graph, execution, evidence, or dataflow semantics s
 The right order is:
 
 1. land durable artifact and review semantics first
-2. replace the snapshot-shaped authority contract with a storage-strategy-neutral authority seam
+2. remove the shared-ref authority backend and replace the remaining authority contract with a SQL-only seam
 3. build the shared execution substrate next
 4. prove that substrate with warm-state validation
 5. widen it to `Action`
@@ -112,11 +112,12 @@ The following work can proceed in parallel without violating the architecture:
 - During Phase 1:
   - artifact/review storage work and artifact/review query-surface work can proceed in parallel once the contract mapping is frozen
 - During Phase 2:
-  - authority trait and type redesign
+  - shared-ref authority removal
+  - authority trait and type redesign for SQL backends only
   - SQLite event-log plus projection schema design
-  - authority call-site inventory and migration planning
-  - history and export compatibility shaping
-  can proceed in parallel if they converge on one non-snapshot authority contract
+  - Postgres-oriented schema and read-shape planning
+  - authority call-site migration
+  can proceed in parallel if they converge on one SQL-only authority contract
 - During Phase 3:
   - execution-record storage
   - runner contract definition
@@ -157,7 +158,7 @@ Create or update the implementation-target specs that this roadmap will drive.
 This includes:
 
 - one spec for the coordination artifact/review model implementation slice
-- one spec for the coordination authority abstraction and storage-contract refactor
+- one spec for the SQL-only coordination authority cutover
 - one spec for the shared execution substrate core
 - one spec for warm-state validation on the substrate
 - one spec for first-class `Action`
@@ -193,19 +194,20 @@ Status note (2026-04-09):
 - complete
 - declared artifact and review requirements now round-trip through coordination mutations, canonical/shared-query surfaces, MCP payloads, and JS-facing views
 
-### Phase 2: Refactor the coordination authority abstraction and persistence contract
+### Phase 2: Hard-cut to a SQL-only coordination authority model
 
-Implement the authority-contract refactor described in:
+Implement the SQL-only cutover described in:
 
-- [../specs/2026-04-09-coordination-authority-abstraction-and-storage-refactor.md](../specs/2026-04-09-coordination-authority-abstraction-and-storage-refactor.md)
+- [../specs/2026-04-09-sql-only-coordination-authority-cutover.md](../specs/2026-04-09-sql-only-coordination-authority-cutover.md)
 
 This phase should settle:
 
-- replacement of snapshot-shaped authority reads and writes with a storage-strategy-neutral contract
-- authoritative append semantics for coordination mutations
-- shaped current-state authority reads and retention-aware history reads
-- typed current-state projections as the target storage model for hot reads
-- the migration of core product call sites away from whole-snapshot authority semantics
+- removal of the `git_shared_refs` coordination authority backend from supported product paths
+- a SQL-only authority contract shared by SQLite and future Postgres implementations
+- authoritative append semantics for coordination mutations on the DB-backed default path
+- explicit recovery-only snapshot replacement paths kept out of the hot mutation API
+- shaped current-state authority reads and retention-aware history reads aimed at SQL projections
+- migration of core product call sites, CLI surfaces, MCP surfaces, and tests off shared-ref authority assumptions
 
 This phase should explicitly exclude:
 
@@ -215,10 +217,11 @@ This phase should explicitly exclude:
 
 Exit criteria:
 
-- no product-facing authority write path requires a caller-built full coordination snapshot
+- no supported product path can configure or select `git_shared_refs` as the coordination authority backend
+- no product-facing authority write path requires a caller-built full coordination snapshot on the SQL-backed path
 - no hot current-state product read path depends on loading the full coordination snapshot by default
-- SQLite remains functional behind the new seam
-- Postgres can be implemented later without emulating snapshot-shaped authority semantics
+- SQLite remains functional behind the tightened seam
+- Postgres can be implemented later without emulating shared-ref or snapshot-shaped authority semantics
 
 ### Phase 3: Implement the shared execution substrate core
 

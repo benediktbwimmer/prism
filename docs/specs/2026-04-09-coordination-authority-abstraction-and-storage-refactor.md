@@ -1,8 +1,12 @@
 # Coordination Authority Abstraction And Storage Refactor
 
-Status: approved
+Status: superseded
 Audience: coordination, storage, runtime, query, MCP, CLI, and service maintainers
 Scope: replace the snapshot-shaped `CoordinationAuthorityStore` contract with a command, projection, and history oriented authority seam; migrate all product call sites; and define the target SQLite and Postgres authority storage model
+
+Superseded by:
+
+- [2026-04-09-sql-only-coordination-authority-cutover.md](./2026-04-09-sql-only-coordination-authority-cutover.md)
 
 ---
 
