@@ -2,10 +2,11 @@ use anyhow::{anyhow, Result};
 use std::path::Path;
 
 use prism_coordination::{
-    CanonicalTaskRecord, CoordinationTask, GitExecutionCompletionMode, GitExecutionStartMode,
-    GitPreflightReport, GitPublishReport, HandoffAcceptInput, HandoffInput, LeaseHolder,
-    PolicyViolation,
-    TaskCompletionContext, TaskGitExecution, TaskReclaimInput, TaskResumeInput, TaskUpdateInput,
+    canonical_authoritative_task_holder, canonical_current_task_holder,
+    canonical_task_lease_state, same_holder, CanonicalTaskRecord, GitExecutionCompletionMode,
+    GitExecutionStartMode, GitPreflightReport, GitPublishReport, HandoffAcceptInput,
+    HandoffInput, LeaseState, PolicyViolation, TaskCompletionContext, TaskGitExecution,
+    TaskReclaimInput, TaskResumeInput, TaskUpdateInput,
 };
 use prism_core::{
     AdmissionBusyError, AuthenticatedPrincipal, CoordinationAuthorityMutationError,
@@ -810,7 +811,7 @@ fn maybe_observe_target_integration(
         prism.workspace_revision(),
         current_timestamp(),
     )?;
-    Ok(Some(updated.id))
+    Ok(Some(CoordinationTaskId::new(updated.task.id.0.clone())))
 }
 
 fn maybe_link_review_artifact_to_task_git_execution(
@@ -1645,110 +1646,6 @@ fn ensure_authenticated_coordination_execution(
         .map_err(Into::into)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TaskLeaseStateView {
-    Unleased,
-    Active,
-    Stale,
-    Expired,
-}
-
-fn task_lease_state_at(task: &CoordinationTask, now: u64) -> TaskLeaseStateView {
-    let Some(expires_at) = task.lease_expires_at else {
-        return TaskLeaseStateView::Unleased;
-    };
-    if expires_at < now {
-        return TaskLeaseStateView::Expired;
-    }
-    if task.lease_stale_at.is_some_and(|stale_at| stale_at <= now) {
-        return TaskLeaseStateView::Stale;
-    }
-    TaskLeaseStateView::Active
-}
-
-fn session_id_from_meta(meta: &EventMeta) -> Option<prism_ir::SessionId> {
-    meta.execution_context
-        .as_ref()
-        .and_then(|context| context.session_id.as_ref())
-        .map(|value| prism_ir::SessionId::new(value.clone()))
-}
-
-fn worktree_id_from_meta(meta: &EventMeta) -> Option<String> {
-    meta.execution_context
-        .as_ref()
-        .and_then(|context| context.worktree_id.clone())
-}
-
-fn principal_from_meta(meta: &EventMeta) -> Option<prism_ir::PrincipalActor> {
-    match &meta.actor {
-        prism_ir::EventActor::Principal(principal) => Some(principal.clone()),
-        _ => None,
-    }
-}
-
-fn same_principal(left: &prism_ir::PrincipalActor, right: &prism_ir::PrincipalActor) -> bool {
-    left.authority_id == right.authority_id && left.principal_id == right.principal_id
-}
-
-fn same_task_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
-    if let (Some(left_worktree), Some(right_worktree)) =
-        (left.worktree_id.as_ref(), right.worktree_id.as_ref())
-    {
-        return left_worktree == right_worktree;
-    }
-    if let Some(left_principal) = left.principal.as_ref() {
-        return right
-            .principal
-            .as_ref()
-            .is_some_and(|right_principal| same_principal(left_principal, right_principal));
-    }
-    if let (Some(left_session), Some(right_session)) =
-        (left.session_id.as_ref(), right.session_id.as_ref())
-    {
-        return left_session == right_session;
-    }
-    if let (Some(left_agent), Some(right_agent)) = (left.agent_id.as_ref(), right.agent_id.as_ref())
-    {
-        return left_agent == right_agent;
-    }
-    false
-}
-
-fn authoritative_task_holder(task: &CoordinationTask) -> Option<LeaseHolder> {
-    let mut holder = task.lease_holder.clone().unwrap_or(LeaseHolder {
-        principal: None,
-        session_id: None,
-        worktree_id: None,
-        agent_id: None,
-    });
-    if holder.session_id.is_none() {
-        holder.session_id = task.session.clone();
-    }
-    if holder.worktree_id.is_none() {
-        holder.worktree_id = task.worktree_id.clone();
-    }
-    if holder.agent_id.is_none() {
-        holder.agent_id = task.assignee.clone();
-    }
-    (holder.principal.is_some()
-        || holder.session_id.is_some()
-        || holder.worktree_id.is_some()
-        || holder.agent_id.is_some())
-    .then_some(holder)
-}
-
-fn current_task_holder(meta: &EventMeta, task: &CoordinationTask) -> LeaseHolder {
-    LeaseHolder {
-        principal: principal_from_meta(meta),
-        session_id: session_id_from_meta(meta).or_else(|| task.session.clone()),
-        worktree_id: task
-            .worktree_id
-            .clone()
-            .or_else(|| worktree_id_from_meta(meta)),
-        agent_id: task.assignee.clone(),
-    }
-}
-
 fn coordination_execution_binding(workspace_root: Option<&Path>) -> CoordinationExecutionBinding {
     let Some(workspace_root) = workspace_root else {
         return CoordinationExecutionBinding::default();
@@ -1794,33 +1691,32 @@ fn maybe_auto_resume_stale_same_holder_task(
     task_id: &CoordinationTaskId,
     execution: &CoordinationExecutionBinding,
 ) -> Result<bool> {
-    let Some(task) = prism.coordination_task(task_id) else {
+    let Ok(task) = current_coordination_task_view(prism, task_id) else {
         return Ok(false);
     };
-    let lease_state = task_lease_state_at(&task, meta.ts);
-    if !matches!(
-        lease_state,
-        TaskLeaseStateView::Stale | TaskLeaseStateView::Expired
-    ) {
+    let lease_state = canonical_task_lease_state(&task.task, meta.ts);
+    if !matches!(lease_state, LeaseState::Stale | LeaseState::Expired) {
         return Ok(false);
     }
-    let Some(lease_holder) = authoritative_task_holder(&task) else {
+    let Some(lease_holder) = canonical_authoritative_task_holder(&task.task) else {
         return Ok(false);
     };
-    let current_holder = current_task_holder(meta, &task);
-    if !same_task_holder(&lease_holder, &current_holder) {
+    let current_holder = canonical_current_task_holder(meta, &task.task);
+    if !same_holder(&lease_holder, &current_holder) {
         return Ok(false);
     }
     prism.resume_native_task(
         next_coordination_meta(session, task_id, meta),
         TaskResumeInput {
             task_id: task_id.clone(),
-            agent: task.assignee.clone().or_else(|| execution.assignee.clone()),
+            agent: task.task.assignee.clone().or_else(|| execution.assignee.clone()),
             worktree_id: task
+                .task
                 .worktree_id
                 .clone()
                 .or_else(|| execution.worktree_id.clone()),
             branch_ref: task
+                .task
                 .branch_ref
                 .clone()
                 .or_else(|| execution.branch_ref.clone()),
@@ -1829,36 +1725,32 @@ fn maybe_auto_resume_stale_same_holder_task(
     Ok(true)
 }
 
-fn ensure_git_execution_task_admissible(task: &CoordinationTask, meta: &EventMeta) -> Result<()> {
-    let lease_state = task_lease_state_at(task, meta.ts);
-    if matches!(lease_state, TaskLeaseStateView::Unleased) {
+fn ensure_git_execution_task_admissible(task: &CanonicalTaskRecord, meta: &EventMeta) -> Result<()> {
+    let lease_state = canonical_task_lease_state(task, meta.ts);
+    if matches!(lease_state, LeaseState::Unleased) {
         return Ok(());
     }
-    let Some(lease_holder) = authoritative_task_holder(task) else {
+    let Some(lease_holder) = canonical_authoritative_task_holder(task) else {
         return Ok(());
     };
-    let current_holder = current_task_holder(meta, task);
-    if matches!(lease_state, TaskLeaseStateView::Active)
-        && same_task_holder(&lease_holder, &current_holder)
-    {
+    let current_holder = canonical_current_task_holder(meta, task);
+    if matches!(lease_state, LeaseState::Active) && same_holder(&lease_holder, &current_holder) {
         return Ok(());
     }
     match lease_state {
-        TaskLeaseStateView::Active => Err(anyhow!(
+        LeaseState::Active => Err(anyhow!(
             "coordination task `{}` is actively leased by another principal and cannot be mutated",
             task.id.0
         )),
-        TaskLeaseStateView::Stale | TaskLeaseStateView::Expired
-            if same_task_holder(&lease_holder, &current_holder) =>
-        {
+        LeaseState::Stale | LeaseState::Expired if same_holder(&lease_holder, &current_holder) => {
             Ok(())
         }
-        TaskLeaseStateView::Stale | TaskLeaseStateView::Expired => Err(anyhow!(
+        LeaseState::Stale | LeaseState::Expired => Err(anyhow!(
             "coordination task `{}` has a {:?} lease owned by another principal and must be reclaimed before it can be mutated",
             task.id.0,
             lease_state
         )),
-        TaskLeaseStateView::Unleased => Ok(()),
+        LeaseState::Unleased => Ok(()),
     }
 }
 
@@ -3449,10 +3341,8 @@ impl QueryHost {
         let root = self
             .workspace_root()
             .ok_or_else(|| anyhow!("git execution workflow requires a workspace root"))?;
-        let task = prism
-            .coordination_task(&request.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", request.task_id.0))?;
-        let plan = current_coordination_plan_view(prism.as_ref(), &task.plan)?;
+        let task = current_coordination_task_view(prism.as_ref(), &request.task_id)?;
+        let plan = current_coordination_plan_view(prism.as_ref(), &task.task.parent_plan_id)?;
         let policy = plan.plan.policy.git_execution.clone();
         let completion_status = match &request.workflow {
             GitExecutionWorkflow::Complete(desired_status) => Some(*desired_status),
@@ -3481,7 +3371,8 @@ impl QueryHost {
                 now,
             );
         let admissibility_started = std::time::Instant::now();
-        let admissibility_result = ensure_git_execution_task_admissible(&task, &admissibility_meta);
+        let admissibility_result =
+            ensure_git_execution_task_admissible(&task.task, &admissibility_meta);
         record_optional_trace_result(
             trace,
             "mutation.gitExecution.checkAdmissibility",
@@ -3513,12 +3404,12 @@ impl QueryHost {
             let record_result = self.record_task_git_execution(
                 session,
                 authenticated,
-                &request.task_id,
-                task_git_execution_record(
-                    &task.git_execution,
-                    &policy,
-                    &preflight.report,
-                    prism_ir::GitExecutionStatus::PreflightFailed,
+                    &request.task_id,
+                    task_git_execution_record(
+                        &task.task.git_execution,
+                        &policy,
+                        &preflight.report,
+                        prism_ir::GitExecutionStatus::PreflightFailed,
                     None,
                     None,
                     prism_ir::GitIntegrationStatus::NotStarted,
@@ -3548,7 +3439,7 @@ impl QueryHost {
                     &request.task_id,
                     args.clone(),
                     task_git_execution_record(
-                        &task.git_execution,
+                        &task.task.git_execution,
                         &policy,
                         &preflight.report,
                         prism_ir::GitExecutionStatus::InProgress,
@@ -3613,7 +3504,7 @@ impl QueryHost {
                                 authenticated,
                                 &request.task_id,
                                 task_git_execution_record(
-                                    &task.git_execution,
+                                    &task.task.git_execution,
                                     &policy,
                                     &preflight.report,
                                     prism_ir::GitExecutionStatus::PublishFailed,
@@ -3663,7 +3554,7 @@ impl QueryHost {
                     &request.task_id,
                     desired_status,
                     task_git_execution_record(
-                        &task.git_execution,
+                        &task.task.git_execution,
                         &policy,
                         &preflight.report,
                         prism_ir::GitExecutionStatus::PublishPending,
@@ -3692,10 +3583,10 @@ impl QueryHost {
                         session,
                         authenticated,
                         &request.task_id,
-                        Some(task.status),
+                        None,
                         Some(None),
                         task_git_execution_record(
-                            &task.git_execution,
+                            &task.task.git_execution,
                             &policy,
                             &preflight.report,
                             prism_ir::GitExecutionStatus::PublishFailed,
@@ -3741,9 +3632,9 @@ impl QueryHost {
                 }
                 let coordination_commit_message = match desired_status {
                     prism_ir::CoordinationTaskStatus::Abandoned => {
-                        format!("prism: abandon {}", task.title)
+                        format!("prism: abandon {}", task.task.title)
                     }
-                    _ => format!("prism: complete {}", task.title),
+                    _ => format!("prism: complete {}", task.task.title),
                 };
                 let mut published = GitPublishReport {
                     attempted_at: current_timestamp(),
@@ -3776,10 +3667,10 @@ impl QueryHost {
                         session,
                         authenticated,
                         &request.task_id,
-                        Some(task.status),
+                        None,
                         Some(None),
                         task_git_execution_record(
-                            &task.git_execution,
+                            &task.task.git_execution,
                             &policy,
                             &preflight.report,
                             prism_ir::GitExecutionStatus::PublishFailed,
@@ -3811,12 +3702,12 @@ impl QueryHost {
                     let final_authoritative_prism_paths =
                         prism_managed_paths(&final_authoritative_paths);
                     if !final_authoritative_prism_paths.is_empty() {
-                        let _ = commit_paths(
-                            root,
-                            &format!("prism: record failed publish {}", task.title),
-                            current_timestamp(),
-                            &final_authoritative_prism_paths,
-                        )?;
+                            let _ = commit_paths(
+                                root,
+                                &format!("prism: record failed publish {}", task.task.title),
+                                current_timestamp(),
+                                &final_authoritative_prism_paths,
+                            )?;
                     }
                     return Err(anyhow!(failure));
                 }
@@ -3829,7 +3720,7 @@ impl QueryHost {
                         Some(desired_status),
                         Some(None),
                         task_git_execution_record(
-                            &task.git_execution,
+                            &task.task.git_execution,
                             &policy,
                             &preflight.report,
                             prism_ir::GitExecutionStatus::CoordinationPublished,
@@ -4169,7 +4060,7 @@ impl QueryHost {
                         if !failed_authoritative_prism_paths.is_empty() {
                             let _ = commit_paths(
                                 root,
-                                &format!("prism: record failed integration {}", task.title),
+                                &format!("prism: record failed integration {}", task.task.title),
                                 current_timestamp(),
                                 &failed_authoritative_prism_paths,
                             )?;
@@ -4205,7 +4096,7 @@ impl QueryHost {
                     let finalize_commit_started = std::time::Instant::now();
                     let finalize_commit_result = commit_paths(
                         root,
-                        &format!("prism: record direct integration {}", task.title),
+                        &format!("prism: record direct integration {}", task.task.title),
                         current_timestamp(),
                         &final_authoritative_prism_paths,
                     );
@@ -5646,7 +5537,10 @@ impl QueryHost {
                     event_ids: Vec::new(),
                     rejected: false,
                     violations: Vec::new(),
-                    state: current_coordination_task_state(prism, &task.id)?,
+                    state: current_coordination_task_state(
+                        prism,
+                        &CoordinationTaskId::new(task.task.id.0.clone()),
+                    )?,
                 })
             }
             (None, Some(claim_id)) => {

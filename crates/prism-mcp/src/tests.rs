@@ -760,7 +760,10 @@ fn git_execution_start_auto_resumes_stale_same_principal_task() {
         .expect("git execution start should auto-resume and succeed");
 
     assert_eq!(result.state["id"], Value::from(task_id.0.to_string()));
-    assert_eq!(result.state["planId"], Value::from(plan_id.0.to_string()));
+    assert_eq!(
+        result.state["parentPlanId"],
+        Value::from(plan_id.0.to_string())
+    );
     assert_eq!(result.state["status"], Value::from("active"));
 
     let detail = server
@@ -915,10 +918,10 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
                         causation: None,
                         execution_context: execution_context.clone(),
                     },
-                    &task.id,
+                    &CoordinationTaskId::new(task.task.id.0.clone()),
                     "test setup",
                 )?;
-                Ok(task.id)
+                Ok(CoordinationTaskId::new(task.task.id.0.clone()))
             },
             |_operation, _duration, _args, _success, _error| {},
         )

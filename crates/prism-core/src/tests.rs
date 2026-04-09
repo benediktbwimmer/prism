@@ -8180,7 +8180,7 @@ fn checkpoint_materialization_preserves_authoritative_task_lease_fields() {
                 &CoordinationTaskId::new(task.task.id.0.clone()),
                 "explicit",
             )?;
-            Ok::<_, anyhow::Error>(task.id)
+            Ok::<_, anyhow::Error>(CoordinationTaskId::new(task.task.id.0.clone()))
         })
         .unwrap();
     flush_coordination_materializations(&session);

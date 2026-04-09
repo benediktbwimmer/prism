@@ -54,8 +54,11 @@ Completed follow-through:
   returning legacy task projections
 - the MCP coordination mutation test surface was updated to the v2 plan-status contract
 
-Intentional residual legacy sites after this slice:
+Historical residual legacy sites after this slice:
 
-- `maybe_auto_resume_stale_same_holder_task(...)` still uses legacy task lease-holder helpers
-- the initial git-execution admissibility gate still loads the legacy task shape because
-  `ensure_git_execution_task_admissible(...)` and related holder checks are not yet canonicalized
+- `maybe_auto_resume_stale_same_holder_task(...)`
+- the initial git-execution admissibility gate
+
+Those residual sites were removed later by:
+
+- [2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md](./2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md)

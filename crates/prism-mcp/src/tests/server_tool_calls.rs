@@ -1208,7 +1208,7 @@ async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_i
                     prism.workspace_revision(),
                     stale_ts,
                 )?;
-                Ok((plan_id, task.id))
+                Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
             },
             |_operation, _duration, _args, _success, _error| {},
         )

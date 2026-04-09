@@ -955,7 +955,7 @@ impl Prism {
         mut input: TaskUpdateInput,
         current_revision: WorkspaceRevision,
         now: u64,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         if let Some(context) = self.coordination_context() {
             if matches!(input.session, Some(Some(_))) {
                 input.worktree_id = Some(Some(context.worktree_id));
@@ -965,12 +965,14 @@ impl Prism {
                 input.branch_ref = Some(None);
             }
         }
+        let task_id = input.task_id.clone();
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| {
                 runtime.update_task_authoritative_only(meta, input, current_revision, now)
             });
         let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        self.finalize_live_coordination_mutation(snapshot, result)?;
+        self.current_native_task_view(&task_id)
     }
 
     pub fn request_native_handoff_transaction(
@@ -1124,13 +1126,15 @@ impl Prism {
         meta: EventMeta,
         task_id: &CoordinationTaskId,
         renewal_provenance: &str,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
+        let task_id = task_id.clone();
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| {
-                runtime.heartbeat_task(meta, task_id, renewal_provenance)
+                runtime.heartbeat_task(meta, &task_id, renewal_provenance)
             });
         let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        self.finalize_live_coordination_mutation(snapshot, result)?;
+        self.current_native_task_view(&task_id)
     }
 
     pub fn acquire_native_claim(

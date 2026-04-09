@@ -496,7 +496,7 @@ fn same_principal(left: &prism_ir::PrincipalActor, right: &prism_ir::PrincipalAc
     left.authority_id == right.authority_id && left.principal_id == right.principal_id
 }
 
-pub(crate) fn same_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
+pub fn same_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
     if let (Some(left_worktree), Some(right_worktree)) =
         (left.worktree_id.as_ref(), right.worktree_id.as_ref())
     {
@@ -520,23 +520,58 @@ pub(crate) fn same_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
     false
 }
 
-pub(crate) fn authoritative_task_holder(task: &CoordinationTask) -> Option<LeaseHolder> {
-    let mut holder = task.lease_holder.clone().unwrap_or(LeaseHolder {
+fn authoritative_task_holder_fields(
+    lease_holder: Option<&LeaseHolder>,
+    session: Option<&SessionId>,
+    worktree_id: Option<&str>,
+    assignee: Option<&prism_ir::AgentId>,
+) -> Option<LeaseHolder> {
+    let mut holder = lease_holder.cloned().unwrap_or(LeaseHolder {
         principal: None,
         session_id: None,
         worktree_id: None,
         agent_id: None,
     });
     if holder.session_id.is_none() {
-        holder.session_id = task.session.clone();
+        holder.session_id = session.cloned();
     }
     if holder.worktree_id.is_none() {
-        holder.worktree_id = task.worktree_id.clone();
+        holder.worktree_id = worktree_id.map(ToOwned::to_owned);
     }
     if holder.agent_id.is_none() {
-        holder.agent_id = task.assignee.clone();
+        holder.agent_id = assignee.cloned();
     }
     holder_has_identity(&holder).then_some(holder)
+}
+
+pub fn canonical_authoritative_task_holder(task: &CanonicalTaskRecord) -> Option<LeaseHolder> {
+    authoritative_task_holder_fields(
+        task.lease_holder.as_ref(),
+        task.session.as_ref(),
+        task.worktree_id.as_deref(),
+        task.assignee.as_ref(),
+    )
+}
+
+pub(crate) fn authoritative_task_holder(task: &CoordinationTask) -> Option<LeaseHolder> {
+    authoritative_task_holder_fields(
+        task.lease_holder.as_ref(),
+        task.session.as_ref(),
+        task.worktree_id.as_deref(),
+        task.assignee.as_ref(),
+    )
+}
+
+pub fn canonical_current_task_holder(meta: &EventMeta, task: &CanonicalTaskRecord) -> LeaseHolder {
+    LeaseHolder {
+        principal: principal_from_meta(meta),
+        session_id: session_id_from_meta(meta).or_else(|| task.session.clone()),
+        worktree_id: task
+            .worktree_id
+            .clone()
+            .or_else(|| worktree_id_from_meta(meta)),
+        agent_id: task.assignee.clone(),
+    }
 }
 
 pub(crate) fn current_task_holder(meta: &EventMeta, task: &CoordinationTask) -> LeaseHolder {

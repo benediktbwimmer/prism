@@ -73,6 +73,7 @@ Current phase spec:
 - [../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md)
 - [../specs/2026-04-09-host-mutation-canonical-follow-through-phase-6.md](../specs/2026-04-09-host-mutation-canonical-follow-through-phase-6.md)
 - [../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md](../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md)
 
 Current assessment:
 
@@ -171,6 +172,10 @@ Latest checkpoint:
   downstream core and MCP tests have been normalized to `CoordinationTaskId` at the mutation
   boundary, and MCP stale-resume expectations now assert canonical effective task statuses rather
   than the removed legacy raw-status response surface
+- the canonical task lease and live-runtime mutation follow-through is complete; stale-same-holder
+  auto-resume and git-execution admissibility now run on canonical task records, canonical
+  lease-holder helpers live in `prism-coordination`, and the last live-runtime native task
+  helpers now return `CoordinationTaskV2`
 - the remaining Phase 6 work is the deeper purge of active-path `CoordinationSnapshot` / legacy
   coordination-model dependencies that still exist under `prism-coordination`, `prism-query`,
   `prism-mcp` host mutation/runtime paths, and adjacent materialization code

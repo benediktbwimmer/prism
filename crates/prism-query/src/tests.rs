@@ -607,12 +607,19 @@ fn authoritative_only_task_publish_intent_does_not_auto_complete_plan() {
         )
         .unwrap();
 
-    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
+    assert_eq!(task.status, EffectiveTaskStatus::Active);
     assert_eq!(
-        task.published_task_status,
+        task.task
+            .metadata
+            .get("legacy_published_task_status")
+            .and_then(serde_json::Value::as_str),
+        Some("completed")
+    );
+    assert_eq!(task.task.parent_plan_id, plan_id);
+    assert_eq!(
+        task.task.git_execution.pending_task_status,
         Some(prism_ir::CoordinationTaskStatus::Completed)
     );
-    assert_eq!(task.plan, plan_id);
     assert_eq!(
         prism.coordination_plan(&plan_id).unwrap().status,
         PlanStatus::Active
@@ -725,9 +732,9 @@ fn authoritative_only_final_publication_auto_completes_plan() {
         )
         .unwrap();
 
-    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(task.status, EffectiveTaskStatus::Completed);
     assert_eq!(
-        task.git_execution.status,
+        task.task.git_execution.status,
         prism_ir::GitExecutionStatus::CoordinationPublished
     );
     assert_eq!(
@@ -842,9 +849,9 @@ fn authoritative_only_final_publication_bypasses_expired_same_holder_lease() {
         )
         .unwrap();
 
-    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(task.status, EffectiveTaskStatus::Completed);
     assert_eq!(
-        task.git_execution.status,
+        task.task.git_execution.status,
         prism_ir::GitExecutionStatus::CoordinationPublished
     );
     assert_eq!(
@@ -1003,9 +1010,9 @@ fn authoritative_only_target_integration_auto_completes_plan() {
         )
         .unwrap();
 
-    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(task.status, EffectiveTaskStatus::Completed);
     assert_eq!(
-        task.git_execution.integration_status,
+        task.task.git_execution.integration_status,
         prism_ir::GitIntegrationStatus::IntegratedToTarget
     );
     assert_eq!(

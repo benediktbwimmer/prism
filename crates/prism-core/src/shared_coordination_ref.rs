@@ -5564,9 +5564,9 @@ mod tests {
 
         let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
         assert_eq!(head_after, head_before);
-        assert_eq!(task.plan, plan_id);
-        assert_eq!(task.lease_started_at, Some(2));
-        assert_eq!(task.lease_refreshed_at, Some(2));
+        assert_eq!(task.task.parent_plan_id, plan_id);
+        assert_eq!(task.task.lease_started_at, Some(2));
+        assert_eq!(task.task.lease_refreshed_at, Some(2));
         let loaded = load_shared_coordination_ref_state(&root)
             .unwrap()
             .expect("shared ref state should load");
@@ -5659,8 +5659,8 @@ mod tests {
         let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
         let task_shard_head_after = super::run_git(&root, &["rev-parse", &task_shard_ref]).unwrap();
         assert_ne!(task_shard_head_after, task_shard_head_before);
-        assert_eq!(task.lease_started_at, Some(2));
-        assert_eq!(task.lease_refreshed_at, Some(1700));
+        assert_eq!(task.task.lease_started_at, Some(2));
+        assert_eq!(task.task.lease_refreshed_at, Some(1700));
         let loaded = load_shared_coordination_ref_state(&root)
             .unwrap()
             .expect("shared ref state should load");
