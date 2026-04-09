@@ -141,10 +141,20 @@ Implement:
 - machine-local service discovery under `PRISM_HOME` or `~/.prism`
 - fail-loud behavior when an explicit endpoint is configured but unavailable
 - no silent fallback from explicit hosted endpoint to local service
+- temporary explicit CLI bootstrap for local repo enrollment before the capability-gated
+  auth-backed path lands
+
+The temporary bootstrap path should be:
+
+- explicit
+- CLI-only
+- clearly documented as an interim dogfooding mechanism
+- easy to remove or narrow once the proper auth-backed enrollment path lands
 
 Exit criteria:
 
 - local and hosted service discovery are deterministic and explicit
+- pre-auth local dogfooding has an explicit repo-enrollment path instead of hidden auto-enrollment
 
 ### Phase 4: Cut MCP daemon over to runtime-only ownership and bridge-managed launch
 
@@ -199,6 +209,7 @@ Target outcome:
 - bridge-managed MCP lifecycle is smooth
 - DB-backed authority reads directly from authority by default
 - SQLite local mode and Postgres hosted mode are explicit
+- local dogfooding can explicitly enroll a repo through the temporary CLI bootstrap path
 
 This checkpoint intentionally allows PRISM to be usable for dogfooding before the full auth model
 lands.
@@ -278,6 +289,7 @@ Do not:
 - collapse agent and UI human provenance into one vague actor field
 - keep a separate coordination SQLite materialization enabled by default in DB-backed mode
 - rely on plain environment-variable service secrets for production service attestation
+- leave pre-auth repo enrollment as hidden magic instead of an explicit temporary bootstrap command
 
 ## 7. Exit condition
 
