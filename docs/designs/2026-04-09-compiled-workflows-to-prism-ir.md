@@ -103,7 +103,64 @@ It should:
 - emit source provenance
 - emit compiler version and artifact hash
 
-### 4.3 Executable PRISM IR
+The compiler implementation should primarily live in Rust so it can integrate directly with
+PRISM-native types, IR lowering, validation, and provenance machinery.
+
+That does **not** mean PRISM should fall back to a tiny declarative authoring DSL.
+
+The intended authoring experience should stay close to ordinary JS or TS control flow. The compiler
+should therefore aim to support near-full JS or TS evaluation at compile time, not just static
+parsing of a restricted syntax subset.
+
+PRISM already has a strong starting point for this through the existing `prism-js` stack:
+
+- TS parsing and transpilation support
+- embedded JS execution
+- host-call plumbing between JS and Rust
+
+The long-term target should therefore be:
+
+- JS or TS workflow-definition code as the authored source
+- Rust-hosted evaluation of that source against a workflow-authoring SDK
+- Rust capture and lowering into explicit PRISM-native IR
+
+This preserves the ergonomic “just write control flow” authoring model while keeping the compiled
+target explicit and service-safe.
+
+### 4.3 Compiler hosting model
+
+PRISM should support the same compiler core through multiple front doors.
+
+#### 4.3.1 CLI-first compile path
+
+The first delivery path should be a local CLI compile command.
+
+That path is the simplest way to:
+
+- prove the compiler model
+- iterate on authored workflow UX
+- generate and inspect compiled IR locally
+- integrate with agent-driven planning before distributed compilation exists
+
+#### 4.3.2 Runtime-hosted compile path later
+
+Later, runtimes may host the same compiler core as a capability.
+
+That will be useful for:
+
+- agent-driven authoring in remote or hosted setups
+- compile environments that need repo-local toolchains or context
+- team workflows where the service should ask a trusted runtime to compile authored definitions
+
+#### 4.3.3 Never the service hot path
+
+The service should not compile authored workflow code in its hot path.
+
+The service may later accept compiled artifacts or ask a trusted runtime or compile environment to
+produce them, but it should remain IR-driven rather than becoming the place where guest workflow
+code is evaluated.
+
+### 4.4 Executable PRISM IR
 
 This is what the service and the query layers actually care about.
 
