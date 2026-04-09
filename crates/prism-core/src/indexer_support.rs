@@ -19,7 +19,7 @@ use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::info;
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
-use crate::coordination_authority_api::initialize_coordination_authority_live_sync;
+use crate::coordination_authority_api::coordination_authority_live_sync_enabled;
 use crate::curator::{CuratorHandle, CuratorHandleRef};
 use crate::indexer::PendingFileParse;
 use crate::local_principal_registry::ensure_local_principal_registry_snapshot;
@@ -30,7 +30,7 @@ use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSessi
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{persisted_file_hash, workspace_walk};
 use crate::watch::{
-    spawn_fs_watch, spawn_protected_state_watch, spawn_shared_coordination_ref_watch,
+    spawn_coordination_authority_watch, spawn_fs_watch, spawn_protected_state_watch,
 };
 use crate::workspace_identity::coordination_persist_context_for_root;
 use crate::workspace_runtime_state::WorkspaceRuntimeState;
@@ -145,7 +145,7 @@ pub(crate) fn build_workspace_session(
     );
     let live_watches_enabled = !env_flag_enabled("PRISM_TEST_DISABLE_LIVE_WATCHERS");
     let watch_started = Instant::now();
-    let (watch, protected_state_watch, shared_coordination_ref_watch) = if live_watches_enabled {
+    let (watch, protected_state_watch, coordination_authority_watch) = if live_watches_enabled {
         let watch = Some(spawn_fs_watch(
             root.clone(),
             Arc::clone(&published_generation),
@@ -172,19 +172,22 @@ pub(crate) fn build_workspace_session(
             Arc::clone(&loaded_workspace_revision),
             coordination_enabled,
         )?);
-        initialize_coordination_authority_live_sync(&root)?;
-        let shared_coordination_ref_watch = Some(spawn_shared_coordination_ref_watch(
-            root.clone(),
-            Arc::clone(&published_generation),
-            Arc::clone(&runtime_state),
-            Arc::clone(&store),
-            Arc::clone(&cold_query_store),
-            Arc::clone(&refresh_lock),
-            Arc::clone(&loaded_workspace_revision),
-            Arc::clone(&coordination_runtime_revision),
-            coordination_enabled,
-        )?);
-        (watch, protected_state_watch, shared_coordination_ref_watch)
+        let coordination_authority_watch = if coordination_authority_live_sync_enabled(&root)? {
+            Some(spawn_coordination_authority_watch(
+                root.clone(),
+                Arc::clone(&published_generation),
+                Arc::clone(&runtime_state),
+                Arc::clone(&store),
+                Arc::clone(&cold_query_store),
+                Arc::clone(&refresh_lock),
+                Arc::clone(&loaded_workspace_revision),
+                Arc::clone(&coordination_runtime_revision),
+                coordination_enabled,
+            )?)
+        } else {
+            None
+        };
+        (watch, protected_state_watch, coordination_authority_watch)
     } else {
         (None, None, None)
     };
@@ -235,7 +238,7 @@ pub(crate) fn build_workspace_session(
         fs_snapshot,
         watch,
         protected_state_watch,
-        shared_coordination_ref_watch,
+        coordination_authority_watch,
         curator: Some(curator),
         checkpoint_materializer: Some(checkpoint_materializer),
         coordination_enabled,

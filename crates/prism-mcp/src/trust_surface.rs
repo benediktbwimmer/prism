@@ -253,7 +253,7 @@ pub(crate) fn protected_state_stream_view(
     }
 }
 
-pub(crate) fn runtime_shared_coordination_ref_view(
+pub(crate) fn runtime_coordination_authority_view(
     value: SharedCoordinationRefDiagnostics,
 ) -> RuntimeSharedCoordinationRefView {
     RuntimeSharedCoordinationRefView {
@@ -296,6 +296,13 @@ pub(crate) fn runtime_shared_coordination_ref_view(
             .map(runtime_shared_coordination_runtime_descriptor_view)
             .collect(),
     }
+}
+
+#[allow(dead_code)]
+pub(crate) fn runtime_shared_coordination_ref_view(
+    value: SharedCoordinationRefDiagnostics,
+) -> RuntimeSharedCoordinationRefView {
+    runtime_coordination_authority_view(value)
 }
 
 pub(crate) fn coordination_authority_protocol_state(
@@ -561,7 +568,7 @@ mod tests {
         mutation_bridge_execution_requires_agent_worktree_error, mutation_capability_denied_error,
         mutation_worktree_mode_mismatch_error, mutation_worktree_unregistered_error,
         peer_runtime_auth_failed_response, peer_runtime_capability_denied_response,
-        protected_state_stream_view, runtime_shared_coordination_ref_view,
+        protected_state_stream_view, runtime_coordination_authority_view,
     };
 
     #[test]
@@ -813,8 +820,8 @@ mod tests {
     }
 
     #[test]
-    fn runtime_shared_coordination_ref_view_preserves_descriptor_trust_fields() {
-        let view = runtime_shared_coordination_ref_view(SharedCoordinationRefDiagnostics {
+    fn runtime_coordination_authority_view_preserves_descriptor_trust_fields() {
+        let view = runtime_coordination_authority_view(SharedCoordinationRefDiagnostics {
             ref_name: "refs/prism/coordination".to_string(),
             head_commit: Some("abc123".to_string()),
             history_depth: 3,

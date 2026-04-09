@@ -302,7 +302,7 @@ pub(crate) fn spawn_protected_state_watch(
     })
 }
 
-pub(crate) fn spawn_shared_coordination_ref_watch(
+pub(crate) fn spawn_coordination_authority_watch(
     root: PathBuf,
     published_generation: Arc<RwLock<WorkspacePublishedGeneration>>,
     runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
@@ -315,7 +315,7 @@ pub(crate) fn spawn_shared_coordination_ref_watch(
 ) -> Result<WatchHandle> {
     let (msg_tx, msg_rx) = mpsc::channel::<WatchMessage>();
     let handle = thread::spawn(move || {
-        if let Err(error) = sync_shared_coordination_ref_watch_update(
+        if let Err(error) = sync_coordination_authority_watch_update(
             &root,
             &published_generation,
             &runtime_state,
@@ -330,7 +330,7 @@ pub(crate) fn spawn_shared_coordination_ref_watch(
                 root = %root.display(),
                 error = %error,
                 error_chain = %format_error_chain(&error),
-                "prism shared coordination ref live sync failed"
+                "prism coordination authority live sync failed"
             );
         }
         loop {
@@ -340,7 +340,7 @@ pub(crate) fn spawn_shared_coordination_ref_watch(
                 Err(mpsc::RecvTimeoutError::Timeout) => {}
             }
 
-            if let Err(error) = sync_shared_coordination_ref_watch_update(
+            if let Err(error) = sync_coordination_authority_watch_update(
                 &root,
                 &published_generation,
                 &runtime_state,
@@ -355,7 +355,7 @@ pub(crate) fn spawn_shared_coordination_ref_watch(
                     root = %root.display(),
                     error = %error,
                     error_chain = %format_error_chain(&error),
-                    "prism shared coordination ref live sync failed"
+                    "prism coordination authority live sync failed"
                 );
             }
         }
@@ -1220,7 +1220,7 @@ pub(crate) fn sync_protected_state_watch_update(
     Ok(())
 }
 
-pub(crate) fn sync_shared_coordination_ref_watch_update(
+pub(crate) fn sync_coordination_authority_watch_update(
     root: &Path,
     published_generation: &Arc<RwLock<WorkspacePublishedGeneration>>,
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
@@ -1444,7 +1444,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_coordination_ref_watch_sync_ignores_shared_runtime_workspace_revision() {
+    fn coordination_authority_watch_sync_ignores_shared_runtime_workspace_revision() {
         ensure_test_live_watches_disabled();
         let shared_runtime_root = temp_root("shared-runtime-watch");
         let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");

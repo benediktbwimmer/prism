@@ -14,7 +14,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context, Result};
 use prism_core::{
-    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor, PrismPaths, PrismRuntimeMode,
+    coordination_authority_diagnostics, publish_local_runtime_descriptor,
+    CoordinationAuthorityBackendDetails, PrismPaths, PrismRuntimeMode,
 };
 
 use crate::cli::{CoordinationAuthorityBackendArg, McpCommand};
@@ -357,7 +358,10 @@ fn status(root: &Path) -> Result<()> {
             paths.coordination_materialization_path.display()
         );
     }
-    if let Some(shared_coordination_ref) = shared_coordination_ref_diagnostics(root)? {
+    let authority_diagnostics = coordination_authority_diagnostics(root)?;
+    if let CoordinationAuthorityBackendDetails::GitSharedRefs(shared_coordination_ref) =
+        authority_diagnostics.backend_details
+    {
         println!(
             "shared_coordination_ref: {}",
             shared_coordination_ref.ref_name
@@ -411,14 +415,14 @@ fn public_url(root: &Path, url: Option<&str>, clear: bool) -> Result<()> {
     }
     if clear {
         clear_public_url(&paths)?;
-        sync_live_runtime_descriptor(root)?;
+        publish_local_runtime_descriptor(root)?;
         println!("cleared public_url");
         return Ok(());
     }
     if let Some(url) = url {
         let url = normalize_public_url(url)?;
         write_public_url(&paths, &url)?;
-        sync_live_runtime_descriptor(root)?;
+        publish_local_runtime_descriptor(root)?;
         println!("public_url: {url}");
         return Ok(());
     }

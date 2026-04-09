@@ -20867,7 +20867,7 @@ fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
 }
 
 #[test]
-fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
+fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() {
     let root = init_git_workspace("task/shared-coordination-runtime-status");
     enable_shared_coordination_ref_publish(&root);
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
@@ -20914,42 +20914,15 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
     if let Some(workspace) = host.workspace_session() {
         workspace.flush_materializations().unwrap();
     }
-    prism_core::sync_live_runtime_descriptor(&root)
+    prism_core::publish_local_runtime_descriptor(&root)
         .expect("runtime descriptor should publish before diagnostics are inspected");
 
     let status = crate::runtime_views::refresh_cached_runtime_status(&host)
         .expect("runtime status should succeed");
-    let shared = status
-        .shared_coordination_ref
-        .expect("shared coordination diagnostics should be present");
-    assert!(shared.ref_name.starts_with("refs/prism/coordination/"));
-    assert!(shared.head_commit.is_some());
-    assert!(shared.history_depth >= 1);
-    assert!(shared.snapshot_file_count > 0);
-    assert!(shared.current_manifest_digest.is_some());
-    assert_eq!(
-        shared.current_manifest_digest,
-        shared.last_verified_manifest_digest
-    );
-    assert!(shared.summary_published_at.is_some());
-    let lagging_total = shared.lagging_task_shard_refs
-        + shared.lagging_claim_shard_refs
-        + shared.lagging_runtime_refs;
-    assert_eq!(
-        shared.authoritative_fallback_required,
-        lagging_total > 0 || shared.summary_freshness_status == "ambiguous"
-    );
     assert!(
-        matches!(
-            shared.summary_freshness_status.as_str(),
-            "current" | "stale" | "ambiguous"
-        ),
-        "unexpected shared coordination freshness status: {}",
-        shared.summary_freshness_status
+        status.shared_coordination_ref.is_none(),
+        "sqlite-default authority should not surface git shared-coordination diagnostics"
     );
-    assert!(shared.last_successful_publish_at.is_some());
-    assert_eq!(shared.last_successful_publish_retry_count, 0);
-    assert_eq!(shared.publish_retry_budget, 3);
     assert!(!status.assisted_lease_renewal.enabled);
     assert_eq!(
         status.assisted_lease_renewal.env_var,
@@ -20967,15 +20940,6 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
         .assisted_lease_renewal
         .bounded_by
         .contains(&"plan_assisted_mode".to_string()));
-    assert_eq!(
-        shared.runtime_descriptor_count,
-        shared.runtime_descriptors.len()
-    );
-    if let Some(descriptor) = shared.runtime_descriptors.first() {
-        assert!(descriptor
-            .capabilities
-            .contains(&prism_js::RuntimeDescriptorCapabilityView::CoordinationRefPublisher));
-    }
 }
 
 #[test]

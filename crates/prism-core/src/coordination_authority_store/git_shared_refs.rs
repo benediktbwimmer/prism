@@ -10,12 +10,12 @@ use super::types::{
     CoordinationAuthorityProvenance, CoordinationAuthorityStamp, CoordinationConflictInfo,
     CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
     CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
-    CoordinationTransactionBase, CoordinationTransactionRequest, CoordinationTransactionResult,
-    CoordinationTransactionDiagnostic, CoordinationTransactionStatus,
+    CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
+    CoordinationTransactionResult, CoordinationTransactionStatus,
     EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
     EventExecutionTransitionRequest, EventExecutionTransitionResult,
-    EventExecutionTransitionStatus, RuntimeDescriptorClearRequest,
-    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    EventExecutionTransitionStatus, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
+    RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use crate::shared_coordination_ref::{
@@ -409,8 +409,9 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
             CoordinationAuthorityBackendDetails::GitSharedRefs(value) => {
                 value.runtime_descriptors.len()
             }
-            CoordinationAuthorityBackendDetails::Sqlite { .. } => 0,
-            CoordinationAuthorityBackendDetails::Unavailable => 0,
+            CoordinationAuthorityBackendDetails::Sqlite(_)
+            | CoordinationAuthorityBackendDetails::Postgres(_)
+            | CoordinationAuthorityBackendDetails::Unavailable => 0,
         };
         Ok(CoordinationAuthorityDiagnostics {
             backend_kind: CoordinationAuthorityBackendKind::GitSharedRefs,

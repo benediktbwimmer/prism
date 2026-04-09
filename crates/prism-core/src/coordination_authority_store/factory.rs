@@ -3,8 +3,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 
+use super::db::{
+    open_postgres_coordination_authority_store, open_sqlite_coordination_authority_store,
+};
 use super::git_shared_refs::GitSharedRefsCoordinationAuthorityStore;
-use super::sqlite::SqliteCoordinationAuthorityStore;
 use super::traits::CoordinationAuthorityStore;
 use crate::PrismPaths;
 
@@ -17,7 +19,9 @@ pub enum CoordinationAuthorityBackendConfig {
 
 impl Default for CoordinationAuthorityBackendConfig {
     fn default() -> Self {
-        Self::GitSharedRefs
+        Self::Sqlite {
+            db_path: PathBuf::new(),
+        }
     }
 }
 
@@ -177,13 +181,12 @@ pub fn open_coordination_authority_store(
         CoordinationAuthorityBackendConfig::GitSharedRefs => {
             Ok(Box::new(GitSharedRefsCoordinationAuthorityStore::new(root)))
         }
-        CoordinationAuthorityBackendConfig::Sqlite { db_path } => Ok(Box::new(
-            SqliteCoordinationAuthorityStore::new(root, db_path),
-        )),
-        CoordinationAuthorityBackendConfig::Postgres { connection_url } => Err(anyhow!(
-            "postgres-backed coordination authority is not implemented yet (configured connection: {})",
-            connection_url
-        )),
+        CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
+            open_sqlite_coordination_authority_store(root, db_path)
+        }
+        CoordinationAuthorityBackendConfig::Postgres { connection_url } => {
+            open_postgres_coordination_authority_store(root, connection_url)
+        }
     }
 }
 
@@ -206,6 +209,7 @@ mod tests {
         resolve_coordination_authority_store_provider, CoordinationAuthorityBackendConfig,
         CoordinationAuthorityStoreProvider,
     };
+    use crate::{CoordinationAuthorityBackendKind, CoordinationDiagnosticsRequest};
 
     static NEXT_TEMP_ROOT: AtomicU64 = AtomicU64::new(0);
 
@@ -222,10 +226,12 @@ mod tests {
     }
 
     #[test]
-    fn default_backend_config_is_git_shared_refs() {
+    fn default_backend_config_is_sqlite() {
         assert_eq!(
             CoordinationAuthorityBackendConfig::default(),
-            CoordinationAuthorityBackendConfig::GitSharedRefs
+            CoordinationAuthorityBackendConfig::Sqlite {
+                db_path: PathBuf::new(),
+            }
         );
     }
 
@@ -234,7 +240,9 @@ mod tests {
         let provider = default_coordination_authority_store_provider();
         assert_eq!(
             provider.config(),
-            &CoordinationAuthorityBackendConfig::GitSharedRefs
+            &CoordinationAuthorityBackendConfig::Sqlite {
+                db_path: PathBuf::new(),
+            }
         );
     }
 
@@ -245,15 +253,20 @@ mod tests {
             CoordinationAuthorityStoreProvider::new(CoordinationAuthorityBackendConfig::Sqlite {
                 db_path: root.join("coordination-authority.db"),
             });
-        let store = provider
-            .open(&root)
-            .expect("sqlite backend should now open");
-        assert!(store.capabilities().supports_transactions);
-        let _ = fs::remove_dir_all(root);
+        let store = provider.open(&root).expect("sqlite backend should open");
+        let diagnostics = store
+            .diagnostics(CoordinationDiagnosticsRequest {
+                include_backend_details: true,
+            })
+            .expect("sqlite diagnostics");
+        assert_eq!(
+            diagnostics.backend_kind,
+            CoordinationAuthorityBackendKind::Sqlite
+        );
     }
 
     #[test]
-    fn opening_sqlite_backend_returns_sqlite_store() {
+    fn opening_sqlite_backend_uses_sqlite_authority() {
         let root = temp_root();
         let store = open_coordination_authority_store(
             &root,
@@ -262,8 +275,15 @@ mod tests {
             },
         )
         .expect("sqlite backend should open");
-        assert!(store.capabilities().supports_retained_history);
-        let _ = fs::remove_dir_all(root);
+        let diagnostics = store
+            .diagnostics(CoordinationDiagnosticsRequest {
+                include_backend_details: true,
+            })
+            .expect("sqlite diagnostics");
+        assert_eq!(
+            diagnostics.backend_kind,
+            CoordinationAuthorityBackendKind::Sqlite
+        );
     }
 
     #[test]

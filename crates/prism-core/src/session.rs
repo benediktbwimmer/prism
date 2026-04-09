@@ -471,7 +471,7 @@ pub struct WorkspaceSession {
     pub(crate) fs_snapshot: Arc<Mutex<WorkspaceTreeSnapshot>>,
     pub(crate) watch: Option<WatchHandle>,
     pub(crate) protected_state_watch: Option<WatchHandle>,
-    pub(crate) shared_coordination_ref_watch: Option<WatchHandle>,
+    pub(crate) coordination_authority_watch: Option<WatchHandle>,
     pub(crate) curator: Option<CuratorHandle>,
     pub(crate) checkpoint_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) coordination_enabled: bool,
@@ -3087,7 +3087,7 @@ impl Drop for WorkspaceSession {
             let _ = watch.stop.send(WatchMessage::Stop);
             let _ = watch.handle.join();
         }
-        if let Some(watch) = self.shared_coordination_ref_watch.take() {
+        if let Some(watch) = self.coordination_authority_watch.take() {
             let _ = watch.stop.send(WatchMessage::Stop);
             let _ = watch.handle.join();
         }

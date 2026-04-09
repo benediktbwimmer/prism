@@ -4,9 +4,10 @@ use std::hash::{Hash, Hasher};
 use anyhow::Result;
 use prism_coordination::{EventExecutionOwner, EventExecutionRecord, Plan};
 use prism_core::{
-    CoordinationReadConsistency, EventExecutionOwnerExpectation, EventExecutionRecordAuthorityQuery,
-    EventExecutionTransitionKind, EventExecutionTransitionPreconditions,
-    EventExecutionTransitionRequest, EventExecutionTransitionStatus,
+    CoordinationReadConsistency, EventExecutionOwnerExpectation,
+    EventExecutionRecordAuthorityQuery, EventExecutionTransitionKind,
+    EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
+    EventExecutionTransitionStatus,
 };
 use prism_ir::{EventExecutionId, EventExecutionStatus, EventTriggerKind, NodeRef, Timestamp};
 use serde_json::Value;
@@ -37,7 +38,9 @@ pub(crate) struct EventTriggerClaimLoopCandidate {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum EventTriggerClaimSkipReason {
-    ExistingExecution { status: EventExecutionStatus },
+    ExistingExecution {
+        status: EventExecutionStatus,
+    },
     ActiveTargetExecution {
         event_execution_id: EventExecutionId,
         status: EventExecutionStatus,
@@ -80,11 +83,12 @@ impl WorkspaceEventEngine {
         request: EventTriggerClaimLoopRequest,
     ) -> Result<EventTriggerClaimLoopResult> {
         let candidates = self.due_trigger_candidates(&request)?;
-        let existing_records = self.read_event_execution_records(EventExecutionRecordAuthorityQuery {
-            consistency: CoordinationReadConsistency::Strong,
-            event_execution_id: None,
-            limit: None,
-        })?;
+        let existing_records =
+            self.read_event_execution_records(EventExecutionRecordAuthorityQuery {
+                consistency: CoordinationReadConsistency::Strong,
+                event_execution_id: None,
+                limit: None,
+            })?;
         let owner = claim_owner(self.workspace_root())?;
         let mut outcomes = Vec::with_capacity(candidates.len());
 
@@ -117,17 +121,18 @@ impl WorkspaceEventEngine {
             }
 
             let record = candidate.claim_record(request.now, owner.clone());
-            let result = self.apply_event_execution_transition(EventExecutionTransitionRequest {
-                event_execution_id: candidate.event_execution_id.clone(),
-                preconditions: EventExecutionTransitionPreconditions {
-                    require_missing: true,
-                    expected_status: None,
-                    expected_owner: EventExecutionOwnerExpectation::Any,
-                },
-                transition: EventExecutionTransitionKind::Claim {
-                    record: record.clone(),
-                },
-            })?;
+            let result =
+                self.apply_event_execution_transition(EventExecutionTransitionRequest {
+                    event_execution_id: candidate.event_execution_id.clone(),
+                    preconditions: EventExecutionTransitionPreconditions {
+                        require_missing: true,
+                        expected_status: None,
+                        expected_owner: EventExecutionOwnerExpectation::Any,
+                    },
+                    transition: EventExecutionTransitionKind::Claim {
+                        record: record.clone(),
+                    },
+                })?;
 
             match result.status {
                 EventExecutionTransitionStatus::Applied => {
@@ -277,7 +282,10 @@ fn claim_owner(workspace_root: &std::path::Path) -> Result<EventExecutionOwner> 
         principal: None,
         session_id: None,
         worktree_id: Some(worktree_fingerprint.clone()),
-        service_instance_id: Some(format!("service:{}:{worktree_fingerprint}", std::process::id())),
+        service_instance_id: Some(format!(
+            "service:{}:{worktree_fingerprint}",
+            std::process::id()
+        )),
     })
 }
 

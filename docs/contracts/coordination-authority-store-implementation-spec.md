@@ -409,21 +409,22 @@ This is where the upcoming transactional coordination mutation action should lan
 
 #### Current call sites to replace
 
-- `524`: `prism_core::sync_live_runtime_descriptor(root)`
-- `855`: `prism_core::sync_live_runtime_descriptor(workspace.root())`
+- `524`: runtime descriptor publication helper call
+- `855`: runtime descriptor publication helper call
 
 #### Required change
 
 Workspace server / host startup should publish runtime descriptors through the authority store,
-not via a direct shared-ref helper.
+not via a direct shared-ref helper. The product-facing helper should be authority-neutral, for
+example `publish_local_runtime_descriptor(...)`.
 
 ### M. `crates/prism-cli/src/mcp.rs`
 
 #### Current call sites to replace
 
 - `320`: `shared_coordination_ref_diagnostics(root)?`
-- `374`: `sync_live_runtime_descriptor(root)?`
-- `381`: `sync_live_runtime_descriptor(root)?`
+- `374`: runtime descriptor publication helper call
+- `381`: runtime descriptor publication helper call
 
 #### Required change
 
@@ -453,6 +454,8 @@ Two sub-rules:
   view
 - Git-specific fields such as manifest digests or compaction history stay nested in backend detail
   fields
+- non-Git default backends must not surface the shared-ref diagnostic object as if it were a
+  backend-neutral authority status view
 
 `runtime_freshness_from_inputs(...)` may continue to compare local materialization lag, but its
 **authoritative** side must come from the authority store’s current authority metadata rather than
@@ -560,7 +563,9 @@ After the migration is complete, these responsibilities should no longer exist o
 ### 7.1 Delete or demote public surfaces
 
 - `shared_coordination_ref_diagnostics(...)` as a top-level public API
-- `sync_live_runtime_descriptor(...)` as a top-level public API
+  demote it to an explicitly Git-specific helper such as
+  `git_shared_coordination_ref_diagnostics(...)`
+- `sync_live_runtime_descriptor(...)` as the primary product-facing publication helper
 - direct authoritative loader helpers in `published_plans.rs`
 - direct shared-ref polling helpers in `watch.rs`
 
@@ -584,6 +589,8 @@ coordination authority is persisted.
 - add `CoordinationAuthorityStore`
 - add backend-neutral read, transaction, history, descriptor, and diagnostics types
 - add a Git backend adapter that delegates to the current shared-ref implementation
+- harden backend taxonomy and backend-details shaping so SQLite and Postgres fit the public seam
+  before the DB family lands
 
 ### Phase 2: cut over current-state reads in `session.rs`
 
@@ -600,7 +607,7 @@ coordination authority is persisted.
 
 - migrate MCP runtime status, peer routing, and CLI status/public-url commands
 - delete direct external use of `shared_coordination_ref_diagnostics(...)` and
-  `sync_live_runtime_descriptor(...)`
+  the legacy shared-ref-shaped runtime descriptor publication helper
 
 ### Phase 5: cut over mutation persistence
 

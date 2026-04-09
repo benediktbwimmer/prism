@@ -34,54 +34,7 @@ impl SqliteCoordinationMaterializedStore {
     }
 
     fn open_store(&self) -> Result<SqliteStore> {
-        let paths = PrismPaths::for_workspace_root(&self.root)?;
-        self.migrate_legacy_worktree_coordination_state(&paths)?;
-        SqliteStore::open(paths.coordination_materialization_db_path()?)
-    }
-    fn migrate_legacy_worktree_coordination_state(&self, paths: &PrismPaths) -> Result<()> {
-        let target_db_path = paths.coordination_materialization_db_path()?;
-        let legacy_db_path = paths.worktree_cache_db_path()?;
-
-        if target_db_path == legacy_db_path || !legacy_db_path.exists() || target_db_path.exists() {
-            return Ok(());
-        }
-
-        let mut target_store = SqliteStore::open(&target_db_path)?;
-        let mut legacy_store = SqliteStore::open(&legacy_db_path)?;
-        if let Some(checkpoint) =
-            CoordinationCheckpointStore::load_coordination_startup_checkpoint(&mut legacy_store)?
-        {
-            CoordinationCheckpointStore::save_coordination_startup_checkpoint(
-                &mut target_store,
-                &checkpoint,
-            )?;
-        }
-        if let Some(read_model) =
-            CoordinationCheckpointStore::load_coordination_read_model(&mut legacy_store)?
-        {
-            CoordinationCheckpointStore::save_coordination_read_model(
-                &mut target_store,
-                &read_model,
-            )?;
-        }
-        if let Some(queue_read_model) =
-            CoordinationCheckpointStore::load_coordination_queue_read_model(&mut legacy_store)?
-        {
-            CoordinationCheckpointStore::save_coordination_queue_read_model(
-                &mut target_store,
-                &queue_read_model,
-            )?;
-        }
-        if let Some(snapshot) =
-            prism_store::Store::load_coordination_event_stream(&mut legacy_store)?.fallback_snapshot
-        {
-            CoordinationCheckpointStore::save_coordination_compaction(
-                &mut target_store,
-                &snapshot,
-            )?;
-        }
-
-        Ok(())
+        open_coordination_materialized_sqlite_store(&self.root)
     }
 
     fn load_metadata_from_store(
@@ -127,6 +80,56 @@ impl SqliteCoordinationMaterializedStore {
         let value = load(&mut store)?;
         Ok(CoordinationMaterializedReadEnvelope::new(metadata, value))
     }
+}
+
+pub(crate) fn coordination_materialization_db_path(root: &Path) -> Result<PathBuf> {
+    PrismPaths::for_workspace_root(root)?.coordination_materialization_db_path()
+}
+
+pub(crate) fn open_coordination_materialized_sqlite_store(root: &Path) -> Result<SqliteStore> {
+    let paths = PrismPaths::for_workspace_root(root)?;
+    migrate_legacy_worktree_coordination_state(&paths)?;
+    SqliteStore::open(paths.coordination_materialization_db_path()?)
+}
+
+fn migrate_legacy_worktree_coordination_state(paths: &PrismPaths) -> Result<()> {
+    let target_db_path = paths.coordination_materialization_db_path()?;
+    let legacy_db_path = paths.worktree_cache_db_path()?;
+
+    if target_db_path == legacy_db_path || !legacy_db_path.exists() || target_db_path.exists() {
+        return Ok(());
+    }
+
+    let mut target_store = SqliteStore::open(&target_db_path)?;
+    let mut legacy_store = SqliteStore::open(&legacy_db_path)?;
+    if let Some(checkpoint) =
+        CoordinationCheckpointStore::load_coordination_startup_checkpoint(&mut legacy_store)?
+    {
+        CoordinationCheckpointStore::save_coordination_startup_checkpoint(
+            &mut target_store,
+            &checkpoint,
+        )?;
+    }
+    if let Some(read_model) =
+        CoordinationCheckpointStore::load_coordination_read_model(&mut legacy_store)?
+    {
+        CoordinationCheckpointStore::save_coordination_read_model(&mut target_store, &read_model)?;
+    }
+    if let Some(queue_read_model) =
+        CoordinationCheckpointStore::load_coordination_queue_read_model(&mut legacy_store)?
+    {
+        CoordinationCheckpointStore::save_coordination_queue_read_model(
+            &mut target_store,
+            &queue_read_model,
+        )?;
+    }
+    if let Some(snapshot) =
+        prism_store::Store::load_coordination_event_stream(&mut legacy_store)?.fallback_snapshot
+    {
+        CoordinationCheckpointStore::save_coordination_compaction(&mut target_store, &snapshot)?;
+    }
+
+    Ok(())
 }
 
 impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {

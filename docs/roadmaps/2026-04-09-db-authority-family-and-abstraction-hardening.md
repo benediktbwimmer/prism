@@ -1,0 +1,307 @@
+# DB Authority Family And Abstraction Hardening
+
+Status: in progress
+Audience: coordination, service, storage, MCP, CLI, deployment, and authority-backend maintainers
+Scope: introduce the internal DB-backed coordination authority family beneath `CoordinationAuthorityStore`, make SQLite the default functioning backend, add Postgres through the same seam, and harden the authority and service abstractions along the way
+
+---
+
+## 1. Summary
+
+PRISM already has a real public coordination authority seam:
+
+- `CoordinationAuthorityStore`
+
+PRISM also already has an accepted release-order decision:
+
+- DB-backed coordination authority is the release-oriented path
+- SQLite is the local single-instance path
+- Postgres is the hosted or multi-instance path
+- Git shared refs remain supported, but are not the primary launch backend
+
+What is still missing is the implementation family beneath that public seam.
+
+The codebase is at the point where this work now makes sense to do, but it should not be treated
+as a narrow backend drop-in. The current authority seam is good enough to build on, yet still
+shows several migration-era mismatches:
+
+- backend taxonomy and diagnostics are still partly Git-shaped
+- live-sync and a few authority-adjacent helpers still import shared-ref behavior directly
+- default backend selection still points at Git
+- some result and metadata types still reflect the first backend more than the steady-state family
+
+This roadmap exists to finish that transition cleanly.
+
+The end state is:
+
+1. `CoordinationAuthorityStore` remains the only product-facing authority contract
+2. one internal DB authority family sits beneath it
+3. `SqliteCoordinationDb` is the first real implementation of that family
+4. SQLite becomes the default functioning backend for `CoordinationAuthorityStore`
+5. `PostgresCoordinationDb` lands through the same family seam
+6. Git shared refs remain supported without continuing to shape upper layers incorrectly
+7. the surrounding abstractions and service wiring are cleaner and harder to bypass than they are today
+
+This roadmap follows and sharpens:
+
+- [2026-04-08-coordination-to-spec-engine-to-service.md](./2026-04-08-coordination-to-spec-engine-to-service.md)
+- [2026-04-09-platform-seam-follow-through.md](./2026-04-09-platform-seam-follow-through.md)
+- [../specs/2026-04-09-db-backed-service-foundation-phase-15.md](../specs/2026-04-09-db-backed-service-foundation-phase-15.md)
+- [../adrs/2026-04-08-db-backed-coordination-authority-first.md](../adrs/2026-04-08-db-backed-coordination-authority-first.md)
+
+## 2. Status
+
+Current phase checklist:
+
+- [x] Phase 1: harden the public authority seam for a backend family
+- [x] Phase 2: introduce the internal DB authority abstraction
+- [x] Phase 3: implement SQLite authority and make it the default backend
+- [ ] Phase 4: complete service and product-surface adoption on the SQLite default path
+- [ ] Phase 5: implement Postgres through the same DB authority seam
+- [ ] Phase 6: remove remaining migration mismatches and document the steady state
+
+Current active phase:
+
+- Phase 4: complete service and product-surface adoption on the SQLite default path
+
+Current phase spec:
+
+- [../specs/2026-04-09-sqlite-default-authority-semantics-follow-through-phase-4.md](../specs/2026-04-09-sqlite-default-authority-semantics-follow-through-phase-4.md)
+
+Current assessment:
+
+- the public `CoordinationAuthorityStore` trait is real and broad enough to build on
+- the provider and backend-config selection seam already exists
+- the current Git backend is already routed through that seam
+- the accepted architecture and spec docs already target a DB-backed family beneath the authority store
+- the remaining work is primarily implementation, seam hardening, and cleanup rather than another large semantic redesign
+
+Latest checkpoint:
+
+- the roadmap and phase-1 spec are now written and linked
+- the authority backend taxonomy now names `GitSharedRefs`, `Sqlite`, and `Postgres`
+- authority diagnostics now use a backend-family details enum rather than only Git or unavailable
+- the main CLI and MCP diagnostics consumers now load authority diagnostics through the store seam
+- Phase 1 is complete and the internal DB authority seam now exists under
+  `coordination_authority_store/db/`
+- SQL backend factory selection now routes through that DB seam while SQLite and Postgres still
+  fail closed explicitly
+- Phase 2 is complete and the active work moved into the first functioning SQLite authority backend
+- the SQLite authority backend now reads authoritative state from the repo-shared coordination DB,
+  applies authority transactions, persists runtime descriptors through the checkpoint surface,
+  surfaces SQLite diagnostics and retained history, and is selected as the default authority backend
+- Phase 3 is complete; the active cleanup is now service and product-surface follow-through around
+  the SQLite-first default
+- the first Phase 4 cleanup slice now makes authority live-sync backend-gated, skips pointless
+  polling-watch startup on SQLite-default sessions, and renames backend-neutral watch/session
+  ownership away from shared-ref language
+- the next Phase 4 cleanup slice is runtime descriptor publication follow-through so production
+  surfaces stop calling the authority-backed publication path by the legacy shared-ref sync name
+- the runtime descriptor publication follow-through slice is complete; the next cleanup is removing
+  diagnostic-backed descriptor discovery from peer runtime routing
+- the peer-runtime descriptor discovery cleanup is complete; the next Phase 4 cleanup is demoting
+  the Git-only diagnostics helper from the primary public authority surface
+- the Git-diagnostics demotion cleanup is complete; the next Phase 4 cleanup is authority-neutral
+  naming follow-through inside MCP runtime-status caching and trust-surface helpers
+- the runtime-status authority-view cleanup is complete; backend-neutral MCP status caching and
+  trust-surface shaping now use coordination-authority-oriented internal naming while preserving
+  the legacy shared-ref compatibility field at the response edge
+- the next Phase 4 cleanup is SQLite-default authority semantics follow-through so shared-ref tests
+  explicitly opt into the Git backend and backend-neutral persistence tests assert the settled
+  SQLite authority and coordination materialization behavior
+- the SQLite-default authority semantics follow-through is complete; shared-ref tests now select
+  Git authority explicitly, backend-neutral persistence tests now assert SQLite-first authority and
+  materialization semantics directly, and the full workspace test suite is green again on the
+  SQLite-default path
+
+## 3. Ordering thesis
+
+This work should deliberately balance two priorities at the same time:
+
+1. establish the internal DB authority family and make SQLite the real default backend
+2. harden the existing abstractions and clean up the architecture as those implementations land
+
+It should not be done as:
+
+- “just add SQLite quickly and clean up later”
+- or “spend weeks polishing abstractions without landing the DB family”
+
+The correct order is interleaved:
+
+1. harden the existing public seam just enough that the DB family will fit cleanly
+2. introduce the internal DB abstraction beneath that seam
+3. land SQLite as the first working backend and switch the default to it
+4. finish the service-shell and product-surface follow-through needed for the SQLite default path
+5. add Postgres against the same internal seam
+6. delete or narrow the remaining migration-era Git-shaped abstractions and update the docs to the true steady state
+
+The core rule is:
+
+- no second product-facing authority abstraction
+
+`CoordinationAuthorityStore` stays the public contract.
+The DB family seam remains an internal implementation boundary.
+
+## 4. Phases
+
+### Phase 1: Harden the public authority seam for a backend family
+
+Before adding the DB family, clean up the parts of the authority surface that still reflect the
+first backend too directly.
+
+This includes:
+
+- making backend taxonomy coherent for all intended authority backends
+- removing obviously Git-only assumptions from authority diagnostics and metadata envelopes
+- tightening any request or result types that are too implementation-shaped to support a family
+- reducing or isolating remaining Git-specific authority behavior outside the backend implementation
+- making strong, eventual, history, descriptor, and diagnostics semantics explicit where the code is still thinner than the contract
+
+Exit criteria:
+
+- the public authority types describe a backend family cleanly instead of a Git backend plus future placeholders
+- Git-specific authority details no longer shape the public seam more than necessary
+- the next phase can introduce the DB family without another public API rethink
+
+### Phase 2: Introduce the internal DB authority abstraction
+
+Introduce one internal DB authority family beneath `CoordinationAuthorityStore`.
+
+The target shape is:
+
+- `CoordinationAuthorityStore`
+  - `DbCoordinationAuthorityStore`
+    - `SqliteCoordinationDb`
+    - `PostgresCoordinationDb`
+  - `GitSharedRefsCoordinationAuthorityStore`
+
+This phase includes:
+
+- defining the internal DB trait or traits and DB-family types
+- keeping those seams below the product-facing authority contract
+- centralizing shared DB-backed authority behavior in one place rather than duplicating it in SQLite- and Postgres-specific code
+- shaping transaction, current-read, runtime-descriptor, retained-history, and diagnostics behavior so both SQL backends can share the same semantic adapter
+
+Exit criteria:
+
+- SQLite and Postgres have one obvious shared authority implementation boundary
+- upper layers still depend only on `CoordinationAuthorityStore`
+- there is no SQLite-specific or Postgres-specific authority logic scattered upward into product code
+
+### Phase 3: Implement SQLite authority and make it the default backend
+
+Implement the SQLite-backed authority path through the new DB family seam and switch the default
+provider path to SQLite.
+
+This includes:
+
+- implementing current authoritative state reads
+- implementing transactional mutation commit and deterministic conflict handling
+- implementing runtime descriptor publication and discovery
+- implementing retained authoritative history
+- implementing authority diagnostics and provenance for the SQLite backend
+- selecting SQLite as the default functioning backend in authority-store configuration
+
+Exit criteria:
+
+- `CoordinationAuthorityStoreProvider::default()` yields a working SQLite-backed authority path
+- the normal local service path can use SQLite authority without Git shared refs
+- the authority-store tests cover SQLite semantics directly
+
+### Phase 4: Complete service and product-surface adoption on the SQLite default path
+
+Once SQLite is the default backend, finish the cleanup needed so the rest of the system truly
+behaves as if `CoordinationAuthorityStore` is backend-neutral.
+
+This includes:
+
+- removing or narrowing remaining default-opener and default-backend shortcuts where they still hide architectural mismatches
+- cleaning up authority-adjacent live-sync wiring that still assumes Git shared refs directly
+- tightening service-shell, authority-sync, read-broker, and mutation-broker ownership around the new default path
+- keeping trust, provenance, freshness, and diagnostics shaping shared instead of duplicating them per backend
+
+Exit criteria:
+
+- the service-backed local deployment path is cleanly SQLite-first
+- live product-facing code no longer relies on Git-only authority behavior unless it is explicitly in the Git backend
+- the service roles remain thin orchestration owners around the settled lower seams
+
+### Phase 5: Implement Postgres through the same DB authority seam
+
+Add the Postgres backend through the already-landed DB family seam rather than by forking the SQLite implementation or reworking upper layers.
+
+This includes:
+
+- implementing the Postgres DB authority adapter
+- preserving the same authority-store semantic result shapes as SQLite
+- validating that backend selection is configuration-driven rather than behaviorally divergent
+- proving that the DB family abstraction was real and not only a SQLite wrapper
+
+Exit criteria:
+
+- Postgres is a real second implementation of the same DB family seam
+- no public authority-contract redesign is needed to add it
+- service deployment config can select Postgres cleanly
+
+### Phase 6: Remove remaining migration mismatches and document the steady state
+
+After SQLite default and Postgres support are real, finish the cleanup and docs closure.
+
+This includes:
+
+- deleting or narrowing transitional compatibility facades
+- removing remaining Git-shaped assumptions from architecture surfaces that are now wrong for the default path
+- updating contracts, specs, roadmaps, and architecture docs to the actual steady state
+- confirming the Git backend still works as a supported alternative rather than as the invisible default assumption
+
+Exit criteria:
+
+- the code and docs agree on the authority family shape
+- SQLite is the real default
+- Postgres is supported through the same internal seam
+- Git remains supported without distorting the public architecture story
+
+## 5. Dependency logic
+
+This ordering is intentional:
+
+- seam hardening must come before the DB family so the family lands on stable public types
+- the DB family seam must come before SQLite so SQLite does not become the de facto abstraction
+- SQLite default must happen before broader service cleanup so the cleanup targets the right steady state
+- Postgres should come after SQLite proves the DB family is real but before final cleanup so any seam gaps are discovered while the migration context is still active
+- final docs and compatibility cleanup should come last so they describe the system that actually exists
+
+## 6. Anti-patterns to avoid
+
+Do not:
+
+- add a second public authority abstraction beside `CoordinationAuthorityStore`
+- treat `DbCoordinationAuthorityStore` as a public product contract
+- implement SQLite directly in upper layers and call it an abstraction later
+- leave Git-only diagnostics, live-sync, or metadata behavior in shared public authority types if it can be isolated below the seam
+- switch the default to SQLite while still depending on hidden Git-only helper paths for normal operation
+- fork SQLite and Postgres behavior early instead of first proving the shared DB family seam
+- let service roles or MCP surfaces grow new backend-specific branches that bypass the authority store
+
+## 7. Exit criteria
+
+This roadmap is complete only when all of the following are true:
+
+- `CoordinationAuthorityStore` remains the sole product-facing authority contract
+- the internal DB authority family exists and is the common path for SQLite and Postgres
+- SQLite is the default functioning backend for `CoordinationAuthorityStore`
+- the local service deployment path uses SQLite cleanly by default
+- Postgres is implemented through the same internal DB seam
+- Git shared refs remain supported without shaping upper layers incorrectly
+- the remaining authority and service abstractions are cleaner, narrower, and better enforced than they are today
+
+## 8. Short form
+
+The sequence to hold the work to is:
+
+1. harden the public authority seam
+2. introduce one internal DB authority family
+3. implement SQLite and make it the default
+4. clean up service and authority adoption on the SQLite-first path
+5. implement Postgres through the same seam
+6. delete the remaining migration mismatches and document the steady state

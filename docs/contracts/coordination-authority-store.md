@@ -317,7 +317,7 @@ pub struct CoordinationAuthorityStamp {
 ```
 
 Git may populate this from summary head commit + manifest digest.
-PostgreSQL may populate it from transaction id / commit sequence.
+SQLite or PostgreSQL may populate it from transaction id / commit sequence.
 The rest of PRISM should treat it as the current authoritative identity token for a snapshot.
 
 ### 7.3 Transactions
@@ -399,8 +399,19 @@ pub struct CoordinationAuthorityDiagnostics {
 ```
 
 The Git backend may expose compaction status, manifest digests, shard lag, and history depth.
+The SQLite backend may expose local DB integrity, migration, and retention metadata.
 The PostgreSQL backend may expose replication status, transaction lag, and retention windows.
 The top-level contract stays the same.
+
+One rule is important for the public type family:
+
+- `CoordinationAuthorityBackendKind` must include the actual supported backend family
+  - `GitSharedRefs`
+  - `Sqlite`
+  - `Postgres`
+- `CoordinationAuthorityBackendDetails` must be backend-family shaped
+- backend-specific detail is allowed, but it must remain nested under the backend-neutral
+  diagnostics surface rather than forcing Git-only detail types upward as the steady-state model
 
 ---
 
@@ -541,6 +552,8 @@ variants, rather than making product code care about two different SQL backends.
 
 - SQLite is the single-instance or local-service DB-backed authority option
 - Postgres is the multi-instance or hosted production DB-backed authority option
+- once the DB-backed authority family is functioning, SQLite is the default local
+  `CoordinationAuthorityStore` backend selection
 
 The point is not to force DB-backed authority to imitate Git. The point is to let both backend
 families satisfy the same coordination semantics.
