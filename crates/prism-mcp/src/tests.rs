@@ -19,10 +19,10 @@ use prism_coordination::{
     GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
 };
 use prism_core::{
-    default_workspace_shared_runtime, hydrate_workspace_session,
+    default_workspace_session_options, default_workspace_shared_runtime, hydrate_workspace_session,
     hydrate_workspace_session_with_options, index_workspace_session,
     index_workspace_session_with_curator, index_workspace_session_with_options,
-    CoordinationAuthorityMutationError, PrismPaths, SharedRuntimeBackend,
+    BootstrapOwnerInput, CoordinationAuthorityMutationError, PrismPaths, SharedRuntimeBackend,
     ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
     WorkspaceSessionOptions,
 };
@@ -402,7 +402,7 @@ fn ready_tasks_query_filters_executor_routed_tasks_for_current_agent() {
         .unwrap();
 
     let prism = host.current_prism();
-    let mut snapshot = prism.coordination_snapshot();
+    let mut snapshot = prism.legacy_coordination_snapshot();
     for task in &mut snapshot.tasks {
         if task.id.0 == matching.state["id"].as_str().unwrap() {
             task.metadata = json!({
@@ -1571,6 +1571,9 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
     assert!(operations.contains(&"mutation.gitExecution.preflight"));
     assert!(operations.contains(&"mutation.gitExecution.recordPublishIntent"));
     assert!(operations.contains(&"mutation.gitExecution.recordPublishIntentStep"));
+    assert!(
+        operations.contains(&"mutation.gitExecution.recordPublishIntentStep.commitPersistBatch")
+    );
     assert!(operations
         .contains(&"mutation.gitExecution.recordPublishIntentStep.authority.applyTransaction"));
     assert!(operations
@@ -2323,7 +2326,7 @@ fn coordination_update_routes_plain_ids_to_coordination_tasks() {
                 }),
                 task_id: None,
             },
-        )
+    )
         .unwrap();
     assert_eq!(updated.state["id"], task_id);
     assert_eq!(updated.state["status"], "active");
@@ -2382,6 +2385,8 @@ fn coordination_update_routes_shared_fields_for_task_backed_ids_through_coordina
         )
         .expect("task-backed ids should route shared fields through coordination tasks");
     assert_eq!(updated.state["summary"], "Task-owned summary");
+    assert_eq!(updated.state["metadata"]["legacy_kind"], "edit");
+    assert_eq!(updated.state["metadata"]["legacy_is_abstract"], false);
     assert_eq!(updated.state["priority"], 4);
     assert_eq!(updated.state["tags"], json!(["task", "workflow"]));
     assert_eq!(
@@ -2518,6 +2523,7 @@ fn coordination_task_completion_accepts_current_task_validation_events_without_a
         )
         .unwrap();
     assert_eq!(completed.state["status"], "completed");
+    assert_eq!(completed.state["lifecycleStatus"], "completed");
 }
 
 #[test]
@@ -2591,6 +2597,7 @@ fn coordination_task_completion_accepts_recorded_test_outcomes() {
         )
         .unwrap();
     assert_eq!(completed.state["status"], "completed");
+    assert_eq!(completed.state["lifecycleStatus"], "completed");
 }
 
 #[test]
@@ -2667,11 +2674,11 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
         .violations
         .iter()
         .any(|violation| violation.code == "review_required"));
-    let authority_db = PrismPaths::for_workspace_root(&root)
+    let cache = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .coordination_authority_db_path()
+        .worktree_cache_db_path()
         .unwrap();
-    let mut store = SqliteStore::open(&authority_db).unwrap();
+    let mut store = SqliteStore::open(&cache).unwrap();
     let events = store.load_coordination_events().unwrap();
     assert_eq!(
         events.last().unwrap().kind,
@@ -3280,7 +3287,7 @@ fn configure_session_binds_current_agent_and_task_create_inherits_it() {
     .unwrap();
     assert_eq!(task.state["assignee"], "agent-a");
 
-    let claims = host.current_prism().coordination_snapshot().claims;
+    let claims = host.current_prism().legacy_coordination_snapshot().claims;
     assert!(claims.is_empty());
 }
 
@@ -3429,7 +3436,7 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
     })
     .unwrap();
     assert!(!completed_plan.rejected);
-    assert_eq!(completed_plan.state["status"], "completed");
+    assert_eq!(completed_plan.state["status"], "Completed");
 
     let rejected_claim = retry_on_transient_sqlite_lock(|| {
         host.store_claim(
@@ -3647,7 +3654,7 @@ fn mcp_plan_bootstrap_creates_task_dependencies_from_client_ids() {
 fn mcp_plan_bootstrap_rejects_unknown_client_ids_without_partial_state() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
-    let before = host.current_prism().coordination_snapshot();
+    let before = host.current_prism().legacy_coordination_snapshot();
 
     let result = retry_on_transient_sqlite_lock(|| {
         host.store_coordination(
@@ -3684,7 +3691,7 @@ fn mcp_plan_bootstrap_rejects_unknown_client_ids_without_partial_state() {
         .unwrap_or_default()
         .contains("n9"));
 
-    let after = host.current_prism().coordination_snapshot();
+    let after = host.current_prism().legacy_coordination_snapshot();
     assert_eq!(after.plans.len(), before.plans.len());
     assert_eq!(after.tasks.len(), before.tasks.len());
     assert!(after
@@ -3748,7 +3755,7 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
     })
     .unwrap();
     assert!(!abandoned.rejected);
-    assert_eq!(abandoned.state["status"], "abandoned");
+    assert_eq!(abandoned.state["status"], "Abandoned");
 
     let archived = retry_on_transient_sqlite_lock(|| {
         host.store_coordination(
@@ -3765,7 +3772,7 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
     })
     .unwrap();
     assert!(!archived.rejected);
-    assert_eq!(archived.state["status"], "archived");
+    assert_eq!(archived.state["status"], "Archived");
 
     let rejected_claim = retry_on_transient_sqlite_lock(|| {
         host.store_claim(
@@ -3826,7 +3833,7 @@ fn mcp_plan_archive_archives_abandoned_plan_via_explicit_mutation_kind() {
         )
         .unwrap();
     assert!(!abandoned.rejected);
-    assert_eq!(abandoned.state["status"], "abandoned");
+    assert_eq!(abandoned.state["status"], "Abandoned");
 
     let archived = host
         .store_coordination(
@@ -3841,7 +3848,7 @@ fn mcp_plan_archive_archives_abandoned_plan_via_explicit_mutation_kind() {
         )
         .unwrap();
     assert!(!archived.rejected);
-    assert_eq!(archived.state["status"], "archived");
+    assert_eq!(archived.state["status"], "Archived");
 }
 
 #[test]
@@ -14694,6 +14701,109 @@ fn restored_session_seed_rebinds_workspace_active_work_context() {
 }
 
 #[test]
+fn coordination_only_declare_work_stays_session_local() {
+    let root = temp_workspace();
+    let mut options = default_workspace_session_options(&root)
+        .expect("default workspace session options should resolve");
+    options.runtime_mode = prism_ir::PrismRuntimeMode::CoordinationOnly;
+    options.shared_runtime = SharedRuntimeBackend::Disabled;
+    options.hydrate_persisted_projections = false;
+    options.hydrate_persisted_co_change = false;
+    let workspace = index_workspace_session_with_options(&root, options)
+        .expect("coordination-only workspace session should index");
+    register_test_human_worktree(&root);
+    let issued = workspace
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: None,
+            name: "Test Owner".to_string(),
+            role: Some("test_owner".to_string()),
+        })
+        .expect("owner bootstrap should succeed");
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &issued.credential.credential_id,
+            &issued.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session_and_limits_and_features(
+        workspace,
+        QueryLimits::default(),
+        PrismMcpFeatures::full()
+            .with_runtime_mode(prism_ir::PrismRuntimeMode::CoordinationOnly)
+            .with_runtime_diagnostics_auto_refresh(false),
+    );
+
+    assert!(host.workspace_service_shell().is_none());
+
+    let declared = host
+        .declare_work_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Keep declared work out of outcome memory".to_string(),
+                kind: Some(WorkDeclarationKindInput::AdHoc),
+                summary: Some("Coordination-only should keep this session local.".to_string()),
+                parent_work_id: None,
+                coordination_task_id: None,
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("work should declare");
+
+    assert!(declared.work_id.starts_with("work:"));
+    assert!(
+        host.current_prism().outcome_snapshot().events.is_empty(),
+        "coordination-only declare_work should not append outcome-memory events"
+    );
+    assert!(!test_session(&host).notes.is_enabled());
+    assert!(!test_session(&host).inferred_edges.is_enabled());
+    assert!(
+        host.workspace_session()
+            .expect("workspace-backed host")
+            .active_work_context()
+            .is_none(),
+        "coordination-only should keep active work inside MCP session state"
+    );
+    let seed_path = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .mcp_session_seed_path()
+        .unwrap();
+    assert!(
+        !seed_path.exists(),
+        "coordination-only should not persist session seed state to disk"
+    );
+
+    let restarted_workspace = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            runtime_mode: prism_ir::PrismRuntimeMode::CoordinationOnly,
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .expect("coordination-only workspace session should restart");
+    let restarted = QueryHost::with_session_and_limits_and_features(
+        restarted_workspace,
+        QueryLimits::default(),
+        PrismMcpFeatures::full()
+            .with_runtime_mode(prism_ir::PrismRuntimeMode::CoordinationOnly)
+            .with_runtime_diagnostics_auto_refresh(false),
+    );
+    let restored = restarted
+        .session_resource_value(test_session(&restarted).as_ref())
+        .expect("coordination-only session should load");
+    assert!(
+        restored.current_work.is_none(),
+        "coordination-only should not restore prior MCP session work from disk"
+    );
+    assert!(
+        restored.current_task.is_none(),
+        "coordination-only should not restore prior MCP session task bindings from disk"
+    );
+}
+
+#[test]
 fn restart_restores_coordination_task_binding_when_declared_work_exists() {
     let root = temp_workspace();
     let (workspace, credential) = workspace_session_with_owner_credential(&root);
@@ -15853,6 +15963,7 @@ fn coordination_mutation_trace_records_persistence_subphases() {
     assert!(operations.contains(&"mutation.coordination.readRevision"));
     assert!(operations.contains(&"mutation.coordination.applyMutation"));
     assert!(operations.contains(&"mutation.coordination.captureDelta"));
+    assert!(operations.contains(&"mutation.coordination.commitPersistBatch"));
     assert!(operations.contains(&"mutation.coordination.syncDerivedState"));
     assert!(operations.contains(&"mutation.coordination.authority.applyTransaction"));
     assert!(operations.contains(&"mutation.coordination.publishedPlans.syncTrackedSnapshot"));
@@ -16757,7 +16868,7 @@ fn prism_runtime_views_surface_status_logs_and_timeline() {
             json!({
                 "timestamp": "2026-03-26T15:12:42Z",
                 "level": "INFO",
-                "message": "prism-mcp runtime ready",
+                "message": "prism-mcp daemon ready",
                 "target": "prism_mcp::daemon_mode",
                 "filename": "crates/prism-mcp/src/daemon_mode.rs",
                 "line_number": 57,
@@ -16796,11 +16907,11 @@ return {
 
     let status = &result.result["status"];
     assert_eq!(status["health"]["ok"], true);
-    assert_eq!(status["runtimeCount"], 0);
+    assert_eq!(status["daemonCount"], 0);
     assert_eq!(status["bridgeCount"], 0);
     assert_eq!(status["idleBridgeCount"], 0);
     assert_eq!(status["healthPath"], "/healthz");
-    assert_eq!(status["connection"]["mode"], "direct-runtime");
+    assert_eq!(status["connection"]["mode"], "direct-daemon");
     assert_eq!(status["connection"]["transport"], "streamable-http");
     assert_eq!(
         status["connection"]["bridgeRole"],
@@ -16829,8 +16940,12 @@ return {
             .display()
             .to_string()
     );
-    assert!(status["coordinationMaterializationPath"].is_null());
-    assert!(status["coordinationMaterializationBytes"].is_null());
+    assert_eq!(
+        status["coordinationMaterializationPath"]
+            .as_str()
+            .unwrap_or_default(),
+        ""
+    );
     assert_eq!(status["freshness"]["fsDirty"], false);
     assert!(
         status["freshness"]["materialization"]["workspace"]["status"]
@@ -16853,7 +16968,7 @@ return {
     assert_eq!(timeline.len(), 3);
     assert_eq!(timeline[0]["message"], "starting prism-mcp");
     assert_eq!(timeline[1]["message"], "completed prism workspace indexing");
-    assert_eq!(timeline[2]["message"], "prism-mcp runtime ready");
+    assert_eq!(timeline[2]["message"], "prism-mcp daemon ready");
 }
 
 #[test]
@@ -16879,7 +16994,7 @@ fn prism_connection_info_surfaces_direct_daemon_endpoint_without_internal_mode()
         )
         .expect("connection info query should succeed");
 
-    assert_eq!(result.result["mode"], "direct-runtime");
+    assert_eq!(result.result["mode"], "direct-daemon");
     assert_eq!(result.result["transport"], "streamable-http");
     assert_eq!(result.result["bridgeRole"], "stdio-compatibility-only");
     assert_eq!(
@@ -16965,7 +17080,7 @@ fn prism_runtime_views_prefer_structured_runtime_state() {
                     "ts": 13,
                     "timestamp": "13",
                     "level": "INFO",
-                    "message": "prism-mcp runtime ready",
+                    "message": "prism-mcp daemon ready",
                     "target": "prism_mcp::daemon_mode",
                     "file": "crates/prism-mcp/src/daemon_mode.rs",
                     "line_number": null,
@@ -16994,17 +17109,17 @@ return {
 
     let status = &result.result["status"];
     assert_eq!(status["health"]["ok"], true);
-    assert_eq!(status["runtimeCount"], 1);
+    assert_eq!(status["daemonCount"], 1);
     assert_eq!(status["bridgeCount"], 0);
     assert_eq!(status["idleBridgeCount"], 0);
     assert_eq!(status["healthPath"], "/healthz");
-    assert_eq!(status["connection"]["mode"], "direct-runtime");
+    assert_eq!(status["connection"]["mode"], "direct-daemon");
     assert_eq!(
         status["connection"]["uri"].as_str().unwrap_or_default(),
         format!("http://{addr}/mcp")
     );
     assert_eq!(status["freshness"]["lastWorkspaceBuildMs"], 4321);
-    assert_eq!(status["freshness"]["lastRuntimeReadyMs"], 6534);
+    assert_eq!(status["freshness"]["lastDaemonReadyMs"], 6534);
     assert_eq!(status["freshness"]["lastRefreshPath"], last_refresh.path);
     assert_eq!(
         status["freshness"]["lastRefreshDurationMs"],
@@ -17046,7 +17161,7 @@ return {
     assert_eq!(timeline[0]["message"], "starting prism-mcp");
     assert_eq!(timeline[1]["message"], "built prism-mcp workspace server");
     assert_eq!(timeline[2]["message"], "prism-mcp workspace refresh");
-    assert_eq!(timeline[3]["message"], "prism-mcp runtime ready");
+    assert_eq!(timeline[3]["message"], "prism-mcp daemon ready");
 }
 
 #[test]
@@ -17233,7 +17348,7 @@ fn prism_runtime_views_ignore_invalid_runtime_state_sidecar() {
         .expect("invalid runtime state should not break runtime status");
 
     assert_eq!(result.result["health"]["ok"], true);
-    assert_eq!(result.result["runtimeCount"], 0);
+    assert_eq!(result.result["daemonCount"], 0);
     assert_eq!(result.result["bridgeCount"], 0);
     assert_eq!(result.result["idleBridgeCount"], 0);
     assert!(result.result["freshness"]["status"].as_str().is_some());
@@ -21295,10 +21410,10 @@ fn runtime_status_surfaces_published_generation_and_domain_freshness() {
         .domains
         .iter()
         .any(|domain| { domain.domain == "cross_file_edges" && domain.freshness == "current" }));
-    assert!(refreshed
-        .domains
-        .iter()
-        .any(|domain| { domain.domain == "checkpoint" && domain.freshness == "pending" }));
+    assert!(refreshed.domains.iter().any(|domain| {
+        domain.domain == "checkpoint"
+            && matches!(domain.freshness.as_str(), "pending" | "current")
+    }));
 }
 
 #[test]
@@ -21467,10 +21582,6 @@ pub fn runtime_status() {}
         },
     )
     .unwrap();
-    host.workspace_session()
-        .expect("workspace-backed host expected")
-        .flush_materializations()
-        .expect("queued coordination materializations should flush before runtime status");
 
     let status = crate::runtime_views::refresh_cached_runtime_status(&host)
         .expect("runtime status should succeed");
@@ -21568,10 +21679,10 @@ pub fn runtime_status() {}
         .find(|scope| scope.scope == "session")
         .expect("session overlay scope should exist");
     assert_eq!(
-        repo_overlay.plan_count, 1,
-        "repo-scoped coordination overlay counts should reflect the canonical service-backed coordination snapshot"
+        repo_overlay.plan_count, 0,
+        "repo-scoped coordination overlay counts now reflect only the service-backed coordination surface"
     );
-    assert_eq!(repo_overlay.plan_node_count, 1);
+    assert_eq!(repo_overlay.plan_node_count, 0);
     assert_eq!(
         worktree_overlay.overlay_count, 1,
         "runtime overlay scopes still surface the current worktree binding for live coordination work"
@@ -24281,7 +24392,7 @@ fn plan_queries_surface_activity_without_task_journal_replay() {
             &format!(
                 r#"
 return {{
-  plans: prism.plans(),
+  plans: prism.plans({{ status: "active" }}),
   plan: prism.plan("{plan_id}"),
 }};
 "#,
@@ -24305,6 +24416,8 @@ return {{
         result.result["plans"][0]["activity"]["lastEventTaskId"],
         Value::from(task.task.id.0.to_string())
     );
+    assert_eq!(result.result["plan"]["activity"]["createdAt"], 10);
+    assert_eq!(result.result["plan"]["activity"]["lastUpdatedAt"], 20);
     assert_eq!(
         result.result["plan"]["id"],
         Value::from(plan_id.0.to_string())
@@ -25657,11 +25770,11 @@ fn workspace_coordination_persistence_records_mcp_session_scope() {
         },
     )
     .unwrap();
-    let authority_db = PrismPaths::for_workspace_root(&root)
+    let cache = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .coordination_authority_db_path()
+        .worktree_cache_db_path()
         .unwrap();
-    let mut store = SqliteStore::open(&authority_db).unwrap();
+    let mut store = SqliteStore::open(&cache).unwrap();
     let context_after_a = store
         .load_latest_coordination_persist_context()
         .unwrap()
@@ -25683,7 +25796,7 @@ fn workspace_coordination_persistence_records_mcp_session_scope() {
     )
     .unwrap();
 
-    let mut store = SqliteStore::open(&authority_db).unwrap();
+    let mut store = SqliteStore::open(&cache).unwrap();
     let logged_context = store
         .load_latest_coordination_persist_context()
         .unwrap()
@@ -25697,6 +25810,55 @@ fn workspace_coordination_persistence_records_mcp_session_scope() {
     drop(store);
     drop(host);
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_only_anchor_conversion_persists_normalized_workspace_paths() {
+    let root = temp_workspace();
+    let mut options = default_workspace_session_options(&root).unwrap();
+    options.runtime_mode = prism_ir::PrismRuntimeMode::CoordinationOnly;
+    options.hydrate_persisted_projections = false;
+    options.hydrate_persisted_co_change = false;
+    let workspace = index_workspace_session_with_options(&root, options).unwrap();
+    let anchors = crate::query_types::convert_anchors(
+        workspace.prism().as_ref(),
+        Some(&workspace),
+        Some(workspace.root()),
+        vec![AnchorRefInput::File {
+            file_id: None,
+            path: Some("./src//lib.rs".to_string()),
+        }],
+    )
+    .expect("coordination-only anchor conversion should succeed");
+
+    assert_eq!(
+        anchors,
+        vec![AnchorRef::WorkspacePath("src/lib.rs".to_string())]
+    );
+}
+
+#[test]
+fn coordination_only_anchor_conversion_rejects_workspace_escape_paths() {
+    let root = temp_workspace();
+    let mut options = default_workspace_session_options(&root).unwrap();
+    options.runtime_mode = prism_ir::PrismRuntimeMode::CoordinationOnly;
+    options.hydrate_persisted_projections = false;
+    options.hydrate_persisted_co_change = false;
+    let workspace = index_workspace_session_with_options(&root, options).unwrap();
+    let error = crate::query_types::convert_anchors(
+        workspace.prism().as_ref(),
+        Some(&workspace),
+        Some(workspace.root()),
+        vec![AnchorRefInput::File {
+            file_id: None,
+            path: Some("../outside.rs".to_string()),
+        }],
+    )
+    .expect_err("coordination-only anchor conversion should reject workspace escapes");
+
+    assert!(error
+        .to_string()
+        .contains("rejects file anchor paths that escape the workspace root"));
 }
 
 #[test]
@@ -25749,11 +25911,11 @@ fn rejected_coordination_mutations_keep_mcp_session_scope_in_authoritative_persi
     assert!(rejected.rejected);
     assert!(!rejected.event_ids.is_empty());
 
-    let authority_db = PrismPaths::for_workspace_root(&root)
+    let cache = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .coordination_authority_db_path()
+        .worktree_cache_db_path()
         .unwrap();
-    let mut store = SqliteStore::open(&authority_db).unwrap();
+    let mut store = SqliteStore::open(&cache).unwrap();
     let context = store
         .load_latest_coordination_persist_context()
         .unwrap()

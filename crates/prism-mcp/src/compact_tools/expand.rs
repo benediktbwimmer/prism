@@ -1428,8 +1428,8 @@ mod tests {
     #[test]
     fn structured_config_likely_tests_keeps_only_direct_graph_candidates() {
         let session = SessionState::new(
-            Arc::new(prism_memory::SessionMemory::default()),
-            Arc::new(prism_agent::InferenceStore::default()),
+            Some(Arc::new(prism_memory::SessionMemory::default())),
+            Some(Arc::new(prism_agent::InferenceStore::default())),
             Arc::new(std::sync::atomic::AtomicU64::new(0)),
             prism_query::QueryLimits::default(),
         );

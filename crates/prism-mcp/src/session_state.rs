@@ -2,12 +2,16 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use anyhow::{anyhow, Result};
 use prism_agent::{InferenceStore, InferredEdgeRecord, InferredEdgeScope};
 use prism_ir::{
     new_prefixed_id, new_slugged_id, new_sortable_token, AgentId, EventId, NodeId, NodeKind,
     SessionId, TaskId, WorkContextKind,
 };
-use prism_memory::SessionMemory;
+use prism_memory::{
+    EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryModule, RecallQuery, ScoredMemory,
+    SessionMemory,
+};
 use prism_query::QueryLimits;
 
 #[derive(Debug, Clone)]
@@ -55,7 +59,7 @@ pub(crate) struct SessionHandleTarget {
 
 pub(crate) struct SessionState {
     session_id: SessionId,
-    pub(crate) notes: Arc<SessionMemory>,
+    pub(crate) notes: SessionNotes,
     pub(crate) inferred_edges: SessionInferenceStore,
     current_task: Mutex<Option<SessionTaskState>>,
     current_work: Mutex<Option<SessionWorkState>>,
@@ -69,14 +73,14 @@ pub(crate) struct SessionState {
 
 impl SessionState {
     pub(crate) fn new(
-        notes: Arc<SessionMemory>,
-        inferred_edges: Arc<InferenceStore>,
+        notes: Option<Arc<SessionMemory>>,
+        inferred_edges: Option<Arc<InferenceStore>>,
         next_event: Arc<AtomicU64>,
         limits: QueryLimits,
     ) -> Self {
         Self {
             session_id: SessionId::new(new_prefixed_id("session")),
-            notes,
+            notes: SessionNotes::new(notes),
             inferred_edges: SessionInferenceStore::new(inferred_edges),
             current_task: Mutex::new(None),
             current_work: Mutex::new(None),
@@ -377,6 +381,70 @@ impl SessionState {
     }
 }
 
+#[derive(Clone)]
+pub(crate) enum SessionNotes {
+    Enabled(Arc<SessionMemory>),
+    Disabled,
+}
+
+impl SessionNotes {
+    fn new(notes: Option<Arc<SessionMemory>>) -> Self {
+        notes.map_or(Self::Disabled, Self::Enabled)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_enabled(&self) -> bool {
+        matches!(self, Self::Enabled(_))
+    }
+
+    pub(crate) fn entry(&self, id: &MemoryId) -> Option<MemoryEntry> {
+        match self {
+            Self::Enabled(notes) => notes.entry(id),
+            Self::Disabled => None,
+        }
+    }
+
+    pub(crate) fn persisted_snapshot(&self) -> EpisodicMemorySnapshot {
+        match self {
+            Self::Enabled(notes) => notes.persisted_snapshot(),
+            Self::Disabled => EpisodicMemorySnapshot {
+                entries: Vec::new(),
+            },
+        }
+    }
+
+    pub(crate) fn snapshot(&self) -> EpisodicMemorySnapshot {
+        match self {
+            Self::Enabled(notes) => notes.snapshot(),
+            Self::Disabled => EpisodicMemorySnapshot {
+                entries: Vec::new(),
+            },
+        }
+    }
+
+    pub(crate) fn replace_from_snapshot(&self, snapshot: EpisodicMemorySnapshot) {
+        if let Self::Enabled(notes) = self {
+            notes.replace_from_snapshot(snapshot);
+        }
+    }
+
+    pub(crate) fn store(&self, entry: MemoryEntry) -> Result<MemoryId> {
+        match self {
+            Self::Enabled(notes) => notes.store(entry),
+            Self::Disabled => Err(anyhow!(
+                "session memory is unavailable in coordination-only mode"
+            )),
+        }
+    }
+
+    pub(crate) fn recall(&self, query: &RecallQuery) -> Result<Vec<ScoredMemory>> {
+        match self {
+            Self::Enabled(notes) => notes.recall(query),
+            Self::Disabled => Ok(Vec::new()),
+        }
+    }
+}
+
 fn session_task_is_coordination_focus(task: &SessionTaskState) -> bool {
     task.coordination_task_id.is_some() || task.id.0.starts_with("coord-task:")
 }
@@ -428,22 +496,29 @@ fn session_handle_key(target: &SessionHandleTarget) -> String {
 }
 
 pub(crate) struct SessionInferenceStore {
-    persisted: Arc<InferenceStore>,
-    session_only: InferenceStore,
+    persisted: Option<Arc<InferenceStore>>,
+    session_only: Option<InferenceStore>,
 }
 
 impl SessionInferenceStore {
-    fn new(persisted: Arc<InferenceStore>) -> Self {
+    fn new(persisted: Option<Arc<InferenceStore>>) -> Self {
+        let enabled = persisted.is_some();
         Self {
             persisted,
-            session_only: InferenceStore::new(),
+            session_only: enabled.then(InferenceStore::new),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_enabled(&self) -> bool {
+        self.persisted.is_some()
     }
 
     pub(crate) fn record(&self, id: &prism_agent::EdgeId) -> Option<InferredEdgeRecord> {
         self.session_only
-            .record(id)
-            .or_else(|| self.persisted.record(id))
+            .as_ref()
+            .and_then(|store| store.record(id))
+            .or_else(|| self.persisted.as_ref().and_then(|store| store.record(id)))
     }
 
     pub(crate) fn edges_from(
@@ -451,8 +526,14 @@ impl SessionInferenceStore {
         source: &prism_ir::NodeId,
         kind: Option<prism_ir::EdgeKind>,
     ) -> Vec<InferredEdgeRecord> {
-        let mut records = self.persisted.edges_from(source, kind);
-        records.extend(self.session_only.edges_from(source, kind));
+        let mut records = self
+            .persisted
+            .as_ref()
+            .map(|store| store.edges_from(source, kind))
+            .unwrap_or_default();
+        if let Some(store) = self.session_only.as_ref() {
+            records.extend(store.edges_from(source, kind));
+        }
         records
     }
 
@@ -461,8 +542,14 @@ impl SessionInferenceStore {
         target: &prism_ir::NodeId,
         kind: Option<prism_ir::EdgeKind>,
     ) -> Vec<InferredEdgeRecord> {
-        let mut records = self.persisted.edges_to(target, kind);
-        records.extend(self.session_only.edges_to(target, kind));
+        let mut records = self
+            .persisted
+            .as_ref()
+            .map(|store| store.edges_to(target, kind))
+            .unwrap_or_default();
+        if let Some(store) = self.session_only.as_ref() {
+            records.extend(store.edges_to(target, kind));
+        }
         records
     }
 
@@ -474,10 +561,20 @@ impl SessionInferenceStore {
         evidence: Vec<String>,
     ) -> prism_agent::EdgeId {
         match scope {
-            InferredEdgeScope::SessionOnly => {
-                self.session_only.store_edge(edge, scope, task, evidence)
-            }
-            _ => self.persisted.store_edge(edge, scope, task, evidence),
+            InferredEdgeScope::SessionOnly => self
+                .session_only
+                .as_ref()
+                .map(|store| store.store_edge(edge, scope, task, evidence))
+                .unwrap_or_else(|| {
+                    prism_agent::EdgeId(prism_ir::new_prefixed_id("edge").to_string())
+                }),
+            _ => self
+                .persisted
+                .as_ref()
+                .map(|store| store.store_edge(edge, scope, task, evidence))
+                .unwrap_or_else(|| {
+                    prism_agent::EdgeId(prism_ir::new_prefixed_id("edge").to_string())
+                }),
         }
     }
 }

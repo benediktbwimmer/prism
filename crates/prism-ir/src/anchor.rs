@@ -8,6 +8,7 @@ pub enum AnchorRef {
     Node(NodeId),
     Lineage(LineageId),
     File(FileId),
+    WorkspacePath(String),
     Kind(NodeKind),
 }
 
@@ -32,7 +33,7 @@ impl AnchorRef {
         match self {
             Self::Node(node) => node == target,
             Self::Kind(kind) => target.kind == *kind,
-            Self::Lineage(_) | Self::File(_) => false,
+            Self::Lineage(_) | Self::File(_) | Self::WorkspacePath(_) => false,
         }
     }
 }

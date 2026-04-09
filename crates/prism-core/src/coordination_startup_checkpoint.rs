@@ -1,7 +1,10 @@
 use std::path::Path;
 
 use anyhow::Result;
-use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor};
+use prism_coordination::{
+    coordination_snapshot_from_events, CoordinationSnapshot, CoordinationSnapshotV2,
+    RuntimeDescriptor,
+};
 use prism_store::{
     CoordinationCheckpointStore, CoordinationJournal, CoordinationStartupCheckpoint,
     CoordinationStartupCheckpointAuthority,
@@ -20,10 +23,21 @@ pub(crate) fn load_persisted_coordination_plan_state<S>(
 where
     S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
 {
-    let Some(checkpoint) = store.load_coordination_startup_checkpoint()? else {
-        return Ok(None);
-    };
-    Ok(Some(hydrated_plan_state_from_checkpoint(checkpoint, None)?))
+    let checkpoint = store.load_coordination_startup_checkpoint()?;
+    let stream = store.load_coordination_event_stream()?;
+    let replayed = coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot);
+    Ok(match (checkpoint, replayed) {
+        (Some(checkpoint), Some(snapshot)) => {
+            Some(hydrated_plan_state_from_checkpoint(checkpoint, Some(snapshot))?)
+        }
+        (Some(checkpoint), None) => Some(hydrated_plan_state_from_checkpoint(checkpoint, None)?),
+        (None, Some(snapshot)) => Some(HydratedCoordinationPlanState {
+            canonical_snapshot_v2: snapshot.to_canonical_snapshot_v2(),
+            snapshot,
+            runtime_descriptors: Vec::new(),
+        }),
+        (None, None) => None,
+    })
 }
 
 pub(crate) fn load_persisted_coordination_snapshot<S>(
@@ -32,10 +46,7 @@ pub(crate) fn load_persisted_coordination_snapshot<S>(
 where
     S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
 {
-    let Some(checkpoint) = store.load_coordination_startup_checkpoint()? else {
-        return Ok(None);
-    };
-    Ok(Some(snapshot_from_checkpoint(checkpoint, None)))
+    Ok(load_persisted_coordination_plan_state(store)?.map(|state| state.snapshot))
 }
 
 pub(crate) fn load_persisted_coordination_snapshot_v2<S>(
@@ -44,18 +55,36 @@ pub(crate) fn load_persisted_coordination_snapshot_v2<S>(
 where
     S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
 {
-    let Some(checkpoint) = store.load_coordination_startup_checkpoint()? else {
-        return Ok(None);
-    };
-    Ok(Some(snapshot_v2_from_checkpoint(checkpoint, None)?))
+    Ok(load_persisted_coordination_plan_state(store)?.map(|state| state.canonical_snapshot_v2))
 }
 
 pub(crate) fn save_coordination_startup_checkpoint<S>(
     root: &Path,
     store: &mut S,
     snapshot: &CoordinationSnapshot,
-    _canonical_snapshot_v2: &CoordinationSnapshotV2,
+    canonical_snapshot_v2: &CoordinationSnapshotV2,
     runtime_descriptors: Option<&[RuntimeDescriptor]>,
+) -> Result<()>
+where
+    S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
+{
+    save_coordination_startup_checkpoint_with_revision(
+        root,
+        store,
+        snapshot,
+        canonical_snapshot_v2,
+        runtime_descriptors,
+        store.coordination_revision()?,
+    )
+}
+
+pub(crate) fn save_coordination_startup_checkpoint_with_revision<S>(
+    root: &Path,
+    store: &mut S,
+    snapshot: &CoordinationSnapshot,
+    canonical_snapshot_v2: &CoordinationSnapshotV2,
+    runtime_descriptors: Option<&[RuntimeDescriptor]>,
+    authoritative_revision: u64,
 ) -> Result<()>
 where
     S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
@@ -66,10 +95,10 @@ where
     store.save_coordination_startup_checkpoint(&CoordinationStartupCheckpoint {
         version: CoordinationStartupCheckpoint::VERSION,
         materialized_at: current_timestamp(),
-        coordination_revision: store.coordination_revision()?,
+        coordination_revision: authoritative_revision,
         authority,
         snapshot: checkpoint_snapshot.clone(),
-        canonical_snapshot_v2: _canonical_snapshot_v2.clone(),
+        canonical_snapshot_v2: canonical_snapshot_v2.clone(),
         runtime_descriptors: runtime_descriptors.unwrap_or_default().to_vec(),
     })
 }

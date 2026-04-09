@@ -10,6 +10,7 @@ use prism_coordination::{
     CoordinationDerivations, CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor,
 };
 use prism_ir::{DerivedPlanStatus, NodeRef, NodeRefKind, PlanId, PlanStatus};
+use prism_store::SqliteStore;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -18,12 +19,13 @@ use crate::coordination_authority_store::{
     CoordinationReplaceCurrentStateRequest, CoordinationTransactionBase,
     CoordinationTransactionStatus,
 };
+use crate::coordination_startup_checkpoint::load_persisted_coordination_plan_state;
 use crate::coordination_reads::CoordinationReadConsistency;
 use crate::tracked_snapshot::{
     remove_obsolete_legacy_tracked_authority_artifacts, tracked_snapshot_authority_active,
     TrackedSnapshotPublishContext,
 };
-use crate::util::{repo_active_plans_dir, repo_archived_plans_dir, repo_plan_index_path};
+use crate::util::{cache_path, repo_active_plans_dir, repo_archived_plans_dir, repo_plan_index_path};
 
 fn observe_published_plan_step<T, E, O, F, A>(
     observe_phase: &mut O,
@@ -242,7 +244,14 @@ pub(crate) fn load_authoritative_coordination_current_state_with_consistency(
     let snapshot_store = provider.open_snapshot(root)?;
     let snapshot = snapshot_store.read_snapshot(consistency)?.value;
     let Some(snapshot) = snapshot else {
-        return Ok(None);
+        let mut store = SqliteStore::open(cache_path(root)?)?;
+        return Ok(load_persisted_coordination_plan_state(&mut store)?.map(
+            |state| CoordinationCurrentState {
+                snapshot: state.snapshot,
+                canonical_snapshot_v2: state.canonical_snapshot_v2,
+                runtime_descriptors: state.runtime_descriptors,
+            },
+        ));
     };
     let canonical_snapshot_v2 = snapshot_store
         .read_snapshot_v2(consistency)?

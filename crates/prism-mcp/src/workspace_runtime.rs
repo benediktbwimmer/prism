@@ -2579,7 +2579,7 @@ mod tests {
             runtime_only_revision
         );
         assert_eq!(
-            workspace.prism().coordination_snapshot(),
+            workspace.prism().legacy_coordination_snapshot(),
             live_snapshot,
             "runtime-only revision bumps must not overwrite the fresher in-memory coordination snapshot"
         );

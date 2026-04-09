@@ -656,6 +656,7 @@ fn anchor_key(anchor: &AnchorRef) -> (&'static str, String) {
         ),
         AnchorRef::Lineage(lineage) => ("lineage", lineage.0.to_string()),
         AnchorRef::File(file) => ("file", file.0.to_string()),
+        AnchorRef::WorkspacePath(path) => ("file_path", path.clone()),
         AnchorRef::Kind(kind) => ("kind", kind.to_string()),
     }
 }

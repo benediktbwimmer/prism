@@ -254,6 +254,15 @@ impl Prism {
     }
 
     pub fn coordination_scope_anchors(&self, anchors: &[AnchorRef]) -> Vec<AnchorRef> {
+        if !self
+            .runtime_capabilities()
+            .graph_backed_resolution_enabled()
+        {
+            let mut scoped = anchors.to_vec();
+            scoped.sort_by(anchor_sort_key);
+            scoped.dedup();
+            return scoped;
+        }
         let mut scoped = self.expand_anchors(anchors);
         let seed_nodes = self.resolve_anchor_nodes(&scoped);
         let mut processed_nodes = seed_nodes.into_iter().take(24).collect::<Vec<_>>();

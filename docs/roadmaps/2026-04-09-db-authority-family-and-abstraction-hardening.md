@@ -82,6 +82,8 @@ Current phase spec:
 - [../specs/2026-04-09-canonical-assisted-overlay-follow-through-phase-6.md](../specs/2026-04-09-canonical-assisted-overlay-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-startup-checkpoint-follow-through-phase-6.md](../specs/2026-04-09-canonical-startup-checkpoint-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-runtime-replacement-follow-through-phase-6.md](../specs/2026-04-09-canonical-runtime-replacement-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-session-read-surface-follow-through-phase-6.md](../specs/2026-04-09-canonical-session-read-surface-follow-through-phase-6.md)
+- [../specs/2026-04-09-legacy-prism-snapshot-surface-demotion-phase-6.md](../specs/2026-04-09-legacy-prism-snapshot-surface-demotion-phase-6.md)
 
 Current assessment:
 
@@ -213,6 +215,18 @@ Latest checkpoint:
   longer exposes legacy snapshot-only helpers, runtime rollback now restores explicit canonical
   state from the rollback snapshot, and watch/runtime reload callers now pass canonical state
   explicitly when replacing live coordination runtime state
+- the canonical session-read-surface follow-through is complete; the public session continuity
+  snapshot read API is gone, the remaining continuity read path is internal to the explicit Git
+  backend, and the affected core assertions now read canonical v2 coordination state instead
+- the legacy Prism snapshot-surface demotion is complete; the old
+  `Prism::coordination_snapshot()` name is gone, the remaining continuity accessor is explicitly
+  named `legacy_coordination_snapshot()`, and v2 remains the only normal public snapshot surface
+- the canonical Prism constructor-surface follow-through is complete; public coordination-bearing
+  `Prism` builders now require explicit canonical v2 state, the old legacy constructor aliases are
+  gone, and the remaining production caller now passes canonical state explicitly
+- the legacy materialized snapshot-surface demotion is complete; the materialized-store continuity
+  read/write APIs are now explicitly named `legacy_*`, and persistence/session/authority callers no
+  longer treat that continuity projection as a normal unqualified materialized snapshot surface
 - the next Phase 6 work remains the deeper purge of active-path `CoordinationSnapshot` /
   legacy coordination-model dependencies that still exist under the mutation engine,
   transaction/runtime paths, and adjacent materialization code

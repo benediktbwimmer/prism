@@ -169,7 +169,7 @@ use schema_examples::*;
 use self_description::*;
 use semantic_contexts::*;
 use service_shell::WorkspaceServiceShell;
-use session_seed::{persist_session_seed, restore_session_seed};
+use session_seed::{load_session_seed, persist_session_seed, restore_session_seed};
 use session_state::SessionState;
 use spec_insights::*;
 use suggested_queries::*;
@@ -802,8 +802,9 @@ impl PrismMcpServer {
 #[derive(Clone)]
 struct QueryHost {
     prism: Arc<Prism>,
-    notes: Arc<SessionMemory>,
-    inferred_edges: Arc<InferenceStore>,
+    workspace_session: Option<Arc<WorkspaceSession>>,
+    notes: Option<Arc<SessionMemory>>,
+    inferred_edges: Option<Arc<InferenceStore>>,
     next_event: Arc<AtomicU64>,
     default_limits: QueryLimits,
     worker_pool: Arc<JsWorkerPool>,
@@ -916,8 +917,15 @@ impl QueryHost {
         prism.set_runtime_capabilities(features.runtime_capabilities());
         Self {
             prism: prism.clone(),
-            notes: Arc::new(SessionMemory::new()),
-            inferred_edges: Arc::new(InferenceStore::new()),
+            workspace_session: None,
+            notes: features
+                .runtime_capabilities()
+                .knowledge_storage_enabled()
+                .then(|| Arc::new(SessionMemory::new())),
+            inferred_edges: features
+                .runtime_capabilities()
+                .knowledge_storage_enabled()
+                .then(|| Arc::new(InferenceStore::new())),
             next_event: Arc::new(AtomicU64::new(0)),
             default_limits: limits,
             worker_pool: Arc::new(worker_pool),
@@ -998,21 +1006,41 @@ impl QueryHost {
     ) -> Self {
         let prism = workspace.prism_arc();
         prism.set_runtime_capabilities(features.runtime_capabilities());
-        let notes = Arc::new(SessionMemory::new());
-        let inferred_edges = Arc::new(InferenceStore::new());
+        let notes = features
+            .runtime_capabilities()
+            .knowledge_storage_enabled()
+            .then(|| Arc::new(SessionMemory::new()));
+        let inferred_edges = features
+            .runtime_capabilities()
+            .knowledge_storage_enabled()
+            .then(|| Arc::new(InferenceStore::new()));
         let mcp_call_log_store = Arc::new(McpCallLogStore::for_root(Some(workspace.root())));
         let diagnostics_state = Arc::new(DiagnosticsState::default());
-        let workspace_service_shell = Arc::new(WorkspaceServiceShell::bind_workspace(
-            Arc::clone(&workspace),
-            Arc::clone(&notes),
-            Arc::clone(&inferred_edges),
-            Arc::clone(&diagnostics_state),
-            Arc::clone(&mcp_call_log_store),
-            authority_store_provider,
-            &features,
-        ));
+        let workspace_service_shell =
+            if features.runtime_mode() == PrismRuntimeMode::CoordinationOnly {
+                None
+            } else {
+                Some(Arc::new(WorkspaceServiceShell::bind_workspace(
+                    Arc::clone(&workspace),
+                    Arc::clone(
+                        notes
+                            .as_ref()
+                            .expect("notes available outside coordination-only"),
+                    ),
+                    Arc::clone(
+                        inferred_edges
+                            .as_ref()
+                            .expect("inferred edges available outside coordination-only"),
+                    ),
+                    Arc::clone(&diagnostics_state),
+                    Arc::clone(&mcp_call_log_store),
+                    authority_store_provider,
+                    &features,
+                )))
+            };
         Self {
             prism: Arc::clone(&prism),
+            workspace_session: Some(Arc::clone(&workspace)),
             notes,
             inferred_edges,
             next_event: Arc::new(AtomicU64::new(0)),
@@ -1021,7 +1049,7 @@ impl QueryHost {
             mcp_call_log_store,
             diagnostics_state,
             next_mutation_trace_id: Arc::new(AtomicU64::new(1)),
-            workspace_service_shell: Some(Arc::clone(&workspace_service_shell)),
+            workspace_service_shell,
             features,
             #[cfg(test)]
             test_session: OnceLock::new(),
@@ -1030,16 +1058,23 @@ impl QueryHost {
 
     fn new_session_state(&self) -> Arc<SessionState> {
         let session = Arc::new(SessionState::new(
-            Arc::clone(&self.notes),
-            Arc::clone(&self.inferred_edges),
+            self.notes.as_ref().map(Arc::clone),
+            self.inferred_edges.as_ref().map(Arc::clone),
             Arc::clone(&self.next_event),
             self.default_limits,
         ));
-        if let Some(seed) = self
-            .workspace_service_shell()
-            .and_then(|shell| shell.restored_session_seed())
-        {
-            restore_session_seed(session.as_ref(), seed);
+        if self.session_seed_enabled() {
+            let restored_seed = self
+                .workspace_service_shell()
+                .and_then(|shell| shell.restored_session_seed())
+                .cloned()
+                .or_else(|| {
+                    self.workspace_root()
+                        .and_then(|root| load_session_seed(root).ok().flatten())
+                });
+            if let Some(seed) = restored_seed.as_ref() {
+                restore_session_seed(session.as_ref(), seed);
+            }
         }
         self.sync_workspace_active_work_context(session.as_ref());
         session
@@ -1050,10 +1085,20 @@ impl QueryHost {
     }
 
     fn persist_session_seed(&self, session: &SessionState) -> Result<()> {
+        if !self.session_seed_enabled() {
+            return Ok(());
+        }
         if let Some(workspace) = self.workspace_session() {
             persist_session_seed(workspace.root(), session)?;
         }
         Ok(())
+    }
+
+    fn session_seed_enabled(&self) -> bool {
+        !matches!(
+            self.features.runtime_mode(),
+            PrismRuntimeMode::CoordinationOnly
+        )
     }
 
     #[cfg(test)]
@@ -1254,8 +1299,7 @@ impl QueryHost {
     }
 
     pub(crate) fn workspace_session(&self) -> Option<&Arc<WorkspaceSession>> {
-        self.workspace_runtime_binding_ref()
-            .map(|binding| binding.workspace())
+        self.workspace_session.as_ref()
     }
 
     pub(crate) fn workspace_session_ref(&self) -> Option<&WorkspaceSession> {
@@ -1263,8 +1307,7 @@ impl QueryHost {
     }
 
     pub(crate) fn workspace_session_arc(&self) -> Option<Arc<WorkspaceSession>> {
-        self.workspace_runtime_binding_ref()
-            .map(|binding| Arc::clone(binding.workspace()))
+        self.workspace_session.as_ref().map(Arc::clone)
     }
 
     pub(crate) fn workspace_root(&self) -> Option<&Path> {
@@ -1279,6 +1322,9 @@ impl QueryHost {
         let Some(workspace) = self.workspace_session_ref() else {
             return;
         };
+        if workspace.coordination_only_runtime() {
+            return;
+        }
         if let Some(work) = session.current_work_state() {
             workspace.bind_active_work_context(active_work_context_binding(&work));
         } else {
@@ -1304,6 +1350,10 @@ impl QueryHost {
         let Some(workspace) = self.workspace_session_ref() else {
             return Ok(prism_core::PersistedObservedChangeCheckpointResult::default());
         };
+        if workspace.coordination_only_runtime() {
+            let _ = (session, summary);
+            return Ok(prism_core::PersistedObservedChangeCheckpointResult::default());
+        }
         workspace.persist_flushed_observed_change_checkpoints_detailed(
             Some(&session.session_id()),
             current_request_id(),
@@ -1380,13 +1430,16 @@ impl QueryHost {
     }
 
     pub(crate) fn reload_episodic_snapshot(&self, workspace: &WorkspaceSession) -> Result<()> {
+        let Some(notes) = self.notes.as_ref() else {
+            return Ok(());
+        };
         let snapshot =
             workspace
                 .load_episodic_snapshot_for_runtime()?
                 .unwrap_or(EpisodicMemorySnapshot {
                     entries: Vec::new(),
                 });
-        self.notes.replace_from_snapshot(snapshot);
+        notes.replace_from_snapshot(snapshot);
         self.sync_episodic_revision(workspace)
     }
 
@@ -1506,7 +1559,10 @@ impl QueryHost {
         let Some(workspace) = self.workspace_session() else {
             return Ok(());
         };
-        workspace.persist_episodic(&self.notes.persisted_snapshot())?;
+        let Some(notes) = self.notes.as_ref() else {
+            return Ok(());
+        };
+        workspace.persist_episodic(&notes.persisted_snapshot())?;
         self.sync_episodic_revision(workspace)
     }
 
@@ -1514,7 +1570,10 @@ impl QueryHost {
         let Some(workspace) = self.workspace_session() else {
             return Ok(());
         };
-        workspace.persist_inference(&self.inferred_edges.snapshot_persisted())?;
+        let Some(inferred_edges) = self.inferred_edges.as_ref() else {
+            return Ok(());
+        };
+        workspace.persist_inference(&inferred_edges.snapshot_persisted())?;
         self.sync_inference_revision(workspace)
     }
 

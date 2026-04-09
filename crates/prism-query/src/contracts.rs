@@ -84,7 +84,7 @@ fn anchor_matches_target(prism: &Prism, target: &NodeId, anchor: &AnchorRef) -> 
             .graph()
             .node(target)
             .is_some_and(|node| node.file == *file_id),
-        AnchorRef::Node(_) | AnchorRef::Kind(_) => false,
+        AnchorRef::Node(_) | AnchorRef::WorkspacePath(_) | AnchorRef::Kind(_) => false,
     }
 }
 
@@ -155,6 +155,7 @@ fn resolve_contract_target_nodes(
                         .map(|node| node.id.clone()),
                 );
             }
+            AnchorRef::WorkspacePath(_) => {}
             AnchorRef::Kind(kind) => {
                 if !prism
                     .runtime_capabilities()

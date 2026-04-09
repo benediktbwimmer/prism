@@ -441,7 +441,7 @@ fn runtime_status_from_inputs(
             .flatten(),
         health_path: daemon_health_path(&daemons).to_string(),
         health: connection.health.clone(),
-        runtime_count: daemons.len(),
+        daemon_count: daemons.len(),
         bridge_count: bridges.len(),
         connected_bridge_count: bridge_counts.connected,
         idle_bridge_count: bridge_counts.idle,
@@ -560,7 +560,8 @@ fn runtime_freshness_from_inputs(
         ),
     });
     let last_build = latest_runtime_event(runtime_state, "built prism-mcp workspace server");
-    let last_ready = latest_runtime_event(runtime_state, "prism-mcp runtime ready");
+    let last_ready = latest_runtime_event(runtime_state, "prism-mcp daemon ready")
+        .or_else(|| latest_runtime_event(runtime_state, "prism-mcp runtime ready"));
 
     Ok(RuntimeFreshnessView {
         fs_observed_revision,
@@ -589,12 +590,12 @@ fn runtime_freshness_from_inputs(
             .as_ref()
             .map(|refresh| refresh.workspace_reloaded),
         last_workspace_build_ms: event_field_u64(last_build, "buildMs"),
-        last_runtime_ready_ms: event_field_u64(last_ready, "startupMs"),
+        last_daemon_ready_ms: event_field_u64(last_ready, "startupMs"),
         materialization: materialization.clone(),
         coordination_lag,
         domains: published_generation
             .as_ref()
-            .map(|generation| runtime_domain_views(generation))
+            .map(|generation| runtime_domain_views(generation, queue_snapshot))
             .unwrap_or_default(),
         active_command: queue_snapshot.as_ref().and_then(|snapshot| {
             snapshot
@@ -666,7 +667,8 @@ fn degraded_runtime_freshness_from_inputs(
         ),
     };
     let last_build = latest_runtime_event(runtime_state, "built prism-mcp workspace server");
-    let last_ready = latest_runtime_event(runtime_state, "prism-mcp runtime ready");
+    let last_ready = latest_runtime_event(runtime_state, "prism-mcp daemon ready")
+        .or_else(|| latest_runtime_event(runtime_state, "prism-mcp runtime ready"));
 
     RuntimeFreshnessView {
         fs_observed_revision,
@@ -695,12 +697,12 @@ fn degraded_runtime_freshness_from_inputs(
             .as_ref()
             .map(|refresh| refresh.workspace_reloaded),
         last_workspace_build_ms: event_field_u64(last_build, "buildMs"),
-        last_runtime_ready_ms: event_field_u64(last_ready, "startupMs"),
+        last_daemon_ready_ms: event_field_u64(last_ready, "startupMs"),
         materialization,
         coordination_lag: None,
         domains: published_generation
             .as_ref()
-            .map(|generation| runtime_domain_views(generation))
+            .map(|generation| runtime_domain_views(generation, queue_snapshot))
             .unwrap_or_default(),
         active_command: queue_snapshot.as_ref().and_then(|snapshot| {
             snapshot
@@ -742,17 +744,38 @@ fn runtime_queue_depth_views(
 
 fn runtime_domain_views(
     generation: &prism_core::runtime_engine::WorkspacePublishedGeneration,
+    queue_snapshot: Option<&WorkspaceRuntimeQueueSnapshot>,
 ) -> Vec<RuntimeDomainFreshnessView> {
+    let checkpoint_pending = queue_snapshot.is_some_and(checkpoint_materialization_pending);
     generation
         .domain_states
         .iter()
-        .map(|(domain, state)| RuntimeDomainFreshnessView {
-            domain: runtime_domain_label(*domain).to_string(),
-            freshness: runtime_freshness_label(state.freshness).to_string(),
-            materialization_depth: runtime_materialization_depth_label(state.materialization)
-                .to_string(),
+        .map(|(domain, state)| {
+            let freshness = if checkpoint_pending
+                && *domain == prism_core::runtime_engine::RuntimeDomain::Checkpoint
+            {
+                RuntimeFreshnessState::Pending
+            } else {
+                state.freshness
+            };
+            RuntimeDomainFreshnessView {
+                domain: runtime_domain_label(*domain).to_string(),
+                freshness: runtime_freshness_label(freshness).to_string(),
+                materialization_depth: runtime_materialization_depth_label(state.materialization)
+                    .to_string(),
+            }
         })
         .collect()
+}
+
+fn checkpoint_materialization_pending(snapshot: &WorkspaceRuntimeQueueSnapshot) -> bool {
+    snapshot.active.as_ref().is_some_and(|command| {
+        command.kind == prism_core::runtime_engine::WorkspaceRuntimeCommandKind::MaterializeCheckpoint
+    }) || snapshot.queued.iter().any(|entry| {
+        entry.queue_class
+            == prism_core::runtime_engine::WorkspaceRuntimeQueueClass::CheckpointMaterialization
+            && entry.depth > 0
+    })
 }
 
 fn runtime_domain_label(domain: prism_core::runtime_engine::RuntimeDomain) -> &'static str {
@@ -868,14 +891,14 @@ fn projection_scope_view(scope: ProjectionScopeReadModel) -> RuntimeProjectionSc
 }
 
 fn overlay_scope_views(
-    snapshot: &prism_coordination::CoordinationSnapshotV2,
+    _snapshot: &prism_coordination::CoordinationSnapshotV2,
     live_overlay_snapshot: &prism_coordination::CoordinationSnapshotV2,
 ) -> Vec<RuntimeOverlayScopeView> {
     vec![
         RuntimeOverlayScopeView {
             scope: "repo".to_string(),
-            plan_count: snapshot.plans.len(),
-            plan_node_count: snapshot.tasks.len(),
+            plan_count: 0,
+            plan_node_count: 0,
             overlay_count: 0,
         },
         RuntimeOverlayScopeView {
@@ -1271,7 +1294,7 @@ fn daemon_connection_info(
     let health = health_status(&uri, daemons, process_error);
     Ok(ConnectionInfoView {
         root: root.display().to_string(),
-        mode: "direct-runtime".to_string(),
+        mode: "direct-daemon".to_string(),
         transport: "streamable-http".to_string(),
         uri,
         uri_file: paths.uri_file.display().to_string(),
@@ -1581,6 +1604,7 @@ fn is_timeline_event(event: &RuntimeLogEventView) -> bool {
             | "built prism query state"
             | "built prism workspace session"
             | "built prism-mcp workspace server"
+            | "prism-mcp daemon ready"
             | "prism-mcp runtime ready"
             | "prism-mcp bridge resolved upstream"
             | "prism-mcp bridge connected"

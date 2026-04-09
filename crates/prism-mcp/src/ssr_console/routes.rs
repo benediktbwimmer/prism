@@ -1144,19 +1144,23 @@ fn plans_fragment_url(query: &PlansQuery, selected_plan_id: Option<&str>) -> Str
 }
 
 fn plan_markdown_payload(host: &QueryHost, plan_id: &str) -> Result<Option<(String, String)>> {
-    let prism = host.current_prism();
     let plan_id = PlanId::new(plan_id.to_string());
-    let Some(plan) = prism.coordination_plan_v2(&plan_id) else {
+    let snapshot_v2 = host.current_coordination_snapshot_v2()?;
+    let Some(plan) = snapshot_v2
+        .plans
+        .iter()
+        .find(|plan| plan.id == plan_id)
+        .cloned()
+    else {
         return Ok(None);
     };
-    let snapshot_v2 = host.current_coordination_snapshot_v2()?;
     let markdown = render_repo_published_plan_markdown(
         &snapshot_v2,
         &plan_id,
-        Some(compatibility_plan_status(plan.status)),
+        None,
     )
     .ok_or_else(|| anyhow!("plan markdown should be renderable for {}", plan_id.0))?;
-    Ok(Some((plan.plan.title, markdown)))
+    Ok(Some((plan.title, markdown)))
 }
 
 fn compatibility_plan_status(status: DerivedPlanStatus) -> PlanStatus {

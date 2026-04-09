@@ -2316,10 +2316,14 @@ impl ServerHandler for PrismMcpServer {
                 .with_title("PRISM Plans")
                 .no_annotation(),
         ]);
+        if self.host.features.resource_kind_visible("protected-state") {
+            resources.push(
+                protected_state_resource_link()
+                    .with_title("PRISM Protected State")
+                    .no_annotation(),
+            );
+        }
         resources.extend([
-            protected_state_resource_link()
-                .with_title("PRISM Protected State")
-                .no_annotation(),
             RawResource::new(VOCAB_URI, "PRISM Vocabulary")
                 .with_description(
                     "Canonical enum and action vocabularies for PRISM MCP resources, query args, and mutation payloads",

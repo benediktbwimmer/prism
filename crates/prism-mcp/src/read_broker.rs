@@ -73,7 +73,11 @@ pub(crate) fn current_coordination_surface_for_workspace(
     if let Some(workspace) = workspace {
         let provider = configured_coordination_authority_store_provider(workspace.root())?;
         if !coordination_materialization_enabled_by_default(provider.config()) {
-            return current_coordination_surface_from_authority(workspace, &provider);
+            if let Some(surface) =
+                current_coordination_surface_from_authority(workspace, &provider)?
+            {
+                return Ok(surface);
+            }
         }
     }
     let mut snapshot_v2 = CoordinationSnapshotV2::default();
@@ -127,22 +131,13 @@ pub(crate) fn current_coordination_surface_for_workspace(
 fn current_coordination_surface_from_authority(
     workspace: &WorkspaceSession,
     provider: &prism_core::CoordinationAuthorityStoreProvider,
-) -> Result<CurrentCoordinationSurface> {
+) -> Result<Option<CurrentCoordinationSurface>> {
     let store = provider.open_coordination_surface_reads(workspace.root())?;
     let envelope = store.read_coordination_surface(CoordinationReadConsistency::Eventual)?;
-    let surface =
-        envelope
-            .value
-            .unwrap_or_else(|| prism_core::CoordinationAuthorityCoordinationSurface {
-                canonical_snapshot_v2: CoordinationSnapshotV2::default(),
-                read_model: CoordinationReadModel::default(),
-                queue_read_model: CoordinationQueueReadModel::default(),
-                tracked_snapshot_revision: None,
-                startup_checkpoint_revision: None,
-                read_model_revision: None,
-                queue_read_model_revision: None,
-            });
-    Ok(CurrentCoordinationSurface {
+    let Some(surface) = envelope.value else {
+        return Ok(None);
+    };
+    Ok(Some(CurrentCoordinationSurface {
         snapshot_v2: surface.canonical_snapshot_v2,
         read_model: surface.read_model,
         queue_read_model: surface.queue_read_model,
@@ -150,5 +145,5 @@ fn current_coordination_surface_from_authority(
         startup_checkpoint_revision: surface.startup_checkpoint_revision,
         read_model_revision: surface.read_model_revision,
         queue_read_model_revision: surface.queue_read_model_revision,
-    })
+    }))
 }

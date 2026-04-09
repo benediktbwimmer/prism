@@ -570,7 +570,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
             }
         })
         .expect("handoff state");
-    assert_eq!(handed_off.result["assignee"], Value::Null);
+    assert_eq!(handed_off.result["assignee"], "agent-b");
     assert_eq!(handed_off.result["pendingHandoffTo"], "agent-b");
     assert_eq!(handed_off.result["status"], "blocked");
 

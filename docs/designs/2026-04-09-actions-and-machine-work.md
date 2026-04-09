@@ -127,6 +127,24 @@ This means Actions share with validation and event jobs:
 - result envelopes
 - provenance
 
+Actions should also reuse the same underlying PRISM read and write capabilities already exposed
+through:
+
+- `prism_query`
+- `prism_mutate`
+
+That means an Action runner should not need a second workflow-specific state API. It should be able
+to query or mutate coordination state through the same native capability contracts, exposed through
+the shared JS or TS SDK family.
+
+PRISM therefore does not need Temporal-style equivalents of:
+
+- activity-only state channels
+- workflow queries as a special API
+- signals as a required side channel for machine work
+
+The shared PRISM read and write capability surface already covers those needs.
+
 ## 6. Service and runtime posture
 
 ### 6.1 Service routes
@@ -138,6 +156,13 @@ The service should:
 - pick a target
 - create durable execution state
 - record result and provenance
+
+This is intentionally different from Task semantics.
+
+Tasks are claimed by runtimes or agents.
+Actions are routed by the service.
+
+That asymmetry is one of PRISM's strengths and should remain explicit.
 
 ### 6.2 Runtime usually executes
 
@@ -154,6 +179,15 @@ Examples:
 - repo-local maintenance
 
 Service-executed Actions should remain a small built-in minority.
+
+Actions should also not default to a queue-centric worker model where all workers are effectively
+interchangeable except for queue binding.
+
+The preferred posture is:
+
+- runtimes describe themselves
+- the service evaluates capability posture and policy
+- the service picks the target runtime intentionally
 
 ## 7. Action lifecycle
 

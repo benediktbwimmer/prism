@@ -404,13 +404,13 @@ impl PrismMcpFeatures {
         match resource_kind {
             "capabilities"
             | "session"
-            | "protected-state"
             | "vocab"
             | "plans"
             | "plan"
             | "tool-schemas"
             | "capabilities-section"
             | "vocab-entry" => true,
+            "protected-state" => self.runtime_mode != PrismRuntimeMode::CoordinationOnly,
             "tool-example" | "tool-shape" => self.tool_example_resources_visible(),
             "resource-example" | "resource-shape" => self.resource_example_resources_visible(),
             "contracts"

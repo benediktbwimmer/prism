@@ -1258,6 +1258,7 @@ pub(crate) fn anchor_resource_view_links(
                     )));
                 }
             }
+            AnchorRef::WorkspacePath(path) => links.push(file_resource_view_link(path)),
             AnchorRef::Kind(_) => {}
         }
     }

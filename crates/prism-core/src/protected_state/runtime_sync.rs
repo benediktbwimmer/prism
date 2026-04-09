@@ -17,6 +17,7 @@ use crate::coordination_authority_store::{
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
+use crate::coordination_startup_checkpoint::load_persisted_coordination_plan_state;
 use crate::layout::WorkspaceLayout;
 use crate::memory_events::load_repo_memory_events;
 use crate::protected_state::streams::ProtectedRepoStream;
@@ -183,14 +184,17 @@ pub(crate) fn load_repo_protected_plan_state<S>(
 where
     S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
 {
-    let _ = store;
     let provider = configured_coordination_authority_store_provider(root)?;
     match provider.config() {
         CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
-            let mut authority_store = prism_store::SqliteStore::open(db_path)?;
-            Ok(authority_store
-                .load_coordination_startup_checkpoint()?
-                .map(|checkpoint| {
+            let resolved_db_path = if db_path.is_absolute() {
+                db_path.clone()
+            } else {
+                root.join(db_path)
+            };
+            let mut authority_store = prism_store::SqliteStore::open(&resolved_db_path)?;
+            Ok(match authority_store.load_coordination_startup_checkpoint()? {
+                Some(checkpoint) => Some({
                     let snapshot = checkpoint.snapshot;
                     let canonical_snapshot_v2 = checkpoint.canonical_snapshot_v2;
                     HydratedCoordinationPlanState {
@@ -198,13 +202,15 @@ where
                         canonical_snapshot_v2,
                         runtime_descriptors: checkpoint.runtime_descriptors,
                     }
-                }))
+                }),
+                None => load_persisted_coordination_plan_state(store)?,
+            })
         }
         _ => Ok(SqliteCoordinationMaterializedStore::new(root)
             .read_plan_state()?
             .value
             .map(|value| HydratedCoordinationPlanState {
-                snapshot: value.snapshot,
+                snapshot: value.legacy_snapshot,
                 canonical_snapshot_v2: value.canonical_snapshot_v2,
                 runtime_descriptors: value.runtime_descriptors,
             })),

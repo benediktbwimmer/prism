@@ -114,7 +114,7 @@ pub(crate) fn sync_coordination_authority_update(
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
-    refresh_lock: &Arc<Mutex<()>>,
+    refresh_lock: Option<&Arc<Mutex<()>>>,
     loaded_workspace_revision: &Arc<AtomicU64>,
     coordination_runtime_revision: &Arc<AtomicU64>,
     coordination_enabled: bool,
@@ -147,14 +147,16 @@ pub(crate) fn apply_coordination_authority_current_state(
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
-    refresh_lock: &Arc<Mutex<()>>,
+    refresh_lock: Option<&Arc<Mutex<()>>>,
     loaded_workspace_revision: &Arc<AtomicU64>,
     coordination_runtime_revision: &Arc<AtomicU64>,
     shared: &crate::CoordinationCurrentState,
 ) -> Result<()> {
-    let _guard = refresh_lock
-        .lock()
-        .expect("coordination authority refresh lock poisoned");
+    let _guard = refresh_lock.map(|refresh_lock| {
+        refresh_lock
+            .lock()
+            .expect("coordination authority refresh lock poisoned")
+    });
 
     let local_workspace_revision = store
         .lock()

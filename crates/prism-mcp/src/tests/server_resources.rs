@@ -530,7 +530,7 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
     assert!(!resource_uris.contains(&ENTRYPOINTS_URI));
     assert!(!resource_uris.contains(&SCHEMAS_URI));
     assert!(!resource_uris.contains(&SELF_DESCRIPTION_AUDIT_URI));
-    assert!(resource_uris.contains(&PROTECTED_STATE_URI));
+    assert!(!resource_uris.contains(&PROTECTED_STATE_URI));
     assert!(resource_uris.contains(&VOCAB_URI));
     assert!(resource_uris.contains(&TOOL_SCHEMAS_URI));
 
@@ -555,6 +555,13 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
     assert!(query_methods.contains("blockers"));
     assert!(query_methods.contains("tool"));
     assert!(!query_methods.contains("symbol"));
+    let capability_resource_uris = capabilities_payload["resources"]
+        .as_array()
+        .expect("resources should be an array")
+        .iter()
+        .filter_map(|resource| resource["uri"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert!(!capability_resource_uris.contains(PROTECTED_STATE_URI));
     assert!(capabilities_payload["queryViews"]
         .as_array()
         .expect("query views should be an array")
@@ -577,7 +584,7 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .collect::<std::collections::BTreeSet<_>>();
     assert!(!related_resource_uris.contains(API_REFERENCE_URI));
     assert!(!related_resource_uris.contains("prism://search/read%20context"));
-    assert!(related_resource_uris.contains(PROTECTED_STATE_URI));
+    assert!(!related_resource_uris.contains(PROTECTED_STATE_URI));
     assert!(related_resource_uris.contains(VOCAB_URI));
     assert!(related_resource_uris.contains(TOOL_SCHEMAS_URI));
     let capability_template_uris = capabilities_payload["resourceTemplates"]

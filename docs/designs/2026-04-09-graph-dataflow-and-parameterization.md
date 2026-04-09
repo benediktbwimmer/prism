@@ -1,14 +1,14 @@
 # PRISM Graph Dataflow And Parameterization
 
-Status: proposed design  
-Audience: coordination, service, runtime, query, MCP, CLI, UI, and workflow maintainers  
-Scope: typed inputs, outputs, bindings, reusable definitions, and carried state across plans, tasks, actions, reviews, and related workflow nodes
+Status: proposed design
+Audience: coordination, service, runtime, query, MCP, CLI, UI, and plan maintainers
+Scope: typed inputs, outputs, bindings, reusable definitions, and carried state across plans, tasks, actions, reviews, and related coordination nodes
 
 ---
 
 ## 1. Summary
 
-PRISM should evolve from a static coordination DAG toward a typed workflow graph with explicit
+PRISM should evolve from a static coordination DAG toward a typed plan graph with explicit
 dataflow.
 
 This means adding graph-wide support for:
@@ -20,7 +20,7 @@ This means adding graph-wide support for:
 - reusable plan definitions or templates
 - continue-as-new with carried state
 
-This is not only about parameterizing Plans. It is about letting multiple workflow objects consume
+This is not only about parameterizing Plans. It is about letting multiple coordination objects consume
 and produce typed data.
 
 The target scope includes at least:
@@ -33,7 +33,7 @@ The target scope includes at least:
 
 ## 2. Why this layer matters
 
-Without explicit graph dataflow, PRISM workflows remain powerful but stiff.
+Without explicit graph dataflow, PRISM plans remain powerful but stiff.
 
 Downstream work then depends mostly on:
 
@@ -45,7 +45,7 @@ Typed inputs, outputs, and bindings make the graph itself much more meaningful.
 
 That unlocks:
 
-- reusable workflow definitions
+- reusable plan definitions
 - explicit machine-work dependencies
 - better explainability
 - stronger provenance
@@ -149,7 +149,30 @@ A plan instance may include:
 - execution state
 - lineage to previous or future instances
 
-This gives PRISM reusable workflow structure without making Plans executable actors.
+This gives PRISM reusable plan structure without making Plans executable actors.
+
+### 5.3 Explicit control constructs
+
+Plan definitions and plan instances should eventually support explicit native control constructs in
+the compiled IR rather than requiring everything to be flattened into only static nodes and edges.
+
+Examples:
+
+- typed conditions
+- joins
+- bounded fan-out or fan-in constructs
+- loop-like control forms with carried state
+- explicit continue-as-new boundaries
+
+These constructs should remain:
+
+- explicit
+- typed
+- inspectable
+- queryable
+
+They are one of the key prerequisites for large compiled Plans and for selective materialization of
+machine-only subgraphs.
 
 ## 6. Node-level dataflow
 
@@ -220,9 +243,12 @@ Examples:
 
 This should remain explicit rather than magical.
 
+Continue-as-new should be understood as part of the intended v1 native Plan model, not only as a
+future extension.
+
 ## 9. Reusable workflow definitions
 
-Once graph-wide dataflow exists, reusable workflow definitions become natural.
+Once graph-wide dataflow exists, reusable plan definitions become natural.
 
 Examples:
 
@@ -232,15 +258,15 @@ Examples:
 - hotfix template
 - review and validation template
 
-These should remain explicit structured definitions, not arbitrary workflow code.
+These should remain explicit structured definitions, not arbitrary plan code.
 
 ## 10. Guardrails
 
-PRISM should not jump straight to general-purpose workflow programming.
+PRISM should not jump straight to general-purpose plan programming.
 
 Avoid:
 
-- hidden mutable workflow variables
+- hidden mutable plan variables
 - arbitrary code-driven graph mutation everywhere
 - implicit control flow hidden inside templates
 - opaque executable plan logic
@@ -262,14 +288,28 @@ This dataflow layer is distinct from the shared execution substrate.
 The split should be:
 
 - shared execution substrate = how machine work runs
-- graph dataflow and parameterization = how workflow objects consume and produce typed data
+- graph dataflow and parameterization = how coordination objects consume and produce typed data
 
 They are complementary but not the same design problem.
+
+This dataflow layer is also the semantic target for JS or TS-authored Plans compiled into PRISM
+native IR.
+
+That means the compiler should target explicit native constructs such as:
+
+- plan inputs and outputs
+- task inputs and outputs
+- Action inputs and outputs
+- review inputs and outputs
+- explicit bindings between those values
+
+JS or TS-authored plan code is the ergonomic authoring surface.
+This native typed dataflow model remains the persisted and queryable truth.
 
 ## 12. Recommendation
 
 PRISM should add graph-wide typed inputs, outputs, and bindings across plans, tasks, actions,
-reviews, and related workflow objects.
+reviews, and related coordination objects.
 
 Plans should remain structural and non-executing, but they should become:
 
@@ -278,5 +318,5 @@ Plans should remain structural and non-executing, but they should become:
 - instantiable
 - lineage-aware
 
-This gives PRISM a much stronger workflow architecture without sacrificing its explicit graph and
+This gives PRISM a much stronger plan architecture without sacrificing its explicit graph and
 provenance model.

@@ -741,7 +741,7 @@ fn publish_local_assisted_lease_overlay_generation(
     // Republish the runtime generation with the live overlay snapshot, but do not treat it as a
     // service-backed current-state application or materialization write.
     runtime_state.replace_coordination_runtime(
-        prism.coordination_snapshot(),
+        prism.legacy_coordination_snapshot(),
         prism.coordination_snapshot_v2(),
         prism.runtime_descriptors(),
     );
@@ -1246,7 +1246,7 @@ pub(crate) fn sync_coordination_authority_watch_update(
         runtime_state,
         store,
         cold_query_store,
-        refresh_lock,
+        Some(refresh_lock),
         loaded_workspace_revision,
         coordination_runtime_revision,
         coordination_enabled,
@@ -1521,7 +1521,7 @@ mod tests {
             &session.runtime_state,
             &session.store,
             &session.cold_query_store,
-            &session.refresh_lock,
+            session.full_runtime_state().map(|full_runtime| &full_runtime.refresh_lock),
             &session.loaded_workspace_revision,
             &session.coordination_runtime_revision,
             &CoordinationCurrentState {

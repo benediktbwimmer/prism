@@ -560,7 +560,7 @@ fn overlap_kinds(anchors: &[AnchorRef]) -> Vec<ConflictOverlapKind> {
         .map(|anchor| match anchor {
             AnchorRef::Node(_) => ConflictOverlapKind::Node,
             AnchorRef::Lineage(_) => ConflictOverlapKind::Lineage,
-            AnchorRef::File(_) => ConflictOverlapKind::File,
+            AnchorRef::File(_) | AnchorRef::WorkspacePath(_) => ConflictOverlapKind::File,
             AnchorRef::Kind(_) => ConflictOverlapKind::Kind,
         })
         .collect::<Vec<_>>();
@@ -593,6 +593,7 @@ fn anchor_sort_key(anchor: &AnchorRef) -> (u8, String) {
         ),
         AnchorRef::Lineage(lineage) => (1, lineage.0.to_string()),
         AnchorRef::File(file_id) => (2, file_id.0.to_string()),
+        AnchorRef::WorkspacePath(path) => (2, path.clone()),
         AnchorRef::Kind(kind) => (3, format!("{kind:?}")),
     }
 }

@@ -2,9 +2,15 @@
 use std::path::Path;
 
 #[cfg(test)]
+use crate::coordination_authority_store::{
+    configured_coordination_authority_store_provider,
+};
+#[cfg(test)]
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
+#[cfg(test)]
+use crate::coordination_persistence::repo_semantic_coordination_snapshot;
 #[cfg(test)]
 use crate::published_plans::HydratedCoordinationPlanState;
 #[cfg(test)]
@@ -77,30 +83,59 @@ impl<T> CoordinationReadResult<T> {
 pub(crate) fn load_eventual_coordination_snapshot_for_root(
     root: &Path,
 ) -> Result<Option<CoordinationSnapshot>> {
-    Ok(SqliteCoordinationMaterializedStore::new(root)
-        .read_snapshot()?
-        .value)
+    if let Some(snapshot) = SqliteCoordinationMaterializedStore::new(root)
+        .read_legacy_snapshot()?
+        .value
+    {
+        return Ok(Some(snapshot));
+    }
+    Ok(configured_coordination_authority_store_provider(root)?
+        .open_snapshot(root)?
+        .read_snapshot(CoordinationReadConsistency::Eventual)?
+        .value
+    )
 }
 
 #[cfg(test)]
 pub(crate) fn load_eventual_coordination_snapshot_v2_for_root(
     root: &Path,
 ) -> Result<Option<CoordinationSnapshotV2>> {
-    Ok(SqliteCoordinationMaterializedStore::new(root)
+    if let Some(snapshot_v2) = SqliteCoordinationMaterializedStore::new(root)
         .read_snapshot_v2()?
-        .value)
+        .value
+    {
+        return Ok(Some(snapshot_v2));
+    }
+    Ok(configured_coordination_authority_store_provider(root)?
+        .open_snapshot(root)?
+        .read_snapshot_v2(CoordinationReadConsistency::Eventual)?
+        .value
+    )
 }
 
 #[cfg(test)]
 pub(crate) fn load_eventual_coordination_plan_state_for_root(
     root: &Path,
 ) -> Result<Option<HydratedCoordinationPlanState>> {
-    Ok(SqliteCoordinationMaterializedStore::new(root)
-        .read_plan_state()?
-        .value
-        .map(|value| HydratedCoordinationPlanState {
-            snapshot: value.snapshot,
+    if let Some(value) = SqliteCoordinationMaterializedStore::new(root).read_plan_state()?.value {
+        return Ok(Some(HydratedCoordinationPlanState {
+            snapshot: value.legacy_snapshot,
             canonical_snapshot_v2: value.canonical_snapshot_v2,
             runtime_descriptors: value.runtime_descriptors,
-        }))
+        }));
+    }
+    Ok(
+        crate::published_plans::load_authoritative_coordination_current_state_with_consistency(
+            root,
+            CoordinationReadConsistency::Eventual,
+        )?
+        .map(|state| {
+            let snapshot = repo_semantic_coordination_snapshot(state.snapshot);
+            HydratedCoordinationPlanState {
+                canonical_snapshot_v2: snapshot.to_canonical_snapshot_v2(),
+                snapshot,
+                runtime_descriptors: state.runtime_descriptors,
+            }
+        }),
+    )
 }

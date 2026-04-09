@@ -205,12 +205,14 @@ impl Prism {
         outcomes: OutcomeMemory,
     ) -> Self {
         let projections = ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot());
-        Self::with_history_outcomes_coordination_and_projections(
+        Self::with_history_outcomes_coordination_and_projections_v2(
             graph,
             history,
             outcomes,
             CoordinationSnapshot::default(),
+            CoordinationSnapshotV2::default(),
             projections,
+            Vec::new(),
         )
     }
 
@@ -220,59 +222,40 @@ impl Prism {
         outcomes: OutcomeMemory,
         projections: ProjectionIndex,
     ) -> Self {
-        Self::with_history_outcomes_coordination_and_projections(
+        Self::with_history_outcomes_coordination_and_projections_v2(
             graph,
             history,
             outcomes,
             CoordinationSnapshot::default(),
+            CoordinationSnapshotV2::default(),
             projections,
+            Vec::new(),
         )
     }
 
-    pub fn with_history_outcomes_coordination_and_projections(
+    pub fn with_history_outcomes_coordination_and_projections_v2(
         graph: Graph,
         history: HistoryStore,
         outcomes: OutcomeMemory,
         coordination: CoordinationSnapshot,
+        canonical_snapshot_v2: CoordinationSnapshotV2,
         projections: ProjectionIndex,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
     ) -> Self {
-        let canonical_snapshot_v2 = coordination.to_canonical_snapshot_v2();
-        Self::with_shared_history_outcomes_coordination_projections_and_native_plans(
+        Self::with_shared_history_outcomes_coordination_projections_and_query_state_v2(
             Arc::new(graph),
             Arc::new(history),
             Arc::new(outcomes),
+            coordination,
+            canonical_snapshot_v2,
             projections,
-            MaterializedCoordinationRuntime::new(coordination, canonical_snapshot_v2, Vec::new()),
+            runtime_descriptors,
             None,
             false,
         )
     }
 
     pub fn with_shared_history_outcomes_coordination_projections_and_query_state_v2(
-        graph: Arc<Graph>,
-        history: Arc<HistoryStore>,
-        outcomes: Arc<OutcomeMemory>,
-        coordination: CoordinationSnapshot,
-        canonical_snapshot_v2: CoordinationSnapshotV2,
-        projections: ProjectionIndex,
-        runtime_descriptors: Vec<RuntimeDescriptor>,
-        intent_override: Option<IntentIndex>,
-        trust_cached_projections: bool,
-    ) -> Self {
-        Self::with_shared_history_outcomes_coordination_projections_and_query_state(
-            graph,
-            history,
-            outcomes,
-            coordination,
-            canonical_snapshot_v2,
-            projections,
-            runtime_descriptors,
-            intent_override,
-            trust_cached_projections,
-        )
-    }
-
-    pub fn with_shared_history_outcomes_coordination_projections_and_query_state(
         graph: Arc<Graph>,
         history: Arc<HistoryStore>,
         outcomes: Arc<OutcomeMemory>,
@@ -558,7 +541,7 @@ impl Prism {
             .snapshot()
     }
 
-    pub fn coordination_snapshot(&self) -> CoordinationSnapshot {
+    pub fn legacy_coordination_snapshot(&self) -> CoordinationSnapshot {
         self.continuity_snapshot()
     }
 
@@ -1786,6 +1769,7 @@ impl Prism {
                             .map(|node| node.id.clone()),
                     );
                 }
+                AnchorRef::WorkspacePath(_) => {}
                 AnchorRef::Kind(kind) => {
                     nodes.extend(
                         self.graph

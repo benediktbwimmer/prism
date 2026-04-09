@@ -39,10 +39,12 @@ pub(crate) fn capabilities_resource_value(
         capabilities_resource_view_link(),
         session_resource_view_link(),
         crate::plans_resource_view_link(),
-        crate::protected_state_resource_view_link(),
         crate::vocab_resource_view_link(),
         tool_schemas_resource_view_link(),
     ];
+    if host.features.resource_kind_visible("protected-state") {
+        related_resources.push(crate::protected_state_resource_view_link());
+    }
     if host.features.cognition_layer_enabled() {
         related_resources.extend([
             schema_resource_view_link("capabilities"),
@@ -693,25 +695,6 @@ pub(crate) fn resource_capabilities(features: &PrismMcpFeatures) -> Vec<Resource
             },
         },
         ResourceCapabilityView {
-            name: "PRISM Protected State".to_string(),
-            uri: PROTECTED_STATE_URI.to_string(),
-            mime_type: "application/json".to_string(),
-            description:
-                "Protected .prism stream verification status, trust diagnostics, and repair guidance."
-                    .to_string(),
-            schema_uri: Some(schema_resource_uri("protected-state")),
-            example_uri: if features.resource_example_resources_visible() {
-                resource_example_uri("protected-state")
-            } else {
-                None
-            },
-            shape_uri: if features.resource_example_resources_visible() {
-                Some(resource_shape_resource_uri("protected-state"))
-            } else {
-                None
-            },
-        },
-        ResourceCapabilityView {
             name: "PRISM Vocabulary".to_string(),
             uri: VOCAB_URI.to_string(),
             mime_type: "application/json".to_string(),
@@ -767,6 +750,27 @@ pub(crate) fn resource_capabilities(features: &PrismMcpFeatures) -> Vec<Resource
             },
         },
     ]);
+    if features.resource_kind_visible("protected-state") {
+        resources.push(ResourceCapabilityView {
+            name: "PRISM Protected State".to_string(),
+            uri: PROTECTED_STATE_URI.to_string(),
+            mime_type: "application/json".to_string(),
+            description:
+                "Protected .prism stream verification status, trust diagnostics, and repair guidance."
+                    .to_string(),
+            schema_uri: Some(schema_resource_uri("protected-state")),
+            example_uri: if features.resource_example_resources_visible() {
+                resource_example_uri("protected-state")
+            } else {
+                None
+            },
+            shape_uri: if features.resource_example_resources_visible() {
+                Some(resource_shape_resource_uri("protected-state"))
+            } else {
+                None
+            },
+        });
+    }
     if features.cognition_layer_enabled() {
         resources.extend([
             ResourceCapabilityView {

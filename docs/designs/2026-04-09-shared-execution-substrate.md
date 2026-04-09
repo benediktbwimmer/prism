@@ -127,7 +127,18 @@ Service-executed work should remain a small, fixed set of built-in cases such as
 - notifications
 - tiny internal maintenance work
 
-### 4.3 Typed runners, not arbitrary shell, are the semantic surface
+### 4.3 Tasks and Actions intentionally route differently
+
+PRISM should preserve an intentional asymmetry between human or agent work and machine work.
+
+- Tasks are claimed by runtimes because the runtime or agent knows best what it already knows,
+  what context it has, and what work it is ready to take on
+- Actions are routed by the service because the service can evaluate runtime descriptors, verified
+  capability posture, policy, and current coordination state centrally
+
+PRISM should not flatten these into one queue-centric execution model.
+
+### 4.4 Typed runners, not arbitrary shell, are the semantic surface
 
 The substrate should use typed runners plus structured input and output envelopes.
 
@@ -215,6 +226,88 @@ At minimum:
 Raw stdout, stderr, or verbose implementation detail should remain runtime-local or artifact-backed
 where appropriate.
 
+### 5.6 Shared JS/TS capability surface
+
+The shared execution substrate should not introduce a second state interaction model for machine
+work.
+
+Instead, runners and authored JS or TS execution code should reuse the same underlying native PRISM
+read and write capabilities that already back:
+
+- `prism_query`
+- `prism_mutate`
+
+That means:
+
+- Actions can query or mutate PRISM state through the same logical capability contracts
+- validation runners can do the same
+- event hooks can do the same
+
+The SDKs used by these execution contexts may provide small convenience wrappers, but they should
+not introduce a separate equivalent of workflow queries, signals, or bespoke workflow-local state
+channels.
+
+### 5.7 Materialization policy
+
+The shared execution substrate should support explicit materialization policy for machine-only
+execution, especially for large fan-outs.
+
+The key concept is the **materialization boundary**.
+
+That boundary defines where runtime-executed machine work must be turned into durable authoritative
+coordination truth.
+
+Examples:
+
+- every realized leaf can be a materialization boundary
+- one bounded chunk can be a materialization boundary
+- one aggregate rollup can be a materialization boundary
+
+At minimum PRISM should be able to distinguish:
+
+- full materialization
+- batched materialization
+- aggregated materialization
+
+This is important because some action-dense plans want every realized node recorded, while others
+only need:
+
+- compact aggregate outcomes
+- selected failures
+- durable evidence or artifact refs
+
+The substrate should therefore allow runtimes to execute bounded machine-only chunks in memory and
+return batched or aggregated results to the service at explicit policy-defined boundaries.
+
+Aggregation may compress success, but it must not erase information that later reasoning depends
+on.
+
+At minimum, policy should be able to require preservation of:
+
+- failures
+- policy violations
+- retry exhaustion
+- artifact-producing leaves
+- externally visible side effects
+- provenance anchors
+- checkpoint or compaction boundaries when they matter for replay or audit
+
+The substrate should also leave room for mixed materialization policy by outcome or action class.
+
+Examples:
+
+- aggregate successes but fully materialize failures
+- fully materialize artifact-producing Actions while aggregating routine successes
+- always retain policy-tagged or externally visible side effects individually
+
+When batched or aggregated execution compresses detailed per-leaf results, PRISM should still be
+able to persist:
+
+- a compact durable summary in coordination state
+- an artifact or export pointer to detailed per-leaf traces, logs, or result sets when needed
+
+The service must still remain authoritative for what becomes durable coordination truth.
+
 ## 6. Service and runtime roles
 
 ### 6.1 Service role
@@ -239,7 +332,22 @@ Runtimes should own:
 - local telemetry and detailed logs
 - returning structured results to the service
 
-### 6.3 Transport
+### 6.3 Runtime-authenticated writes
+
+When runtime-executed machine work writes PRISM state, it should normally do so under the delegated
+runtime session that is already executing that work.
+
+That means:
+
+- Actions, validation runners, and event hooks write as `delegated_machine`
+- the auth carrier is the runtime session delegated by the service
+- provenance should bind each write to the concrete execution record, runtime identity, and
+  delegated principal identity
+
+These execution contexts should not gain hidden `human_attested` or `service_attested` authority
+just because they are machine-executed.
+
+### 6.4 Transport
 
 The preferred target shape remains:
 
@@ -260,6 +368,7 @@ At minimum, every execution should be attributable to:
 - which runtime executed it when applicable
 - which runner kind handled it
 - which capability class or posture was relied upon
+- which execution record and runtime session carried any resulting mutations
 
 ## 8. Relationship to Actions
 
