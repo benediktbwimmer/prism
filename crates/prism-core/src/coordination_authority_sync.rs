@@ -32,8 +32,9 @@ pub(crate) fn publish_service_backed_coordination_runtime_state(
         .lock()
         .expect("workspace runtime state lock poisoned")
         .clone();
-    next_state.replace_coordination_runtime(
+    next_state.replace_coordination_runtime_with_snapshot_v2(
         current_state.snapshot.clone(),
+        current_state.canonical_snapshot_v2.clone(),
         current_state.runtime_descriptors.clone(),
     );
     let next = next_state.publish_generation(

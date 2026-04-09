@@ -1,4 +1,4 @@
-use prism_coordination::{CoordinationSnapshot, RuntimeDescriptor};
+use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor};
 use prism_history::HistoryStore;
 use prism_ir::{PrismRuntimeCapabilities, WorkspaceRevision};
 use prism_memory::OutcomeMemory;
@@ -52,6 +52,7 @@ pub(crate) struct WorkspaceRuntimeState {
     pub(crate) history: Arc<HistoryStore>,
     pub(crate) outcomes: Arc<OutcomeMemory>,
     pub(crate) coordination_snapshot: CoordinationSnapshot,
+    pub(crate) canonical_snapshot_v2: CoordinationSnapshotV2,
     pub(crate) runtime_descriptors: Vec<RuntimeDescriptor>,
     pub(crate) projections: ProjectionIndex,
     pub(crate) runtime_capabilities: PrismRuntimeCapabilities,
@@ -68,12 +69,38 @@ impl WorkspaceRuntimeState {
         projections: ProjectionIndex,
         runtime_capabilities: PrismRuntimeCapabilities,
     ) -> Self {
+        let canonical_snapshot_v2 = coordination_snapshot.to_canonical_snapshot_v2();
+        Self::new_with_coordination_state(
+            layout,
+            graph,
+            history,
+            outcomes,
+            coordination_snapshot,
+            canonical_snapshot_v2,
+            runtime_descriptors,
+            projections,
+            runtime_capabilities,
+        )
+    }
+
+    pub(crate) fn new_with_coordination_state(
+        layout: WorkspaceLayout,
+        graph: Graph,
+        history: HistoryStore,
+        outcomes: OutcomeMemory,
+        coordination_snapshot: CoordinationSnapshot,
+        canonical_snapshot_v2: CoordinationSnapshotV2,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
+        projections: ProjectionIndex,
+        runtime_capabilities: PrismRuntimeCapabilities,
+    ) -> Self {
         Self {
             layout: Arc::new(layout),
             graph: Arc::new(graph),
             history: Arc::new(history),
             outcomes: Arc::new(outcomes),
             coordination_snapshot,
+            canonical_snapshot_v2,
             runtime_descriptors,
             projections,
             runtime_capabilities,
@@ -114,14 +141,17 @@ impl WorkspaceRuntimeState {
         coordination_context: Option<CoordinationPersistContext>,
         intent_override: Option<IntentIndex>,
     ) -> WorkspacePublishedGeneration {
-        let prism = Prism::with_shared_history_outcomes_coordination_projections_and_intent(
+        let prism =
+            Prism::with_shared_history_outcomes_coordination_projections_and_query_state_v2(
             Arc::clone(&self.graph),
             Arc::clone(&self.history),
             Arc::clone(&self.outcomes),
             self.coordination_snapshot.clone(),
+            self.canonical_snapshot_v2.clone(),
             self.projections.clone(),
             self.runtime_descriptors.clone(),
             intent_override,
+            false,
         );
         prism.set_runtime_capabilities(self.runtime_capabilities);
         prism.set_workspace_revision(workspace_revision.clone());
@@ -143,7 +173,22 @@ impl WorkspaceRuntimeState {
         snapshot: CoordinationSnapshot,
         runtime_descriptors: Vec<RuntimeDescriptor>,
     ) {
+        let canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
+        self.replace_coordination_runtime_with_snapshot_v2(
+            snapshot,
+            canonical_snapshot_v2,
+            runtime_descriptors,
+        );
+    }
+
+    pub(crate) fn replace_coordination_runtime_with_snapshot_v2(
+        &mut self,
+        snapshot: CoordinationSnapshot,
+        canonical_snapshot_v2: CoordinationSnapshotV2,
+        runtime_descriptors: Vec<RuntimeDescriptor>,
+    ) {
         self.coordination_snapshot = snapshot;
+        self.canonical_snapshot_v2 = canonical_snapshot_v2;
         self.runtime_descriptors = runtime_descriptors;
     }
 

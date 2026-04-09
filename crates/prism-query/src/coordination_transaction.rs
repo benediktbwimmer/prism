@@ -525,6 +525,7 @@ impl Prism {
 
         match result {
             Ok(value) => {
+                runtime.refresh_canonical_snapshot_v2();
                 drop(runtime);
                 self.invalidate_plan_discovery_cache();
                 Ok(value)

@@ -1180,10 +1180,14 @@ pub(crate) fn sync_protected_state_watch_update(
             .replace_concept_relations(repo_knowledge.concept_relations);
     }
     if coordination_enabled && selection.reloads_coordination() {
-        next_state.replace_coordination_runtime(
+        next_state.replace_coordination_runtime_with_snapshot_v2(
             plan_state
                 .as_ref()
                 .map(|state| state.snapshot.clone())
+                .unwrap_or_default(),
+            plan_state
+                .as_ref()
+                .map(|state| state.canonical_snapshot_v2.clone())
                 .unwrap_or_default(),
             plan_state
                 .as_ref()

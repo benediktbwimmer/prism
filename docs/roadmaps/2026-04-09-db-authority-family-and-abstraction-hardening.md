@@ -77,6 +77,7 @@ Current phase spec:
 - [../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md](../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-spec-linkage-follow-through-phase-6.md](../specs/2026-04-09-canonical-spec-linkage-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-runtime-publish-state-follow-through-phase-6.md](../specs/2026-04-09-canonical-runtime-publish-state-follow-through-phase-6.md)
 
 Current assessment:
 
@@ -191,9 +192,12 @@ Latest checkpoint:
   derive from `CoordinationSnapshotV2`, broker and materialization fallback rebuilds no longer
   need the legacy snapshot, and those read-model structs now carry canonical identifiers instead
   of legacy plan/task payloads where only summary membership is needed
-- the next Phase 6 work is the deeper purge of active-path `CoordinationSnapshot` / legacy
-  coordination-model dependencies that still exist under incremental read-model seeds,
-  `prism-query`, `prism-mcp` host mutation/runtime paths, and adjacent materialization code
+- the canonical runtime publish-state follow-through is complete; runtime-state and `Prism`
+  publication paths now carry canonical coordination snapshots as first-class state, and the
+  shared coordination-transaction path refreshes cached canonical state before immediate v2 reads
+- the next Phase 6 work remains the deeper purge of active-path `CoordinationSnapshot` /
+  legacy coordination-model dependencies that still exist under the mutation engine,
+  transaction/runtime paths, and adjacent materialization code
 
 ## 3. Ordering thesis
 

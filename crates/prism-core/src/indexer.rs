@@ -394,6 +394,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             mut history,
             mut outcomes,
             coordination_snapshot,
+            canonical_snapshot_v2: _,
             runtime_descriptors: _,
             mut projections,
             runtime_capabilities: _,

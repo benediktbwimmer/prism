@@ -221,12 +221,13 @@ where
     let fallback_plan_state = load_repo_protected_plan_state_or_default(root, store)?;
     let mut fallback_graph = Graph::from_snapshot(prism.graph().snapshot());
     fallback_graph.bind_workspace_root(root);
-    Ok(WorkspaceRuntimeState::new(
+    Ok(WorkspaceRuntimeState::new_with_coordination_state(
         layout,
         fallback_graph,
         HistoryStore::from_snapshot(prism.history_snapshot()),
         OutcomeMemory::from_snapshot(prism.outcome_snapshot()),
         fallback_plan_state.snapshot,
+        fallback_plan_state.canonical_snapshot_v2,
         fallback_plan_state.runtime_descriptors,
         ProjectionIndex::from_snapshot(prism.projection_snapshot()),
         prism.runtime_capabilities(),

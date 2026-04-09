@@ -3019,7 +3019,7 @@ created: 2026-04-09\n\
 
     let store = SqliteSpecMaterializedStore::new(&spec_root.join(".tmp/spec-materialized.db"));
     let refresh =
-        refresh_spec_materialization(&store, &spec_root, Some(prism.coordination_snapshot()))
+        refresh_spec_materialization(&store, &spec_root, Some(prism.coordination_snapshot_v2()))
             .expect("spec refresh should succeed");
     assert!(refresh.diagnostics.is_empty());
 

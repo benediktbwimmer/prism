@@ -9890,6 +9890,38 @@ fn publish_generation_with_incremental_intent_matches_fresh_derivation() {
 }
 
 #[test]
+fn workspace_runtime_publish_generation_preserves_canonical_coordination_snapshot() {
+    let root = temp_workspace();
+    let layout = crate::layout::discover_layout(&root).unwrap();
+    let snapshot = CoordinationSnapshot::default();
+    let mut canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
+    canonical_snapshot_v2.next_plan += 7;
+    canonical_snapshot_v2.next_task += 3;
+
+    let runtime_state =
+        crate::workspace_runtime_state::WorkspaceRuntimeState::new_with_coordination_state(
+            layout,
+            Graph::default(),
+            prism_history::HistoryStore::new(),
+            prism_memory::OutcomeMemory::new(),
+            snapshot,
+            canonical_snapshot_v2.clone(),
+            Vec::new(),
+            prism_projections::ProjectionIndex::default(),
+            prism_ir::PrismRuntimeMode::Full.capabilities(),
+        );
+
+    let published = runtime_state.publish_generation(prism_ir::WorkspaceRevision::default(), None);
+
+    assert_eq!(
+        published.prism_arc().coordination_snapshot_v2(),
+        canonical_snapshot_v2
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn oversized_targeted_refresh_in_large_repo_stays_shallow_until_explicitly_deepened() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

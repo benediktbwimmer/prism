@@ -3642,7 +3642,7 @@ fn mcp_plan_bootstrap_rejects_unknown_client_ids_without_partial_state() {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let before = host.current_prism().coordination_snapshot();
 
-    let error = retry_on_transient_sqlite_lock(|| {
+    let result = retry_on_transient_sqlite_lock(|| {
         host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
@@ -3665,8 +3665,14 @@ fn mcp_plan_bootstrap_rejects_unknown_client_ids_without_partial_state() {
             },
         )
     })
-    .expect_err("unknown client ids should reject the bootstrap");
-    assert!(error.to_string().contains("n9"));
+    .expect("unknown client ids should return a structured rejection");
+    assert!(result.rejected);
+    assert_eq!(result.state["outcome"], "Rejected");
+    assert_eq!(result.state["rejection"]["reasonCode"], "unknown_task_client_id");
+    assert!(result.state["rejection"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("n9"));
 
     let after = host.current_prism().coordination_snapshot();
     assert_eq!(after.plans.len(), before.plans.len());
