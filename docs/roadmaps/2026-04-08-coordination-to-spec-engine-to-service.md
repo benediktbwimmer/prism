@@ -87,6 +87,8 @@ Current phase spec:
   [../specs/2026-04-09-spec-engine-crate-extraction-pre-phase-10.md](../specs/2026-04-09-spec-engine-crate-extraction-pre-phase-10.md)
 - Phase 10 active:
   [../specs/2026-04-09-spec-query-engine-phase-10.md](../specs/2026-04-09-spec-query-engine-phase-10.md)
+- Phase 11 active:
+  [../specs/2026-04-09-spec-coordination-linking-and-sync-provenance-phase-11.md](../specs/2026-04-09-spec-coordination-linking-and-sync-provenance-phase-11.md)
 
 ## 3. Ordering thesis
 
