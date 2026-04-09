@@ -16712,7 +16712,7 @@ fn prism_runtime_views_surface_status_logs_and_timeline() {
             json!({
                 "timestamp": "2026-03-26T15:12:42Z",
                 "level": "INFO",
-                "message": "prism-mcp daemon ready",
+                "message": "prism-mcp runtime ready",
                 "target": "prism_mcp::daemon_mode",
                 "filename": "crates/prism-mcp/src/daemon_mode.rs",
                 "line_number": 57,
@@ -16751,11 +16751,11 @@ return {
 
     let status = &result.result["status"];
     assert_eq!(status["health"]["ok"], true);
-    assert_eq!(status["daemonCount"], 0);
+    assert_eq!(status["runtimeCount"], 0);
     assert_eq!(status["bridgeCount"], 0);
     assert_eq!(status["idleBridgeCount"], 0);
     assert_eq!(status["healthPath"], "/healthz");
-    assert_eq!(status["connection"]["mode"], "direct-daemon");
+    assert_eq!(status["connection"]["mode"], "direct-runtime");
     assert_eq!(status["connection"]["transport"], "streamable-http");
     assert_eq!(
         status["connection"]["bridgeRole"],
@@ -16817,7 +16817,7 @@ return {
     assert_eq!(timeline.len(), 3);
     assert_eq!(timeline[0]["message"], "starting prism-mcp");
     assert_eq!(timeline[1]["message"], "completed prism workspace indexing");
-    assert_eq!(timeline[2]["message"], "prism-mcp daemon ready");
+    assert_eq!(timeline[2]["message"], "prism-mcp runtime ready");
 }
 
 #[test]
@@ -16843,7 +16843,7 @@ fn prism_connection_info_surfaces_direct_daemon_endpoint_without_internal_mode()
         )
         .expect("connection info query should succeed");
 
-    assert_eq!(result.result["mode"], "direct-daemon");
+    assert_eq!(result.result["mode"], "direct-runtime");
     assert_eq!(result.result["transport"], "streamable-http");
     assert_eq!(result.result["bridgeRole"], "stdio-compatibility-only");
     assert_eq!(
@@ -16929,7 +16929,7 @@ fn prism_runtime_views_prefer_structured_runtime_state() {
                     "ts": 13,
                     "timestamp": "13",
                     "level": "INFO",
-                    "message": "prism-mcp daemon ready",
+                    "message": "prism-mcp runtime ready",
                     "target": "prism_mcp::daemon_mode",
                     "file": "crates/prism-mcp/src/daemon_mode.rs",
                     "line_number": null,
@@ -16958,17 +16958,17 @@ return {
 
     let status = &result.result["status"];
     assert_eq!(status["health"]["ok"], true);
-    assert_eq!(status["daemonCount"], 1);
+    assert_eq!(status["runtimeCount"], 1);
     assert_eq!(status["bridgeCount"], 0);
     assert_eq!(status["idleBridgeCount"], 0);
     assert_eq!(status["healthPath"], "/healthz");
-    assert_eq!(status["connection"]["mode"], "direct-daemon");
+    assert_eq!(status["connection"]["mode"], "direct-runtime");
     assert_eq!(
         status["connection"]["uri"].as_str().unwrap_or_default(),
         format!("http://{addr}/mcp")
     );
     assert_eq!(status["freshness"]["lastWorkspaceBuildMs"], 4321);
-    assert_eq!(status["freshness"]["lastDaemonReadyMs"], 6534);
+    assert_eq!(status["freshness"]["lastRuntimeReadyMs"], 6534);
     assert_eq!(status["freshness"]["lastRefreshPath"], last_refresh.path);
     assert_eq!(
         status["freshness"]["lastRefreshDurationMs"],
@@ -17010,7 +17010,7 @@ return {
     assert_eq!(timeline[0]["message"], "starting prism-mcp");
     assert_eq!(timeline[1]["message"], "built prism-mcp workspace server");
     assert_eq!(timeline[2]["message"], "prism-mcp workspace refresh");
-    assert_eq!(timeline[3]["message"], "prism-mcp daemon ready");
+    assert_eq!(timeline[3]["message"], "prism-mcp runtime ready");
 }
 
 #[test]
@@ -17197,7 +17197,7 @@ fn prism_runtime_views_ignore_invalid_runtime_state_sidecar() {
         .expect("invalid runtime state should not break runtime status");
 
     assert_eq!(result.result["health"]["ok"], true);
-    assert_eq!(result.result["daemonCount"], 0);
+    assert_eq!(result.result["runtimeCount"], 0);
     assert_eq!(result.result["bridgeCount"], 0);
     assert_eq!(result.result["idleBridgeCount"], 0);
     assert!(result.result["freshness"]["status"].as_str().is_some());

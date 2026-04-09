@@ -197,7 +197,7 @@ impl BridgeStartupState {
     fn mark_starting_daemon(&self) {
         self.update_phase(
             BridgeStartupPhase::StartingDaemon,
-            "Starting or reconnecting the PRISM daemon for this workspace.".to_string(),
+            "Starting or reconnecting the PRISM runtime for this worktree.".to_string(),
             DEFAULT_STARTUP_POLL_AFTER_MS,
         );
     }
@@ -256,7 +256,7 @@ impl BridgeStartupState {
         Annotated::new(
             RawResource::new(STARTUP_URI, "PRISM Startup")
                 .with_description(
-                    "Bridge startup status for release builds, daemon readiness, and PRISM warmup guidance.",
+                    "Bridge startup status for release builds, runtime readiness, and PRISM warmup guidance.",
                 )
                 .with_mime_type("application/json"),
             None,

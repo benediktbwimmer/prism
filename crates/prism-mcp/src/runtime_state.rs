@@ -207,7 +207,7 @@ pub(crate) fn record_daemon_ready(
         push_event(
             state,
             "INFO",
-            "prism-mcp daemon ready",
+            "prism-mcp runtime ready",
             "prism_mcp::daemon_mode",
             Some("crates/prism-mcp/src/daemon_mode.rs"),
             None,

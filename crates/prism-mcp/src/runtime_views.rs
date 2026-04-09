@@ -429,7 +429,7 @@ fn runtime_status_from_inputs(
         coordination_materialization_bytes: file_len(&paths.coordination_materialization_path),
         health_path: daemon_health_path(&daemons).to_string(),
         health: connection.health.clone(),
-        daemon_count: daemons.len(),
+        runtime_count: daemons.len(),
         bridge_count: bridges.len(),
         connected_bridge_count: bridge_counts.connected,
         idle_bridge_count: bridge_counts.idle,
@@ -551,7 +551,7 @@ fn runtime_freshness_from_inputs(
         ),
     });
     let last_build = latest_runtime_event(runtime_state, "built prism-mcp workspace server");
-    let last_ready = latest_runtime_event(runtime_state, "prism-mcp daemon ready");
+    let last_ready = latest_runtime_event(runtime_state, "prism-mcp runtime ready");
 
     Ok(RuntimeFreshnessView {
         fs_observed_revision,
@@ -580,7 +580,7 @@ fn runtime_freshness_from_inputs(
             .as_ref()
             .map(|refresh| refresh.workspace_reloaded),
         last_workspace_build_ms: event_field_u64(last_build, "buildMs"),
-        last_daemon_ready_ms: event_field_u64(last_ready, "startupMs"),
+        last_runtime_ready_ms: event_field_u64(last_ready, "startupMs"),
         materialization: materialization.clone(),
         coordination_lag,
         domains: published_generation
@@ -657,7 +657,7 @@ fn degraded_runtime_freshness_from_inputs(
         ),
     };
     let last_build = latest_runtime_event(runtime_state, "built prism-mcp workspace server");
-    let last_ready = latest_runtime_event(runtime_state, "prism-mcp daemon ready");
+    let last_ready = latest_runtime_event(runtime_state, "prism-mcp runtime ready");
 
     RuntimeFreshnessView {
         fs_observed_revision,
@@ -686,7 +686,7 @@ fn degraded_runtime_freshness_from_inputs(
             .as_ref()
             .map(|refresh| refresh.workspace_reloaded),
         last_workspace_build_ms: event_field_u64(last_build, "buildMs"),
-        last_daemon_ready_ms: event_field_u64(last_ready, "startupMs"),
+        last_runtime_ready_ms: event_field_u64(last_ready, "startupMs"),
         materialization,
         coordination_lag: None,
         domains: published_generation
@@ -1127,21 +1127,21 @@ fn health_status(
     let Some(uri) = uri else {
         return RuntimeHealthView {
             ok: false,
-            detail: "missing uri file".to_string(),
+            detail: "missing runtime uri file".to_string(),
         };
     };
 
     if daemons.is_empty() {
         return RuntimeHealthView {
             ok: true,
-            detail: format!("ok ({uri}; uri file present, no live daemon process record)"),
+            detail: format!("ok ({uri}; uri file present, no live runtime process record)"),
         };
     }
 
     let detail = if daemons.len() == 1 {
         format!("ok ({uri})")
     } else {
-        format!("ok ({uri}; {} daemon processes)", daemons.len())
+        format!("ok ({uri}; {} runtime processes)", daemons.len())
     };
     RuntimeHealthView { ok: true, detail }
 }
@@ -1263,7 +1263,7 @@ fn daemon_connection_info(
     let health = health_status(&uri, daemons, process_error);
     Ok(ConnectionInfoView {
         root: root.display().to_string(),
-        mode: "direct-daemon".to_string(),
+        mode: "direct-runtime".to_string(),
         transport: "streamable-http".to_string(),
         uri,
         uri_file: paths.uri_file.display().to_string(),
@@ -1573,7 +1573,7 @@ fn is_timeline_event(event: &RuntimeLogEventView) -> bool {
             | "built prism query state"
             | "built prism workspace session"
             | "built prism-mcp workspace server"
-            | "prism-mcp daemon ready"
+            | "prism-mcp runtime ready"
             | "prism-mcp bridge resolved upstream"
             | "prism-mcp bridge connected"
             | "prism-mcp workspace refresh"
@@ -1739,7 +1739,7 @@ mod tests {
         assert!(missing_daemon.ok);
         assert_eq!(
             missing_daemon.detail,
-            "ok (http://127.0.0.1:9/mcp; uri file present, no live daemon process record)"
+            "ok (http://127.0.0.1:9/mcp; uri file present, no live runtime process record)"
         );
 
         let process_error = health_status(

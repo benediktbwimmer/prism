@@ -1,6 +1,6 @@
 # Runtime-Only MCP And Bridge Launch Phase 4
 
-Status: approved
+Status: completed
 Audience: service, MCP, runtime, CLI, bridge, and UI maintainers
 Scope: cut the MCP daemon over to runtime-only ownership, align bridge startup messaging with that
 runtime model, and remove remaining service-host framing from MCP lifecycle behavior
@@ -125,7 +125,7 @@ This spec is complete when:
 
 ## 9. Implementation checklist
 
-- [ ] Align MCP lifecycle language to runtime ownership
-- [ ] Align bridge startup and restart messaging
-- [ ] Add optional `prism runtime` alias
-- [ ] Update roadmap and spec status after landing
+- [x] Align MCP lifecycle language to runtime ownership
+- [x] Align bridge startup and restart messaging
+- [x] Add optional `prism runtime` alias
+- [x] Update roadmap and spec status after landing

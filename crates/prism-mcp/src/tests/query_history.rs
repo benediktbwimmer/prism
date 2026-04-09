@@ -1227,7 +1227,7 @@ fn prism_runtime_logs_repo_scope_merges_worktrees_and_keeps_default_worktree_vie
             RuntimeLogEventView {
                 timestamp: Some("2026-04-02T10:02:00Z".to_string()),
                 level: Some("INFO".to_string()),
-                message: "prism-mcp daemon ready".to_string(),
+                message: "prism-mcp runtime ready".to_string(),
                 target: Some("prism_mcp::tests".to_string()),
                 file: Some("tests/query_history.rs".to_string()),
                 line_number: Some(3),
@@ -1248,7 +1248,7 @@ return {
   current: prism.runtimeLogs({ contains: "repo-scope", limit: 10 }),
   repo: prism.runtimeLogs({ scope: "repo", contains: "repo-scope", limit: 10 }),
   sibling: prism.runtimeLogs({ scope: "repo", worktreeId: "worktree:sibling-runtime", contains: "repo-scope", limit: 10 }),
-  timeline: prism.runtimeTimeline({ scope: "repo", contains: "prism-mcp daemon ready", limit: 10 }),
+  timeline: prism.runtimeTimeline({ scope: "repo", contains: "prism-mcp runtime ready", limit: 10 }),
 };
 "#,
             QueryLanguage::Ts,

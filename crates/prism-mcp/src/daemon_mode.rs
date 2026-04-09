@@ -84,7 +84,7 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         listen_addr = %addr,
         http_uri = %http_uri,
         startup_ms = started.elapsed().as_millis(),
-        "prism-mcp daemon ready"
+        "prism-mcp runtime ready"
     );
     if let Err(error) = runtime_state::record_daemon_ready(
         cli,
@@ -96,7 +96,7 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         warn!(
             error = %error,
             root = %root.display(),
-            "failed to update prism runtime state for daemon readiness"
+            "failed to update prism runtime state for runtime readiness"
         );
     }
 
@@ -295,11 +295,11 @@ async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<Upstrea
         let deadline = Instant::now() + timeout;
         warn!(
             root = %root.display(),
-            "prism-mcp daemon process exists but no healthy URI is visible yet; waiting for readiness"
+            "prism-mcp runtime process exists but no healthy URI is visible yet; waiting for readiness"
         );
         while Instant::now() < deadline {
             if let Some(uri) = first_healthy_daemon_uri(cli, root).await? {
-                info!(root = %root.display(), uri = %uri, "prism-mcp daemon became healthy");
+                info!(root = %root.display(), uri = %uri, "prism-mcp runtime became healthy");
                 return Ok(UpstreamResolution {
                     uri,
                     source: "waited_for_existing_daemon",
@@ -310,7 +310,7 @@ async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<Upstrea
             sleep(Duration::from_millis(50)).await;
         }
         return Err(anyhow!(
-            "a PRISM MCP daemon process exists for {} but never became healthy; use `prism mcp restart`",
+            "a PRISM MCP runtime process exists for {} but never became healthy; use `prism mcp restart` or `prism runtime restart`",
             root.display()
         ));
     }
@@ -324,7 +324,7 @@ async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<Upstrea
     let deadline = Instant::now() + timeout;
     while Instant::now() < deadline {
         if let Some(uri) = first_healthy_daemon_uri(cli, root).await? {
-            info!(root = %root.display(), uri = %uri, "prism-mcp daemon became healthy");
+            info!(root = %root.display(), uri = %uri, "prism-mcp runtime became healthy");
             return Ok(UpstreamResolution {
                 uri,
                 source: "spawned_daemon",
@@ -336,7 +336,7 @@ async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<Upstrea
     }
 
     Err(anyhow!(
-        "timed out waiting for PRISM MCP HTTP daemon URI file at {}. Check {} for daemon startup logs.",
+        "timed out waiting for the PRISM MCP runtime URI file at {}. Check {} for runtime startup logs.",
         cli.http_uri_file_path(root)?.display(),
         cli.log_path(root)?.display()
     ))
@@ -356,7 +356,7 @@ fn spawn_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         log_path = %log_path.display(),
         executable = %current_exe.display(),
         args = ?cli.daemon_spawn_args(root)?,
-        "spawning detached prism-mcp daemon"
+        "spawning detached prism-mcp runtime"
     );
     let mut command = Command::new("sh");
     command
@@ -371,13 +371,13 @@ fn spawn_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         .stderr(Stdio::null());
     let status = command.status().with_context(|| {
         format!(
-            "failed to spawn PRISM MCP daemon from {}",
+            "failed to spawn PRISM MCP runtime from {}",
             current_exe.display()
         )
     })?;
     if !status.success() {
         return Err(anyhow!(
-            "failed to detach PRISM MCP daemon launcher for {}: {status}",
+            "failed to detach PRISM MCP runtime launcher for {}: {status}",
             current_exe.display()
         ));
     }

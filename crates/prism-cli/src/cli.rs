@@ -24,6 +24,10 @@ pub enum Command {
         #[command(subcommand)]
         command: McpCommand,
     },
+    Runtime {
+        #[command(subcommand)]
+        command: McpCommand,
+    },
     Service {
         #[command(subcommand)]
         command: ServiceCommand,
@@ -259,7 +263,7 @@ pub enum McpCommand {
         #[arg(
             long,
             default_value_t = false,
-            help = "Also stop bridge processes. By default only the daemon is stopped."
+            help = "Also stop bridge processes. By default only the worktree-local runtime is stopped."
         )]
         kill_bridges: bool,
     },
@@ -318,7 +322,7 @@ pub enum ServiceCommand {
         #[arg(
             long,
             default_value_t = false,
-            help = "Also stop bridge processes. By default only the current host process is stopped."
+            help = "Also stop bridge processes. By default only the service host process is stopped."
         )]
         kill_bridges: bool,
     },
@@ -728,6 +732,18 @@ mod tests {
         assert!(cli.root.is_none());
         match cli.command {
             Command::Mcp {
+                command: McpCommand::Stop { kill_bridges },
+            } => assert!(!kill_bridges),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn runtime_stop_preserves_bridges_by_default() {
+        let cli = Cli::parse_from(["prism", "runtime", "stop"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Runtime {
                 command: McpCommand::Stop { kill_bridges },
             } => assert!(!kill_bridges),
             _ => panic!("unexpected command"),

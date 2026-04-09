@@ -870,8 +870,8 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
                     "input".to_string(),
                     json!({
                         "context": "Bridge restart smoke test.",
-                        "prismSaid": "The bridge should reconnect after a daemon restart.",
-                        "actuallyTrue": "The bridge kept its attached worktree execution lane and resumed mutation forwarding after the daemon came back.",
+                        "prismSaid": "The bridge should reconnect after a runtime restart.",
+                        "actuallyTrue": "The bridge kept its attached worktree execution lane and resumed mutation forwarding after the runtime came back.",
                         "category": "freshness",
                         "verdict": "helpful",
                         "correctedManually": false,
@@ -925,8 +925,8 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
                     "input".to_string(),
                     json!({
                         "context": "Bridge restart smoke test.",
-                        "prismSaid": "The bridge should reconnect after a daemon restart.",
-                        "actuallyTrue": "The bridge kept its attached worktree execution lane and resumed mutation forwarding after the daemon came back.",
+                        "prismSaid": "The bridge should reconnect after a runtime restart.",
+                        "actuallyTrue": "The bridge kept its attached worktree execution lane and resumed mutation forwarding after the runtime came back.",
                         "category": "freshness",
                         "verdict": "helpful",
                         "correctedManually": false,
@@ -936,7 +936,7 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
         ),
     )
     .await
-    .expect("mutation should survive a long daemon restart gap")
+    .expect("mutation should survive a long runtime restart gap")
     .expect("bound bridge should reconnect and inject credentials after restart");
     let mutation_payload = mutation
         .structured_content

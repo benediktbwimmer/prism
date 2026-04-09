@@ -649,7 +649,7 @@ type RuntimeFreshnessView = {
   lastRefreshFullRebuildCount?: number;
   lastRefreshWorkspaceReloaded?: boolean;
   lastWorkspaceBuildMs?: number;
-  lastDaemonReadyMs?: number;
+  lastRuntimeReadyMs?: number;
   materialization: RuntimeMaterializationView;
   domains: RuntimeDomainFreshnessView[];
   activeCommand?: string;
@@ -697,7 +697,7 @@ type RuntimeStatusView = {
   coordinationMaterializationBytes?: number;
   healthPath: string;
   health: RuntimeHealthView;
-  daemonCount: number;
+  runtimeCount: number;
   bridgeCount: number;
   connectedBridgeCount: number;
   idleBridgeCount: number;

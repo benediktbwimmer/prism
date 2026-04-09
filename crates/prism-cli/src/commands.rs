@@ -44,7 +44,7 @@ pub fn run(cli: Cli) -> Result<()> {
     if should_auto_setup_repo_git_support(&command) {
         ensure_repo_git_support(&root)?;
     }
-    if let Command::Mcp { command } = command {
+    if let Command::Mcp { command } | Command::Runtime { command } = command {
         return mcp::handle(&root, command);
     }
     if let Command::Service { command } = command {
@@ -71,7 +71,7 @@ pub fn run(cli: Cli) -> Result<()> {
     let prism = session.prism();
 
     match command {
-        Command::Mcp { .. } => unreachable!("handled above"),
+        Command::Mcp { .. } | Command::Runtime { .. } => unreachable!("handled above"),
         Command::Service { .. } => unreachable!("handled above"),
         Command::Auth { .. } => unreachable!("handled above"),
         Command::Worktree { .. } => unreachable!("handled above"),

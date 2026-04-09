@@ -286,7 +286,7 @@ pub(crate) fn restart_with_options(root: &Path, options: DaemonRestartOptions) -
     )?
     else {
         let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
-        println!("daemon startup already in progress");
+        println!("runtime startup already in progress");
         println!("uri: {uri}");
         return status(root);
     };
@@ -351,11 +351,11 @@ fn status(root: &Path) -> Result<()> {
     let bridge_counts = classify_bridges(&bridges, &connected_bridge_pids);
 
     println!("root: {}", root.display());
-    println!("daemon_count: {}", daemons.len());
+    println!("runtime_count: {}", daemons.len());
     if let Some(daemon) = daemons.first() {
-        println!("daemon_pid: {}", daemon.pid);
-        println!("daemon_rss_mb: {:.1}", daemon.rss_kb as f64 / 1024.0);
-        println!("daemon_elapsed: {}", daemon.elapsed);
+        println!("runtime_pid: {}", daemon.pid);
+        println!("runtime_rss_mb: {:.1}", daemon.rss_kb as f64 / 1024.0);
+        println!("runtime_elapsed: {}", daemon.elapsed);
     }
     println!("bridge_count: {}", bridges.len());
     println!("connected_bridge_count: {}", bridge_counts.connected);
@@ -437,7 +437,7 @@ fn status(root: &Path) -> Result<()> {
         );
     }
     if daemons.len() > 1 {
-        println!("warning: multiple daemon processes are running for this workspace");
+        println!("warning: multiple runtime processes are running for this workspace");
     }
     if bridge_counts.orphaned > 0 {
         println!("warning: orphaned bridge processes are running for this workspace");
@@ -445,11 +445,11 @@ fn status(root: &Path) -> Result<()> {
     }
     if bridge_counts.idle > 0 {
         println!(
-            "note: idle bridge processes are disconnected from the current daemon and do not count toward active daemon load"
+            "note: idle bridge processes are disconnected from the current runtime and do not count toward active runtime load"
         );
     }
     if daemons.is_empty() && !bridges.is_empty() {
-        println!("warning: bridge processes exist without a daemon");
+        println!("warning: bridge processes exist without a runtime");
     }
     Ok(())
 }
@@ -486,7 +486,7 @@ fn endpoint(root: &Path) -> Result<()> {
     let connection = daemon_connection_info(&paths, &daemons)?;
     let Some(uri) = connection.uri else {
         bail!(
-            "PRISM MCP daemon endpoint is unavailable; start the daemon first with `prism-cli mcp start` or `prism-cli mcp restart`"
+            "PRISM MCP runtime endpoint is unavailable; start the runtime first with `prism mcp start`, `prism runtime start`, or let the bridge restart it"
         );
     };
     println!("{uri}");
@@ -541,10 +541,10 @@ fn start(
         let uri = read_uri_file(&paths.uri_file)?;
         let health = health_status(&uri, daemon_health_path(&daemons))?;
         if health.ok {
-            println!("daemon already running");
+            println!("runtime already running");
             return status(root);
         }
-        bail!("stale daemon detected; use `prism mcp restart`");
+        bail!("stale runtime detected; use `prism mcp restart` or `prism runtime restart`");
     }
 
     if let Some(parent) = paths.log_path.parent() {
@@ -558,7 +558,7 @@ fn start(
                 StartupMarkerGuard::try_create(&paths.startup_marker, operation, restart_nonce)?
             else {
                 let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
-                println!("daemon startup already in progress");
+                println!("runtime startup already in progress");
                 println!("uri: {uri}");
                 return status(root);
             };
@@ -585,7 +585,7 @@ fn start(
         restart_nonce,
     )?;
     let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
-    println!("started daemon");
+    println!("started runtime");
     println!("uri: {uri}");
     status(root)
 }
@@ -603,7 +603,7 @@ fn stop_impl(root: &Path, kill_bridges: bool, clear_startup_marker: bool) -> Res
     }
 
     if targets.is_empty() {
-        println!("no matching prism-mcp processes found");
+        println!("no matching prism runtime processes found");
         fs::remove_file(&paths.uri_file).ok();
         if clear_startup_marker {
             fs::remove_file(&paths.startup_marker).ok();
@@ -643,7 +643,7 @@ fn health(root: &Path) -> Result<()> {
     let health = connection.health;
     println!("{}", health.detail);
     if !health.ok {
-        bail!("daemon is not healthy");
+        bail!("runtime is not healthy");
     }
     Ok(())
 }
@@ -1178,7 +1178,7 @@ fn wait_for_healthy_uri(root: &Path, paths: &McpPaths, health_path: &str) -> Res
         .unwrap_or_default()
         .join("\n");
     bail!(
-        "timed out waiting for daemon health; recent log lines:\n{}",
+        "timed out waiting for runtime health; recent log lines:\n{}",
         if tail.is_empty() {
             "<none>".to_string()
         } else {
@@ -1314,7 +1314,7 @@ fn daemon_connection_info(
     let health = health_status(&uri, health_path)?;
     Ok(DaemonConnectionInfo {
         transport: "streamable-http",
-        mode: "direct-daemon",
+        mode: "direct-runtime",
         bridge_role: "stdio-compatibility-only",
         uri,
         health_uri,
@@ -1325,13 +1325,13 @@ fn daemon_connection_info(
 fn missing_daemon_connection_info() -> DaemonConnectionInfo {
     DaemonConnectionInfo {
         transport: "streamable-http",
-        mode: "direct-daemon",
+        mode: "direct-runtime",
         bridge_role: "stdio-compatibility-only",
         uri: None,
         health_uri: None,
         health: HealthStatus {
             ok: false,
-            detail: "missing uri file".to_string(),
+            detail: "missing runtime uri file".to_string(),
         },
     }
 }
@@ -1384,7 +1384,7 @@ fn daemon_connection_snapshot(
         trusted_daemons,
         DaemonConnectionInfo {
             transport: "streamable-http",
-            mode: "direct-daemon",
+            mode: "direct-runtime",
             bridge_role: "stdio-compatibility-only",
             uri,
             health_uri,
@@ -1425,9 +1425,9 @@ fn connection_snapshot_with_restart_grace(
         if should_wait_for_restart_grace(&connection, &daemons, &bridges, startup_marker.as_ref()) {
             connection.health.detail = startup_marker
                 .as_ref()
-                .map(|marker| format!("daemon {} is in progress; retry shortly", marker.operation))
+                .map(|marker| format!("runtime {} is in progress; retry shortly", marker.operation))
                 .unwrap_or_else(|| {
-                    "daemon restart appears to be in progress; retry shortly".to_string()
+                    "runtime restart appears to be in progress; retry shortly".to_string()
                 });
         }
     }
@@ -1554,7 +1554,7 @@ fn health_status(uri: &Option<String>, health_path: &str) -> Result<HealthStatus
     let Some(uri) = uri else {
         return Ok(HealthStatus {
             ok: false,
-            detail: "missing uri file".to_string(),
+            detail: "missing runtime uri file".to_string(),
         });
     };
     match http_health_check(uri, health_path) {
@@ -2050,7 +2050,7 @@ mod tests {
 
         let info = daemon_connection_info(&paths, &[]).unwrap();
 
-        assert_eq!(info.mode, "direct-daemon");
+        assert_eq!(info.mode, "direct-runtime");
         assert_eq!(info.transport, "streamable-http");
         assert_eq!(info.bridge_role, "stdio-compatibility-only");
         assert_eq!(info.uri.as_deref(), Some("http://127.0.0.1:9/mcp"));
@@ -2096,13 +2096,13 @@ mod tests {
     fn restart_grace_only_applies_while_bridges_outlive_the_daemon() {
         let connection = DaemonConnectionInfo {
             transport: "streamable-http",
-            mode: "direct-daemon",
+            mode: "direct-runtime",
             bridge_role: "stdio-compatibility-only",
             uri: None,
             health_uri: None,
             health: HealthStatus {
                 ok: false,
-                detail: "missing uri file".to_string(),
+                detail: "missing runtime uri file".to_string(),
             },
         };
         let bridges = vec![McpProcess {

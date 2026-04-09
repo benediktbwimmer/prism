@@ -131,8 +131,8 @@ pub(crate) fn collect_repo_playbook(workspace_root: Option<&Path>) -> RepoPlaybo
     let mut gotchas = gotcha_signals(&files);
     if gotchas.is_empty() && rust_workspace && !workflow.commands.is_empty() {
         gotchas.push(RepoPlaybookGotchaView {
-            summary: "Keep the live MCP daemon in sync with PRISM MCP changes.".to_string(),
-            why: "The repo already exposes a release-binary workflow for rebuilding and restarting the daemon; use it before dogfooding new query or runtime behavior.".to_string(),
+            summary: "Keep the live MCP runtime in sync with PRISM MCP changes.".to_string(),
+            why: "The repo already exposes a release-binary workflow for rebuilding and restarting the worktree-local runtime; use it before dogfooding new query or runtime behavior.".to_string(),
             provenance: workflow.provenance.clone(),
         });
     }
@@ -207,6 +207,7 @@ fn gotcha_signals(files: &[ScannedFile]) -> Vec<RepoPlaybookGotchaView> {
         files,
         &[
             "restart the mcp daemon",
+            "restart the runtime",
             "mcp restart --internal-developer",
             "prefer the release binaries",
         ],
@@ -214,8 +215,8 @@ fn gotcha_signals(files: &[ScannedFile]) -> Vec<RepoPlaybookGotchaView> {
     );
     if !restart.is_empty() {
         gotchas.push(RepoPlaybookGotchaView {
-            summary: "Rebuild and restart the live MCP daemon after meaningful PRISM MCP or query/runtime changes.".to_string(),
-            why: "The repo guidance explicitly calls for release builds plus daemon restart, status, and health checks before relying on live PRISM behavior.".to_string(),
+            summary: "Rebuild and restart the live MCP runtime after meaningful PRISM MCP or query/runtime changes.".to_string(),
+            why: "The repo guidance explicitly calls for release builds plus runtime restart, status, and health checks before relying on live PRISM behavior.".to_string(),
             provenance: restart,
         });
     }

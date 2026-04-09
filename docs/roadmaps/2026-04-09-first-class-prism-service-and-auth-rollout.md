@@ -45,7 +45,7 @@ Current phase checklist:
 - [x] Phase 1: make `prism service` a first-class lifecycle surface
 - [x] Phase 2: move UI serving fully under the service
 - [x] Phase 3: implement service endpoint selection and machine-local service state
-- [ ] Phase 4: cut MCP daemon over to runtime-only ownership and bridge-managed launch
+- [x] Phase 4: cut MCP daemon over to runtime-only ownership and bridge-managed launch
 - [ ] Phase 5: simplify DB-backed coordination reads to authority-first by default
 - [ ] Phase 6: implement SQLite versus Postgres deployment posture and startup diagnostics
 - [ ] Phase 7: dogfooding-ready service checkpoint
@@ -55,11 +55,11 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 4: cut MCP daemon over to runtime-only ownership and bridge-managed launch
+- Phase 5: simplify DB-backed coordination reads to authority-first by default
 
 Current phase spec:
 
-- [../specs/2026-04-09-runtime-only-mcp-and-bridge-launch-phase-4.md](../specs/2026-04-09-runtime-only-mcp-and-bridge-launch-phase-4.md)
+- [../specs/2026-04-09-db-authority-first-read-path-phase-5.md](../specs/2026-04-09-db-authority-first-read-path-phase-5.md)
 
 ## 3. Ordering thesis
 
