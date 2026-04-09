@@ -80,6 +80,7 @@ Current phase spec:
 - [../specs/2026-04-09-canonical-runtime-publish-state-follow-through-phase-6.md](../specs/2026-04-09-canonical-runtime-publish-state-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-materialization-envelope-follow-through-phase-6.md](../specs/2026-04-09-canonical-materialization-envelope-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-assisted-overlay-follow-through-phase-6.md](../specs/2026-04-09-canonical-assisted-overlay-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-startup-checkpoint-follow-through-phase-6.md](../specs/2026-04-09-canonical-startup-checkpoint-follow-through-phase-6.md)
 
 Current assessment:
 
@@ -204,6 +205,9 @@ Latest checkpoint:
 - the canonical assisted-overlay follow-through is complete; the local assisted-lease republish
   path in `watch.rs` now preserves the live canonical coordination snapshot instead of
   re-deriving it from the legacy continuity snapshot during overlay publish
+- the canonical startup-checkpoint follow-through is complete; persisted startup checkpoints now
+  require canonical coordination state and the authority/startup loaders no longer carry the
+  legacy fallback path for missing checkpoint v2 state
 - the next Phase 6 work remains the deeper purge of active-path `CoordinationSnapshot` /
   legacy coordination-model dependencies that still exist under the mutation engine,
   transaction/runtime paths, and adjacent materialization code

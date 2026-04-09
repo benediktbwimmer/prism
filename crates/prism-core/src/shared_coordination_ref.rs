@@ -4644,7 +4644,7 @@ mod tests {
                 coordination_revision: 0,
                 authority,
                 snapshot: snapshot.clone(),
-                canonical_snapshot_v2: Some(canonical_snapshot_v2.clone()),
+                canonical_snapshot_v2: canonical_snapshot_v2.clone(),
                 runtime_descriptors: Vec::new(),
             })
             .unwrap();
@@ -4661,7 +4661,7 @@ mod tests {
             .expect("coordination startup checkpoint");
         assert_eq!(
             checkpoint.canonical_snapshot_v2,
-            Some(canonical_snapshot_v2)
+            canonical_snapshot_v2
         );
     }
 
@@ -4688,7 +4688,7 @@ mod tests {
         );
         assert_eq!(
             checkpoint.canonical_snapshot_v2,
-            Some(snapshot.to_canonical_snapshot_v2())
+            snapshot.to_canonical_snapshot_v2()
         );
     }
 
@@ -4713,7 +4713,7 @@ mod tests {
                 coordination_revision: 0,
                 authority,
                 snapshot,
-                canonical_snapshot_v2: Some(canonical_snapshot_v2),
+                canonical_snapshot_v2,
                 runtime_descriptors: vec![RuntimeDescriptor {
                     runtime_id: "runtime:stale-checkpoint".to_string(),
                     repo_id: "repo:stale-checkpoint".to_string(),

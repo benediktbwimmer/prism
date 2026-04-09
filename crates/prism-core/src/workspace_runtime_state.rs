@@ -168,19 +168,6 @@ impl WorkspaceRuntimeState {
         }
     }
 
-    pub(crate) fn replace_coordination_runtime(
-        &mut self,
-        snapshot: CoordinationSnapshot,
-        runtime_descriptors: Vec<RuntimeDescriptor>,
-    ) {
-        let canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
-        self.replace_coordination_runtime_with_snapshot_v2(
-            snapshot,
-            canonical_snapshot_v2,
-            runtime_descriptors,
-        );
-    }
-
     pub(crate) fn replace_coordination_runtime_with_snapshot_v2(
         &mut self,
         snapshot: CoordinationSnapshot,

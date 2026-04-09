@@ -58,10 +58,7 @@ impl SqliteCoordinationMaterializedStore {
                 .map(|value| value.materialized_at),
             startup_checkpoint_authority: checkpoint.as_ref().map(|value| value.authority.clone()),
             has_snapshot: checkpoint.is_some(),
-            has_canonical_snapshot_v2: checkpoint
-                .as_ref()
-                .and_then(|value| value.canonical_snapshot_v2.as_ref())
-                .is_some(),
+            has_canonical_snapshot_v2: checkpoint.is_some(),
             runtime_descriptor_count: checkpoint
                 .as_ref()
                 .map(|value| value.runtime_descriptors.len())

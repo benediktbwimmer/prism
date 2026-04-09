@@ -7547,7 +7547,7 @@ fn coordination_materialized_store_migrates_legacy_worktree_cache_state() {
             manifest_digest: Some("digest-1".to_string()),
         },
         snapshot: snapshot.clone(),
-        canonical_snapshot_v2: Some(prism_coordination::CoordinationSnapshotV2::default()),
+        canonical_snapshot_v2: prism_coordination::CoordinationSnapshotV2::default(),
         runtime_descriptors: Vec::new(),
     };
 

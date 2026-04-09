@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor};
 use prism_store::{
     CoordinationCheckpointStore, CoordinationJournal, CoordinationStartupCheckpoint,
@@ -23,9 +23,6 @@ where
     let Some(checkpoint) = store.load_coordination_startup_checkpoint()? else {
         return Ok(None);
     };
-    if checkpoint.canonical_snapshot_v2.is_none() {
-        return Ok(None);
-    }
     Ok(Some(hydrated_plan_state_from_checkpoint(checkpoint, None)?))
 }
 
@@ -38,9 +35,6 @@ where
     let Some(checkpoint) = store.load_coordination_startup_checkpoint()? else {
         return Ok(None);
     };
-    if checkpoint.canonical_snapshot_v2.is_none() {
-        return Ok(None);
-    }
     Ok(Some(snapshot_from_checkpoint(checkpoint, None)))
 }
 
@@ -53,9 +47,6 @@ where
     let Some(checkpoint) = store.load_coordination_startup_checkpoint()? else {
         return Ok(None);
     };
-    if checkpoint.canonical_snapshot_v2.is_none() {
-        return Ok(None);
-    }
     Ok(Some(snapshot_v2_from_checkpoint(checkpoint, None)?))
 }
 
@@ -72,14 +63,13 @@ where
     let authority = resolve_coordination_startup_checkpoint_authority(root)?;
     let mut checkpoint_snapshot = sanitize_persisted_coordination_snapshot(snapshot.clone());
     checkpoint_snapshot.events.clear();
-    let checkpoint_canonical_snapshot_v2 = checkpoint_snapshot.to_canonical_snapshot_v2();
     store.save_coordination_startup_checkpoint(&CoordinationStartupCheckpoint {
         version: CoordinationStartupCheckpoint::VERSION,
         materialized_at: current_timestamp(),
         coordination_revision: store.coordination_revision()?,
         authority,
         snapshot: checkpoint_snapshot.clone(),
-        canonical_snapshot_v2: Some(checkpoint_canonical_snapshot_v2),
+        canonical_snapshot_v2: _canonical_snapshot_v2.clone(),
         runtime_descriptors: runtime_descriptors.unwrap_or_default().to_vec(),
     })
 }
@@ -98,9 +88,7 @@ fn snapshot_v2_from_checkpoint(
     checkpoint: CoordinationStartupCheckpoint,
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<CoordinationSnapshotV2> {
-    let canonical_snapshot_v2 = checkpoint.canonical_snapshot_v2.ok_or_else(|| {
-        anyhow!("coordination startup checkpoint missing canonical snapshot v2 materialization")
-    })?;
+    let canonical_snapshot_v2 = checkpoint.canonical_snapshot_v2;
     match snapshot {
         Some(snapshot) => {
             let _ = merge_shared_coordination_into_snapshot(checkpoint.snapshot, snapshot);
@@ -114,9 +102,7 @@ fn hydrated_plan_state_from_checkpoint(
     checkpoint: CoordinationStartupCheckpoint,
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<HydratedCoordinationPlanState> {
-    let canonical_snapshot_v2 = checkpoint.canonical_snapshot_v2.ok_or_else(|| {
-        anyhow!("coordination startup checkpoint missing canonical snapshot v2 materialization")
-    })?;
+    let canonical_snapshot_v2 = checkpoint.canonical_snapshot_v2;
     Ok(match snapshot {
         Some(snapshot) => {
             let snapshot = merge_shared_coordination_into_snapshot(checkpoint.snapshot, snapshot);
