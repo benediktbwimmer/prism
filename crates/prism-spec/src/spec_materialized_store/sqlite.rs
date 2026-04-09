@@ -8,8 +8,9 @@ use super::traits::SpecMaterializedStore;
 use super::types::{
     MaterializedSpecRecord, SpecMaterializationMetadata, SpecMaterializedBackendKind,
     SpecMaterializedCapabilities, SpecMaterializedClearRequest, SpecMaterializedReadEnvelope,
-    SpecMaterializedReplaceRequest, SpecMaterializedWriteResult, StoredSpecChecklistPosture,
-    StoredSpecDependencyPosture, StoredSpecDependencyRecord, StoredSpecStatusRecord,
+    SpecMaterializedReplaceRequest, SpecMaterializedWriteResult, StoredSpecChecklistItemRecord,
+    StoredSpecChecklistPosture, StoredSpecCoverageRecord, StoredSpecDependencyPosture,
+    StoredSpecDependencyRecord, StoredSpecStatusRecord, StoredSpecSyncProvenanceRecord,
 };
 use crate::{
     ParsedSpecDocument, SpecChecklistIdentitySource, SpecChecklistItem,
@@ -168,14 +169,17 @@ impl SqliteSpecMaterializedStore {
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
-    fn load_checklist_items_from_connection(&self, conn: &Connection) -> Result<Vec<SpecChecklistItem>> {
+    fn load_checklist_items_from_connection(
+        &self,
+        conn: &Connection,
+    ) -> Result<Vec<StoredSpecChecklistItemRecord>> {
         let mut stmt = conn.prepare(
-            "SELECT item_id, explicit_id, label, checked, requirement_level, section_path_json, line_number, identity_source
+            "SELECT spec_id, item_id, explicit_id, label, checked, requirement_level, section_path_json, line_number, identity_source
              FROM spec_materialized_checklist_items
              ORDER BY spec_id, line_number, item_id",
         )?;
         let rows = stmt.query_map([], |row| {
-            let section_path_json: String = row.get(5)?;
+            let section_path_json: String = row.get(6)?;
             let section_path: Vec<String> = serde_json::from_str(&section_path_json).map_err(|error| {
                 rusqlite::Error::FromSqlConversionFailure(
                     section_path_json.len(),
@@ -183,23 +187,26 @@ impl SqliteSpecMaterializedStore {
                     Box::new(error),
                 )
             })?;
-            let requirement_level = match row.get::<_, String>(4)?.as_str() {
+            let requirement_level = match row.get::<_, String>(5)?.as_str() {
                 "informational" => SpecChecklistRequirementLevel::Informational,
                 _ => SpecChecklistRequirementLevel::Required,
             };
-            let identity_source = match row.get::<_, String>(7)?.as_str() {
+            let identity_source = match row.get::<_, String>(8)?.as_str() {
                 "explicit" => SpecChecklistIdentitySource::Explicit,
                 _ => SpecChecklistIdentitySource::Generated,
             };
-            Ok(SpecChecklistItem {
-                item_id: row.get(0)?,
-                explicit_id: row.get(1)?,
-                label: row.get(2)?,
-                checked: row.get::<_, i64>(3)? != 0,
-                requirement_level,
-                section_path,
-                line_number: row.get::<_, i64>(6)? as usize,
-                identity_source,
+            Ok(StoredSpecChecklistItemRecord {
+                spec_id: row.get(0)?,
+                item: SpecChecklistItem {
+                    item_id: row.get(1)?,
+                    explicit_id: row.get(2)?,
+                    label: row.get(3)?,
+                    checked: row.get::<_, i64>(4)? != 0,
+                    requirement_level,
+                    section_path,
+                    line_number: row.get::<_, i64>(7)? as usize,
+                    identity_source,
+                },
             })
         })?;
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
@@ -248,6 +255,56 @@ impl SqliteSpecMaterializedStore {
         })?;
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
     }
+
+    fn load_coverage_from_connection(
+        &self,
+        conn: &Connection,
+    ) -> Result<Vec<StoredSpecCoverageRecord>> {
+        let mut stmt = conn.prepare(
+            "SELECT spec_id, checklist_item_id, coverage_kind, coordination_ref
+             FROM spec_materialized_coverage
+             ORDER BY spec_id, checklist_item_id, coverage_kind, coordination_ref",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(StoredSpecCoverageRecord {
+                spec_id: row.get(0)?,
+                checklist_item_id: row.get(1)?,
+                coverage_kind: row.get(2)?,
+                coordination_ref: row.get(3)?,
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    fn load_sync_provenance_from_connection(
+        &self,
+        conn: &Connection,
+    ) -> Result<Vec<StoredSpecSyncProvenanceRecord>> {
+        let mut stmt = conn.prepare(
+            "SELECT spec_id, target_coordination_ref, sync_kind, source_revision, covered_checklist_items_json
+             FROM spec_materialized_sync_provenance
+             ORDER BY spec_id, target_coordination_ref, sync_kind",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            let covered_checklist_items_json: String = row.get(4)?;
+            let covered_checklist_items: Vec<String> =
+                serde_json::from_str(&covered_checklist_items_json).map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        covered_checklist_items_json.len(),
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })?;
+            Ok(StoredSpecSyncProvenanceRecord {
+                spec_id: row.get(0)?,
+                target_coordination_ref: row.get(1)?,
+                sync_kind: row.get(2)?,
+                source_revision: row.get(3)?,
+                covered_checklist_items,
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
 }
 
 impl SpecMaterializedStore for SqliteSpecMaterializedStore {
@@ -267,7 +324,9 @@ impl SpecMaterializedStore for SqliteSpecMaterializedStore {
         Ok(SpecMaterializedReadEnvelope::new(metadata, value))
     }
 
-    fn read_checklist_items(&self) -> Result<SpecMaterializedReadEnvelope<Vec<SpecChecklistItem>>> {
+    fn read_checklist_items(
+        &self,
+    ) -> Result<SpecMaterializedReadEnvelope<Vec<StoredSpecChecklistItemRecord>>> {
         let conn = self.open_connection()?;
         let metadata = self.load_metadata_from_connection(&conn)?;
         let value = self.load_checklist_items_from_connection(&conn)?;
@@ -289,6 +348,24 @@ impl SpecMaterializedStore for SqliteSpecMaterializedStore {
         let conn = self.open_connection()?;
         let metadata = self.load_metadata_from_connection(&conn)?;
         let value = self.load_statuses_from_connection(&conn)?;
+        Ok(SpecMaterializedReadEnvelope::new(metadata, value))
+    }
+
+    fn read_coverage_records(
+        &self,
+    ) -> Result<SpecMaterializedReadEnvelope<Vec<StoredSpecCoverageRecord>>> {
+        let conn = self.open_connection()?;
+        let metadata = self.load_metadata_from_connection(&conn)?;
+        let value = self.load_coverage_from_connection(&conn)?;
+        Ok(SpecMaterializedReadEnvelope::new(metadata, value))
+    }
+
+    fn read_sync_provenance_records(
+        &self,
+    ) -> Result<SpecMaterializedReadEnvelope<Vec<StoredSpecSyncProvenanceRecord>>> {
+        let conn = self.open_connection()?;
+        let metadata = self.load_metadata_from_connection(&conn)?;
+        let value = self.load_sync_provenance_from_connection(&conn)?;
         Ok(SpecMaterializedReadEnvelope::new(metadata, value))
     }
 
@@ -642,7 +719,8 @@ mod tests {
 
         let checklist_items = store.read_checklist_items().unwrap();
         assert_eq!(checklist_items.value.len(), 2);
-        assert_eq!(checklist_items.value[0].item_id, "spec:a::checklist::first");
+        assert_eq!(checklist_items.value[0].spec_id, "spec:a");
+        assert_eq!(checklist_items.value[0].item.item_id, "spec:a::checklist::first");
 
         let dependencies = store.read_dependencies().unwrap();
         assert_eq!(dependencies.value.len(), 1);
@@ -687,5 +765,7 @@ mod tests {
         assert_eq!(store.read_checklist_items().unwrap().value.len(), 0);
         assert_eq!(store.read_dependencies().unwrap().value.len(), 0);
         assert_eq!(store.read_status_records().unwrap().value.len(), 0);
+        assert_eq!(store.read_coverage_records().unwrap().value.len(), 0);
+        assert_eq!(store.read_sync_provenance_records().unwrap().value.len(), 0);
     }
 }

@@ -1,4 +1,5 @@
 use crate::ParsedSpecDocument;
+use crate::SpecChecklistItem;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpecMaterializedBackendKind {
@@ -49,6 +50,12 @@ pub struct MaterializedSpecRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredSpecChecklistItemRecord {
+    pub spec_id: String,
+    pub item: SpecChecklistItem,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredSpecDependencyRecord {
     pub spec_id: String,
     pub position: usize,
@@ -76,6 +83,23 @@ pub struct StoredSpecStatusRecord {
     pub checklist_posture: StoredSpecChecklistPosture,
     pub dependency_posture: StoredSpecDependencyPosture,
     pub overall_status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredSpecCoverageRecord {
+    pub spec_id: String,
+    pub checklist_item_id: String,
+    pub coverage_kind: String,
+    pub coordination_ref: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredSpecSyncProvenanceRecord {
+    pub spec_id: String,
+    pub target_coordination_ref: String,
+    pub sync_kind: String,
+    pub source_revision: Option<String>,
+    pub covered_checklist_items: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -3,16 +3,18 @@ use anyhow::Result;
 use super::types::{
     MaterializedSpecRecord, SpecMaterializationMetadata, SpecMaterializedCapabilities,
     SpecMaterializedClearRequest, SpecMaterializedReadEnvelope, SpecMaterializedReplaceRequest,
-    SpecMaterializedWriteResult, StoredSpecDependencyRecord, StoredSpecStatusRecord,
+    SpecMaterializedWriteResult, StoredSpecChecklistItemRecord, StoredSpecCoverageRecord,
+    StoredSpecDependencyRecord, StoredSpecStatusRecord, StoredSpecSyncProvenanceRecord,
 };
-use crate::SpecChecklistItem;
 
 pub trait SpecMaterializedStore {
     fn capabilities(&self) -> SpecMaterializedCapabilities;
 
     fn read_specs(&self) -> Result<SpecMaterializedReadEnvelope<Vec<MaterializedSpecRecord>>>;
 
-    fn read_checklist_items(&self) -> Result<SpecMaterializedReadEnvelope<Vec<SpecChecklistItem>>>;
+    fn read_checklist_items(
+        &self,
+    ) -> Result<SpecMaterializedReadEnvelope<Vec<StoredSpecChecklistItemRecord>>>;
 
     fn read_dependencies(
         &self,
@@ -21,6 +23,14 @@ pub trait SpecMaterializedStore {
     fn read_status_records(
         &self,
     ) -> Result<SpecMaterializedReadEnvelope<Vec<StoredSpecStatusRecord>>>;
+
+    fn read_coverage_records(
+        &self,
+    ) -> Result<SpecMaterializedReadEnvelope<Vec<StoredSpecCoverageRecord>>>;
+
+    fn read_sync_provenance_records(
+        &self,
+    ) -> Result<SpecMaterializedReadEnvelope<Vec<StoredSpecSyncProvenanceRecord>>>;
 
     fn read_metadata(&self) -> Result<SpecMaterializationMetadata>;
 

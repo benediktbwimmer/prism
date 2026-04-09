@@ -170,8 +170,12 @@ pub use prism_spec::{
     SpecSourceMetadata, MaterializedSpecRecord, SpecMaterializationMetadata,
     SpecMaterializedBackendKind, SpecMaterializedCapabilities, SpecMaterializedClearRequest,
     SpecMaterializedReadEnvelope, SpecMaterializedReplaceRequest, SpecMaterializedStore,
-    SpecMaterializedWriteResult, SqliteSpecMaterializedStore, StoredSpecChecklistPosture,
-    StoredSpecDependencyPosture, StoredSpecDependencyRecord, StoredSpecStatusRecord,
+    SpecMaterializedWriteResult, SqliteSpecMaterializedStore, StoredSpecChecklistItemRecord,
+    StoredSpecChecklistPosture, StoredSpecCoverageRecord, StoredSpecDependencyPosture,
+    StoredSpecDependencyRecord, StoredSpecStatusRecord, StoredSpecSyncProvenanceRecord,
+    MaterializedSpecQueryEngine, SpecChecklistView, SpecCoverageView, SpecDependencyView,
+    SpecDocumentView, SpecListEntry, SpecMetadataView, SpecQueryEngine, SpecQueryLookup,
+    SpecSyncProvenanceView,
 };
 pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,
