@@ -6,13 +6,11 @@ use serde::Deserialize;
 use super::db::{
     open_postgres_coordination_authority_store, open_sqlite_coordination_authority_store,
 };
-use super::git_shared_refs::GitSharedRefsCoordinationAuthorityStore;
 use super::traits::CoordinationAuthorityStore;
 use crate::PrismPaths;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CoordinationAuthorityBackendConfig {
-    GitSharedRefs,
     Sqlite { db_path: PathBuf },
     Postgres { connection_url: String },
 }
@@ -55,9 +53,9 @@ pub fn default_coordination_authority_store_provider() -> CoordinationAuthorityS
 }
 
 pub fn coordination_materialization_enabled_by_default(
-    config: &CoordinationAuthorityBackendConfig,
+    _config: &CoordinationAuthorityBackendConfig,
 ) -> bool {
-    matches!(config, CoordinationAuthorityBackendConfig::GitSharedRefs)
+    false
 }
 
 pub fn coordination_materialization_enabled_for_root(root: &Path) -> Result<bool> {
@@ -69,7 +67,6 @@ pub fn coordination_materialization_enabled_for_root(root: &Path) -> Result<bool
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum CoordinationAuthorityBackendName {
-    GitSharedRefs,
     Sqlite,
     Postgres,
 }
@@ -128,9 +125,6 @@ fn coordination_authority_backend_config_from_file(
     config: WorkspaceCoordinationAuthorityConfigFile,
 ) -> Result<CoordinationAuthorityBackendConfig> {
     match config.backend {
-        CoordinationAuthorityBackendName::GitSharedRefs => {
-            Ok(CoordinationAuthorityBackendConfig::GitSharedRefs)
-        }
         CoordinationAuthorityBackendName::Sqlite => {
             let db_path = match config.sqlite_db_path {
                 Some(path) => resolve_configured_path(root, path),
@@ -155,9 +149,6 @@ fn normalize_coordination_authority_backend_config(
     config: CoordinationAuthorityBackendConfig,
 ) -> Result<CoordinationAuthorityBackendConfig> {
     Ok(match config {
-        CoordinationAuthorityBackendConfig::GitSharedRefs => {
-            CoordinationAuthorityBackendConfig::GitSharedRefs
-        }
         CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
             CoordinationAuthorityBackendConfig::Sqlite {
                 db_path: resolve_configured_path(root, db_path),
@@ -190,9 +181,6 @@ pub fn open_coordination_authority_store(
     config: &CoordinationAuthorityBackendConfig,
 ) -> Result<Box<dyn CoordinationAuthorityStore>> {
     match config {
-        CoordinationAuthorityBackendConfig::GitSharedRefs => {
-            Ok(Box::new(GitSharedRefsCoordinationAuthorityStore::new(root)))
-        }
         CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
             open_sqlite_coordination_authority_store(root, db_path)
         }
@@ -337,7 +325,7 @@ mod tests {
             prism_dir.join("service.json"),
             r#"{
   "coordinationAuthority": {
-    "backend": "git_shared_refs"
+    "backend": "sqlite"
   }
 }"#,
         )
@@ -345,10 +333,10 @@ mod tests {
 
         let provider = configured_coordination_authority_store_provider(&root)
             .expect("configured provider should resolve");
-        assert_eq!(
+        assert!(matches!(
             provider.config(),
-            &CoordinationAuthorityBackendConfig::GitSharedRefs
-        );
+            CoordinationAuthorityBackendConfig::Sqlite { .. }
+        ));
         let _ = fs::remove_dir_all(root);
     }
 
@@ -361,7 +349,7 @@ mod tests {
             prism_dir.join("service.json"),
             r#"{
   "coordinationAuthority": {
-    "backend": "git_shared_refs"
+    "backend": "sqlite"
   }
 }"#,
         )
@@ -380,6 +368,26 @@ mod tests {
             }
             other => panic!("expected sqlite backend, got {other:?}"),
         }
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn configured_provider_rejects_removed_git_shared_refs_backend() {
+        let root = temp_root();
+        let prism_dir = root.join(".prism");
+        fs::create_dir_all(&prism_dir).unwrap();
+        fs::write(
+            prism_dir.join("service.json"),
+            r#"{
+  "coordinationAuthority": {
+    "backend": "git_shared_refs"
+  }
+}"#,
+        )
+        .unwrap();
+
+        configured_coordination_authority_store_provider(&root)
+            .expect_err("removed backend should fail clearly");
         let _ = fs::remove_dir_all(root);
     }
 }

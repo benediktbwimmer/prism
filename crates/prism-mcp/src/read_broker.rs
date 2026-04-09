@@ -163,7 +163,6 @@ fn authority_revision_from_stamp(authority: Option<&CoordinationAuthorityStamp>)
         CoordinationAuthorityBackendKind::Postgres => {
             parse_authority_revision_token(&authority.snapshot_id, "postgres-revision:")
         }
-        CoordinationAuthorityBackendKind::GitSharedRefs => None,
     }
 }
 

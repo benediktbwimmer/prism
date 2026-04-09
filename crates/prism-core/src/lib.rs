@@ -78,7 +78,6 @@ use session_bootstrap::{
 pub use admission::AdmissionBusyError;
 pub use coordination_authority_api::{
     coordination_authority_diagnostics, coordination_authority_diagnostics_with_provider,
-    git_shared_coordination_ref_diagnostics, git_shared_coordination_ref_diagnostics_with_provider,
     publish_local_runtime_descriptor, publish_local_runtime_descriptor_with_provider,
     sync_live_runtime_descriptor, sync_live_runtime_descriptor_with_provider,
 };
@@ -100,9 +99,8 @@ pub use coordination_authority_store::{
     EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
     EventExecutionTransitionKind, EventExecutionTransitionPreconditions,
     EventExecutionTransitionRequest, EventExecutionTransitionResult,
-    EventExecutionTransitionStatus, GitSharedRefsCoordinationAuthorityStore,
-    PostgresCoordinationAuthorityBackendDetails, RuntimeDescriptorClearRequest,
-    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    EventExecutionTransitionStatus, PostgresCoordinationAuthorityBackendDetails,
+    RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
     SqliteCoordinationAuthorityBackendDetails, SqliteCoordinationAuthorityStore,
 };
 pub use coordination_materialized_store::{

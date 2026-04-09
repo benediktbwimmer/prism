@@ -3,9 +3,10 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use anyhow::Result;
-use prism_coordination::EventExecutionOwner;
+use prism_coordination::{CoordinationSnapshot, EventExecutionOwner};
 use prism_core::{
-    CoordinationAuthorityStoreProvider, EventExecutionRecordAuthorityQuery,
+    CoordinationAuthorityStoreProvider, CoordinationReadConsistency,
+    EventExecutionRecordAuthorityQuery,
     EventExecutionTransitionRequest, EventExecutionTransitionResult,
 };
 
@@ -45,6 +46,14 @@ impl WorkspaceEventEngine {
             .read_event_execution_records(request)?
             .value
             .unwrap_or_default())
+    }
+
+    pub(crate) fn read_authoritative_snapshot(&self) -> Result<Option<CoordinationSnapshot>> {
+        Ok(self
+            .authority_store_provider
+            .open(&self.workspace_root)?
+            .read_snapshot(CoordinationReadConsistency::Strong)?
+            .value)
     }
 
     pub(crate) fn workspace_root(&self) -> &std::path::Path {
@@ -261,23 +270,23 @@ mod tests {
     fn workspace_event_engine_claims_due_recurring_plan_ticks_from_service_backed_state() {
         let root = temp_workspace();
         let session = index_workspace_session_with_shared_runtime(&root);
-        session
-            .mutate_coordination(|prism| {
-                let mut snapshot = CoordinationSnapshot::default();
-                snapshot
-                    .plans
-                    .push(recurring_plan("plan:recurring", 100, 7));
-                prism.replace_coordination_runtime(
-                    snapshot.clone(),
-                    snapshot.to_canonical_snapshot_v2(),
-                    Vec::new(),
-                );
-                Ok(())
+        let mut snapshot = CoordinationSnapshot::default();
+        snapshot
+            .plans
+            .push(recurring_plan("plan:recurring", 100, 7));
+        prism_core::configured_coordination_authority_store_provider(&root)
+            .expect("authority store provider")
+            .open(&root)
+            .expect("authority store")
+            .replace_current_state(prism_core::CoordinationReplaceCurrentStateRequest {
+                base: prism_core::CoordinationTransactionBase::LatestStrong,
+                state: prism_core::CoordinationCurrentState {
+                    snapshot: snapshot.clone(),
+                    canonical_snapshot_v2: snapshot.to_canonical_snapshot_v2(),
+                    runtime_descriptors: Vec::new(),
+                },
             })
             .expect("coordination snapshot should persist");
-        session
-            .flush_materializations()
-            .expect("coordination materialization should flush");
         let host = host_with_session(session);
         let event_engine = host
             .workspace_event_engine()
@@ -314,23 +323,23 @@ mod tests {
     fn workspace_event_engine_skips_due_recurring_plan_ticks_with_existing_execution() {
         let root = temp_workspace();
         let session = index_workspace_session_with_shared_runtime(&root);
-        session
-            .mutate_coordination(|prism| {
-                let mut snapshot = CoordinationSnapshot::default();
-                snapshot
-                    .plans
-                    .push(recurring_plan("plan:recurring", 100, 7));
-                prism.replace_coordination_runtime(
-                    snapshot.clone(),
-                    snapshot.to_canonical_snapshot_v2(),
-                    Vec::new(),
-                );
-                Ok(())
+        let mut snapshot = CoordinationSnapshot::default();
+        snapshot
+            .plans
+            .push(recurring_plan("plan:recurring", 100, 7));
+        prism_core::configured_coordination_authority_store_provider(&root)
+            .expect("authority store provider")
+            .open(&root)
+            .expect("authority store")
+            .replace_current_state(prism_core::CoordinationReplaceCurrentStateRequest {
+                base: prism_core::CoordinationTransactionBase::LatestStrong,
+                state: prism_core::CoordinationCurrentState {
+                    snapshot: snapshot.clone(),
+                    canonical_snapshot_v2: snapshot.to_canonical_snapshot_v2(),
+                    runtime_descriptors: Vec::new(),
+                },
             })
             .expect("coordination snapshot should persist");
-        session
-            .flush_materializations()
-            .expect("coordination materialization should flush");
         let host = host_with_session(session);
         let event_engine = host
             .workspace_event_engine()

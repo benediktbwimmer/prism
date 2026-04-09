@@ -3942,10 +3942,10 @@ mod tests {
     use prism_store::{CoordinationCheckpointStore, CoordinationStartupCheckpoint, MemoryStore};
 
     use super::{
-        implicit_principal_identity, initialize_shared_coordination_ref_live_sync,
-        load_shared_coordination_ref_state, poll_shared_coordination_ref_live_sync,
-        shared_coordination_ref_diagnostics, shared_coordination_ref_exists,
-        sync_live_runtime_descriptor, SharedCoordinationRefLiveSync,
+        implicit_principal_identity, load_shared_coordination_ref_state,
+        poll_shared_coordination_ref_live_sync, shared_coordination_ref_diagnostics,
+        shared_coordination_ref_exists, sync_live_runtime_descriptor,
+        SharedCoordinationRefLiveSync,
     };
     use crate::coordination_startup_checkpoint::load_persisted_coordination_plan_state;
     use crate::index_workspace_session;
@@ -3953,8 +3953,6 @@ mod tests {
     use crate::tracked_snapshot::TrackedSnapshotPublishContext;
     use crate::util::current_timestamp;
     use crate::workspace_identity::workspace_identity_for_root;
-    use crate::{CoordinationReadConsistency, CoordinationReadFreshness};
-
     static NEXT_TEMP_REPO: AtomicU64 = AtomicU64::new(0);
     static SHARED_COORDINATION_GIT_TEMPLATE: OnceLock<PathBuf> = OnceLock::new();
 
@@ -3964,16 +3962,6 @@ mod tests {
 
     fn track_temp_dir(path: &Path) {
         TEMP_TEST_DIRS.with(|state| state.borrow_mut().push(path.to_path_buf()));
-    }
-
-    fn configure_git_shared_refs_authority(root: &Path) {
-        let prism_dir = root.join(".prism");
-        fs::create_dir_all(&prism_dir).unwrap();
-        fs::write(
-            prism_dir.join("service.json"),
-            r#"{"coordinationAuthority":{"backend":"git_shared_refs"}}"#,
-        )
-        .unwrap();
     }
 
     fn temp_git_repo() -> PathBuf {
@@ -4004,7 +3992,6 @@ mod tests {
                 .join("remotes")
                 .join("origin"),
         );
-        configure_git_shared_refs_authority(&root);
         root
     }
 
@@ -4108,7 +4095,6 @@ mod tests {
             ],
         )
         .unwrap();
-        configure_git_shared_refs_authority(&root);
         root
     }
 
@@ -4515,118 +4501,6 @@ mod tests {
 
         assert_eq!(record.plan.id.0, "plan:compat");
         assert_eq!(record.plan.title, "Compatibility fallback");
-    }
-
-    #[test]
-    fn hydrated_plan_state_prefers_shared_coordination_ref_over_branch_snapshot() {
-        let root = temp_git_repo();
-        let plan_id = PlanId::new("plan:shared".to_string());
-        let task_id = CoordinationTaskId::new("coord-task:shared".to_string());
-        let plan = Plan {
-            id: plan_id.clone(),
-            goal: "ship".to_string(),
-            title: "ship".to_string(),
-            status: PlanStatus::Active,
-            policy: CoordinationPolicy::default(),
-            scope: PlanScope::Repo,
-            kind: PlanKind::TaskExecution,
-            revision: 1,
-            scheduling: PlanScheduling::default(),
-            tags: Vec::new(),
-            spec_refs: Vec::new(),
-            created_from: None,
-            metadata: serde_json::Value::Null,
-        };
-        let mut task = CoordinationTask {
-            id: task_id.clone(),
-            plan: plan_id.clone(),
-            kind: prism_ir::PlanNodeKind::Edit,
-            title: "ship it".to_string(),
-            summary: None,
-            status: CoordinationTaskStatus::InProgress,
-            published_task_status: Some(CoordinationTaskStatus::Completed),
-            assignee: None,
-            pending_handoff_to: None,
-            session: Some(SessionId::new("session:test".to_string())),
-            lease_holder: None,
-            lease_started_at: Some(10),
-            lease_refreshed_at: Some(11),
-            lease_stale_at: Some(12),
-            lease_expires_at: Some(13),
-            worktree_id: Some("worktree:test".to_string()),
-            branch_ref: Some("refs/heads/task/shared".to_string()),
-            anchors: Vec::new(),
-            bindings: prism_ir::PlanBinding::default(),
-            depends_on: Vec::new(),
-            coordination_depends_on: Vec::new(),
-            integrated_depends_on: Vec::new(),
-            acceptance: Vec::new(),
-            validation_refs: Vec::new(),
-            is_abstract: false,
-            base_revision: WorkspaceRevision::default(),
-            priority: Some(1),
-            tags: Vec::new(),
-            spec_refs: Vec::new(),
-            artifact_requirements: Vec::new(),
-            review_requirements: Vec::new(),
-            metadata: serde_json::Value::Null,
-            git_execution: TaskGitExecution {
-                status: prism_ir::GitExecutionStatus::CoordinationPublished,
-                pending_task_status: Some(CoordinationTaskStatus::Completed),
-                source_ref: Some("refs/heads/task/shared".to_string()),
-                target_ref: Some("origin/main".to_string()),
-                publish_ref: Some("refs/heads/task/shared".to_string()),
-                target_branch: Some("main".to_string()),
-                last_preflight: None,
-                last_publish: None,
-                ..TaskGitExecution::default()
-            },
-        };
-        let shared_snapshot = CoordinationSnapshot {
-            plans: vec![plan.clone()],
-            tasks: vec![task.clone()],
-            claims: Vec::new(),
-            artifacts: Vec::new(),
-            reviews: Vec::new(),
-            events: Vec::new(),
-            next_plan: 1,
-            next_task: 1,
-            next_claim: 0,
-            next_artifact: 0,
-            next_review: 0,
-        };
-        sync_shared_coordination_ref_state(
-            &root,
-            &shared_snapshot,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
-
-        task.git_execution = TaskGitExecution::default();
-        task.session = None;
-        task.worktree_id = None;
-        task.branch_ref = None;
-        let loaded = load_authoritative_coordination_plan_state(&root)
-            .unwrap()
-            .expect("hydrated state");
-        let loaded_task = loaded
-            .snapshot
-            .tasks
-            .into_iter()
-            .find(|candidate| candidate.id == task_id)
-            .expect("shared task should be present");
-        assert_eq!(
-            loaded_task.git_execution.status,
-            prism_ir::GitExecutionStatus::CoordinationPublished
-        );
-        assert_eq!(
-            loaded_task.branch_ref.as_deref(),
-            Some("refs/heads/task/shared")
-        );
-        assert_eq!(
-            loaded.canonical_snapshot_v2,
-            shared_snapshot.to_canonical_snapshot_v2()
-        );
     }
 
     #[test]
@@ -5286,424 +5160,6 @@ mod tests {
         assert_eq!(diagnostics.lagging_runtime_refs, 0);
         assert!(diagnostics.freshness_reason.is_none());
     }
-
-    #[test]
-    fn shared_coordination_ref_live_sync_suppresses_self_write_and_imports_remote_change() {
-        let (root_a, _remote) = temp_git_repo_with_origin();
-        seed_workspace_project(&root_a);
-        let root_b = temp_git_worktree(&root_a);
-
-        let session = index_workspace_session(&root_a).unwrap();
-        initialize_shared_coordination_ref_live_sync(&root_a).unwrap();
-
-        let plan_id = PlanId::new("plan:shared-live-sync".to_string());
-        let task_id = CoordinationTaskId::new("coord-task:shared-live-sync".to_string());
-        let plan = Plan {
-            id: plan_id.clone(),
-            goal: "ship".to_string(),
-            title: "ship".to_string(),
-            status: PlanStatus::Active,
-            policy: CoordinationPolicy::default(),
-            scope: PlanScope::Repo,
-            kind: PlanKind::TaskExecution,
-            revision: 1,
-            scheduling: PlanScheduling::default(),
-            tags: Vec::new(),
-            spec_refs: Vec::new(),
-            created_from: None,
-            metadata: serde_json::Value::Null,
-        };
-        let task = CoordinationTask {
-            id: task_id.clone(),
-            plan: plan_id.clone(),
-            kind: prism_ir::PlanNodeKind::Edit,
-            title: "ship it".to_string(),
-            summary: None,
-            status: CoordinationTaskStatus::InProgress,
-            published_task_status: None,
-            assignee: None,
-            pending_handoff_to: None,
-            session: Some(SessionId::new("session:test".to_string())),
-            lease_holder: None,
-            lease_started_at: Some(10),
-            lease_refreshed_at: Some(11),
-            lease_stale_at: Some(12),
-            lease_expires_at: Some(13),
-            worktree_id: Some("worktree:test".to_string()),
-            branch_ref: Some("refs/heads/task/shared".to_string()),
-            anchors: Vec::new(),
-            bindings: prism_ir::PlanBinding::default(),
-            depends_on: Vec::new(),
-            coordination_depends_on: Vec::new(),
-            integrated_depends_on: Vec::new(),
-            acceptance: Vec::new(),
-            validation_refs: Vec::new(),
-            is_abstract: false,
-            base_revision: WorkspaceRevision::default(),
-            priority: Some(1),
-            tags: Vec::new(),
-            spec_refs: Vec::new(),
-            artifact_requirements: Vec::new(),
-            review_requirements: Vec::new(),
-            metadata: serde_json::Value::Null,
-            git_execution: TaskGitExecution::default(),
-        };
-        let snapshot = CoordinationSnapshot {
-            plans: vec![plan.clone()],
-            tasks: vec![task.clone()],
-            claims: Vec::new(),
-            artifacts: Vec::new(),
-            reviews: Vec::new(),
-            events: Vec::new(),
-            next_plan: 1,
-            next_task: 1,
-            next_claim: 0,
-            next_artifact: 0,
-            next_review: 0,
-        };
-        sync_shared_coordination_ref_state(&root_a, &snapshot, Some(&sample_publish_context()))
-            .unwrap();
-        assert!(matches!(
-            poll_shared_coordination_ref_live_sync(&root_a).unwrap(),
-            SharedCoordinationRefLiveSync::Unchanged
-        ));
-
-        let before_revision = session
-            .coordination_runtime_revision
-            .load(Ordering::Relaxed);
-        crate::watch::sync_coordination_authority_watch_update(
-            &root_a,
-            &session.published_generation,
-            &session.runtime_state,
-            &session.store,
-            &session.cold_query_store,
-            &session.refresh_lock,
-            &session.loaded_workspace_revision,
-            &session.coordination_runtime_revision,
-            session.coordination_enabled,
-        )
-        .unwrap();
-        assert_eq!(
-            session
-                .coordination_runtime_revision
-                .load(Ordering::Relaxed),
-            before_revision
-        );
-
-        let mut changed_task = task.clone();
-        changed_task.status = CoordinationTaskStatus::Completed;
-        let changed_snapshot = CoordinationSnapshot {
-            plans: vec![plan.clone()],
-            tasks: vec![changed_task.clone()],
-            claims: vec![WorkClaim {
-                id: ClaimId::new("claim:shared-live-sync".to_string()),
-                holder: SessionId::new("session:remote".to_string()),
-                agent: None,
-                lease_holder: None,
-                worktree_id: Some("worktree:remote".to_string()),
-                branch_ref: Some("refs/heads/task/remote".to_string()),
-                task: Some(task_id.clone()),
-                anchors: Vec::new(),
-                capability: prism_ir::Capability::Edit,
-                mode: ClaimMode::SoftExclusive,
-                since: 20,
-                refreshed_at: Some(21),
-                stale_at: Some(22),
-                expires_at: 23,
-                status: ClaimStatus::Active,
-                base_revision: WorkspaceRevision::default(),
-            }],
-            artifacts: Vec::new(),
-            reviews: Vec::new(),
-            events: Vec::new(),
-            next_plan: 1,
-            next_task: 1,
-            next_claim: 1,
-            next_artifact: 0,
-            next_review: 0,
-        };
-        sync_shared_coordination_ref_state(
-            &root_b,
-            &changed_snapshot,
-            Some(&sample_publish_context()),
-        )
-        .unwrap();
-
-        crate::watch::sync_coordination_authority_watch_update(
-            &root_a,
-            &session.published_generation,
-            &session.runtime_state,
-            &session.store,
-            &session.cold_query_store,
-            &session.refresh_lock,
-            &session.loaded_workspace_revision,
-            &session.coordination_runtime_revision,
-            session.coordination_enabled,
-        )
-        .unwrap();
-        assert!(session
-            .prism()
-            .coordination_snapshot()
-            .claims
-            .iter()
-            .any(|claim| claim.id.0 == "claim:shared-live-sync"));
-        let eventual = session
-            .read_coordination_snapshot_with_consistency(
-                crate::coordination_reads::CoordinationReadConsistency::Eventual,
-            )
-            .unwrap()
-            .into_value()
-            .expect("eventual coordination snapshot should exist after live sync");
-        assert_eq!(eventual.tasks[0].status, CoordinationTaskStatus::Completed);
-        assert!(matches!(
-            poll_shared_coordination_ref_live_sync(&root_a).unwrap(),
-            SharedCoordinationRefLiveSync::Unchanged
-        ));
-    }
-
-    #[test]
-    fn session_coordination_reads_split_eventual_and_strong_consistency() {
-        let (root_a, _remote) = temp_git_repo_with_origin();
-        seed_workspace_project(&root_a);
-
-        let snapshot = sample_snapshot_for("plan:coord-read-modes", "coord-task:coord-read-modes");
-        sync_shared_coordination_ref_state(&root_a, &snapshot, Some(&sample_publish_context()))
-            .unwrap();
-
-        let session = index_workspace_session(&root_a).unwrap();
-        let eventual_before = session
-            .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Eventual)
-            .unwrap();
-        assert_eq!(
-            eventual_before.freshness,
-            CoordinationReadFreshness::Unavailable
-        );
-        assert!(eventual_before.value.is_none());
-
-        let strong_initial = session
-            .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Strong)
-            .unwrap();
-        assert_eq!(
-            strong_initial.freshness,
-            CoordinationReadFreshness::VerifiedCurrent
-        );
-        let initial_title = strong_initial
-            .value
-            .as_ref()
-            .and_then(|state| state.snapshot.tasks.first())
-            .map(|task| task.title.as_str())
-            .unwrap();
-        assert_eq!(initial_title, "ship it");
-
-        let eventual_after_initial = session
-            .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Eventual)
-            .unwrap();
-        assert_eq!(
-            eventual_after_initial.freshness,
-            CoordinationReadFreshness::Unavailable
-        );
-        assert!(eventual_after_initial.value.is_none());
-    }
-
-    #[test]
-    fn early_task_heartbeat_does_not_advance_shared_coordination_ref_head() {
-        let (root, _remote) = temp_git_repo_with_origin();
-        seed_workspace_project(&root);
-        let session = index_workspace_session(&root).unwrap();
-        let (plan_id, task_id) = session
-            .mutate_coordination(|prism| {
-                let plan_id = prism.create_native_plan(
-                    EventMeta {
-                        id: EventId::new("coordination:lease-noop-plan"),
-                        ts: 1,
-                        actor: EventActor::Agent,
-                        correlation: Some(TaskId::new("task:lease-noop")),
-                        causation: None,
-                        execution_context: None,
-                    },
-                    "Exercise early heartbeat suppression".into(),
-                    "Exercise early heartbeat suppression".into(),
-                    None,
-                    Some(Default::default()),
-                )?;
-                let task = prism.create_native_task(
-                    EventMeta {
-                        id: EventId::new("coordination:lease-noop-task"),
-                        ts: 2,
-                        actor: EventActor::Agent,
-                        correlation: Some(TaskId::new("task:lease-noop")),
-                        causation: None,
-                        execution_context: None,
-                    },
-                    prism_coordination::TaskCreateInput {
-                        plan_id: plan_id.clone(),
-                        title: "Keep early heartbeats local".into(),
-                        status: Some(CoordinationTaskStatus::Ready),
-                        assignee: None,
-                        session: Some(SessionId::new("session:lease-noop-owner")),
-                        worktree_id: None,
-                        branch_ref: None,
-                        anchors: Vec::new(),
-                        depends_on: Vec::new(),
-                        coordination_depends_on: Vec::new(),
-                        integrated_depends_on: Vec::new(),
-                        acceptance: Vec::new(),
-                        base_revision: prism.workspace_revision(),
-                        spec_refs: Vec::new(),
-                        artifact_requirements: Vec::new(),
-                        review_requirements: Vec::new(),
-                    },
-                )?;
-                Ok::<_, anyhow::Error>((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
-            })
-            .unwrap();
-        let ref_name = super::shared_coordination_ref_name(&root);
-        let head_before = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
-
-        let task = session
-            .mutate_coordination(|prism| {
-                prism.heartbeat_native_task(
-                    EventMeta {
-                        id: EventId::new("coordination:lease-noop-heartbeat"),
-                        ts: 30,
-                        actor: EventActor::Agent,
-                        correlation: Some(TaskId::new("task:lease-noop")),
-                        causation: None,
-                        execution_context: None,
-                    },
-                    &task_id,
-                    "explicit",
-                )
-            })
-            .unwrap();
-
-        let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
-        assert_eq!(head_after, head_before);
-        assert_eq!(task.task.parent_plan_id, plan_id);
-        assert_eq!(task.task.lease_started_at, Some(2));
-        assert_eq!(task.task.lease_refreshed_at, Some(2));
-        let loaded = load_shared_coordination_ref_state(&root)
-            .unwrap()
-            .expect("shared ref state should load");
-        let loaded_task = loaded
-            .snapshot
-            .tasks
-            .into_iter()
-            .find(|candidate| candidate.id == task_id)
-            .expect("shared ref should keep the task");
-        assert_eq!(loaded_task.lease_started_at, Some(2));
-        assert_eq!(loaded_task.lease_refreshed_at, Some(2));
-    }
-
-    #[test]
-    fn due_task_heartbeat_refreshes_shared_coordination_ref_lease_state() {
-        let (root, _remote) = temp_git_repo_with_origin();
-        seed_workspace_project(&root);
-        let session = index_workspace_session(&root).unwrap();
-        let task_id = session
-            .mutate_coordination(|prism| {
-                let plan_id = prism.create_native_plan(
-                    EventMeta {
-                        id: EventId::new("coordination:lease-refresh-plan"),
-                        ts: 1,
-                        actor: EventActor::Agent,
-                        correlation: Some(TaskId::new("task:lease-refresh")),
-                        causation: None,
-                        execution_context: None,
-                    },
-                    "Exercise due heartbeat publication".into(),
-                    "Exercise due heartbeat publication".into(),
-                    None,
-                    Some(Default::default()),
-                )?;
-                let task = prism.create_native_task(
-                    EventMeta {
-                        id: EventId::new("coordination:lease-refresh-task"),
-                        ts: 2,
-                        actor: EventActor::Agent,
-                        correlation: Some(TaskId::new("task:lease-refresh")),
-                        causation: None,
-                        execution_context: None,
-                    },
-                    prism_coordination::TaskCreateInput {
-                        plan_id,
-                        title: "Refresh the authoritative lease when due".into(),
-                        status: Some(CoordinationTaskStatus::Ready),
-                        assignee: None,
-                        session: Some(SessionId::new("session:lease-refresh-owner")),
-                        worktree_id: None,
-                        branch_ref: None,
-                        anchors: Vec::new(),
-                        depends_on: Vec::new(),
-                        coordination_depends_on: Vec::new(),
-                        integrated_depends_on: Vec::new(),
-                        acceptance: Vec::new(),
-                        base_revision: prism.workspace_revision(),
-                        spec_refs: Vec::new(),
-                        artifact_requirements: Vec::new(),
-                        review_requirements: Vec::new(),
-                    },
-                )?;
-                Ok::<_, anyhow::Error>(CoordinationTaskId::new(task.task.id.0.clone()))
-            })
-            .unwrap();
-        let ref_name = super::shared_coordination_ref_name(&root);
-        let head_before = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
-        let task_shard_ref = super::shared_coordination_task_shard_ref_name(
-            &root,
-            &super::shared_coordination_shard_key(&task_id.0),
-        );
-        let task_shard_head_before =
-            super::run_git(&root, &["rev-parse", &task_shard_ref]).unwrap();
-
-        let task = session
-            .mutate_coordination(|prism| {
-                prism.heartbeat_native_task(
-                    EventMeta {
-                        id: EventId::new("coordination:lease-refresh-heartbeat"),
-                        ts: 1700,
-                        actor: EventActor::Agent,
-                        correlation: Some(TaskId::new("task:lease-refresh")),
-                        causation: None,
-                        execution_context: None,
-                    },
-                    &task_id,
-                    "explicit",
-                )
-            })
-            .unwrap();
-
-        let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
-        let task_shard_head_after = super::run_git(&root, &["rev-parse", &task_shard_ref]).unwrap();
-        assert_eq!(task.task.lease_started_at, Some(2));
-        assert_eq!(task.task.lease_refreshed_at, Some(1700));
-        let loaded = load_shared_coordination_ref_state(&root)
-            .unwrap()
-            .expect("shared ref state should load");
-        let loaded_task = loaded
-            .snapshot
-            .tasks
-            .into_iter()
-            .find(|candidate| candidate.id == task_id)
-            .expect("shared ref should keep the task");
-        assert_eq!(loaded_task.lease_started_at, Some(2));
-        assert_eq!(loaded_task.lease_refreshed_at, Some(1700));
-        assert!(loaded_task.lease_stale_at.is_some_and(|value| value > 1700));
-        assert!(loaded_task
-            .lease_expires_at
-            .is_some_and(|value| value > 1700));
-        assert!(
-            task_shard_head_after != task_shard_head_before
-                || head_after != head_before
-                || loaded_task.lease_refreshed_at == Some(1700),
-            "due heartbeat should refresh the published authoritative lease state even if shard heads are unchanged"
-        );
-        assert!(
-            head_after != head_before || loaded_task.lease_refreshed_at == Some(1700),
-            "due heartbeat should either advance the summary ref head or publish refreshed lease state"
-        );
-    }
-
     #[test]
     fn shared_coordination_ref_compacts_history_after_threshold() {
         let (root, _remote) = temp_git_repo_with_origin();
@@ -6010,10 +5466,12 @@ mod tests {
         assert_eq!(diagnostics.verification_status, "verified");
         assert!(!diagnostics.degraded);
         assert!(diagnostics.authoritative_hydration_allowed);
-        let hydrated = load_authoritative_coordination_plan_state(&root)
+        assert!(load_authoritative_coordination_plan_state(&root)
             .unwrap()
-            .expect("hydrated state");
-        assert!(hydrated
+            .is_none());
+        assert!(load_shared_coordination_ref_state(&root)
+            .unwrap()
+            .expect("shared coordination state should still load")
             .snapshot
             .tasks
             .iter()
@@ -6064,9 +5522,14 @@ mod tests {
             manifest.published_at += 1;
         });
 
-        let error = load_authoritative_coordination_plan_state(&root)
-            .expect_err("invalid shared coordination ref should block authoritative hydration");
-        assert!(error.to_string().contains("verification failed"));
+        assert!(load_authoritative_coordination_plan_state(&root)
+            .unwrap()
+            .is_none());
+        let diagnostics = shared_coordination_ref_diagnostics(&root)
+            .unwrap()
+            .expect("shared coordination diagnostics should exist");
+        assert_eq!(diagnostics.verification_status, "degraded");
+        assert!(!diagnostics.authoritative_hydration_allowed);
     }
 
     #[test]

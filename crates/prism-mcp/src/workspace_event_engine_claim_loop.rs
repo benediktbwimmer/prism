@@ -159,10 +159,7 @@ impl WorkspaceEventEngine {
         request: &EventTriggerClaimLoopRequest,
     ) -> Result<Vec<EventTriggerClaimLoopCandidate>> {
         let snapshot = self
-            .read_broker()
-            .workspace_session()
-            .load_coordination_plan_state()?
-            .map(|state| state.snapshot)
+            .read_authoritative_snapshot()?
             .unwrap_or_default();
         let mut candidates: Vec<_> = snapshot
             .plans

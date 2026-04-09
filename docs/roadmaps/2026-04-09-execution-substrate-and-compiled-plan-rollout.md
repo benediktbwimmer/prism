@@ -48,7 +48,7 @@ Current phase checklist:
 
 - [x] Phase 0: freeze sequencing and spec boundaries
 - [x] Phase 1: implement the coordination artifact/review model
-- [ ] Phase 2: refactor the coordination authority abstraction and persistence contract
+- [x] Phase 2: refactor the coordination authority abstraction and persistence contract
 - [ ] Phase 3: implement the shared execution substrate core
 - [ ] Phase 4: move warm-state validation onto the shared execution substrate
 - [ ] Phase 5: add `Action` as a first-class graph leaf on the shared execution substrate
@@ -59,13 +59,13 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 2: refactor the coordination authority abstraction and persistence contract
+- Phase 3: implement the shared execution substrate core
 
 Current implementation note (2026-04-09):
 
 - Phase 1 is landed across `prism-coordination`, `prism-query`, `prism-core`, `prism-mcp`, and `prism-js`
-- the next blocking work is replacing the snapshot-shaped authority seam before the shared execution substrate and later graph/runtime work build on the wrong persistence contract
-- the Phase 2 target spec is [../specs/2026-04-09-sql-only-coordination-authority-cutover.md](../specs/2026-04-09-sql-only-coordination-authority-cutover.md)
+- Phase 2 is landed with the SQL-only authority cutover, removing `git_shared_refs` as a supported authority backend and collapsing the normal authority mutation path to DB append semantics
+- the next blocking work is Phase 3: the shared execution substrate core
 
 ## 3. Ordering thesis
 

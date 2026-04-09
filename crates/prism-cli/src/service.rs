@@ -159,9 +159,6 @@ fn authority_backend_arg(
     config: &CoordinationAuthorityBackendConfig,
 ) -> crate::cli::CoordinationAuthorityBackendArg {
     match config {
-        CoordinationAuthorityBackendConfig::GitSharedRefs => {
-            crate::cli::CoordinationAuthorityBackendArg::GitSharedRefs
-        }
         CoordinationAuthorityBackendConfig::Sqlite { .. } => {
             crate::cli::CoordinationAuthorityBackendArg::Sqlite
         }
@@ -197,9 +194,6 @@ fn print_service_backend_posture(config: &CoordinationAuthorityBackendConfig) {
         }
         CoordinationAuthorityBackendConfig::Postgres { .. } => {
             println!("coordination_authority_backend = postgres");
-        }
-        CoordinationAuthorityBackendConfig::GitSharedRefs => {
-            println!("coordination_authority_backend = git_shared_refs");
         }
     }
 }

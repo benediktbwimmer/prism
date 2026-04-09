@@ -6,8 +6,8 @@ use prism_coordination::{RuntimeDescriptor, RuntimeDescriptorCapability};
 use prism_core::{
     configured_coordination_authority_store_provider,
     coordination_authority_diagnostics_with_provider, runtime_query_endpoint,
-    CoordinationAuthorityBackendDetails, CoordinationAuthorityStoreProvider,
-    CoordinationReadConsistency, RuntimeDescriptorQuery, WorkspaceSession,
+    CoordinationAuthorityStoreProvider, CoordinationReadConsistency, RuntimeDescriptorQuery,
+    WorkspaceSession,
 };
 use prism_ir::{CredentialCapability, CredentialId};
 
@@ -202,25 +202,7 @@ fn resolve_runtime_descriptor(
     let provider = authority_store_provider
         .cloned()
         .unwrap_or(configured_coordination_authority_store_provider(root)?);
-    let diagnostics = coordination_authority_diagnostics_with_provider(root, &provider)?;
-    if let CoordinationAuthorityBackendDetails::GitSharedRefs(diagnostics) =
-        diagnostics.backend_details
-    {
-        if !diagnostics.authoritative_hydration_allowed {
-            return Err(remote_runtime_query_error(
-                "remote_runtime_authority_degraded",
-                Some(runtime_id),
-                diagnostics
-                    .verification_error
-                    .unwrap_or_else(|| {
-                        "coordination authority verification is degraded".to_string()
-                    }),
-                diagnostics.repair_hint.as_deref().unwrap_or(
-                    "Repair or republish the coordination authority state before relying on peer runtime routing.",
-                ),
-            ));
-        }
-    }
+    let _ = coordination_authority_diagnostics_with_provider(root, &provider)?;
     let store = provider.open(root)?;
     let runtime_descriptors = store
         .list_runtime_descriptors(RuntimeDescriptorQuery {

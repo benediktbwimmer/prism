@@ -1,6 +1,6 @@
 # SQL-Only Coordination Authority Cutover
 
-Status: approved
+Status: implemented
 Audience: coordination, storage, runtime, query, MCP, CLI, and service maintainers
 Scope: remove the shared-ref coordination authority backend entirely, tighten the authority abstraction around SQL-backed implementations only, and migrate all product call sites and tests to the new assumption
 
@@ -38,16 +38,16 @@ authority backend.
 
 Checklist:
 
-- [ ] replace the current Phase 2 target with this hard-cut spec
-- [ ] remove `git_shared_refs` from the supported coordination authority backend taxonomy
-- [ ] delete the shared-ref coordination authority store implementation
-- [ ] remove shared-ref backend selection from CLI, MCP, service config, and runtime views
-- [ ] tighten `CoordinationAuthorityStore` around SQL-backed semantics only
-- [ ] remove backend-kind branching that exists only to preserve shared-ref compatibility
-- [ ] preserve an explicit recovery/export snapshot path only where still necessary
-- [ ] keep SQLite green behind the tightened seam
-- [ ] leave Postgres as a stub on the same SQL-only contract
-- [ ] update tests and fixtures to stop assuming shared-ref authority support
+- [x] replace the current Phase 2 target with this hard-cut spec
+- [x] remove `git_shared_refs` from the supported coordination authority backend taxonomy
+- [x] delete the shared-ref coordination authority store implementation
+- [x] remove shared-ref backend selection from CLI, MCP, service config, and runtime views
+- [x] tighten `CoordinationAuthorityStore` around SQL-backed semantics only
+- [x] remove backend-kind branching that exists only to preserve shared-ref compatibility
+- [x] preserve an explicit recovery/export snapshot path only where still necessary
+- [x] keep SQLite green behind the tightened seam
+- [x] leave Postgres as a stub on the same SQL-only contract
+- [x] update tests and fixtures to stop assuming shared-ref authority support
 
 Progress note (2026-04-09):
 
@@ -55,6 +55,9 @@ Progress note (2026-04-09):
   branching to keep `git_shared_refs` alive
 - this spec replaces that compromise with the actual desired direction: one logical authority model,
   two SQL implementations
+- implementation landed by removing the shared-ref authority backend from core runtime taxonomy,
+  deleting its store implementation, collapsing the normal authority mutation path to append-only
+  semantics, and updating CLI, MCP, and tests to fail clearly on old `git_shared_refs` config
 
 ## 3. Problem statement
 

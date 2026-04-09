@@ -10,18 +10,20 @@ use prism_coordination::{
     CoordinationSnapshotV2, TaskGitExecution,
 };
 use prism_ir::SessionId;
+#[cfg(test)]
 use prism_store::{
     CoordinationCheckpointStore, CoordinationJournal, CoordinationPersistBatch,
     CoordinationPersistResult,
 };
+#[cfg(not(test))]
+use prism_store::{CoordinationCheckpointStore, CoordinationJournal, CoordinationPersistResult};
 use serde_json::{json, Value};
 
 use crate::coordination_authority_store::{
     configured_coordination_authority_store_provider,
     coordination_materialization_enabled_for_root, CoordinationAppendRequest,
-    CoordinationCurrentState, CoordinationDerivedStateMode, CoordinationReplaceCurrentStateRequest,
-    CoordinationTransactionBase, CoordinationTransactionResult, CoordinationTransactionStatus,
-    RuntimeDescriptorQuery,
+    CoordinationDerivedStateMode, CoordinationTransactionBase, CoordinationTransactionResult,
+    CoordinationTransactionStatus,
 };
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
@@ -41,8 +43,8 @@ use crate::published_plans::{sync_repo_published_plans, HydratedCoordinationPlan
 use crate::tracked_snapshot::{
     publish_context_from_coordination_events, sync_coordination_snapshot_state,
 };
+#[cfg(test)]
 use crate::workspace_identity::coordination_persist_context_for_root;
-
 const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
 const TEST_COORDINATION_AUTHORITY_PUBLICATION_OPT_IN: &str =
     "enable_coordination_authority_publication";
@@ -118,30 +120,10 @@ where
     }
 }
 
-#[derive(Clone)]
-enum CoordinationAuthorityMutationRequest {
-    AppendEvents(CoordinationAppendRequest),
-    ReplaceCurrentState(CoordinationReplaceCurrentStateRequest),
-}
-
-fn apply_authority_mutation_request(
-    authority_store: &dyn crate::coordination_authority_store::CoordinationAuthorityStore,
-    request: CoordinationAuthorityMutationRequest,
-) -> Result<CoordinationTransactionResult> {
-    match request {
-        CoordinationAuthorityMutationRequest::AppendEvents(request) => {
-            authority_store.append_events(request)
-        }
-        CoordinationAuthorityMutationRequest::ReplaceCurrentState(request) => {
-            authority_store.replace_current_state(request)
-        }
-    }
-}
-
 fn apply_coordination_authority_transaction_observed<O>(
     root: &Path,
-    snapshot: &CoordinationSnapshot,
-    derived: &CoordinationDerivedSyncInputs,
+    _snapshot: &CoordinationSnapshot,
+    _derived: &CoordinationDerivedSyncInputs,
     appended_events: &[CoordinationEvent],
     session_id: Option<&SessionId>,
     derived_persistence_mode: CoordinationDerivedPersistenceMode,
@@ -150,41 +132,15 @@ fn apply_coordination_authority_transaction_observed<O>(
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
-    let authority_provider = configured_coordination_authority_store_provider(root)?;
-    let authority_store = authority_provider.open(root)?;
-    let requires_snapshot_replace = appended_events.is_empty()
-        || matches!(
-            authority_provider.config(),
-            crate::CoordinationAuthorityBackendConfig::GitSharedRefs
-        );
-    let request = if requires_snapshot_replace {
-        CoordinationAuthorityMutationRequest::ReplaceCurrentState(
-            CoordinationReplaceCurrentStateRequest {
-                base: CoordinationTransactionBase::LatestStrong,
-                state: CoordinationCurrentState {
-                    snapshot: snapshot.clone(),
-                    canonical_snapshot_v2: derived.canonical_snapshot_v2.clone(),
-                    runtime_descriptors: authority_store
-                        .list_runtime_descriptors(RuntimeDescriptorQuery {
-                            consistency: crate::CoordinationReadConsistency::Strong,
-                        })?
-                        .value
-                        .unwrap_or_default(),
-                },
-            },
-        )
-    } else {
-        CoordinationAuthorityMutationRequest::AppendEvents(CoordinationAppendRequest {
-            base: CoordinationTransactionBase::LatestStrong,
-            session_id: session_id.cloned(),
-            appended_events: appended_events.to_vec(),
-            derived_state_mode: match derived_persistence_mode {
-                CoordinationDerivedPersistenceMode::Inline => CoordinationDerivedStateMode::Inline,
-                CoordinationDerivedPersistenceMode::Deferred => {
-                    CoordinationDerivedStateMode::Deferred
-                }
-            },
-        })
+    let authority_store = configured_coordination_authority_store_provider(root)?.open(root)?;
+    let request = CoordinationAppendRequest {
+        base: CoordinationTransactionBase::LatestStrong,
+        session_id: session_id.cloned(),
+        appended_events: appended_events.to_vec(),
+        derived_state_mode: match derived_persistence_mode {
+            CoordinationDerivedPersistenceMode::Inline => CoordinationDerivedStateMode::Inline,
+            CoordinationDerivedPersistenceMode::Deferred => CoordinationDerivedStateMode::Deferred,
+        },
     };
     observe_coordination_step(
         observe_phase,
@@ -193,9 +149,10 @@ where
             json!({
                 "committed": result.committed,
                 "status": format!("{:?}", result.status),
+                "appendedEventCount": request.appended_events.len(),
             })
         },
-        || match apply_authority_mutation_request(authority_store.as_ref(), request.clone())? {
+        || match authority_store.append_events(request.clone())? {
             result if matches!(result.status, CoordinationTransactionStatus::Committed) => {
                 Ok::<_, anyhow::Error>(result)
             }
@@ -211,8 +168,8 @@ where
 
 fn persist_authority_transaction_observed<O>(
     root: &Path,
-    snapshot: &CoordinationSnapshot,
-    derived: &CoordinationDerivedSyncInputs,
+    _snapshot: &CoordinationSnapshot,
+    _derived: &CoordinationDerivedSyncInputs,
     appended_events: &[CoordinationEvent],
     session_id: Option<&SessionId>,
     derived_persistence_mode: CoordinationDerivedPersistenceMode,
@@ -221,41 +178,15 @@ fn persist_authority_transaction_observed<O>(
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
-    let authority_provider = configured_coordination_authority_store_provider(root)?;
-    let authority_store = authority_provider.open(root)?;
-    let requires_snapshot_replace = appended_events.is_empty()
-        || matches!(
-            authority_provider.config(),
-            crate::CoordinationAuthorityBackendConfig::GitSharedRefs
-        );
-    let request = if requires_snapshot_replace {
-        CoordinationAuthorityMutationRequest::ReplaceCurrentState(
-            CoordinationReplaceCurrentStateRequest {
-                base: CoordinationTransactionBase::LatestStrong,
-                state: CoordinationCurrentState {
-                    snapshot: snapshot.clone(),
-                    canonical_snapshot_v2: derived.canonical_snapshot_v2.clone(),
-                    runtime_descriptors: authority_store
-                        .list_runtime_descriptors(RuntimeDescriptorQuery {
-                            consistency: crate::CoordinationReadConsistency::Strong,
-                        })?
-                        .value
-                        .unwrap_or_default(),
-                },
-            },
-        )
-    } else {
-        CoordinationAuthorityMutationRequest::AppendEvents(CoordinationAppendRequest {
-            base: CoordinationTransactionBase::LatestStrong,
-            session_id: session_id.cloned(),
-            appended_events: appended_events.to_vec(),
-            derived_state_mode: match derived_persistence_mode {
-                CoordinationDerivedPersistenceMode::Inline => CoordinationDerivedStateMode::Inline,
-                CoordinationDerivedPersistenceMode::Deferred => {
-                    CoordinationDerivedStateMode::Deferred
-                }
-            },
-        })
+    let authority_store = configured_coordination_authority_store_provider(root)?.open(root)?;
+    let request = CoordinationAppendRequest {
+        base: CoordinationTransactionBase::LatestStrong,
+        session_id: session_id.cloned(),
+        appended_events: appended_events.to_vec(),
+        derived_state_mode: match derived_persistence_mode {
+            CoordinationDerivedPersistenceMode::Inline => CoordinationDerivedStateMode::Inline,
+            CoordinationDerivedPersistenceMode::Deferred => CoordinationDerivedStateMode::Deferred,
+        },
     };
     observe_coordination_step(
         observe_phase,
@@ -264,9 +195,10 @@ where
             json!({
                 "committed": result.committed,
                 "status": format!("{:?}", result.status),
+                "appendedEventCount": request.appended_events.len(),
             })
         },
-        || apply_authority_mutation_request(authority_store.as_ref(), request.clone()),
+        || authority_store.append_events(request.clone()),
     )
 }
 
@@ -621,65 +553,30 @@ pub(crate) trait CoordinationPersistenceBackend:
         let derived = CoordinationDerivedSyncInputs {
             canonical_snapshot_v2: canonical_snapshot_v2.clone(),
         };
-        let authority_publication_enabled = coordination_authority_publication_enabled(root);
-        let provider = configured_coordination_authority_store_provider(root)?;
-        let result = if matches!(
-            provider.config(),
-            crate::CoordinationAuthorityBackendConfig::GitSharedRefs
-        ) && !authority_publication_enabled
-        {
-            observe_phase(
-                "mutation.coordination.authority.applyTransaction",
-                Duration::ZERO,
-                json!({
-                    "skipped": true,
-                    "reason": "test_default_disabled",
-                }),
-                true,
-                None,
-            );
-            observe_coordination_step(
-                &mut observe_phase,
-                "mutation.coordination.commitPersistBatch",
-                |result: &CoordinationPersistResult| {
-                    json!({
-                        "applied": result.applied,
-                        "appendedEventCount": appended_events.len(),
-                    })
-                },
-                || {
-                    self.commit_coordination_persist_batch(&CoordinationPersistBatch {
-                        context: coordination_persist_context_for_root(root, session_id),
-                        expected_revision: Some(expected_revision),
-                        appended_events: appended_events.to_vec(),
-                    })
-                },
-            )?
-        } else {
-            let transaction = persist_authority_transaction_observed(
-                root,
-                snapshot,
-                &derived,
-                appended_events,
-                session_id,
-                derived_persistence_mode,
-                &mut observe_phase,
-            )?;
-            match transaction.status {
-                CoordinationTransactionStatus::Committed => {
-                    transaction.persisted.unwrap_or(CoordinationPersistResult {
-                        revision: expected_revision.saturating_add(1),
-                        inserted_events: appended_events.len(),
-                        applied: true,
-                    })
-                }
-                _ => {
-                    return Err(authority_transaction_error(
-                        &transaction,
-                        "coordination authority transaction did not commit successfully",
-                    )
-                    .into())
-                }
+        let _ = coordination_authority_publication_enabled(root);
+        let transaction = persist_authority_transaction_observed(
+            root,
+            snapshot,
+            &derived,
+            appended_events,
+            session_id,
+            derived_persistence_mode,
+            &mut observe_phase,
+        )?;
+        let result = match transaction.status {
+            CoordinationTransactionStatus::Committed => {
+                transaction.persisted.unwrap_or(CoordinationPersistResult {
+                    revision: expected_revision.saturating_add(1),
+                    inserted_events: appended_events.len(),
+                    applied: true,
+                })
+            }
+            _ => {
+                return Err(authority_transaction_error(
+                    &transaction,
+                    "coordination authority transaction did not commit successfully",
+                )
+                .into())
             }
         };
         if !result.applied {

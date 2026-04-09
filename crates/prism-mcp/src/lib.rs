@@ -332,7 +332,6 @@ pub enum PrismRuntimeModeArg {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 #[value(rename_all = "snake_case")]
 pub enum CoordinationAuthorityBackendArg {
-    GitSharedRefs,
     Sqlite,
     Postgres,
 }
@@ -397,9 +396,6 @@ impl PrismMcpCli {
             return Ok(None);
         };
         Ok(Some(match backend {
-            CoordinationAuthorityBackendArg::GitSharedRefs => {
-                CoordinationAuthorityBackendConfig::GitSharedRefs
-            }
             CoordinationAuthorityBackendArg::Sqlite => {
                 let db_path = match &self.coordination_authority_sqlite_db {
                     Some(path) if path.is_absolute() => path.clone(),

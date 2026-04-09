@@ -10,11 +10,9 @@ use prism_store::CoordinationPersistResult;
 
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
 use crate::published_plans::HydratedCoordinationPlanState;
-use crate::shared_coordination_ref::SharedCoordinationRefDiagnostics;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CoordinationAuthorityBackendKind {
-    GitSharedRefs,
     Sqlite,
     Postgres,
 }
@@ -316,19 +314,9 @@ pub struct PostgresCoordinationAuthorityBackendDetails {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CoordinationAuthorityBackendDetails {
-    GitSharedRefs(SharedCoordinationRefDiagnostics),
     Sqlite(SqliteCoordinationAuthorityBackendDetails),
     Postgres(PostgresCoordinationAuthorityBackendDetails),
     Unavailable,
-}
-
-impl CoordinationAuthorityBackendDetails {
-    pub fn as_git_shared_refs(&self) -> Option<&SharedCoordinationRefDiagnostics> {
-        match self {
-            Self::GitSharedRefs(value) => Some(value),
-            Self::Sqlite(_) | Self::Postgres(_) | Self::Unavailable => None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

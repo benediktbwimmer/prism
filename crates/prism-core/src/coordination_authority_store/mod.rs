@@ -1,6 +1,5 @@
 mod db;
 mod factory;
-mod git_shared_refs;
 mod sqlite;
 mod traits;
 mod types;
@@ -12,7 +11,6 @@ pub use factory::{
     open_default_coordination_authority_store, resolve_coordination_authority_store_provider,
     CoordinationAuthorityBackendConfig, CoordinationAuthorityStoreProvider,
 };
-pub use git_shared_refs::GitSharedRefsCoordinationAuthorityStore;
 pub use sqlite::SqliteCoordinationAuthorityStore;
 pub use traits::CoordinationAuthorityStore;
 pub use types::{
