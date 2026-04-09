@@ -93,6 +93,7 @@ pub use coordination_authority_store::{
     CoordinationReadEnvelope, CoordinationReadRequest, CoordinationStateView,
     CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
     CoordinationTransactionResult, CoordinationTransactionStatus,
+    EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
     GitSharedRefsCoordinationAuthorityStore, RuntimeDescriptorClearRequest,
     RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery, SqliteCoordinationAuthorityStore,
 };

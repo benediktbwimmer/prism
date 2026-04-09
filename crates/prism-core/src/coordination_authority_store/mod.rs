@@ -21,6 +21,7 @@ pub use types::{
     CoordinationHistoryEntry, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
     CoordinationReadEnvelope, CoordinationReadRequest, CoordinationStateView,
     CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
-    CoordinationTransactionResult, CoordinationTransactionStatus, RuntimeDescriptorClearRequest,
-    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    CoordinationTransactionResult, CoordinationTransactionStatus,
+    EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
+    RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };

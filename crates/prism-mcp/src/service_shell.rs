@@ -62,6 +62,8 @@ impl WorkspaceServiceShell {
             authority_store_provider.clone(),
         ));
         let event_engine = Arc::new(WorkspaceEventEngine::new(
+            workspace.root().to_path_buf(),
+            authority_store_provider.clone(),
             Arc::clone(&read_broker),
             Arc::clone(&mutation_broker),
         ));
