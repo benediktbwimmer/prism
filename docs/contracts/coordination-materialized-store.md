@@ -18,6 +18,7 @@ This contract exists so that:
 - eventual coordination reads use one disciplined path
 - checkpoints, indexed views, and local read models are updated through one protocol
 - authority and materialization do not blur back together
+- optional projections remain explicit optimizations rather than mandatory architecture
 
 This abstraction is distinct from:
 
@@ -54,6 +55,7 @@ The materialized store must preserve these rules:
 4. It must surface which authority version or stamp it corresponds to.
 5. It must remain disposable and rebuildable.
 6. Runtimes do not own or mutate coordination materialization directly.
+7. DB-backed authority does not require a separate coordination materialized store by default.
 
 ## 3. Responsibilities
 
@@ -74,6 +76,8 @@ It may also own:
 
 It does not own native spec parsing or spec-state materialization unless another implementation
 contract explicitly chooses to colocate storage behind a separate spec-engine seam.
+
+For DB-backed coordination authority, this seam may be disabled entirely by default.
 
 ## 4. Non-goals
 
@@ -132,8 +136,8 @@ Every persisted materialization unit must be traceable to:
 
 ## 8. Relationship to eventual reads
 
-The CoordinationMaterializedStore is the primary service-local storage seam for eventual
-coordination reads.
+The CoordinationMaterializedStore is the storage seam for eventual coordination reads when PRISM is
+actually using a lagging projection or checkpointed local serving path.
 
 That means:
 
@@ -141,6 +145,11 @@ That means:
 - eventual-read call sites should depend on the materialized-store API
 - consistency and freshness metadata must still be surfaced according to
   [consistency-and-freshness.md](./consistency-and-freshness.md)
+
+For DB-backed authority in the default path:
+
+- this seam may be disabled
+- eventual and strong reads may both be satisfied by current authority
 
 ## 9. Relationship to the query engine
 
@@ -191,7 +200,8 @@ backend swapping alone.
 This contract is considered implemented only when:
 
 - eventual coordination reads no longer depend on ad hoc SQLite access
-- service-owned coordination checkpoint persistence is routed through the materialized-store seam
+- any enabled service-owned coordination checkpoint persistence is routed through the
+  materialized-store seam
 - materialization metadata is explicit and queryable
 - local materialization updates advance only from committed authority or explicitly allowed local
   operational inputs

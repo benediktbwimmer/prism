@@ -37,12 +37,14 @@ This contract captures the normative identity boundary distilled from:
 
 The identity model must preserve these rules:
 
-1. Humans are the only durable authenticated principals in the local v1 model.
-2. Agents are execution lanes, not durable local principals.
-3. Services are a distinct future durable principal class.
-4. Worktree execution identity is the durable local execution identity for agent work.
-5. Bridge sessions are ephemeral carriers, not durable owners of work.
-6. Identity classes and relationships must be explicit enough to support provenance, authorization,
+1. Principal identity is the durable trust root in the default model.
+2. Agents are execution lanes, not durable principals.
+3. Service sessions and runtime sessions are not durable trust roots.
+4. Services may later manage identities, but that does not eliminate principal-rooted trust
+   semantics.
+5. Worktree execution identity is the durable local execution identity for agent work.
+6. Bridge sessions are ephemeral carriers, not durable owners of work.
+7. Identity classes and relationships must be explicit enough to support provenance, authorization,
    and verification.
 
 ## 3. Minimum identity kinds
@@ -56,8 +58,10 @@ The identity model must distinguish at least:
 - worktree record
 - worktree execution identity
 - bridge session
+- service session
 - runtime identity
-- future service principal
+- runtime session
+- future service-managed identity or account
 
 Not all of these are durable in the same way, but they must not be conflated.
 
@@ -66,11 +70,11 @@ Not all of these are durable in the same way, but they must not be conflated.
 The contract must distinguish:
 
 - durable portable identities
-  - for example human principals
+  - for example principal identities
 - durable local execution identities
   - for example worktree execution identity
 - ephemeral live carriers
-  - for example bridge sessions and current runtime processes
+  - for example bridge sessions, service sessions, runtime sessions, and current runtime processes
 
 This distinction matters for:
 
@@ -86,7 +90,8 @@ The identity model must also identify the minimum trust anchors:
 - external bootstrap issuers
 - durable principal authority namespace
 - local credential material
-- runtime authority identities used for attestation or publication when applicable
+- service attestation authority when applicable
+- runtime identities used for delegated publication or execution when applicable
 
 Private secret material and mutable trust-root state remain outside repo-published truth.
 
@@ -100,6 +105,13 @@ The identity model must let PRISM answer all of these separately when relevant:
 - which bridge or session carried it
 
 PRISM must not collapse those into one undifferentiated "actor" field.
+
+For policy and provenance purposes it must also be possible to distinguish the effective authority
+class:
+
+- delegated machine
+- human attested
+- service attested
 
 ## 7. Relationship to worktree exclusivity
 

@@ -34,6 +34,8 @@ The contract must distinguish at least:
 - authoritative published knowledge or repo-state manifests
 - authoritative coordination state transitions or equivalent backend attestations
 - runtime descriptors or other published runtime authority records when designated by contract
+- human-attestation proofs over canonical action digests when policy requires human authority
+- service-attestation proofs over canonical action digests when policy requires service authority
 - exported trust or verification bundles
 
 Not every derived artifact must be signed.
@@ -46,6 +48,12 @@ At minimum, a valid signature should attest that:
 - the signed payload bytes are intact
 - a trusted signing authority or key attested that PRISM admitted or published that payload
 - the attested payload carries explicit identity and provenance metadata
+
+For human-attested or service-attested actions, a valid attestation should also attest that:
+
+- the approval was bound to one canonical action digest
+- the approval was nonce-bound and expiry-bound
+- the approval was not a general-purpose bearer elevation
 
 Signatures do not by themselves prove:
 
@@ -91,7 +99,14 @@ verification material such as:
 Portable verification material may be imported locally.
 Private signing keys must not be required for historical verification.
 
-## 8. Relationship to authority
+## 8. Action-bound attestation rule
+
+PRISM must not model stronger human or service authority as a reusable bearer token by default.
+
+When policy requires `human_attested` or `service_attested` authority, the system should use a
+single-use or action-bound attestation over the canonical requested action.
+
+## 9. Relationship to authority
 
 Signing and verification underpin authoritative truth.
 
@@ -101,7 +116,7 @@ That means:
 - materialized stores should only materialize verified authority for authority-sensitive uses
 - mutation and publication protocols must identify signing boundaries explicitly
 
-## 9. Relationship to existing design notes
+## 10. Relationship to existing design notes
 
 This contract captures the normative trust boundary distilled from:
 
@@ -109,10 +124,11 @@ This contract captures the normative trust boundary distilled from:
 
 That broader design note may continue to carry deeper implementation detail and migration strategy.
 
-## 10. Minimum implementation bar
+## 11. Minimum implementation bar
 
 This contract is considered implemented only when:
 
 - authoritative protected state is never accepted without required verification
 - trust states are explicit in authority-sensitive reads
+- stronger human or service authority does not depend on reusable bearer elevation by default
 - portable public verification material is part of the design rather than an afterthought

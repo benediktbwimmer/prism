@@ -17,6 +17,7 @@ This contract exists so that:
   consistently
 - policy lives above transport details
 - the service and runtime layers do not invent one-off capability rules
+- required machine, human, and service authority can be expressed explicitly
 
 Canonical ownership:
 
@@ -32,6 +33,8 @@ The authorization and capability layer must preserve these rules:
 2. Capability categories must be explicit and bounded.
 3. The caller's authority must not be widened silently by an intermediary service or runtime.
 4. Capability checks must happen before authoritative state changes or trust-sensitive reads.
+5. Required authority class must be explicit when policy demands stronger authority than delegated
+   machine execution.
 
 ## 3. Minimum capability families
 
@@ -48,12 +51,19 @@ The shared minimum capability families must include:
 - future event execution control
 - future peer or runtime-targeted enrichment access
 
+The shared authority classes must include:
+
+- `delegated_machine`
+- `human_attested`
+- `service_attested`
+
 ## 4. Authorization context
 
 Every operation should be authorized against a context that can include:
 
 - principal identity
 - credential or authenticator identity when relevant
+- service session identity when relevant
 - runtime identity
 - worktree identity when relevant
 - repo or project scope
@@ -69,16 +79,19 @@ It should be possible to answer:
 - what scope it was evaluated against
 - why it was granted or denied
 
-## 6. Automation and human authority
+## 6. Automation and human or service authority
 
 The contract must distinguish clearly between:
 
 - human-authorized operations
 - ordinary local agent execution
-- future durable service-principal operations
+- service-attested operations
 
 Operations that alter trust roots, bootstrap identity, or other high-risk trust state should require
 stronger human authority than ordinary coordination mutations.
+
+This stronger authority should be expressed through explicit attestation class, not reusable bearer
+elevation.
 
 ## 7. Relationship to specialized contracts
 

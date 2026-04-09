@@ -20,6 +20,7 @@ This contract exists so that:
   authority
 - product code can rely on materialization semantics without treating local state as authority
 - backend substitution does not force a redesign of local acceleration behavior
+- DB-backed authority may disable separate coordination materialization when it does not add value
 
 Canonical ownership:
 
@@ -64,6 +65,11 @@ Local materialization may include:
 
 Service-local coordination materialization and runtime-local operational materialization are
 different families and must not blur together.
+
+When DB-backed authority is active:
+
+- separate coordination materialization is disabled by default
+- optional materialization remains a follow-on optimization rather than the baseline path
 
 When native specs are enabled, local materialization may also include spec-derived local indexes and
 status views, but those remain branch-local and non-authoritative.
@@ -127,6 +133,9 @@ Strong reads may update or bypass materialization as needed, but the caller-faci
 
 - authority determines truth
 - materialization determines speed
+
+When no lagging projection is enabled, eventual may legitimately collapse to the same authority path
+as strong.
 
 ## 9. Checkpoints
 

@@ -39,6 +39,7 @@ This roadmap now assumes the accepted decision in:
 
 - [../adrs/2026-04-08-service-owned-coordination-materialization.md](../adrs/2026-04-08-service-owned-coordination-materialization.md)
 - [../adrs/2026-04-08-db-backed-coordination-authority-first.md](../adrs/2026-04-08-db-backed-coordination-authority-first.md)
+- [../adrs/2026-04-09-first-class-prism-service-and-db-read-path.md](../adrs/2026-04-09-first-class-prism-service-and-db-read-path.md)
 
 ## 2. Status
 
@@ -111,6 +112,8 @@ Current phase spec:
   [../specs/2026-04-09-event-trigger-claim-loop-phase-15.md](../specs/2026-04-09-event-trigger-claim-loop-phase-15.md)
 - Phase 15 event trigger execution lifecycle slice active:
   [../specs/2026-04-09-event-trigger-execution-lifecycle-phase-15.md](../specs/2026-04-09-event-trigger-execution-lifecycle-phase-15.md)
+- Phase 15 service extraction and DB read-path follow-through roadmap:
+  [../roadmaps/2026-04-09-prism-service-extraction-and-db-read-simplification.md](../roadmaps/2026-04-09-prism-service-extraction-and-db-read-simplification.md)
 
 ## 3. Ordering thesis
 
@@ -489,7 +492,8 @@ This ordering is driven by real dependency structure:
 - spec engine depends on coordination seams being stable
 - spec coverage depends on both SpecQueryEngine and CoordinationQueryEngine
 - spec sync depends on mutation, query, and provenance seams being stable
-- service-backed runtime participation depends on service-owned coordination materialization
+- service-backed runtime participation depends on the service-backed authority and read-broker path,
+  with optional materialization only when enabled
 - release-oriented deployment depends on the DB-backed authority family landing on the settled
   coordination seams
 - remaining richer service roles depend on all of the above being stable enough not to absorb

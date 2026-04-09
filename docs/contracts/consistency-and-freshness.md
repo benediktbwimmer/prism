@@ -15,6 +15,7 @@ This contract exists so that:
 - strong and eventual reads mean the same thing everywhere
 - callers can tell whether an answer is current, stale, or unavailable
 - backends and materializers can vary without changing the meaning of result metadata
+- product surfaces can report freshness honestly without forcing users to think in storage jargon
 
 This contract relies on:
 
@@ -23,14 +24,16 @@ This contract relies on:
 
 ## 2. Required read modes
 
-PRISM coordination reads must support these modes:
+PRISM coordination reads must support these modes semantically:
 
 - `eventual`
-  - answer from previously materialized local state
+  - answer from an allowed lagging derived view when one exists
 - `strong`
   - refresh against the active authority backend before answering
 
-These are caller-facing semantics, not backend implementation details.
+These are semantic contracts, not storage-shape requirements.
+Product surfaces may expose freshness and source metadata instead of making users choose between
+these modes directly in ordinary flows.
 
 ## 3. Required freshness states
 
@@ -82,7 +85,7 @@ The envelope may also include:
 
 `eventual` means:
 
-- serve from previously materialized local state
+- serve from an allowed lagging derived view when one exists
 - do not require a fresh authority refresh before answering
 - surface the authority stamp or materialization basis when known
 
@@ -97,6 +100,10 @@ It does not mean:
 
 - every downstream projection or cache is already rewritten
 - every local runtime has already observed the result
+
+When the active backend is DB-backed and no lagging projection is configured:
+
+- `eventual` may be satisfied by the same current-authority path as `strong`
 
 ## 6. Unavailable behavior
 
@@ -133,6 +140,14 @@ That includes:
 - future PRISM Service read broker
 
 Surface-specific wording may vary, but the underlying state mapping must come from this contract.
+
+User-facing product surfaces should usually expose:
+
+- freshness
+- source class
+- degraded or unavailable posture
+
+rather than forcing explicit strong-versus-eventual mode selection in routine flows.
 
 ## 9. Minimum implementation bar
 

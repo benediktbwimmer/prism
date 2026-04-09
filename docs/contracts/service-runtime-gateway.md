@@ -16,13 +16,15 @@ This role exists so that:
 - runtime-local information does not leak into the authority path accidentally
 - local and hosted runtime modeling use one gateway boundary
 - runtimes participate in coordination as service clients rather than as mini coordination stores
+- runtime registration and delegated runtime session handling have one owner inside the service
 
 ## 2. Responsibilities
 
 The runtime gateway owns:
 
 - local runtime connections
-- hosted runtime registration through descriptors and local connection state
+- hosted or local runtime registration through descriptors and local connection state
+- delegated runtime-session issuance, renewal, or handoff to the narrower auth/session seam
 - local fanout notifications to connected runtimes
 - runtime-targeted read serving when allowed
 - runtime-local diagnostics and packet access when allowed
@@ -56,6 +58,7 @@ It must also preserve the rule that:
 - interactive coordination participation requires a reachable PRISM Service
 - runtimes do not fall back to runtime-owned coordination materialization when the service is
   unavailable
+- runtime registration may propose repo presence, but repo enrollment is still capability-gated
 
 ## 6. Minimum implementation bar
 

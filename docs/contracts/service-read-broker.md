@@ -15,8 +15,8 @@ This role exists so that:
 - service-side reads have one owner for strong versus eventual routing
 - strong-read coalescing is explicit
 - freshness and verification metadata are attached consistently
-- eventual coordination reads are served from service-owned materialization rather than
-  runtime-owned SQLite state
+- eventual coordination reads are served from an explicit service-owned projection when enabled,
+  rather than from runtime-owned SQLite state
 
 ## 2. Responsibilities
 
@@ -48,7 +48,7 @@ This role is a client of:
 - [consistency-and-freshness.md](./consistency-and-freshness.md)
 - [service-authority-sync-role.md](./service-authority-sync-role.md)
 
-The materialized input here is service-owned coordination materialization, not per-runtime
+Any materialized input here is service-owned coordination materialization, not per-runtime
 coordination storage.
 
 ## 5. Strong-read coalescing

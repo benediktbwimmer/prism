@@ -24,6 +24,7 @@ It also relies on:
 
 - [identity-model.md](./identity-model.md)
 - [provenance.md](./provenance.md)
+- [service-auth-and-session-model.md](./service-auth-and-session-model.md)
 
 Canonical ownership:
 
@@ -40,6 +41,8 @@ The capability and authorization layer must preserve these rules:
    distinct capability categories.
 3. The service may broker operations; it must not silently widen the caller's authority.
 4. Capability checks must occur before authoritative state changes are committed.
+5. Required human or service authority must be expressed through attestation class, not reusable
+   bearer elevation.
 
 ## 3. Minimum capability families
 
@@ -56,12 +59,19 @@ The contract must distinguish at least:
 - browser-session operator access
 - principal and repo access administration
 
+The contract must also distinguish authority classes for actions:
+
+- `delegated_machine`
+- `human_attested`
+- `service_attested`
+
 ## 4. Caller context
 
 Every service-level operation must be evaluated with an authorization context that includes, when
 relevant:
 
 - principal identity
+- service session identity when relevant
 - runtime identity
 - coordination root identity
 - target repo or project scope
@@ -108,6 +118,12 @@ The service must not infer mutation authority merely because:
 - the caller may perform eventual reads
 - the caller is local to the machine
 
+When policy requires stronger authority than delegated machine execution, the mutation must also
+require the appropriate attestation class:
+
+- `human_attested`
+- `service_attested`
+
 ## 7. Runtime-local inspection rules
 
 Runtime-local diagnostics, observability packets, and hot local detail are not the same as
@@ -141,10 +157,20 @@ They should support, at minimum:
 Those operations remain capability-gated administrative actions rather than ad hoc UI-only
 behavior.
 
-## 9. Minimum implementation bar
+## 9. Repo enrollment rule
+
+Runtime connection may propose repo registration automatically.
+
+The service may only accept repo enrollment when the authenticated principal or session has the
+required registration capability.
+
+Discovery does not imply authorization.
+
+## 10. Minimum implementation bar
 
 This contract is considered implemented only when:
 
 - strong reads and mutations are authorized distinctly
 - runtime-local inspection is authorized distinctly
+- human-attested and service-attested requirements are modeled explicitly when policy demands them
 - service handlers no longer invent one-off policy checks for core coordination operations

@@ -24,8 +24,8 @@ The abstraction is intentionally **high-level**. It does not try to unify Git re
 an implementation level. It defines the coordination semantics that PRISM needs:
 
 - current authoritative state
-- coordination-facing read access semantics, while concrete local eventual materialization lives
-  behind a separate materialized-store seam
+- coordination-facing read access semantics, while concrete lagging projections or materialization
+  remain behind a separate seam when they exist
 - transactional mutation
 - runtime descriptor publication and discovery
 - authoritative event-execution record storage and reads
@@ -118,7 +118,7 @@ The target layering should be:
 
 2. **Coordination Authority Store**
    - current authoritative reads
-   - eventual materialized reads
+   - semantic strong and eventual reads
    - transactional mutation commit/reject
    - retained authoritative history
    - runtime descriptor publication/discovery
@@ -132,10 +132,10 @@ The target layering should be:
    - `GitCoordinationAuthorityStore`
 
 4. **Service-owned coordination materialization / runtime services**
-- service-owned coordination read models
-- service-owned coordination checkpoints
-- UI and query acceleration
-- runtime-local activity telemetry
+   - optional service-owned coordination read models or projections
+   - optional service-owned coordination checkpoints
+   - UI and query acceleration
+   - runtime-local activity telemetry
 
 The key rule is:
 
@@ -162,14 +162,15 @@ Both are part of the authority plane and should live behind the same abstraction
 
 The abstraction must preserve the distinction already present in the coordination-only runtime:
 
-- **Eventual** means read from a previously materialized local view of authoritative state
+- **Eventual** means read from a lagging but allowed derived view of authoritative state when such a
+  view exists
 - **Strong** means refresh against the authority substrate before answering
 
 These are coordination semantics, not Git-specific implementation details.
 
 The interface owns the semantics of strong versus eventual reads.
-It does not require the authority backend itself to own SQLite storage or checkpoint persistence.
-Those belong to the materialized-store and local-materialization seams.
+For DB-backed authority, both semantics may map to the same current-authority path until a real
+lagging projection exists.
 
 ### 5.3 Transactionality is a semantic contract, not a storage accident
 
@@ -210,6 +211,14 @@ summary state.
 
 The abstraction must therefore support storing and reading them explicitly while keeping them in a
 dedicated authority namespace rather than embedding them into the plan/task summary snapshot.
+
+### 5.7 DB-backed authority is authority-first by default
+
+For DB-backed authority:
+
+- the default coordination read path is the authority backend itself
+- a separate coordination materialized store is not required by default
+- optional extra materialization is a follow-on optimization, primarily for Postgres when justified
 
 ---
 
@@ -421,7 +430,8 @@ One rule is important for the public type family:
 
 Eventual reads must:
 
-- return only a previously materialized local view produced from authoritative state
+- return only an allowed lagging or derived view produced from authoritative state when such a view
+  exists
 - never include speculative local mutation state
 - carry a freshness classification and authority stamp when available
 
@@ -527,10 +537,10 @@ variants, rather than making product code care about two different SQL backends.
 
 ### 10.2 Current state
 
-- eventual: read from previously verified service-owned coordination materialization when that
-  layer is enabled
-- strong: read directly from the active DB-backed authority implementation inside a transaction or
-  from a committed snapshot view
+- eventual: read from the same current-authority path as strong by default
+- strong: read directly from the active DB-backed authority implementation inside the required
+  authority semantics
+- optional later: eventual may use an explicitly configured lagging projection or materialized view
 
 ### 10.3 Transactions
 
@@ -554,9 +564,13 @@ variants, rather than making product code care about two different SQL backends.
 - Postgres is the multi-instance or hosted production DB-backed authority option
 - once the DB-backed authority family is functioning, SQLite is the default local
   `CoordinationAuthorityStore` backend selection
+- extra coordination materialization is disabled by default for the DB-backed path
+- optional separate coordination materialization remains a Postgres-oriented optimization, not the
+  baseline path
 
 The point is not to force DB-backed authority to imitate Git. The point is to let both backend
-families satisfy the same coordination semantics.
+families satisfy the same coordination semantics while allowing DB-backed authority to skip
+redundant coordination materialization by default.
 
 ---
 

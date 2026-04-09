@@ -41,6 +41,8 @@ The minimum identity model must include:
   - stable identity for one running runtime instance
 - `principal_id`
   - authenticated principal acting through that runtime
+- `runtime_session_id`
+  - delegated session under which the runtime is acting
 - `repo_id`
   - logical repository identity
 - `project_id`
@@ -127,6 +129,9 @@ Interactive coordination participation still requires a reachable PRISM Service,
 descriptor publication, discovery, coordination reads, and coordination mutations on behalf of the
 runtime.
 
+Runtime publication and participation occur under a delegated runtime session, not as an
+independent runtime trust root.
+
 ## 7. Discovery rules
 
 Discovery surfaces must be able to answer:
@@ -158,6 +163,9 @@ refs or a DB-backed backend.
 
 The backend may store descriptors differently.
 The meaning of publication, clearing, discovery, and freshness must remain the same.
+
+Repo registration may be proposed automatically by runtime connection, but enrollment remains
+capability-gated by the service auth model.
 
 ## 10. Minimum implementation bar
 
