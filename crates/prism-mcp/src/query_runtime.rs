@@ -36,7 +36,7 @@ use crate::{
     combined_parse_typescript_error, concept_decode_lens_view, concept_packet_view,
     concept_relation_view, concept_resolution_is_ambiguous, conflict_view, contract_packet_view,
     convert_anchors, convert_capability, convert_claim_mode, convert_node_id,
-    coordination_plan_v2_view, coordination_task_v2_view, coordination_task_view,
+    coordination_plan_v2_view, coordination_task_v2_view,
     current_timestamp, diff_for, diff_for_from_events, drift_candidate_view, edge_kind_label,
     edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol,
     invalid_query_argument_error, is_query_parse_error, js_runtime, lineage_view,
@@ -1112,14 +1112,6 @@ impl QueryExecution {
                     let plan = crate::spec_surface::linked_plan_view(&self.host, &plan_id)?;
                     Ok(serde_json::to_value(plan)?)
                 }
-                "planV2" => {
-                    let args: PlanTargetArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .coordination_plan_v2(&PlanId::new(args.plan_id))
-                            .map(coordination_plan_v2_view),
-                    )?)
-                }
                 "planSummary" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(
@@ -1169,21 +1161,13 @@ impl QueryExecution {
                         .map(coordination_plan_v2_view)
                         .collect::<Vec<_>>(),
                 )?),
-                "coordinationTask" => {
+                "task" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
                     let task = crate::spec_surface::linked_coordination_task_view(
                         &self.host,
                         &CoordinationTaskId::new(args.task_id),
                     )?;
                     Ok(serde_json::to_value(task)?)
-                }
-                "taskV2" => {
-                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .coordination_task_v2(&TaskId::new(args.task_id))
-                            .map(coordination_task_v2_view),
-                    )?)
                 }
                 "graphActionableTasks" => Ok(serde_json::to_value(
                     self.prism
@@ -1218,7 +1202,7 @@ impl QueryExecution {
                 "readyTasks" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     let plan_id = PlanId::new(args.plan_id);
-                    let tasks = if let Some(caller) =
+                    let ready_task_ids = if let Some(caller) =
                         current_executor_caller(self.workspace_root(), Some(self.session()))
                     {
                         self.prism
@@ -1227,9 +1211,13 @@ impl QueryExecution {
                         self.prism.ready_tasks(&plan_id, current_timestamp())
                     };
                     Ok(serde_json::to_value(
-                        tasks
+                        ready_task_ids
                             .into_iter()
-                            .map(coordination_task_view)
+                            .filter_map(|task| {
+                                self.prism
+                                    .coordination_task_v2(&TaskId::new(task.id.0.to_string()))
+                                    .map(coordination_task_v2_view)
+                            })
                             .collect::<Vec<_>>(),
                     )?)
                 }

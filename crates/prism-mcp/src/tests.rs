@@ -20855,7 +20855,7 @@ fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
 }
 
 #[test]
-fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() {
+fn runtime_status_omits_git_coordination_authority_diagnostics_on_sqlite_default() {
     let root = init_git_workspace("task/shared-coordination-runtime-status");
     enable_coordination_authority_publication(&root);
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
@@ -20881,7 +20881,7 @@ fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() 
                 kind: CoordinationMutationKindInput::PlanCreate,
                 payload: json!({
                     "title": "Shared coordination runtime status",
-                    "goal": "Publish shared coordination diagnostics"
+                    "goal": "Publish coordination authority diagnostics"
                 }),
                 task_id: None,
             },
@@ -20893,7 +20893,7 @@ fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() 
             kind: CoordinationMutationKindInput::TaskCreate,
             payload: json!({
                 "planId": plan.state["id"].as_str().unwrap(),
-                "title": "Exercise shared coordination ref"
+                "title": "Exercise git coordination authority diagnostics"
             }),
             task_id: None,
         },
@@ -20908,8 +20908,8 @@ fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() 
     let status = crate::runtime_views::refresh_cached_runtime_status(&host)
         .expect("runtime status should succeed");
     assert!(
-        status.shared_coordination_ref.is_none(),
-        "sqlite-default authority should not surface git shared-coordination diagnostics"
+        status.coordination_authority.is_none(),
+        "sqlite-default authority should not surface git coordination-authority diagnostics"
     );
     assert!(!status.assisted_lease_renewal.enabled);
     assert_eq!(

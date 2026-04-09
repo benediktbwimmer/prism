@@ -1,6 +1,6 @@
 use anyhow::Result;
 use prism_ir::PlanId;
-use prism_js::{PlanListEntryView, PlanSummaryView, PlanView};
+use prism_js::{CoordinationPlanV2View, PlanListEntryView, PlanSummaryView};
 
 use crate::spec_surface::linked_plan_view;
 use crate::ui_read_models::{
@@ -27,7 +27,7 @@ pub(crate) fn filtered_plan_resource_entries(
 }
 
 pub(crate) struct PlanResourceSurface {
-    pub(crate) plan: PlanView,
+    pub(crate) plan: CoordinationPlanV2View,
     pub(crate) summary: Option<PlanSummaryView>,
 }
 

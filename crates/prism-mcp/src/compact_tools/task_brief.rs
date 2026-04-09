@@ -22,8 +22,8 @@ use serde_json::json;
 use super::suggested_actions::{dedupe_suggested_actions, suggested_open_action};
 use super::*;
 use crate::{
-    coordination_task_view_from_v2, symbol_view_without_excerpt, task_heartbeat_advice,
-    task_heartbeat_next_action, PrismTaskBriefArgs, TaskHeartbeatAdvice,
+    symbol_view_without_excerpt, task_heartbeat_advice, task_heartbeat_next_action,
+    PrismTaskBriefArgs, TaskHeartbeatAdvice,
 };
 
 impl QueryHost {
@@ -203,7 +203,6 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
     if let Some(task_v2) = prism.coordination_task_v2(&canonical_task_id) {
         debug_assert!(evidence_status.is_some());
         let legacy_task = prism.coordination_task(&coordination_task_id);
-        let task_view = coordination_task_view_from_v2(task_v2.clone(), legacy_task.clone());
         let raw_blockers = evidence_status
             .as_ref()
             .map(|status| status.blockers.clone())
@@ -220,7 +219,8 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
         let risk_hint = legacy_task.as_ref().and_then(|task| {
             compact_coordination_task_risk_hint(task, &raw_blockers, &prism.workspace_revision())
         });
-        let fallback_validation_refs = task_view
+        let fallback_validation_refs = task_v2
+            .task
             .validation_refs
             .iter()
             .map(|validation| validation.id.clone())
@@ -232,16 +232,20 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
             legacy_task.as_ref(),
         );
         return Ok(TaskBriefSubject {
-            task_id: task_view.id.clone(),
+            task_id: task_v2.task.id.0.to_string(),
             coordination_task_id: Some(coordination_task_id),
-            title: task_view.title,
-            status: task_view.status,
-            assignee: task_view.assignee,
-            pending_handoff_to: task_view.pending_handoff_to,
+            title: task_v2.task.title,
+            status: task_brief_status_from_canonical(task_v2.status, legacy_task.as_ref()),
+            assignee: task_v2.task.assignee.map(|agent| agent.0.to_string()),
+            pending_handoff_to: legacy_task.and_then(|task| {
+                task.pending_handoff_to
+                    .as_ref()
+                    .map(|agent| agent.0.to_string())
+            }),
             git_execution: task_v2.task.git_execution.clone(),
             lease_state,
             lease_holder,
-            anchors: task_view.anchors,
+            anchors: task_v2.task.anchors,
             blockers,
             dependencies: task_v2.dependencies,
             dependents: task_v2.dependents,
@@ -292,6 +296,24 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
     }
 
     Err(anyhow!("unknown coordination task `{task_id}`"))
+}
+
+fn task_brief_status_from_canonical(
+    status: prism_ir::EffectiveTaskStatus,
+    legacy_task: Option<&CoordinationTask>,
+) -> prism_ir::CoordinationTaskStatus {
+    if legacy_task.is_some_and(|task| task.pending_handoff_to.is_some()) {
+        return prism_ir::CoordinationTaskStatus::Blocked;
+    }
+    match status {
+        prism_ir::EffectiveTaskStatus::Pending => prism_ir::CoordinationTaskStatus::Ready,
+        prism_ir::EffectiveTaskStatus::Active => prism_ir::CoordinationTaskStatus::InProgress,
+        prism_ir::EffectiveTaskStatus::Blocked
+        | prism_ir::EffectiveTaskStatus::BrokenDependency
+        | prism_ir::EffectiveTaskStatus::Failed => prism_ir::CoordinationTaskStatus::Blocked,
+        prism_ir::EffectiveTaskStatus::Completed => prism_ir::CoordinationTaskStatus::Completed,
+        prism_ir::EffectiveTaskStatus::Abandoned => prism_ir::CoordinationTaskStatus::Abandoned,
+    }
 }
 
 fn task_brief_lease_state(task: &CoordinationTask, now: u64) -> Option<String> {

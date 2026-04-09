@@ -4,8 +4,7 @@ use prism_ir::{
     ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, DerivedPlanStatus, EdgeKind,
     EdgeOrigin, EffectiveTaskStatus, ExecutorClass, GitExecutionStatus, GitIntegrationEvidence,
     GitIntegrationMode, GitIntegrationStatus, Language, NodeKind, NodeRefKind, PlanKind,
-    PlanNodeKind, PlanOperatorState, PlanScope, PlanStatus, ReviewVerdict, Span,
-    TaskLifecycleStatus,
+    PlanOperatorState, PlanScope, PlanStatus, ReviewVerdict, Span, TaskLifecycleStatus,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;
@@ -760,7 +759,7 @@ pub struct RuntimeFreshnessView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeSharedCoordinationRefView {
+pub struct RuntimeCoordinationAuthorityView {
     pub ref_name: String,
     pub head_commit: Option<String>,
     pub history_depth: u64,
@@ -888,7 +887,7 @@ pub struct RuntimeStatusView {
     pub processes: Vec<RuntimeProcessView>,
     pub process_error: Option<String>,
     pub assisted_lease_renewal: RuntimeAssistedLeaseRenewalView,
-    pub shared_coordination_ref: Option<RuntimeSharedCoordinationRefView>,
+    pub coordination_authority: Option<RuntimeCoordinationAuthorityView>,
     pub scopes: RuntimeScopesView,
     pub freshness: RuntimeFreshnessView,
 }
@@ -1683,24 +1682,6 @@ pub struct LinkedSpecSummaryView {
     pub covered_checklist_items: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanView {
-    pub id: String,
-    pub title: String,
-    pub goal: String,
-    pub status: PlanStatus,
-    pub scope: PlanScope,
-    pub kind: PlanKind,
-    pub revision: u64,
-    pub scheduling: PlanSchedulingView,
-    pub git_execution_policy: GitExecutionPolicyView,
-    pub tags: Vec<String>,
-    pub created_from: Option<String>,
-    pub activity: Option<PlanActivityView>,
-    pub linked_specs: Vec<LinkedSpecSummaryView>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeRefView {
@@ -1720,6 +1701,7 @@ pub struct CoordinationPlanV2View {
     pub operator_state: PlanOperatorState,
     pub status: DerivedPlanStatus,
     pub scheduling: PlanSchedulingView,
+    pub git_execution_policy: GitExecutionPolicyView,
     pub tags: Vec<String>,
     pub created_from: Option<String>,
     pub metadata: Value,
@@ -1942,33 +1924,6 @@ pub struct PlanSummaryView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct CoordinationTaskView {
-    pub id: String,
-    pub plan_id: String,
-    pub kind: PlanNodeKind,
-    pub title: String,
-    pub summary: Option<String>,
-    pub status: CoordinationTaskStatus,
-    pub published_task_status: Option<CoordinationTaskStatus>,
-    pub assignee: Option<String>,
-    pub pending_handoff_to: Option<String>,
-    pub anchors: Vec<AnchorRef>,
-    pub bindings: PlanBindingView,
-    pub depends_on: Vec<String>,
-    pub coordination_depends_on: Vec<String>,
-    pub integrated_depends_on: Vec<String>,
-    pub lifecycle: CoordinationTaskLifecycleView,
-    pub validation_refs: Vec<ValidationRefView>,
-    pub is_abstract: bool,
-    pub base_revision: WorkspaceRevisionView,
-    pub priority: Option<u8>,
-    pub tags: Vec<String>,
-    pub git_execution: TaskGitExecutionView,
-    pub linked_specs: Vec<LinkedSpecSummaryView>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct ClaimView {
     pub id: String,
     pub holder: String,
@@ -1996,20 +1951,18 @@ pub struct ConflictView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CoordinationInboxView {
-    pub plan: Option<PlanView>,
-    pub plan_v2: Option<CoordinationPlanV2View>,
+    pub plan: Option<CoordinationPlanV2View>,
     pub children: Option<PlanChildrenV2View>,
     pub graph_actionable_tasks: Vec<CoordinationTaskV2View>,
     pub actionable_tasks: Vec<CoordinationTaskV2View>,
-    pub ready_tasks: Vec<CoordinationTaskView>,
+    pub ready_tasks: Vec<CoordinationTaskV2View>,
     pub pending_reviews: Vec<ArtifactView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskContextView {
-    pub task: Option<CoordinationTaskView>,
-    pub task_v2: Option<CoordinationTaskV2View>,
+    pub task: Option<CoordinationTaskV2View>,
     pub dependencies: Vec<NodeRefView>,
     pub dependents: Vec<NodeRefView>,
     pub blockers: Vec<BlockerView>,

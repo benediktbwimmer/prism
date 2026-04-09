@@ -1119,9 +1119,6 @@ const __prismBase = Object.freeze({
   plan(planId) {
     return __prismHost("plan", { planId });
   },
-  planV2(planId) {
-    return __prismHost("planV2", { planId });
-  },
   planSummary(planId) {
     return __prismHost("planSummary", { planId });
   },
@@ -1156,10 +1153,7 @@ const __prismBase = Object.freeze({
     return __prismHost("portfolio", {});
   },
   task(taskId) {
-    return __prismHost("coordinationTask", { taskId });
-  },
-  taskV2(taskId) {
-    return __prismHost("taskV2", { taskId });
+    return __prismHost("task", { taskId });
   },
   graphActionableTasks() {
     return __prismHost("graphActionableTasks", {});
@@ -1235,10 +1229,8 @@ const __prismBase = Object.freeze({
   },
   coordinationInbox(planId) {
     const plan = prism.plan(planId);
-    const planV2 = prism.planV2(planId);
     return {
       plan,
-      planV2,
       children: prism.children(planId),
       graphActionableTasks: prism.graphActionableTasks(),
       actionableTasks: prism.actionableTasks(),
@@ -1248,13 +1240,11 @@ const __prismBase = Object.freeze({
   },
   taskContext(taskId) {
     const task = prism.task(taskId);
-    const taskV2 = prism.taskV2(taskId);
-    const target = task?.anchors ?? taskV2?.anchors ?? [];
-    const dependencies = Array.isArray(taskV2?.dependencies) ? taskV2.dependencies : [];
-    const dependents = Array.isArray(taskV2?.dependents) ? taskV2.dependents : [];
+    const target = task?.anchors ?? [];
+    const dependencies = Array.isArray(task?.dependencies) ? task.dependencies : [];
+    const dependents = Array.isArray(task?.dependents) ? task.dependents : [];
     return {
       task,
-      taskV2,
       dependencies,
       dependents,
       blockers: prism.blockers(taskId),

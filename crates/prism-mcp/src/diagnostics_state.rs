@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::sync::Mutex;
 
 use prism_js::{
-    QueryLogEntryView, RuntimeLogEventView, RuntimeSharedCoordinationRefView, RuntimeStatusView,
+    QueryLogEntryView, RuntimeCoordinationAuthorityView, RuntimeLogEventView, RuntimeStatusView,
 };
 
 use crate::trust_surface::runtime_status_coordination_authority_view;
@@ -34,7 +34,7 @@ struct CachedRuntimeStatus {
 #[derive(Debug, Clone)]
 struct CachedCoordinationAuthorityView {
     coordination_revision: u64,
-    value: Option<RuntimeSharedCoordinationRefView>,
+    value: Option<RuntimeCoordinationAuthorityView>,
 }
 
 impl DiagnosticsState {
@@ -101,7 +101,7 @@ impl DiagnosticsState {
     pub(crate) fn coordination_authority_view_for_revision(
         &self,
         coordination_revision: u64,
-    ) -> Option<Option<RuntimeSharedCoordinationRefView>> {
+    ) -> Option<Option<RuntimeCoordinationAuthorityView>> {
         self.coordination_authority_view
             .lock()
             .expect("diagnostics coordination authority view lock poisoned")

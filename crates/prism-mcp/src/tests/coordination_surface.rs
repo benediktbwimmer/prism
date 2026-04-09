@@ -378,7 +378,6 @@ return {{
         assert_eq!(task["id"], Value::String(task_id.clone()));
     }
     assert_eq!(result.result["inbox"]["plan"]["id"], plan_id);
-    assert_eq!(result.result["inbox"]["planV2"]["id"], plan_id);
     assert_eq!(result.result["inbox"]["children"]["planId"], plan_id);
     assert_eq!(
         result.result["inbox"]["pendingReviews"]
@@ -388,7 +387,6 @@ return {{
         1
     );
     assert_eq!(result.result["context"]["task"]["id"], task_id);
-    assert_eq!(result.result["context"]["taskV2"]["id"], task_id);
     assert!(result.result["context"]["dependencies"]
         .as_array()
         .is_some_and(|dependencies| dependencies.is_empty()));

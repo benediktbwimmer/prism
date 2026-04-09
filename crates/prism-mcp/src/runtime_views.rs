@@ -23,7 +23,7 @@ use prism_js::{
     RuntimeHealthView, RuntimeLogEventView, RuntimeMaterializationCoverageView,
     RuntimeMaterializationItemView, RuntimeMaterializationView, RuntimeOverlayScopeView,
     RuntimeProcessView, RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView,
-    RuntimeSharedCoordinationRefView, RuntimeStatusView,
+    RuntimeCoordinationAuthorityView, RuntimeStatusView,
 };
 use prism_projections::{
     ProjectionAuthorityPlane, ProjectionClass, ProjectionFreshnessState,
@@ -377,7 +377,7 @@ fn workspace_root(host: &QueryHost) -> Result<&Path> {
 fn runtime_status_from_inputs(
     inputs: &RuntimeStatusInputs<'_>,
     runtime_state: Option<&RuntimeState>,
-    cached_coordination_authority_view: Option<Option<RuntimeSharedCoordinationRefView>>,
+    cached_coordination_authority_view: Option<Option<RuntimeCoordinationAuthorityView>>,
 ) -> Result<RuntimeStatusView> {
     let paths = RuntimePaths::for_root(inputs.root)?;
     let state_processes = runtime_state
@@ -440,7 +440,7 @@ fn runtime_status_from_inputs(
             .collect(),
         process_error,
         assisted_lease_renewal: runtime_assisted_lease_renewal_view(),
-        shared_coordination_ref: coordination_authority_view,
+        coordination_authority: coordination_authority_view,
         scopes,
         freshness,
     })
@@ -449,10 +449,10 @@ fn runtime_status_from_inputs(
 fn runtime_status_details_from_inputs(
     inputs: &RuntimeStatusInputs<'_>,
     runtime_state: Option<&RuntimeState>,
-    cached_coordination_authority_view: Option<Option<RuntimeSharedCoordinationRefView>>,
+    cached_coordination_authority_view: Option<Option<RuntimeCoordinationAuthorityView>>,
 ) -> Result<(
     RuntimeFreshnessView,
-    Option<RuntimeSharedCoordinationRefView>,
+    Option<RuntimeCoordinationAuthorityView>,
     RuntimeScopesView,
 )> {
     let freshness = runtime_freshness_from_inputs(inputs, runtime_state)?;

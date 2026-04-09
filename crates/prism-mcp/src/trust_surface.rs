@@ -10,8 +10,8 @@ use prism_core::{
 };
 use prism_ir::EventId;
 use prism_js::{
-    RuntimeDescriptorCapabilityView, RuntimeDiscoveryModeView, RuntimeSharedCoordinationRefView,
-    RuntimeSharedCoordinationRuntimeDescriptorView, RuntimeStatusView,
+    RuntimeCoordinationAuthorityView, RuntimeDescriptorCapabilityView,
+    RuntimeDiscoveryModeView, RuntimeSharedCoordinationRuntimeDescriptorView, RuntimeStatusView,
 };
 use prism_query::{
     CoordinationTransactionError, CoordinationTransactionProtocolIndeterminate,
@@ -255,8 +255,8 @@ pub(crate) fn protected_state_stream_view(
 
 pub(crate) fn runtime_coordination_authority_view(
     value: SharedCoordinationRefDiagnostics,
-) -> RuntimeSharedCoordinationRefView {
-    RuntimeSharedCoordinationRefView {
+) -> RuntimeCoordinationAuthorityView {
+    RuntimeCoordinationAuthorityView {
         ref_name: value.ref_name,
         head_commit: value.head_commit,
         history_depth: value.history_depth,
@@ -300,15 +300,8 @@ pub(crate) fn runtime_coordination_authority_view(
 
 pub(crate) fn runtime_status_coordination_authority_view(
     runtime_status: &RuntimeStatusView,
-) -> Option<RuntimeSharedCoordinationRefView> {
-    runtime_status.shared_coordination_ref.clone()
-}
-
-#[allow(dead_code)]
-pub(crate) fn runtime_shared_coordination_ref_view(
-    value: SharedCoordinationRefDiagnostics,
-) -> RuntimeSharedCoordinationRefView {
-    runtime_coordination_authority_view(value)
+) -> Option<RuntimeCoordinationAuthorityView> {
+    runtime_status.coordination_authority.clone()
 }
 
 pub(crate) fn coordination_authority_protocol_state(

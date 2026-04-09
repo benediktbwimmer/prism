@@ -442,9 +442,9 @@ CLI diagnostics and public URL update flows should call:
 
 No CLI command should need to know that the current backend is Git shared refs.
 
-Where Git-specific compatibility helpers remain for public API stability, the preferred exported
-surface should still use explicit Git naming and legacy shared-ref helper names should remain only
-as deprecated compatibility aliases.
+Git-specific exported helpers should use explicit Git naming.
+Legacy shared-ref helper aliases should not remain on the public surface once the breaking
+compatibility-removal phase lands.
 
 ### N. `crates/prism-mcp/src/runtime_views.rs`
 
@@ -467,9 +467,9 @@ Two sub-rules:
   fields
 - non-Git default backends must not surface the shared-ref diagnostic object as if it were a
   backend-neutral authority status view
-- where the external response schema still retains the legacy `shared_coordination_ref` field,
-  internal caches, UI read models, and operator-facing repair guidance must treat it as a
-  compatibility edge rather than the primary authority concept
+- runtime status and adjacent UI/read-model payloads should use the backend-neutral
+  `coordinationAuthority` field directly rather than retaining a shared-ref-shaped compatibility
+  edge
 
 `runtime_freshness_from_inputs(...)` may continue to compare local materialization lag, but its
 **authoritative** side must come from the authority store’s current authority metadata rather than

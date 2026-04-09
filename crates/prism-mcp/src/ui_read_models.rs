@@ -33,7 +33,7 @@ use crate::views::{
     plan_list_entry_view, plan_node_status_counts_view, plan_scheduling_view, plan_summary_view,
     policy_violation_record_view, ConceptVerbosity,
 };
-use crate::{claim_view, coordination_task_view, current_timestamp, QueryHost, SessionState};
+use crate::{claim_view, current_timestamp, QueryHost, SessionState};
 use crate::{host_resources::session_task_view, runtime_views::runtime_status};
 
 const OVERVIEW_PLAN_LIMIT: usize = 3;
@@ -550,7 +550,11 @@ impl QueryHostUiReadModelsExt for QueryHost {
         let now = crate::current_timestamp();
         let task_id = prism_ir::CoordinationTaskId::new(task_id.to_string());
         let evidence_status = prism.task_evidence_status(&task_id, now);
-        let (task_view, blockers) = if let Some(task) = prism.coordination_task(&task_id) {
+        let (task_view, blockers) =
+            if let Some(task_view) = prism
+                .coordination_task_v2(&TaskId::new(task_id.0.clone()))
+                .map(coordination_task_v2_view)
+            {
             debug_assert!(evidence_status.is_some());
             let blockers = evidence_status
                 .as_ref()
@@ -561,15 +565,15 @@ impl QueryHostUiReadModelsExt for QueryHost {
                     let related_task = blocker
                         .related_task_id
                         .as_ref()
-                        .and_then(|id| prism.coordination_task(id))
-                        .map(coordination_task_view);
+                        .and_then(|id| prism.coordination_task_v2(&TaskId::new(id.0.clone())))
+                        .map(coordination_task_v2_view);
                     PrismUiTaskBlockerEntryView {
                         blocker: blocker_view(blocker),
                         related_task,
                     }
                 })
                 .collect::<Vec<_>>();
-            (coordination_task_view(task.clone()), blockers)
+            (task_view, blockers)
         } else {
             return Ok(None);
         };
@@ -1820,8 +1824,9 @@ fn build_plan_detail_view(
         prism.ready_tasks(&plan_id, crate::current_timestamp())
     }
     .into_iter()
+    .filter_map(|task| prism.coordination_task_v2(&TaskId::new(task.id.0.to_string())))
     .take(PLAN_DETAIL_READY_LIMIT)
-    .map(crate::coordination_task_view)
+    .map(coordination_task_v2_view)
     .collect::<Vec<_>>();
     let pending_reviews = prism
         .pending_reviews(Some(&plan_id))
@@ -1833,7 +1838,7 @@ fn build_plan_detail_view(
         .ui_coordination_queues()?
         .pending_handoffs
         .into_iter()
-        .filter(|task| task.plan_id == plan.plan_id)
+        .filter(|task| task.parent_plan_id == plan.plan_id)
         .take(PLAN_DETAIL_HANDOFF_LIMIT)
         .collect::<Vec<_>>();
     let recent_violations = prism
@@ -1967,6 +1972,7 @@ fn ui_overview_coordination_queues(
         });
     }
 
+    let prism = host.current_prism();
     let queue_model = host.current_coordination_queue_read_model()?;
 
     Ok(PrismOverviewCoordinationQueuesView {
@@ -1975,8 +1981,8 @@ fn ui_overview_coordination_queues(
             .pending_handoff_tasks
             .iter()
             .take(OVERVIEW_COORDINATION_HANDOFF_LIMIT)
-            .cloned()
-            .map(coordination_task_view)
+            .filter_map(|task| prism.coordination_task_v2(&TaskId::new(task.id.0.clone())))
+            .map(coordination_task_v2_view)
             .collect(),
         active_claims: queue_model
             .active_claims
@@ -2064,8 +2070,8 @@ fn current_task_journal(
 
 fn plan_recent_outcomes(
     prism: &prism_query::Prism,
-    ready_tasks: &[prism_js::CoordinationTaskView],
-    pending_handoffs: &[prism_js::CoordinationTaskView],
+    ready_tasks: &[prism_js::CoordinationTaskV2View],
+    pending_handoffs: &[prism_js::CoordinationTaskV2View],
     pending_reviews: &[prism_js::ArtifactView],
 ) -> Vec<prism_js::AgentOutcomeSummaryView> {
     let task_ids = ready_tasks
@@ -2139,7 +2145,7 @@ fn task_claim_history_entry_view(claim: WorkClaim) -> PrismUiTaskClaimHistoryEnt
     }
 }
 
-fn task_recent_commits(task: &prism_js::CoordinationTaskView) -> Vec<PrismUiTaskCommitView> {
+fn task_recent_commits(task: &prism_js::CoordinationTaskV2View) -> Vec<PrismUiTaskCommitView> {
     let mut commits = Vec::new();
     push_task_commit(
         &mut commits,

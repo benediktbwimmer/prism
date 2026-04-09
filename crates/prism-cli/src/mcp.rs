@@ -359,35 +359,35 @@ fn status(root: &Path) -> Result<()> {
         );
     }
     let authority_diagnostics = coordination_authority_diagnostics(root)?;
-    if let CoordinationAuthorityBackendDetails::GitSharedRefs(shared_coordination_ref) =
+    if let CoordinationAuthorityBackendDetails::GitSharedRefs(coordination_authority) =
         authority_diagnostics.backend_details
     {
         println!(
-            "shared_coordination_ref: {}",
-            shared_coordination_ref.ref_name
+            "coordination_authority: {}",
+            coordination_authority.ref_name
         );
         println!(
-            "shared_coordination_head: {}",
-            shared_coordination_ref
+            "coordination_authority_head: {}",
+            coordination_authority
                 .head_commit
                 .as_deref()
                 .unwrap_or("<missing>")
         );
         println!(
-            "shared_coordination_history_depth: {}",
-            shared_coordination_ref.history_depth
+            "coordination_authority_history_depth: {}",
+            coordination_authority.history_depth
         );
         println!(
-            "shared_coordination_snapshot_file_count: {}",
-            shared_coordination_ref.snapshot_file_count
+            "coordination_authority_snapshot_file_count: {}",
+            coordination_authority.snapshot_file_count
         );
         println!(
-            "shared_coordination_compaction_status: {}",
-            shared_coordination_ref.compaction_status
+            "coordination_authority_compaction_status: {}",
+            coordination_authority.compaction_status
         );
         println!(
-            "shared_coordination_needs_compaction: {}",
-            shared_coordination_ref.needs_compaction
+            "coordination_authority_needs_compaction: {}",
+            coordination_authority.needs_compaction
         );
     }
     if daemons.len() > 1 {

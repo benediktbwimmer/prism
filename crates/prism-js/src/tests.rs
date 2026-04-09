@@ -218,7 +218,9 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("specCluster"));
     assert!(docs.contains("explainDrift"));
     assert!(docs.contains("type LinkedSpecSummaryView = {"));
-    assert!(docs.contains("linkedSpecs: LinkedSpecSummaryView[];"));
+    assert!(docs.contains("type CoordinationPlanV2View = {"));
+    assert!(docs.contains("type CoordinationTaskV2View = {"));
+    assert!(docs.contains("graphActionable: boolean;"));
     assert!(docs.contains("prism://tool-schemas"));
     assert!(docs.contains("prism://schema/tool/{toolName}"));
     assert!(docs.contains("prism://capabilities"));

@@ -437,12 +437,7 @@ pub(crate) fn query_method_specs() -> Vec<(
             Some("workflow"),
             "Summarize native plan progress, execution blockers, and completion gates.",
         ),
-        (
-            "coordinationTask",
-            "coordination",
-            Some("workflow"),
-            "Read one coordination task.",
-        ),
+        ("task", "coordination", Some("workflow"), "Read one coordination task."),
         (
             "readyTasks",
             "coordination",

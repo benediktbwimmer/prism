@@ -281,7 +281,7 @@ impl PrismMcpFeatures {
     fn coordination_only_query_method_enabled(&self, operation: &str) -> bool {
         match operation {
             "from" | "tools" | "tool" | "validateToolInput" | "diagnostics" => true,
-            "plans" | "plan" | "planSummary" | "coordinationTask" | "readyTasks" | "blockers"
+            "plans" | "plan" | "planSummary" | "task" | "readyTasks" | "blockers"
             | "policyViolations"
                 if self.coordination.workflow =>
             {
@@ -324,7 +324,7 @@ impl PrismMcpFeatures {
             "plans"
             | "plan"
             | "planSummary"
-            | "coordinationTask"
+            | "task"
             | "readyTasks"
             | "blockers"
             | "policyViolations"

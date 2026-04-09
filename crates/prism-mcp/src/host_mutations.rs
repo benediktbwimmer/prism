@@ -61,10 +61,11 @@ use crate::{
     convert_inferred_scope, convert_memory_kind, convert_memory_scope, convert_memory_source,
     convert_node_id, convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
     convert_plan_binding, convert_plan_scheduling, convert_plan_status, convert_policy,
-    convert_review_verdict, convert_validation_refs, coordination_task_view,
+    convert_review_verdict, convert_validation_refs, coordination_plan_v2_view,
+    coordination_task_v2_view,
     curator_disposition_label, curator_job_status_label, curator_memory_metadata, curator_proposal,
     curator_proposal_state, curator_trigger_label, current_timestamp,
-    ensure_repo_publication_metadata, manual_memory_metadata, parse_edge_kind, plan_view_from_v2,
+    ensure_repo_publication_metadata, manual_memory_metadata, parse_edge_kind,
     retire_repo_publication_metadata, task_journal_memory_metadata, ArtifactActionInput,
     ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
     ArtifactSupersedePayload, CheckpointMutationResult, ClaimAcquirePayload, ClaimActionInput,
@@ -1303,26 +1304,12 @@ fn coordination_transaction_state(
     let plans = result
         .touched_plan_ids
         .iter()
-        .map(|plan_id| {
-            let plan = prism
-                .coordination_plan_v2(plan_id)
-                .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-            Ok(serde_json::to_value(plan_view_from_v2(
-                plan,
-                prism.coordination_plan(plan_id),
-                prism.plan_activity(plan_id),
-            ))?)
-        })
+        .map(|plan_id| current_coordination_plan_state(prism, plan_id))
         .collect::<Result<Vec<_>>>()?;
     let tasks = result
         .touched_task_ids
         .iter()
-        .map(|task_id| {
-            let task = prism
-                .coordination_task(task_id)
-                .ok_or_else(|| anyhow!("unknown task `{}`", task_id.0))?;
-            Ok(serde_json::to_value(coordination_task_view(task))?)
-        })
+        .map(|task_id| current_coordination_task_state(prism, task_id))
         .collect::<Result<Vec<_>>>()?;
     let primary_plan_id = result
         .touched_plan_ids
@@ -1367,6 +1354,20 @@ fn coordination_transaction_state(
     object.insert("tasks".to_string(), Value::Array(tasks));
     attach_coordination_authority_stamp(&mut state, workspace_root, authority_store_provider);
     Ok(state)
+}
+
+fn current_coordination_plan_state(prism: &Prism, plan_id: &PlanId) -> Result<Value> {
+    let plan = prism
+        .coordination_plan_v2(plan_id)
+        .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
+    Ok(serde_json::to_value(coordination_plan_v2_view(plan))?)
+}
+
+fn current_coordination_task_state(prism: &Prism, task_id: &CoordinationTaskId) -> Result<Value> {
+    let task = prism
+        .coordination_task_v2(&TaskId::new(task_id.0.to_string()))
+        .ok_or_else(|| anyhow!("unknown task `{}`", task_id.0))?;
+    Ok(serde_json::to_value(coordination_task_v2_view(task))?)
 }
 
 fn attach_coordination_transaction_metadata(
@@ -4764,11 +4765,7 @@ impl QueryHost {
     }
 
     fn current_task_state_value(&self, task_id: &CoordinationTaskId) -> Result<Value> {
-        let prism = self.current_prism();
-        let task = prism
-            .coordination_task(task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
-        Ok(serde_json::to_value(coordination_task_view(task))?)
+        current_coordination_task_state(self.current_prism().as_ref(), task_id)
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
@@ -5209,19 +5206,13 @@ impl QueryHost {
                     },
                 )?;
                 let plan_id = bootstrap.plan_id.clone();
-                let plan = prism
-                    .coordination_plan_v2(&plan_id)
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
                 let tasks = bootstrap
                     .task_ids_by_client_id
                     .iter()
                     .map(|(client_id, task_id)| {
-                        let task = prism
-                            .coordination_task(task_id)
-                            .ok_or_else(|| anyhow!("unknown task `{}`", task_id.0))?;
                         Ok(state_with_client_id(
                             client_id,
-                            serde_json::to_value(coordination_task_view(task))?,
+                            current_coordination_task_state(prism, task_id)?,
                         ))
                     })
                     .collect::<Result<Vec<_>>>()?;
@@ -5231,11 +5222,7 @@ impl QueryHost {
                     json!({
                     "id": plan_id.0,
                     "planId": plan_id.0,
-                    "plan": plan_view_from_v2(
-                        plan,
-                        prism.coordination_plan(&plan_id),
-                        prism.plan_activity(&plan_id),
-                    ),
+                    "plan": current_coordination_plan_state(prism, &plan_id)?,
                     "taskIdsByClientId": bootstrap.task_ids_by_client_id,
                     "tasks": tasks,
                     }),
@@ -5253,17 +5240,10 @@ impl QueryHost {
                     convert_plan_scheduling(payload.scheduling),
                 )?;
                 let plan_id = result.plan_id.clone();
-                let plan = prism
-                    .coordination_plan_v2(&plan_id)
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
                 Ok(attach_coordination_transaction_metadata(
                     workspace_root,
                     self.workspace_authority_store_provider(),
-                    serde_json::to_value(plan_view_from_v2(
-                        plan,
-                        prism.coordination_plan(&plan_id),
-                        prism.plan_activity(&plan_id),
-                    ))?,
+                    current_coordination_plan_state(prism, &plan_id)?,
                     &result.transaction,
                 ))
             }
@@ -5279,17 +5259,10 @@ impl QueryHost {
                     convert_policy(payload.policy)?,
                     convert_plan_scheduling(payload.scheduling),
                 )?;
-                let plan = prism
-                    .coordination_plan_v2(&plan_id)
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
                 Ok(attach_coordination_transaction_metadata(
                     workspace_root,
                     self.workspace_authority_store_provider(),
-                    serde_json::to_value(plan_view_from_v2(
-                        plan,
-                        prism.coordination_plan(&plan_id),
-                        prism.plan_activity(&plan_id),
-                    ))?,
+                    current_coordination_plan_state(prism, &plan_id)?,
                     &result,
                 ))
             }
@@ -5297,17 +5270,10 @@ impl QueryHost {
                 let payload: PlanArchivePayload = serde_json::from_value(args.payload)?;
                 let plan_id = PlanId::new(payload.plan_id);
                 let result = prism.archive_native_plan_transaction(meta, &plan_id)?;
-                let plan = prism
-                    .coordination_plan_v2(&plan_id)
-                    .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
                 Ok(attach_coordination_transaction_metadata(
                     workspace_root,
                     self.workspace_authority_store_provider(),
-                    serde_json::to_value(plan_view_from_v2(
-                        plan,
-                        prism.coordination_plan(&plan_id),
-                        prism.plan_activity(&plan_id),
-                    ))?,
+                    current_coordination_plan_state(prism, &plan_id)?,
                     &result,
                 ))
             }
@@ -5352,13 +5318,10 @@ impl QueryHost {
                     },
                 )?;
                 let task_id = result.task_id.clone();
-                let task = prism
-                    .coordination_task(&task_id)
-                    .ok_or_else(|| anyhow!("unknown task `{}`", task_id.0))?;
                 Ok(attach_coordination_transaction_metadata(
                     workspace_root,
                     self.workspace_authority_store_provider(),
-                    serde_json::to_value(coordination_task_view(task))?,
+                    current_coordination_task_state(prism, &task_id)?,
                     &result.transaction,
                 ))
             }
@@ -5424,24 +5387,26 @@ impl QueryHost {
                         )?;
                         let result =
                             prism.execute_coordination_mutation(meta.clone(), update_mutation)?;
-                        let task = prism
-                            .coordination_task(&task_id)
-                            .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
                         let task = match workspace_root {
                             Some(observation_root) => maybe_observe_target_integration(
                                 session,
                                 prism,
                                 &meta,
                                 observation_root,
-                                &task,
+                                &prism
+                                    .coordination_task(&task_id)
+                                    .ok_or_else(|| {
+                                        anyhow!("unknown coordination task `{}`", task_id.0)
+                                    })?,
                             )?
-                            .unwrap_or(task),
-                            None => task,
+                            .map(|task| task.id)
+                            .unwrap_or_else(|| task_id.clone()),
+                            None => task_id.clone(),
                         };
                         Ok(attach_coordination_transaction_metadata(
                             workspace_root,
                             self.workspace_authority_store_provider(),
-                            serde_json::to_value(coordination_task_view(task))?,
+                            current_coordination_task_state(prism, &task)?,
                             &result,
                         ))
                     }
@@ -5459,13 +5424,10 @@ impl QueryHost {
                     },
                     prism.workspace_revision(),
                 )?;
-                let task = prism
-                    .coordination_task(&result.task_id)
-                    .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))?;
                 Ok(attach_coordination_transaction_metadata(
                     workspace_root,
                     self.workspace_authority_store_provider(),
-                    serde_json::to_value(coordination_task_view(task))?,
+                    current_coordination_task_state(prism, &result.task_id)?,
                     &result.transaction,
                 ))
             }
@@ -5494,13 +5456,10 @@ impl QueryHost {
                         branch_ref: execution.branch_ref.clone(),
                     },
                 )?;
-                let task = prism
-                    .coordination_task(&result.task_id)
-                    .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))?;
                 Ok(attach_coordination_transaction_metadata(
                     workspace_root,
                     self.workspace_authority_store_provider(),
-                    serde_json::to_value(coordination_task_view(task))?,
+                    current_coordination_task_state(prism, &result.task_id)?,
                     &result.transaction,
                 ))
             }
@@ -5529,13 +5488,10 @@ impl QueryHost {
                         branch_ref: execution.branch_ref.clone(),
                     },
                 )?;
-                let task = prism
-                    .coordination_task(&result.task_id)
-                    .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))?;
                 Ok(attach_coordination_transaction_metadata(
                     workspace_root,
                     self.workspace_authority_store_provider(),
-                    serde_json::to_value(coordination_task_view(task))?,
+                    current_coordination_task_state(prism, &result.task_id)?,
                     &result.transaction,
                 ))
             }
@@ -5564,13 +5520,10 @@ impl QueryHost {
                         branch_ref: execution.branch_ref.clone(),
                     },
                 )?;
-                let task = prism
-                    .coordination_task(&result.task_id)
-                    .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))?;
                 Ok(attach_coordination_transaction_metadata(
                     workspace_root,
                     self.workspace_authority_store_provider(),
-                    serde_json::to_value(coordination_task_view(task))?,
+                    current_coordination_task_state(prism, &result.task_id)?,
                     &result.transaction,
                 ))
             }
@@ -5702,7 +5655,7 @@ impl QueryHost {
                     event_ids: Vec::new(),
                     rejected: false,
                     violations: Vec::new(),
-                    state: serde_json::to_value(coordination_task_view(task))?,
+                    state: current_coordination_task_state(prism, &task.id)?,
                 })
             }
             (None, Some(claim_id)) => {
