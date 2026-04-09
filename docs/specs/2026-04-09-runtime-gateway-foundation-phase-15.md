@@ -1,6 +1,6 @@
 # Runtime Gateway Foundation Phase 15
 
-Status: in progress
+Status: completed
 Audience: service, MCP, runtime, transport, auth, and coordination maintainers
 Scope: establish the first explicit runtime-gateway slice inside the service-hosted coordination architecture without collapsing gateway behavior back into the service shell or coordination authority seams
 
@@ -127,6 +127,6 @@ This spec is complete when:
 
 - [x] Introduce the runtime-gateway owner
 - [x] Centralize runtime-descriptor resolution
-- [ ] Centralize gateway trust and capability checks
-- [ ] Validate affected crates and direct downstream dependents
-- [ ] Update roadmap/spec status as slices land
+- [x] Centralize gateway trust and capability checks
+- [x] Validate affected crates and direct downstream dependents
+- [x] Update roadmap/spec status as slices land

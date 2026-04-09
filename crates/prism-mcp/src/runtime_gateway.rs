@@ -1,19 +1,26 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
+use axum::{http::StatusCode, Json};
 use prism_coordination::{RuntimeDescriptor, RuntimeDescriptorCapability};
 use prism_core::{
     configured_coordination_authority_store_provider, runtime_query_endpoint,
     shared_coordination_ref_diagnostics, shared_coordination_ref_diagnostics_with_provider,
     CoordinationAuthorityStoreProvider, CoordinationReadConsistency, RuntimeDescriptorQuery,
+    WorkspaceSession,
 };
+use prism_ir::{CredentialCapability, CredentialId};
 
 use crate::peer_runtime_router::{
     execute_remote_prism_query_with_provider, RemotePrismQueryResult,
 };
 use crate::remote_runtime_query_error;
+use crate::trust_surface::{
+    peer_runtime_auth_failed_response, peer_runtime_capability_denied_response,
+};
 use crate::QueryLanguage;
 
+pub(crate) const MAX_PEER_QUERY_CODE_CHARS: usize = 24_000;
 const STALE_RUNTIME_DESCRIPTOR_AFTER_SECS: u64 = 15 * 60;
 
 #[derive(Debug, Clone)]
@@ -54,6 +61,82 @@ impl WorkspaceRuntimeGateway {
             language,
         )
     }
+
+    pub(crate) fn authenticate_incoming_peer_read(
+        &self,
+        workspace: &WorkspaceSession,
+        credential_id: &str,
+        principal_token: &str,
+    ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+        authenticate_incoming_peer_read(workspace, credential_id, principal_token)
+    }
+}
+
+pub(crate) fn authenticate_incoming_peer_read(
+    workspace: &WorkspaceSession,
+    credential_id: &str,
+    principal_token: &str,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential_id.to_string()),
+            principal_token,
+        )
+        .map_err(|error| peer_runtime_auth_failed_response(credential_id, &error.to_string()))?;
+    if !authenticated
+        .credential
+        .capabilities
+        .contains(&CredentialCapability::All)
+        && !authenticated
+            .credential
+            .capabilities
+            .contains(&CredentialCapability::ReadPeerRuntime)
+    {
+        return Err(peer_runtime_capability_denied_response(credential_id));
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_incoming_peer_query_request(
+    runtime_id: &str,
+    code: &str,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    if runtime_id.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "code": "remote_runtime_id_required",
+                "message": "runtimeId must be a non-empty string",
+            })),
+        ));
+    }
+    ensure_outbound_query_size(runtime_id, code).map_err(|error| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "code": "peer_runtime_query_too_large",
+                "message": error.to_string(),
+                "runtimeId": runtime_id,
+                "maxChars": MAX_PEER_QUERY_CODE_CHARS,
+            })),
+        )
+    })
+}
+
+pub(crate) fn ensure_outbound_query_size(runtime_id: &str, code: &str) -> Result<()> {
+    if code.chars().count() > MAX_PEER_QUERY_CODE_CHARS {
+        return Err(remote_runtime_query_error(
+            "peer_runtime_query_too_large",
+            Some(runtime_id),
+            format!(
+                "remote prism_query for runtime `{runtime_id}` exceeded the {MAX_PEER_QUERY_CODE_CHARS} character limit"
+            ),
+            format!(
+                "Keep runtime-targeted prism_query snippets under {MAX_PEER_QUERY_CODE_CHARS} characters, or split the read into smaller calls."
+            ),
+        ));
+    }
+    Ok(())
 }
 
 pub(crate) fn resolve_remote_runtime_target_for_root(
@@ -91,13 +174,13 @@ pub(crate) fn resolve_remote_runtime_target_for_root(
     let endpoint = runtime_query_endpoint(&descriptor)
         .map(str::to_owned)
         .ok_or_else(|| {
-        remote_runtime_query_error(
-            "remote_runtime_endpoint_missing",
-            Some(runtime_id),
-            format!("runtime `{runtime_id}` does not publish a query endpoint"),
-            "Set a peer or public endpoint for that runtime, or target a different runtime id.",
-        )
-    })?;
+            remote_runtime_query_error(
+                "remote_runtime_endpoint_missing",
+                Some(runtime_id),
+                format!("runtime `{runtime_id}` does not publish a query endpoint"),
+                "Set a peer or public endpoint for that runtime, or target a different runtime id.",
+            )
+        })?;
     let secondary_endpoint = descriptor
         .public_endpoint
         .as_deref()

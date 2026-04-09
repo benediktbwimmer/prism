@@ -10,23 +10,21 @@ use axum::{Json, Router};
 use prism_coordination::RuntimeDescriptor;
 use prism_core::{
     local_runtime_id, CoordinationAuthorityStoreProvider, CredentialsFile, PrismPaths,
-    WorkspaceSession, PEER_RUNTIME_QUERY_PATH,
+    PEER_RUNTIME_QUERY_PATH,
 };
-use prism_ir::{CredentialCapability, CredentialId};
 use prism_js::QueryDiagnostic;
 use prism_js::QueryEnvelope;
 use serde::{Deserialize, Serialize};
 
 use crate::remote_runtime_query_error;
-use crate::runtime_gateway::resolve_remote_runtime_target_for_root;
-use crate::runtime_views::runtime_status;
-use crate::trust_surface::{
-    peer_runtime_auth_failed_response, peer_runtime_capability_denied_response,
+use crate::runtime_gateway::{
+    ensure_outbound_query_size, resolve_remote_runtime_target_for_root,
+    validate_incoming_peer_query_request, MAX_PEER_QUERY_CODE_CHARS,
 };
+use crate::runtime_views::runtime_status;
 use crate::{QueryHost, QueryLanguage};
 
 const PEER_QUERY_TIMEOUT: Duration = Duration::from_secs(20);
-pub(crate) const MAX_PEER_QUERY_CODE_CHARS: usize = 24_000;
 
 #[derive(Clone)]
 pub(crate) struct PeerRuntimeAppState {
@@ -74,12 +72,20 @@ async fn peer_runtime_query(
     State(state): State<PeerRuntimeAppState>,
     Json(request): Json<PeerRuntimeQueryRequest>,
 ) -> Result<Json<PeerRuntimeQueryResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let runtime_gateway = state
+        .host
+        .workspace_runtime_gateway()
+        .ok_or_else(|| service_error("workspace runtime gateway is unavailable"))?;
     let workspace = state
         .host
         .workspace_session()
         .ok_or_else(|| service_error("workspace-backed runtime session is unavailable"))?;
-    validate_peer_query_request(&request)?;
-    authenticate_peer_read(workspace, &request)?;
+    validate_incoming_peer_query_request(&request.runtime_id, &request.code)?;
+    runtime_gateway.authenticate_incoming_peer_read(
+        workspace,
+        &request.credential_id,
+        &request.principal_token,
+    )?;
 
     let local_runtime_id = local_runtime_id(&state.root);
     if request.runtime_id != local_runtime_id {
@@ -122,62 +128,6 @@ async fn peer_runtime_query(
     }))
 }
 
-fn authenticate_peer_read(
-    workspace: &WorkspaceSession,
-    request: &PeerRuntimeQueryRequest,
-) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
-    let authenticated = workspace
-        .authenticate_principal_credential(
-            &CredentialId::new(request.credential_id.clone()),
-            &request.principal_token,
-        )
-        .map_err(|error| {
-            peer_runtime_auth_failed_response(&request.credential_id, &error.to_string())
-        })?;
-    if !authenticated
-        .credential
-        .capabilities
-        .contains(&CredentialCapability::All)
-        && !authenticated
-            .credential
-            .capabilities
-            .contains(&CredentialCapability::ReadPeerRuntime)
-    {
-        return Err(peer_runtime_capability_denied_response(
-            &request.credential_id,
-        ));
-    }
-    Ok(())
-}
-
-fn validate_peer_query_request(
-    request: &PeerRuntimeQueryRequest,
-) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
-    if request.runtime_id.trim().is_empty() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "code": "remote_runtime_id_required",
-                "message": "runtimeId must be a non-empty string",
-            })),
-        ));
-    }
-    if request.code.chars().count() > MAX_PEER_QUERY_CODE_CHARS {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "code": "peer_runtime_query_too_large",
-                "message": format!(
-                    "remote prism_query exceeded the {MAX_PEER_QUERY_CODE_CHARS} character limit"
-                ),
-                "runtimeId": request.runtime_id,
-                "maxChars": MAX_PEER_QUERY_CODE_CHARS,
-            })),
-        ));
-    }
-    Ok(())
-}
-
 fn peer_enriched_diagnostic(runtime_id: &str) -> QueryDiagnostic {
     QueryDiagnostic {
         code: "peer_enriched".to_string(),
@@ -207,18 +157,7 @@ pub(crate) fn execute_remote_prism_query_with_provider(
     code: &str,
     language: QueryLanguage,
 ) -> Result<RemotePrismQueryResult> {
-    if code.chars().count() > MAX_PEER_QUERY_CODE_CHARS {
-        return Err(remote_runtime_query_error(
-            "peer_runtime_query_too_large",
-            Some(runtime_id),
-            format!(
-                "remote prism_query for runtime `{runtime_id}` exceeded the {MAX_PEER_QUERY_CODE_CHARS} character limit"
-            ),
-            format!(
-                "Keep runtime-targeted prism_query snippets under {MAX_PEER_QUERY_CODE_CHARS} characters, or split the read into smaller calls."
-            ),
-        ));
-    }
+    ensure_outbound_query_size(runtime_id, code)?;
     let target =
         resolve_remote_runtime_target_for_root(root, authority_store_provider, runtime_id)?;
     let credential = resolve_local_peer_read_credential(root)?;
