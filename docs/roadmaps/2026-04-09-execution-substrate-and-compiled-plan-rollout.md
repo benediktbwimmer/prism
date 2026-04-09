@@ -15,6 +15,7 @@ PRISM now has several tightly related but still distinct bodies of work:
 - harden the SQL-only authority seam so it is genuinely Postgres-ready
 - finalize the SQL authority contract so Postgres inherits narrow SQL-native seams instead of residual snapshot-era coupling
 - narrow the SQL authority query/provider seams so hot callers stop opening coarse stores or reading full current state
+- replace generic authority read stores with sharp read-model ports and a final SQL command seam
 - implement one shared execution substrate
 - move warm-state validation onto that substrate
 - add `Action` as a first-class machine-work leaf
@@ -37,6 +38,7 @@ The ordering principle is:
 - remove recovery/snapshot APIs from the hot SQL authority seam before Postgres is implemented
 - remove the last snapshot-shaped current-state read and storage-policy leaks from the SQL authority contract before the execution substrate builds on it
 - replace coarse provider opens with explicit responsibility-scoped openings before the execution substrate builds on the authority layer
+- replace generic projection reads with caller-shaped read-model ports before the execution substrate or Postgres build on the wrong query seam
 - then stabilize graph dataflow and reusable native plan semantics
 - only then build the JS/TS compiler and SDK on top of that settled target
 
@@ -59,17 +61,18 @@ Current phase checklist:
 - [x] Phase 3: harden the SQL authority seam for Postgres
 - [x] Phase 4: finalize the SQL authority contract for Postgres
 - [x] Phase 5: narrow the SQL authority query/provider seams
-- [ ] Phase 6: implement the shared execution substrate core
-- [ ] Phase 7: move warm-state validation onto the shared execution substrate
-- [ ] Phase 8: add `Action` as a first-class graph leaf on the shared execution substrate
-- [ ] Phase 9: implement graph-wide typed inputs, outputs, and bindings
-- [ ] Phase 10: implement reusable native plan definitions and instantiation
-- [ ] Phase 11: implement JS/TS-authored compiled plans and the workflow-authoring SDK
-- [ ] Phase 12: evaluate whether fast runtime-executed machine-only subgraphs are warranted
+- [ ] Phase 6: replace generic authority reads with sharp SQL read-model and command ports
+- [ ] Phase 7: implement the shared execution substrate core
+- [ ] Phase 8: move warm-state validation onto the shared execution substrate
+- [ ] Phase 9: add `Action` as a first-class graph leaf on the shared execution substrate
+- [ ] Phase 10: implement graph-wide typed inputs, outputs, and bindings
+- [ ] Phase 11: implement reusable native plan definitions and instantiation
+- [ ] Phase 12: implement JS/TS-authored compiled plans and the workflow-authoring SDK
+- [ ] Phase 13: evaluate whether fast runtime-executed machine-only subgraphs are warranted
 
 Current active phase:
 
-- Phase 6: implement the shared execution substrate core
+- Phase 6: replace generic authority reads with sharp SQL read-model and command ports
 
 Current implementation note (2026-04-09):
 
@@ -78,7 +81,7 @@ Current implementation note (2026-04-09):
 - Phase 3 is landed by splitting the hot authority contract from snapshot and recovery operations, adding an explicit secondary snapshot seam, and removing full-state payloads from normal authority write results
 - Phase 4 is landed by replacing the misleading hot `read_plan_state` authority read with a direct current-state read, splitting the SQL authority seam into smaller traits, removing derived-state persistence policy from the public append contract, and replacing `prism_store` persist-result leakage with backend-neutral commit receipts
 - Phase 5 is landed by removing the public hot-path full-current-state read, switching the provider to explicit responsibility-scoped openings, and moving hot query callers onto narrower projection/runtime/diagnostics surfaces
-- the next blocking work is Phase 6: implement the shared execution substrate core against that finalized authority contract
+- the next blocking work is Phase 6: replace the remaining generic projection/store-shaped authority reads with final caller-shaped SQL read-model ports and a sharp SQL command seam before substrate work continues
 
 ## 3. Ordering thesis
 
@@ -94,12 +97,13 @@ The right order is:
 3. harden that SQL-only seam so the primary authority contract is the real future Postgres contract
 4. finalize that SQL-only contract so the hot reads, writes, and receipts are genuinely SQL-native
 5. narrow the remaining query/provider seams so hot callers use explicit responsibility-scoped openings and narrower reads
-6. build the shared execution substrate next
-7. prove that substrate with warm-state validation
-8. widen it to `Action`
-9. add graph-wide dataflow and bindings once the node set is real
-10. add reusable native plan definitions and instantiation against that settled graph model
-11. only then add JS/TS authoring and compilation to PRISM-native IR
+6. replace generic authority read stores with final caller-shaped SQL read-model ports and a sharp command seam
+7. build the shared execution substrate next
+8. prove that substrate with warm-state validation
+9. widen it to `Action`
+10. add graph-wide dataflow and bindings once the node set is real
+11. add reusable native plan definitions and instantiation against that settled graph model
+12. only then add JS/TS authoring and compilation to PRISM-native IR
 
 Event-trigger work is intentionally out of the critical path for this roadmap.
 
@@ -119,10 +123,11 @@ These phase transitions are blocking and should not be inverted:
 - Phase 3 before Phase 4
 - Phase 4 before Phase 5
 - Phase 5 before Phase 6
-- Phase 6 before Phases 7 and 8
-- Phases 7 and 8 before Phase 9
-- Phase 9 before Phase 10
+- Phase 6 before Phase 7
+- Phase 7 before Phases 8 and 9
+- Phases 8 and 9 before Phase 10
 - Phase 10 before Phase 11
+- Phase 11 before Phase 12
 
 ### 4.2 Safe parallel lanes
 
@@ -158,23 +163,30 @@ The following work can proceed in parallel without violating the architecture:
   - keep full snapshot assembly only in explicit snapshot-plus-runtime helpers
   can proceed in parallel if they converge on one final authority query/provider surface
 - During Phase 6:
+  - define caller-shaped read ports for task queues, review queues, plan detail, runtime leases, execution records, and authority diagnostics
+  - define the final SQL command seam for event append and related concurrency semantics
+  - move existing callers off generic projection reads and onto exact DTO-returning read ports
+  - restrict snapshot/export/recovery access to explicit non-hot admin seams
+  - plan SQLite local-first implementations and Postgres production implementations against those same ports
+  can proceed in parallel if they converge on one final read-model/command surface
+- During Phase 7:
   - execution-record storage
   - runner contract definition
   - runtime routing plumbing
   - capability-class plumbing
   can proceed in parallel if they share one settled substrate spec
-- During late Phase 6 / early Phase 7:
-  - the Phase 7 validation spec and the Phase 8 Actions spec can be prepared in parallel
-- During Phase 9:
+- During late Phase 7 / early Phase 8:
+  - the Phase 8 validation spec and the Phase 9 Actions spec can be prepared in parallel
+- During Phase 10:
   - task/action/review binding semantics
   - typed value/reference representation
   - query/UI read-model shaping for bound inputs and outputs
   can proceed in parallel once the dataflow contract is frozen
-- During Phase 10:
+- During Phase 11:
   - native reusable-plan definition semantics
   - plan-instance lineage and provenance work
   can proceed in parallel once plan-definition versus plan-instance boundaries are fixed
-- During Phase 11:
+- During Phase 12:
   - CLI-first compiler surface
   - workflow-authoring SDK surface
   - compiler provenance and artifact-pin metadata
@@ -201,6 +213,7 @@ This includes:
 - one spec for the Postgres-ready authority seam hardening
 - one spec for finalizing the SQL authority contract for Postgres
 - one spec for narrowing the SQL authority query/provider seams
+- one spec for replacing generic authority reads with sharp SQL read-model and command ports
 - one spec for the shared execution substrate core
 - one spec for warm-state validation on the substrate
 - one spec for first-class `Action`
@@ -359,7 +372,35 @@ Status note (2026-04-10):
 - complete
 - the provider now opens explicit projection, mutation, runtime, event-execution, history, diagnostics, and snapshot seams, and hot callers no longer read full current state from the public SQL authority contract
 
-### Phase 6: Implement the shared execution substrate core
+### Phase 6: Replace generic authority reads with sharp SQL read-model and command ports
+
+Implement the final authority-read redesign described in:
+
+- [../specs/2026-04-10-sharp-sql-read-model-and-command-ports.md](../specs/2026-04-10-sharp-sql-read-model-and-command-ports.md)
+
+This phase should settle:
+
+- replacement of generic projection reads with caller-shaped read-model ports that return exact DTOs for hot use cases
+- replacement of the remaining generic command/store vocabulary with a final SQL command seam centered on authoritative event append and concurrency control
+- removal of hot-path dependence on broad payloads like canonical snapshots or generic current-state wrappers
+- a backend-neutral query/command contract that SQLite can implement locally first and Postgres can implement for production without API drift
+- strict separation between hot read-model/query ports and explicit admin/export/recovery seams
+
+This phase should explicitly exclude:
+
+- implementing the full Postgres backend itself
+- substrate, validation, or Action execution work
+- broad catch-all query interfaces that return more state than a caller asked for
+
+Exit criteria:
+
+- no hot product path depends on generic authority reads like `read_canonical_snapshot_v2`
+- hot authority queries are expressed as narrow read-model ports with exact view DTOs
+- the SQL command seam is explicit and storage-agnostic, without leaking SQLite or Postgres details
+- snapshot/export/recovery access is clearly separate from hot query/command paths
+- SQLite and the Postgres stub compile against the new read-model/command surface
+
+### Phase 7: Implement the shared execution substrate core
 
 Implement the common lower layer described in:
 
@@ -384,7 +425,7 @@ Exit criteria:
 - PRISM has one shared execution core that can host multiple semantic entrypoints
 - validation and Actions can both target it without inventing parallel stacks
 
-### Phase 7: Move warm-state validation onto the shared execution substrate
+### Phase 8: Move warm-state validation onto the shared execution substrate
 
 Implement the validation-specific integration described in:
 
@@ -402,7 +443,7 @@ Exit criteria:
 - warm-state validation no longer uses a bespoke execution stack
 - validation semantics remain special, but execution plumbing is shared
 
-### Phase 8: Add `Action` as a first-class graph leaf
+### Phase 9: Add `Action` as a first-class graph leaf
 
 Implement the graph and lifecycle model described in:
 
@@ -420,7 +461,7 @@ Exit criteria:
 - PRISM has an explicit machine-work leaf type
 - machine execution no longer has to hide behind task overloading or event-only semantics
 
-### Phase 9: Implement graph-wide typed inputs, outputs, and bindings
+### Phase 10: Implement graph-wide typed inputs, outputs, and bindings
 
 Implement the graph dataflow model described in:
 
@@ -438,9 +479,9 @@ Exit criteria:
 - PRISM graph nodes can exchange typed data explicitly
 - downstream execution no longer depends on ad hoc hidden shared-state lookup
 
-### Phase 10: Implement reusable native plan definitions and instantiation
+### Phase 11: Implement reusable native plan definitions and instantiation
 
-Build on Phase 9 to add:
+Build on Phase 10 to add:
 
 - native plan-definition versus plan-instance separation
 - plan input schemas
@@ -457,7 +498,7 @@ Exit criteria:
 - PRISM-native reusable plans exist before the compiler targets them
 - the plan instance model is stable enough to pin compiled artifacts to it
 
-### Phase 11: Implement JS/TS-authored compiled plans and the workflow-authoring SDK
+### Phase 12: Implement JS/TS-authored compiled plans and the workflow-authoring SDK
 
 Implement the authoring layer described in:
 
@@ -479,7 +520,7 @@ Exit criteria:
 - humans and agents can author plans in JS/TS and compile them into PRISM-native IR
 - service, query, and UI layers remain IR-driven rather than workflow-code-driven
 
-### Phase 12: Evaluate fast runtime-executed machine-only subgraphs
+### Phase 13: Evaluate fast runtime-executed machine-only subgraphs
 
 Only after the previous phases land should PRISM evaluate whether demand justifies:
 
@@ -499,19 +540,20 @@ Exit criteria:
 
 The roadmap should produce useful dogfooding value before the compiler lands.
 
-### Checkpoint A: After Phase 7
+### Checkpoint A: After Phase 8
 
 PRISM should already have:
 
 - the real artifact/review evidence model
 - a Postgres-ready non-snapshot hot authority contract
 - a narrowed responsibility-scoped authority provider/query surface
+- sharp caller-shaped SQL read-model and command ports
 - a shared execution substrate
 - warm-state validation on top of it
 
 That is enough to dogfood validation seriously.
 
-### Checkpoint B: After Phase 7
+### Checkpoint B: After Phase 9
 
 PRISM should additionally have:
 
@@ -519,7 +561,7 @@ PRISM should additionally have:
 
 That is enough to dogfood machine-executed graph leaves without waiting for JS/TS authoring.
 
-### Checkpoint C: After Phase 9
+### Checkpoint C: After Phase 10
 
 PRISM should additionally have:
 
@@ -548,12 +590,13 @@ PRISM should execute this program in a foundation-first order:
 3. Postgres-ready authority seam hardening
 4. final SQL authority contract hardening
 5. narrow SQL authority query/provider seams
-6. shared execution substrate
-7. warm-state validation
-8. Actions
-9. graph dataflow and bindings
-10. native reusable plan definitions
-11. JS/TS-authored compiled plans
+6. sharp SQL read-model and command ports
+7. shared execution substrate
+8. warm-state validation
+9. Actions
+10. graph dataflow and bindings
+11. native reusable plan definitions
+12. JS/TS-authored compiled plans
 
 That order gives PRISM the strongest result with the least churn:
 
@@ -562,6 +605,7 @@ That order gives PRISM the strongest result with the least churn:
 - final Postgres-ready authority seam hardening third
 - final SQL-contract hardening fourth
 - narrow authority query/provider seams fifth
-- one execution model sixth
+- sharp SQL read models and command ports sixth
+- one execution model seventh
 - graph semantics before authoring ergonomics
 - compiler last, targeting a stable native IR instead of forcing the IR to chase the compiler
