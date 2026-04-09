@@ -122,6 +122,7 @@ mod vocabulary;
 mod workspace_diagnostics;
 mod workspace_event_engine;
 mod workspace_event_engine_claim_loop;
+mod workspace_event_engine_execution_loop;
 mod workspace_host;
 mod workspace_runtime;
 

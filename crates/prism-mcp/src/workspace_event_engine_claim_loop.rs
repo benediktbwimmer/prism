@@ -1,6 +1,3 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-
 use anyhow::Result;
 use prism_coordination::{EventExecutionOwner, EventExecutionRecord, Plan};
 use prism_core::{
@@ -11,7 +8,7 @@ use prism_core::{
 use prism_ir::{EventExecutionId, EventExecutionStatus, EventTriggerKind, NodeRef, Timestamp};
 use serde_json::Value;
 
-use crate::workspace_event_engine::WorkspaceEventEngine;
+use crate::workspace_event_engine::{service_event_execution_owner, WorkspaceEventEngine};
 
 const DEFAULT_CLAIM_TTL_SECONDS: u64 = 5 * 60;
 
@@ -85,7 +82,7 @@ impl WorkspaceEventEngine {
             event_execution_id: None,
             limit: None,
         })?;
-        let owner = claim_owner(self.workspace_root())?;
+        let owner = service_event_execution_owner(self.workspace_root());
         let mut outcomes = Vec::with_capacity(candidates.len());
 
         for candidate in candidates {
@@ -263,21 +260,6 @@ fn recurring_claim_metadata(candidate: &EventTriggerClaimLoopCandidate) -> Value
             "recurrencePolicy": candidate.recurrence_policy,
             "claimTtlSeconds": candidate.claim_ttl_seconds,
         }
-    })
-}
-
-fn claim_owner(workspace_root: &std::path::Path) -> Result<EventExecutionOwner> {
-    let canonical_root = workspace_root
-        .canonicalize()
-        .unwrap_or_else(|_| workspace_root.to_path_buf());
-    let mut hasher = DefaultHasher::new();
-    canonical_root.hash(&mut hasher);
-    let worktree_fingerprint = format!("worktree:{:016x}", hasher.finish());
-    Ok(EventExecutionOwner {
-        principal: None,
-        session_id: None,
-        worktree_id: Some(worktree_fingerprint.clone()),
-        service_instance_id: Some(format!("service:{}:{worktree_fingerprint}", std::process::id())),
     })
 }
 

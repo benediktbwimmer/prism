@@ -1,6 +1,9 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use anyhow::Result;
+use prism_coordination::EventExecutionOwner;
 use prism_core::{
     CoordinationAuthorityStoreProvider, EventExecutionRecordAuthorityQuery,
     EventExecutionTransitionRequest, EventExecutionTransitionResult,
@@ -62,6 +65,23 @@ impl WorkspaceEventEngine {
     }
 }
 
+pub(crate) fn service_event_execution_owner(
+    workspace_root: &std::path::Path,
+) -> EventExecutionOwner {
+    let canonical_root = workspace_root
+        .canonicalize()
+        .unwrap_or_else(|_| workspace_root.to_path_buf());
+    let mut hasher = DefaultHasher::new();
+    canonical_root.hash(&mut hasher);
+    let worktree_fingerprint = format!("worktree:{:016x}", hasher.finish());
+    EventExecutionOwner {
+        principal: None,
+        session_id: None,
+        worktree_id: Some(worktree_fingerprint.clone()),
+        service_instance_id: Some(format!("service:{}:{worktree_fingerprint}", std::process::id())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use prism_coordination::{CoordinationSnapshot, EventExecutionOwner, EventExecutionRecord, Plan};
@@ -79,6 +99,10 @@ mod tests {
 
     use crate::workspace_event_engine_claim_loop::{
         EventTriggerClaimLoopRequest, EventTriggerClaimOutcome, EventTriggerClaimSkipReason,
+    };
+    use crate::workspace_event_engine_execution_loop::{
+        EventTriggerExecutionAction, EventTriggerExecutionPassOutcome,
+        EventTriggerExecutionPassRequest,
     };
     use crate::tests_support::{
         host_with_session, index_workspace_session_with_shared_runtime, temp_workspace,
@@ -199,6 +223,36 @@ mod tests {
         }
     }
 
+    fn claimed_recurring_execution(
+        root: &std::path::Path,
+        id: &str,
+        claimed_at: u64,
+        expires_at: Option<u64>,
+        status: EventExecutionStatus,
+    ) -> EventExecutionRecord {
+        EventExecutionRecord {
+            id: EventExecutionId::new(id),
+            trigger_kind: EventTriggerKind::RecurringPlanTick,
+            trigger_target: Some(prism_ir::NodeRef::plan(PlanId::new("plan:recurring"))),
+            hook_id: Some("hooks/recurring-plan".to_string()),
+            hook_version_digest: Some("sha256:recurring".to_string()),
+            authoritative_revision: Some(7),
+            status,
+            owner: Some(super::service_event_execution_owner(root)),
+            claimed_at,
+            started_at: None,
+            finished_at: None,
+            expires_at,
+            summary: Some("Recurring plan tick claimed".to_string()),
+            metadata: json!({
+                "eventTrigger": {
+                    "kind": "recurring_plan_tick",
+                    "planId": "plan:recurring"
+                }
+            }),
+        }
+    }
+
     #[test]
     fn workspace_event_engine_claims_due_recurring_plan_ticks_from_service_backed_state() {
         let root = temp_workspace();
@@ -290,5 +344,95 @@ mod tests {
                 status: EventExecutionStatus::Claimed,
             }
         );
+    }
+
+    #[test]
+    fn workspace_event_engine_plans_execution_pass_for_owned_claimed_records() {
+        let root = temp_workspace();
+        let session = prism_core::index_workspace_session(&root).expect("workspace session");
+        let host = host_with_session(session);
+        let event_engine = host
+            .workspace_event_engine()
+            .cloned()
+            .expect("workspace event engine");
+        let record = claimed_recurring_execution(
+            &root,
+            "event-exec:recurring-plan-tick:plan:recurring:7:100",
+            100,
+            Some(145),
+            EventExecutionStatus::Claimed,
+        );
+
+        let claim = event_engine
+            .apply_event_execution_transition(EventExecutionTransitionRequest {
+                event_execution_id: record.id.clone(),
+                preconditions: EventExecutionTransitionPreconditions {
+                    require_missing: true,
+                    ..EventExecutionTransitionPreconditions::default()
+                },
+                transition: EventExecutionTransitionKind::Claim {
+                    record: record.clone(),
+                },
+            })
+            .expect("claim transition should succeed");
+        assert_eq!(claim.status, EventExecutionTransitionStatus::Applied);
+
+        let plan = event_engine
+            .plan_trigger_execution_pass(EventTriggerExecutionPassRequest {
+                now: 110,
+                limit: None,
+            })
+            .expect("execution pass should load");
+        assert_eq!(plan.outcomes.len(), 1);
+        let EventTriggerExecutionPassOutcome::Candidate(candidate) = &plan.outcomes[0] else {
+            panic!("expected execution candidate");
+        };
+        assert_eq!(candidate.action, EventTriggerExecutionAction::Start);
+        assert_eq!(candidate.record.id, record.id);
+    }
+
+    #[test]
+    fn workspace_event_engine_marks_expired_claims_in_execution_pass() {
+        let root = temp_workspace();
+        let session = prism_core::index_workspace_session(&root).expect("workspace session");
+        let host = host_with_session(session);
+        let event_engine = host
+            .workspace_event_engine()
+            .cloned()
+            .expect("workspace event engine");
+        let record = claimed_recurring_execution(
+            &root,
+            "event-exec:recurring-plan-tick:plan:recurring:7:100",
+            100,
+            Some(100),
+            EventExecutionStatus::Claimed,
+        );
+
+        let claim = event_engine
+            .apply_event_execution_transition(EventExecutionTransitionRequest {
+                event_execution_id: record.id.clone(),
+                preconditions: EventExecutionTransitionPreconditions {
+                    require_missing: true,
+                    ..EventExecutionTransitionPreconditions::default()
+                },
+                transition: EventExecutionTransitionKind::Claim {
+                    record: record.clone(),
+                },
+            })
+            .expect("claim transition should succeed");
+        assert_eq!(claim.status, EventExecutionTransitionStatus::Applied);
+
+        let plan = event_engine
+            .plan_trigger_execution_pass(EventTriggerExecutionPassRequest {
+                now: 100,
+                limit: None,
+            })
+            .expect("execution pass should load");
+        assert_eq!(plan.outcomes.len(), 1);
+        let EventTriggerExecutionPassOutcome::Candidate(candidate) = &plan.outcomes[0] else {
+            panic!("expected execution candidate");
+        };
+        assert_eq!(candidate.action, EventTriggerExecutionAction::Expire);
+        assert_eq!(candidate.record.id, record.id);
     }
 }

@@ -1,6 +1,6 @@
 # Event Trigger Execution Lifecycle Phase 15
 
-Status: draft
+Status: partially implemented
 Audience: service, coordination, event-engine, scheduling, MCP, and future automation maintainers
 Scope: add the first explicit service-owned execution pass for claimed event records, including start, terminal transitions, and deterministic lifecycle outcomes
 
@@ -131,8 +131,8 @@ This spec is complete when:
 
 ## 9. Implementation checklist
 
-- [ ] Define event-engine execution-pass input and result types
-- [ ] Load runnable claimed executions through settled seams
+- [x] Define event-engine execution-pass input and result types
+- [x] Load runnable claimed executions through settled seams
 - [ ] Apply authoritative running and terminal transitions through the event-engine owner
-- [ ] Validate affected crates and direct downstream dependents
+- [x] Validate affected crates and direct downstream dependents
 - [ ] Update roadmap and spec status as slices land
