@@ -5539,7 +5539,7 @@ mod tests {
                         spec_refs: Vec::new(),
                     },
                 )?;
-                Ok::<_, anyhow::Error>((plan_id, task.id))
+                Ok::<_, anyhow::Error>((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
             })
             .unwrap();
         let ref_name = super::shared_coordination_ref_name(&root);
@@ -5627,7 +5627,7 @@ mod tests {
                         spec_refs: Vec::new(),
                     },
                 )?;
-                Ok::<_, anyhow::Error>(task.id)
+                Ok::<_, anyhow::Error>(CoordinationTaskId::new(task.task.id.0.clone()))
             })
             .unwrap();
         let ref_name = super::shared_coordination_ref_name(&root);

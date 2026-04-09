@@ -72,6 +72,7 @@ Current phase spec:
 - [../specs/2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md](../specs/2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md)
 - [../specs/2026-04-09-host-mutation-canonical-follow-through-phase-6.md](../specs/2026-04-09-host-mutation-canonical-follow-through-phase-6.md)
+- [../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md](../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md)
 
 Current assessment:
 
@@ -161,6 +162,15 @@ Latest checkpoint:
 - the next Phase 6 cleanup is canonicalizing the remaining native mutation-return helpers and
   active-path runtime mutation reloads under `prism-query` so host and runtime mutation flows stop
   re-reading legacy `CoordinationTask` values after mutation commits
+- the current active slice is narrowing that work to the transaction-backed native task mutation
+  helpers under `prism-query`; the deeper live-runtime mutation returns like heartbeat and
+  authoritative-only task updates remain explicitly deferred until the runtime mutation path is
+  cut over more directly
+- the native task mutation-return follow-through is complete; transaction-backed native task
+  helpers in `prism-query` now reload canonical `CoordinationTaskV2` records after commit,
+  downstream core and MCP tests have been normalized to `CoordinationTaskId` at the mutation
+  boundary, and MCP stale-resume expectations now assert canonical effective task statuses rather
+  than the removed legacy raw-status response surface
 - the remaining Phase 6 work is the deeper purge of active-path `CoordinationSnapshot` / legacy
   coordination-model dependencies that still exist under `prism-coordination`, `prism-query`,
   `prism-mcp` host mutation/runtime paths, and adjacent materialization code

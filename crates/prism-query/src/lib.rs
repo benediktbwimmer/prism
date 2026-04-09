@@ -874,14 +874,18 @@ impl Prism {
         }
     }
 
+    fn current_native_task_view(&self, task_id: &CoordinationTaskId) -> Result<CoordinationTaskV2> {
+        self.coordination_task_v2_by_coordination_id(task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))
+    }
+
     pub fn create_native_task(
         &self,
         meta: EventMeta,
         input: TaskCreateInput,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         let result = self.create_native_task_transaction(meta, input)?;
-        self.coordination_task(&result.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+        self.current_native_task_view(&result.task_id)
     }
 
     pub fn update_native_task_transaction(
@@ -939,11 +943,10 @@ impl Prism {
         input: TaskUpdateInput,
         current_revision: WorkspaceRevision,
         now: u64,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         let task_id = input.task_id.clone();
         self.update_native_task_transaction(meta, input, current_revision, now)?;
-        self.coordination_task(&task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))
+        self.current_native_task_view(&task_id)
     }
 
     pub fn update_native_task_authoritative_only(
@@ -1000,10 +1003,9 @@ impl Prism {
         meta: EventMeta,
         input: HandoffInput,
         current_revision: WorkspaceRevision,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         let result = self.request_native_handoff_transaction(meta, input, current_revision)?;
-        self.coordination_task(&result.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+        self.current_native_task_view(&result.task_id)
     }
 
     pub fn accept_native_handoff_transaction(
@@ -1038,10 +1040,9 @@ impl Prism {
         &self,
         meta: EventMeta,
         input: HandoffAcceptInput,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         let result = self.accept_native_handoff_transaction(meta, input)?;
-        self.coordination_task(&result.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+        self.current_native_task_view(&result.task_id)
     }
 
     pub fn resume_native_task_transaction(
@@ -1076,10 +1077,9 @@ impl Prism {
         &self,
         meta: EventMeta,
         input: TaskResumeInput,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         let result = self.resume_native_task_transaction(meta, input)?;
-        self.coordination_task(&result.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+        self.current_native_task_view(&result.task_id)
     }
 
     pub fn reclaim_native_task_transaction(
@@ -1114,10 +1114,9 @@ impl Prism {
         &self,
         meta: EventMeta,
         input: TaskReclaimInput,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         let result = self.reclaim_native_task_transaction(meta, input)?;
-        self.coordination_task(&result.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+        self.current_native_task_view(&result.task_id)
     }
 
     pub fn heartbeat_native_task(

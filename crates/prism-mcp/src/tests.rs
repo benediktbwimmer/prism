@@ -33,10 +33,10 @@ use prism_curator::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    AnchorRef, ChangeTrigger, CredentialId, Edge, EdgeKind, EventActor, EventExecutionContext,
-    EventId, EventMeta, FileId, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
-    PlanId, PrincipalActor, PrincipalAuthorityId, PrincipalId, Span, SymbolFingerprint, TaskId,
-    WorkContextKind, WorkContextSnapshot,
+    AnchorRef, ChangeTrigger, CoordinationTaskId, CredentialId, Edge, EdgeKind, EventActor,
+    EventExecutionContext, EventId, EventMeta, FileId, Language, Node, NodeId, NodeKind,
+    ObservedChangeSet, ObservedNode, PlanId, PrincipalActor, PrincipalAuthorityId, PrincipalId,
+    Span, SymbolFingerprint, TaskId, WorkContextKind, WorkContextSnapshot,
 };
 use prism_js::{AnchorRefView, ContractKindView, ContractStabilityView, ContractStatusView};
 use prism_memory::{
@@ -719,7 +719,7 @@ fn git_execution_start_auto_resumes_stale_same_principal_task() {
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
-                Ok((plan_id, task.id))
+                Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
             },
             |_operation, _duration, _args, _success, _error| {},
         )
@@ -761,7 +761,7 @@ fn git_execution_start_auto_resumes_stale_same_principal_task() {
 
     assert_eq!(result.state["id"], Value::from(task_id.0.to_string()));
     assert_eq!(result.state["planId"], Value::from(plan_id.0.to_string()));
-    assert_eq!(result.state["status"], Value::from("InProgress"));
+    assert_eq!(result.state["status"], Value::from("active"));
 
     let detail = server
         .host
@@ -854,7 +854,7 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
                     TaskCreateInput {
                         plan_id,
                         title: "Reject before preflight".to_string(),
-                        status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                        status: Some(prism_ir::CoordinationTaskStatus::Ready),
                         assignee: None,
                         session: Some(prior_session.clone()),
                         worktree_id: None,
@@ -867,6 +867,44 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
                         spec_refs: Vec::new(),
                         base_revision: prism.workspace_revision(),
                     },
+                )?;
+                let task = prism.update_native_task_authoritative_only(
+                    EventMeta {
+                        id: EventId::new("coordination:other-principal-git-start:authoritative"),
+                        ts: active_ts,
+                        actor: actor.clone(),
+                        correlation: None,
+                        causation: None,
+                        execution_context: execution_context.clone(),
+                    },
+                    prism_coordination::TaskUpdateInput {
+                        task_id: CoordinationTaskId::new(task.task.id.0.clone()),
+                        kind: None,
+                        status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                        published_task_status: None,
+                        git_execution: None,
+                        assignee: None,
+                        session: None,
+                        worktree_id: None,
+                        branch_ref: None,
+                        title: None,
+                        summary: None,
+                        anchors: None,
+                        bindings: None,
+                        depends_on: None,
+                        coordination_depends_on: None,
+                        integrated_depends_on: None,
+                        acceptance: None,
+                        validation_refs: None,
+                        is_abstract: None,
+                        base_revision: Some(prism.workspace_revision()),
+                        priority: None,
+                        tags: None,
+                        completion_context: None,
+                        spec_refs: None,
+                    },
+                    prism.workspace_revision(),
+                    active_ts,
                 )?;
                 let task = prism.heartbeat_native_task(
                     EventMeta {
@@ -920,7 +958,7 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
         )
         .expect("same-worktree continuity should pass admissibility");
     assert_eq!(result.state["id"], task_id.0.as_str());
-    assert_eq!(result.state["status"], "InProgress");
+    assert_eq!(result.state["status"], "active");
 
     let detail = server
         .host
@@ -24187,7 +24225,7 @@ return {{
     );
     assert_eq!(
         result.result["plans"][0]["activity"]["lastEventTaskId"],
-        Value::from(task.id.0.to_string())
+        Value::from(task.task.id.0.to_string())
     );
     assert_eq!(result.result["plan"]["activity"]["createdAt"], 10);
     assert_eq!(result.result["plan"]["activity"]["lastUpdatedAt"], 20);

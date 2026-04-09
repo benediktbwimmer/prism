@@ -19,13 +19,13 @@ use prism_curator::{
     CuratorProposal, CuratorRun,
 };
 use prism_ir::{
-    AnchorRef, ChangeTrigger, CoordinationEventKind, CredentialCapability, CredentialId,
-    CredentialRecord, CredentialStatus, EdgeKind, EventActor, EventExecutionContext, EventId,
-    EventMeta, GraphChange, HumanAttestationAssurance, HumanAttestationOperation,
-    HumanAttestationRecord, HumanPrincipalProfile, LineageEvent, LineageEventKind, LineageEvidence,
-    LineageId, NodeId, NodeKind, PrincipalAuthorityId, PrincipalId, PrincipalKind,
-    PrincipalProfile, PrincipalRegistrySnapshot, PrincipalStatus, SessionId, TaskId,
-    WorkContextKind, WorkContextSnapshot,
+    AnchorRef, ChangeTrigger, CoordinationEventKind, CoordinationTaskId,
+    CredentialCapability, CredentialId, CredentialRecord, CredentialStatus, EdgeKind, EventActor,
+    EventExecutionContext, EventId, EventMeta, GraphChange, HumanAttestationAssurance,
+    HumanAttestationOperation, HumanAttestationRecord, HumanPrincipalProfile, LineageEvent,
+    LineageEventKind, LineageEvidence, LineageId, NodeId, NodeKind, PrincipalAuthorityId,
+    PrincipalId, PrincipalKind, PrincipalProfile, PrincipalRegistrySnapshot, PrincipalStatus,
+    SessionId, TaskId, WorkContextKind, WorkContextSnapshot,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
@@ -5870,7 +5870,7 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            let task_id = task.id.clone();
+            let task_id = CoordinationTaskId::new(task.task.id.0.clone());
             let holder = prism_ir::SessionId::new("session:rename-owner");
             prism.acquire_native_claim(
                 EventMeta {
@@ -6045,7 +6045,7 @@ fn repo_plan_state_hydrates_from_workspace_sqlite_without_shared_runtime_db() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
     flush_coordination_materializations(&session);
@@ -6399,7 +6399,7 @@ fn repo_published_plans_hydrate_from_tracked_snapshots_without_plan_logs() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
     flush_coordination_materializations(&session);
@@ -6481,7 +6481,7 @@ fn repo_published_plans_ignore_tampered_legacy_streams_once_snapshot_authority_e
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
     flush_coordination_materializations(&session);
@@ -6560,7 +6560,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
     drop(session);
@@ -6735,7 +6735,7 @@ fn derived_published_plan_mirrors_do_not_override_replayed_task_backed_authored_
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
 
@@ -6827,7 +6827,7 @@ fn refresh_fs_ignores_external_derived_plan_mirror_edits_without_source_changes(
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
 
@@ -8177,7 +8177,7 @@ fn checkpoint_materialization_preserves_authoritative_task_lease_fields() {
                     causation: None,
                     execution_context: None,
                 },
-                &task.id,
+                &CoordinationTaskId::new(task.task.id.0.clone()),
                 "explicit",
             )?;
             Ok::<_, anyhow::Error>(task.id)
@@ -8314,7 +8314,7 @@ fn repo_published_plan_snapshot_persists_task_status_updates_after_cutover() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
 
@@ -8528,7 +8528,7 @@ fn completing_last_task_persists_plan_completion_in_tracked_snapshot() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
     flush_coordination_materializations(&session);
@@ -8666,8 +8666,8 @@ fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
                 },
                 SessionId::new("session:auto-close-on-claim-release"),
                 prism_coordination::ClaimAcquireInput {
-                    task_id: Some(task.id.clone()),
-                    anchors: task.anchors.clone(),
+                    task_id: Some(CoordinationTaskId::new(task.task.id.0.clone())),
+                    anchors: task.task.anchors.clone(),
                     capability: prism_ir::Capability::Edit,
                     mode: Some(prism_ir::ClaimMode::SoftExclusive),
                     ttl_seconds: Some(60),
@@ -8678,7 +8678,11 @@ fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
                     branch_ref: None,
                 },
             )?;
-            Ok((plan_id, task.id, claim_id.expect("claim id")))
+            Ok((
+                plan_id,
+                CoordinationTaskId::new(task.task.id.0.clone()),
+                claim_id.expect("claim id"),
+            ))
         })
         .unwrap();
     flush_coordination_materializations(&session);
@@ -8841,7 +8845,7 @@ fn repo_published_plan_snapshot_skips_runtime_handoff_deltas() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
     flush_coordination_materializations(&session);

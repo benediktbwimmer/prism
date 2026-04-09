@@ -2692,7 +2692,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
             },
         )
         .unwrap();
-    assert_eq!(task.worktree_id.as_deref(), Some("worktree:a"));
+    assert_eq!(task.task.worktree_id.as_deref(), Some("worktree:a"));
     assert_eq!(prism.ready_tasks(&plan_id, 10).len(), 1);
 
     prism.set_coordination_context(Some(CoordinationPersistContext {
@@ -2722,7 +2722,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
                 execution_context: None,
             },
             HandoffInput {
-                task_id: task.id.clone(),
+                task_id: CoordinationTaskId::new(task.task.id.0.clone()),
                 to_agent: Some(prism_ir::AgentId::new("agent-b")),
                 summary: "handoff".into(),
                 base_revision: WorkspaceRevision::default(),
@@ -2730,7 +2730,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
             WorkspaceRevision::default(),
         )
         .unwrap();
-    assert_eq!(handoff.task_id, task.id);
+    assert_eq!(handoff.task_id, CoordinationTaskId::new(task.task.id.0.clone()));
     assert!(handoff.transaction.commit.event_count >= 1);
     assert_eq!(
         handoff.transaction.authority_version.last_event_id,
@@ -2755,14 +2755,14 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
                 execution_context: None,
             },
             prism_coordination::HandoffAcceptInput {
-                task_id: task.id.clone(),
+                task_id: CoordinationTaskId::new(task.task.id.0.clone()),
                 agent: Some(prism_ir::AgentId::new("agent-b")),
                 worktree_id: None,
                 branch_ref: None,
             },
         )
         .unwrap();
-    assert_eq!(accepted.task_id, task.id);
+    assert_eq!(accepted.task_id, CoordinationTaskId::new(task.task.id.0.clone()));
     assert!(accepted.transaction.commit.event_count >= 1);
     assert_eq!(
         accepted.transaction.authority_version.last_event_id,
@@ -2773,7 +2773,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
         .expect("accepted task should remain queryable");
     assert_eq!(accepted.worktree_id.as_deref(), Some("worktree:b"));
     let projected = prism
-        .coordination_task(&task.id)
+        .coordination_task(&CoordinationTaskId::new(task.task.id.0.clone()))
         .expect("accepted task should remain queryable");
     assert_eq!(projected.worktree_id.as_deref(), Some("worktree:b"));
     assert_eq!(projected.status, prism_ir::CoordinationTaskStatus::Ready);
