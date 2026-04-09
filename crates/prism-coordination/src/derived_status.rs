@@ -562,6 +562,9 @@ fn graph_cause(code: &str) -> BlockerCause {
 }
 
 fn base_task_status(task: &CanonicalTaskRecord) -> EffectiveTaskStatus {
+    if task.pending_handoff_to.is_some() {
+        return EffectiveTaskStatus::Blocked;
+    }
     match task.lifecycle_status {
         TaskLifecycleStatus::Pending => EffectiveTaskStatus::Pending,
         TaskLifecycleStatus::Active => EffectiveTaskStatus::Active,
@@ -668,6 +671,7 @@ mod tests {
             scheduling: crate::PlanScheduling::default(),
             tags: Vec::new(),
             created_from: None,
+            spec_refs: Vec::new(),
             metadata: Value::Null,
             operator_state,
         }
@@ -692,6 +696,7 @@ mod tests {
                 allowed_principals: Vec::new(),
             },
             assignee: None,
+            pending_handoff_to: None,
             session: None,
             lease_holder: None,
             lease_started_at: None,
@@ -707,6 +712,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: None,
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: Value::Null,
             git_execution: TaskGitExecution::default(),
         }
@@ -810,6 +816,24 @@ mod tests {
             .blocker_causes
             .iter()
             .any(|cause| cause.code.as_deref() == Some("ancestor_plan_blocked")));
+    }
+
+    #[test]
+    fn derivations_treat_pending_handoff_as_blocked() {
+        let mut handed_off = task("task:handoff", "plan:root", TaskLifecycleStatus::Active, 5);
+        handed_off.pending_handoff_to = Some(prism_ir::AgentId::new("agent:handoff"));
+        let snapshot = CoordinationSnapshotV2 {
+            plans: vec![plan("plan:root", None, PlanOperatorState::None)],
+            tasks: vec![handed_off],
+            ..CoordinationSnapshotV2::default()
+        };
+
+        let derivations = CoordinationDerivations::derive(&snapshot).unwrap();
+        let task_state = derivations
+            .task_state(&TaskId::new("task:handoff"))
+            .unwrap();
+        assert_eq!(task_state.effective_status, EffectiveTaskStatus::Blocked);
+        assert!(!task_state.graph_actionable);
     }
 
     #[test]

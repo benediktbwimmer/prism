@@ -23,11 +23,13 @@ use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
-    CoordinationConflict, CoordinationRuntimeState, CoordinationSnapshot, CoordinationSnapshotV2,
-    CoordinationSpecRef, CoordinationTask, CoordinationTaskSpecRef, HandoffAcceptInput,
-    HandoffInput, LeaseHeartbeatDueState, LeaseState, PlanScheduling, RuntimeDescriptor,
-    TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
+    canonical_task_heartbeat_due_state_with_runtime_descriptors,
+    canonical_task_lease_state_with_runtime_descriptors, Artifact, ArtifactProposeInput,
+    ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput, CoordinationConflict,
+    CoordinationRuntimeState, CoordinationSnapshot, CoordinationSnapshotV2, CoordinationSpecRef,
+    CoordinationTask, CoordinationTaskSpecRef, HandoffAcceptInput, HandoffInput,
+    LeaseHeartbeatDueState, LeaseState, PlanScheduling, RuntimeDescriptor, TaskCreateInput,
+    TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
@@ -234,35 +236,43 @@ impl Prism {
         coordination: CoordinationSnapshot,
         projections: ProjectionIndex,
     ) -> Self {
+        let canonical_snapshot_v2 = coordination.to_canonical_snapshot_v2();
         Self::with_shared_history_outcomes_coordination_projections_and_native_plans(
             Arc::new(graph),
             Arc::new(history),
             Arc::new(outcomes),
             projections,
-            MaterializedCoordinationRuntime::from_snapshot(coordination),
+            MaterializedCoordinationRuntime::new(
+                coordination,
+                canonical_snapshot_v2,
+                Vec::new(),
+            ),
             None,
             false,
         )
     }
 
-    pub fn with_shared_history_outcomes_coordination_projections_and_intent(
+    pub fn with_shared_history_outcomes_coordination_projections_and_query_state_v2(
         graph: Arc<Graph>,
         history: Arc<HistoryStore>,
         outcomes: Arc<OutcomeMemory>,
         coordination: CoordinationSnapshot,
+        canonical_snapshot_v2: CoordinationSnapshotV2,
         projections: ProjectionIndex,
         runtime_descriptors: Vec<RuntimeDescriptor>,
         intent_override: Option<IntentIndex>,
+        trust_cached_projections: bool,
     ) -> Self {
         Self::with_shared_history_outcomes_coordination_projections_and_query_state(
             graph,
             history,
             outcomes,
             coordination,
+            canonical_snapshot_v2,
             projections,
             runtime_descriptors,
             intent_override,
-            false,
+            trust_cached_projections,
         )
     }
 
@@ -271,6 +281,7 @@ impl Prism {
         history: Arc<HistoryStore>,
         outcomes: Arc<OutcomeMemory>,
         coordination: CoordinationSnapshot,
+        canonical_snapshot_v2: CoordinationSnapshotV2,
         projections: ProjectionIndex,
         runtime_descriptors: Vec<RuntimeDescriptor>,
         intent_override: Option<IntentIndex>,
@@ -281,8 +292,9 @@ impl Prism {
             history,
             outcomes,
             projections,
-            MaterializedCoordinationRuntime::from_snapshot_with_runtime_descriptors(
+            MaterializedCoordinationRuntime::new(
                 coordination,
+                canonical_snapshot_v2,
                 runtime_descriptors,
             ),
             intent_override,
@@ -559,21 +571,13 @@ impl Prism {
             .materialized_runtime
             .read()
             .expect("materialized runtime lock poisoned");
-        runtime.snapshot().to_canonical_snapshot_v2()
-    }
-
-    pub fn replace_coordination_snapshot(&self, snapshot: CoordinationSnapshot) {
-        self.materialized_runtime
-            .write()
-            .expect("materialized runtime lock poisoned")
-            .replace_from_snapshot(snapshot.clone());
-        self.prune_local_assisted_leases(&snapshot);
-        self.invalidate_plan_discovery_cache();
+        runtime.snapshot_v2()
     }
 
     pub fn replace_coordination_runtime(
         &self,
         snapshot: CoordinationSnapshot,
+        canonical_snapshot_v2: CoordinationSnapshotV2,
         runtime_descriptors: Vec<RuntimeDescriptor>,
     ) {
         let prune_snapshot = snapshot.clone();
@@ -581,7 +585,7 @@ impl Prism {
             .materialized_runtime
             .write()
             .expect("materialized runtime lock poisoned");
-        runtime.replace_from_snapshot(snapshot);
+        runtime.replace(snapshot, canonical_snapshot_v2);
         runtime.replace_runtime_descriptors(runtime_descriptors);
         self.prune_local_assisted_leases(&prune_snapshot);
         self.invalidate_plan_discovery_cache();
@@ -607,6 +611,14 @@ impl Prism {
         self.with_coordination_runtime(|runtime| runtime.task_lease_state(task, now))
     }
 
+    pub fn effective_canonical_task_lease_state(
+        &self,
+        task: &prism_coordination::CanonicalTaskRecord,
+        now: u64,
+    ) -> LeaseState {
+        canonical_task_lease_state_with_runtime_descriptors(task, &self.runtime_descriptors(), now)
+    }
+
     pub fn effective_claim_lease_state(&self, claim: &WorkClaim, now: u64) -> LeaseState {
         self.with_coordination_runtime(|runtime| runtime.claim_lease_state(claim, now))
     }
@@ -620,6 +632,20 @@ impl Prism {
         self.with_coordination_runtime(|runtime| {
             runtime.task_heartbeat_due_state(task, policy, now)
         })
+    }
+
+    pub fn effective_canonical_task_heartbeat_due_state(
+        &self,
+        task: &prism_coordination::CanonicalTaskRecord,
+        policy: &prism_coordination::CoordinationPolicy,
+        now: u64,
+    ) -> LeaseHeartbeatDueState {
+        canonical_task_heartbeat_due_state_with_runtime_descriptors(
+            task,
+            policy,
+            &self.runtime_descriptors(),
+            now,
+        )
     }
 
     pub fn effective_claim_heartbeat_due_state(
@@ -674,6 +700,30 @@ impl Prism {
     }
 
     pub fn task_has_active_local_assisted_lease(&self, task: &CoordinationTask, now: u64) -> bool {
+        let key = task.id.0.to_string();
+        let mut assisted = self
+            .local_assisted_leases
+            .write()
+            .expect("local assisted lease lock poisoned");
+        let Some(state) = assisted.tasks.get(&key).copied() else {
+            return false;
+        };
+        if now > state.local_until
+            || task
+                .lease_refreshed_at
+                .is_some_and(|refreshed_at| refreshed_at >= state.observed_at)
+        {
+            assisted.tasks.remove(&key);
+            return false;
+        }
+        true
+    }
+
+    pub fn canonical_task_has_active_local_assisted_lease(
+        &self,
+        task: &prism_coordination::CanonicalTaskRecord,
+        now: u64,
+    ) -> bool {
         let key = task.id.0.to_string();
         let mut assisted = self
             .local_assisted_leases
@@ -762,13 +812,17 @@ impl Prism {
         });
     }
 
-    fn persist_coordination_snapshot(&self, snapshot: CoordinationSnapshot) -> Result<()> {
+    fn persist_coordination_runtime(
+        &self,
+        snapshot: CoordinationSnapshot,
+        canonical_snapshot_v2: CoordinationSnapshotV2,
+    ) -> Result<()> {
         {
             let mut runtime = self
                 .materialized_runtime
                 .write()
                 .expect("materialized runtime lock poisoned");
-            runtime.persist_coordination_snapshot(snapshot.clone())?;
+            runtime.persist_coordination_runtime(snapshot.clone(), canonical_snapshot_v2)?;
         }
         self.prune_local_assisted_leases(&snapshot);
         self.invalidate_plan_discovery_cache();
@@ -779,16 +833,17 @@ impl Prism {
     where
         F: FnOnce(&mut CoordinationRuntimeState) -> Result<T>,
     {
-        let (result, snapshot) = {
+        let (result, snapshot, canonical_snapshot_v2) = {
             let mut runtime = self
                 .materialized_runtime
                 .write()
                 .expect("materialized runtime lock poisoned");
             let result = mutate(runtime.continuity_runtime_mut());
-            let snapshot = runtime.snapshot();
-            (result, snapshot)
+            let snapshot = runtime.refresh_canonical_snapshot_v2();
+            let canonical_snapshot_v2 = runtime.snapshot_v2();
+            (result, snapshot, canonical_snapshot_v2)
         };
-        self.persist_coordination_snapshot(snapshot)?;
+        self.persist_coordination_runtime(snapshot, canonical_snapshot_v2)?;
         result
     }
 
@@ -805,7 +860,7 @@ impl Prism {
             .expect("materialized runtime lock poisoned");
         let before_snapshot = runtime.snapshot();
         let result = mutate(runtime.continuity_runtime_mut());
-        let after_snapshot = runtime.snapshot();
+        let after_snapshot = runtime.refresh_canonical_snapshot_v2();
         (before_snapshot, after_snapshot, result)
     }
 
@@ -820,20 +875,27 @@ impl Prism {
                 Ok(value)
             }
             Err(error) => {
-                self.persist_coordination_snapshot(snapshot)?;
+                self.persist_coordination_runtime(
+                    snapshot.clone(),
+                    snapshot.to_canonical_snapshot_v2(),
+                )?;
                 Err(error)
             }
         }
+    }
+
+    fn current_native_task_view(&self, task_id: &CoordinationTaskId) -> Result<CoordinationTaskV2> {
+        self.coordination_task_v2_by_coordination_id(task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))
     }
 
     pub fn create_native_task(
         &self,
         meta: EventMeta,
         input: TaskCreateInput,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         let result = self.create_native_task_transaction(meta, input)?;
-        self.coordination_task(&result.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+        self.current_native_task_view(&result.task_id)
     }
 
     pub fn update_native_task_transaction(
@@ -891,11 +953,10 @@ impl Prism {
         input: TaskUpdateInput,
         current_revision: WorkspaceRevision,
         now: u64,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         let task_id = input.task_id.clone();
         self.update_native_task_transaction(meta, input, current_revision, now)?;
-        self.coordination_task(&task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))
+        self.current_native_task_view(&task_id)
     }
 
     pub fn update_native_task_authoritative_only(
@@ -904,7 +965,7 @@ impl Prism {
         mut input: TaskUpdateInput,
         current_revision: WorkspaceRevision,
         now: u64,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         if let Some(context) = self.coordination_context() {
             if matches!(input.session, Some(Some(_))) {
                 input.worktree_id = Some(Some(context.worktree_id));
@@ -914,12 +975,14 @@ impl Prism {
                 input.branch_ref = Some(None);
             }
         }
+        let task_id = input.task_id.clone();
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| {
                 runtime.update_task_authoritative_only(meta, input, current_revision, now)
             });
         let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        self.finalize_live_coordination_mutation(snapshot, result)?;
+        self.current_native_task_view(&task_id)
     }
 
     pub fn request_native_handoff_transaction(
@@ -952,10 +1015,9 @@ impl Prism {
         meta: EventMeta,
         input: HandoffInput,
         current_revision: WorkspaceRevision,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         let result = self.request_native_handoff_transaction(meta, input, current_revision)?;
-        self.coordination_task(&result.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+        self.current_native_task_view(&result.task_id)
     }
 
     pub fn accept_native_handoff_transaction(
@@ -990,10 +1052,9 @@ impl Prism {
         &self,
         meta: EventMeta,
         input: HandoffAcceptInput,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         let result = self.accept_native_handoff_transaction(meta, input)?;
-        self.coordination_task(&result.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+        self.current_native_task_view(&result.task_id)
     }
 
     pub fn resume_native_task_transaction(
@@ -1028,10 +1089,9 @@ impl Prism {
         &self,
         meta: EventMeta,
         input: TaskResumeInput,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         let result = self.resume_native_task_transaction(meta, input)?;
-        self.coordination_task(&result.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+        self.current_native_task_view(&result.task_id)
     }
 
     pub fn reclaim_native_task_transaction(
@@ -1066,10 +1126,9 @@ impl Prism {
         &self,
         meta: EventMeta,
         input: TaskReclaimInput,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
         let result = self.reclaim_native_task_transaction(meta, input)?;
-        self.coordination_task(&result.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+        self.current_native_task_view(&result.task_id)
     }
 
     pub fn heartbeat_native_task(
@@ -1077,13 +1136,15 @@ impl Prism {
         meta: EventMeta,
         task_id: &CoordinationTaskId,
         renewal_provenance: &str,
-    ) -> Result<CoordinationTask> {
+    ) -> Result<CoordinationTaskV2> {
+        let task_id = task_id.clone();
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| {
-                runtime.heartbeat_task(meta, task_id, renewal_provenance)
+                runtime.heartbeat_task(meta, &task_id, renewal_provenance)
             });
         let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        self.finalize_live_coordination_mutation(snapshot, result)?;
+        self.current_native_task_view(&task_id)
     }
 
     pub fn acquire_native_claim(

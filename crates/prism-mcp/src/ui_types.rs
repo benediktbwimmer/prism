@@ -1,8 +1,8 @@
 use prism_js::{
     AgentOutcomeSummaryView, ArtifactView, BlockerView, ClaimView, ConceptPacketView,
-    CoordinationPlanV2View, CoordinationTaskV2View, CoordinationTaskView, NodeRefView,
-    PlanListEntryView, PlanSummaryView, PolicyViolationRecordView, RuntimeLogEventView,
-    RuntimeStatusView, TaskJournalView, ValidationRefView,
+    CoordinationPlanV2View, CoordinationTaskV2View, NodeRefView, PlanListEntryView,
+    PlanSummaryView, PolicyViolationRecordView, RuntimeLogEventView, RuntimeStatusView,
+    TaskJournalView, ValidationRefView,
 };
 use serde::Serialize;
 
@@ -46,7 +46,7 @@ pub(crate) struct PrismOverviewCoordinationView {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismOverviewCoordinationQueuesView {
     pub(crate) enabled: bool,
-    pub(crate) pending_handoffs: Vec<CoordinationTaskView>,
+    pub(crate) pending_handoffs: Vec<CoordinationTaskV2View>,
     pub(crate) active_claims: Vec<ClaimView>,
     pub(crate) pending_reviews: Vec<ArtifactView>,
 }
@@ -61,7 +61,7 @@ pub(crate) struct PrismOverviewView {
     pub(crate) spotlight_plans: Vec<OverviewPlanSpotlightView>,
     pub(crate) hot_concepts: Vec<OverviewConceptSpotlightView>,
     pub(crate) recent_outcomes: Vec<AgentOutcomeSummaryView>,
-    pub(crate) pending_handoffs: Vec<CoordinationTaskView>,
+    pub(crate) pending_handoffs: Vec<CoordinationTaskV2View>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -144,9 +144,9 @@ pub(crate) struct PrismPlanDetailView {
     pub(crate) children: Vec<NodeRefView>,
     pub(crate) child_plans: Vec<CoordinationPlanV2View>,
     pub(crate) child_tasks: Vec<CoordinationTaskV2View>,
-    pub(crate) ready_tasks: Vec<CoordinationTaskView>,
+    pub(crate) ready_tasks: Vec<CoordinationTaskV2View>,
     pub(crate) pending_reviews: Vec<ArtifactView>,
-    pub(crate) pending_handoffs: Vec<CoordinationTaskView>,
+    pub(crate) pending_handoffs: Vec<CoordinationTaskV2View>,
     pub(crate) recent_violations: Vec<PolicyViolationRecordView>,
     pub(crate) recent_outcomes: Vec<AgentOutcomeSummaryView>,
 }
@@ -163,7 +163,7 @@ pub(crate) struct PrismGraphView {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismUiTaskDetailView {
-    pub(crate) task: CoordinationTaskView,
+    pub(crate) task: CoordinationTaskV2View,
     pub(crate) editable: PrismUiTaskEditableMetadataView,
     pub(crate) claim_history: Vec<PrismUiTaskClaimHistoryEntryView>,
     pub(crate) blockers: Vec<PrismUiTaskBlockerEntryView>,
@@ -208,7 +208,7 @@ pub(crate) struct PrismUiTaskClaimHistoryEntryView {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismUiTaskBlockerEntryView {
     pub(crate) blocker: BlockerView,
-    pub(crate) related_task: Option<CoordinationTaskView>,
+    pub(crate) related_task: Option<CoordinationTaskV2View>,
 }
 
 #[derive(Debug, Clone, Serialize)]

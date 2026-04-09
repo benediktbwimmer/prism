@@ -3,10 +3,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::{anyhow, Result};
-use prism_coordination::{
-    task_lease_state, CanonicalTaskRecord, CoordinationTask, LeaseState, TaskBlocker,
-    TaskGitExecution,
-};
+use prism_coordination::{CanonicalTaskRecord, LeaseState, TaskBlocker, TaskGitExecution};
 use prism_ir::{
     AnchorRef, CoordinationTaskId, EdgeKind, GitExecutionStatus, GitIntegrationStatus, NodeId,
     NodeRef, NodeRefKind, TaskId, WorkspaceRevision,
@@ -22,8 +19,8 @@ use serde_json::json;
 use super::suggested_actions::{dedupe_suggested_actions, suggested_open_action};
 use super::*;
 use crate::{
-    coordination_task_view_from_v2, symbol_view_without_excerpt, task_heartbeat_advice,
-    task_heartbeat_next_action, PrismTaskBriefArgs, TaskHeartbeatAdvice,
+    symbol_view_without_excerpt, task_heartbeat_advice, task_heartbeat_next_action,
+    PrismTaskBriefArgs, TaskHeartbeatAdvice,
 };
 
 impl QueryHost {
@@ -200,102 +197,77 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
     let coordination_task_id = CoordinationTaskId::new(task_id.to_string());
     let canonical_task_id = TaskId::new(task_id.to_string());
     let evidence_status = prism.task_evidence_status(&coordination_task_id, now);
-    if let Some(task_v2) = prism.coordination_task_v2(&canonical_task_id) {
-        debug_assert!(evidence_status.is_some());
-        let legacy_task = prism.coordination_task(&coordination_task_id);
-        let task_view = coordination_task_view_from_v2(task_v2.clone(), legacy_task.clone());
-        let raw_blockers = evidence_status
-            .as_ref()
-            .map(|status| status.blockers.clone())
-            .unwrap_or_default();
-        let blockers = raw_blockers
-            .iter()
-            .take(TASK_BRIEF_BLOCKER_LIMIT)
-            .map(|blocker| AgentTaskBlockerView {
-                kind: blocker.kind,
-                summary: clamp_string(&blocker.summary, TASK_BRIEF_TEXT_MAX_CHARS),
-            })
-            .collect::<Vec<_>>();
-        let likely_validations = compact_validation_labels_from_task_blockers(&raw_blockers);
-        let risk_hint = legacy_task.as_ref().and_then(|task| {
-            compact_coordination_task_risk_hint(task, &raw_blockers, &prism.workspace_revision())
-        });
-        let fallback_validation_refs = task_view
-            .validation_refs
-            .iter()
-            .map(|validation| validation.id.clone())
-            .collect::<Vec<_>>();
-        let lease_state =
-            task_brief_lease_state_for_canonical(&task_v2.task, legacy_task.as_ref(), now);
-        let lease_holder = task_brief_authoritative_lease_holder_for_canonical(
-            &task_v2.task,
-            legacy_task.as_ref(),
-        );
-        return Ok(TaskBriefSubject {
-            task_id: task_view.id.clone(),
-            coordination_task_id: Some(coordination_task_id),
-            title: task_view.title,
-            status: task_view.status,
-            assignee: task_view.assignee,
-            pending_handoff_to: task_view.pending_handoff_to,
-            git_execution: task_v2.task.git_execution.clone(),
-            lease_state,
-            lease_holder,
-            anchors: task_view.anchors,
-            blockers,
-            dependencies: task_v2.dependencies,
-            dependents: task_v2.dependents,
-            likely_validations,
-            fallback_validation_refs,
-            risk_hint,
-        });
-    }
-    if let Some(task) = prism.coordination_task(&coordination_task_id) {
-        debug_assert!(evidence_status.is_some());
-        let raw_blockers = evidence_status
-            .as_ref()
-            .map(|status| status.blockers.clone())
-            .unwrap_or_default();
-        let blockers = raw_blockers
-            .iter()
-            .take(TASK_BRIEF_BLOCKER_LIMIT)
-            .map(|blocker| AgentTaskBlockerView {
-                kind: blocker.kind,
-                summary: clamp_string(&blocker.summary, TASK_BRIEF_TEXT_MAX_CHARS),
-            })
-            .collect::<Vec<_>>();
-        let likely_validations = compact_validation_labels_from_task_blockers(&raw_blockers);
-        let risk_hint =
-            compact_coordination_task_risk_hint(&task, &raw_blockers, &prism.workspace_revision());
-        let fallback_validation_refs = coordination_task_validation_refs(&task);
-        let lease_state = task_brief_lease_state(&task, now);
-        let lease_holder = task_brief_authoritative_lease_holder(&task);
-        return Ok(TaskBriefSubject {
-            task_id: task.id.0.to_string(),
-            coordination_task_id: Some(task.id.clone()),
-            title: task.title,
-            status: task.status,
-            assignee: task.assignee.map(|agent| agent.0.to_string()),
-            pending_handoff_to: task.pending_handoff_to.map(|agent| agent.0.to_string()),
-            git_execution: task.git_execution.clone(),
-            lease_state,
-            lease_holder,
-            anchors: task.anchors,
-            blockers,
-            dependencies: prism
-                .node_dependencies_v2(&NodeRef::task(TaskId::new(task.id.0.clone()))),
-            dependents: prism.node_dependents_v2(&NodeRef::task(TaskId::new(task.id.0.clone()))),
-            likely_validations,
-            fallback_validation_refs,
-            risk_hint,
-        });
-    }
+    let Some(task_v2) = prism.coordination_task_v2(&canonical_task_id) else {
+        return Err(anyhow!("unknown coordination task `{task_id}`"));
+    };
 
-    Err(anyhow!("unknown coordination task `{task_id}`"))
+    debug_assert!(evidence_status.is_some());
+    let raw_blockers = evidence_status
+        .as_ref()
+        .map(|status| status.blockers.clone())
+        .unwrap_or_default();
+    let blockers = raw_blockers
+        .iter()
+        .take(TASK_BRIEF_BLOCKER_LIMIT)
+        .map(|blocker| AgentTaskBlockerView {
+            kind: blocker.kind,
+            summary: clamp_string(&blocker.summary, TASK_BRIEF_TEXT_MAX_CHARS),
+        })
+        .collect::<Vec<_>>();
+    let likely_validations = compact_validation_labels_from_task_blockers(&raw_blockers);
+    let risk_hint =
+        compact_canonical_task_risk_hint(&task_v2.task, &raw_blockers, &prism.workspace_revision());
+    let fallback_validation_refs = task_v2
+        .task
+        .validation_refs
+        .iter()
+        .map(|validation| validation.id.clone())
+        .collect::<Vec<_>>();
+    let lease_state = task_brief_lease_state_for_canonical(prism, &task_v2.task, now);
+    let lease_holder = task_brief_authoritative_lease_holder_for_canonical(&task_v2.task);
+    return Ok(TaskBriefSubject {
+        task_id: task_v2.task.id.0.to_string(),
+        coordination_task_id: Some(coordination_task_id),
+        title: task_v2.task.title,
+        status: task_brief_status_from_canonical(task_v2.status),
+        assignee: task_v2.task.assignee.map(|agent| agent.0.to_string()),
+        pending_handoff_to: task_v2
+            .task
+            .pending_handoff_to
+            .map(|agent| agent.0.to_string()),
+        git_execution: task_v2.task.git_execution.clone(),
+        lease_state,
+        lease_holder,
+        anchors: task_v2.task.anchors,
+        blockers,
+        dependencies: task_v2.dependencies,
+        dependents: task_v2.dependents,
+        likely_validations,
+        fallback_validation_refs,
+        risk_hint,
+    });
 }
 
-fn task_brief_lease_state(task: &CoordinationTask, now: u64) -> Option<String> {
-    match task_lease_state(task, now) {
+fn task_brief_status_from_canonical(
+    status: prism_ir::EffectiveTaskStatus,
+) -> prism_ir::CoordinationTaskStatus {
+    match status {
+        prism_ir::EffectiveTaskStatus::Pending => prism_ir::CoordinationTaskStatus::Ready,
+        prism_ir::EffectiveTaskStatus::Active => prism_ir::CoordinationTaskStatus::InProgress,
+        prism_ir::EffectiveTaskStatus::Blocked
+        | prism_ir::EffectiveTaskStatus::BrokenDependency
+        | prism_ir::EffectiveTaskStatus::Failed => prism_ir::CoordinationTaskStatus::Blocked,
+        prism_ir::EffectiveTaskStatus::Completed => prism_ir::CoordinationTaskStatus::Completed,
+        prism_ir::EffectiveTaskStatus::Abandoned => prism_ir::CoordinationTaskStatus::Abandoned,
+    }
+}
+
+fn task_brief_lease_state_for_canonical(
+    prism: &Prism,
+    task: &prism_coordination::CanonicalTaskRecord,
+    now: u64,
+) -> Option<String> {
+    match prism.effective_canonical_task_lease_state(task, now) {
         LeaseState::Active => Some("active".to_string()),
         LeaseState::Stale => Some("stale".to_string()),
         LeaseState::Expired => Some("expired".to_string()),
@@ -303,70 +275,9 @@ fn task_brief_lease_state(task: &CoordinationTask, now: u64) -> Option<String> {
     }
 }
 
-fn task_brief_lease_state_for_canonical(
-    task: &prism_coordination::CanonicalTaskRecord,
-    legacy_task: Option<&CoordinationTask>,
-    now: u64,
-) -> Option<String> {
-    if let Some(task) = legacy_task {
-        return task_brief_lease_state(task, now);
-    }
-    let Some(expires_at) = task.lease_expires_at else {
-        return None;
-    };
-    if expires_at < now {
-        return Some("expired".to_string());
-    }
-    if task.lease_stale_at.is_some_and(|stale_at| stale_at <= now) {
-        return Some("stale".to_string());
-    }
-    Some("active".to_string())
-}
-
-fn task_brief_authoritative_lease_holder(task: &CoordinationTask) -> Option<TaskLeaseHolderView> {
-    let mut holder = task
-        .lease_holder
-        .clone()
-        .unwrap_or(prism_coordination::LeaseHolder {
-            principal: None,
-            session_id: None,
-            worktree_id: None,
-            agent_id: None,
-        });
-    if holder.session_id.is_none() {
-        holder.session_id = task.session.clone();
-    }
-    if holder.worktree_id.is_none() {
-        holder.worktree_id = task.worktree_id.clone();
-    }
-    if holder.agent_id.is_none() {
-        holder.agent_id = task.assignee.clone();
-    }
-    let view = TaskLeaseHolderView {
-        principal: holder.principal.map(|principal| {
-            principal
-                .name
-                .clone()
-                .unwrap_or_else(|| principal.scoped_id())
-        }),
-        session_id: holder.session_id.map(|session| session.0.to_string()),
-        worktree_id: holder.worktree_id,
-        agent_id: holder.agent_id.map(|agent| agent.0.to_string()),
-    };
-    (view.principal.is_some()
-        || view.session_id.is_some()
-        || view.worktree_id.is_some()
-        || view.agent_id.is_some())
-    .then_some(view)
-}
-
 fn task_brief_authoritative_lease_holder_for_canonical(
     task: &prism_coordination::CanonicalTaskRecord,
-    legacy_task: Option<&CoordinationTask>,
 ) -> Option<TaskLeaseHolderView> {
-    if let Some(task) = legacy_task {
-        return task_brief_authoritative_lease_holder(task);
-    }
     let mut holder = task
         .lease_holder
         .clone()
@@ -600,19 +511,8 @@ fn compact_validation_labels_from_task_blockers(blockers: &[TaskBlocker]) -> Vec
     labels
 }
 
-fn coordination_task_validation_refs(task: &CoordinationTask) -> Vec<String> {
-    let mut labels = Vec::new();
-    for validation in &task.validation_refs {
-        push_unique_string(&mut labels, validation.id.clone());
-        if labels.len() >= TASK_BRIEF_VALIDATION_LIMIT {
-            break;
-        }
-    }
-    labels
-}
-
-fn compact_coordination_task_risk_hint(
-    task: &CoordinationTask,
+fn compact_canonical_task_risk_hint(
+    task: &CanonicalTaskRecord,
     blockers: &[TaskBlocker],
     workspace_revision: &WorkspaceRevision,
 ) -> Option<String> {
@@ -627,7 +527,7 @@ fn compact_coordination_task_risk_hint(
     }) {
         return Some(clamp_string(&blocker.summary, TASK_BRIEF_TEXT_MAX_CHARS));
     }
-    if coordination_task_is_workspace_bound(task)
+    if canonical_task_is_workspace_bound(task)
         && task.base_revision.graph_version < workspace_revision.graph_version
     {
         return Some("Task base revision is stale against the current graph.".to_string());
@@ -635,7 +535,7 @@ fn compact_coordination_task_risk_hint(
     None
 }
 
-fn coordination_task_is_workspace_bound(task: &CoordinationTask) -> bool {
+fn canonical_task_is_workspace_bound(task: &CanonicalTaskRecord) -> bool {
     !task.anchors.is_empty()
         || task
             .acceptance

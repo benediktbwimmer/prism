@@ -1836,9 +1836,9 @@ interface PrismApi {
   symbols(query: string): SymbolView[];
   search(query: string, options?: SearchOptions): SymbolView[];
   entrypoints(): SymbolView[];
-  plan(planId: string): PlanView | null;
-  task(taskId: string): CoordinationTaskView | null;
-  readyTasks(planId: string): CoordinationTaskView[];
+  plan(planId: string): CoordinationPlanV2View | null;
+  task(taskId: string): CoordinationTaskV2View | null;
+  readyTasks(planId: string): CoordinationTaskV2View[];
   claims(anchor: AnchorRefView): ClaimView[];
   conflicts(anchor: AnchorRefView): ConflictView[];
   blockers(taskId: string): BlockerView[];
@@ -1960,22 +1960,59 @@ interface WorkspaceRevisionView {
   gitCommit?: string;
 }
 
-interface PlanView {
+interface CoordinationPlanV2View {
   id: string;
+  parentPlanId?: string;
+  title: string;
   goal: string;
-  status: PlanStatus;
-  rootNodeIds: string[];
+  scope: string;
+  kind: string;
+  operatorState: string;
+  status: string;
+  scheduling: PlanSchedulingView;
+  gitExecutionPolicy: GitExecutionPolicyView;
+  tags: string[];
+  createdFrom?: string;
+  metadata: unknown;
+  children: NodeRefView[];
+  dependencies: NodeRefView[];
+  dependents: NodeRefView[];
+  estimatedMinutesTotal: number;
+  remainingEstimatedMinutes: number;
 }
 
-interface CoordinationTaskView {
+interface TaskExecutorPolicyView {
+  executorClass: string;
+  targetLabel?: string;
+  allowedPrincipals: string[];
+}
+
+interface CoordinationTaskV2View {
   id: string;
-  planId: string;
+  parentPlanId: string;
   title: string;
+  summary?: string;
+  lifecycleStatus: string;
   status: CoordinationTaskStatus;
+  graphActionable: boolean;
+  estimatedMinutes: number;
+  executor: TaskExecutorPolicyView;
   assignee?: string;
+  pendingHandoffTo?: string;
+  session?: string;
+  worktreeId?: string;
+  branchRef?: string;
   anchors: AnchorRefView[];
-  dependsOn: string[];
+  bindings: PlanBindingView;
+  validationRefs: ValidationRefView[];
   baseRevision: WorkspaceRevisionView;
+  priority?: number;
+  tags: string[];
+  metadata: unknown;
+  gitExecution: TaskGitExecutionView;
+  blockerCauses: BlockerCauseView[];
+  dependencies: NodeRefView[];
+  dependents: NodeRefView[];
 }
 
 interface ClaimView {

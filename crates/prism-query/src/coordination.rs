@@ -40,6 +40,17 @@ impl Prism {
         CoordinationQueryEngine::new(self).coordination_task_v2(task_id)
     }
 
+    pub fn coordination_tasks_v2(&self) -> Vec<CoordinationTaskV2> {
+        CoordinationQueryEngine::new(self).coordination_tasks_v2()
+    }
+
+    pub fn coordination_task_v2_by_coordination_id(
+        &self,
+        task_id: &CoordinationTaskId,
+    ) -> Option<CoordinationTaskV2> {
+        self.coordination_task_v2(&TaskId::new(task_id.0.clone()))
+    }
+
     pub fn plan_children_v2(&self, plan_id: &PlanId) -> Vec<NodeRef> {
         let snapshot = self.coordination_snapshot_v2();
         let Ok(graph) = snapshot.graph() else {
@@ -66,6 +77,18 @@ impl Prism {
 
     pub fn graph_actionable_tasks_v2(&self) -> Vec<CoordinationTaskV2> {
         CoordinationQueryEngine::new(self).graph_actionable_tasks_v2()
+    }
+
+    pub fn ready_tasks_v2(&self, plan_id: &PlanId) -> Vec<CoordinationTaskV2> {
+        CoordinationQueryEngine::new(self).ready_tasks_v2(plan_id)
+    }
+
+    pub fn ready_tasks_for_executor_v2(
+        &self,
+        plan_id: &PlanId,
+        caller: &TaskExecutorCaller,
+    ) -> Vec<CoordinationTaskV2> {
+        CoordinationQueryEngine::new(self).ready_tasks_for_executor_v2(plan_id, caller)
     }
 
     pub fn actionable_tasks_for_executor_v2(

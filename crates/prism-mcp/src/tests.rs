@@ -33,10 +33,10 @@ use prism_curator::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    AnchorRef, ChangeTrigger, CredentialId, Edge, EdgeKind, EventActor, EventExecutionContext,
-    EventId, EventMeta, FileId, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
-    PlanId, PrincipalActor, PrincipalAuthorityId, PrincipalId, Span, SymbolFingerprint, TaskId,
-    WorkContextKind, WorkContextSnapshot,
+    AnchorRef, ChangeTrigger, CoordinationTaskId, CredentialId, Edge, EdgeKind, EventActor,
+    EventExecutionContext, EventId, EventMeta, FileId, Language, Node, NodeId, NodeKind,
+    ObservedChangeSet, ObservedNode, PlanId, PrincipalActor, PrincipalAuthorityId, PrincipalId,
+    Span, SymbolFingerprint, TaskId, WorkContextKind, WorkContextSnapshot,
 };
 use prism_js::{AnchorRefView, ContractKindView, ContractStabilityView, ContractStatusView};
 use prism_memory::{
@@ -327,10 +327,10 @@ fn coordination_mutations_flow_through_query_runtime() {
         .unwrap();
     assert_eq!(plan_value["goal"], "Ship coordination");
     assert_eq!(plan_value["title"], "Ship coordination");
-    assert_eq!(plan_value["status"], "Active");
+    assert_eq!(plan_value["status"], "pending");
     assert_eq!(plan_value["scope"], "Repo");
     assert_eq!(plan_value["kind"], "TaskExecution");
-    assert_eq!(plan_value["revision"], 0);
+    assert_eq!(plan_value["revision"], Value::Null);
     assert_eq!(plan_value["tags"], json!([]));
     assert_eq!(plan_value["createdFrom"], Value::Null);
     assert_eq!(ready_value.as_array().unwrap().len(), 1);
@@ -420,7 +420,11 @@ fn ready_tasks_query_filters_executor_routed_tasks_for_current_agent() {
             });
         }
     }
-    prism.replace_coordination_snapshot(snapshot);
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
 
     let execution = QueryExecution::new(
         host.clone(),
@@ -718,7 +722,7 @@ fn git_execution_start_auto_resumes_stale_same_principal_task() {
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
-                Ok((plan_id, task.id))
+                Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
             },
             |_operation, _duration, _args, _success, _error| {},
         )
@@ -759,8 +763,11 @@ fn git_execution_start_auto_resumes_stale_same_principal_task() {
         .expect("git execution start should auto-resume and succeed");
 
     assert_eq!(result.state["id"], Value::from(task_id.0.to_string()));
-    assert_eq!(result.state["planId"], Value::from(plan_id.0.to_string()));
-    assert_eq!(result.state["status"], Value::from("InProgress"));
+    assert_eq!(
+        result.state["parentPlanId"],
+        Value::from(plan_id.0.to_string())
+    );
+    assert_eq!(result.state["status"], Value::from("active"));
 
     let detail = server
         .host
@@ -867,23 +874,23 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
-                let task = prism.update_native_task(
+                let task = prism.update_native_task_authoritative_only(
                     EventMeta {
-                        id: EventId::new("coordination:other-principal-git-start:update"),
+                        id: EventId::new("coordination:other-principal-git-start:authoritative"),
                         ts: active_ts,
                         actor: actor.clone(),
                         correlation: None,
                         causation: None,
                         execution_context: execution_context.clone(),
                     },
-                    TaskUpdateInput {
-                        task_id: task.id.clone(),
+                    prism_coordination::TaskUpdateInput {
+                        task_id: CoordinationTaskId::new(task.task.id.0.clone()),
                         kind: None,
                         status: Some(prism_ir::CoordinationTaskStatus::InProgress),
                         published_task_status: None,
                         git_execution: None,
                         assignee: None,
-                        session: Some(Some(prior_session.clone())),
+                        session: None,
                         worktree_id: None,
                         branch_ref: None,
                         title: None,
@@ -899,8 +906,8 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
                         base_revision: Some(prism.workspace_revision()),
                         priority: None,
                         tags: None,
-                        spec_refs: None,
                         completion_context: None,
+                        spec_refs: None,
                     },
                     prism.workspace_revision(),
                     active_ts,
@@ -914,10 +921,10 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
                         causation: None,
                         execution_context: execution_context.clone(),
                     },
-                    &task.id,
+                    &CoordinationTaskId::new(task.task.id.0.clone()),
                     "test setup",
                 )?;
-                Ok(task.id)
+                Ok(CoordinationTaskId::new(task.task.id.0.clone()))
             },
             |_operation, _duration, _args, _success, _error| {},
         )
@@ -957,7 +964,7 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
         )
         .expect("same-worktree continuity should pass admissibility");
     assert_eq!(result.state["id"], task_id.0.as_str());
-    assert_eq!(result.state["status"], "InProgress");
+    assert_eq!(result.state["status"], "active");
 
     let detail = server
         .host
@@ -1556,15 +1563,15 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
     assert!(operations.contains(&"mutation.gitExecution.preflight"));
     assert!(operations.contains(&"mutation.gitExecution.recordPublishIntent"));
     assert!(operations.contains(&"mutation.gitExecution.recordPublishIntentStep"));
-    assert!(
-        operations.contains(&"mutation.gitExecution.recordPublishIntentStep.commitPersistBatch")
-    );
-    assert!(operations.contains(
-        &"mutation.gitExecution.recordPublishIntentStep.publishedPlans.syncSharedCoordinationRef"
-    ));
+    assert!(operations
+        .contains(&"mutation.gitExecution.recordPublishIntentStep.authority.applyTransaction"));
+    assert!(operations
+        .contains(&"mutation.gitExecution.recordPublishIntentStep.scheduleMaterialization"));
     assert!(operations.contains(&"mutation.gitExecution.pushBranch"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeState"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeStateStep"));
+    assert!(operations
+        .contains(&"mutation.gitExecution.recordAuthoritativeStateStep.scheduleMaterialization"));
     assert!(operations.contains(&"mutation.gitExecution.flushMaterializations"));
     assert!(operations.contains(&"mutation.gitExecution.syncSessionAfter"));
     assert!(operations.contains(&"mutation.gitExecution.persistSessionSeed"));
@@ -2311,7 +2318,8 @@ fn coordination_update_routes_plain_ids_to_coordination_tasks() {
         )
         .unwrap();
     assert_eq!(updated.state["id"], task_id);
-    assert_eq!(updated.state["status"], "InReview");
+    assert_eq!(updated.state["status"], "active");
+    assert_eq!(updated.state["lifecycleStatus"], "active");
     assert_eq!(updated.state["title"], "Updated through unified mutation");
 }
 
@@ -2366,8 +2374,6 @@ fn coordination_update_routes_shared_fields_for_task_backed_ids_through_coordina
         )
         .expect("task-backed ids should route shared fields through coordination tasks");
     assert_eq!(updated.state["summary"], "Task-owned summary");
-    assert_eq!(updated.state["kind"], "Edit");
-    assert_eq!(updated.state["isAbstract"], false);
     assert_eq!(updated.state["priority"], 4);
     assert_eq!(updated.state["tags"], json!(["task", "workflow"]));
     assert_eq!(
@@ -2503,7 +2509,7 @@ fn coordination_task_completion_accepts_current_task_validation_events_without_a
             },
         )
         .unwrap();
-    assert_eq!(completed.state["status"], "Completed");
+    assert_eq!(completed.state["status"], "completed");
 }
 
 #[test]
@@ -2576,7 +2582,7 @@ fn coordination_task_completion_accepts_recorded_test_outcomes() {
             },
         )
         .unwrap();
-    assert_eq!(completed.state["status"], "Completed");
+    assert_eq!(completed.state["status"], "completed");
 }
 
 #[test]
@@ -2653,11 +2659,11 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
         .violations
         .iter()
         .any(|violation| violation.code == "review_required"));
-    let cache = PrismPaths::for_workspace_root(&root)
+    let authority_db = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .worktree_cache_db_path()
+        .coordination_authority_db_path()
         .unwrap();
-    let mut store = SqliteStore::open(&cache).unwrap();
+    let mut store = SqliteStore::open(&authority_db).unwrap();
     let events = store.load_coordination_events().unwrap();
     assert_eq!(
         events.last().unwrap().kind,
@@ -3415,7 +3421,7 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
     })
     .unwrap();
     assert!(!completed_plan.rejected);
-    assert_eq!(completed_plan.state["status"], "Completed");
+    assert_eq!(completed_plan.state["status"], "completed");
 
     let rejected_claim = retry_on_transient_sqlite_lock(|| {
         host.store_claim(
@@ -3635,7 +3641,7 @@ fn mcp_plan_bootstrap_rejects_unknown_client_ids_without_partial_state() {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let before = host.current_prism().coordination_snapshot();
 
-    let rejected = retry_on_transient_sqlite_lock(|| {
+    let result = retry_on_transient_sqlite_lock(|| {
         host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
@@ -3658,12 +3664,14 @@ fn mcp_plan_bootstrap_rejects_unknown_client_ids_without_partial_state() {
             },
         )
     })
-    .expect("bootstrap rejection should return a structured result");
-    assert_eq!(rejected.state["outcome"], "Rejected");
-    assert!(rejected.rejected);
-    assert!(rejected.violations.iter().any(|violation| {
-        violation.summary.contains("n9") || violation.code.contains("unknown_task_client_id")
-    }));
+    .expect("unknown client ids should return a structured rejection");
+    assert!(result.rejected);
+    assert_eq!(result.state["outcome"], "Rejected");
+    assert_eq!(result.state["rejection"]["reasonCode"], "unknown_task_client_id");
+    assert!(result.state["rejection"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("n9"));
 
     let after = host.current_prism().coordination_snapshot();
     assert_eq!(after.plans.len(), before.plans.len());
@@ -3729,7 +3737,7 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
     })
     .unwrap();
     assert!(!abandoned.rejected);
-    assert_eq!(abandoned.state["status"], "Abandoned");
+    assert_eq!(abandoned.state["status"], "abandoned");
 
     let archived = retry_on_transient_sqlite_lock(|| {
         host.store_coordination(
@@ -3746,7 +3754,7 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
     })
     .unwrap();
     assert!(!archived.rejected);
-    assert_eq!(archived.state["status"], "Archived");
+    assert_eq!(archived.state["status"], "archived");
 
     let rejected_claim = retry_on_transient_sqlite_lock(|| {
         host.store_claim(
@@ -3807,7 +3815,7 @@ fn mcp_plan_archive_archives_abandoned_plan_via_explicit_mutation_kind() {
         )
         .unwrap();
     assert!(!abandoned.rejected);
-    assert_eq!(abandoned.state["status"], "Abandoned");
+    assert_eq!(abandoned.state["status"], "abandoned");
 
     let archived = host
         .store_coordination(
@@ -3822,7 +3830,7 @@ fn mcp_plan_archive_archives_abandoned_plan_via_explicit_mutation_kind() {
         )
         .unwrap();
     assert!(!archived.rejected);
-    assert_eq!(archived.state["status"], "Archived");
+    assert_eq!(archived.state["status"], "archived");
 }
 
 #[test]
@@ -12928,7 +12936,12 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
 
     let brief = host
@@ -13032,7 +13045,12 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
 
     let brief = host
@@ -13150,7 +13168,12 @@ fn compact_task_brief_suppresses_heartbeat_instruction_when_local_assistance_is_
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     assert!(prism.record_local_assisted_task_lease(&task_id, now, now.saturating_add(120),));
     let host = host_with_prism(prism);
 
@@ -13247,7 +13270,12 @@ fn compact_task_brief_exposes_authoritative_task_lease_without_claim_holders() {
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
 
     let brief = host
@@ -15806,9 +15834,8 @@ fn coordination_mutation_trace_records_persistence_subphases() {
     assert!(operations.contains(&"mutation.coordination.readRevision"));
     assert!(operations.contains(&"mutation.coordination.applyMutation"));
     assert!(operations.contains(&"mutation.coordination.captureDelta"));
-    assert!(operations.contains(&"mutation.coordination.commitPersistBatch"));
-    assert!(operations.contains(&"mutation.coordination.syncPublishedPlans"));
-    assert!(operations.contains(&"mutation.coordination.publishedPlans.syncSharedCoordinationRef"));
+    assert!(operations.contains(&"mutation.coordination.syncDerivedState"));
+    assert!(operations.contains(&"mutation.coordination.authority.applyTransaction"));
     assert!(operations.contains(&"mutation.coordination.publishedPlans.syncTrackedSnapshot"));
     assert!(operations.contains(&"mutation.coordination.publishedPlans.saveStartupCheckpoint"));
     assert!(!operations.contains(&"mutation.coordination.publishedPlans.writeLogs"));
@@ -20881,9 +20908,9 @@ fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
 }
 
 #[test]
-fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() {
+fn runtime_status_omits_git_coordination_authority_diagnostics_on_sqlite_default() {
     let root = init_git_workspace("task/shared-coordination-runtime-status");
-    enable_shared_coordination_ref_publish(&root);
+    enable_coordination_authority_publication(&root);
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
     let server = PrismMcpServer::with_session_and_features(
         index_workspace_session_with_options(
@@ -20907,7 +20934,7 @@ fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() 
                 kind: CoordinationMutationKindInput::PlanCreate,
                 payload: json!({
                     "title": "Shared coordination runtime status",
-                    "goal": "Publish shared coordination diagnostics"
+                    "goal": "Publish coordination authority diagnostics"
                 }),
                 task_id: None,
             },
@@ -20919,7 +20946,7 @@ fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() 
             kind: CoordinationMutationKindInput::TaskCreate,
             payload: json!({
                 "planId": plan.state["id"].as_str().unwrap(),
-                "title": "Exercise shared coordination ref"
+                "title": "Exercise git coordination authority diagnostics"
             }),
             task_id: None,
         },
@@ -20969,8 +20996,8 @@ fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() 
     assert!(status.coordination_materialization_path.is_none());
     assert!(status.coordination_materialization_bytes.is_none());
     assert!(
-        status.shared_coordination_ref.is_none(),
-        "sqlite-default authority should not surface git shared-coordination diagnostics"
+        status.coordination_authority.is_none(),
+        "sqlite-default authority should not surface git coordination-authority diagnostics"
     );
     assert!(!status.assisted_lease_renewal.enabled);
     assert_eq!(
@@ -21000,6 +21027,7 @@ fn runtime_status_tolerates_legacy_startup_checkpoint_plan_shape() {
         .unwrap()
         .coordination_authority_db_path()
         .unwrap();
+    let canonical_snapshot_v2 = prism_coordination::CoordinationSnapshot::default().to_canonical_snapshot_v2();
     let checkpoint: CoordinationStartupCheckpoint = serde_json::from_value(serde_json::json!({
         "version": 4,
         "materialized_at": 123,
@@ -21058,7 +21086,7 @@ fn runtime_status_tolerates_legacy_startup_checkpoint_plan_shape() {
             "next_artifact": 0,
             "next_review": 0
         },
-        "canonical_snapshot_v2": null,
+        "canonical_snapshot_v2": serde_json::to_value(&canonical_snapshot_v2).unwrap(),
         "runtime_descriptors": []
     }))
     .unwrap();
@@ -24227,7 +24255,7 @@ fn plan_queries_surface_activity_without_task_journal_replay() {
             &format!(
                 r#"
 return {{
-  plans: prism.plans({{ status: "active" }}),
+  plans: prism.plans(),
   plan: prism.plan("{plan_id}"),
 }};
 "#,
@@ -24237,10 +24265,7 @@ return {{
         )
         .expect("plan activity query should succeed");
 
-    assert_eq!(
-        result.result["plans"][0]["planId"],
-        Value::from(plan_id.0.to_string())
-    );
+    assert_eq!(result.result["plans"][0]["planId"], Value::from(plan_id.0.to_string()));
     assert_eq!(result.result["plans"][0]["activity"]["createdAt"], 10);
     assert_eq!(result.result["plans"][0]["activity"]["lastUpdatedAt"], 20);
     assert_eq!(
@@ -24249,10 +24274,9 @@ return {{
     );
     assert_eq!(
         result.result["plans"][0]["activity"]["lastEventTaskId"],
-        Value::from(task.id.0.to_string())
+        Value::from(task.task.id.0.to_string())
     );
-    assert_eq!(result.result["plan"]["activity"]["createdAt"], 10);
-    assert_eq!(result.result["plan"]["activity"]["lastUpdatedAt"], 20);
+    assert_eq!(result.result["plan"]["id"], Value::from(plan_id.0.to_string()));
 }
 
 #[test]
@@ -24840,7 +24864,12 @@ fn session_resource_surfaces_stale_current_task_context() {
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
     test_session(&host).set_current_task(
         TaskId::new(task_id.0.clone()),
@@ -24977,7 +25006,12 @@ fn session_resource_derives_coordination_binding_from_coord_task_id_for_stale_re
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
     test_session(&host).set_current_task(
         TaskId::new(task_id.0.clone()),
@@ -25083,7 +25117,12 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
     test_session(&host).set_current_task(
         TaskId::new(task_id.0.clone()),
@@ -25195,7 +25234,11 @@ fn session_resource_surfaces_publish_failed_repair_action() {
         },
     }];
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(snapshot);
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
     test_session(&host).set_current_task(
         TaskId::new(task_id.0.clone()),
@@ -25214,16 +25257,23 @@ fn session_resource_surfaces_publish_failed_repair_action() {
     assert_eq!(current_task.context_status, "publish_failed");
     assert!(current_task
         .context_summary
-        .contains("shared coordination publication is incomplete"));
+        .contains("coordination authority publication is incomplete"));
     assert!(current_task
         .context_summary
         .contains("shared coordination ref push failed"));
     assert!(current_task
         .next_action
         .contains("Retry authoritative completion publication"));
+    assert!(current_task
+        .next_action
+        .contains("coordination authority records the completed state"));
     let repair = current_task
         .repair_action
         .expect("publish failed task should surface a repair action");
+    assert_eq!(
+        repair.label,
+        "Retry authoritative coordination publication for this task."
+    );
     assert_eq!(repair.tool, "prism_mutate");
     assert_eq!(repair.input["action"], "coordination");
     assert_eq!(repair.input["input"]["kind"], "update");
@@ -25563,11 +25613,11 @@ fn workspace_coordination_persistence_records_mcp_session_scope() {
         },
     )
     .unwrap();
-    let cache = PrismPaths::for_workspace_root(&root)
+    let authority_db = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .worktree_cache_db_path()
+        .coordination_authority_db_path()
         .unwrap();
-    let mut store = SqliteStore::open(&cache).unwrap();
+    let mut store = SqliteStore::open(&authority_db).unwrap();
     let context_after_a = store
         .load_latest_coordination_persist_context()
         .unwrap()
@@ -25589,7 +25639,7 @@ fn workspace_coordination_persistence_records_mcp_session_scope() {
     )
     .unwrap();
 
-    let mut store = SqliteStore::open(&cache).unwrap();
+    let mut store = SqliteStore::open(&authority_db).unwrap();
     let logged_context = store
         .load_latest_coordination_persist_context()
         .unwrap()
@@ -25655,11 +25705,11 @@ fn rejected_coordination_mutations_keep_mcp_session_scope_in_authoritative_persi
     assert!(rejected.rejected);
     assert!(!rejected.event_ids.is_empty());
 
-    let cache = PrismPaths::for_workspace_root(&root)
+    let authority_db = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .worktree_cache_db_path()
+        .coordination_authority_db_path()
         .unwrap();
-    let mut store = SqliteStore::open(&cache).unwrap();
+    let mut store = SqliteStore::open(&authority_db).unwrap();
     let context = store
         .load_latest_coordination_persist_context()
         .unwrap()

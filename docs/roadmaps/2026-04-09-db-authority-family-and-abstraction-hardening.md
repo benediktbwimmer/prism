@@ -2,7 +2,7 @@
 
 Status: in progress
 Audience: coordination, service, storage, MCP, CLI, deployment, and authority-backend maintainers
-Scope: introduce the internal DB-backed coordination authority family beneath `CoordinationAuthorityStore`, make SQLite the default functioning backend, add Postgres through the same seam, and harden the authority and service abstractions along the way
+Scope: introduce the internal DB-backed coordination authority family beneath `CoordinationAuthorityStore`, make SQLite the default functioning backend, remove migration-era compatibility layers and legacy coordination graph surfaces, add Postgres later through the same seam, and harden the authority and service abstractions along the way
 
 ---
 
@@ -38,9 +38,11 @@ The end state is:
 2. one internal DB authority family sits beneath it
 3. `SqliteCoordinationDb` is the first real implementation of that family
 4. SQLite becomes the default functioning backend for `CoordinationAuthorityStore`
-5. `PostgresCoordinationDb` lands through the same family seam
-6. Git shared refs remain supported without continuing to shape upper layers incorrectly
-7. the surrounding abstractions and service wiring are cleaner and harder to bypass than they are today
+5. migration-era compatibility code is deleted rather than preserved at product edges
+6. plans, tasks, artifacts, and reviews v2 are the only live coordination surface model left
+7. `PostgresCoordinationDb` lands later through the same family seam
+8. Git shared refs remain supported without continuing to shape upper layers incorrectly
+9. the surrounding abstractions and service wiring are cleaner and harder to bypass than they are today
 
 This roadmap follows and sharpens:
 
@@ -58,15 +60,28 @@ Current phase checklist:
 - [x] Phase 3: implement SQLite authority and make it the default backend
 - [ ] Phase 4: complete service and product-surface adoption on the SQLite default path
 - [ ] Phase 5: implement Postgres through the same DB authority seam
-- [ ] Phase 6: remove remaining migration mismatches and document the steady state
+- [ ] Phase 6: remove remaining migration mismatches, compatibility layers, and legacy coordination surfaces
 
 Current active phase:
 
-- Phase 4: complete service and product-surface adoption on the SQLite default path
+- Phase 6: remove remaining migration mismatches, compatibility layers, and legacy coordination surfaces
 
 Current phase spec:
 
-- [../specs/2026-04-09-sqlite-default-authority-semantics-follow-through-phase-4.md](../specs/2026-04-09-sqlite-default-authority-semantics-follow-through-phase-4.md)
+- [../specs/2026-04-09-coordination-v2-breaking-compatibility-removal-phase-6.md](../specs/2026-04-09-coordination-v2-breaking-compatibility-removal-phase-6.md)
+- [../specs/2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md](../specs/2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md)
+- [../specs/2026-04-09-host-mutation-canonical-follow-through-phase-6.md](../specs/2026-04-09-host-mutation-canonical-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-read-surface-follow-through-phase-6.md](../specs/2026-04-09-canonical-read-surface-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-read-model-follow-through-phase-6.md](../specs/2026-04-09-canonical-read-model-follow-through-phase-6.md)
+- [../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md](../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-spec-linkage-follow-through-phase-6.md](../specs/2026-04-09-canonical-spec-linkage-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-runtime-publish-state-follow-through-phase-6.md](../specs/2026-04-09-canonical-runtime-publish-state-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-materialization-envelope-follow-through-phase-6.md](../specs/2026-04-09-canonical-materialization-envelope-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-assisted-overlay-follow-through-phase-6.md](../specs/2026-04-09-canonical-assisted-overlay-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-startup-checkpoint-follow-through-phase-6.md](../specs/2026-04-09-canonical-startup-checkpoint-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-runtime-replacement-follow-through-phase-6.md](../specs/2026-04-09-canonical-runtime-replacement-follow-through-phase-6.md)
 
 Current assessment:
 
@@ -113,6 +128,94 @@ Latest checkpoint:
   Git authority explicitly, backend-neutral persistence tests now assert SQLite-first authority and
   materialization semantics directly, and the full workspace test suite is green again on the
   SQLite-default path
+- the startup-checkpoint authority naming follow-through is complete; backend-neutral startup
+  checkpoint provenance now resolves through coordination-authority-named helpers instead of
+  shared-ref-shaped naming in the checkpoint and authority API layers
+- the runtime-gateway authority diagnostics follow-through is complete; backend-neutral remote-runtime
+  routing now reads degraded verification through authority diagnostics, keeps descriptor lookup on
+  the authority store, and reports SQLite-default authority failures without shared-ref-shaped
+  wording
+- the authority-publication operation naming follow-through is complete; backend-neutral authority
+  traces, test opt-in markers, skip reasons, and repo-state export wording now use
+  coordination-authority language instead of shared-ref-shaped names, and git-execution tracing
+  now distinguishes deferred materialization scheduling from suppressed inline materialization on
+  the SQLite-default authority path
+- the authority-compatibility-edge follow-through is complete; legacy
+  `shared_coordination_ref` response-field access is now isolated behind one helper and
+  backend-neutral session guidance now talks about coordination authority rather than the shared
+  coordination ref
+- the authority-sync and legacy-alias demotion follow-through is complete; backend-neutral
+  authority-sync wording no longer mentions a shared-ref refresh lock, and the remaining
+  shared-ref diagnostics helpers are now explicit deprecated compatibility aliases behind preferred
+  Git-named exports
+- the backend-neutral wording residue cleanup is complete; the next active slice is the breaking
+  removal of the remaining compatibility surfaces rather than preserving them
+- the roadmap now explicitly targets deleting every remaining authority-edge compatibility alias,
+  deleting the legacy runtime-status shared-ref field, and cutting live MCP/query coordination
+  surfaces over to v2-only plan/task/artifact/review payloads
+- the first Phase 6 breaking-cut implementation is in progress: authority-edge aliases are gone,
+  the runtime-status field is now `coordinationAuthority`, and the live JS/MCP coordination surface
+  now returns only v2 plan/task payloads
+- the reader-side query follow-through is now complete; `prism-query` risk, intent, and impact
+  readers plus adjacent MCP task-context/provenance readers now load canonical v2 task and plan
+  data instead of legacy plan/task projections where legacy-only fields are not required
+- the canonical task handoff follow-through is complete; pending handoff is now first-class data
+  on canonical task records, derived v2 task status treats pending handoff as blocked, and the
+  task-brief, assisted-lease, and session-task readers no longer need legacy task lookups for
+  handoff or lease metadata
+- the host-mutation canonical follow-through is complete; git-execution reloads, workflow update
+  reads, artifact default-anchor lookup, work declaration, and session binding now use canonical
+  v2 task and plan state wherever legacy lease-holder helpers are not required
+- the remaining legacy host-mutation callers are now explicitly limited to stale-same-holder
+  auto-resume and the git-execution admissibility path that still depends on legacy holder logic
+- the next Phase 6 cleanup is canonicalizing the remaining native mutation-return helpers and
+  active-path runtime mutation reloads under `prism-query` so host and runtime mutation flows stop
+  re-reading legacy `CoordinationTask` values after mutation commits
+- the current active slice is narrowing that work to the transaction-backed native task mutation
+  helpers under `prism-query`; the deeper live-runtime mutation returns like heartbeat and
+  authoritative-only task updates remain explicitly deferred until the runtime mutation path is
+  cut over more directly
+- the native task mutation-return follow-through is complete; transaction-backed native task
+  helpers in `prism-query` now reload canonical `CoordinationTaskV2` records after commit,
+  downstream core and MCP tests have been normalized to `CoordinationTaskId` at the mutation
+  boundary, and MCP stale-resume expectations now assert canonical effective task statuses rather
+  than the removed legacy raw-status response surface
+- the canonical task lease and live-runtime mutation follow-through is complete; stale-same-holder
+  auto-resume and git-execution admissibility now run on canonical task records, canonical
+  lease-holder helpers live in `prism-coordination`, and the last live-runtime native task
+  helpers now return `CoordinationTaskV2`
+- the canonical read-surface follow-through is complete; `prism-query` now exposes canonical
+  ready-task helpers, plan activity/discovery no longer reload legacy plan/task records, MCP
+  plan-resource and runtime-overlay reads use `CoordinationSnapshotV2`, and the broker no longer
+  exposes the legacy snapshot as part of the current coordination surface
+- the canonical spec-linkage follow-through is complete; spec refs are now first-class on
+  canonical plan/task records, the spec materialization path now consumes
+  `CoordinationSnapshotV2`, and workspace-backed CLI/MCP spec reads no longer depend on the
+  legacy snapshot surface
+- the canonical read-model follow-through is complete; coordination read and queue models now
+  derive from `CoordinationSnapshotV2`, broker and materialization fallback rebuilds no longer
+  need the legacy snapshot, and those read-model structs now carry canonical identifiers instead
+  of legacy plan/task payloads where only summary membership is needed
+- the canonical runtime publish-state follow-through is complete; runtime-state and `Prism`
+  publication paths now carry canonical coordination snapshots as first-class state, and the
+  shared coordination-transaction path refreshes cached canonical state before immediate v2 reads
+- the canonical materialization-envelope follow-through is complete; checkpoint and adjacent
+  persistence code now require canonical coordination state on production materialization
+  envelopes instead of treating it as an optional fallback derived from the legacy continuity
+  snapshot
+- the canonical assisted-overlay follow-through is complete; the local assisted-lease republish
+  path in `watch.rs` now preserves the live canonical coordination snapshot instead of
+  re-deriving it from the legacy continuity snapshot during overlay publish
+- the canonical startup-checkpoint follow-through is complete; persisted startup checkpoints now
+  require canonical coordination state and the authority/startup loaders no longer carry the
+  legacy fallback path for missing checkpoint v2 state
+- the canonical runtime-replacement follow-through is complete; active runtime replacement no
+  longer exposes legacy snapshot-only helpers, runtime rollback now restores explicit canonical
+  state from the rollback snapshot, and watch/runtime reload callers now pass canonical state
+  explicitly when replacing live coordination runtime state
+- the next Phase 6 work remains the deeper purge of active-path `CoordinationSnapshot` /
+  legacy coordination-model dependencies that still exist under the mutation engine,
+  transaction/runtime paths, and adjacent materialization code
 
 ## 3. Ordering thesis
 
@@ -133,7 +236,9 @@ The correct order is interleaved:
 3. land SQLite as the first working backend and switch the default to it
 4. finish the service-shell and product-surface follow-through needed for the SQLite default path
 5. add Postgres against the same internal seam
-6. delete or narrow the remaining migration-era Git-shaped abstractions and update the docs to the true steady state
+6. delete the remaining migration-era compatibility code and legacy coordination projections
+7. add Postgres later against the already-settled DB seam
+8. update the docs to the true steady state
 
 The core rule is:
 
@@ -243,22 +348,34 @@ Exit criteria:
 - no public authority-contract redesign is needed to add it
 - service deployment config can select Postgres cleanly
 
-### Phase 6: Remove remaining migration mismatches and document the steady state
+### Phase 6: Remove remaining migration mismatches, compatibility layers, and legacy coordination surfaces
 
-After SQLite default and Postgres support are real, finish the cleanup and docs closure.
+After SQLite default is real, finish the cleanup by deleting the remaining compatibility code
+instead of preserving it behind migration shims. Postgres stays deferred until after this breaking
+cleanup.
 
 This includes:
 
-- deleting or narrowing transitional compatibility facades
+- deleting deprecated shared-ref compatibility aliases rather than leaving them at the product edge
+- removing the runtime-status `shared_coordination_ref` field and other shared-ref-shaped
+  compatibility response fields
+- deleting `PlanView`, `CoordinationTaskView`, and any other old plan/task compatibility payloads
+- cutting live MCP/query/UI coordination surfaces over to v2-only plan/task/artifact/review views
 - removing remaining Git-shaped assumptions from architecture surfaces that are now wrong for the default path
 - updating contracts, specs, roadmaps, and architecture docs to the actual steady state
 - confirming the Git backend still works as a supported alternative rather than as the invisible default assumption
+- removing the dual-snapshot read path so broker/runtime/UI plan surfaces stop carrying
+  `CoordinationSnapshot` as a first-class production read model
 
 Exit criteria:
 
+- no product-facing module depends on migration-era compatibility aliases
+- no live MCP/query/UI coordination surface depends on the old plan/task projection model
+- v2 plan/task/artifact/review payloads are the only supported coordination surface model
+- broker/runtime/UI read paths use `CoordinationSnapshotV2` directly for plan/task overlays and
+  ready-task reads rather than threading legacy snapshots through those surfaces
 - the code and docs agree on the authority family shape
 - SQLite is the real default
-- Postgres is supported through the same internal seam
 - Git remains supported without distorting the public architecture story
 
 ## 5. Dependency logic
@@ -269,7 +386,8 @@ This ordering is intentional:
 - the DB family seam must come before SQLite so SQLite does not become the de facto abstraction
 - SQLite default must happen before broader service cleanup so the cleanup targets the right steady state
 - Postgres should come after SQLite proves the DB family is real but before final cleanup so any seam gaps are discovered while the migration context is still active
-- final docs and compatibility cleanup should come last so they describe the system that actually exists
+- breaking compatibility cleanup should happen before Postgres so the second DB backend lands on the real steady-state surface instead of on transitional shims
+- final docs closure should come after the breaking cleanup so it describes the system that actually exists
 
 ## 6. Anti-patterns to avoid
 
@@ -282,6 +400,7 @@ Do not:
 - switch the default to SQLite while still depending on hidden Git-only helper paths for normal operation
 - fork SQLite and Postgres behavior early instead of first proving the shared DB family seam
 - let service roles or MCP surfaces grow new backend-specific branches that bypass the authority store
+- leave compatibility fields, aliases, or legacy plan/task payloads in place when there are no consumers that require them
 
 ## 7. Exit criteria
 
@@ -291,6 +410,8 @@ This roadmap is complete only when all of the following are true:
 - the internal DB authority family exists and is the common path for SQLite and Postgres
 - SQLite is the default functioning backend for `CoordinationAuthorityStore`
 - the local service deployment path uses SQLite cleanly by default
+- migration-era authority-edge compatibility code is deleted
+- v2 plan/task/artifact/review payloads are the only live coordination surface model
 - Postgres is implemented through the same internal DB seam
 - Git shared refs remain supported without shaping upper layers incorrectly
 - the remaining authority and service abstractions are cleaner, narrower, and better enforced than they are today
@@ -303,5 +424,6 @@ The sequence to hold the work to is:
 2. introduce one internal DB authority family
 3. implement SQLite and make it the default
 4. clean up service and authority adoption on the SQLite-first path
-5. implement Postgres through the same seam
-6. delete the remaining migration mismatches and document the steady state
+5. delete the remaining compatibility code and legacy coordination projections
+6. implement Postgres through the same seam later
+7. document the steady state

@@ -296,6 +296,8 @@ Two concrete rules:
 
 - **authoritative loads** of current coordination state move to `CoordinationAuthorityStore`
 - **derived branch publication** remains here, but it must consume already-read authority results
+- backend-neutral trace operation names and skip reasons in this module must stop describing the
+  authority path as `syncSharedCoordinationRef` or `shared_ref_authority_only`
 
 This file should become a consumer of authority, not part of the authority backend.
 
@@ -303,8 +305,8 @@ This file should become a consumer of authority, not part of the authority backe
 
 #### Current call sites to replace
 
-- `62`: `save_shared_coordination_startup_checkpoint(...)`
-- `141`: `coordination_startup_authority(...)`
+- `62`: `save_coordination_startup_checkpoint(...)`
+- `141`: `resolve_coordination_startup_checkpoint_authority(...)`
 
 #### Required change
 
@@ -312,7 +314,8 @@ This module should remain local-checkpoint-focused, but authority metadata shoul
 backend-neutral authority stamp / startup authority query.
 
 The startup checkpoint must stop depending on `shared_coordination_startup_authority(...)`
-directly.
+directly and instead resolve authority provenance through the backend-neutral startup-checkpoint
+authority helper path.
 
 ### H. `crates/prism-core/src/watch.rs`
 
@@ -348,7 +351,7 @@ This file is the largest architectural cleanup target.
 
 #### Current functions to replace or dissolve
 
-- `104`: `sync_authoritative_shared_coordination_ref_observed(...)`
+- `104`: `apply_coordination_authority_transaction_observed(...)`
 - `259`: `persist_coordination_authoritative_state_for_root(...)`
 - `304-322`: direct authoritative loader wrappers
 - `364`: `persist_coordination_authoritative_mutation_state_for_root_with_session_observed(...)`
@@ -368,6 +371,10 @@ Split this file into two responsibilities:
 
 `CoordinationPersistenceBackend` should not remain the apparent authority API.
 The new `CoordinationAuthorityStore` should replace it.
+
+Any remaining backend-neutral mutation traces, test-only opt-in markers, and fallback wording in
+this module must describe coordination authority generally rather than shared-ref publication
+specifically.
 
 #### Specific design note
 
@@ -435,6 +442,10 @@ CLI diagnostics and public URL update flows should call:
 
 No CLI command should need to know that the current backend is Git shared refs.
 
+Git-specific exported helpers should use explicit Git naming.
+Legacy shared-ref helper aliases should not remain on the public surface once the breaking
+compatibility-removal phase lands.
+
 ### N. `crates/prism-mcp/src/runtime_views.rs`
 
 #### Current call sites to replace
@@ -456,17 +467,21 @@ Two sub-rules:
   fields
 - non-Git default backends must not surface the shared-ref diagnostic object as if it were a
   backend-neutral authority status view
+- runtime status and adjacent UI/read-model payloads should use the backend-neutral
+  `coordinationAuthority` field directly rather than retaining a shared-ref-shaped compatibility
+  edge
 
 `runtime_freshness_from_inputs(...)` may continue to compare local materialization lag, but its
 **authoritative** side must come from the authority store’s current authority metadata rather than
 from direct revision helpers alone.
 
-### O. `crates/prism-mcp/src/peer_runtime_router.rs`
+### O. `crates/prism-mcp/src/peer_runtime_router.rs` and `crates/prism-mcp/src/runtime_gateway.rs`
 
-#### Current call site to replace
+#### Current call sites to replace
 
-- `423-453`: `resolve_runtime_descriptor(...)` calls `shared_coordination_ref_diagnostics(root)?`
-  and extracts runtime descriptors from diagnostics
+- peer runtime router: descriptor discovery must not come from diagnostics
+- runtime gateway: degraded-authority gating must come from authority diagnostics, but descriptor
+  discovery and backend-neutral error wording must not remain shared-ref-shaped
 
 #### Required change
 
@@ -477,6 +492,13 @@ That means splitting two concerns cleanly:
 
 - diagnostics
 - runtime descriptor discovery
+
+For `runtime_gateway.rs`, the same split applies:
+
+- use authority diagnostics only for degraded Git-backend verification checks
+- use `CoordinationAuthorityStore::list_runtime_descriptors(...)` for descriptor lookup
+- keep backend-neutral remote-runtime errors framed in coordination-authority terms rather than
+  shared-ref terms
 
 ---
 
@@ -579,6 +601,9 @@ After the migration is complete, these responsibilities should no longer exist o
 
 This file should no longer be the place where backend-neutral application code learns how
 coordination authority is persisted.
+
+That includes operation names, skip reasons, and test opt-in switches: those must use
+authority-neutral naming once the SQLite-default path is established.
 
 ---
 

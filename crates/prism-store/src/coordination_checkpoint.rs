@@ -23,14 +23,13 @@ pub struct CoordinationStartupCheckpoint {
     pub coordination_revision: u64,
     pub authority: CoordinationStartupCheckpointAuthority,
     pub snapshot: CoordinationSnapshot,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub canonical_snapshot_v2: Option<CoordinationSnapshotV2>,
+    pub canonical_snapshot_v2: CoordinationSnapshotV2,
     #[serde(default)]
     pub runtime_descriptors: Vec<RuntimeDescriptor>,
 }
 
 impl CoordinationStartupCheckpoint {
-    pub const VERSION: u32 = 4;
+    pub const VERSION: u32 = 5;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -70,9 +69,12 @@ pub(crate) fn decode_coordination_startup_checkpoint_compat(
         .or_else(|| object.get("canonicalSnapshotV2"))
         .cloned()
         .filter(|value| !value.is_null())
-        .map(serde_json::from_value)
-        .transpose()
-        .context("failed to decode startup checkpoint canonical snapshot v2")?;
+        .map(|value| {
+            serde_json::from_value(value)
+                .context("failed to decode startup checkpoint canonical snapshot v2")
+        })
+        .transpose()?
+        .unwrap_or_else(|| snapshot.to_canonical_snapshot_v2());
     let runtime_descriptors = object
         .get("runtime_descriptors")
         .or_else(|| object.get("runtimeDescriptors"))

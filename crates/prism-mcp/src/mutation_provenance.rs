@@ -251,8 +251,8 @@ impl MutationProvenance {
             let plan_title = current_work.plan_title.clone().or_else(|| {
                 current_work.plan_id.as_ref().and_then(|plan_id| {
                     self.prism
-                        .coordination_plan(&prism_ir::PlanId::new(plan_id.clone()))
-                        .map(|plan| plan.title)
+                        .coordination_plan_v2(&prism_ir::PlanId::new(plan_id.clone()))
+                        .map(|plan| plan.plan.title)
                 })
             });
             return Some(WorkContextSnapshot {
@@ -285,14 +285,16 @@ impl MutationProvenance {
             .as_ref()
             .and_then(|coordination_task_id| {
                 self.prism
-                    .coordination_task(&CoordinationTaskId::new(coordination_task_id.clone()))
+                    .coordination_task_v2_by_coordination_id(&CoordinationTaskId::new(
+                        coordination_task_id.clone(),
+                    ))
             });
         let plan = coordination_task
             .as_ref()
-            .and_then(|task| self.prism.coordination_plan(&task.plan));
+            .and_then(|task| self.prism.coordination_plan_v2(&task.task.parent_plan_id));
         let title = coordination_task
             .as_ref()
-            .map(|task| task.title.clone())
+            .map(|task| task.task.title.clone())
             .or_else(|| {
                 current_task
                     .and_then(|state| state.description.clone())
@@ -320,11 +322,11 @@ impl MutationProvenance {
             work_id: task_id.to_string(),
             kind,
             title,
-            summary: coordination_task.and_then(|task| task.summary.clone()),
+            summary: coordination_task.and_then(|task| task.task.summary.clone()),
             parent_work_id: None,
             coordination_task_id,
-            plan_id: plan.as_ref().map(|plan| plan.id.0.to_string()),
-            plan_title: plan.map(|plan| plan.title),
+            plan_id: plan.as_ref().map(|plan| plan.plan.id.0.to_string()),
+            plan_title: plan.map(|plan| plan.plan.title),
         })
     }
 }

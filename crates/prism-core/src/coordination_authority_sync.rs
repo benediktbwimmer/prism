@@ -35,6 +35,7 @@ pub(crate) fn publish_service_backed_coordination_runtime_state(
         .clone();
     next_state.replace_coordination_runtime(
         current_state.snapshot.clone(),
+        current_state.canonical_snapshot_v2.clone(),
         current_state.runtime_descriptors.clone(),
     );
     let next = next_state.publish_generation(
@@ -85,7 +86,7 @@ pub(crate) fn apply_service_backed_coordination_current_state(
         let materialization = CoordinationMaterialization {
             authoritative_revision,
             snapshot: current_state.snapshot.clone(),
-            canonical_snapshot_v2: Some(current_state.canonical_snapshot_v2.clone()),
+            canonical_snapshot_v2: current_state.canonical_snapshot_v2.clone(),
             runtime_descriptors: Some(current_state.runtime_descriptors.clone()),
             publish_context,
         };
@@ -153,7 +154,7 @@ pub(crate) fn apply_coordination_authority_current_state(
 ) -> Result<()> {
     let _guard = refresh_lock
         .lock()
-        .expect("shared coordination ref refresh lock poisoned");
+        .expect("coordination authority refresh lock poisoned");
 
     let local_workspace_revision = store
         .lock()

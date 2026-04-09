@@ -4163,7 +4163,7 @@ mod tests {
         )
     }
 
-    fn save_shared_coordination_startup_checkpoint<S>(
+    fn save_coordination_startup_checkpoint<S>(
         root: &Path,
         store: &mut S,
         snapshot: &CoordinationSnapshot,
@@ -4172,7 +4172,7 @@ mod tests {
     where
         S: CoordinationCheckpointStore + prism_store::CoordinationJournal + ?Sized,
     {
-        crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint(
+        crate::coordination_startup_checkpoint::save_coordination_startup_checkpoint(
             root,
             store,
             snapshot,
@@ -4644,7 +4644,7 @@ mod tests {
                 coordination_revision: 0,
                 authority,
                 snapshot: snapshot.clone(),
-                canonical_snapshot_v2: Some(canonical_snapshot_v2.clone()),
+                canonical_snapshot_v2: canonical_snapshot_v2.clone(),
                 runtime_descriptors: Vec::new(),
             })
             .unwrap();
@@ -4661,7 +4661,7 @@ mod tests {
             .expect("coordination startup checkpoint");
         assert_eq!(
             checkpoint.canonical_snapshot_v2,
-            Some(canonical_snapshot_v2)
+            canonical_snapshot_v2
         );
     }
 
@@ -4671,7 +4671,7 @@ mod tests {
         let snapshot = sample_snapshot_for("plan:checkpoint-save", "coord-task:checkpoint-save");
         let mut store = MemoryStore::default();
 
-        save_shared_coordination_startup_checkpoint(&root, &mut store, &snapshot, None).unwrap();
+        save_coordination_startup_checkpoint(&root, &mut store, &snapshot, None).unwrap();
 
         let checkpoint = store
             .load_coordination_startup_checkpoint()
@@ -4688,7 +4688,7 @@ mod tests {
         );
         assert_eq!(
             checkpoint.canonical_snapshot_v2,
-            Some(snapshot.to_canonical_snapshot_v2())
+            snapshot.to_canonical_snapshot_v2()
         );
     }
 
@@ -4713,7 +4713,7 @@ mod tests {
                 coordination_revision: 0,
                 authority,
                 snapshot,
-                canonical_snapshot_v2: Some(canonical_snapshot_v2),
+                canonical_snapshot_v2,
                 runtime_descriptors: vec![RuntimeDescriptor {
                     runtime_id: "runtime:stale-checkpoint".to_string(),
                     repo_id: "repo:stale-checkpoint".to_string(),
@@ -5539,7 +5539,7 @@ mod tests {
                         spec_refs: Vec::new(),
                     },
                 )?;
-                Ok::<_, anyhow::Error>((plan_id, task.id))
+                Ok::<_, anyhow::Error>((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
             })
             .unwrap();
         let ref_name = super::shared_coordination_ref_name(&root);
@@ -5564,9 +5564,9 @@ mod tests {
 
         let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
         assert_eq!(head_after, head_before);
-        assert_eq!(task.plan, plan_id);
-        assert_eq!(task.lease_started_at, Some(2));
-        assert_eq!(task.lease_refreshed_at, Some(2));
+        assert_eq!(task.task.parent_plan_id, plan_id);
+        assert_eq!(task.task.lease_started_at, Some(2));
+        assert_eq!(task.task.lease_refreshed_at, Some(2));
         let loaded = load_shared_coordination_ref_state(&root)
             .unwrap()
             .expect("shared ref state should load");
@@ -5627,7 +5627,7 @@ mod tests {
                         spec_refs: Vec::new(),
                     },
                 )?;
-                Ok::<_, anyhow::Error>(task.id)
+                Ok::<_, anyhow::Error>(CoordinationTaskId::new(task.task.id.0.clone()))
             })
             .unwrap();
         let ref_name = super::shared_coordination_ref_name(&root);
@@ -5659,8 +5659,8 @@ mod tests {
         let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
         let task_shard_head_after = super::run_git(&root, &["rev-parse", &task_shard_ref]).unwrap();
         assert_ne!(task_shard_head_after, task_shard_head_before);
-        assert_eq!(task.lease_started_at, Some(2));
-        assert_eq!(task.lease_refreshed_at, Some(1700));
+        assert_eq!(task.task.lease_started_at, Some(2));
+        assert_eq!(task.task.lease_refreshed_at, Some(1700));
         let loaded = load_shared_coordination_ref_state(&root)
             .unwrap()
             .expect("shared ref state should load");

@@ -12,7 +12,7 @@ use axum::response::{Html, IntoResponse};
 use axum::routing::{get, post};
 use axum::Router;
 use prism_core::render_repo_published_plan_markdown;
-use prism_ir::PlanId;
+use prism_ir::{DerivedPlanStatus, PlanId, PlanStatus};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -577,13 +577,19 @@ fn render_plans_workspace(host: &QueryHost, query: PlansQuery) -> Result<String>
         agent: query.agent.clone(),
     })?;
     let sidebar = render_plan_sidebar(&view);
-    let detail = view
-        .selected_plan
-        .as_ref()
-        .map(render_plan_detail)
-        .unwrap_or_else(|| {
-            "<div class=\"console-empty\">No plan matches the current filters.</div>".to_string()
-        });
+    let detail = match (view.selected_plan.as_ref(), query.plan_id.as_deref()) {
+        (Some(plan), _) => render_plan_detail(plan),
+        (None, Some(plan_id)) => host
+            .ui_plan_detail_view(plan_id)?
+            .as_ref()
+            .map(render_plan_detail)
+            .unwrap_or_else(|| {
+                "<div class=\"console-empty\">No plan matches the current filters.</div>"
+                    .to_string()
+            }),
+        (None, None) => "<div class=\"console-empty\">No plan matches the current filters.</div>"
+            .to_string(),
+    };
     Ok(format!(
         "<section id=\"console-plans-workspace\" class=\"console-layout console-layout--two\">\
          <aside class=\"console-sidebar\">{}\
@@ -1142,16 +1148,26 @@ fn plan_markdown_payload(host: &QueryHost, plan_id: &str) -> Result<Option<(Stri
     let Some(plan) = prism.coordination_plan_v2(&plan_id) else {
         return Ok(None);
     };
-    let status = host
-        .current_coordination_snapshot()?
-        .plans
-        .into_iter()
-        .find(|plan| plan.id == plan_id)
-        .map(|plan| plan.status);
     let snapshot_v2 = host.current_coordination_snapshot_v2()?;
-    let markdown = render_repo_published_plan_markdown(&snapshot_v2, &plan_id, status)
-        .ok_or_else(|| anyhow!("plan markdown should be renderable for {}", plan_id.0))?;
+    let markdown = render_repo_published_plan_markdown(
+        &snapshot_v2,
+        &plan_id,
+        Some(compatibility_plan_status(plan.status)),
+    )
+    .ok_or_else(|| anyhow!("plan markdown should be renderable for {}", plan_id.0))?;
     Ok(Some((plan.plan.title, markdown)))
+}
+
+fn compatibility_plan_status(status: DerivedPlanStatus) -> PlanStatus {
+    match status {
+        DerivedPlanStatus::Pending | DerivedPlanStatus::Active => PlanStatus::Active,
+        DerivedPlanStatus::Blocked
+        | DerivedPlanStatus::BrokenDependency
+        | DerivedPlanStatus::Failed => PlanStatus::Blocked,
+        DerivedPlanStatus::Completed => PlanStatus::Completed,
+        DerivedPlanStatus::Abandoned => PlanStatus::Abandoned,
+        DerivedPlanStatus::Archived => PlanStatus::Archived,
+    }
 }
 
 fn sanitize_download_basename(value: &str) -> String {

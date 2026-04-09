@@ -220,8 +220,8 @@ fn coordination_task_fallback(prism: &Prism, task_id: &TaskId) -> Option<(String
         return None;
     }
     prism
-        .coordination_task(&CoordinationTaskId::new(task_id.clone()))
-        .map(|task| (task_id, task.title))
+        .coordination_task_v2_by_coordination_id(&CoordinationTaskId::new(task_id.clone()))
+        .map(|task| (task_id, task.task.title))
 }
 
 fn task_focus(prism: &Prism, events: &[OutcomeEvent]) -> Vec<AnchorRef> {

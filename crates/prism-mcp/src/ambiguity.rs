@@ -1093,8 +1093,9 @@ pub(crate) fn build_task_scope(prism: &Prism, task_id: &str) -> Option<TaskScope
         return None;
     }
     let coord_task_id = CoordinationTaskId::new(task_id.to_string());
-    let task = prism.coordination_task(&coord_task_id)?;
+    let task = prism.coordination_task_v2_by_coordination_id(&coord_task_id)?;
     let mut nodes = task
+        .task
         .anchors
         .iter()
         .filter_map(|anchor| match anchor {

@@ -17,7 +17,7 @@ where
         .workspace_root()
         .ok_or_else(|| anyhow!("native spec reads require a workspace-backed host"))?;
     let surface = WorkspaceSpecSurface::new(root);
-    surface.with_query_engine(Some(host.current_prism().coordination_snapshot()), f)
+    surface.with_query_engine(Some(host.current_prism().coordination_snapshot_v2()), f)
 }
 
 pub(crate) fn list_specs(host: &QueryHost) -> Result<Vec<SpecListEntryView>> {
@@ -232,49 +232,33 @@ pub(crate) fn linked_task_spec_summaries(
 pub(crate) fn linked_plan_view(
     host: &QueryHost,
     plan_id: &PlanId,
-) -> Result<Option<prism_js::PlanView>> {
+) -> Result<Option<prism_js::CoordinationPlanV2View>> {
     let prism = host.current_prism();
     let Some(plan_v2) = prism.coordination_plan_v2(plan_id) else {
         return Ok(None);
     };
-    let legacy = prism.coordination_plan(plan_id);
-    let linked_specs = legacy
-        .as_ref()
-        .map(|legacy| linked_plan_spec_summaries(host, &legacy.spec_refs))
-        .transpose()?
-        .unwrap_or_default();
-    Ok(Some(crate::plan_view_from_v2_with_linked_specs(
-        plan_v2,
-        legacy,
-        prism.plan_activity(plan_id),
-        linked_specs,
-    )))
+    let activity = prism.plan_activity(plan_id).map(crate::plan_activity_view);
+    let linked_specs = linked_plan_spec_summaries(host, &plan_v2.plan.spec_refs)?;
+    let mut view = crate::coordination_plan_v2_view(plan_v2);
+    view.activity = Some(activity).flatten();
+    view.linked_specs = linked_specs;
+    Ok(Some(view))
 }
 
 pub(crate) fn linked_coordination_task_view(
     host: &QueryHost,
     task_id: &CoordinationTaskId,
-) -> Result<Option<prism_js::CoordinationTaskView>> {
+) -> Result<Option<prism_js::CoordinationTaskV2View>> {
     let prism = host.current_prism();
-    if let Some(task_v2) = prism.coordination_task_v2(&TaskId::new(task_id.0.clone())) {
-        let legacy = prism.coordination_task(task_id);
-        let linked_specs = legacy
-            .as_ref()
-            .map(|legacy| linked_task_spec_summaries(host, &legacy.spec_refs))
-            .transpose()?
-            .unwrap_or_default();
-        return Ok(Some(
-            crate::coordination_task_view_from_v2_with_linked_specs(task_v2, legacy, linked_specs),
-        ));
+    match prism.coordination_task_v2(&TaskId::new(task_id.0.clone())) {
+        Some(task_v2) => {
+            let linked_specs = linked_task_spec_summaries(host, &task_v2.task.spec_refs)?;
+            let mut view = crate::coordination_task_v2_view(task_v2);
+            view.linked_specs = linked_specs;
+            Ok(Some(view))
+        }
+        None => Ok(None),
     }
-    let Some(task) = prism.coordination_task(task_id) else {
-        return Ok(None);
-    };
-    let linked_specs = linked_task_spec_summaries(host, &task.spec_refs)?;
-    Ok(Some(crate::coordination_task_view_with_linked_specs(
-        task,
-        linked_specs,
-    )))
 }
 
 fn build_linked_spec_summary(

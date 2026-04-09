@@ -71,7 +71,7 @@ pub(crate) fn ensure_process_test_prism_home() -> &'static PathBuf {
         unsafe {
             env::set_var("PRISM_HOME", &path);
             env::set_var("PRISM_TEST_DISABLE_LIVE_WATCHERS", "1");
-            env::set_var("PRISM_TEST_DISABLE_SHARED_COORDINATION_REF_PUBLISH", "1");
+            env::set_var("PRISM_TEST_DISABLE_COORDINATION_AUTHORITY_PUBLICATION", "1");
             env::set_var("PRISM_TEST_FAST_PROXY_RECONNECT", "1");
         }
         path
@@ -95,15 +95,15 @@ pub(crate) fn temp_test_dir(prefix: &str) -> PathBuf {
     root
 }
 
-pub(crate) fn enable_shared_coordination_ref_publish(root: &Path) {
+pub(crate) fn enable_coordination_authority_publication(root: &Path) {
     let marker = root
         .join(".prism")
         .join("tests")
-        .join("enable_shared_coordination_ref_publish");
+        .join("enable_coordination_authority_publication");
     if let Some(parent) = marker.parent() {
-        fs::create_dir_all(parent).expect("shared coordination ref publish marker dir");
+        fs::create_dir_all(parent).expect("coordination authority publication marker dir");
     }
-    fs::write(marker, "1\n").expect("shared coordination ref publish marker");
+    fs::write(marker, "1\n").expect("coordination authority publication marker");
 }
 
 pub(crate) fn host_with_node(node: Node) -> QueryHost {

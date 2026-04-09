@@ -64,10 +64,7 @@ impl Prism {
                     &derivations,
                 );
                 let derived_status = derivations.plan_state(&plan.id)?;
-                let status = self
-                    .coordination_plan(&plan.id)
-                    .map(|legacy| legacy.status)
-                    .unwrap_or_else(|| compatibility_plan_status(derived_status.derived_status));
+                let status = compatibility_plan_status(derived_status.derived_status);
                 Some(PlanListEntry {
                     plan_id: plan.id.clone(),
                     title: plan.title.clone(),

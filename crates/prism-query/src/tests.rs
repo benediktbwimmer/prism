@@ -228,7 +228,7 @@ fn coordination_snapshot_v2_projects_legacy_snapshot_into_canonical_records() {
                 status: prism_ir::CoordinationTaskStatus::Ready,
                 published_task_status: None,
                 assignee: None,
-                pending_handoff_to: None,
+                pending_handoff_to: Some(AgentId::new("agent:handoff")),
                 session: None,
                 lease_holder: None,
                 lease_started_at: None,
@@ -271,6 +271,10 @@ fn coordination_snapshot_v2_projects_legacy_snapshot_into_canonical_records() {
     assert_eq!(snapshot_v2.tasks.len(), 1);
     assert_eq!(snapshot_v2.tasks[0].parent_plan_id, plan_id);
     assert_eq!(snapshot_v2.tasks[0].estimated_minutes, 12);
+    assert_eq!(
+        snapshot_v2.tasks[0].pending_handoff_to,
+        Some(AgentId::new("agent:handoff"))
+    );
     assert_eq!(snapshot_v2.dependencies.len(), 1);
     assert_eq!(
         snapshot_v2.dependencies[0].source.id,
@@ -603,12 +607,19 @@ fn authoritative_only_task_publish_intent_does_not_auto_complete_plan() {
         )
         .unwrap();
 
-    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
+    assert_eq!(task.status, EffectiveTaskStatus::Active);
     assert_eq!(
-        task.published_task_status,
+        task.task
+            .metadata
+            .get("legacy_published_task_status")
+            .and_then(serde_json::Value::as_str),
+        Some("completed")
+    );
+    assert_eq!(task.task.parent_plan_id, plan_id);
+    assert_eq!(
+        task.task.git_execution.pending_task_status,
         Some(prism_ir::CoordinationTaskStatus::Completed)
     );
-    assert_eq!(task.plan, plan_id);
     assert_eq!(
         prism.coordination_plan(&plan_id).unwrap().status,
         PlanStatus::Active
@@ -721,9 +732,9 @@ fn authoritative_only_final_publication_auto_completes_plan() {
         )
         .unwrap();
 
-    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(task.status, EffectiveTaskStatus::Completed);
     assert_eq!(
-        task.git_execution.status,
+        task.task.git_execution.status,
         prism_ir::GitExecutionStatus::CoordinationPublished
     );
     assert_eq!(
@@ -838,9 +849,9 @@ fn authoritative_only_final_publication_bypasses_expired_same_holder_lease() {
         )
         .unwrap();
 
-    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(task.status, EffectiveTaskStatus::Completed);
     assert_eq!(
-        task.git_execution.status,
+        task.task.git_execution.status,
         prism_ir::GitExecutionStatus::CoordinationPublished
     );
     assert_eq!(
@@ -999,9 +1010,9 @@ fn authoritative_only_target_integration_auto_completes_plan() {
         )
         .unwrap();
 
-    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(task.status, EffectiveTaskStatus::Completed);
     assert_eq!(
-        task.git_execution.integration_status,
+        task.task.git_execution.integration_status,
         prism_ir::GitIntegrationStatus::IntegratedToTarget
     );
     assert_eq!(
@@ -2235,7 +2246,11 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         validated_checks: Vec::new(),
         risk_score: None,
     });
-    prism.replace_coordination_snapshot(runtime_snapshot);
+    prism.replace_coordination_runtime(
+        runtime_snapshot.clone(),
+        runtime_snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
 
     assert_eq!(prism.coordination_snapshot().claims.len(), 1);
     assert_eq!(prism.coordination_snapshot().artifacts.len(), 1);
@@ -2331,7 +2346,11 @@ fn claim_reads_and_simulation_respect_worktree_scope() {
         status: prism_ir::ClaimStatus::Active,
         base_revision: WorkspaceRevision::default(),
     });
-    prism.replace_coordination_snapshot(runtime_snapshot);
+    prism.replace_coordination_runtime(
+        runtime_snapshot.clone(),
+        runtime_snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
 
     let claims = prism.claims(&[AnchorRef::Node(alpha.clone())], 10);
     assert_eq!(claims.len(), 1);
@@ -2472,7 +2491,11 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
             },
             summary: "LGTM".into(),
         });
-    prism.replace_coordination_snapshot(runtime_snapshot);
+    prism.replace_coordination_runtime(
+        runtime_snapshot.clone(),
+        runtime_snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
 
     let artifacts = prism.artifacts(&task_id);
     assert_eq!(artifacts.len(), 1);
@@ -2688,7 +2711,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
             },
         )
         .unwrap();
-    assert_eq!(task.worktree_id.as_deref(), Some("worktree:a"));
+    assert_eq!(task.task.worktree_id.as_deref(), Some("worktree:a"));
     assert_eq!(prism.ready_tasks(&plan_id, 10).len(), 1);
 
     prism.set_coordination_context(Some(CoordinationPersistContext {
@@ -2718,7 +2741,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
                 execution_context: None,
             },
             HandoffInput {
-                task_id: task.id.clone(),
+                task_id: CoordinationTaskId::new(task.task.id.0.clone()),
                 to_agent: Some(prism_ir::AgentId::new("agent-b")),
                 summary: "handoff".into(),
                 base_revision: WorkspaceRevision::default(),
@@ -2726,7 +2749,10 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
             WorkspaceRevision::default(),
         )
         .unwrap();
-    assert_eq!(handoff.task_id, task.id);
+    assert_eq!(
+        handoff.task_id,
+        CoordinationTaskId::new(task.task.id.0.clone())
+    );
     assert!(handoff.transaction.commit.event_count >= 1);
     assert_eq!(
         handoff.transaction.authority_version.last_event_id,
@@ -2751,14 +2777,17 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
                 execution_context: None,
             },
             prism_coordination::HandoffAcceptInput {
-                task_id: task.id.clone(),
+                task_id: CoordinationTaskId::new(task.task.id.0.clone()),
                 agent: Some(prism_ir::AgentId::new("agent-b")),
                 worktree_id: None,
                 branch_ref: None,
             },
         )
         .unwrap();
-    assert_eq!(accepted.task_id, task.id);
+    assert_eq!(
+        accepted.task_id,
+        CoordinationTaskId::new(task.task.id.0.clone())
+    );
     assert!(accepted.transaction.commit.event_count >= 1);
     assert_eq!(
         accepted.transaction.authority_version.last_event_id,
@@ -2769,7 +2798,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
         .expect("accepted task should remain queryable");
     assert_eq!(accepted.worktree_id.as_deref(), Some("worktree:b"));
     let projected = prism
-        .coordination_task(&task.id)
+        .coordination_task(&CoordinationTaskId::new(task.task.id.0.clone()))
         .expect("accepted task should remain queryable");
     assert_eq!(projected.worktree_id.as_deref(), Some("worktree:b"));
     assert_eq!(projected.status, prism_ir::CoordinationTaskStatus::Ready);
@@ -3002,7 +3031,7 @@ created: 2026-04-09\n\
 
     let store = SqliteSpecMaterializedStore::new(&spec_root.join(".tmp/spec-materialized.db"));
     let refresh =
-        refresh_spec_materialization(&store, &spec_root, Some(prism.coordination_snapshot()))
+        refresh_spec_materialization(&store, &spec_root, Some(prism.coordination_snapshot_v2()))
             .expect("spec refresh should succeed");
     assert!(refresh.diagnostics.is_empty());
 
@@ -3546,8 +3575,9 @@ fn persisted_coordination_snapshot_updates_task_backed_plan_nodes() {
         )
         .unwrap();
 
+    let snapshot = coordination.snapshot();
     prism
-        .persist_coordination_snapshot(coordination.snapshot())
+        .persist_coordination_runtime(snapshot.clone(), snapshot.to_canonical_snapshot_v2())
         .expect("persisted coordination snapshot should refresh plan runtime");
 
     assert_eq!(

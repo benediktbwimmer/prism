@@ -1561,18 +1561,16 @@ type TaskReviewStatusView = {
 };
 
 type CoordinationInboxView = {
-  plan: PlanView | null;
-  planV2: CoordinationPlanV2View | null;
+  plan: CoordinationPlanV2View | null;
   children: PlanChildrenV2View | null;
   graphActionableTasks: CoordinationTaskV2View[];
   actionableTasks: CoordinationTaskV2View[];
-  readyTasks: CoordinationTaskView[];
+  readyTasks: CoordinationTaskV2View[];
   pendingReviews: ArtifactView[];
 };
 
 type TaskContextView = {
-  task: CoordinationTaskView | null;
-  taskV2: CoordinationTaskV2View | null;
+  task: CoordinationTaskV2View | null;
   dependencies: NodeRefView[];
   dependents: NodeRefView[];
   blockers: BlockerView[];
@@ -1679,20 +1677,25 @@ type LinkedSpecSummaryView = {
   coveredChecklistItems: string[];
 };
 
-type PlanView = {
+type CoordinationPlanV2View = {
   id: string;
+  parentPlanId?: string;
   title: string;
   goal: string;
   status: string;
   scope: string;
   kind: string;
-  revision: number;
+  operatorState: string;
   scheduling: PlanSchedulingView;
   gitExecutionPolicy: GitExecutionPolicyView;
   tags: string[];
   createdFrom?: string;
-  activity?: PlanActivityView;
-  linkedSpecs: LinkedSpecSummaryView[];
+  metadata: unknown;
+  children: NodeRefView[];
+  dependencies: NodeRefView[];
+  dependents: NodeRefView[];
+  estimatedMinutesTotal: number;
+  remainingEstimatedMinutes: number;
 };
 
 type PlanListEntryView = {
@@ -1768,28 +1771,38 @@ type PlanSummaryView = {
   claimConflictedNodes: number;
 };
 
-type CoordinationTaskView = {
+type TaskExecutorPolicyView = {
+  executorClass: string;
+  targetLabel?: string;
+  allowedPrincipals: string[];
+};
+
+type CoordinationTaskV2View = {
   id: string;
-  planId: string;
+  parentPlanId: string;
   title: string;
   summary?: string;
   status: string;
-  publishedTaskStatus?: string;
+  lifecycleStatus: string;
+  graphActionable: boolean;
+  estimatedMinutes: number;
+  executor: TaskExecutorPolicyView;
   assignee?: string;
   pendingHandoffTo?: string;
+  session?: string;
+  worktreeId?: string;
+  branchRef?: string;
   anchors: AnchorRef[];
   bindings: PlanBindingView;
-  dependsOn: string[];
-  coordinationDependsOn: string[];
-  integratedDependsOn: string[];
-  lifecycle: CoordinationTaskLifecycleView;
   validationRefs: ValidationRefView[];
-  isAbstract: boolean;
   baseRevision: WorkspaceRevisionView;
   priority?: number;
   tags: string[];
+  metadata: unknown;
   gitExecution: TaskGitExecutionView;
-  linkedSpecs: LinkedSpecSummaryView[];
+  blockerCauses: BlockerCauseView[];
+  dependencies: NodeRefView[];
+  dependents: NodeRefView[];
 };
 
 type ClaimView = {

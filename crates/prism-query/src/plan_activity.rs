@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use prism_ir::{sortable_token_timestamp, CoordinationTaskId, PlanId};
+use prism_ir::{sortable_token_timestamp, CoordinationTaskId, PlanId, TaskId};
 
 use crate::{PlanActivity, Prism};
 
@@ -10,7 +10,7 @@ impl Prism {
     }
 
     pub(crate) fn plan_activity_index(&self) -> BTreeMap<String, PlanActivity> {
-        let snapshot = self.coordination_snapshot();
+        let snapshot = self.coordination_snapshot_v2();
         let mut fallback_last_updated =
             BTreeMap::<String, (u64, Option<CoordinationTaskId>)>::new();
         let mut activity = snapshot
@@ -31,7 +31,7 @@ impl Prism {
         let task_to_plan = snapshot
             .tasks
             .iter()
-            .map(|task| (task.id.clone(), task.plan.clone()))
+            .map(|task| (task.id.clone(), task.parent_plan_id.clone()))
             .collect::<BTreeMap<_, _>>();
         let artifact_to_task = snapshot
             .artifacts
@@ -42,8 +42,8 @@ impl Prism {
             .claims
             .iter()
             .filter_map(|claim| {
-                let task_id = claim.task.as_ref()?;
-                let plan_id = task_to_plan.get(task_id)?;
+                let task_id = TaskId::new(claim.task.as_ref()?.0.clone());
+                let plan_id = task_to_plan.get(&task_id)?;
                 Some((claim.id.clone(), plan_id.clone()))
             })
             .collect::<BTreeMap<_, _>>();
@@ -52,34 +52,36 @@ impl Prism {
             .iter()
             .filter_map(|review| {
                 let task_id = artifact_to_task.get(&review.artifact)?;
-                let plan_id = task_to_plan.get(task_id)?;
+                let plan_id = task_to_plan.get(&TaskId::new(task_id.0.clone()))?;
                 Some((review.id.clone(), plan_id.clone()))
             })
             .collect::<BTreeMap<_, _>>();
 
         for task in &snapshot.tasks {
-            let Some(entry) = activity.get_mut(task.plan.0.as_str()) else {
+            let plan_id = &task.parent_plan_id;
+            let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
                 continue;
             };
             let created_at = sortable_token_timestamp(task.id.0.as_str());
+            let task_coordination_id = CoordinationTaskId::new(task.id.0.clone());
             observe_created_at(entry, created_at);
             observe_fallback_update(
                 &mut fallback_last_updated,
-                task.plan.0.as_str(),
+                plan_id.0.as_str(),
                 created_at,
-                Some(&task.id),
+                Some(&task_coordination_id),
             );
             observe_fallback_update(
                 &mut fallback_last_updated,
-                task.plan.0.as_str(),
+                plan_id.0.as_str(),
                 task.lease_started_at,
-                Some(&task.id),
+                Some(&task_coordination_id),
             );
             observe_fallback_update(
                 &mut fallback_last_updated,
-                task.plan.0.as_str(),
+                plan_id.0.as_str(),
                 task.lease_refreshed_at,
-                Some(&task.id),
+                Some(&task_coordination_id),
             );
         }
 
@@ -87,48 +89,51 @@ impl Prism {
             let Some(task_id) = claim.task.as_ref() else {
                 continue;
             };
-            let Some(plan_id) = task_to_plan.get(task_id) else {
+            let task_id = TaskId::new(task_id.0.clone());
+            let Some(plan_id) = task_to_plan.get(&task_id) else {
                 continue;
             };
             let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
                 continue;
             };
             let created_at = sortable_token_timestamp(claim.id.0.as_str()).or(Some(claim.since));
+            let task_coordination_id = CoordinationTaskId::new(task_id.0.clone());
             observe_created_at(entry, created_at);
             observe_fallback_update(
                 &mut fallback_last_updated,
                 plan_id.0.as_str(),
                 sortable_token_timestamp(claim.id.0.as_str()),
-                Some(task_id),
+                Some(&task_coordination_id),
             );
             observe_fallback_update(
                 &mut fallback_last_updated,
                 plan_id.0.as_str(),
                 Some(claim.since),
-                Some(task_id),
+                Some(&task_coordination_id),
             );
             observe_fallback_update(
                 &mut fallback_last_updated,
                 plan_id.0.as_str(),
                 claim.refreshed_at,
-                Some(task_id),
+                Some(&task_coordination_id),
             );
         }
 
         for artifact in &snapshot.artifacts {
-            let Some(plan_id) = task_to_plan.get(&artifact.task) else {
+            let Some(plan_id) = task_to_plan.get(&TaskId::new(artifact.task.0.clone())) else {
                 continue;
             };
             let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
                 continue;
             };
             let created_at = sortable_token_timestamp(artifact.id.0.as_str());
+            let task_coordination_id = CoordinationTaskId::new(artifact.task.0.clone());
             observe_created_at(entry, created_at);
             observe_fallback_update(
                 &mut fallback_last_updated,
                 plan_id.0.as_str(),
                 created_at,
-                Some(&artifact.task),
+                Some(&task_coordination_id),
             );
         }
 
@@ -136,7 +141,8 @@ impl Prism {
             let Some(task_id) = artifact_to_task.get(&review.artifact) else {
                 continue;
             };
-            let Some(plan_id) = task_to_plan.get(task_id) else {
+            let task_id = TaskId::new(task_id.0.clone());
+            let Some(plan_id) = task_to_plan.get(&task_id) else {
                 continue;
             };
             let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
@@ -144,18 +150,19 @@ impl Prism {
             };
             let created_at =
                 sortable_token_timestamp(review.id.0.as_str()).or(Some(review.meta.ts));
+            let task_coordination_id = CoordinationTaskId::new(task_id.0.clone());
             observe_created_at(entry, created_at);
             observe_fallback_update(
                 &mut fallback_last_updated,
                 plan_id.0.as_str(),
                 sortable_token_timestamp(review.id.0.as_str()),
-                Some(task_id),
+                Some(&task_coordination_id),
             );
             observe_fallback_update(
                 &mut fallback_last_updated,
                 plan_id.0.as_str(),
                 Some(review.meta.ts),
-                Some(task_id),
+                Some(&task_coordination_id),
             );
         }
 
@@ -167,7 +174,8 @@ impl Prism {
                     event
                         .task
                         .as_ref()
-                        .and_then(|task_id| task_to_plan.get(task_id).cloned())
+                        .and_then(|task_id| task_to_plan.get(&TaskId::new(task_id.0.clone())))
+                        .cloned()
                 })
                 .or_else(|| {
                     event
@@ -179,7 +187,7 @@ impl Prism {
                     event.artifact.as_ref().and_then(|artifact_id| {
                         artifact_to_task
                             .get(artifact_id)
-                            .and_then(|task_id| task_to_plan.get(task_id))
+                            .and_then(|task_id| task_to_plan.get(&TaskId::new(task_id.0.clone())))
                             .cloned()
                     })
                 })

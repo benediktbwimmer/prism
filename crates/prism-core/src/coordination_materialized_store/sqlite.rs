@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use prism_coordination::{
-    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
+    coordination_queue_read_model_from_snapshot_v2, coordination_read_model_from_snapshot_v2,
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
     CoordinationSnapshotV2,
 };
@@ -18,7 +18,7 @@ use super::types::{
 };
 use crate::coordination_startup_checkpoint::{
     load_persisted_coordination_plan_state, load_persisted_coordination_snapshot,
-    load_persisted_coordination_snapshot_v2, save_shared_coordination_startup_checkpoint,
+    load_persisted_coordination_snapshot_v2, save_coordination_startup_checkpoint,
 };
 use crate::prism_paths::PrismPaths;
 
@@ -58,10 +58,7 @@ impl SqliteCoordinationMaterializedStore {
                 .map(|value| value.materialized_at),
             startup_checkpoint_authority: checkpoint.as_ref().map(|value| value.authority.clone()),
             has_snapshot: checkpoint.is_some(),
-            has_canonical_snapshot_v2: checkpoint
-                .as_ref()
-                .and_then(|value| value.canonical_snapshot_v2.as_ref())
-                .is_some(),
+            has_canonical_snapshot_v2: checkpoint.is_some(),
             runtime_descriptor_count: checkpoint
                 .as_ref()
                 .map(|value| value.runtime_descriptors.len())
@@ -172,10 +169,10 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
                 Some(read_model),
             ));
         }
-        let snapshot = self.read_snapshot()?;
+        let snapshot = self.read_snapshot_v2()?;
         let metadata = snapshot.metadata.clone();
         let value = snapshot.value.map(|snapshot| {
-            let mut model = coordination_read_model_from_snapshot(&snapshot);
+            let mut model = coordination_read_model_from_snapshot_v2(&snapshot);
             model.revision = metadata.coordination_revision.unwrap_or_default();
             model
         });
@@ -198,10 +195,10 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
                 Some(queue_read_model),
             ));
         }
-        let snapshot = self.read_snapshot()?;
+        let snapshot = self.read_snapshot_v2()?;
         let metadata = snapshot.metadata.clone();
         let value = snapshot.value.map(|snapshot| {
-            let mut model = coordination_queue_read_model_from_snapshot(&snapshot);
+            let mut model = coordination_queue_read_model_from_snapshot_v2(&snapshot);
             model.revision = metadata.coordination_revision.unwrap_or_default();
             model
         });
@@ -224,7 +221,7 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
         request: CoordinationStartupCheckpointWriteRequest,
     ) -> Result<CoordinationMaterializedWriteResult> {
         let mut store = self.open_store()?;
-        save_shared_coordination_startup_checkpoint(
+        save_coordination_startup_checkpoint(
             &self.root,
             &mut store,
             &request.snapshot,

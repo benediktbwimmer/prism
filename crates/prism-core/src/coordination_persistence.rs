@@ -42,10 +42,14 @@ use crate::tracked_snapshot::{
 use crate::workspace_identity::coordination_persist_context_for_root;
 
 const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
-const TEST_SHARED_COORDINATION_REF_PUBLISH_OPT_IN: &str = "enable_shared_coordination_ref_publish";
+const TEST_COORDINATION_AUTHORITY_PUBLICATION_OPT_IN: &str =
+    "enable_coordination_authority_publication";
+const LEGACY_TEST_SHARED_COORDINATION_REF_PUBLISH_OPT_IN: &str =
+    "enable_shared_coordination_ref_publish";
 
-fn shared_coordination_ref_publish_enabled(root: &Path) -> bool {
-    let disabled = env::var_os("PRISM_TEST_DISABLE_SHARED_COORDINATION_REF_PUBLISH")
+fn coordination_authority_publication_enabled(root: &Path) -> bool {
+    let disabled = env::var_os("PRISM_TEST_DISABLE_COORDINATION_AUTHORITY_PUBLICATION")
+        .or_else(|| env::var_os("PRISM_TEST_DISABLE_SHARED_COORDINATION_REF_PUBLISH"))
         .and_then(|value| value.into_string().ok())
         .map(|value| {
             let normalized = value.trim().to_ascii_lowercase();
@@ -55,10 +59,13 @@ fn shared_coordination_ref_publish_enabled(root: &Path) -> bool {
     if !disabled {
         return true;
     }
-    root.join(".prism")
-        .join("tests")
-        .join(TEST_SHARED_COORDINATION_REF_PUBLISH_OPT_IN)
+    let tests_dir = root.join(".prism").join("tests");
+    tests_dir
+        .join(TEST_COORDINATION_AUTHORITY_PUBLICATION_OPT_IN)
         .exists()
+        || tests_dir
+            .join(LEGACY_TEST_SHARED_COORDINATION_REF_PUBLISH_OPT_IN)
+            .exists()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -109,7 +116,7 @@ where
     }
 }
 
-fn sync_authoritative_shared_coordination_ref_observed<O>(
+fn apply_coordination_authority_transaction_observed<O>(
     root: &Path,
     snapshot: &CoordinationSnapshot,
     derived: &CoordinationDerivedSyncInputs,
@@ -124,7 +131,7 @@ where
     let authority_store = configured_coordination_authority_store_provider(root)?.open(root)?;
     observe_coordination_step(
         observe_phase,
-        "mutation.coordination.publishedPlans.syncSharedCoordinationRef",
+        "mutation.coordination.authority.applyTransaction",
         |result: &crate::coordination_authority_store::CoordinationTransactionResult| {
             json!({
                 "committed": result.committed,
@@ -149,7 +156,7 @@ where
             }
             result => Err(authority_transaction_error(
                 &result,
-                "shared-ref authority transaction did not commit successfully",
+                "coordination authority transaction did not commit successfully",
             )
             .into()),
         },
@@ -292,7 +299,7 @@ where
         );
     }
     observe_phase(
-        "mutation.coordination.syncPublishedPlans",
+        "mutation.coordination.syncDerivedState",
         Duration::ZERO,
         json!({ "mode": "state" }),
         true,
@@ -548,11 +555,12 @@ pub(crate) trait CoordinationPersistenceBackend:
         let derived = CoordinationDerivedSyncInputs {
             canonical_snapshot_v2: canonical_snapshot_v2.clone(),
         };
+        let authority_publication_enabled = coordination_authority_publication_enabled(root);
         let provider = configured_coordination_authority_store_provider(root)?;
         let result = if matches!(
             provider.config(),
             crate::CoordinationAuthorityBackendConfig::GitSharedRefs
-        ) && !shared_coordination_ref_publish_enabled(root)
+        ) && !authority_publication_enabled
         {
             observe_phase(
                 "mutation.coordination.authority.applyTransaction",
@@ -628,7 +636,7 @@ pub(crate) trait CoordinationPersistenceBackend:
                     None,
                 );
                 observe_phase(
-                    "mutation.coordination.syncPublishedPlans",
+                    "mutation.coordination.syncDerivedState",
                     Duration::ZERO,
                     json!({ "mode": "noop" }),
                     true,
@@ -650,7 +658,7 @@ pub(crate) trait CoordinationPersistenceBackend:
                     None,
                 );
                 observe_phase(
-                    "mutation.coordination.syncPublishedPlans",
+                    "mutation.coordination.syncDerivedState",
                     Duration::ZERO,
                     json!({ "mode": "noop" }),
                     true,
@@ -688,9 +696,9 @@ pub(crate) trait CoordinationPersistenceBackend:
                 None,
             );
             observe_phase(
-                "mutation.coordination.syncPublishedPlans",
+                "mutation.coordination.syncDerivedState",
                 Duration::ZERO,
-                json!({ "mode": "shared_ref_only" }),
+                json!({ "mode": "authority_only" }),
                 true,
                 None,
             );

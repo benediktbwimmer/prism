@@ -10,14 +10,14 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
 use prism_coordination::{
-    assisted_heartbeat_window, CoordinationPolicy, CoordinationTask, LeaseHeartbeatDueState,
+    assisted_heartbeat_window, CanonicalTaskRecord, CoordinationPolicy, LeaseHeartbeatDueState,
     LeaseState, WorkClaim,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    new_prefixed_id, ChangeTrigger, ClaimStatus, EventActor, EventExecutionContext, EventId,
-    EventMeta, LeaseRenewalMode, PrincipalActor, PrincipalAuthorityId, PrincipalId, TaskId,
-    WorkContextSnapshot,
+    new_prefixed_id, ChangeTrigger, ClaimStatus, CoordinationTaskId, EventActor,
+    EventExecutionContext, EventId, EventMeta, LeaseRenewalMode, PrincipalActor,
+    PrincipalAuthorityId, PrincipalId, TaskId, WorkContextSnapshot,
 };
 use prism_memory::OutcomeMemory;
 use prism_projections::ProjectionIndex;
@@ -740,15 +740,18 @@ fn publish_local_assisted_lease_overlay_generation(
     // Assisted lease heartbeats are a local liveness overlay, not authoritative coordination.
     // Republish the runtime generation with the live overlay snapshot, but do not treat it as a
     // service-backed current-state application or materialization write.
-    runtime_state
-        .replace_coordination_runtime(prism.coordination_snapshot(), prism.runtime_descriptors());
+    runtime_state.replace_coordination_runtime(
+        prism.coordination_snapshot(),
+        prism.coordination_snapshot_v2(),
+        prism.runtime_descriptors(),
+    );
     runtime_state.publish_generation(workspace_revision, coordination_context)
 }
 
 #[derive(Debug, Clone)]
 enum AssistedLeaseTarget {
     Task {
-        task: CoordinationTask,
+        task: CanonicalTaskRecord,
         principal: PrincipalActor,
         policy: CoordinationPolicy,
     },
@@ -769,7 +772,7 @@ impl AssistedLeaseTarget {
     fn due_state(&self, prism: &Prism, now: u64) -> LeaseHeartbeatDueState {
         match self {
             Self::Task { task, policy, .. } => {
-                prism.effective_task_heartbeat_due_state(task, policy, now)
+                prism.effective_canonical_task_heartbeat_due_state(task, policy, now)
             }
             Self::Claim { claim, policy, .. } => {
                 prism.effective_claim_heartbeat_due_state(claim, policy, now)
@@ -790,7 +793,7 @@ impl AssistedLeaseTarget {
             Self::Task { task, .. } => event
                 .task
                 .as_ref()
-                .is_some_and(|task_id| task_id == &task.id),
+                .is_some_and(|task_id| task_id.0 == task.id.0),
             Self::Claim { claim, .. } => event
                 .claim
                 .as_ref()
@@ -867,9 +870,11 @@ where
     }
     let local_until = last_explicit_ts.saturating_add(target.assisted_window());
     let changed = match &target {
-        AssistedLeaseTarget::Task { task, .. } => {
-            prism.record_local_assisted_task_lease(&task.id, now, local_until)
-        }
+        AssistedLeaseTarget::Task { task, .. } => prism.record_local_assisted_task_lease(
+            &CoordinationTaskId::new(task.id.0.clone()),
+            now,
+            local_until,
+        ),
         AssistedLeaseTarget::Claim { claim, .. } => {
             prism.record_local_assisted_claim_lease(&claim.id, now, local_until)
         }
@@ -883,9 +888,9 @@ fn select_assisted_lease_target(
     now: u64,
 ) -> Option<AssistedLeaseTarget> {
     let task_targets = prism
-        .coordination_tasks()
+        .coordination_tasks_v2()
         .into_iter()
-        .filter_map(|task| assisted_task_target(prism, worktree_id, task, now));
+        .filter_map(|task| assisted_task_target(prism, worktree_id, task.task, now));
     let claim_targets = prism
         .coordination_claims()
         .into_iter()
@@ -900,28 +905,28 @@ fn select_assisted_lease_target(
 fn assisted_task_target(
     prism: &Prism,
     worktree_id: &str,
-    task: CoordinationTask,
+    task: CanonicalTaskRecord,
     now: u64,
 ) -> Option<AssistedLeaseTarget> {
     if task.worktree_id.as_deref() != Some(worktree_id) || task.pending_handoff_to.is_some() {
         return None;
     }
     if !matches!(
-        prism.effective_task_lease_state(&task, now),
+        prism.effective_canonical_task_lease_state(&task, now),
         LeaseState::Active
     ) {
         return None;
     }
     let holder = task.lease_holder.clone()?;
     let principal = holder.principal.clone()?;
-    let plan = prism.coordination_plan(&task.plan)?;
-    if plan.policy.lease_renewal_mode != LeaseRenewalMode::Assisted {
+    let plan = prism.coordination_plan_v2(&task.parent_plan_id)?;
+    if plan.plan.policy.lease_renewal_mode != LeaseRenewalMode::Assisted {
         return None;
     }
     Some(AssistedLeaseTarget::Task {
         task,
         principal,
-        policy: plan.policy,
+        policy: plan.plan.policy,
     })
 }
 
@@ -943,18 +948,18 @@ fn assisted_claim_target(
     let holder = claim.lease_holder.as_ref()?;
     let principal = holder.principal.clone()?;
     let task_id = claim.task.as_ref()?;
-    let task = prism.coordination_task(task_id)?;
-    if task.pending_handoff_to.is_some() {
+    let task = prism.coordination_task_v2_by_coordination_id(task_id)?;
+    if task.task.pending_handoff_to.is_some() {
         return None;
     }
-    let plan = prism.coordination_plan(&task.plan)?;
-    if plan.policy.lease_renewal_mode != LeaseRenewalMode::Assisted {
+    let plan = prism.coordination_plan_v2(&task.task.parent_plan_id)?;
+    if plan.plan.policy.lease_renewal_mode != LeaseRenewalMode::Assisted {
         return None;
     }
     Some(AssistedLeaseTarget::Claim {
         claim,
         principal,
-        policy: plan.policy,
+        policy: plan.plan.policy,
     })
 }
 
@@ -1185,6 +1190,10 @@ pub(crate) fn sync_protected_state_watch_update(
                 .unwrap_or_default(),
             plan_state
                 .as_ref()
+                .map(|state| state.canonical_snapshot_v2.clone())
+                .unwrap_or_default(),
+            plan_state
+                .as_ref()
                 .map(|state| state.runtime_descriptors.clone())
                 .unwrap_or_default(),
         );
@@ -1290,9 +1299,13 @@ mod tests {
         Event, EventKind,
     };
     use prism_coordination::{
-        CoordinationPolicy, CoordinationStore, PlanCreateInput, TaskCreateInput,
+        CoordinationPolicy, CoordinationSnapshot, CoordinationStore, PlanCreateInput,
+        TaskCreateInput,
     };
-    use prism_ir::{AgentId, EventActor, EventExecutionContext, EventId, EventMeta, SessionId};
+    use prism_ir::{
+        AgentId, EventActor, EventExecutionContext, EventId, EventMeta, SessionId,
+        WorkspaceRevision,
+    };
     use prism_query::Prism;
     use prism_store::{
         CoordinationJournal, Graph, IndexPersistBatch, MaterializationStore, MemoryStore,
@@ -1632,7 +1645,12 @@ mod tests {
                 },
             )
             .unwrap();
-        prism.replace_coordination_snapshot(coordination.snapshot());
+        let snapshot = coordination.snapshot();
+        prism.replace_coordination_runtime(
+            snapshot.clone(),
+            snapshot.to_canonical_snapshot_v2(),
+            Vec::new(),
+        );
 
         let mut store = MemoryStore::default();
         let worktree_id = super::workspace_identity_for_root(root.as_path()).worktree_id;
@@ -1685,6 +1703,57 @@ mod tests {
         assert!(diagnostics
             .bounded_by
             .contains(&"recent_explicit_authenticated_activity"));
+    }
+
+    #[test]
+    fn assisted_overlay_publish_preserves_live_canonical_coordination_snapshot() {
+        let root = temp_root("watch-assisted-overlay-canonical");
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let session = index_workspace_session_with_options(
+            &root,
+            WorkspaceSessionOptions {
+                shared_runtime: SharedRuntimeBackend::Disabled,
+                ..WorkspaceSessionOptions::default()
+            },
+        )
+        .unwrap();
+        let mut runtime_state = session
+            .runtime_state
+            .lock()
+            .expect("runtime state lock poisoned")
+            .clone();
+        let prism = session.prism_arc();
+
+        let snapshot = CoordinationSnapshot::default();
+        let mut canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
+        canonical_snapshot_v2.next_plan += 11;
+        canonical_snapshot_v2.next_task += 5;
+        prism.replace_coordination_runtime(
+            snapshot,
+            canonical_snapshot_v2.clone(),
+            Vec::new(),
+        );
+
+        let published = super::publish_local_assisted_lease_overlay_generation(
+            &mut runtime_state,
+            &prism,
+            WorkspaceRevision::default(),
+            None,
+        );
+
+        assert_eq!(
+            published.prism_arc().coordination_snapshot_v2(),
+            canonical_snapshot_v2
+        );
+
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]
@@ -1745,7 +1814,12 @@ mod tests {
                 )
                 .unwrap();
         }
-        prism.replace_coordination_snapshot(coordination.snapshot());
+        let snapshot = coordination.snapshot();
+        prism.replace_coordination_runtime(
+            snapshot.clone(),
+            snapshot.to_canonical_snapshot_v2(),
+            Vec::new(),
+        );
 
         let event_count = prism.coordination_events().len();
         let mut store = MemoryStore::default();

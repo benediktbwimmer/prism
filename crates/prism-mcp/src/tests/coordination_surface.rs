@@ -378,7 +378,6 @@ return {{
         assert_eq!(task["id"], Value::String(task_id.clone()));
     }
     assert_eq!(result.result["inbox"]["plan"]["id"], plan_id);
-    assert_eq!(result.result["inbox"]["planV2"]["id"], plan_id);
     assert_eq!(result.result["inbox"]["children"]["planId"], plan_id);
     assert_eq!(
         result.result["inbox"]["pendingReviews"]
@@ -388,7 +387,6 @@ return {{
         1
     );
     assert_eq!(result.result["context"]["task"]["id"], task_id);
-    assert_eq!(result.result["context"]["taskV2"]["id"], task_id);
     assert!(result.result["context"]["dependencies"]
         .as_array()
         .is_some_and(|dependencies| dependencies.is_empty()));
@@ -562,7 +560,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                     QueryLanguage::Ts,
                 )
                 .unwrap();
-            if state.result["status"] == "Blocked" {
+            if state.result["status"] == "blocked" {
                 Some(state)
             } else if attempt == 9 {
                 Some(state)
@@ -574,7 +572,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         .expect("handoff state");
     assert_eq!(handed_off.result["assignee"], Value::Null);
     assert_eq!(handed_off.result["pendingHandoffTo"], "agent-b");
-    assert_eq!(handed_off.result["status"], "Blocked");
+    assert_eq!(handed_off.result["status"], "blocked");
 
     let blocked_update = retry_on_runtime_sync_busy(|| {
         host_b.store_coordination(
@@ -669,7 +667,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     .unwrap();
     assert_eq!(accepted.state["assignee"], "agent-b");
     assert_eq!(accepted.state["pendingHandoffTo"], Value::Null);
-    assert_eq!(accepted.state["status"], "Ready");
+    assert_eq!(accepted.state["status"], "pending");
     if let Some(workspace) = host_b.workspace_session() {
         host_b.sync_workspace_revision(workspace).unwrap();
     }
@@ -765,7 +763,7 @@ return {{
         !resumed.rejected,
         "resume unexpectedly rejected after approval: {resumed:#?}"
     );
-    assert_eq!(resumed.state["status"], "Ready");
+    assert_eq!(resumed.state["status"], "pending");
 
     let completed = retry_on_runtime_sync_busy(|| {
         host_b.store_coordination(
@@ -785,7 +783,7 @@ return {{
         !completed.rejected,
         "completion unexpectedly rejected: {completed:#?}"
     );
-    assert_eq!(completed.state["status"], "Completed");
+    assert_eq!(completed.state["status"], "completed");
 
     let final_state = (0..120)
         .find_map(|attempt| {
@@ -813,7 +811,7 @@ return {{
                     QueryLanguage::Ts,
                 )
                 .unwrap();
-            if state.result["task"]["status"] == "Completed" {
+            if state.result["task"]["status"] == "completed" {
                 Some(state)
             } else if attempt == 119 {
                 Some(state)
@@ -823,7 +821,7 @@ return {{
             }
         })
         .expect("final coordination state");
-    assert_eq!(final_state.result["task"]["status"], "Completed");
+    assert_eq!(final_state.result["task"]["status"], "completed");
     assert_eq!(
         final_state.result["inbox"]["pendingReviews"]
             .as_array()

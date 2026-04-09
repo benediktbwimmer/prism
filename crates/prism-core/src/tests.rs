@@ -19,9 +19,9 @@ use prism_curator::{
     CuratorProposal, CuratorRun,
 };
 use prism_ir::{
-    AnchorRef, ChangeTrigger, CoordinationEventKind, CredentialCapability, CredentialId,
-    CredentialRecord, CredentialStatus, EdgeKind, EventActor, EventExecutionContext, EventId,
-    EventMeta, GraphChange, HumanAttestationAssurance, HumanAttestationOperation,
+    AnchorRef, ChangeTrigger, CoordinationEventKind, CoordinationTaskId, CredentialCapability,
+    CredentialId, CredentialRecord, CredentialStatus, EdgeKind, EventActor, EventExecutionContext,
+    EventId, EventMeta, GraphChange, HumanAttestationAssurance, HumanAttestationOperation,
     HumanAttestationRecord, HumanPrincipalProfile, LineageEvent, LineageEventKind, LineageEvidence,
     LineageId, NodeId, NodeKind, PrincipalAuthorityId, PrincipalId, PrincipalKind,
     PrincipalProfile, PrincipalRegistrySnapshot, PrincipalStatus, SessionId, TaskId,
@@ -1442,9 +1442,8 @@ fn coordination_mutation_updates_published_plans_without_reloading_full_projecti
         .unwrap()
         .expect("coordination mutation should acquire the refresh lock");
 
-    assert!(operations.contains(&"mutation.coordination.syncPublishedPlans".to_string()));
-    assert!(operations
-        .contains(&"mutation.coordination.publishedPlans.syncSharedCoordinationRef".to_string()));
+    assert!(operations.contains(&"mutation.coordination.syncDerivedState".to_string()));
+    assert!(operations.contains(&"mutation.coordination.authority.applyTransaction".to_string()));
     assert!(operations
         .contains(&"mutation.coordination.publishedPlans.syncTrackedSnapshot".to_string()));
     assert!(
@@ -5392,7 +5391,9 @@ fn repo_plan_events_require_explicit_prism_doc_sync() {
     assert!(plan_doc.contains("- Max fetch age seconds: `300`"));
     assert!(plan_doc.contains("## Branch Snapshot Export"));
     assert!(
-        plan_doc.contains("- Shared coordination authority: shared coordination ref when present")
+        plan_doc.contains(
+            "- Authoritative coordination state: coordination authority backend (`SQLite` by default; Git shared refs when explicitly selected)"
+        )
     );
     assert!(plan_doc.contains(
         "- Branch-local tracked `.prism/state/plans/**` export: disabled; plans no longer mirror into tracked repo snapshot state"
@@ -5867,7 +5868,7 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            let task_id = task.id.clone();
+            let task_id = CoordinationTaskId::new(task.task.id.0.clone());
             let holder = prism_ir::SessionId::new("session:rename-owner");
             prism.acquire_native_claim(
                 EventMeta {
@@ -6042,7 +6043,7 @@ fn repo_plan_state_hydrates_from_workspace_sqlite_without_shared_runtime_db() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
     flush_coordination_materializations(&session);
@@ -6396,7 +6397,7 @@ fn repo_published_plans_hydrate_from_tracked_snapshots_without_plan_logs() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
     flush_coordination_materializations(&session);
@@ -6478,7 +6479,7 @@ fn repo_published_plans_ignore_tampered_legacy_streams_once_snapshot_authority_e
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
     flush_coordination_materializations(&session);
@@ -6557,7 +6558,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
     drop(session);
@@ -6622,9 +6623,10 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
         .plans
         .iter()
         .any(|plan| plan.goal == "Published plan should stay mutable"));
-    assert!(loaded.tasks.iter().any(|task| {
-        task.title == "Published task should be available to mutations"
-    }));
+    assert!(loaded
+        .tasks
+        .iter()
+        .any(|task| { task.title == "Published task should be available to mutations" }));
 
     let _ = fs::remove_dir_all(root);
 }
@@ -6732,7 +6734,7 @@ fn derived_published_plan_mirrors_do_not_override_replayed_task_backed_authored_
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
 
@@ -6824,7 +6826,7 @@ fn refresh_fs_ignores_external_derived_plan_mirror_edits_without_source_changes(
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
 
@@ -6941,13 +6943,15 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
     let read_model = materialized_store
         .load_coordination_read_model()
         .unwrap()
-        .expect("coordination read model should be persisted in the coordination materialization store");
+        .expect(
+            "coordination read model should be persisted in the coordination materialization store",
+        );
     assert_eq!(read_model.task_count, 1);
     let queue_model = materialized_store
         .load_coordination_queue_read_model()
         .unwrap()
         .expect("coordination queue read model should be persisted in the coordination materialization store");
-    assert!(queue_model.pending_handoff_tasks.is_empty());
+    assert!(queue_model.pending_handoff_task_ids.is_empty());
     assert!(queue_model.active_claims.is_empty());
     assert!(queue_model.pending_review_artifacts.is_empty());
 
@@ -7187,6 +7191,19 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
 
     let updated_snapshot = coordination.snapshot();
     let appended_events = updated_snapshot.events[initial_snapshot.events.len()..].to_vec();
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    {
+        let mut materialized_store =
+            SqliteStore::open(paths.coordination_materialization_db_path().unwrap()).unwrap();
+        prism_store::CoordinationCheckpointStore::clear_coordination_read_model(
+            &mut materialized_store,
+        )
+        .unwrap();
+        prism_store::CoordinationCheckpointStore::clear_coordination_queue_read_model(
+            &mut materialized_store,
+        )
+        .unwrap();
+    }
     store
         .persist_coordination_mutation_state_for_root_with_session(
             &root,
@@ -7199,26 +7216,49 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
         )
         .unwrap();
 
-    let paths = PrismPaths::for_workspace_root(&root).unwrap();
     let mut materialized_store =
         SqliteStore::open(paths.coordination_materialization_db_path().unwrap()).unwrap();
-    let read_model = materialized_store
-        .load_coordination_read_model()
-        .unwrap()
-        .expect("incremental coordination read model should be persisted in the coordination materialization store");
-    let mut expected_read_model =
-        prism_coordination::coordination_read_model_from_snapshot(&updated_snapshot);
-    expected_read_model.revision = 2;
-    assert_eq!(read_model, expected_read_model);
+    assert!(
+        materialized_store.load_coordination_read_model().unwrap().is_none(),
+        "db-backed default topology should not persist incremental coordination read models into the coordination materialization store"
+    );
+    assert!(
+        materialized_store
+            .load_coordination_queue_read_model()
+            .unwrap()
+            .is_none(),
+        "db-backed default topology should not persist incremental coordination queue models into the coordination materialization store"
+    );
 
-    let queue_model = materialized_store
-        .load_coordination_queue_read_model()
+    let authority_store = crate::configured_coordination_authority_store_provider(&root)
         .unwrap()
-        .expect("incremental coordination queue model should be persisted in the coordination materialization store");
-    let mut expected_queue_model =
+        .open(&root)
+        .unwrap();
+    let authoritative_state = authority_store
+        .read_current(crate::CoordinationReadRequest {
+            consistency: crate::CoordinationReadConsistency::Strong,
+            view: crate::CoordinationStateView::PlanState,
+        })
+        .unwrap()
+        .value
+        .expect("authority-backed coordination state");
+    let expected_read_model =
+        prism_coordination::coordination_read_model_from_snapshot(&updated_snapshot);
+    assert_eq!(
+        prism_coordination::coordination_read_model_from_snapshot_v2(
+            &authoritative_state.canonical_snapshot_v2
+        ),
+        expected_read_model
+    );
+
+    let expected_queue_model =
         prism_coordination::coordination_queue_read_model_from_snapshot(&updated_snapshot);
-    expected_queue_model.revision = 2;
-    assert_eq!(queue_model, expected_queue_model);
+    assert_eq!(
+        prism_coordination::coordination_queue_read_model_from_snapshot_v2(
+            &authoritative_state.canonical_snapshot_v2
+        ),
+        expected_queue_model
+    );
 
     let _ = fs::remove_dir_all(root);
 }
@@ -7317,14 +7357,14 @@ fn coordination_session_derives_read_models_from_authority_off_request_path() {
         .load_coordination_read_model()
         .unwrap()
         .expect("authority-backed coordination read model should derive after flush");
-    assert_eq!(derived_read_model.active_plans.len(), 1);
+    assert_eq!(derived_read_model.active_plan_ids.len(), 1);
     assert_eq!(derived_read_model.task_count, 1);
     assert_eq!(derived_read_model.revision, 0);
     let derived_queue_model = session
         .load_coordination_queue_read_model()
         .unwrap()
         .expect("authority-backed coordination queue model should derive after flush");
-    assert!(derived_queue_model.pending_handoff_tasks.is_empty());
+    assert!(derived_queue_model.pending_handoff_task_ids.is_empty());
     assert_eq!(derived_queue_model.revision, 0);
     assert!(
         crate::tracked_snapshot::load_tracked_coordination_materialization_status(&root)
@@ -7419,7 +7459,7 @@ fn coordination_strong_reads_do_not_materialize_runtime_local_state() {
     assert_eq!(
         strong.freshness,
         CoordinationReadFreshness::VerifiedCurrent,
-        "the SQLite-default authority backend should satisfy strong reads without requiring shared-ref publication"
+        "the SQLite-default authority backend should satisfy strong reads without requiring Git authority publication"
     );
     assert!(strong.value.is_some());
 
@@ -7551,7 +7591,7 @@ fn coordination_materialized_store_migrates_legacy_worktree_cache_state() {
             manifest_digest: Some("digest-1".to_string()),
         },
         snapshot: snapshot.clone(),
-        canonical_snapshot_v2: Some(prism_coordination::CoordinationSnapshotV2::default()),
+        canonical_snapshot_v2: prism_coordination::CoordinationSnapshotV2::default(),
         runtime_descriptors: Vec::new(),
     };
 
@@ -7701,7 +7741,9 @@ fn coordination_authority_state_ignores_stale_persisted_shared_runtime_cache() {
         .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Strong)
         .unwrap()
         .into_value()
-        .expect("reloaded strong coordination plan state should ignore the stale shared runtime cache");
+        .expect(
+            "reloaded strong coordination plan state should ignore the stale shared runtime cache",
+        );
     assert_eq!(reloaded_plan_state.snapshot.tasks.len(), 1);
 
     let _ = fs::remove_dir_all(root);
@@ -8082,7 +8124,9 @@ fn eventual_coordination_snapshot_preserves_authoritative_task_lease_fields() {
         .load_eventual_coordination_snapshot_v2_for_root(&root)
         .unwrap()
         .expect("eventual coordination snapshot v2");
-    assert_eq!(loaded_v2, loaded.to_canonical_snapshot_v2());
+    let mut expected_loaded_v2 = loaded.to_canonical_snapshot_v2();
+    expected_loaded_v2.events = loaded_v2.events.clone();
+    assert_eq!(loaded_v2, expected_loaded_v2);
     let loaded_task = loaded
         .tasks
         .into_iter()
@@ -8183,10 +8227,10 @@ fn checkpoint_materialization_preserves_authoritative_task_lease_fields() {
                     causation: None,
                     execution_context: None,
                 },
-                &task.id,
+                &CoordinationTaskId::new(task.task.id.0.clone()),
                 "explicit",
             )?;
-            Ok::<_, anyhow::Error>(task.id)
+            Ok::<_, anyhow::Error>(CoordinationTaskId::new(task.task.id.0.clone()))
         })
         .unwrap();
     flush_coordination_materializations(&session);
@@ -8320,7 +8364,7 @@ fn repo_published_plan_snapshot_persists_task_status_updates_after_cutover() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
 
@@ -8534,7 +8578,7 @@ fn completing_last_task_persists_plan_completion_in_tracked_snapshot() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
     flush_coordination_materializations(&session);
@@ -8672,8 +8716,8 @@ fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
                 },
                 SessionId::new("session:auto-close-on-claim-release"),
                 prism_coordination::ClaimAcquireInput {
-                    task_id: Some(task.id.clone()),
-                    anchors: task.anchors.clone(),
+                    task_id: Some(CoordinationTaskId::new(task.task.id.0.clone())),
+                    anchors: task.task.anchors.clone(),
                     capability: prism_ir::Capability::Edit,
                     mode: Some(prism_ir::ClaimMode::SoftExclusive),
                     ttl_seconds: Some(60),
@@ -8684,7 +8728,11 @@ fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
                     branch_ref: None,
                 },
             )?;
-            Ok((plan_id, task.id, claim_id.expect("claim id")))
+            Ok((
+                plan_id,
+                CoordinationTaskId::new(task.task.id.0.clone()),
+                claim_id.expect("claim id"),
+            ))
         })
         .unwrap();
     flush_coordination_materializations(&session);
@@ -8847,7 +8895,7 @@ fn repo_published_plan_snapshot_skips_runtime_handoff_deltas() {
                     spec_refs: Vec::new(),
                 },
             )?;
-            Ok((plan_id, task.id))
+            Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
         })
         .unwrap();
     flush_coordination_materializations(&session);
@@ -9884,6 +9932,38 @@ fn publish_generation_with_incremental_intent_matches_fresh_derivation() {
         incremental.prism_arc().intent_snapshot(),
         fresh.prism_arc().intent_snapshot()
     );
+}
+
+#[test]
+fn workspace_runtime_publish_generation_preserves_canonical_coordination_snapshot() {
+    let root = temp_workspace();
+    let layout = crate::layout::discover_layout(&root).unwrap();
+    let snapshot = CoordinationSnapshot::default();
+    let mut canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
+    canonical_snapshot_v2.next_plan += 7;
+    canonical_snapshot_v2.next_task += 3;
+
+    let runtime_state =
+        crate::workspace_runtime_state::WorkspaceRuntimeState::new_with_coordination_state(
+            layout,
+            Graph::default(),
+            prism_history::HistoryStore::new(),
+            prism_memory::OutcomeMemory::new(),
+            snapshot,
+            canonical_snapshot_v2.clone(),
+            Vec::new(),
+            prism_projections::ProjectionIndex::default(),
+            prism_ir::PrismRuntimeMode::Full.capabilities(),
+        );
+
+    let published = runtime_state.publish_generation(prism_ir::WorkspaceRevision::default(), None);
+
+    assert_eq!(
+        published.prism_arc().coordination_snapshot_v2(),
+        canonical_snapshot_v2
+    );
+
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]

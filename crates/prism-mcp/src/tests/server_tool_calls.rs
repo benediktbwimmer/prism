@@ -15,8 +15,9 @@ use prism_core::{
     PrismRuntimeMode, WorkspaceSessionOptions,
 };
 use prism_ir::{
-    CoordinationTaskStatus, CredentialCapability, CredentialId, EventActor, EventId, EventMeta,
-    PlanStatus, PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalKind, SessionId,
+    CoordinationTaskId, CoordinationTaskStatus, CredentialCapability, CredentialId, EventActor,
+    EventId, EventMeta, PlanStatus, PrincipalActor, PrincipalAuthorityId, PrincipalId,
+    PrincipalKind, SessionId,
 };
 
 fn resource_text(response: serde_json::Value) -> String {
@@ -618,7 +619,6 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
 const sym = prism.symbol("main");
 return {{
   plan: prism.plan("{plan_id}"),
-  planV2: prism.planV2("{plan_id}"),
   children: prism.children("{plan_id}"),
   ready: prism.readyTasks("{plan_id}"),
   claims: sym ? prism.claims(sym) : [],
@@ -643,7 +643,7 @@ return {{
         envelope["result"]["plan"]["goal"],
         "Coordinate the main edit"
     );
-    assert_eq!(envelope["result"]["planV2"]["id"], plan_id);
+    assert_eq!(envelope["result"]["plan"]["id"], plan_id);
     assert_eq!(
         envelope["result"]["children"]["children"]
             .as_array()
@@ -653,6 +653,7 @@ return {{
     );
     assert_eq!(envelope["result"]["children"]["children"][0]["id"], task_id);
     assert_eq!(envelope["result"]["ready"].as_array().unwrap().len(), 1);
+    assert_eq!(envelope["result"]["ready"][0]["id"], task_id);
     assert_eq!(envelope["result"]["claims"].as_array().unwrap().len(), 0);
     assert_eq!(envelope["result"]["artifacts"].as_array().unwrap().len(), 1);
     assert!(envelope["result"]["taskBlastRadius"]["lineages"]
@@ -744,7 +745,7 @@ async fn mcp_server_auto_resumes_stale_same_principal_task_on_update() {
                         spec_refs: Vec::new(),
                     },
                 )?;
-                Ok((plan_id, task.id))
+                Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
             },
             |_operation, _duration, _args, _success, _error| {},
         )
@@ -789,7 +790,7 @@ async fn mcp_server_auto_resumes_stale_same_principal_task_on_update() {
         updated["result"]["state"]["id"],
         Value::from(task_id.0.to_string())
     );
-    assert_eq!(updated["result"]["state"]["status"], Value::from("Ready"));
+    assert_eq!(updated["result"]["state"]["status"], Value::from("pending"));
 
     client
         .send(call_tool_request(
@@ -819,7 +820,7 @@ async fn mcp_server_auto_resumes_stale_same_principal_task_on_update() {
     );
     assert_eq!(
         updated_again["result"]["state"]["status"],
-        Value::from("Ready")
+        Value::from("pending")
     );
 
     running.cancel().await.unwrap();
@@ -898,7 +899,7 @@ async fn mcp_server_auto_resumes_stale_same_principal_ready_task_on_update() {
                         spec_refs: Vec::new(),
                     },
                 )?;
-                Ok((plan_id, task.id))
+                Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
             },
             |_operation, _duration, _args, _success, _error| {},
         )
@@ -943,7 +944,7 @@ async fn mcp_server_auto_resumes_stale_same_principal_ready_task_on_update() {
         resumed["result"]["state"]["id"],
         Value::from(task_id.0.to_string())
     );
-    assert_eq!(resumed["result"]["state"]["status"], Value::from("Ready"));
+    assert_eq!(resumed["result"]["state"]["status"], Value::from("pending"));
     assert_eq!(
         resumed["result"]["state"]["summary"],
         Value::from("resume should unblock ready follow-up updates")
@@ -1016,7 +1017,7 @@ async fn mcp_server_auto_resumes_stale_same_worktree_executor_task_on_update() {
                         spec_refs: Vec::new(),
                     },
                 )?;
-                Ok((plan_id, task.id))
+                Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
             },
             |_operation, _duration, _args, _success, _error| {},
         )
@@ -1169,23 +1170,23 @@ async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_i
                         spec_refs: Vec::new(),
                     },
                 )?;
-                let task = prism.update_native_task(
+                let task = prism.update_native_task_authoritative_only(
                     EventMeta {
-                        id: EventId::new("coordination:stale-resume-git-exec:update"),
+                        id: EventId::new("coordination:stale-resume-git-exec:authoritative"),
                         ts: stale_ts,
                         actor: actor.clone(),
                         correlation: None,
                         causation: None,
                         execution_context: execution_context.clone(),
                     },
-                    TaskUpdateInput {
-                        task_id: task.id.clone(),
+                    prism_coordination::TaskUpdateInput {
+                        task_id: CoordinationTaskId::new(task.task.id.0.clone()),
                         kind: None,
                         status: Some(CoordinationTaskStatus::InProgress),
                         published_task_status: None,
                         git_execution: None,
                         assignee: None,
-                        session: Some(Some(prior_session.clone())),
+                        session: None,
                         worktree_id: None,
                         branch_ref: None,
                         title: None,
@@ -1201,13 +1202,13 @@ async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_i
                         base_revision: Some(prism.workspace_revision()),
                         priority: None,
                         tags: None,
-                        spec_refs: None,
                         completion_context: None,
+                        spec_refs: None,
                     },
                     prism.workspace_revision(),
                     stale_ts,
                 )?;
-                Ok((plan_id, task.id))
+                Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
             },
             |_operation, _duration, _args, _success, _error| {},
         )
@@ -1251,10 +1252,7 @@ async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_i
         resumed["result"]["state"]["id"],
         Value::from(task_id.0.to_string())
     );
-    assert_eq!(
-        resumed["result"]["state"]["status"],
-        Value::from("InProgress")
-    );
+    assert_eq!(resumed["result"]["state"]["status"], Value::from("active"));
 
     running.cancel().await.unwrap();
 }
@@ -1507,10 +1505,7 @@ async fn mcp_server_supports_mcp_only_self_described_workflows() {
         .await
         .unwrap();
     let updated = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(
-        updated["result"]["state"]["status"],
-        Value::from("InProgress")
-    );
+    assert_eq!(updated["result"]["state"]["status"], Value::from("active"));
 
     let claim_input = json!({
         "action": "claim",
@@ -2302,7 +2297,7 @@ async fn mcp_server_executes_coordination_mutation_round_trip_in_coordination_on
     let plan = first_tool_content_json(client.receive().await.unwrap());
 
     assert_eq!(plan["action"], "coordination");
-    assert_eq!(plan["result"]["state"]["status"], "Active");
+    assert_eq!(plan["result"]["state"]["status"], "pending");
     assert_eq!(
         plan["result"]["state"]["title"],
         "Coordinate reduced runtime mutation"

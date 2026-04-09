@@ -264,7 +264,11 @@ mod tests {
                 snapshot
                     .plans
                     .push(recurring_plan("plan:recurring", 100, 7));
-                prism.replace_coordination_snapshot(snapshot);
+                prism.replace_coordination_runtime(
+                    snapshot.clone(),
+                    snapshot.to_canonical_snapshot_v2(),
+                    Vec::new(),
+                );
                 Ok(())
             })
             .expect("coordination snapshot should persist");
@@ -313,7 +317,11 @@ mod tests {
                 snapshot
                     .plans
                     .push(recurring_plan("plan:recurring", 100, 7));
-                prism.replace_coordination_snapshot(snapshot);
+                prism.replace_coordination_runtime(
+                    snapshot.clone(),
+                    snapshot.to_canonical_snapshot_v2(),
+                    Vec::new(),
+                );
                 Ok(())
             })
             .expect("coordination snapshot should persist");

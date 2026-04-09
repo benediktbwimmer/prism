@@ -437,30 +437,30 @@ pub(crate) fn status_with_coordination_authority_override(
         authority_diagnostics.backend_details
     {
         println!(
-            "shared_coordination_ref: {}",
+            "coordination_authority: {}",
             shared_coordination_ref.ref_name
         );
         println!(
-            "shared_coordination_head: {}",
+            "coordination_authority_head: {}",
             shared_coordination_ref
                 .head_commit
                 .as_deref()
                 .unwrap_or("<missing>")
         );
         println!(
-            "shared_coordination_history_depth: {}",
+            "coordination_authority_history_depth: {}",
             shared_coordination_ref.history_depth
         );
         println!(
-            "shared_coordination_snapshot_file_count: {}",
+            "coordination_authority_snapshot_file_count: {}",
             shared_coordination_ref.snapshot_file_count
         );
         println!(
-            "shared_coordination_compaction_status: {}",
+            "coordination_authority_compaction_status: {}",
             shared_coordination_ref.compaction_status
         );
         println!(
-            "shared_coordination_needs_compaction: {}",
+            "coordination_authority_needs_compaction: {}",
             shared_coordination_ref.needs_compaction
         );
     }

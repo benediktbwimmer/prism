@@ -17,8 +17,8 @@ The abstraction exists to make three things true at the same time:
   storage-specific helpers
 - the first production-grade release path can use a DB-backed authority family without rewriting
   the rest of the coordination stack
-- the current Git shared-ref implementation remains a first-class backend and compatibility target
-  rather than a special-case side path
+- the current Git shared-ref implementation remains a first-class backend rather than a special-case
+  side path
 
 The abstraction is intentionally **high-level**. It does not try to unify Git refs and SQL rows at
 an implementation level. It defines the coordination semantics that PRISM needs:

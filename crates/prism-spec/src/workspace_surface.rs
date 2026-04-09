@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use prism_coordination::CoordinationSnapshot;
+use prism_coordination::CoordinationSnapshotV2;
 
 use crate::{
     refresh_spec_materialization, MaterializedSpecQueryEngine, SpecMaterializationRefreshResult,
@@ -42,14 +42,14 @@ impl WorkspaceSpecSurface {
 
     pub fn refresh(
         &self,
-        coordination: Option<CoordinationSnapshot>,
+        coordination: Option<CoordinationSnapshotV2>,
     ) -> Result<SpecMaterializationRefreshResult> {
         refresh_spec_materialization(&self.store, &self.repo_root, coordination)
     }
 
     pub fn with_query_engine<T, F>(
         &self,
-        coordination: Option<CoordinationSnapshot>,
+        coordination: Option<CoordinationSnapshotV2>,
         f: F,
     ) -> Result<T>
     where
@@ -68,7 +68,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use prism_coordination::CoordinationSnapshot;
+    use prism_coordination::CoordinationSnapshotV2;
 
     use crate::WorkspaceSpecSurface;
 
@@ -116,7 +116,7 @@ mod tests {
 
         let surface = WorkspaceSpecSurface::new(&root);
         let specs = surface
-            .with_query_engine(Some(CoordinationSnapshot::default()), |engine| {
+            .with_query_engine(Some(CoordinationSnapshotV2::default()), |engine| {
                 engine.list_specs()
             })
             .unwrap();

@@ -42,13 +42,13 @@ pub fn coordination_authority_diagnostics_with_provider(
 pub fn git_shared_coordination_ref_diagnostics(
     root: &Path,
 ) -> Result<Option<SharedCoordinationRefDiagnostics>> {
-    shared_coordination_ref_diagnostics_with_provider(
+    git_shared_coordination_ref_diagnostics_with_provider(
         root,
         &configured_coordination_authority_store_provider(root)?,
     )
 }
 
-pub fn shared_coordination_ref_diagnostics_with_provider(
+pub fn git_shared_coordination_ref_diagnostics_with_provider(
     root: &Path,
     provider: &CoordinationAuthorityStoreProvider,
 ) -> Result<Option<SharedCoordinationRefDiagnostics>> {
@@ -59,13 +59,6 @@ pub fn shared_coordination_ref_diagnostics_with_provider(
         | CoordinationAuthorityBackendDetails::Postgres(_)
         | CoordinationAuthorityBackendDetails::Unavailable => Ok(None),
     }
-}
-
-#[allow(dead_code)]
-pub fn shared_coordination_ref_diagnostics(
-    root: &Path,
-) -> Result<Option<SharedCoordinationRefDiagnostics>> {
-    git_shared_coordination_ref_diagnostics(root)
 }
 
 pub fn publish_local_runtime_descriptor(root: &Path) -> Result<()> {
@@ -105,16 +98,16 @@ pub fn sync_live_runtime_descriptor_with_provider(
     publish_local_runtime_descriptor_with_provider(root, provider)
 }
 
-pub(crate) fn shared_coordination_startup_authority(
+pub(crate) fn coordination_startup_checkpoint_authority(
     root: &Path,
 ) -> Result<Option<CoordinationStartupCheckpointAuthority>> {
-    shared_coordination_startup_authority_with_provider(
+    coordination_startup_checkpoint_authority_with_provider(
         root,
         &configured_coordination_authority_store_provider(root)?,
     )
 }
 
-pub(crate) fn shared_coordination_startup_authority_with_provider(
+pub(crate) fn coordination_startup_checkpoint_authority_with_provider(
     root: &Path,
     provider: &CoordinationAuthorityStoreProvider,
 ) -> Result<Option<CoordinationStartupCheckpointAuthority>> {

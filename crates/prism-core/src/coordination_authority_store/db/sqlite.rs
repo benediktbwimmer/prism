@@ -140,7 +140,7 @@ impl SqliteCoordinationAuthorityDb {
                 .unwrap_or_default();
             let canonical_snapshot_v2 = checkpoint
                 .filter(|value| value.coordination_revision == revision)
-                .and_then(|value| value.canonical_snapshot_v2.clone())
+                .map(|value| value.canonical_snapshot_v2.clone())
                 .unwrap_or_else(|| snapshot.to_canonical_snapshot_v2());
             return Ok(Some(CoordinationCurrentState {
                 snapshot,
@@ -153,9 +153,7 @@ impl SqliteCoordinationAuthorityDb {
             .cloned()
             .map(|checkpoint| CoordinationCurrentState {
                 snapshot: checkpoint.snapshot.clone(),
-                canonical_snapshot_v2: checkpoint
-                    .canonical_snapshot_v2
-                    .unwrap_or_else(|| checkpoint.snapshot.to_canonical_snapshot_v2()),
+                canonical_snapshot_v2: checkpoint.canonical_snapshot_v2,
                 runtime_descriptors: checkpoint.runtime_descriptors,
             }))
     }
@@ -293,7 +291,7 @@ impl SqliteCoordinationAuthorityDb {
                 manifest_digest: None,
             },
             snapshot: sanitized_snapshot,
-            canonical_snapshot_v2: Some(canonical_snapshot_v2.clone()),
+            canonical_snapshot_v2: canonical_snapshot_v2.clone(),
             runtime_descriptors: runtime_descriptors.to_vec(),
         })
     }

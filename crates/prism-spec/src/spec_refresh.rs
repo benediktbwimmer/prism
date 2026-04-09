@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use anyhow::Result;
-use prism_coordination::CoordinationSnapshot;
+use prism_coordination::CoordinationSnapshotV2;
 
 use crate::{
     discover_spec_sources, parse_spec_sources, resolve_spec_root, SpecMaterializedReplaceRequest,
@@ -19,7 +19,7 @@ pub struct SpecMaterializationRefreshResult {
 pub fn refresh_spec_materialization<S>(
     store: &S,
     repo_root: &Path,
-    coordination: Option<CoordinationSnapshot>,
+    coordination: Option<CoordinationSnapshotV2>,
 ) -> Result<SpecMaterializationRefreshResult>
 where
     S: SpecMaterializedStore,
@@ -48,12 +48,11 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use prism_coordination::{
-        CoordinationPolicy, CoordinationSnapshot, CoordinationSpecRef, CoordinationTask,
-        CoordinationTaskSpecRef, Plan, PlanScheduling, TaskGitExecution,
+        CanonicalPlanRecord, CanonicalTaskRecord, CoordinationSnapshotV2, CoordinationSpecRef,
+        CoordinationTaskSpecRef,
     };
     use prism_ir::{
-        CoordinationTaskId, CoordinationTaskStatus, PlanId, PlanKind, PlanNodeKind, PlanScope,
-        PlanStatus, WorkspaceRevision,
+        PlanId, PlanOperatorState, PlanScope, TaskId, TaskLifecycleStatus, WorkspaceRevision,
     };
 
     use crate::{refresh_spec_materialization, SpecMaterializedStore, SqliteSpecMaterializedStore};
@@ -94,34 +93,34 @@ mod tests {
         let refresh = refresh_spec_materialization(
             &store,
             &root,
-            Some(CoordinationSnapshot {
-                plans: vec![Plan {
+            Some(CoordinationSnapshotV2 {
+                plans: vec![CanonicalPlanRecord {
                     id: PlanId::new("plan:alpha"),
-                    goal: "Ship alpha".into(),
+                    parent_plan_id: None,
                     title: "Ship alpha".into(),
-                    status: PlanStatus::Active,
-                    policy: CoordinationPolicy::default(),
+                    goal: "Ship alpha".into(),
                     scope: PlanScope::Repo,
-                    kind: PlanKind::TaskExecution,
-                    revision: 1,
-                    scheduling: PlanScheduling::default(),
+                    kind: prism_ir::PlanKind::TaskExecution,
+                    policy: prism_coordination::CoordinationPolicy::default(),
+                    scheduling: prism_coordination::PlanScheduling::default(),
                     tags: Vec::new(),
+                    created_from: None,
                     spec_refs: vec![CoordinationSpecRef {
                         spec_id: "spec:a".into(),
                         source_path: ".prism/specs/2026-04-09-a.md".into(),
                         source_revision: Some("abc123".into()),
                     }],
-                    created_from: None,
                     metadata: serde_json::Value::Null,
+                    operator_state: PlanOperatorState::None,
                 }],
-                tasks: vec![CoordinationTask {
-                    id: CoordinationTaskId::new("coord-task:alpha"),
-                    plan: PlanId::new("plan:alpha"),
-                    kind: PlanNodeKind::Edit,
+                tasks: vec![CanonicalTaskRecord {
+                    id: TaskId::new("coord-task:alpha"),
+                    parent_plan_id: PlanId::new("plan:alpha"),
                     title: "Implement alpha".into(),
                     summary: None,
-                    status: CoordinationTaskStatus::Ready,
-                    published_task_status: None,
+                    lifecycle_status: TaskLifecycleStatus::Pending,
+                    estimated_minutes: 0,
+                    executor: prism_ir::TaskExecutorPolicy::default(),
                     assignee: None,
                     pending_handoff_to: None,
                     session: None,
@@ -134,12 +133,8 @@ mod tests {
                     branch_ref: None,
                     anchors: Vec::new(),
                     bindings: Default::default(),
-                    depends_on: Vec::new(),
-                    coordination_depends_on: Vec::new(),
-                    integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     validation_refs: Vec::new(),
-                    is_abstract: false,
                     base_revision: WorkspaceRevision::default(),
                     priority: None,
                     tags: Vec::new(),
@@ -152,17 +147,14 @@ mod tests {
                         covered_sections: Vec::new(),
                     }],
                     metadata: serde_json::Value::Null,
-                    git_execution: TaskGitExecution::default(),
+                    git_execution: prism_coordination::TaskGitExecution::default(),
                 }],
-                claims: Vec::new(),
-                artifacts: Vec::new(),
-                reviews: Vec::new(),
-                events: Vec::new(),
                 next_plan: 2,
                 next_task: 2,
                 next_claim: 1,
                 next_artifact: 1,
                 next_review: 1,
+                ..CoordinationSnapshotV2::default()
             }),
         )
         .unwrap();

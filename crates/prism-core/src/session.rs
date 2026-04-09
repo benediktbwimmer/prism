@@ -1506,12 +1506,16 @@ impl WorkspaceSession {
         )?;
         drop(store);
 
-        let runtime_state = WorkspaceRuntimeState::new(
+        let runtime_state = WorkspaceRuntimeState::new_with_coordination_state(
             discover_layout(&self.root)?,
             graph,
             history,
             outcomes,
             coordination_snapshot,
+            plan_state
+                .as_ref()
+                .map(|state| state.canonical_snapshot_v2.clone())
+                .unwrap_or_default(),
             plan_state
                 .as_ref()
                 .map(|state| state.runtime_descriptors.clone())

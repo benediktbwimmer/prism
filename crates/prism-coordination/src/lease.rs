@@ -1,5 +1,6 @@
 use prism_ir::{EventActor, EventMeta, SessionId, Timestamp};
 
+use crate::canonical_graph::CanonicalTaskRecord;
 use crate::types::{
     CoordinationPolicy, CoordinationTask, LeaseHolder, RuntimeDescriptor, WorkClaim,
 };
@@ -115,8 +116,44 @@ pub fn task_lease_state(task: &CoordinationTask, now: Timestamp) -> LeaseState {
     task_lease_state_with_runtime_descriptors(task, &[], now)
 }
 
+pub fn canonical_task_lease_state(task: &CanonicalTaskRecord, now: Timestamp) -> LeaseState {
+    canonical_task_lease_state_with_runtime_descriptors(task, &[], now)
+}
+
 pub fn task_lease_state_with_runtime_descriptors(
     task: &CoordinationTask,
+    runtime_descriptors: &[RuntimeDescriptor],
+    now: Timestamp,
+) -> LeaseState {
+    let Some(expires_at) = task.lease_expires_at else {
+        return LeaseState::Unleased;
+    };
+    let anchor = task.lease_refreshed_at.or(task.lease_started_at);
+    let worktree_id = task.worktree_id.as_deref().or(task
+        .lease_holder
+        .as_ref()
+        .and_then(|holder| holder.worktree_id.as_deref()));
+    let effective_expires_at =
+        effective_absolute_deadline(anchor, Some(expires_at), runtime_descriptors, worktree_id)
+            .unwrap_or(expires_at);
+    if effective_expires_at < now {
+        return LeaseState::Expired;
+    }
+    let effective_stale_at = effective_absolute_deadline(
+        anchor,
+        task.lease_stale_at,
+        runtime_descriptors,
+        worktree_id,
+    )
+    .or(task.lease_stale_at);
+    if effective_stale_at.is_some_and(|stale_at| stale_at <= now) {
+        return LeaseState::Stale;
+    }
+    LeaseState::Active
+}
+
+pub fn canonical_task_lease_state_with_runtime_descriptors(
+    task: &CanonicalTaskRecord,
     runtime_descriptors: &[RuntimeDescriptor],
     now: Timestamp,
 ) -> LeaseState {
@@ -198,6 +235,14 @@ pub fn task_heartbeat_due_state(
     task_heartbeat_due_state_with_runtime_descriptors(task, policy, &[], now)
 }
 
+pub fn canonical_task_heartbeat_due_state(
+    task: &CanonicalTaskRecord,
+    policy: &CoordinationPolicy,
+    now: Timestamp,
+) -> LeaseHeartbeatDueState {
+    canonical_task_heartbeat_due_state_with_runtime_descriptors(task, policy, &[], now)
+}
+
 pub fn task_heartbeat_due_state_with_runtime_descriptors(
     task: &CoordinationTask,
     policy: &CoordinationPolicy,
@@ -206,6 +251,39 @@ pub fn task_heartbeat_due_state_with_runtime_descriptors(
 ) -> LeaseHeartbeatDueState {
     if !matches!(
         task_lease_state_with_runtime_descriptors(task, runtime_descriptors, now),
+        LeaseState::Active
+    ) {
+        return LeaseHeartbeatDueState::NotDue;
+    }
+    let Some(stale_at) = task.lease_stale_at else {
+        return LeaseHeartbeatDueState::NotDue;
+    };
+    let anchor = task.lease_refreshed_at.or(task.lease_started_at);
+    let worktree_id = task.worktree_id.as_deref().or(task
+        .lease_holder
+        .as_ref()
+        .and_then(|holder| holder.worktree_id.as_deref()));
+    let effective_stale_at =
+        effective_absolute_deadline(anchor, Some(stale_at), runtime_descriptors, worktree_id)
+            .unwrap_or(stale_at);
+    let remaining = effective_stale_at.saturating_sub(now);
+    if remaining <= 60 {
+        LeaseHeartbeatDueState::DueNow
+    } else if remaining <= heartbeat_due_soon_window(policy) {
+        LeaseHeartbeatDueState::DueSoon
+    } else {
+        LeaseHeartbeatDueState::NotDue
+    }
+}
+
+pub fn canonical_task_heartbeat_due_state_with_runtime_descriptors(
+    task: &CanonicalTaskRecord,
+    policy: &CoordinationPolicy,
+    runtime_descriptors: &[RuntimeDescriptor],
+    now: Timestamp,
+) -> LeaseHeartbeatDueState {
+    if !matches!(
+        canonical_task_lease_state_with_runtime_descriptors(task, runtime_descriptors, now),
         LeaseState::Active
     ) {
         return LeaseHeartbeatDueState::NotDue;
@@ -418,7 +496,7 @@ fn same_principal(left: &prism_ir::PrincipalActor, right: &prism_ir::PrincipalAc
     left.authority_id == right.authority_id && left.principal_id == right.principal_id
 }
 
-pub(crate) fn same_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
+pub fn same_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
     if let (Some(left_worktree), Some(right_worktree)) =
         (left.worktree_id.as_ref(), right.worktree_id.as_ref())
     {
@@ -442,23 +520,58 @@ pub(crate) fn same_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
     false
 }
 
-pub(crate) fn authoritative_task_holder(task: &CoordinationTask) -> Option<LeaseHolder> {
-    let mut holder = task.lease_holder.clone().unwrap_or(LeaseHolder {
+fn authoritative_task_holder_fields(
+    lease_holder: Option<&LeaseHolder>,
+    session: Option<&SessionId>,
+    worktree_id: Option<&str>,
+    assignee: Option<&prism_ir::AgentId>,
+) -> Option<LeaseHolder> {
+    let mut holder = lease_holder.cloned().unwrap_or(LeaseHolder {
         principal: None,
         session_id: None,
         worktree_id: None,
         agent_id: None,
     });
     if holder.session_id.is_none() {
-        holder.session_id = task.session.clone();
+        holder.session_id = session.cloned();
     }
     if holder.worktree_id.is_none() {
-        holder.worktree_id = task.worktree_id.clone();
+        holder.worktree_id = worktree_id.map(ToOwned::to_owned);
     }
     if holder.agent_id.is_none() {
-        holder.agent_id = task.assignee.clone();
+        holder.agent_id = assignee.cloned();
     }
     holder_has_identity(&holder).then_some(holder)
+}
+
+pub fn canonical_authoritative_task_holder(task: &CanonicalTaskRecord) -> Option<LeaseHolder> {
+    authoritative_task_holder_fields(
+        task.lease_holder.as_ref(),
+        task.session.as_ref(),
+        task.worktree_id.as_deref(),
+        task.assignee.as_ref(),
+    )
+}
+
+pub(crate) fn authoritative_task_holder(task: &CoordinationTask) -> Option<LeaseHolder> {
+    authoritative_task_holder_fields(
+        task.lease_holder.as_ref(),
+        task.session.as_ref(),
+        task.worktree_id.as_deref(),
+        task.assignee.as_ref(),
+    )
+}
+
+pub fn canonical_current_task_holder(meta: &EventMeta, task: &CanonicalTaskRecord) -> LeaseHolder {
+    LeaseHolder {
+        principal: principal_from_meta(meta),
+        session_id: session_id_from_meta(meta).or_else(|| task.session.clone()),
+        worktree_id: task
+            .worktree_id
+            .clone()
+            .or_else(|| worktree_id_from_meta(meta)),
+        agent_id: task.assignee.clone(),
+    }
 }
 
 pub(crate) fn current_task_holder(meta: &EventMeta, task: &CoordinationTask) -> LeaseHolder {

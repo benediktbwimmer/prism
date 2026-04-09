@@ -326,6 +326,7 @@ mod tests {
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
             created_from: None,
+            spec_refs: Vec::new(),
             metadata: Value::Null,
             operator_state: PlanOperatorState::None,
         }
@@ -345,6 +346,7 @@ mod tests {
                 allowed_principals: Vec::new(),
             },
             assignee: Some(AgentId::new("agent:test")),
+            pending_handoff_to: None,
             session: None,
             lease_holder: None::<LeaseHolder>,
             lease_started_at: None,
@@ -360,6 +362,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: None,
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: Value::Null,
             git_execution: TaskGitExecution::default(),
         }

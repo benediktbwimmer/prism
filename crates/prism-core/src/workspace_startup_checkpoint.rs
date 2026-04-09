@@ -23,7 +23,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use smol_str::SmolStr;
 use tracing::info;
 
-use crate::coordination_startup_checkpoint::coordination_startup_authority;
+use crate::coordination_startup_checkpoint::resolve_coordination_startup_checkpoint_authority;
 use crate::indexer::workspace_recovery_work;
 use crate::indexer::WorkspaceIndexer;
 use crate::layout::WorkspaceLayout;
@@ -566,7 +566,8 @@ pub(crate) fn persist_workspace_runtime_startup_checkpoint(
         materialized_at: crate::util::current_timestamp(),
         revisions,
         outcome_revision,
-        coordination_authority: coordination_startup_authority(session.root())?.into(),
+        coordination_authority: resolve_coordination_startup_checkpoint_authority(session.root())?
+            .into(),
     };
     write_checkpoint_header(&mut writer, &header)?;
     write_bincode_segment(

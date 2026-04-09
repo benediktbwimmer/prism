@@ -5,7 +5,7 @@ use std::time::Instant;
 use anyhow::{anyhow, Context, Result};
 use prism_coordination::TaskExecutorCaller;
 use prism_ir::{
-    AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId, TaskId,
+    AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId,
 };
 use prism_js::{
     ChangedFileView, ChangedSymbolView, ConceptDecodeView, ConceptPacketView, ConnectionInfoView,
@@ -36,17 +36,16 @@ use crate::{
     combined_parse_typescript_error, concept_decode_lens_view, concept_packet_view,
     concept_relation_view, concept_resolution_is_ambiguous, conflict_view, contract_packet_view,
     convert_anchors, convert_capability, convert_claim_mode, convert_node_id,
-    coordination_plan_v2_view, coordination_task_v2_view, coordination_task_view,
-    current_timestamp, diff_for, diff_for_from_events, drift_candidate_view, edge_kind_label,
-    edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol,
-    invalid_query_argument_error, is_query_parse_error, js_runtime, lineage_view,
-    memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
-    node_ref_view, owner_symbol_views_for_query, owner_symbol_views_for_target,
-    owner_views_for_target, parse_event_actor, parse_memory_event_action, parse_memory_kind,
-    parse_memory_scope, parse_node_kind, parse_outcome_kind, parse_outcome_result,
-    parse_plan_scope, parse_plan_status, parse_typescript_error, plan_children_v2_view,
-    plan_summary_view, policy_violation_record_view, promoted_memory_entries,
-    promoted_summary_texts, promoted_validation_checks, query_diagnostic,
+    coordination_plan_v2_view, coordination_task_v2_view, current_timestamp, diff_for,
+    diff_for_from_events, drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol,
+    entrypoints_for, focused_block_for_symbol, invalid_query_argument_error, is_query_parse_error,
+    js_runtime, lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks,
+    missing_return_hint, next_reads, node_ref_view, owner_symbol_views_for_query,
+    owner_symbol_views_for_target, owner_views_for_target, parse_event_actor,
+    parse_memory_event_action, parse_memory_kind, parse_memory_scope, parse_node_kind,
+    parse_outcome_kind, parse_outcome_result, parse_plan_scope, parse_plan_status,
+    parse_typescript_error, plan_children_v2_view, plan_summary_view, policy_violation_record_view,
+    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
     query_feature_disabled_error, query_method_specs, rank_search_results,
     read_context_view_cached, recent_change_context_view_cached, recent_patches,
     recent_patches_from_events, relations_view, resolve_concepts_for_session, result_decode_error,
@@ -215,7 +214,7 @@ struct TaskQuerySubject {
 fn resolve_task_query_subject(prism: &Prism, task_id: &str) -> Option<TaskQuerySubject> {
     let coordination_task_id = CoordinationTaskId::new(task_id.to_string());
     prism
-        .coordination_task(&coordination_task_id)
+        .coordination_task_v2_by_coordination_id(&coordination_task_id)
         .map(|_| TaskQuerySubject {
             coordination_task_id,
         })
@@ -223,8 +222,8 @@ fn resolve_task_query_subject(prism: &Prism, task_id: &str) -> Option<TaskQueryS
 
 fn task_query_subject_anchors(prism: &Prism, subject: &TaskQuerySubject) -> Vec<AnchorRef> {
     prism
-        .coordination_task(&subject.coordination_task_id)
-        .map(|task| task.anchors)
+        .coordination_task_v2_by_coordination_id(&subject.coordination_task_id)
+        .map(|task| task.task.anchors)
         .unwrap_or_default()
 }
 
@@ -1112,14 +1111,6 @@ impl QueryExecution {
                     let plan = crate::spec_surface::linked_plan_view(&self.host, &plan_id)?;
                     Ok(serde_json::to_value(plan)?)
                 }
-                "planV2" => {
-                    let args: PlanTargetArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .coordination_plan_v2(&PlanId::new(args.plan_id))
-                            .map(coordination_plan_v2_view),
-                    )?)
-                }
                 "planSummary" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(
@@ -1169,21 +1160,13 @@ impl QueryExecution {
                         .map(coordination_plan_v2_view)
                         .collect::<Vec<_>>(),
                 )?),
-                "coordinationTask" => {
+                "task" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
                     let task = crate::spec_surface::linked_coordination_task_view(
                         &self.host,
                         &CoordinationTaskId::new(args.task_id),
                     )?;
                     Ok(serde_json::to_value(task)?)
-                }
-                "taskV2" => {
-                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .coordination_task_v2(&TaskId::new(args.task_id))
-                            .map(coordination_task_v2_view),
-                    )?)
                 }
                 "graphActionableTasks" => Ok(serde_json::to_value(
                     self.prism
@@ -1218,18 +1201,17 @@ impl QueryExecution {
                 "readyTasks" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     let plan_id = PlanId::new(args.plan_id);
-                    let tasks = if let Some(caller) =
+                    let ready_tasks = if let Some(caller) =
                         current_executor_caller(self.workspace_root(), Some(self.session()))
                     {
-                        self.prism
-                            .ready_tasks_for_executor(&plan_id, current_timestamp(), &caller)
+                        self.prism.ready_tasks_for_executor_v2(&plan_id, &caller)
                     } else {
-                        self.prism.ready_tasks(&plan_id, current_timestamp())
+                        self.prism.ready_tasks_v2(&plan_id)
                     };
                     Ok(serde_json::to_value(
-                        tasks
+                        ready_tasks
                             .into_iter()
-                            .map(coordination_task_view)
+                            .map(coordination_task_v2_view)
                             .collect::<Vec<_>>(),
                     )?)
                 }
@@ -1440,8 +1422,9 @@ impl QueryExecution {
                     Ok(serde_json::to_value(
                         resolve_task_query_subject(self.prism.as_ref(), &args.task_id).and_then(
                             |subject| {
-                                let task =
-                                    self.prism.coordination_task(&subject.coordination_task_id);
+                                let task = self.prism.coordination_task_v2_by_coordination_id(
+                                    &subject.coordination_task_id,
+                                );
                                 let anchors =
                                     task_query_subject_anchors(self.prism.as_ref(), &subject);
                                 let mut risk = self.prism.task_risk(
@@ -1480,9 +1463,12 @@ impl QueryExecution {
                                 risk.review_required = risk.review_required
                                     || task
                                         .as_ref()
-                                        .and_then(|task| self.prism.coordination_plan(&task.plan))
+                                        .and_then(|task| {
+                                            self.prism
+                                                .coordination_plan_v2(&task.task.parent_plan_id)
+                                        })
                                         .and_then(|plan| {
-                                            plan.policy.review_required_above_risk_score
+                                            plan.plan.policy.review_required_above_risk_score
                                         })
                                         .map(|threshold| boosted_risk_score >= threshold)
                                         .unwrap_or(false);

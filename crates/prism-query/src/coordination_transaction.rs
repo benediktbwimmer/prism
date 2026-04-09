@@ -525,16 +525,17 @@ impl Prism {
 
         match result {
             Ok(value) => {
+                runtime.refresh_canonical_snapshot_v2();
                 drop(runtime);
                 self.invalidate_plan_discovery_cache();
                 Ok(value)
             }
             Err(error) => {
                 let failed_snapshot = runtime.snapshot();
-                runtime.replace_from_snapshot(rollback_snapshot_with_rejections(
-                    before_snapshot,
-                    &failed_snapshot,
-                ));
+                let rollback_snapshot =
+                    rollback_snapshot_with_rejections(before_snapshot, &failed_snapshot);
+                let rollback_snapshot_v2 = rollback_snapshot.to_canonical_snapshot_v2();
+                runtime.replace(rollback_snapshot, rollback_snapshot_v2);
                 Err(error)
             }
         }

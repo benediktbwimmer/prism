@@ -204,8 +204,8 @@ fn collect_task_impact(
         if let Some(impact) = execution.prism().task_blast_radius(&coordination_task_id) {
             let anchors = execution
                 .prism()
-                .coordination_task(&coordination_task_id)
-                .map(|task| task.anchors)
+                .coordination_task_v2_by_coordination_id(&coordination_task_id)
+                .map(|task| task.task.anchors)
                 .unwrap_or_default();
             let mut view = change_impact_view(impact);
             view.promoted_summaries =

@@ -507,6 +507,7 @@ mod tests {
                     payload: json!({
                         "title": "Alpha execution plan",
                         "goal": "Ship alpha",
+                        "status": "active",
                         "scheduling": {
                             "importance": 90,
                             "urgency": 50,
@@ -538,7 +539,8 @@ mod tests {
                 kind: CoordinationMutationKindInput::Update,
                 payload: json!({
                     "id": alpha_task.state["id"].as_str().unwrap(),
-                    "assignee": "runtime-alpha"
+                    "assignee": "runtime-alpha",
+                    "status": "in_progress"
                 }),
                 task_id: None,
             },
