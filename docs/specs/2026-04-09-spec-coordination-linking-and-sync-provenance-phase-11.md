@@ -29,7 +29,7 @@ Current state:
 - [x] Phase 10 `SpecQueryEngine` is complete
 - [x] plans and tasks now carry explicit typed spec links
 - [x] coordination replay and mutation surfaces preserve typed plan/task spec links
-- [ ] high-level transaction mutation families do not yet accept authored spec links
+- [x] high-level transaction mutation families now accept authored spec links
 - [ ] local sync-provenance storage exists but is not populated from coordination
 - [ ] no authoritative-to-local derivation path exists for spec sync provenance
 - [ ] coordination-plus-spec join queries still lack real linkage data
@@ -43,8 +43,9 @@ Current slice notes:
   mutated independently as a parallel source of truth
 - Slice 1 is complete on this branch: the coordination domain, replay path, and direct mutation
   inputs now all understand typed plan/task spec links
-- the next remaining work is Slice 2 completion for authored transaction inputs, followed by Slice 3
-  sync-provenance derivation in `prism-spec`
+- Slice 2 is also complete on this branch: the canonical transaction mutation family and query-layer
+  convenience adapters now carry authored spec links instead of defaulting them away
+- the next remaining work is Slice 3 sync-provenance derivation in `prism-spec`
 
 ## 3. Related roadmap
 
@@ -194,8 +195,8 @@ Exit criteria:
 
 Status:
 
-- [ ] lower-level coordination mutation inputs are updated
-- [ ] high-level transaction mutation families still need explicit spec-link fields
+- [x] lower-level coordination mutation inputs are updated
+- [x] high-level transaction mutation families accept explicit spec-link fields
 
 ### Slice 3: Derive local sync provenance from authoritative links
 

@@ -4265,6 +4265,7 @@ fn coordination_transaction_rejects_forward_task_client_refs_before_domain_stage
                         status: None,
                         policy: None,
                         scheduling: None,
+                        spec_refs: Vec::new(),
                     },
                     CoordinationTransactionMutation::TaskCreate {
                         client_task_id: Some("first".to_string()),
@@ -4283,6 +4284,7 @@ fn coordination_transaction_rejects_forward_task_client_refs_before_domain_stage
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         base_revision: WorkspaceRevision::default(),
+                        spec_refs: Vec::new(),
                     },
                     CoordinationTransactionMutation::TaskCreate {
                         client_task_id: Some("later".to_string()),
@@ -4299,6 +4301,7 @@ fn coordination_transaction_rejects_forward_task_client_refs_before_domain_stage
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         base_revision: WorkspaceRevision::default(),
+                        spec_refs: Vec::new(),
                     },
                 ],
                 ..CoordinationTransactionInput::default()
@@ -4341,6 +4344,7 @@ fn coordination_transaction_rejects_stale_revision_preconditions() {
                     status: None,
                     policy: None,
                     scheduling: None,
+                    spec_refs: Vec::new(),
                 }],
                 ..CoordinationTransactionInput::default()
             },
@@ -4365,6 +4369,7 @@ fn coordination_transaction_rejects_stale_revision_preconditions() {
                     status: None,
                     policy: None,
                     scheduling: None,
+                    spec_refs: Vec::new(),
                 }],
                 optimistic_preconditions: Some(json!({
                     "expectedRevision": 0
@@ -4409,6 +4414,7 @@ fn coordination_transaction_rejects_stale_event_count_preconditions() {
                     status: None,
                     policy: None,
                     scheduling: None,
+                    spec_refs: Vec::new(),
                 }],
                 ..CoordinationTransactionInput::default()
             },
@@ -4433,6 +4439,7 @@ fn coordination_transaction_rejects_stale_event_count_preconditions() {
                     status: None,
                     policy: None,
                     scheduling: None,
+                    spec_refs: Vec::new(),
                 }],
                 optimistic_preconditions: Some(json!({
                     "expectedEventCount": 0

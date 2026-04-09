@@ -4,8 +4,8 @@ use std::fmt;
 use anyhow::{anyhow, Result};
 use prism_coordination::{
     AcceptanceCriterion, CoordinationPolicy, CoordinationRuntimeState, CoordinationSnapshot,
-    PlanCreateInput, PlanScheduling, PlanUpdateInput, TaskCompletionContext, TaskCreateInput,
-    TaskGitExecution, TaskUpdateInput,
+    CoordinationSpecRef, CoordinationTaskSpecRef, PlanCreateInput, PlanScheduling, PlanUpdateInput,
+    TaskCompletionContext, TaskCreateInput, TaskGitExecution, TaskUpdateInput,
 };
 use prism_ir::{
     AgentId, AnchorRef, CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus, EventId,
@@ -78,6 +78,7 @@ pub enum CoordinationTransactionMutation {
         status: Option<PlanStatus>,
         policy: Option<CoordinationPolicy>,
         scheduling: Option<PlanScheduling>,
+        spec_refs: Vec<CoordinationSpecRef>,
     },
     PlanUpdate {
         plan: CoordinationTransactionPlanRef,
@@ -86,6 +87,7 @@ pub enum CoordinationTransactionMutation {
         status: Option<PlanStatus>,
         policy: Option<CoordinationTransactionPolicyPatch>,
         scheduling: Option<CoordinationTransactionPlanSchedulingPatch>,
+        spec_refs: Option<Vec<CoordinationSpecRef>>,
     },
     PlanArchive {
         plan: CoordinationTransactionPlanRef,
@@ -105,6 +107,7 @@ pub enum CoordinationTransactionMutation {
         integrated_depends_on: Vec<CoordinationTransactionTaskRef>,
         acceptance: Vec<AcceptanceCriterion>,
         base_revision: WorkspaceRevision,
+        spec_refs: Vec<CoordinationTaskSpecRef>,
     },
     TaskUpdate {
         task: CoordinationTransactionTaskRef,
@@ -126,6 +129,7 @@ pub enum CoordinationTransactionMutation {
         priority: Option<Option<u8>>,
         tags: Option<Vec<String>>,
         completion_context: Option<TaskCompletionContext>,
+        spec_refs: Option<Vec<CoordinationTaskSpecRef>>,
     },
     DependencyCreate {
         task: CoordinationTransactionTaskRef,
@@ -1016,6 +1020,7 @@ fn apply_coordination_transaction(
                 status,
                 policy,
                 scheduling,
+                spec_refs,
             } => {
                 if let Some(client_plan_id) = client_plan_id.as_deref() {
                     ensure_unique_client_id(
@@ -1031,7 +1036,7 @@ fn apply_coordination_transaction(
                         goal,
                         status,
                         policy,
-                        spec_refs: Vec::new(),
+                        spec_refs,
                     },
                 )?;
                 if let Some(scheduling) = scheduling {
@@ -1053,6 +1058,7 @@ fn apply_coordination_transaction(
                 status,
                 policy,
                 scheduling,
+                spec_refs,
             } => {
                 let plan_id = resolve_plan_ref(&plan_ids_by_client_id, &plan)?;
                 let existing_plan = coordination_runtime
@@ -1067,7 +1073,7 @@ fn apply_coordination_transaction(
                             goal,
                             status,
                             policy: policy.map(|patch| merge_policy(existing_plan.policy, patch)),
-                            spec_refs: None,
+                            spec_refs,
                         },
                     )?;
                 }
@@ -1138,6 +1144,7 @@ fn apply_coordination_transaction(
                 integrated_depends_on,
                 acceptance,
                 base_revision,
+                spec_refs,
             } => {
                 if let Some(client_task_id) = client_task_id.as_deref() {
                     ensure_unique_client_id(
@@ -1173,7 +1180,7 @@ fn apply_coordination_transaction(
                         )?,
                         acceptance,
                         base_revision: base_revision.clone(),
-                        spec_refs: Vec::new(),
+                        spec_refs,
                     },
                 )?;
                 if let Some(client_task_id) = client_task_id {
@@ -1210,6 +1217,7 @@ fn apply_coordination_transaction(
                 priority,
                 tags,
                 completion_context,
+                spec_refs,
             } => {
                 let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
                 let existing_task = coordination_runtime
@@ -1241,7 +1249,7 @@ fn apply_coordination_transaction(
                     priority,
                     tags,
                     completion_context,
-                    spec_refs: None,
+                    spec_refs,
                 };
                 if is_authoritative_git_execution_only_update(&update_input) {
                     coordination_runtime.update_task_authoritative_only(

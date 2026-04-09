@@ -69,14 +69,13 @@ pub use crate::types::{
 };
 pub use coordination_transaction::{
     CoordinationDependencyKind, CoordinationTransactionAuthorityVersion,
-    CoordinationTransactionCommitMetadata,
-    CoordinationTransactionError, CoordinationTransactionGitExecutionPolicyPatch,
-    CoordinationTransactionInput, CoordinationTransactionMutation,
-    CoordinationTransactionOutcome, CoordinationTransactionPlanRef,
-    CoordinationTransactionPlanSchedulingPatch, CoordinationTransactionPolicyPatch,
-    CoordinationTransactionProtocolAuthorityVersion, CoordinationTransactionProtocolCommit,
-    CoordinationTransactionProtocolIndeterminate, CoordinationTransactionProtocolRejection,
-    CoordinationTransactionProtocolState,
+    CoordinationTransactionCommitMetadata, CoordinationTransactionError,
+    CoordinationTransactionGitExecutionPolicyPatch, CoordinationTransactionInput,
+    CoordinationTransactionMutation, CoordinationTransactionOutcome,
+    CoordinationTransactionPlanRef, CoordinationTransactionPlanSchedulingPatch,
+    CoordinationTransactionPolicyPatch, CoordinationTransactionProtocolAuthorityVersion,
+    CoordinationTransactionProtocolCommit, CoordinationTransactionProtocolIndeterminate,
+    CoordinationTransactionProtocolRejection, CoordinationTransactionProtocolState,
     CoordinationTransactionRejection, CoordinationTransactionRejectionCategory,
     CoordinationTransactionResult, CoordinationTransactionTaskRef,
     CoordinationTransactionValidationStage,
@@ -853,15 +852,19 @@ impl Prism {
                 summary: input.summary,
                 anchors: input.anchors,
                 bindings: input.bindings,
-                depends_on: input
-                    .depends_on
-                    .map(|depends_on| depends_on.into_iter().map(CoordinationTransactionTaskRef::Id).collect()),
+                depends_on: input.depends_on.map(|depends_on| {
+                    depends_on
+                        .into_iter()
+                        .map(CoordinationTransactionTaskRef::Id)
+                        .collect()
+                }),
                 acceptance: input.acceptance,
                 validation_refs: input.validation_refs,
                 base_revision: input.base_revision.unwrap_or(current_revision),
                 priority: input.priority,
                 tags: input.tags,
                 completion_context: input.completion_context,
+                spec_refs: input.spec_refs,
             },
         )?)
     }
@@ -1187,6 +1190,7 @@ impl Prism {
                     status,
                     policy,
                     scheduling,
+                    spec_refs: Vec::new(),
                 }],
                 ..CoordinationTransactionInput::default()
             },
@@ -1237,6 +1241,7 @@ impl Prism {
             status,
             policy,
             scheduling,
+            spec_refs: Vec::new(),
         });
         for task in &tasks {
             mutations.push(CoordinationTransactionMutation::TaskCreate {
@@ -1254,6 +1259,7 @@ impl Prism {
                 integrated_depends_on: Vec::new(),
                 acceptance: task.acceptance.clone(),
                 base_revision: task.base_revision.clone(),
+                spec_refs: Vec::new(),
             });
         }
         for task in tasks {
@@ -1381,6 +1387,7 @@ impl Prism {
                             due_at: scheduling.due_at,
                         }
                     }),
+                    spec_refs: None,
                 }],
                 ..CoordinationTransactionInput::default()
             },
@@ -1444,6 +1451,7 @@ impl Prism {
                         .collect(),
                     acceptance: input.acceptance,
                     base_revision: input.base_revision,
+                    spec_refs: input.spec_refs,
                 }],
                 ..CoordinationTransactionInput::default()
             },
