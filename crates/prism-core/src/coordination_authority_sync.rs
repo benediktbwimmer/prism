@@ -13,6 +13,7 @@ use crate::checkpoint_materializer::{
 use crate::coordination_authority_api::{
     poll_coordination_authority_live_sync, CoordinationAuthorityLiveSync,
 };
+use crate::coordination_authority_store::coordination_materialization_enabled_for_root;
 use crate::session::WorkspaceSession;
 use crate::tracked_snapshot::TrackedSnapshotPublishContext;
 use crate::workspace_identity::coordination_persist_context_for_root;
@@ -80,18 +81,20 @@ pub(crate) fn apply_service_backed_coordination_current_state(
         current_state,
     );
 
-    let materialization = CoordinationMaterialization {
-        authoritative_revision,
-        snapshot: current_state.snapshot.clone(),
-        canonical_snapshot_v2: Some(current_state.canonical_snapshot_v2.clone()),
-        runtime_descriptors: Some(current_state.runtime_descriptors.clone()),
-        publish_context,
-    };
-    if let Some(materializer) = checkpoint_materializer {
-        materializer.enqueue_coordination_materialization(materialization)?;
-    } else {
-        let mut store = store.lock().expect("workspace store lock poisoned");
-        persist_coordination_materialization(root, &mut *store, &materialization)?;
+    if coordination_materialization_enabled_for_root(root)? {
+        let materialization = CoordinationMaterialization {
+            authoritative_revision,
+            snapshot: current_state.snapshot.clone(),
+            canonical_snapshot_v2: Some(current_state.canonical_snapshot_v2.clone()),
+            runtime_descriptors: Some(current_state.runtime_descriptors.clone()),
+            publish_context,
+        };
+        if let Some(materializer) = checkpoint_materializer {
+            materializer.enqueue_coordination_materialization(materialization)?;
+        } else {
+            let mut store = store.lock().expect("workspace store lock poisoned");
+            persist_coordination_materialization(root, &mut *store, &materialization)?;
+        }
     }
     if let Some(coordination_runtime_revision) = coordination_runtime_revision {
         coordination_runtime_revision.store(

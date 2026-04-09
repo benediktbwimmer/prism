@@ -13,7 +13,8 @@ use prism_core::runtime_engine::{
 };
 use prism_core::{
     assisted_lease_renewal_diagnostics, coordination_authority_diagnostics,
-    CoordinationAuthorityBackendDetails, PrismPaths, WorkspaceSession,
+    coordination_materialization_enabled_for_root, CoordinationAuthorityBackendDetails, PrismPaths,
+    WorkspaceSession,
 };
 use prism_js::{
     ConnectionInfoView, ProjectionAuthorityPlaneView, ProjectionClassView,
@@ -148,6 +149,9 @@ pub(crate) fn refresh_cached_runtime_status(host: &QueryHost) -> Result<RuntimeS
         coordination_startup_checkpoint_revision: coordination_surface.startup_checkpoint_revision,
         coordination_read_model_revision: coordination_surface.read_model_revision,
         coordination_queue_read_model_revision: coordination_surface.queue_read_model_revision,
+        coordination_materialization_enabled: coordination_materialization_enabled_for_root(
+            workspace.root(),
+        )?,
         loaded_workspace_revision: host.loaded_workspace_revision_value(),
         loaded_episodic_revision: host.loaded_episodic_revision_value(),
         loaded_inference_revision: host.loaded_inference_revision_value(),
@@ -207,6 +211,9 @@ pub(crate) fn refresh_cached_runtime_status_for_config(
         coordination_startup_checkpoint_revision: coordination_surface.startup_checkpoint_revision,
         coordination_read_model_revision: coordination_surface.read_model_revision,
         coordination_queue_read_model_revision: coordination_surface.queue_read_model_revision,
+        coordination_materialization_enabled: coordination_materialization_enabled_for_root(
+            config.workspace.root(),
+        )?,
         loaded_workspace_revision: config.loaded_workspace_revision.load(Ordering::Relaxed),
         loaded_episodic_revision: config.loaded_episodic_revision.load(Ordering::Relaxed),
         loaded_inference_revision: config.loaded_inference_revision.load(Ordering::Relaxed),
@@ -248,6 +255,7 @@ struct RuntimeStatusInputs<'a> {
     coordination_startup_checkpoint_revision: Option<u64>,
     coordination_read_model_revision: Option<u64>,
     coordination_queue_read_model_revision: Option<u64>,
+    coordination_materialization_enabled: bool,
     loaded_workspace_revision: u64,
     loaded_episodic_revision: u64,
     loaded_inference_revision: u64,
@@ -422,11 +430,13 @@ fn runtime_status_from_inputs(
         mcp_call_log_bytes: inputs.mcp_call_log_store.file_len(),
         cache_path: paths.runtime_cache_path.display().to_string(),
         cache_bytes: file_len(&paths.runtime_cache_path),
-        coordination_materialization_path: paths
-            .coordination_materialization_path
-            .display()
-            .to_string(),
-        coordination_materialization_bytes: file_len(&paths.coordination_materialization_path),
+        coordination_materialization_path: inputs
+            .coordination_materialization_enabled
+            .then(|| paths.coordination_materialization_path.display().to_string()),
+        coordination_materialization_bytes: inputs
+            .coordination_materialization_enabled
+            .then(|| file_len(&paths.coordination_materialization_path))
+            .flatten(),
         health_path: daemon_health_path(&daemons).to_string(),
         health: connection.health.clone(),
         runtime_count: daemons.len(),

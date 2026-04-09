@@ -14,7 +14,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context, Result};
 use prism_core::{
-    coordination_authority_diagnostics, publish_local_runtime_descriptor,
+    configured_coordination_authority_store_provider,
+    coordination_authority_diagnostics, coordination_materialization_enabled_by_default,
+    publish_local_runtime_descriptor,
     CoordinationAuthorityBackendDetails, PrismPaths, PrismRuntimeMode,
 };
 
@@ -392,19 +394,24 @@ fn status(root: &Path) -> Result<()> {
             paths.runtime_cache_path.display()
         );
     }
-    if let Ok(metadata) = fs::metadata(&paths.coordination_materialization_path) {
-        println!(
-            "coordination_materialization_path: {} ({} bytes)",
-            paths.coordination_materialization_path.display(),
-            metadata.len()
-        );
-    } else {
-        println!(
-            "coordination_materialization_path: {} (missing)",
-            paths.coordination_materialization_path.display()
-        );
-    }
     let authority_diagnostics = coordination_authority_diagnostics(root)?;
+    let authority_store_provider = configured_coordination_authority_store_provider(root)?;
+    if coordination_materialization_enabled_by_default(authority_store_provider.config()) {
+        if let Ok(metadata) = fs::metadata(&paths.coordination_materialization_path) {
+            println!(
+                "coordination_materialization_path: {} ({} bytes)",
+                paths.coordination_materialization_path.display(),
+                metadata.len()
+            );
+        } else {
+            println!(
+                "coordination_materialization_path: {} (missing)",
+                paths.coordination_materialization_path.display()
+            );
+        }
+    } else {
+        println!("coordination_materialization_path: <disabled for db-backed authority>");
+    }
     if let CoordinationAuthorityBackendDetails::GitSharedRefs(shared_coordination_ref) =
         authority_diagnostics.backend_details
     {

@@ -1,6 +1,6 @@
 # DB Authority-First Read Path Phase 5
 
-Status: partially implemented
+Status: completed
 Audience: service, coordination, query, runtime, MCP, CLI, and storage maintainers
 Scope: collapse the default DB-backed coordination read path onto the authoritative backend,
 disable separate coordination materialization by default for SQLite and Postgres authority, and
@@ -22,6 +22,16 @@ This slice should:
 - make DB-backed eventual coordination reads collapse to the same authority path by default
 - disable separate coordination materialization by default for SQLite and Postgres authority
 - keep any future extra materialization behind explicit Postgres-only configuration
+
+That target has landed:
+
+- DB-backed service read-broker paths now route directly through the authority store by default
+- the SQLite authority backend now treats eventual reads as authority-backed current reads unless a
+  future explicit lagging projection is introduced
+- DB-backed coordination mutations and runtime-descriptor writes no longer recreate local
+  coordination materialization as part of the standard topology
+- runtime status and CLI diagnostics now surface DB-backed coordination materialization as disabled
+  rather than as a required local database
 
 This slice should not:
 
@@ -130,6 +140,6 @@ This spec is complete when:
 ## 9. Implementation checklist
 
 - [x] Route DB-backed reads directly through authority
-- [ ] Disable default DB-backed coordination materialization
-- [ ] Align freshness and diagnostics surfaces
-- [ ] Update roadmap and spec status after landing
+- [x] Disable default DB-backed coordination materialization
+- [x] Align freshness and diagnostics surfaces
+- [x] Update roadmap and spec status after landing

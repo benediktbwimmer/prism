@@ -876,7 +876,7 @@ pub struct RuntimeStatusView {
     pub mcp_call_log_bytes: Option<u64>,
     pub cache_path: String,
     pub cache_bytes: Option<u64>,
-    pub coordination_materialization_path: String,
+    pub coordination_materialization_path: Option<String>,
     pub coordination_materialization_bytes: Option<u64>,
     pub health_path: String,
     pub health: RuntimeHealthView,

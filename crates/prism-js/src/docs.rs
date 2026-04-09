@@ -693,7 +693,7 @@ type RuntimeStatusView = {
   mcpCallLogBytes?: number;
   cachePath: string;
   cacheBytes?: number;
-  coordinationMaterializationPath: string;
+  coordinationMaterializationPath?: string;
   coordinationMaterializationBytes?: number;
   healthPath: string;
   health: RuntimeHealthView;

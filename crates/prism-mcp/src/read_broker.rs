@@ -7,9 +7,10 @@ use prism_coordination::{
     CoordinationSnapshotV2,
 };
 use prism_core::{
-    configured_coordination_authority_store_provider, CoordinationAuthorityBackendConfig,
-    CoordinationAuthorityBackendKind, CoordinationReadConsistency, CoordinationReadRequest,
-    CoordinationAuthorityStamp, CoordinationStateView, WorkspaceSession,
+    coordination_materialization_enabled_by_default,
+    configured_coordination_authority_store_provider, CoordinationAuthorityBackendKind,
+    CoordinationAuthorityStamp, CoordinationReadConsistency, CoordinationReadRequest,
+    CoordinationStateView, WorkspaceSession,
 };
 use prism_query::Prism;
 
@@ -79,7 +80,7 @@ pub(crate) fn current_coordination_surface_for_workspace(
 ) -> Result<CurrentCoordinationSurface> {
     if let Some(workspace) = workspace {
         let provider = configured_coordination_authority_store_provider(workspace.root())?;
-        if db_authority_reads_collapse_to_current(provider.config()) {
+        if !coordination_materialization_enabled_by_default(provider.config()) {
             return current_coordination_surface_from_authority(workspace, &provider);
         }
     }
@@ -134,14 +135,6 @@ pub(crate) fn current_coordination_surface_for_workspace(
         read_model_revision,
         queue_read_model_revision,
     })
-}
-
-fn db_authority_reads_collapse_to_current(config: &CoordinationAuthorityBackendConfig) -> bool {
-    matches!(
-        config,
-        CoordinationAuthorityBackendConfig::Sqlite { .. }
-            | CoordinationAuthorityBackendConfig::Postgres { .. }
-    )
 }
 
 fn current_coordination_surface_from_authority(

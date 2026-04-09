@@ -54,6 +54,18 @@ pub fn default_coordination_authority_store_provider() -> CoordinationAuthorityS
     CoordinationAuthorityStoreProvider::default()
 }
 
+pub fn coordination_materialization_enabled_by_default(
+    config: &CoordinationAuthorityBackendConfig,
+) -> bool {
+    matches!(config, CoordinationAuthorityBackendConfig::GitSharedRefs)
+}
+
+pub fn coordination_materialization_enabled_for_root(root: &Path) -> Result<bool> {
+    Ok(coordination_materialization_enabled_by_default(
+        configured_coordination_authority_store_provider(root)?.config(),
+    ))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum CoordinationAuthorityBackendName {

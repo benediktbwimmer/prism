@@ -16,9 +16,6 @@ use rusqlite::Connection;
 
 use super::store::DbCoordinationAuthorityStore;
 use super::traits::CoordinationAuthorityDb;
-use crate::checkpoint_materializer::{
-    persist_coordination_materialization, CoordinationMaterialization,
-};
 use crate::coordination_authority_store::{
     CoordinationAuthorityBackendDetails, CoordinationAuthorityBackendKind,
     CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
@@ -34,18 +31,13 @@ use crate::coordination_authority_store::{
     RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
     SqliteCoordinationAuthorityBackendDetails,
 };
-use crate::coordination_materialized_store::{
-    coordination_materialization_db_path, open_coordination_materialized_sqlite_store,
-    CoordinationMaterializedStore, CoordinationStartupCheckpointWriteRequest,
-    SqliteCoordinationMaterializedStore,
-};
-use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
+use crate::coordination_reads::CoordinationReadConsistency;
 use crate::coordination_snapshot_sanitization::sanitize_persisted_coordination_snapshot;
-use crate::tracked_snapshot::publish_context_from_coordination_events;
 use crate::util::current_timestamp;
 use crate::workspace_identity::{
     coordination_persist_context_for_root, workspace_identity_for_root,
 };
+use crate::PrismPaths;
 
 const SQLITE_AUTHORITY_REF_NAME: &str = "sqlite-authority";
 
@@ -66,11 +58,7 @@ struct LoadedSqliteAuthorityView {
 impl SqliteCoordinationAuthorityDb {
     pub(crate) fn open(root: &Path, db_path: &Path) -> Result<Self> {
         let resolved = Self::resolve_db_path(root, db_path)?;
-        if resolved == coordination_materialization_db_path(root)? {
-            let _ = open_coordination_materialized_sqlite_store(root)?;
-        } else {
-            let _ = SqliteStore::open(&resolved)?;
-        }
+        let _ = SqliteStore::open(&resolved)?;
         Ok(Self {
             root: root.to_path_buf(),
             db_path: resolved,
@@ -79,7 +67,7 @@ impl SqliteCoordinationAuthorityDb {
 
     fn resolve_db_path(root: &Path, db_path: &Path) -> Result<PathBuf> {
         if db_path.as_os_str().is_empty() {
-            return coordination_materialization_db_path(root);
+            return PrismPaths::for_workspace_root(root)?.coordination_authority_db_path();
         }
         if db_path.is_absolute() {
             return Ok(db_path.to_path_buf());
@@ -88,9 +76,6 @@ impl SqliteCoordinationAuthorityDb {
     }
 
     fn open_store(&self) -> Result<SqliteStore> {
-        if self.db_path == coordination_materialization_db_path(&self.root)? {
-            return open_coordination_materialized_sqlite_store(&self.root);
-        }
         SqliteStore::open(&self.db_path)
     }
 
@@ -263,13 +248,6 @@ impl SqliteCoordinationAuthorityDb {
             &snapshot,
             &canonical_snapshot_v2,
             &runtime_descriptors,
-        )?;
-        SqliteCoordinationMaterializedStore::new(&self.root).write_startup_checkpoint(
-            CoordinationStartupCheckpointWriteRequest {
-                snapshot,
-                canonical_snapshot_v2,
-                runtime_descriptors,
-            },
         )?;
         Ok(())
     }
@@ -469,44 +447,13 @@ impl CoordinationAuthorityDb for SqliteCoordinationAuthorityDb {
     ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>> {
         let authority_view = self.load_authority_view()?;
         match request.consistency {
-            CoordinationReadConsistency::Strong => match authority_view.current_state {
-                Some(state) => Ok(CoordinationReadEnvelope::verified_current(
-                    request.consistency,
-                    Some(authority_view.authority),
-                    state,
-                )),
-                None => Ok(CoordinationReadEnvelope::unavailable(
-                    request.consistency,
-                    Some(authority_view.authority),
-                    None,
-                )),
-            },
-            CoordinationReadConsistency::Eventual => {
-                let envelope =
-                    SqliteCoordinationMaterializedStore::new(&self.root).read_plan_state()?;
-                match envelope.value {
-                    Some(state) => {
-                        let stale = envelope.metadata.startup_checkpoint_coordination_revision
-                            != envelope.metadata.coordination_revision;
-                        Ok(CoordinationReadEnvelope {
-                            consistency: request.consistency,
-                            freshness: if stale {
-                                CoordinationReadFreshness::VerifiedStale
-                            } else {
-                                CoordinationReadFreshness::VerifiedCurrent
-                            },
-                            authority: Some(authority_view.authority),
-                            value: Some(CoordinationCurrentState {
-                                snapshot: state.snapshot,
-                                canonical_snapshot_v2: state.canonical_snapshot_v2,
-                                runtime_descriptors: state.runtime_descriptors,
-                            }),
-                            refresh_error: stale.then_some(
-                                "coordination startup checkpoint is behind the authoritative sqlite revision"
-                                    .to_string(),
-                            ),
-                        })
-                    }
+            CoordinationReadConsistency::Strong | CoordinationReadConsistency::Eventual => {
+                match authority_view.current_state {
+                    Some(state) => Ok(CoordinationReadEnvelope::verified_current(
+                        request.consistency,
+                        Some(authority_view.authority),
+                        state,
+                    )),
                     None => Ok(CoordinationReadEnvelope::unavailable(
                         request.consistency,
                         Some(authority_view.authority),
@@ -558,17 +505,6 @@ impl CoordinationAuthorityDb for SqliteCoordinationAuthorityDb {
             &request.snapshot,
             &request.canonical_snapshot_v2,
             &preserved_runtime_descriptors,
-        )?;
-        persist_coordination_materialization(
-            &self.root,
-            &mut store,
-            &CoordinationMaterialization {
-                authoritative_revision: persisted.revision,
-                snapshot: request.snapshot.clone(),
-                canonical_snapshot_v2: Some(request.canonical_snapshot_v2.clone()),
-                runtime_descriptors: Some(preserved_runtime_descriptors),
-                publish_context: publish_context_from_coordination_events(&request.appended_events),
-            },
         )?;
 
         let refreshed = self.load_authority_view()?;
@@ -651,42 +587,15 @@ impl CoordinationAuthorityDb for SqliteCoordinationAuthorityDb {
     ) -> Result<CoordinationReadEnvelope<Vec<RuntimeDescriptor>>> {
         let authority_view = self.load_authority_view()?;
         match request.consistency {
-            CoordinationReadConsistency::Strong => Ok(CoordinationReadEnvelope::verified_current(
-                request.consistency,
-                Some(authority_view.authority),
-                authority_view
-                    .current_state
-                    .map(|state| state.runtime_descriptors)
-                    .unwrap_or_default(),
-            )),
-            CoordinationReadConsistency::Eventual => {
-                let envelope = SqliteCoordinationMaterializedStore::new(&self.root)
-                    .read_startup_checkpoint()?;
-                match envelope.value {
-                    Some(checkpoint) => {
-                        let stale = envelope.metadata.startup_checkpoint_coordination_revision
-                            != envelope.metadata.coordination_revision;
-                        Ok(CoordinationReadEnvelope {
-                            consistency: request.consistency,
-                            freshness: if stale {
-                                CoordinationReadFreshness::VerifiedStale
-                            } else {
-                                CoordinationReadFreshness::VerifiedCurrent
-                            },
-                            authority: Some(authority_view.authority),
-                            value: Some(checkpoint.runtime_descriptors),
-                            refresh_error: stale.then_some(
-                                "coordination startup checkpoint is behind the authoritative sqlite revision"
-                                    .to_string(),
-                            ),
-                        })
-                    }
-                    None => Ok(CoordinationReadEnvelope::unavailable(
-                        request.consistency,
-                        Some(authority_view.authority),
-                        None,
-                    )),
-                }
+            CoordinationReadConsistency::Strong | CoordinationReadConsistency::Eventual => {
+                Ok(CoordinationReadEnvelope::verified_current(
+                    request.consistency,
+                    Some(authority_view.authority),
+                    authority_view
+                        .current_state
+                        .map(|state| state.runtime_descriptors)
+                        .unwrap_or_default(),
+                ))
             }
         }
     }

@@ -82,11 +82,7 @@ impl SqliteCoordinationMaterializedStore {
     }
 }
 
-pub(crate) fn coordination_materialization_db_path(root: &Path) -> Result<PathBuf> {
-    PrismPaths::for_workspace_root(root)?.coordination_materialization_db_path()
-}
-
-pub(crate) fn open_coordination_materialized_sqlite_store(root: &Path) -> Result<SqliteStore> {
+fn open_coordination_materialized_sqlite_store(root: &Path) -> Result<SqliteStore> {
     let paths = PrismPaths::for_workspace_root(root)?;
     migrate_legacy_worktree_coordination_state(&paths)?;
     SqliteStore::open(paths.coordination_materialization_db_path()?)

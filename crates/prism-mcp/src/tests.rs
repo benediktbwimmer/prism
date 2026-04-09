@@ -16784,17 +16784,8 @@ return {
             .display()
             .to_string()
     );
-    assert_eq!(
-        status["coordinationMaterializationPath"]
-            .as_str()
-            .unwrap_or_default(),
-        PrismPaths::for_workspace_root(&root)
-            .unwrap()
-            .coordination_materialization_db_path()
-            .unwrap()
-            .display()
-            .to_string()
-    );
+    assert!(status["coordinationMaterializationPath"].is_null());
+    assert!(status["coordinationMaterializationBytes"].is_null());
     assert_eq!(status["freshness"]["fsDirty"], false);
     assert!(
         status["freshness"]["materialization"]["workspace"]["status"]
@@ -20937,6 +20928,10 @@ fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() 
     .expect("task create should succeed");
     if let Some(workspace) = host.workspace_session() {
         workspace.flush_materializations().unwrap();
+        let coordination_materialization_path = PrismPaths::for_workspace_root(workspace.root())
+            .unwrap()
+            .coordination_materialization_db_path()
+            .unwrap();
         prism_core::CoordinationMaterializedStore::clear_materialization(
             &prism_core::SqliteCoordinationMaterializedStore::new(workspace.root()),
             prism_core::CoordinationMaterializedClearRequest {
@@ -20946,12 +20941,34 @@ fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() 
             },
         )
         .expect("sqlite-default runtime status should not require local coordination materialization");
+        if coordination_materialization_path.exists() {
+            fs::remove_file(&coordination_materialization_path).unwrap();
+        }
+        host.store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Authority-backed follow-up mutation"
+                }),
+                task_id: None,
+            },
+        )
+        .expect("follow-up task create should still succeed without local coordination materialization");
+        workspace.flush_materializations().unwrap();
+        assert!(
+            !coordination_materialization_path.exists(),
+            "sqlite-default coordination mutations should not recreate local coordination materialization"
+        );
     }
     prism_core::publish_local_runtime_descriptor(&root)
         .expect("runtime descriptor should publish before diagnostics are inspected");
 
     let status = crate::runtime_views::refresh_cached_runtime_status(&host)
         .expect("runtime status should succeed");
+    assert!(status.coordination_materialization_path.is_none());
+    assert!(status.coordination_materialization_bytes.is_none());
     assert!(
         status.shared_coordination_ref.is_none(),
         "sqlite-default authority should not surface git shared-coordination diagnostics"
