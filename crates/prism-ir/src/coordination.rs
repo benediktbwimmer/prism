@@ -211,6 +211,27 @@ pub enum CoordinationEventKind {
     MutationRejected,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EventTriggerKind {
+    TaskBecameActionable,
+    ClaimExpired,
+    RecurringPlanTick,
+    RuntimeBecameStale,
+    HookRequested,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EventExecutionStatus {
+    Claimed,
+    Running,
+    Succeeded,
+    Failed,
+    Expired,
+    Abandoned,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,5 +253,12 @@ mod tests {
         assert_eq!(plan_ref.id, "plan:test");
         assert_eq!(task_ref.kind, NodeRefKind::Task);
         assert_eq!(task_ref.id, "task:test");
+    }
+
+    #[test]
+    fn event_execution_status_serializes_with_snake_case_names() {
+        let status = EventExecutionStatus::Succeeded;
+        let value = serde_json::to_string(&status).expect("status should serialize");
+        assert_eq!(value, "\"succeeded\"");
     }
 }

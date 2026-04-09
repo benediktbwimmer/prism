@@ -1,9 +1,10 @@
 use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ArtifactStatus, BlockerCause, Capability, ClaimId, ClaimMode,
     ClaimStatus, ConflictOverlapKind, ConflictSeverity, CoordinationEventKind, CoordinationTaskId,
-    CoordinationTaskStatus, EventId, EventMeta, LeaseRenewalMode, PlanBinding, PlanId, PlanKind,
-    PlanNodeKind, PlanScope, PlanStatus, PrincipalActor, ReviewId, ReviewVerdict, SessionId,
-    Timestamp, ValidationRef, WorkspaceRevision,
+    CoordinationTaskStatus, EventExecutionId, EventExecutionStatus, EventId, EventMeta,
+    EventTriggerKind, LeaseRenewalMode, NodeRef, PlanBinding, PlanId, PlanKind, PlanNodeKind,
+    PlanScope, PlanStatus, PrincipalActor, ReviewId, ReviewVerdict, SessionId, Timestamp,
+    ValidationRef, WorkspaceRevision,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -235,6 +236,48 @@ pub struct WorkClaim {
     pub expires_at: Timestamp,
     pub status: ClaimStatus,
     pub base_revision: WorkspaceRevision,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EventExecutionOwner {
+    #[serde(default)]
+    pub principal: Option<PrincipalActor>,
+    #[serde(default)]
+    pub session_id: Option<SessionId>,
+    #[serde(default)]
+    pub worktree_id: Option<String>,
+    #[serde(default)]
+    pub service_instance_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EventExecutionRecord {
+    pub id: EventExecutionId,
+    pub trigger_kind: EventTriggerKind,
+    #[serde(default)]
+    pub trigger_target: Option<NodeRef>,
+    #[serde(default)]
+    pub hook_id: Option<String>,
+    #[serde(default)]
+    pub hook_version_digest: Option<String>,
+    #[serde(default)]
+    pub authoritative_revision: Option<u64>,
+    pub status: EventExecutionStatus,
+    #[serde(default)]
+    pub owner: Option<EventExecutionOwner>,
+    pub claimed_at: Timestamp,
+    #[serde(default)]
+    pub started_at: Option<Timestamp>,
+    #[serde(default)]
+    pub finished_at: Option<Timestamp>,
+    #[serde(default)]
+    pub expires_at: Option<Timestamp>,
+    #[serde(default)]
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub metadata: Value,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -577,4 +620,52 @@ pub struct ArtifactReviewInput {
     pub required_validations: Vec<String>,
     pub validated_checks: Vec<String>,
     pub risk_score: Option<f32>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{EventExecutionOwner, EventExecutionRecord};
+    use prism_ir::{
+        EventExecutionId, EventExecutionStatus, EventTriggerKind, NodeRef, PlanId, PrincipalActor,
+        PrincipalAuthorityId, PrincipalId, PrincipalKind,
+    };
+
+    #[test]
+    fn event_execution_record_serializes_with_contract_shapes() {
+        let record = EventExecutionRecord {
+            id: EventExecutionId::new("event-exec:test"),
+            trigger_kind: EventTriggerKind::RecurringPlanTick,
+            trigger_target: Some(NodeRef::plan(PlanId::new("plan:test"))),
+            hook_id: Some("hooks/recurring-plan".to_string()),
+            hook_version_digest: Some("sha256:test".to_string()),
+            authoritative_revision: Some(42),
+            status: EventExecutionStatus::Claimed,
+            owner: Some(EventExecutionOwner {
+                principal: Some(PrincipalActor {
+                    authority_id: PrincipalAuthorityId::new("authority:test"),
+                    principal_id: PrincipalId::new("principal:test"),
+                    kind: Some(PrincipalKind::Service),
+                    name: Some("Scheduler".to_string()),
+                }),
+                session_id: None,
+                worktree_id: None,
+                service_instance_id: Some("service:test".to_string()),
+            }),
+            claimed_at: 100,
+            started_at: None,
+            finished_at: None,
+            expires_at: Some(160),
+            summary: Some("Recurring plan tick claimed".to_string()),
+            metadata: serde_json::json!({
+                "recurrencePolicy": "daily",
+            }),
+        };
+
+        let value = serde_json::to_value(&record).expect("record should serialize");
+        assert_eq!(value["triggerKind"], "recurring_plan_tick");
+        assert_eq!(value["status"], "claimed");
+        assert_eq!(value["triggerTarget"]["kind"], "plan");
+        assert_eq!(value["hookId"], "hooks/recurring-plan");
+        assert_eq!(value["owner"]["serviceInstanceId"], "service:test");
+    }
 }

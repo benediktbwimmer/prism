@@ -101,6 +101,8 @@ Current phase spec:
   [../specs/2026-04-09-runtime-gateway-foundation-phase-15.md](../specs/2026-04-09-runtime-gateway-foundation-phase-15.md)
 - Phase 15 event-engine slice completed:
   [../specs/2026-04-09-event-engine-foundation-phase-15.md](../specs/2026-04-09-event-engine-foundation-phase-15.md)
+- Phase 15 event-execution model slice completed:
+  [../specs/2026-04-09-event-execution-record-model-phase-15.md](../specs/2026-04-09-event-execution-record-model-phase-15.md)
 
 ## 3. Ordering thesis
 
@@ -459,8 +461,9 @@ Current assessment:
   resolution, and gateway-facing auth/capability checks
 - the event-engine role is now explicit in the service shell and host surface as the later landing
   zone for scheduling behavior
-- remaining work is now centered on richer event semantics and scheduling behavior rather than
-  missing service-role ownership
+- event-execution identity, lifecycle, and record-model types now exist in the domain crates
+- remaining work is now centered on authoritative event storage, mutation, and later scheduling
+  behavior rather than missing service-role ownership or missing event vocabulary
 
 Exit criteria:
 

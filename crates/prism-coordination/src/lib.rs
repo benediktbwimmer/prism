@@ -23,11 +23,12 @@ pub use crate::types::{
     AcceptanceCriterion, Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput,
     ArtifactSupersedeInput, BlockerKind, ClaimAcquireInput, CoordinationConflict,
     CoordinationEvent, CoordinationPolicy, CoordinationSnapshot, CoordinationSpecRef,
-    CoordinationTask, CoordinationTaskSpecRef, HandoffAcceptInput, HandoffInput, LeaseHolder, Plan,
-    PlanCreateInput, PlanScheduling, PlanUpdateInput, PolicyViolation, PolicyViolationCode,
-    PolicyViolationRecord, RuntimeDescriptor, RuntimeDescriptorCapability, RuntimeDiscoveryMode,
-    TaskBlocker, TaskCompletionContext, TaskCreateInput, TaskReclaimInput, TaskResumeInput,
-    TaskUpdateInput, WorkClaim,
+    CoordinationTask, CoordinationTaskSpecRef, EventExecutionOwner, EventExecutionRecord,
+    HandoffAcceptInput, HandoffInput, LeaseHolder, Plan, PlanCreateInput, PlanScheduling,
+    PlanUpdateInput, PolicyViolation, PolicyViolationCode, PolicyViolationRecord,
+    RuntimeDescriptor, RuntimeDescriptorCapability, RuntimeDiscoveryMode, TaskBlocker,
+    TaskCompletionContext, TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput,
+    WorkClaim,
 };
 pub use canonical_graph::{
     CanonicalPlanRecord, CanonicalTaskRecord, CoordinationDependencyRecord, CoordinationSnapshotV2,

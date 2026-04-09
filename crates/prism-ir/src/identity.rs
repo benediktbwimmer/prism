@@ -19,6 +19,7 @@ macro_rules! string_id {
 
 string_id!(LineageId);
 string_id!(EventId);
+string_id!(EventExecutionId);
 string_id!(TaskId);
 string_id!(AgentId);
 string_id!(SessionId);

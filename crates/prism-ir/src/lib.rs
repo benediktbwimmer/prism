@@ -17,8 +17,8 @@ pub use change::{ChangeTrigger, GraphChange, ObservedChangeSet, ObservedNode};
 pub use coordination::{
     ArtifactStatus, Capability, ClaimMode, ClaimStatus, ConflictOverlapKind, ConflictSeverity,
     CoordinationEventKind, CoordinationTaskStatus, DerivedPlanStatus, EffectiveTaskStatus,
-    ExecutorClass, LeaseRenewalMode, NodeRef, NodeRefKind, PlanOperatorState, PlanStatus,
-    ReviewVerdict, TaskExecutorPolicy, TaskLifecycleStatus,
+    EventExecutionStatus, EventTriggerKind, ExecutorClass, LeaseRenewalMode, NodeRef, NodeRefKind,
+    PlanOperatorState, PlanStatus, ReviewVerdict, TaskExecutorPolicy, TaskLifecycleStatus,
 };
 pub use durable_ids::{
     new_prefixed_id, new_slugged_id, new_sortable_token, slugify_id_fragment,
@@ -32,8 +32,9 @@ pub use events::{
 pub use graph::{Edge, EdgeKind, EdgeOrigin, Node, NodeId, NodeKind, Skeleton, Subgraph};
 pub use history::{LineageEvent, LineageEventKind, LineageEvidence};
 pub use identity::{
-    AgentId, ArtifactId, ClaimId, CoordinationTaskId, CredentialId, EventId, LineageId, PlanId,
-    PrincipalAuthorityId, PrincipalId, ReviewId, SessionId, TaskId, WorkspaceRevision,
+    AgentId, ArtifactId, ClaimId, CoordinationTaskId, CredentialId, EventExecutionId, EventId,
+    LineageId, PlanId, PrincipalAuthorityId, PrincipalId, ReviewId, SessionId, TaskId,
+    WorkspaceRevision,
 };
 pub use parse::{
     SymbolFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport, UnresolvedIntent,
