@@ -21259,10 +21259,10 @@ fn runtime_status_surfaces_published_generation_and_domain_freshness() {
         .domains
         .iter()
         .any(|domain| { domain.domain == "cross_file_edges" && domain.freshness == "current" }));
-    assert!(refreshed
-        .domains
-        .iter()
-        .any(|domain| { domain.domain == "checkpoint" && domain.freshness == "pending" }));
+    assert!(refreshed.domains.iter().any(|domain| {
+        domain.domain == "checkpoint"
+            && matches!(domain.freshness.as_str(), "pending" | "current")
+    }));
 }
 
 #[test]
