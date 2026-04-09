@@ -42,7 +42,7 @@ This roadmap is a focused Phase 15 follow-through under:
 Current phase checklist:
 
 - [x] Phase 0: freeze ADR-aligned service and auth semantics
-- [ ] Phase 1: make `prism service` a first-class lifecycle surface
+- [x] Phase 1: make `prism service` a first-class lifecycle surface
 - [ ] Phase 2: move UI serving fully under the service
 - [ ] Phase 3: implement service endpoint selection and machine-local service state
 - [ ] Phase 4: cut MCP daemon over to runtime-only ownership and bridge-managed launch
@@ -55,11 +55,11 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 1: make `prism service` a first-class lifecycle surface
+- Phase 2: move UI serving fully under the service
 
 Current phase spec:
 
-- [../specs/2026-04-09-prism-service-lifecycle-phase-1.md](../specs/2026-04-09-prism-service-lifecycle-phase-1.md)
+- [../specs/2026-04-09-service-ui-hosting-phase-2.md](../specs/2026-04-09-service-ui-hosting-phase-2.md)
 
 ## 3. Ordering thesis
 

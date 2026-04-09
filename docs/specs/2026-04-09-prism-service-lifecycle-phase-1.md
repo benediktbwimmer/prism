@@ -1,6 +1,6 @@
 # PRISM Service Lifecycle Phase 1
 
-Status: approved
+Status: completed
 Audience: service, CLI, MCP, runtime, UI, and deployment maintainers
 Scope: introduce a first-class `prism service` lifecycle surface in the CLI, backed by the current host process, without yet finishing the runtime-versus-service process split
 
@@ -149,8 +149,8 @@ This spec is complete when:
 
 ## 9. Implementation checklist
 
-- [ ] Add `Service` top-level CLI command and `ServiceCommand`
-- [ ] Add dedicated service lifecycle owner module in `prism-cli`
-- [ ] Delegate `prism service` lifecycle commands to the current host path
-- [ ] Validate changed `prism-cli` parsing and dispatch
-- [ ] Update roadmap status after landing
+- [x] Add `Service` top-level CLI command and `ServiceCommand`
+- [x] Add dedicated service lifecycle owner module in `prism-cli`
+- [x] Delegate `prism service` lifecycle commands to the current host path
+- [x] Validate changed `prism-cli` parsing and dispatch
+- [x] Update roadmap status after landing

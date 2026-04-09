@@ -24,6 +24,10 @@ pub enum Command {
         #[command(subcommand)]
         command: McpCommand,
     },
+    Service {
+        #[command(subcommand)]
+        command: ServiceCommand,
+    },
     Auth {
         #[command(subcommand)]
         command: AuthCommand,
@@ -297,6 +301,66 @@ pub enum McpCommand {
 }
 
 #[derive(Subcommand)]
+pub enum ServiceCommand {
+    Up {
+        #[arg(long, default_value_t = false)]
+        no_coordination: bool,
+        #[arg(long, default_value_t = false)]
+        internal_developer: bool,
+        #[arg(long = "runtime-mode", value_enum, default_value_t = PrismRuntimeModeArg::Full)]
+        runtime_mode: PrismRuntimeModeArg,
+        #[arg(long, default_value_t = false)]
+        ui: bool,
+        #[arg(long = "http-bind")]
+        http_bind: Option<String>,
+        #[arg(long = "shared-runtime-uri")]
+        shared_runtime_uri: Option<String>,
+        #[arg(long = "coordination-authority-backend", value_enum)]
+        coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
+        #[arg(long = "coordination-authority-sqlite-db")]
+        coordination_authority_sqlite_db: Option<PathBuf>,
+        #[arg(long = "coordination-authority-postgres-url")]
+        coordination_authority_postgres_url: Option<String>,
+    },
+    Stop {
+        #[arg(
+            long,
+            default_value_t = false,
+            help = "Also stop bridge processes. By default only the current host process is stopped."
+        )]
+        kill_bridges: bool,
+    },
+    Restart {
+        #[arg(long, default_value_t = false)]
+        no_coordination: bool,
+        #[arg(long, default_value_t = false)]
+        internal_developer: bool,
+        #[arg(long = "runtime-mode", value_enum, default_value_t = PrismRuntimeModeArg::Full)]
+        runtime_mode: PrismRuntimeModeArg,
+        #[arg(long, default_value_t = false)]
+        ui: bool,
+        #[arg(long = "http-bind")]
+        http_bind: Option<String>,
+        #[arg(long = "shared-runtime-uri")]
+        shared_runtime_uri: Option<String>,
+        #[arg(long = "coordination-authority-backend", value_enum)]
+        coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
+        #[arg(long = "coordination-authority-sqlite-db")]
+        coordination_authority_sqlite_db: Option<PathBuf>,
+        #[arg(long = "coordination-authority-postgres-url")]
+        coordination_authority_postgres_url: Option<String>,
+        #[arg(
+            long,
+            default_value_t = false,
+            help = "Also stop bridge processes before restarting. By default bridges are preserved."
+        )]
+        kill_bridges: bool,
+    },
+    Status,
+    Health,
+}
+
+#[derive(Subcommand)]
 pub enum TaskCommand {
     Start {
         id: String,
@@ -519,6 +583,7 @@ mod tests {
         AuthAssuranceArg, AuthCommand, Cli, Command, CoordinationAuthorityBackendArg,
         DocsBundleArg, DocsCommand, McpCommand, PrincipalCommand, PrismRuntimeModeArg,
         ProtectedStateCommand, ProtectedStateTrustCommand, SpecsCommand, WorktreeCommand,
+        ServiceCommand,
     };
     use crate::worktree_commands::WorktreeModeArg;
 
@@ -554,6 +619,88 @@ mod tests {
                 assert!(coordination_authority_sqlite_db.is_none());
                 assert!(coordination_authority_postgres_url.is_none());
             }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn service_restart_preserves_bridges_by_default() {
+        let cli = Cli::parse_from(["prism", "service", "restart"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Service {
+                command:
+                    ServiceCommand::Restart {
+                        kill_bridges,
+                        no_coordination,
+                        internal_developer,
+                        runtime_mode,
+                        ui,
+                        http_bind,
+                        shared_runtime_uri,
+                        coordination_authority_backend,
+                        coordination_authority_sqlite_db,
+                        coordination_authority_postgres_url,
+                    },
+            } => {
+                assert!(!kill_bridges);
+                assert!(!no_coordination);
+                assert!(!internal_developer);
+                assert_eq!(runtime_mode, PrismRuntimeModeArg::Full);
+                assert!(!ui);
+                assert!(http_bind.is_none());
+                assert!(shared_runtime_uri.is_none());
+                assert!(coordination_authority_backend.is_none());
+                assert!(coordination_authority_sqlite_db.is_none());
+                assert!(coordination_authority_postgres_url.is_none());
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn service_up_coordination_authority_backend_flags_parse() {
+        let cli = Cli::parse_from([
+            "prism",
+            "service",
+            "up",
+            "--coordination-authority-backend",
+            "sqlite",
+            "--coordination-authority-sqlite-db",
+            "service-authority.db",
+        ]);
+        match cli.command {
+            Command::Service {
+                command:
+                    ServiceCommand::Up {
+                        coordination_authority_backend,
+                        coordination_authority_sqlite_db,
+                        coordination_authority_postgres_url,
+                        ..
+                    },
+            } => {
+                assert_eq!(
+                    coordination_authority_backend,
+                    Some(CoordinationAuthorityBackendArg::Sqlite)
+                );
+                assert_eq!(
+                    coordination_authority_sqlite_db,
+                    Some(PathBuf::from("service-authority.db"))
+                );
+                assert!(coordination_authority_postgres_url.is_none());
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn service_status_parses() {
+        let cli = Cli::parse_from(["prism", "service", "status"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Service {
+                command: ServiceCommand::Status,
+            } => {}
             _ => panic!("unexpected command"),
         }
     }

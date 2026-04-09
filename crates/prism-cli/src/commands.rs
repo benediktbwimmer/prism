@@ -33,6 +33,7 @@ use crate::runtime::{
     record_validation_outcome, resolve_optional_anchors, resolve_single_symbol,
     run_validation_command,
 };
+use crate::service;
 use crate::spec_commands::handle_specs_command;
 use crate::workspace_root;
 use crate::worktree_commands::handle_worktree_command;
@@ -45,6 +46,9 @@ pub fn run(cli: Cli) -> Result<()> {
     }
     if let Command::Mcp { command } = command {
         return mcp::handle(&root, command);
+    }
+    if let Command::Service { command } = command {
+        return service::handle(&root, command);
     }
     if let Command::Auth { command } = command {
         return handle_auth_command(&root, command);
@@ -68,6 +72,7 @@ pub fn run(cli: Cli) -> Result<()> {
 
     match command {
         Command::Mcp { .. } => unreachable!("handled above"),
+        Command::Service { .. } => unreachable!("handled above"),
         Command::Auth { .. } => unreachable!("handled above"),
         Command::Worktree { .. } => unreachable!("handled above"),
         Command::Specs { .. } => unreachable!("handled above"),
