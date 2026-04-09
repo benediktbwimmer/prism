@@ -1,8 +1,8 @@
 # PRISM Dashboard Implementation Spec
 
 Archived historical design. The active operator-console docs are
-[PRISM_OPERATOR_CONSOLE_BACKEND_SPEC.md](../PRISM_OPERATOR_CONSOLE_BACKEND_SPEC.md) and
-[PRISM_SSR_OPERATOR_CONSOLE.md](../PRISM_SSR_OPERATOR_CONSOLE.md).
+[PRISM_OPERATOR_CONSOLE_BACKEND_SPEC.md](../designs/PRISM_OPERATOR_CONSOLE_BACKEND_SPEC.md) and
+[PRISM_SSR_OPERATOR_CONSOLE.md](../designs/PRISM_SSR_OPERATOR_CONSOLE.md).
 
 This document remains useful as historical context for the earlier query-log dashboard direction,
 but it is no longer the implementation contract for the current UI overhaul.
@@ -93,7 +93,7 @@ PRISM already exposes most of the semantic inputs needed for a dashboard:
 - coordination inbox, blockers, claims, conflicts, pending reviews, and task risk
 - curator jobs and proposal state
 - validation feedback recording and the broader validation scorecard direction described in
-  `docs/VALIDATION.md`
+  `docs/designs/VALIDATION.md`
 
 The dashboard effort is therefore primarily about:
 
@@ -125,7 +125,7 @@ detail views shaped for UI workflows.
 
 ### Trust and validation should become visible
 
-The dashboard should grow into the machine-readable scorecard described in `docs/VALIDATION.md`,
+The dashboard should grow into the machine-readable scorecard described in `docs/designs/VALIDATION.md`,
 but this can land after the core live operations surface.
 
 ## Backend Architecture

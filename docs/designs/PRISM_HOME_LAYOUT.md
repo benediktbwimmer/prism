@@ -4,8 +4,8 @@ This document defines the filesystem split between repo-owned PRISM state and
 user-local PRISM state.
 
 It extends the current authority and persistence split from
-[PRISM_COORDINATION_TARGET_ARCHITECTURE.md](PRISM_COORDINATION_TARGET_ARCHITECTURE.md) and
-[PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md](PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md)
+[PRISM_COORDINATION_TARGET_ARCHITECTURE.md](./PRISM_COORDINATION_TARGET_ARCHITECTURE.md) and
+[PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md](../PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md)
 with a concrete on-disk layout.
 
 ## Goal
@@ -398,7 +398,7 @@ These files are for discovery, cleanup, and debugging. They do not replace the
 actual runtime records inside the database.
 
 They are also an explicit exception to the repo-portable path contract in
-[`PATH_IDENTITY_CONTRACT.md`](PATH_IDENTITY_CONTRACT.md):
+[`PATH_IDENTITY_CONTRACT.md`](../PATH_IDENTITY_CONTRACT.md):
 `repo.json` and `worktree.json` may store canonical locator paths because they
 are local discovery metadata, not portable semantic repo state.
 

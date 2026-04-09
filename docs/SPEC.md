@@ -9,6 +9,7 @@ exact coordination or service semantics
 Current implementation priorities live in [ROADMAP.md](ROADMAP.md).
 
 Normative implementation seams now live under [contracts/README.md](./contracts/README.md).
+Active architecture and product-shape docs now live under [designs/README.md](./designs/README.md).
 Concrete implementation targets should live under [specs/README.md](./specs/README.md).
 
 ## 0. Philosophy
@@ -127,7 +128,7 @@ Critical boundaries:
 * `prism-core` owns workspace loading, adapter registration, incremental reindex coordination, and long-lived service construction
 * `prism-core` is intentionally thin: it wires subsystems together, but does not redefine their storage, query, or memory semantics
 * `prism-store` owns persistence and raw observed change capture
-* the authoritative-vs-derived persistence contract now lives in [`docs/PRISM_REPO_SNAPSHOT_REWRITE.md`](PRISM_REPO_SNAPSHOT_REWRITE.md), [`docs/PRISM_COORDINATION_TARGET_ARCHITECTURE.md`](PRISM_COORDINATION_TARGET_ARCHITECTURE.md), and [`docs/PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md`](PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md)
+* the authoritative-vs-derived persistence contract now lives in [`docs/designs/PRISM_REPO_SNAPSHOT_REWRITE.md`](designs/PRISM_REPO_SNAPSHOT_REWRITE.md), [`docs/designs/PRISM_COORDINATION_TARGET_ARCHITECTURE.md`](designs/PRISM_COORDINATION_TARGET_ARCHITECTURE.md), and [`docs/PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md`](PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md)
 * `prism-history` owns lineage assignment and time-aware projection
 * `prism-memory` owns structured memory and outcomes, but not graph construction
 * `prism-projections` owns derived signals built from history and outcomes, including concept packets
@@ -193,7 +194,7 @@ Protected-state runtime import rule:
   separate watcher or sync path so repo-published state does not masquerade as source indexing work
 
 Freshness semantics for projection-facing read surfaces must preserve the repo-wide runtime
-contract documented in [`docs/PRISM_COORDINATION_TARGET_ARCHITECTURE.md`](PRISM_COORDINATION_TARGET_ARCHITECTURE.md):
+contract documented in [`docs/designs/PRISM_COORDINATION_TARGET_ARCHITECTURE.md`](designs/PRISM_COORDINATION_TARGET_ARCHITECTURE.md):
 
 * `current`: the serving view is up to date for the relevant domain
 * `pending`: upstream authoritative change exists, but projection settlement is still in flight

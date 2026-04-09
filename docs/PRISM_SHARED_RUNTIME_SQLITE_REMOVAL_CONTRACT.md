@@ -8,7 +8,7 @@ Scope: concrete ownership boundaries and removal rules for deleting the shared r
 
 ## 1. Purpose
 
-`docs/PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md` defines the target architecture.
+`docs/designs/PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md` defines the companion target architecture.
 
 This document locks the concrete cutover contract for implementation. It answers four questions:
 
@@ -193,7 +193,7 @@ The following older assumptions are no longer valid for implementation work on t
 - future remote runtime layers should be treated as mutable operational truth by default
 
 The companion docs that previously used that language have now been updated. This document and
-`docs/PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md` remain the live contract for the removal boundary.
+`docs/designs/PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md` remains the companion architecture reference for the removal boundary.
 
 ---
 

@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+python3 scripts/update_doc_indices.py
+git add docs/README.md \
+  docs/contracts/README.md \
+  docs/designs/README.md \
+  docs/specs/README.md \
+  docs/roadmaps/README.md \
+  docs/adrs/README.md \
+  docs/archived/README.md

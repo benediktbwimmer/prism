@@ -105,7 +105,7 @@ That means:
 
 This contract captures the normative trust boundary distilled from:
 
-- `docs/PROTECTED_PRISM_STATE_SIGNATURES.md`
+- `docs/designs/PROTECTED_PRISM_STATE_SIGNATURES.md`
 
 That broader design note may continue to carry deeper implementation detail and migration strategy.
 

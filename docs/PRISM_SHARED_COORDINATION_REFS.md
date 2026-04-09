@@ -76,7 +76,7 @@ the work that brought this document from target design to implemented reality.
 Pre-v1 follow-up: this document describes the implemented Git-backed baseline. The compatibility
 contract and
 1000-agent-scale topology that should replace the single live ref as the hot write path are defined
-in `docs/PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`.
+in `docs/designs/PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`.
 
 ### 1.2 Closed implementation matrix
 
@@ -193,7 +193,7 @@ that the current summary manifest names.
 ### 4.2 The shared ref should be snapshot-oriented
 
 The shared coordination ref should use the same fundamental model that
-[`docs/PRISM_REPO_SNAPSHOT_REWRITE.md`](PRISM_REPO_SNAPSHOT_REWRITE.md)
+[`docs/designs/PRISM_REPO_SNAPSHOT_REWRITE.md`](./designs/PRISM_REPO_SNAPSHOT_REWRITE.md)
 defines for tracked `.prism`:
 
 - stable snapshot shards
@@ -516,7 +516,7 @@ This order matters:
 ### 9.2 Live sync
 
 The protected-state runtime sync work described in
-[`docs/PROTECTED_STATE_RUNTIME_SYNC.md`](PROTECTED_STATE_RUNTIME_SYNC.md)
+[`docs/designs/PROTECTED_STATE_RUNTIME_SYNC.md`](./designs/PROTECTED_STATE_RUNTIME_SYNC.md)
 should be extended conceptually to shared coordination ref updates.
 
 The runtime needs:
@@ -881,7 +881,7 @@ The agent renews only when needed, for example:
 - when PRISM explicitly instructs it to call `heartbeat_lease`
 
 This matches the lease rules already described in
-[`docs/PRISM_AUTH_AND_IDENTITY_MODEL.md`](./PRISM_AUTH_AND_IDENTITY_MODEL.md).
+[`docs/designs/PRISM_AUTH_AND_IDENTITY_MODEL.md`](./designs/PRISM_AUTH_AND_IDENTITY_MODEL.md).
 
 ### 12.3 Assisted renewal remains optional and local
 

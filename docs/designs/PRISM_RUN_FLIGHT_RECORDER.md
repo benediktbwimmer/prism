@@ -81,7 +81,7 @@ PRISM instructions should add a strict rule for direct shell execution:
 > output are recorded in runtime memory for later retrieval and triage.
 
 This update should flow through the instruction markdown sources under
-[`docs/prism/instructions`](prism/instructions), not through
+[`docs/prism/instructions`](../prism/instructions), not through
 an ad hoc standalone file.
 
 ## Data model

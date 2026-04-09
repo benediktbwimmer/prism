@@ -3,7 +3,7 @@
 Archived historical runtime-reset artifact. The current runtime-serving and authority contracts now
 live in:
 
-- [PRISM_COORDINATION_TARGET_ARCHITECTURE.md](../PRISM_COORDINATION_TARGET_ARCHITECTURE.md)
+- [PRISM_COORDINATION_TARGET_ARCHITECTURE.md](../designs/PRISM_COORDINATION_TARGET_ARCHITECTURE.md)
 - [PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md](../PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md)
 
 This document is the execution artifact for `plan:2` / `coord-task:8`.

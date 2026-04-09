@@ -5,14 +5,14 @@ Audience: PRISM core, MCP, coordination, storage, and runtime maintainers
 Scope: freeze the current authoritative shared-coordination file/ref map before the v1 hardening rollout
 
 Archived historical baseline. The active shared-coordination architecture now lives in
-[`PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`](../PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md)
+[`PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`](../designs/PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md)
 and [`PRISM_SHARED_COORDINATION_REFS.md`](../PRISM_SHARED_COORDINATION_REFS.md).
 
 ---
 
 ## 1. Purpose
 
-[`PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`](../PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md)
+[`PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`](../designs/PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md)
 defines the target architecture for schema-versioned, shard-friendly, 1000-agent-ready shared
 coordination. This audit records the current implementation shape in code so the rollout can be
 done incrementally without losing track of what is authoritative today.
@@ -457,7 +457,7 @@ This baseline means the rollout can proceed in the following order without ambig
 This document intentionally does not:
 
 - redesign the target architecture beyond what
-  [`PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`](../PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md)
+  [`PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`](../designs/PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md)
   already decided
 - prescribe the exact shard count or archive partition count
 - implement any behavioral change

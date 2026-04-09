@@ -17,7 +17,7 @@ The product target is now:
 * first-hop success and payload size as explicit product goals
 * `prism_query` preserved as the semantic IR and escape hatch, not the default surface
 
-The detailed target state lives in [AGENT_COMPRESSION_LAYER.md](AGENT_COMPRESSION_LAYER.md).
+The detailed target state lives in [AGENT_COMPRESSION_LAYER.md](./designs/AGENT_COMPRESSION_LAYER.md).
 
 ## What We Observed
 

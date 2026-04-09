@@ -4,8 +4,8 @@
 
 PRISM currently treats repo-published `.prism` state inconsistently at runtime.
 
-- The normal source watcher ignores `.prism` entirely in [`watch.rs`](../crates/prism-core/src/watch.rs#L978).
-- Memory is a special case: some session read paths opportunistically import repo memory events through [`sync_repo_memory_events_locked(...)`](../crates/prism-core/src/session.rs#L3068).
+- The normal source watcher ignores `.prism` entirely in [`watch.rs`](../../crates/prism-core/src/watch.rs#L978).
+- Memory is a special case: some session read paths opportunistically import repo memory events through [`sync_repo_memory_events_locked(...)`](../../crates/prism-core/src/session.rs#L3068).
 - Other repo-published streams such as changes, concepts, contracts, relations, and plans are primarily hydrated at startup or through explicit rebuild paths, not through one uniform live import mechanism.
 
 That produces behavior that is hard to explain:
@@ -43,13 +43,13 @@ This design does not:
 
 ### Source Watch Path
 
-The existing source watcher excludes `.prism` by policy in [`watch.rs`](../crates/prism-core/src/watch.rs#L978).
+The existing source watcher excludes `.prism` by policy in [`watch.rs`](../../crates/prism-core/src/watch.rs#L978).
 
 That is still correct for the source refresh pipeline. Repo-published protected streams need different handling than source code edits.
 
 ### Memory Special Case
 
-Several session reads opportunistically call [`sync_repo_memory_events_locked(...)`](../crates/prism-core/src/session.rs#L3068), for example in [`load_episodic_snapshot(...)`](../crates/prism-core/src/session.rs#L1242).
+Several session reads opportunistically call [`sync_repo_memory_events_locked(...)`](../../crates/prism-core/src/session.rs#L3068), for example in [`load_episodic_snapshot(...)`](../../crates/prism-core/src/session.rs#L1242).
 
 That creates one-off freshness behavior for memory only.
 
@@ -276,11 +276,11 @@ The implementation should add explicit coverage for:
 
 TODO-PSYNC-1: Add a new runtime design section to the core docs set that states the single rule: repo-published `.prism` state is imported only by bootstrap or the dedicated protected-state sync path, never by ad hoc read-path hooks.
 
-TODO-PSYNC-2: Remove all session read-path calls to `sync_repo_memory_events_locked(...)` in [`session.rs`](../crates/prism-core/src/session.rs).
+TODO-PSYNC-2: Remove all session read-path calls to `sync_repo_memory_events_locked(...)` in [`session.rs`](../../crates/prism-core/src/session.rs).
 
 TODO-PSYNC-3: Replace `sync_repo_memory_events_locked(...)` with a generalized protected-state sync surface, likely centered on `sync_repo_protected_state(...)` plus per-stream helpers.
 
-TODO-PSYNC-4: Introduce a dedicated protected-state watcher for `.prism/**` that is separate from the normal source watcher in [`watch.rs`](../crates/prism-core/src/watch.rs).
+TODO-PSYNC-4: Introduce a dedicated protected-state watcher for `.prism/**` that is separate from the normal source watcher in [`watch.rs`](../../crates/prism-core/src/watch.rs).
 
 TODO-PSYNC-5: Keep `.prism` ignored by the normal source watcher and document that this is intentional, not a bug.
 

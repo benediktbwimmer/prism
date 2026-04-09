@@ -3,9 +3,9 @@
 Archived historical classification artifact. The current authority and persistence boundaries now
 live in:
 
-- [PRISM_COORDINATION_TARGET_ARCHITECTURE.md](../PRISM_COORDINATION_TARGET_ARCHITECTURE.md)
+- [PRISM_COORDINATION_TARGET_ARCHITECTURE.md](../designs/PRISM_COORDINATION_TARGET_ARCHITECTURE.md)
 - [PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md](../PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md)
-- [PRISM_REPO_SNAPSHOT_REWRITE.md](../PRISM_REPO_SNAPSHOT_REWRITE.md)
+- [PRISM_REPO_SNAPSHOT_REWRITE.md](../designs/PRISM_REPO_SNAPSHOT_REWRITE.md)
 
 This document is the classification artifact for `plan:01kn13pqvcx3xmnkrs493ff3ra` /
 `coord-task:01kn13pz030s4q1c3qrbbg203f`.

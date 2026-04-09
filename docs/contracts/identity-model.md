@@ -31,7 +31,7 @@ Canonical ownership:
 
 This contract captures the normative identity boundary distilled from:
 
-- `docs/PRISM_AUTH_AND_IDENTITY_MODEL.md`
+- `docs/designs/PRISM_AUTH_AND_IDENTITY_MODEL.md`
 
 ## 2. Core invariants
 

@@ -7,7 +7,7 @@ Scope: replacing a centralized shared runtime database with a federated repo-nat
 ---
 
 Normative shared coordination, authority, identity, capability, and service semantics now live
-under [contracts/README.md](./contracts/README.md).
+under [contracts/README.md](../contracts/README.md).
 This document is the higher-level federated-runtime architecture note and rollout direction.
 
 ## 1. Summary
@@ -106,7 +106,7 @@ PRISM should evolve toward a four-layer federated model.
 ### 4.1 Shared coordination refs
 
 The shared coordination ref design from
-[PRISM_SHARED_COORDINATION_REFS.md](./PRISM_SHARED_COORDINATION_REFS.md)
+[PRISM_SHARED_COORDINATION_REFS.md](../PRISM_SHARED_COORDINATION_REFS.md)
 remains the authoritative shared control plane.
 
 It carries compact durable shared facts such as:
@@ -890,7 +890,7 @@ not as the only live truth.
 ## 16. Migration Plan
 
 The concrete backend-removal contract and responsibility map for this migration are locked in
-[PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md](./PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md).
+[PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md](../PRISM_SHARED_RUNTIME_SQLITE_REMOVAL_CONTRACT.md).
 That document is the implementation reference for what stays on shared refs, what stays local, what
 moves to peer or archive enrichment, and what must be deleted outright.
 

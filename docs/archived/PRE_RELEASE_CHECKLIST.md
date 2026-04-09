@@ -12,7 +12,7 @@ idea goes on the post-release roadmap.
 - [ ] **1. Projections**
   Auto-generated human-readable markdown for concepts, contracts, plans, and
   memories. This is the primary human-facing surface for v1. No web UI required.
-  See [PRISM_PROJECTIONS.md](../PRISM_PROJECTIONS.md) for the design.
+  See [PRISM_PROJECTIONS.md](../designs/PRISM_PROJECTIONS.md) for the design.
 
 - [ ] **2. Performance tuning and anomaly fixes**
   Fix the trust-eroding anomalies observed during dogfooding. PRISM is

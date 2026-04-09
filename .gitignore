@@ -16,3 +16,5 @@ docs/prism/plans/
 /.venv-swebench
 /benchmarks/external/
 /benchmarks/results/local/
+__pycache__/
+*.pyc

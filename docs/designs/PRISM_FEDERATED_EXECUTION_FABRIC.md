@@ -12,7 +12,7 @@ PRISM should evolve beyond a repo-aware MCP server into a repo-scoped distribute
 
 The execution fabric builds on:
 
-- shared coordination refs from [PRISM_SHARED_COORDINATION_REFS.md](./PRISM_SHARED_COORDINATION_REFS.md)
+- shared coordination refs from [PRISM_SHARED_COORDINATION_REFS.md](../PRISM_SHARED_COORDINATION_REFS.md)
 - federated runtime discovery and peer transport from
   [PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md](./PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md)
 

@@ -77,8 +77,8 @@ The following docs should reflect this ADR:
 - `docs/contracts/coordination-authority-store.md`
 - `docs/contracts/service-architecture.md`
 - `docs/contracts/service-capability-and-authz.md`
-- `docs/PRISM_COORDINATION_TARGET_ARCHITECTURE.md`
+- `docs/designs/PRISM_COORDINATION_TARGET_ARCHITECTURE.md`
 - `docs/PRISM_SHARED_COORDINATION_REFS.md`
-- `docs/PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md`
-- `docs/PRISM_CROSS_REPO_FUTURE_DESIGN.md`
+- `docs/designs/PRISM_FEDERATED_RUNTIME_ARCHITECTURE.md`
+- `docs/designs/PRISM_CROSS_REPO_FUTURE_DESIGN.md`
 - `docs/roadmaps/2026-04-08-coordination-to-spec-engine-to-service.md`

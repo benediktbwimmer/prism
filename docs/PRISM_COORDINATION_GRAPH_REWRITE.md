@@ -81,7 +81,7 @@ Required goals:
 Non-goals:
 
 1. This rewrite does not change the shared-ref scaling, versioning, pruning, or semantic merge
-   decisions already captured in [PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md](./PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md).
+   decisions already captured in [PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md](./designs/PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md).
 2. This rewrite does not remove task policies, git execution policy, claims, artifacts, or review
    surfaces. It rehomes them onto the new `Task`/`Plan` graph. The normative artifact, review, and
    review-task contract now lives in

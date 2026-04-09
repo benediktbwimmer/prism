@@ -174,8 +174,8 @@ debug under real multi-agent load.
 
 ## 10. Relationship To Other Docs
 
-- `PRISM_COORDINATION_TARGET_ARCHITECTURE.md` defines the overall authority and service model
-- `PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md` defines why sharding and schema-aware merging
+- `docs/designs/PRISM_COORDINATION_TARGET_ARCHITECTURE.md` defines the overall authority and service model
+- `docs/designs/PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md` defines why sharding and schema-aware merging
   matter at scale
 - `PRISM_COORDINATION_GRAPH_REWRITE.md` defines the canonical plan/task transaction model
 - this document defines the exact concurrent-write decision tree that connects those designs

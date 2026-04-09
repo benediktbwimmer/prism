@@ -29,6 +29,11 @@ This document exists to define:
 - what PRISM should implement now
 - what VAULT and HARBOR will need later
 
+Current PRISM companion designs in this area:
+
+- [2026-04-09-warm-state-validation-feedback.md](./2026-04-09-warm-state-validation-feedback.md)
+- [2026-04-09-repo-init-and-validation-ejection.md](./2026-04-09-repo-init-and-validation-ejection.md)
+
 ---
 
 ## 2. Core Thesis
