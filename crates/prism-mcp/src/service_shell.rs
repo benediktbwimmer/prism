@@ -15,6 +15,7 @@ use crate::mcp_call_log::McpCallLogStore;
 use crate::read_broker::WorkspaceReadBroker;
 use crate::runtime_gateway::WorkspaceRuntimeGateway;
 use crate::session_seed::{load_session_seed, PersistedSessionSeed};
+use crate::workspace_event_engine::WorkspaceEventEngine;
 use crate::workspace_host::{WorkspaceRuntimeBinding, WorkspaceRuntimeHost};
 use crate::workspace_runtime::WorkspaceAuthoritySyncOwner;
 
@@ -25,6 +26,7 @@ pub(crate) struct WorkspaceServiceShell {
     read_broker: Arc<WorkspaceReadBroker>,
     mutation_broker: Arc<WorkspaceMutationBroker>,
     runtime_gateway: Arc<WorkspaceRuntimeGateway>,
+    event_engine: Arc<WorkspaceEventEngine>,
     authority_store_provider: CoordinationAuthorityStoreProvider,
     restored_session_seed: Option<PersistedSessionSeed>,
 }
@@ -59,6 +61,10 @@ impl WorkspaceServiceShell {
             workspace.root().to_path_buf(),
             authority_store_provider.clone(),
         ));
+        let event_engine = Arc::new(WorkspaceEventEngine::new(
+            Arc::clone(&read_broker),
+            Arc::clone(&mutation_broker),
+        ));
         if features.coordination_layer_enabled() {
             if let Err(error) = sync_live_runtime_descriptor_with_provider(
                 workspace.root(),
@@ -84,6 +90,7 @@ impl WorkspaceServiceShell {
             read_broker,
             mutation_broker,
             runtime_gateway,
+            event_engine,
             authority_store_provider,
             restored_session_seed,
         }
@@ -107,6 +114,10 @@ impl WorkspaceServiceShell {
 
     pub(crate) fn runtime_gateway(&self) -> &Arc<WorkspaceRuntimeGateway> {
         &self.runtime_gateway
+    }
+
+    pub(crate) fn event_engine(&self) -> &Arc<WorkspaceEventEngine> {
+        &self.event_engine
     }
 
     pub(crate) fn authority_store_provider(&self) -> &CoordinationAuthorityStoreProvider {

@@ -99,6 +99,8 @@ Current phase spec:
   [../specs/2026-04-09-db-backed-service-foundation-phase-15.md](../specs/2026-04-09-db-backed-service-foundation-phase-15.md)
 - Phase 15 runtime-gateway slice completed:
   [../specs/2026-04-09-runtime-gateway-foundation-phase-15.md](../specs/2026-04-09-runtime-gateway-foundation-phase-15.md)
+- Phase 15 event-engine slice in progress:
+  [../specs/2026-04-09-event-engine-foundation-phase-15.md](../specs/2026-04-09-event-engine-foundation-phase-15.md)
 
 ## 3. Ordering thesis
 
@@ -453,8 +455,10 @@ Current assessment:
 - SQLite authority now exists behind `CoordinationAuthorityStore` as the first DB-backed backend
 - release-oriented backend selection and configuration now route through one authority-provider
   resolver, with local service-hosted coordination defaulting to repo-scoped SQLite authority
-- remaining work is now centered on the richer service roles, especially runtime gateway and later
-  event-engine behavior
+- runtime gateway is now explicit in code and owns runtime-targeted routing, descriptor
+  resolution, and gateway-facing auth/capability checks
+- remaining work is now centered on the later event-engine role and eventual richer service
+  scheduling behavior
 
 Exit criteria:
 

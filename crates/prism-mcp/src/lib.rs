@@ -120,6 +120,7 @@ mod views;
 mod vocab_resource;
 mod vocabulary;
 mod workspace_diagnostics;
+mod workspace_event_engine;
 mod workspace_host;
 mod workspace_runtime;
 
@@ -176,6 +177,7 @@ use tool_schemas::*;
 use views::*;
 use vocab_resource::*;
 use vocabulary::*;
+use workspace_event_engine::WorkspaceEventEngine;
 use workspace_host::WorkspaceRuntimeBinding;
 use workspace_runtime::WorkspaceAuthoritySyncOwner;
 
@@ -1173,6 +1175,11 @@ impl QueryHost {
     pub(crate) fn workspace_runtime_gateway(&self) -> Option<&Arc<WorkspaceRuntimeGateway>> {
         self.workspace_service_shell()
             .map(|shell| shell.runtime_gateway())
+    }
+
+    pub(crate) fn workspace_event_engine(&self) -> Option<&Arc<WorkspaceEventEngine>> {
+        self.workspace_service_shell()
+            .map(|shell| shell.event_engine())
     }
 
     pub(crate) fn workspace_authority_store_provider(
