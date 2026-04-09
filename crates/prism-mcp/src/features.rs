@@ -288,7 +288,12 @@ impl PrismMcpFeatures {
                 true
             }
             "claims" | "conflicts" | "simulateClaim" if self.coordination.claims => true,
-            "pendingReviews" | "artifacts" | "artifactRisk" if self.coordination.artifacts => true,
+            "pendingReviews" | "artifacts" | "artifactRisk" | "taskEvidenceStatus"
+            | "taskReviewStatus"
+                if self.coordination.artifacts =>
+            {
+                true
+            }
             "runtimeStatus" | "runtimeLogs" | "runtimeTimeline" | "mcpLog" | "slowMcpCalls"
             | "mcpTrace" | "mcpStats" | "queryLog" | "slowQueries" | "queryTrace"
             | "validationFeedback"
@@ -332,7 +337,10 @@ impl PrismMcpFeatures {
                 Some("workflow")
             }
             "claims" | "conflicts" | "simulateClaim" if !self.coordination.claims => Some("claims"),
-            "pendingReviews" | "artifacts" | "artifactRisk" if !self.coordination.artifacts => {
+            "pendingReviews" | "artifacts" | "artifactRisk" | "taskEvidenceStatus"
+            | "taskReviewStatus"
+                if !self.coordination.artifacts =>
+            {
                 Some("artifacts")
             }
             _ => None,

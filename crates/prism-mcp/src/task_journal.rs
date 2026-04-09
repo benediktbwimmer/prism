@@ -12,6 +12,12 @@ use crate::{query_diagnostic, scored_memory_view, session_state::SessionTaskStat
 pub(crate) const DEFAULT_TASK_JOURNAL_EVENT_LIMIT: usize = 20;
 pub(crate) const DEFAULT_TASK_JOURNAL_MEMORY_LIMIT: usize = 8;
 
+#[derive(Debug, Clone)]
+pub(crate) struct LoadedTaskJournal {
+    pub(crate) replay: TaskReplay,
+    pub(crate) journal: TaskJournalView,
+}
+
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ResolvedTaskMetadata {
     pub(crate) description: Option<String>,
@@ -111,6 +117,27 @@ pub(crate) fn task_journal_view_from_replay(
         related_memory,
         recent_events,
     })
+}
+
+pub(crate) fn load_task_journal(
+    workspace: Option<&WorkspaceSession>,
+    session: &SessionState,
+    prism: &Prism,
+    task_id: &TaskId,
+    metadata_override: Option<(Option<String>, Vec<String>)>,
+    event_limit: usize,
+    memory_limit: usize,
+) -> Result<LoadedTaskJournal> {
+    let replay = load_task_replay(workspace, prism, task_id)?;
+    let journal = task_journal_view_from_replay(
+        session,
+        prism,
+        replay.clone(),
+        metadata_override,
+        event_limit,
+        memory_limit,
+    )?;
+    Ok(LoadedTaskJournal { replay, journal })
 }
 
 pub(crate) fn derive_task_metadata(

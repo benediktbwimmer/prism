@@ -9,8 +9,9 @@ use axum::routing::post;
 use axum::{Json, Router};
 use prism_coordination::{RuntimeDescriptor, RuntimeDescriptorCapability};
 use prism_core::{
-    local_runtime_id, runtime_query_endpoint, shared_coordination_ref_diagnostics, CredentialsFile,
-    PrismPaths, WorkspaceSession, PEER_RUNTIME_QUERY_PATH,
+    default_coordination_authority_store_provider, local_runtime_id, runtime_query_endpoint,
+    shared_coordination_ref_diagnostics, CoordinationReadConsistency, CredentialsFile, PrismPaths,
+    RuntimeDescriptorQuery, WorkspaceSession, PEER_RUNTIME_QUERY_PATH,
 };
 use prism_ir::{CredentialCapability, CredentialId};
 use prism_js::QueryDiagnostic;
@@ -19,6 +20,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::remote_runtime_query_error;
 use crate::runtime_views::runtime_status;
+use crate::trust_surface::{
+    peer_runtime_auth_failed_response, peer_runtime_capability_denied_response,
+};
 use crate::{QueryHost, QueryLanguage};
 
 const PEER_QUERY_TIMEOUT: Duration = Duration::from_secs(20);
@@ -129,14 +133,7 @@ fn authenticate_peer_read(
             &request.principal_token,
         )
         .map_err(|error| {
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(serde_json::json!({
-                    "code": "peer_runtime_auth_failed",
-                    "message": error.to_string(),
-                    "credentialId": request.credential_id,
-                })),
-            )
+            peer_runtime_auth_failed_response(&request.credential_id, &error.to_string())
         })?;
     if !authenticated
         .credential
@@ -147,13 +144,8 @@ fn authenticate_peer_read(
             .capabilities
             .contains(&CredentialCapability::ReadPeerRuntime)
     {
-        return Err((
-            StatusCode::FORBIDDEN,
-            Json(serde_json::json!({
-                "code": "peer_runtime_capability_denied",
-                "message": "credential lacks read_peer_runtime capability",
-                "credentialId": request.credential_id,
-            })),
+        return Err(peer_runtime_capability_denied_response(
+            &request.credential_id,
         ));
     }
     Ok(())
@@ -421,28 +413,44 @@ fn resolve_local_peer_read_credential(root: &Path) -> Result<LocalPeerReadCreden
 }
 
 fn resolve_runtime_descriptor(root: &Path, runtime_id: &str) -> Result<RuntimeDescriptor> {
-    let diagnostics = shared_coordination_ref_diagnostics(root)?.ok_or_else(|| {
-        remote_runtime_query_error(
+    if let Some(diagnostics) = shared_coordination_ref_diagnostics(root)? {
+        if !diagnostics.authoritative_hydration_allowed {
+            return Err(remote_runtime_query_error(
+                "remote_runtime_shared_ref_degraded",
+                Some(runtime_id),
+                diagnostics
+                    .verification_error
+                    .unwrap_or_else(|| "shared coordination verification is degraded".to_string()),
+                diagnostics.repair_hint.as_deref().unwrap_or(
+                    "Repair or republish the shared coordination ref before relying on peer runtime routing.",
+                ),
+            ));
+        }
+        if let Some(descriptor) = diagnostics
+            .runtime_descriptors
+            .into_iter()
+            .find(|descriptor| descriptor.runtime_id == runtime_id)
+        {
+            return Ok(descriptor);
+        }
+    }
+
+    let store = default_coordination_authority_store_provider().open(root)?;
+    let runtime_descriptors = store
+        .list_runtime_descriptors(RuntimeDescriptorQuery {
+            consistency: CoordinationReadConsistency::Strong,
+        })?
+        .value
+        .unwrap_or_default();
+    if runtime_descriptors.is_empty() {
+        return Err(remote_runtime_query_error(
             "remote_runtime_shared_ref_unavailable",
             Some(runtime_id),
             "shared coordination ref is unavailable".to_string(),
             "Restore shared coordination connectivity, or query the local runtime instead.",
-        )
-    })?;
-    if !diagnostics.authoritative_hydration_allowed {
-        return Err(remote_runtime_query_error(
-            "remote_runtime_shared_ref_degraded",
-            Some(runtime_id),
-            diagnostics
-                .verification_error
-                .unwrap_or_else(|| "shared coordination verification is degraded".to_string()),
-            diagnostics.repair_hint.as_deref().unwrap_or(
-                "Repair or republish the shared coordination ref before relying on peer runtime routing.",
-            ),
         ));
     }
-    diagnostics
-        .runtime_descriptors
+    runtime_descriptors
         .into_iter()
         .find(|descriptor| descriptor.runtime_id == runtime_id)
         .ok_or_else(|| {

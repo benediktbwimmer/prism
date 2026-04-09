@@ -1142,15 +1142,15 @@ fn plan_markdown_payload(host: &QueryHost, plan_id: &str) -> Result<Option<(Stri
     let Some(plan) = prism.coordination_plan_v2(&plan_id) else {
         return Ok(None);
     };
-    let status = prism
-        .coordination_snapshot()
+    let status = host
+        .current_coordination_snapshot()?
         .plans
         .into_iter()
         .find(|plan| plan.id == plan_id)
         .map(|plan| plan.status);
-    let markdown =
-        render_repo_published_plan_markdown(&prism.coordination_snapshot_v2(), &plan_id, status)
-            .ok_or_else(|| anyhow!("plan markdown should be renderable for {}", plan_id.0))?;
+    let snapshot_v2 = host.current_coordination_snapshot_v2()?;
+    let markdown = render_repo_published_plan_markdown(&snapshot_v2, &plan_id, status)
+        .ok_or_else(|| anyhow!("plan markdown should be renderable for {}", plan_id.0))?;
     Ok(Some((plan.plan.title, markdown)))
 }
 

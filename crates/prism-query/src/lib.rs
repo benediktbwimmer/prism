@@ -1,6 +1,7 @@
 mod common;
 mod contracts;
 mod coordination;
+mod coordination_query_engine;
 mod coordination_transaction;
 mod impact;
 mod intent;
@@ -24,9 +25,9 @@ use anyhow::{anyhow, Result};
 use prism_coordination::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     CoordinationConflict, CoordinationRuntimeState, CoordinationSnapshot, CoordinationSnapshotV2,
-    CoordinationTask, HandoffAcceptInput, HandoffInput, LeaseHeartbeatDueState, LeaseState,
-    PlanScheduling, RuntimeDescriptor, TaskCreateInput, TaskReclaimInput, TaskResumeInput,
-    TaskUpdateInput, WorkClaim,
+    CoordinationSpecRef, CoordinationTask, CoordinationTaskSpecRef, HandoffAcceptInput,
+    HandoffInput, LeaseHeartbeatDueState, LeaseState, PlanScheduling, RuntimeDescriptor,
+    TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
@@ -63,13 +64,21 @@ pub use crate::types::{
     ContractPublicationStatus, ContractResolution, ContractScope, ContractStability,
     ContractStatus, ContractTarget, ContractValidation, CoordinationPlanV2, CoordinationTaskV2,
     DriftCandidate, PlanActivity, PlanListEntry, PlanNodeStatusCounts, PlanSummary, QueryLimits,
-    TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    TaskEvidenceArtifactStatus, TaskEvidenceStatus, TaskIntent, TaskReviewStatus, TaskRisk,
+    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 pub use coordination_transaction::{
-    CoordinationDependencyKind, CoordinationTransactionGitExecutionPolicyPatch,
-    CoordinationTransactionInput, CoordinationTransactionMutation, CoordinationTransactionPlanRef,
-    CoordinationTransactionPlanSchedulingPatch, CoordinationTransactionPolicyPatch,
+    CoordinationDependencyKind, CoordinationTransactionAuthorityVersion,
+    CoordinationTransactionCommitMetadata, CoordinationTransactionError,
+    CoordinationTransactionGitExecutionPolicyPatch, CoordinationTransactionInput,
+    CoordinationTransactionMutation, CoordinationTransactionOutcome,
+    CoordinationTransactionPlanRef, CoordinationTransactionPlanSchedulingPatch,
+    CoordinationTransactionPolicyPatch, CoordinationTransactionProtocolAuthorityVersion,
+    CoordinationTransactionProtocolCommit, CoordinationTransactionProtocolIndeterminate,
+    CoordinationTransactionProtocolRejection, CoordinationTransactionProtocolState,
+    CoordinationTransactionRejection, CoordinationTransactionRejectionCategory,
     CoordinationTransactionResult, CoordinationTransactionTaskRef,
+    CoordinationTransactionValidationStage,
 };
 
 pub struct Prism {
@@ -129,6 +138,41 @@ pub struct NativePlanBootstrapTaskInput {
 pub struct NativePlanBootstrapResult {
     pub plan_id: PlanId,
     pub task_ids_by_client_id: BTreeMap<String, CoordinationTaskId>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativePlanMutationResult {
+    pub plan_id: PlanId,
+    pub transaction: CoordinationTransactionResult,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeTaskMutationResult {
+    pub task_id: CoordinationTaskId,
+    pub transaction: CoordinationTransactionResult,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeSpecPlanCreateInput {
+    pub title: String,
+    pub goal: String,
+    pub status: Option<PlanStatus>,
+    pub policy: Option<prism_coordination::CoordinationPolicy>,
+    pub scheduling: Option<PlanScheduling>,
+    pub spec_ref: CoordinationSpecRef,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeSpecTaskCreateInput {
+    pub task: TaskCreateInput,
+    pub spec_ref: CoordinationTaskSpecRef,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativePlanBootstrapTransactionResult {
+    pub plan_id: PlanId,
+    pub task_ids_by_client_id: BTreeMap<String, CoordinationTaskId>,
+    pub transaction: CoordinationTransactionResult,
 }
 
 pub trait OutcomeReadBackend: Send + Sync {
@@ -785,27 +829,21 @@ impl Prism {
     pub fn create_native_task(
         &self,
         meta: EventMeta,
-        mut input: TaskCreateInput,
+        input: TaskCreateInput,
     ) -> Result<CoordinationTask> {
-        if let Some(context) = self.coordination_context() {
-            if input.session.is_some() {
-                input.worktree_id = Some(context.worktree_id);
-                input.branch_ref = context.branch_ref;
-            }
-        }
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| runtime.create_task(meta, input));
-        let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result.map(|(_, task)| task))
+        let result = self.create_native_task_transaction(meta, input)?;
+        self.coordination_task(&result.task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
     }
 
-    pub fn update_native_task(
+    pub fn update_native_task_transaction(
         &self,
         meta: EventMeta,
-        mut input: TaskUpdateInput,
+        input: TaskUpdateInput,
         current_revision: WorkspaceRevision,
-        now: u64,
-    ) -> Result<CoordinationTask> {
+        _now: u64,
+    ) -> Result<CoordinationTransactionResult> {
+        let mut input = input;
         if let Some(context) = self.coordination_context() {
             if matches!(input.session, Some(Some(_))) {
                 input.worktree_id = Some(Some(context.worktree_id));
@@ -815,12 +853,49 @@ impl Prism {
                 input.branch_ref = Some(None);
             }
         }
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| {
-                runtime.update_task(meta, input, current_revision, now)
-            });
-        let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        Ok(self.execute_coordination_mutation(
+            meta,
+            CoordinationTransactionMutation::TaskUpdate {
+                task: CoordinationTransactionTaskRef::Id(input.task_id),
+                status: input.status,
+                published_task_status: input.published_task_status,
+                git_execution: input.git_execution,
+                assignee: input.assignee,
+                session: input.session,
+                worktree_id: input.worktree_id,
+                branch_ref: input.branch_ref,
+                title: input.title,
+                summary: input.summary,
+                anchors: input.anchors,
+                bindings: input.bindings,
+                depends_on: input.depends_on.map(|depends_on| {
+                    depends_on
+                        .into_iter()
+                        .map(CoordinationTransactionTaskRef::Id)
+                        .collect()
+                }),
+                acceptance: input.acceptance,
+                validation_refs: input.validation_refs,
+                base_revision: input.base_revision.unwrap_or(current_revision),
+                priority: input.priority,
+                tags: input.tags,
+                completion_context: input.completion_context,
+                spec_refs: input.spec_refs,
+            },
+        )?)
+    }
+
+    pub fn update_native_task(
+        &self,
+        meta: EventMeta,
+        input: TaskUpdateInput,
+        current_revision: WorkspaceRevision,
+        now: u64,
+    ) -> Result<CoordinationTask> {
+        let task_id = input.task_id.clone();
+        self.update_native_task_transaction(meta, input, current_revision, now)?;
+        self.coordination_task(&task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))
     }
 
     pub fn update_native_task_authoritative_only(
@@ -847,63 +922,154 @@ impl Prism {
         self.finalize_live_coordination_mutation(snapshot, result)
     }
 
+    pub fn request_native_handoff_transaction(
+        &self,
+        meta: EventMeta,
+        input: HandoffInput,
+        _current_revision: WorkspaceRevision,
+    ) -> Result<NativeTaskMutationResult> {
+        let task_id = input.task_id.clone();
+        let transaction = self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::TaskHandoff {
+                    task: CoordinationTransactionTaskRef::Id(task_id.clone()),
+                    to_agent: input.to_agent,
+                    summary: input.summary,
+                    base_revision: input.base_revision,
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?;
+        Ok(NativeTaskMutationResult {
+            task_id,
+            transaction,
+        })
+    }
+
     pub fn request_native_handoff(
         &self,
         meta: EventMeta,
         input: HandoffInput,
         current_revision: WorkspaceRevision,
     ) -> Result<CoordinationTask> {
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| {
-                runtime.handoff(meta, input, current_revision)
-            });
-        let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        let result = self.request_native_handoff_transaction(meta, input, current_revision)?;
+        self.coordination_task(&result.task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+    }
+
+    pub fn accept_native_handoff_transaction(
+        &self,
+        meta: EventMeta,
+        mut input: HandoffAcceptInput,
+    ) -> Result<NativeTaskMutationResult> {
+        if let Some(context) = self.coordination_context() {
+            input.worktree_id = Some(context.worktree_id);
+            input.branch_ref = context.branch_ref;
+        }
+        let task_id = input.task_id.clone();
+        let transaction = self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::TaskHandoffAccept {
+                    task: CoordinationTransactionTaskRef::Id(task_id.clone()),
+                    agent: input.agent,
+                    worktree_id: input.worktree_id,
+                    branch_ref: input.branch_ref,
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?;
+        Ok(NativeTaskMutationResult {
+            task_id,
+            transaction,
+        })
     }
 
     pub fn accept_native_handoff(
         &self,
         meta: EventMeta,
-        mut input: HandoffAcceptInput,
+        input: HandoffAcceptInput,
     ) -> Result<CoordinationTask> {
+        let result = self.accept_native_handoff_transaction(meta, input)?;
+        self.coordination_task(&result.task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+    }
+
+    pub fn resume_native_task_transaction(
+        &self,
+        meta: EventMeta,
+        mut input: TaskResumeInput,
+    ) -> Result<NativeTaskMutationResult> {
         if let Some(context) = self.coordination_context() {
             input.worktree_id = Some(context.worktree_id);
             input.branch_ref = context.branch_ref;
         }
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| runtime.accept_handoff(meta, input));
-        let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        let task_id = input.task_id.clone();
+        let transaction = self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::TaskResume {
+                    task: CoordinationTransactionTaskRef::Id(task_id.clone()),
+                    agent: input.agent,
+                    worktree_id: input.worktree_id,
+                    branch_ref: input.branch_ref,
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?;
+        Ok(NativeTaskMutationResult {
+            task_id,
+            transaction,
+        })
     }
 
     pub fn resume_native_task(
         &self,
         meta: EventMeta,
-        mut input: TaskResumeInput,
+        input: TaskResumeInput,
     ) -> Result<CoordinationTask> {
+        let result = self.resume_native_task_transaction(meta, input)?;
+        self.coordination_task(&result.task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
+    }
+
+    pub fn reclaim_native_task_transaction(
+        &self,
+        meta: EventMeta,
+        mut input: TaskReclaimInput,
+    ) -> Result<NativeTaskMutationResult> {
         if let Some(context) = self.coordination_context() {
             input.worktree_id = Some(context.worktree_id);
             input.branch_ref = context.branch_ref;
         }
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| runtime.resume_task(meta, input));
-        let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        let task_id = input.task_id.clone();
+        let transaction = self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::TaskReclaim {
+                    task: CoordinationTransactionTaskRef::Id(task_id.clone()),
+                    agent: input.agent,
+                    worktree_id: input.worktree_id,
+                    branch_ref: input.branch_ref,
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?;
+        Ok(NativeTaskMutationResult {
+            task_id,
+            transaction,
+        })
     }
 
     pub fn reclaim_native_task(
         &self,
         meta: EventMeta,
-        mut input: TaskReclaimInput,
+        input: TaskReclaimInput,
     ) -> Result<CoordinationTask> {
-        if let Some(context) = self.coordination_context() {
-            input.worktree_id = Some(context.worktree_id);
-            input.branch_ref = context.branch_ref;
-        }
-        let (before_snapshot, snapshot, result) =
-            self.mutate_live_coordination_runtime(|runtime| runtime.reclaim_task(meta, input));
-        let _ = before_snapshot;
-        self.finalize_live_coordination_mutation(snapshot, result)
+        let result = self.reclaim_native_task_transaction(meta, input)?;
+        self.coordination_task(&result.task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", result.task_id.0))
     }
 
     pub fn heartbeat_native_task(
@@ -1014,7 +1180,60 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
         scheduling: Option<prism_coordination::PlanScheduling>,
     ) -> Result<PlanId> {
-        let result = self.execute_coordination_transaction(
+        Ok(self
+            .create_native_plan_with_scheduling_transaction(
+                meta, title, goal, status, policy, scheduling,
+            )?
+            .plan_id)
+    }
+
+    pub fn create_native_plan_with_scheduling_transaction(
+        &self,
+        meta: EventMeta,
+        title: String,
+        goal: String,
+        status: Option<prism_ir::PlanStatus>,
+        policy: Option<prism_coordination::CoordinationPolicy>,
+        scheduling: Option<prism_coordination::PlanScheduling>,
+    ) -> Result<NativePlanMutationResult> {
+        self.create_native_plan_with_spec_refs_transaction(
+            meta,
+            title,
+            goal,
+            status,
+            policy,
+            scheduling,
+            Vec::new(),
+        )
+    }
+
+    pub fn create_native_plan_from_spec_transaction(
+        &self,
+        meta: EventMeta,
+        input: NativeSpecPlanCreateInput,
+    ) -> Result<NativePlanMutationResult> {
+        self.create_native_plan_with_spec_refs_transaction(
+            meta,
+            input.title,
+            input.goal,
+            input.status,
+            input.policy,
+            input.scheduling,
+            vec![input.spec_ref],
+        )
+    }
+
+    fn create_native_plan_with_spec_refs_transaction(
+        &self,
+        meta: EventMeta,
+        title: String,
+        goal: String,
+        status: Option<prism_ir::PlanStatus>,
+        policy: Option<prism_coordination::CoordinationPolicy>,
+        scheduling: Option<prism_coordination::PlanScheduling>,
+        spec_refs: Vec<CoordinationSpecRef>,
+    ) -> Result<NativePlanMutationResult> {
+        let transaction = self.execute_coordination_transaction(
             meta,
             CoordinationTransactionInput {
                 mutations: vec![CoordinationTransactionMutation::PlanCreate {
@@ -1024,15 +1243,20 @@ impl Prism {
                     status,
                     policy,
                     scheduling,
+                    spec_refs,
                 }],
                 ..CoordinationTransactionInput::default()
             },
         )?;
-        result
+        let plan_id = transaction
             .plan_ids_by_client_id
             .get("created_plan")
             .cloned()
-            .ok_or_else(|| anyhow!("coordination transaction did not create a plan"))
+            .ok_or_else(|| anyhow!("coordination transaction did not create a plan"))?;
+        Ok(NativePlanMutationResult {
+            plan_id,
+            transaction,
+        })
     }
 
     pub fn bootstrap_native_plan(
@@ -1040,6 +1264,18 @@ impl Prism {
         meta: EventMeta,
         input: NativePlanBootstrapInput,
     ) -> Result<NativePlanBootstrapResult> {
+        let result = self.bootstrap_native_plan_transaction(meta, input)?;
+        Ok(NativePlanBootstrapResult {
+            plan_id: result.plan_id,
+            task_ids_by_client_id: result.task_ids_by_client_id,
+        })
+    }
+
+    pub fn bootstrap_native_plan_transaction(
+        &self,
+        meta: EventMeta,
+        input: NativePlanBootstrapInput,
+    ) -> Result<NativePlanBootstrapTransactionResult> {
         let NativePlanBootstrapInput {
             title,
             goal,
@@ -1058,6 +1294,7 @@ impl Prism {
             status,
             policy,
             scheduling,
+            spec_refs: Vec::new(),
         });
         for task in &tasks {
             mutations.push(CoordinationTransactionMutation::TaskCreate {
@@ -1075,6 +1312,7 @@ impl Prism {
                 integrated_depends_on: Vec::new(),
                 acceptance: task.acceptance.clone(),
                 base_revision: task.base_revision.clone(),
+                spec_refs: Vec::new(),
             });
         }
         for task in tasks {
@@ -1103,20 +1341,21 @@ impl Prism {
                 });
             }
         }
-        let result = self.execute_coordination_transaction(
+        let transaction = self.execute_coordination_transaction(
             meta,
             CoordinationTransactionInput {
                 mutations,
                 ..CoordinationTransactionInput::default()
             },
         )?;
-        Ok(NativePlanBootstrapResult {
-            plan_id: result
+        Ok(NativePlanBootstrapTransactionResult {
+            plan_id: transaction
                 .plan_ids_by_client_id
                 .get(&bootstrap_plan_client_id)
                 .cloned()
                 .ok_or_else(|| anyhow!("coordination transaction did not create bootstrap plan"))?,
-            task_ids_by_client_id: result.task_ids_by_client_id,
+            task_ids_by_client_id: transaction.task_ids_by_client_id.clone(),
+            transaction,
         })
     }
 
@@ -1142,7 +1381,23 @@ impl Prism {
         policy: Option<prism_coordination::CoordinationPolicy>,
         scheduling: Option<prism_coordination::PlanScheduling>,
     ) -> Result<()> {
-        self.execute_coordination_transaction(
+        self.update_native_plan_with_scheduling_transaction(
+            meta, plan_id, title, status, goal, policy, scheduling,
+        )?;
+        Ok(())
+    }
+
+    pub fn update_native_plan_with_scheduling_transaction(
+        &self,
+        meta: EventMeta,
+        plan_id: &PlanId,
+        title: Option<String>,
+        status: Option<prism_ir::PlanStatus>,
+        goal: Option<String>,
+        policy: Option<prism_coordination::CoordinationPolicy>,
+        scheduling: Option<prism_coordination::PlanScheduling>,
+    ) -> Result<CoordinationTransactionResult> {
+        Ok(self.execute_coordination_transaction(
             meta,
             CoordinationTransactionInput {
                 mutations: vec![CoordinationTransactionMutation::PlanUpdate {
@@ -1185,11 +1440,102 @@ impl Prism {
                             due_at: scheduling.due_at,
                         }
                     }),
+                    spec_refs: None,
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?)
+    }
+
+    pub fn archive_native_plan_transaction(
+        &self,
+        meta: EventMeta,
+        plan_id: &PlanId,
+    ) -> Result<CoordinationTransactionResult> {
+        Ok(self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::PlanArchive {
+                    plan: CoordinationTransactionPlanRef::Id(plan_id.clone()),
+                }],
+                ..CoordinationTransactionInput::default()
+            },
+        )?)
+    }
+
+    pub fn create_native_task_transaction(
+        &self,
+        meta: EventMeta,
+        input: TaskCreateInput,
+    ) -> Result<NativeTaskMutationResult> {
+        self.create_native_task_with_spec_refs_transaction(meta, input)
+    }
+
+    pub fn create_native_task_from_spec_transaction(
+        &self,
+        meta: EventMeta,
+        input: NativeSpecTaskCreateInput,
+    ) -> Result<NativeTaskMutationResult> {
+        let mut task = input.task;
+        task.spec_refs.push(input.spec_ref);
+        self.create_native_task_with_spec_refs_transaction(meta, task)
+    }
+
+    fn create_native_task_with_spec_refs_transaction(
+        &self,
+        meta: EventMeta,
+        mut input: TaskCreateInput,
+    ) -> Result<NativeTaskMutationResult> {
+        if let Some(context) = self.coordination_context() {
+            if input.session.is_some() {
+                input.worktree_id = Some(context.worktree_id);
+                input.branch_ref = context.branch_ref;
+            }
+        }
+        let transaction = self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::TaskCreate {
+                    client_task_id: Some("created_task".to_string()),
+                    plan: CoordinationTransactionPlanRef::Id(input.plan_id),
+                    title: input.title,
+                    status: input.status,
+                    assignee: input.assignee,
+                    session: input.session,
+                    worktree_id: input.worktree_id,
+                    branch_ref: input.branch_ref,
+                    anchors: input.anchors,
+                    depends_on: input
+                        .depends_on
+                        .into_iter()
+                        .map(CoordinationTransactionTaskRef::Id)
+                        .collect(),
+                    coordination_depends_on: input
+                        .coordination_depends_on
+                        .into_iter()
+                        .map(CoordinationTransactionTaskRef::Id)
+                        .collect(),
+                    integrated_depends_on: input
+                        .integrated_depends_on
+                        .into_iter()
+                        .map(CoordinationTransactionTaskRef::Id)
+                        .collect(),
+                    acceptance: input.acceptance,
+                    base_revision: input.base_revision,
+                    spec_refs: input.spec_refs,
                 }],
                 ..CoordinationTransactionInput::default()
             },
         )?;
-        Ok(())
+        let task_id = transaction
+            .task_ids_by_client_id
+            .get("created_task")
+            .cloned()
+            .ok_or_else(|| anyhow!("coordination transaction did not create a task"))?;
+        Ok(NativeTaskMutationResult {
+            task_id,
+            transaction,
+        })
     }
 
     pub fn projection_snapshot(&self) -> ProjectionSnapshot {

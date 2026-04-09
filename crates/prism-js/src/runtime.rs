@@ -1035,6 +1035,21 @@ const __prismBase = Object.freeze({
     }
     return __prismHost("contractsFor", targetPayload);
   },
+  specs() {
+    return __prismHost("specs", {});
+  },
+  spec(specId) {
+    return __prismHost("spec", { specId });
+  },
+  specSyncBrief(specId) {
+    return __prismHost("specSyncBrief", { specId });
+  },
+  specCoverage(specId) {
+    return __prismHost("specCoverage", { specId });
+  },
+  specSyncProvenance(specId) {
+    return __prismHost("specSyncProvenance", { specId });
+  },
   conceptRelations(handle) {
     return __prismHost("conceptRelations", { handle });
   },
@@ -1166,6 +1181,12 @@ const __prismBase = Object.freeze({
   },
   blockers(taskId) {
     return __prismHost("blockers", { taskId });
+  },
+  taskEvidenceStatus(taskId) {
+    return __prismHost("taskEvidenceStatus", { taskId });
+  },
+  taskReviewStatus(taskId) {
+    return __prismHost("taskReviewStatus", { taskId });
   },
   pendingReviews(planId) {
     return __prismHost("pendingReviews", planId == null ? {} : { planId });

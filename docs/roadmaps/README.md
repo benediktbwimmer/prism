@@ -83,6 +83,7 @@ Use this split:
 When implementing against a roadmap:
 
 1. read the roadmap for ordering
-2. read the relevant spec for the current phase
-3. create a PRISM plan for the current phase or spec
-4. update the roadmap only when the phase-level status changes
+2. read any ADRs the roadmap depends on
+3. read the relevant spec for the current phase
+4. create a PRISM plan for the current phase or spec
+5. update the roadmap only when the phase-level status changes

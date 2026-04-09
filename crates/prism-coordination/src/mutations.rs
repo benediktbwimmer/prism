@@ -1271,6 +1271,7 @@ pub(crate) fn create_plan_mutation(
         scheduling: PlanScheduling::default(),
         tags: Vec::new(),
         created_from: None,
+        spec_refs: input.spec_refs,
         metadata: Value::Null,
     };
     state.plans.insert(id.clone(), plan.clone());
@@ -1307,6 +1308,9 @@ pub(crate) fn update_plan_mutation(
     }
     if input.policy.is_some() {
         push_patch_op(&mut patch, "policy", "set");
+    }
+    if input.spec_refs.is_some() {
+        push_patch_op(&mut patch, "specRefs", "set");
     }
     let patch = patch_metadata(patch);
     let previous = state
@@ -1389,6 +1393,7 @@ pub(crate) fn update_plan_mutation(
     let update_goal = input.goal.is_some();
     let update_status = input.status.is_some();
     let update_policy = input.policy.is_some();
+    let update_spec_refs = input.spec_refs.is_some();
     if let Some(title) = input.title {
         plan.title = title;
     }
@@ -1400,6 +1405,9 @@ pub(crate) fn update_plan_mutation(
     }
     if let Some(policy) = input.policy {
         plan.policy = policy;
+    }
+    if let Some(spec_refs) = input.spec_refs {
+        plan.spec_refs = spec_refs;
     }
     let plan = plan.clone();
     let mut metadata = serde_json::Map::new();
@@ -1426,6 +1434,9 @@ pub(crate) fn update_plan_mutation(
     }
     if update_policy {
         insert_serialized(&mut patch_values, "policy", plan.policy.clone());
+    }
+    if update_spec_refs {
+        insert_serialized(&mut patch_values, "specRefs", plan.spec_refs.clone());
     }
     if !patch_values.is_empty() {
         metadata.insert("patchValues".to_string(), Value::Object(patch_values));
@@ -1632,6 +1643,7 @@ pub(crate) fn create_task_mutation(
         base_revision: input.base_revision,
         priority: None,
         tags: Vec::new(),
+        spec_refs: input.spec_refs,
         metadata: Value::Null,
         git_execution: crate::TaskGitExecution::default(),
     };
@@ -1692,6 +1704,7 @@ pub(crate) fn update_task_mutation_with_options(
     let update_base_revision = input.base_revision.is_some();
     let update_priority = input.priority.is_some();
     let update_tags = input.tags.is_some();
+    let update_spec_refs = input.spec_refs.is_some();
     let update_published_task_status = input.published_task_status.is_some();
     let git_execution_only_update = input.git_execution.is_some()
         && input.kind.is_none()
@@ -1813,6 +1826,9 @@ pub(crate) fn update_task_mutation_with_options(
     }
     if input.tags.is_some() {
         push_patch_op(&mut patch, "tags", "set");
+    }
+    if input.spec_refs.is_some() {
+        push_patch_op(&mut patch, "specRefs", "set");
     }
     let completion_context = input.completion_context.clone();
     let next_dependencies = input.depends_on.clone().map(dedupe_ids);
@@ -2142,6 +2158,9 @@ pub(crate) fn update_task_mutation_with_options(
         if let Some(tags) = input.tags {
             task.tags = dedupe_strings(tags);
         }
+        if let Some(spec_refs) = input.spec_refs {
+            task.spec_refs = spec_refs;
+        }
         if task.bindings.anchors.is_empty() && !task.anchors.is_empty() {
             task.bindings.anchors = task.anchors.clone();
         }
@@ -2378,6 +2397,9 @@ pub(crate) fn update_task_mutation_with_options(
     }
     if update_tags {
         insert_serialized(&mut patch_values, "tags", task.tags.clone());
+    }
+    if update_spec_refs {
+        insert_serialized(&mut patch_values, "specRefs", task.spec_refs.clone());
     }
     if previous.lease_holder != task.lease_holder {
         insert_serialized(&mut patch_values, "leaseHolder", task.lease_holder.clone());

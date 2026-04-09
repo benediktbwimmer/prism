@@ -31,8 +31,9 @@ use crate::{
     runtime_views::refresh_cached_runtime_status_for_config,
     workspace_host::{
         SharedWorkspaceReadSync, SharedWorkspaceReadSyncDecision, SharedWorkspaceRuntimeRevisions,
+        WorkspaceRuntimeBinding,
     },
-    QueryHost, WorkspaceRefreshMetrics, WorkspaceRefreshReport,
+    WorkspaceRefreshMetrics, WorkspaceRefreshReport,
 };
 
 const BACKGROUND_REFRESH_INTERVAL: Duration = Duration::from_millis(250);
@@ -40,6 +41,113 @@ const BACKGROUND_LANE_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 const MUTATION_RUNTIME_SYNC_WAIT_TIMEOUT: Duration = Duration::from_millis(1500);
 const MUTATION_RUNTIME_SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 const READ_RUNTIME_SYNC_JOIN_TIMEOUT: Duration = Duration::from_millis(100);
+
+#[derive(Clone)]
+pub(crate) struct WorkspaceAuthoritySyncOwner {
+    binding: Arc<WorkspaceRuntimeBinding>,
+}
+
+impl WorkspaceAuthoritySyncOwner {
+    pub(crate) fn new(binding: Arc<WorkspaceRuntimeBinding>) -> Self {
+        Self { binding }
+    }
+
+    pub(crate) fn refresh_workspace(&self) -> Result<()> {
+        let workspace = self.binding.workspace();
+        let runtime = self.binding.runtime();
+        let diagnostics = self.binding.diagnostics();
+        let config = self.binding.runtime_config();
+        let _report = sync_persisted_workspace_state(&config)?;
+        runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
+        diagnostics.request_refresh();
+        Ok(())
+    }
+
+    pub(crate) fn observe_workspace_for_read(&self) -> Result<WorkspaceRefreshReport> {
+        let workspace = self.binding.workspace();
+        let runtime = self.binding.runtime();
+        let diagnostics = self.binding.diagnostics();
+        let config = self.binding.runtime_config();
+        if runtime_read_fast_path_available(&config) {
+            diagnostics.request_refresh();
+            return Ok(WorkspaceRefreshReport::none());
+        }
+        match config.read_sync.try_begin_or_join(
+            || runtime_read_fast_path_available(&config),
+            READ_RUNTIME_SYNC_JOIN_TIMEOUT,
+        ) {
+            SharedWorkspaceReadSyncDecision::Current => {
+                diagnostics.request_refresh();
+                return Ok(WorkspaceRefreshReport::none());
+            }
+            SharedWorkspaceReadSyncDecision::Busy => {
+                runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
+                diagnostics.request_refresh();
+                workspace.record_runtime_refresh_observation_with_work(
+                    "deferred",
+                    0,
+                    WorkspaceRefreshWork::default(),
+                );
+                return Ok(WorkspaceRefreshReport {
+                    refresh_path: "deferred",
+                    runtime_sync_used: false,
+                    deferred: true,
+                    episodic_reloaded: false,
+                    inference_reloaded: false,
+                    coordination_reloaded: false,
+                    metrics: WorkspaceRefreshMetrics::default(),
+                });
+            }
+            SharedWorkspaceReadSyncDecision::Leader => {}
+        }
+        let _leader = SharedReadSyncLeader::new(&config.read_sync);
+        let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
+            runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
+            diagnostics.request_refresh();
+            workspace.record_runtime_refresh_observation_with_work(
+                "deferred",
+                0,
+                WorkspaceRefreshWork::default(),
+            );
+            return Ok(WorkspaceRefreshReport {
+                refresh_path: "deferred",
+                runtime_sync_used: false,
+                deferred: true,
+                episodic_reloaded: false,
+                inference_reloaded: false,
+                coordination_reloaded: false,
+                metrics: WorkspaceRefreshMetrics::default(),
+            });
+        };
+        if report.deferred || (!workspace.needs_refresh() && workspace.is_fallback_check_due_now())
+        {
+            runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
+        }
+        diagnostics.request_refresh();
+        Ok(report)
+    }
+
+    pub(crate) fn refresh_workspace_for_mutation(&self) -> Result<WorkspaceRefreshReport> {
+        let workspace = self.binding.workspace();
+        let runtime = self.binding.runtime();
+        let diagnostics = self.binding.diagnostics();
+        let config = self.binding.runtime_config();
+        let Some(report) = try_sync_workspace_runtime_for_mutation(&config)? else {
+            runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
+            diagnostics.request_refresh();
+            return Ok(dirty_workspace_deferred_report(
+                &config,
+                true,
+                WorkspaceRefreshMetrics::default(),
+            ));
+        };
+        if report.deferred {
+            runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
+        }
+        diagnostics.request_refresh();
+        Ok(report)
+    }
+}
 
 #[derive(Clone)]
 pub(crate) struct WorkspaceRuntimeConfig {
@@ -1881,113 +1989,6 @@ fn sync_workspace_runtime_checkpoint_with_guard(
     })
 }
 
-impl QueryHost {
-    pub(crate) fn refresh_workspace(&self) -> Result<()> {
-        let Some(binding) = self.workspace_runtime_binding() else {
-            return Ok(());
-        };
-        let workspace = binding.workspace();
-        let runtime = binding.runtime();
-        let diagnostics = binding.diagnostics();
-        let config = binding.runtime_config();
-        let _report = sync_persisted_workspace_state(&config)?;
-        runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
-        diagnostics.request_refresh();
-        Ok(())
-    }
-
-    pub(crate) fn observe_workspace_for_read(&self) -> Result<WorkspaceRefreshReport> {
-        let Some(binding) = self.workspace_runtime_binding() else {
-            return Ok(WorkspaceRefreshReport::none());
-        };
-        let workspace = binding.workspace();
-        let runtime = binding.runtime();
-        let diagnostics = binding.diagnostics();
-        let config = binding.runtime_config();
-        if runtime_read_fast_path_available(&config) {
-            diagnostics.request_refresh();
-            return Ok(WorkspaceRefreshReport::none());
-        }
-        match config.read_sync.try_begin_or_join(
-            || runtime_read_fast_path_available(&config),
-            READ_RUNTIME_SYNC_JOIN_TIMEOUT,
-        ) {
-            SharedWorkspaceReadSyncDecision::Current => {
-                diagnostics.request_refresh();
-                return Ok(WorkspaceRefreshReport::none());
-            }
-            SharedWorkspaceReadSyncDecision::Busy => {
-                runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
-                diagnostics.request_refresh();
-                workspace.record_runtime_refresh_observation_with_work(
-                    "deferred",
-                    0,
-                    WorkspaceRefreshWork::default(),
-                );
-                return Ok(WorkspaceRefreshReport {
-                    refresh_path: "deferred",
-                    runtime_sync_used: false,
-                    deferred: true,
-                    episodic_reloaded: false,
-                    inference_reloaded: false,
-                    coordination_reloaded: false,
-                    metrics: WorkspaceRefreshMetrics::default(),
-                });
-            }
-            SharedWorkspaceReadSyncDecision::Leader => {}
-        }
-        let _leader = SharedReadSyncLeader::new(&config.read_sync);
-        let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
-            runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
-            diagnostics.request_refresh();
-            workspace.record_runtime_refresh_observation_with_work(
-                "deferred",
-                0,
-                WorkspaceRefreshWork::default(),
-            );
-            return Ok(WorkspaceRefreshReport {
-                refresh_path: "deferred",
-                runtime_sync_used: false,
-                deferred: true,
-                episodic_reloaded: false,
-                inference_reloaded: false,
-                coordination_reloaded: false,
-                metrics: WorkspaceRefreshMetrics::default(),
-            });
-        };
-        if report.deferred || (!workspace.needs_refresh() && workspace.is_fallback_check_due_now())
-        {
-            runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
-        }
-        diagnostics.request_refresh();
-        Ok(report)
-    }
-
-    pub(crate) fn refresh_workspace_for_mutation(&self) -> Result<WorkspaceRefreshReport> {
-        let Some(binding) = self.workspace_runtime_binding() else {
-            return Ok(WorkspaceRefreshReport::none());
-        };
-        let workspace = binding.workspace();
-        let runtime = binding.runtime();
-        let diagnostics = binding.diagnostics();
-        let config = binding.runtime_config();
-        let Some(report) = try_sync_workspace_runtime_for_mutation(&config)? else {
-            runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
-            diagnostics.request_refresh();
-            return Ok(dirty_workspace_deferred_report(
-                &config,
-                true,
-                WorkspaceRefreshMetrics::default(),
-            ));
-        };
-        if report.deferred {
-            runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
-        }
-        diagnostics.request_refresh();
-        Ok(report)
-    }
-}
-
 fn is_transient_sqlite_lock(error: &anyhow::Error) -> bool {
     error.chain().any(|cause| {
         let text = cause.to_string().to_ascii_lowercase();
@@ -2511,6 +2512,7 @@ mod tests {
                 scheduling: PlanScheduling::default(),
                 tags: Vec::new(),
                 created_from: None,
+                spec_refs: Vec::new(),
                 metadata: Value::Null,
             }],
             tasks: vec![CoordinationTask {
@@ -2542,6 +2544,7 @@ mod tests {
                 base_revision: WorkspaceRevision::default(),
                 priority: None,
                 tags: Vec::new(),
+                spec_refs: Vec::new(),
                 metadata: Value::Null,
                 git_execution: TaskGitExecution::default(),
             }],

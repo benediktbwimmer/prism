@@ -693,6 +693,8 @@ type RuntimeStatusView = {
   mcpCallLogBytes?: number;
   cachePath: string;
   cacheBytes?: number;
+  coordinationMaterializationPath: string;
+  coordinationMaterializationBytes?: number;
   healthPath: string;
   health: RuntimeHealthView;
   daemonCount: number;
@@ -1289,6 +1291,56 @@ type SpecDriftExplanationView = {
   cluster: SpecImplementationClusterView;
 };
 
+type SpecListEntryView = {
+  specId: string;
+  title: string;
+  sourcePath: string;
+  declaredStatus: string;
+  overallStatus?: string;
+  created: string;
+};
+
+type SpecChecklistItemView = {
+  itemId: string;
+  label: string;
+  checked: boolean;
+  requirementLevel: string;
+  sectionPath: string[];
+  lineNumber: number;
+};
+
+type SpecDocumentView = {
+  specId: string;
+  sourcePath: string;
+  title: string;
+  declaredStatus: string;
+  overallStatus?: string;
+  created: string;
+  contentDigest: string;
+  gitRevision?: string;
+  body: string;
+};
+
+type SpecCoverageRecordView = {
+  checklistItemId: string;
+  coverageKind: string;
+  coordinationRef?: string;
+};
+
+type SpecSyncProvenanceRecordView = {
+  targetCoordinationRef: string;
+  syncKind: string;
+  sourceRevision?: string;
+  coveredChecklistItems: string[];
+};
+
+type SpecSyncBriefView = {
+  spec: SpecDocumentView;
+  requiredChecklistItems: SpecChecklistItemView[];
+  coverage: SpecCoverageRecordView[];
+  linkedCoordinationRefs: SpecSyncProvenanceRecordView[];
+};
+
 type TaskValidationRecipeView = {
   taskId: string;
   checks: string[];
@@ -1471,6 +1523,43 @@ type ArtifactRiskView = {
   promotedSummaries: string[];
 };
 
+type ArtifactReviewView = {
+  id: string;
+  artifactId: string;
+  verdict: "Approved" | "ChangesRequested" | "Rejected";
+  summary: string;
+  ts: number;
+};
+
+type TaskEvidenceArtifactStatusView = {
+  artifact: ArtifactView;
+  reviews: ArtifactReviewView[];
+  latestReview: ArtifactReviewView | null;
+  latestReviewVerdict: "Approved" | "ChangesRequested" | "Rejected" | null;
+  pendingReview: boolean;
+};
+
+type TaskEvidenceStatusView = {
+  taskId: string;
+  artifacts: TaskEvidenceArtifactStatusView[];
+  blockers: BlockerView[];
+  pendingReviewCount: number;
+  approvedArtifactCount: number;
+  rejectedArtifactCount: number;
+  missingValidations: string[];
+  staleArtifactIds: string[];
+  reviewRequired: boolean;
+  hasApprovedArtifact: boolean;
+};
+
+type TaskReviewStatusView = {
+  taskId: string;
+  artifacts: TaskEvidenceArtifactStatusView[];
+  pendingReviewCount: number;
+  approvedArtifactCount: number;
+  rejectedArtifactCount: number;
+};
+
 type CoordinationInboxView = {
   plan: PlanView | null;
   planV2: CoordinationPlanV2View | null;
@@ -1577,6 +1666,19 @@ type WorkspaceRevisionView = {
   gitCommit?: string;
 };
 
+type LinkedSpecSummaryView = {
+  specId: string;
+  sourcePath: string;
+  linkedSourceRevision?: string;
+  currentSourceRevision?: string;
+  driftStatus: string;
+  title?: string;
+  declaredStatus?: string;
+  overallStatus?: string;
+  syncKind?: string;
+  coveredChecklistItems: string[];
+};
+
 type PlanView = {
   id: string;
   title: string;
@@ -1590,6 +1692,7 @@ type PlanView = {
   tags: string[];
   createdFrom?: string;
   activity?: PlanActivityView;
+  linkedSpecs: LinkedSpecSummaryView[];
 };
 
 type PlanListEntryView = {
@@ -1669,12 +1772,24 @@ type CoordinationTaskView = {
   id: string;
   planId: string;
   title: string;
+  summary?: string;
   status: string;
+  publishedTaskStatus?: string;
   assignee?: string;
   pendingHandoffTo?: string;
   anchors: AnchorRef[];
+  bindings: PlanBindingView;
   dependsOn: string[];
+  coordinationDependsOn: string[];
+  integratedDependsOn: string[];
+  lifecycle: CoordinationTaskLifecycleView;
+  validationRefs: ValidationRefView[];
+  isAbstract: boolean;
   baseRevision: WorkspaceRevisionView;
+  priority?: number;
+  tags: string[];
+  gitExecution: TaskGitExecutionView;
+  linkedSpecs: LinkedSpecSummaryView[];
 };
 
 type ClaimView = {

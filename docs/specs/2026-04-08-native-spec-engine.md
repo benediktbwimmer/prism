@@ -214,11 +214,38 @@ The normalized checklist item should include at least:
 Raw index is not enough.
 Checklist identity must survive ordinary editing better than position alone.
 
-The initial model should support:
+#### Preferred: explicit inline annotations
 
-- explicit checklist item ids when present
-- otherwise a deterministic generated key based on section path, normalized label text, and local
-  disambiguator
+The preferred checklist identity mechanism is an explicit inline annotation on the checklist item
+itself, for example:
+
+```md
+- [ ] implement plan sorting <!-- id: impl-sort -->
+- [ ] add query surface for sorted plans <!-- id: sort-query -->
+```
+
+Explicit ids are stable across rewording, reordering, and section reorganization.
+
+This matters because sync provenance and coverage tracking bind to checklist item identities. If a
+human rewords a checklist item and the identity silently changes, all linked sync provenance
+orphans, coverage tracking fractures, and drift detection produces false positives.
+
+Explicit annotations eliminate that failure mode entirely.
+
+PRISM's own specs should use explicit annotations from day one so that dogfooding exercises the
+stable identity path immediately.
+
+#### Fallback: generated keys
+
+When no explicit annotation is present, PRISM should fall back to a deterministic generated key
+based on section path, normalized label text, and a local disambiguator.
+
+Generated keys are acceptable for repos that do not need tight sync provenance or coverage
+tracking. They are not acceptable as the primary identity mechanism for specs that will drive
+coordination sync.
+
+PRISM should surface a diagnostic warning when a spec uses generated keys for checklist items that
+are linked to coordination objects through sync provenance.
 
 PRISM should not require a separate checklist schema in v1.
 
@@ -332,17 +359,36 @@ PRISM must not, by default:
 - mark authoritative tasks complete solely because a local checklist item is checked
 - derive authoritative plan truth directly from branch-local spec state
 
-### 6.11 Explicit sync model and provenance
+### 6.11 Explicit agent-driven sync model and provenance
 
 If users want stronger coordination integration, PRISM should support explicit sync actions later.
 
-Examples:
+Crucially, PRISM does not deterministically "compile" a flat markdown checklist into a complex
+coordination DAG. Topology, artifact requirements, review injection, and inter-plan dependencies
+require semantic understanding. Therefore, the sync boundary is natively an **agentic action**.
 
-- create plan or task skeletons from a spec
-- sync spec milestones into task summaries
-- sync task completion into spec checklist items
+#### The ideal agentic sync loop
 
-These must be explicit user-visible actions, not silent background coupling.
+The intended flow for translating feature intent into the execution graph is:
+
+1. The spec engine parses and materializes the local spec markdown.
+2. An agent requests `spec_sync_brief(spec_id)` to receive the structured state plus the raw markdown.
+3. The agent reads the raw spec prose and constraints to understand semantic intent.
+4. The agent synthesizes the corresponding Plan/Task DAG, including Review Tasks and Artifact
+   Requirements according to repo policy.
+5. The agent submits one explicit `coordination_transaction`.
+6. PRISM stores the resulting sync provenance and explicit task-to-checklist-item links.
+7. The local `SpecCoverageView` uses those links to compute what is covered, drifting, or missing.
+
+#### Task-to-checklist-item linkage
+
+If tasks are not explicitly linked to checklist items, coverage tracking becomes vague and drift
+detection weakens. To make `SpecCoverageView` robust, execution objects must carry explicit links:
+
+- **Plans** should carry `spec_refs` and the source spec revision at sync time.
+- **Tasks** must natively carry `covered_checklist_items` identifying exactly which checklist
+  item identities they fulfill. This is a many-to-many link (one task may cover multiple items,
+  and vice versa).
 
 Whenever PRISM explicitly creates or syncs coordination objects from a spec, it should record sync
 provenance that can identify at least:
@@ -405,11 +451,17 @@ The CLI should support humans first.
 
 ### 7.2 MCP
 
-PRISM should expose matching spec queries over MCP.
+PRISM should expose matching spec queries over MCP to power the agentic sync loop.
 
-Minimum useful MCP families:
+Minimum useful MCP query families:
 
-- list specs
+- `list_specs`
+- `spec_sync_brief(spec_id)`: the primary agent entry point. Returns the parsed `SpecRecord`, stable
+  checklist items, dependency posture, coverage summary, and the raw markdown body or sections so the
+  agent can read intent natively.
+- `repo_planning_policy()`: optional query to give the agent repo-specific hints on plan granularity,
+  review-gate frequency, or default artifact requirements, so the agent doesn't invent planning
+  style from scratch.
 - fetch one spec by id
 - fetch open checklist items
 - fetch dependency graph for one spec

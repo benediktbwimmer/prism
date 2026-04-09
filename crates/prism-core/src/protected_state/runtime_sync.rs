@@ -1,14 +1,20 @@
 use std::path::Path;
 
 use anyhow::Result;
+use prism_history::HistoryStore;
 use prism_ir::PrismRuntimeCapabilities;
-use prism_projections::{ConceptPacket, ConceptRelation, ContractPacket};
-use prism_store::{CoordinationCheckpointStore, CoordinationJournal};
+use prism_memory::OutcomeMemory;
+use prism_projections::{ConceptPacket, ConceptRelation, ContractPacket, ProjectionIndex};
+use prism_query::Prism;
+use prism_store::{CoordinationCheckpointStore, CoordinationJournal, Graph};
 
 use crate::concept_events::load_repo_curated_concepts;
 use crate::concept_relation_events::load_repo_concept_relations;
 use crate::contract_events::load_repo_curated_contracts;
-use crate::coordination_reads::load_eventual_coordination_plan_state_for_root;
+use crate::coordination_materialized_store::{
+    CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
+};
+use crate::layout::WorkspaceLayout;
 use crate::memory_events::load_repo_memory_events;
 use crate::protected_state::streams::ProtectedRepoStream;
 use crate::published_plans::HydratedCoordinationPlanState;
@@ -17,6 +23,7 @@ use crate::tracked_snapshot::{
     load_concept_snapshots, load_contract_snapshots, load_memory_snapshot_events,
     load_relation_snapshots,
 };
+use crate::workspace_runtime_state::WorkspaceRuntimeState;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) struct RepoProtectedKnowledge {
@@ -173,7 +180,57 @@ pub(crate) fn load_repo_protected_plan_state<S>(
 where
     S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
 {
-    load_eventual_coordination_plan_state_for_root(root, store)
+    let _ = store;
+    Ok(SqliteCoordinationMaterializedStore::new(root)
+        .read_plan_state()?
+        .value
+        .map(|value| HydratedCoordinationPlanState {
+            snapshot: value.snapshot,
+            canonical_snapshot_v2: value.canonical_snapshot_v2,
+            runtime_descriptors: value.runtime_descriptors,
+        }))
+}
+
+pub(crate) fn load_repo_protected_plan_state_or_default<S>(
+    root: &Path,
+    store: &mut S,
+) -> Result<HydratedCoordinationPlanState>
+where
+    S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
+{
+    Ok(
+        load_repo_protected_plan_state(root, store)?.unwrap_or_else(|| {
+            HydratedCoordinationPlanState {
+                snapshot: Default::default(),
+                canonical_snapshot_v2: Default::default(),
+                runtime_descriptors: Vec::new(),
+            }
+        }),
+    )
+}
+
+pub(crate) fn build_runtime_state_with_materialized_coordination_state<S>(
+    root: &Path,
+    store: &mut S,
+    prism: &Prism,
+    layout: WorkspaceLayout,
+) -> Result<WorkspaceRuntimeState>
+where
+    S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
+{
+    let fallback_plan_state = load_repo_protected_plan_state_or_default(root, store)?;
+    let mut fallback_graph = Graph::from_snapshot(prism.graph().snapshot());
+    fallback_graph.bind_workspace_root(root);
+    Ok(WorkspaceRuntimeState::new(
+        layout,
+        fallback_graph,
+        HistoryStore::from_snapshot(prism.history_snapshot()),
+        OutcomeMemory::from_snapshot(prism.outcome_snapshot()),
+        fallback_plan_state.snapshot,
+        fallback_plan_state.runtime_descriptors,
+        ProjectionIndex::from_snapshot(prism.projection_snapshot()),
+        prism.runtime_capabilities(),
+    ))
 }
 
 fn sync_repo_memory_stream<S: prism_store::EventJournalStore>(

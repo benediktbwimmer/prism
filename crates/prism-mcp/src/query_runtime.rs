@@ -37,23 +37,23 @@ use crate::{
     concept_relation_view, concept_resolution_is_ambiguous, conflict_view, contract_packet_view,
     convert_anchors, convert_capability, convert_claim_mode, convert_node_id,
     coordination_plan_v2_view, coordination_task_v2_view, coordination_task_view,
-    coordination_task_view_from_v2, current_timestamp, diff_for, diff_for_from_events,
-    drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol, entrypoints_for,
-    focused_block_for_symbol, invalid_query_argument_error, is_query_parse_error, js_runtime,
-    lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint,
-    next_reads, node_ref_view, owner_symbol_views_for_query, owner_symbol_views_for_target,
+    current_timestamp, diff_for, diff_for_from_events, drift_candidate_view, edge_kind_label,
+    edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol,
+    invalid_query_argument_error, is_query_parse_error, js_runtime, lineage_view,
+    memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
+    node_ref_view, owner_symbol_views_for_query, owner_symbol_views_for_target,
     owner_views_for_target, parse_event_actor, parse_memory_event_action, parse_memory_kind,
     parse_memory_scope, parse_node_kind, parse_outcome_kind, parse_outcome_result,
     parse_plan_scope, parse_plan_status, parse_typescript_error, plan_children_v2_view,
-    plan_summary_view, plan_view_from_v2, policy_violation_record_view, promoted_memory_entries,
+    plan_summary_view, policy_violation_record_view, promoted_memory_entries,
     promoted_summary_texts, promoted_validation_checks, query_diagnostic,
     query_feature_disabled_error, query_method_specs, rank_search_results,
     read_context_view_cached, recent_change_context_view_cached, recent_patches,
     recent_patches_from_events, relations_view, resolve_concepts_for_session, result_decode_error,
     runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
     spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_intent_view, task_risk_view, task_validation_recipe_view,
-    tool_catalog_views_with_features, tool_schema_view_with_features,
+    task_evidence_status_view, task_intent_view, task_review_status_view, task_risk_view,
+    task_validation_recipe_view, tool_catalog_views_with_features, tool_schema_view_with_features,
     validate_tool_input_value_with_features, validation_context_view_cached,
     validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
     weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
@@ -65,12 +65,12 @@ use crate::{
     PendingReviewsArgs, PlanTargetArgs, PlansQueryArgs, PolicyViolationQueryArgs, QueryHost,
     QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs,
     RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache,
-    SessionState, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs,
-    TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs,
-    ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
-    DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
-    INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER,
-    USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
+    SessionState, SimulateClaimArgs, SourceExcerptArgs, SpecIdArgs, SymbolQueryArgs,
+    SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs,
+    ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
+    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -1076,6 +1076,23 @@ impl QueryExecution {
                     let args: SymbolTargetArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(self.contracts_for(args)?)?)
                 }
+                "specs" => Ok(serde_json::to_value(self.specs()?)?),
+                "spec" => {
+                    let args: SpecIdArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.spec(args)?)?)
+                }
+                "specSyncBrief" => {
+                    let args: SpecIdArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.spec_sync_brief(args)?)?)
+                }
+                "specCoverage" => {
+                    let args: SpecIdArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.spec_coverage(args)?)?)
+                }
+                "specSyncProvenance" => {
+                    let args: SpecIdArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.spec_sync_provenance(args)?)?)
+                }
                 "conceptRelations" => {
                     let args: ConceptHandleArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(self.concept_relations(args)?)?)
@@ -1092,15 +1109,8 @@ impl QueryExecution {
                 "plan" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     let plan_id = PlanId::new(args.plan_id);
-                    Ok(serde_json::to_value(
-                        self.prism.coordination_plan_v2(&plan_id).map(|plan| {
-                            plan_view_from_v2(
-                                plan,
-                                self.prism.coordination_plan(&plan_id),
-                                self.prism.plan_activity(&plan_id),
-                            )
-                        }),
-                    )?)
+                    let plan = crate::spec_surface::linked_plan_view(&self.host, &plan_id)?;
+                    Ok(serde_json::to_value(plan)?)
                 }
                 "planV2" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
@@ -1161,24 +1171,11 @@ impl QueryExecution {
                 )?),
                 "coordinationTask" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                    let task_id = args.task_id;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .coordination_task_v2(&TaskId::new(task_id.clone()))
-                            .map(|task| {
-                                coordination_task_view_from_v2(
-                                    task,
-                                    self.prism.coordination_task(&CoordinationTaskId::new(
-                                        task_id.clone(),
-                                    )),
-                                )
-                            })
-                            .or_else(|| {
-                                self.prism
-                                    .coordination_task(&CoordinationTaskId::new(task_id))
-                                    .map(coordination_task_view)
-                            }),
-                    )?)
+                    let task = crate::spec_surface::linked_coordination_task_view(
+                        &self.host,
+                        &CoordinationTaskId::new(args.task_id),
+                    )?;
+                    Ok(serde_json::to_value(task)?)
                 }
                 "taskV2" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
@@ -1274,10 +1271,12 @@ impl QueryExecution {
                 }
                 "blockers" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                    let blockers = self.prism.blockers(
-                        &CoordinationTaskId::new(args.task_id.clone()),
-                        current_timestamp(),
-                    );
+                    let task_id = CoordinationTaskId::new(args.task_id.clone());
+                    let blockers = self
+                        .prism
+                        .task_evidence_status(&task_id, current_timestamp())
+                        .map(|status| status.blockers)
+                        .unwrap_or_else(|| self.prism.blockers(&task_id, current_timestamp()));
                     if !blockers.is_empty() {
                         self.push_diagnostic(
                             "task_blocked",
@@ -1318,6 +1317,28 @@ impl QueryExecution {
                     }
                     Ok(serde_json::to_value(
                         blockers.into_iter().map(blocker_view).collect::<Vec<_>>(),
+                    )?)
+                }
+                "taskEvidenceStatus" => {
+                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .task_evidence_status(
+                                &CoordinationTaskId::new(args.task_id),
+                                current_timestamp(),
+                            )
+                            .map(task_evidence_status_view),
+                    )?)
+                }
+                "taskReviewStatus" => {
+                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .task_review_status(
+                                &CoordinationTaskId::new(args.task_id),
+                                current_timestamp(),
+                            )
+                            .map(task_review_status_view),
                     )?)
                 }
                 "pendingReviews" => {
@@ -3434,6 +3455,45 @@ return prism.file(__prismFileAroundArgs.path).around({
                 contract_packet_view(self.prism.as_ref(), self.workspace_root(), packet, None)
             })
             .collect())
+    }
+
+    fn specs(&self) -> Result<Vec<prism_js::SpecListEntryView>> {
+        crate::spec_surface::list_specs(&self.host)
+    }
+
+    fn spec(&self, args: SpecIdArgs) -> Result<Option<prism_js::SpecDocumentView>> {
+        let spec = crate::spec_surface::spec_document(&self.host, &args.spec_id)?;
+        if spec.is_none() {
+            self.push_diagnostic(
+                "anchor_unresolved",
+                format!("No native spec matched `{}`.", args.spec_id),
+                Some(json!({ "specId": args.spec_id })),
+            );
+        }
+        Ok(spec)
+    }
+
+    fn spec_sync_brief(&self, args: SpecIdArgs) -> Result<Option<prism_js::SpecSyncBriefView>> {
+        let brief = crate::spec_surface::spec_sync_brief(&self.host, &args.spec_id)?;
+        if brief.is_none() {
+            self.push_diagnostic(
+                "anchor_unresolved",
+                format!("No native spec matched `{}`.", args.spec_id),
+                Some(json!({ "specId": args.spec_id })),
+            );
+        }
+        Ok(brief)
+    }
+
+    fn spec_coverage(&self, args: SpecIdArgs) -> Result<Vec<prism_js::SpecCoverageRecordView>> {
+        crate::spec_surface::spec_coverage(&self.host, &args.spec_id)
+    }
+
+    fn spec_sync_provenance(
+        &self,
+        args: SpecIdArgs,
+    ) -> Result<Vec<prism_js::SpecSyncProvenanceRecordView>> {
+        crate::spec_surface::spec_sync_provenance(&self.host, &args.spec_id)
     }
 
     fn concept_relations(

@@ -144,6 +144,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: None,
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         }

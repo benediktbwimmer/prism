@@ -1,8 +1,8 @@
 # Coordination To Spec Engine To Service
 
-Status: draft
+Status: in progress
 Audience: coordination, query, storage, runtime, MCP, CLI, UI, auth, and service maintainers
-Scope: the sequential implementation order for finishing the coordination platform, then the full native spec engine, then the PRISM Service
+Scope: the sequential implementation order for finishing the service-backed coordination platform, establishing the DB-backed release path, then the full native spec engine, then the remaining richer PRISM Service roles
 
 ---
 
@@ -11,10 +11,12 @@ Scope: the sequential implementation order for finishing the coordination platfo
 PRISM should complete its next major implementation era in one foundation-first ladder:
 
 1. finish the coordination abstractions fully
-2. cut the codebase over to those abstractions completely
+2. cut the codebase over to a service-backed coordination platform
 3. freeze coordination as the new platform
-4. build the full native spec engine on top of that stable platform
-5. only then implement the PRISM Service on top of those settled seams
+4. make the DB-backed authority family the release-oriented backend path on top of that stable
+   platform
+5. build the full native spec engine on top of that stable platform
+6. implement the remaining richer PRISM Service roles on top of those settled seams
 
 This roadmap exists to prevent:
 
@@ -28,30 +30,73 @@ The core rule is:
 
 - build the foundations fully before building the next layer that depends on them
 
+The release-oriented backend ordering is also explicit:
+
+- DB-backed authority first
+- Git-backed authority remains important, but is not the critical path to the first robust release
+
+This roadmap now assumes the accepted decision in:
+
+- [../adrs/2026-04-08-service-owned-coordination-materialization.md](../adrs/2026-04-08-service-owned-coordination-materialization.md)
+- [../adrs/2026-04-08-db-backed-coordination-authority-first.md](../adrs/2026-04-08-db-backed-coordination-authority-first.md)
+
 ## 2. Status
 
 Current phase checklist:
 
 - [x] Phase 0: freeze coordination semantics
-- [ ] Phase 1: implement Coordination Authority Store fully
-- [ ] Phase 2: implement Coordination Materialized Store fully
-- [ ] Phase 3: implement Coordination Query Engine fully
-- [ ] Phase 4: implement Transactional Coordination Mutation Protocol fully
-- [ ] Phase 5: cut over coordination runtime and product surfaces
-- [ ] Phase 6: trust-family cleanup and centralization
-- [ ] Phase 7: freeze coordination as the base platform
-- [ ] Phase 8: implement spec engine source, parser, and identity model
-- [ ] Phase 9: implement spec local materialization
-- [ ] Phase 10: implement SpecQueryEngine fully
-- [ ] Phase 11: implement explicit spec-coordination linking and sync provenance
-- [ ] Phase 12: implement SpecCoverageView fully
-- [ ] Phase 13: implement explicit spec-to-coordination sync actions
-- [ ] Phase 14: expose the spec engine fully through CLI, MCP, and UI
-- [ ] Phase 15: implement the PRISM Service contracts
+- [x] Phase 1: implement Coordination Authority Store fully
+- [x] Phase 2: implement Coordination Materialized Store fully
+- [x] Phase 3: implement Coordination Query Engine fully
+- [x] Phase 4: implement Transactional Coordination Mutation Protocol fully
+- [x] Phase 5: cut over service-backed coordination runtime and product surfaces
+- [x] Phase 6: trust-family cleanup and centralization
+- [x] Phase 7: freeze coordination as the base platform
+- [x] Phase 8: implement spec engine source, parser, and identity model
+- [x] Phase 9: implement spec local materialization
+- [x] Phase 10: implement SpecQueryEngine fully
+- [x] Phase 11: implement explicit spec-coordination linking and sync provenance
+- [x] Phase 12: implement SpecCoverageView fully
+- [x] Phase 13: implement explicit spec-to-coordination sync actions
+- [x] Phase 14: expose the spec engine fully through CLI, MCP, and UI
+- [ ] Phase 15: implement the remaining PRISM Service roles and release deployment modes
 
 Current active phase:
 
-- Phase 1: implement Coordination Authority Store fully
+- Phase 15: implement the remaining PRISM Service roles and release deployment modes
+
+Current phase spec:
+
+- Phase 2 completed:
+  [../specs/2026-04-08-coordination-materialized-store-phase-2.md](../specs/2026-04-08-coordination-materialized-store-phase-2.md)
+- Phase 3 completed:
+  [../specs/2026-04-08-coordination-query-engine-phase-3.md](../specs/2026-04-08-coordination-query-engine-phase-3.md)
+- Phase 4 completed:
+  [../specs/2026-04-08-coordination-mutation-protocol-phase-4.md](../specs/2026-04-08-coordination-mutation-protocol-phase-4.md)
+- Phase 5 completed:
+  [../specs/2026-04-08-service-backed-coordination-cutover-phase-5.md](../specs/2026-04-08-service-backed-coordination-cutover-phase-5.md)
+- Phase 6 completed:
+  [../specs/2026-04-09-trust-family-centralization-phase-6.md](../specs/2026-04-09-trust-family-centralization-phase-6.md)
+- Phase 7 completed:
+  [../specs/2026-04-09-coordination-platform-freeze-phase-7.md](../specs/2026-04-09-coordination-platform-freeze-phase-7.md)
+- Phase 8 completed:
+  [../specs/2026-04-09-spec-engine-source-parser-identity-phase-8.md](../specs/2026-04-09-spec-engine-source-parser-identity-phase-8.md)
+- Phase 9 completed:
+  [../specs/2026-04-09-spec-engine-local-materialization-phase-9.md](../specs/2026-04-09-spec-engine-local-materialization-phase-9.md)
+- Phase 10 prerequisite:
+  [../specs/2026-04-09-spec-engine-crate-extraction-pre-phase-10.md](../specs/2026-04-09-spec-engine-crate-extraction-pre-phase-10.md)
+- Phase 10 completed:
+  [../specs/2026-04-09-spec-query-engine-phase-10.md](../specs/2026-04-09-spec-query-engine-phase-10.md)
+- Phase 11 completed:
+  [../specs/2026-04-09-spec-coordination-linking-and-sync-provenance-phase-11.md](../specs/2026-04-09-spec-coordination-linking-and-sync-provenance-phase-11.md)
+- Phase 12 completed:
+  [../specs/2026-04-09-spec-coverage-phase-12.md](../specs/2026-04-09-spec-coverage-phase-12.md)
+- Phase 13 completed:
+  [../specs/2026-04-09-spec-sync-actions-phase-13.md](../specs/2026-04-09-spec-sync-actions-phase-13.md)
+- Phase 14 completed:
+  [../specs/2026-04-09-spec-engine-surfaces-phase-14.md](../specs/2026-04-09-spec-engine-surfaces-phase-14.md)
+- Phase 15 active:
+  [../specs/2026-04-09-db-backed-service-foundation-phase-15.md](../specs/2026-04-09-db-backed-service-foundation-phase-15.md)
 
 ## 3. Ordering thesis
 
@@ -63,8 +108,10 @@ The point is to make the architecture structurally clean.
 That means:
 
 - finish the coordination seams first
-- then finish the full spec engine on top of them
-- then build the service on top of the settled platform
+- then finish the service-backed coordination platform
+- then make SQLite and Postgres the release-oriented authority family on top of it
+- then finish the full spec engine on top of it
+- then expand the remaining richer service roles
 
 ## 4. Phases
 
@@ -111,14 +158,20 @@ Exit criteria:
 
 - the rest of the app can no longer talk directly to coordination authority storage
 
+Current assessment:
+
+- completed by the new authority-store seam and Git-backed backend cutover
+- authoritative current reads, commit, history, descriptor, diagnostics, and live-sync families
+  now route through the authority boundary instead of direct product-facing shared-ref helpers
+
 ### Phase 2: Implement the Coordination Materialized Store
 
-Implement the local persistent read-model seam fully enough that all local coordination
+Implement the service-owned persistent read-model seam fully enough that all coordination
 materialization goes through it.
 
 This includes:
 
-- local persistent coordination snapshot and read-model access
+- service-local persistent coordination snapshot and read-model access
 - checkpoint bundle access
 - local version and authority-key tracking
 - rebuild, replace, invalidate, and refresh operations
@@ -126,12 +179,18 @@ This includes:
 
 Migration target:
 
-- no product or runtime code talks directly to the coordination SQLite schema except the
+- no product or service code talks directly to the coordination SQLite schema except the
   materialized-store implementation
 
 Exit criteria:
 
-- local coordination persistence is fully behind one disciplined seam
+- service-owned coordination persistence is fully behind one disciplined seam
+
+Current assessment:
+
+- completed at the seam level; ownership target is now explicitly service-owned rather than
+  runtime-owned per the accepted ADR, and later cutover work should converge implementation toward
+  that target
 
 ### Phase 3: Implement the Coordination Query Engine
 
@@ -153,12 +212,18 @@ This includes:
 
 Migration target:
 
-- MCP handlers, CLI commands, UI-facing reads, and runtime views stop embedding workflow evaluation
-  logic directly
+- MCP handlers, CLI commands, UI-facing reads, and service-backed runtime views stop embedding
+  workflow evaluation logic directly
 
 Exit criteria:
 
 - all coordination reasoning lives here, not in product handlers
+
+Current assessment:
+
+- completed by the dedicated `prism-query` engine seam, evidence/review query families, stable
+  query-surface exposure of task evidence and review status, and MCP/UI task-facing cutover away
+  from duplicated blocker/artifact interpretation
 
 ### Phase 4: Implement the Transactional Coordination Mutation Protocol
 
@@ -187,7 +252,17 @@ Exit criteria:
 
 - all coordination writes happen through one explicit transactional protocol
 
-### Phase 5: Cut over the coordination runtime to those four seams
+Current assessment:
+
+- completed at the mutation-protocol layer
+- committed, rejected, indeterminate, and stale-base conflict outcomes now flow through one
+  protocol story
+- current coordination mutation surfaces and ordinary query-layer task create/update helpers now
+  route through the transaction engine instead of parallel live-runtime mutation paths
+- automatic replay remains intentionally unsupported in Phase 4; stale-base conflicts reject
+  structurally and must be restaged explicitly by a caller or later mutation broker
+
+### Phase 5: Cut over the service-backed coordination runtime and product surfaces to those four seams
 
 Do the broad migration pass once the four core seams exist.
 
@@ -196,6 +271,7 @@ Touch:
 - session and bootstrap paths
 - watch and sync paths
 - runtime refresh paths
+- service-hosted coordination materialization ownership
 - MCP host, query, and tool paths
 - CLI read and mutate commands
 - UI-facing runtime views
@@ -207,7 +283,7 @@ Touch:
 Exit criteria:
 
 - the coordination layer is fully expressed through the new abstractions
-- no old direct authority, materialization, query, or mutation paths remain
+- no old direct authority, runtime-owned materialization, query, or mutation paths remain
 
 ### Phase 6: Implement the trust-family contracts in code where still needed
 
@@ -227,7 +303,7 @@ Exit criteria:
 
 ### Phase 7: Freeze coordination and call it the new base platform
 
-Checkpoint the coordination layer before building the spec engine on top of it.
+Checkpoint the service-backed coordination layer before building the spec engine on top of it.
 
 This includes:
 
@@ -332,6 +408,12 @@ Exit criteria:
 
 - the intent to execution to coverage loop is operational through explicit actions
 
+Current assessment:
+
+- completed by the bounded sync brief, explicit spec-aware plan and task sync helpers in
+  `prism-query`, and end-to-end refresh validation showing that sync-created links feed native
+  coverage and sync provenance views
+
 ### Phase 14: Expose the spec engine fully through CLI, MCP, and UI
 
 Implement:
@@ -347,19 +429,23 @@ Exit criteria:
 
 - the spec engine is first-class and usable as the feature-intent layer
 
-### Phase 15: Implement the PRISM Service contracts
+### Phase 15: Implement the remaining PRISM Service roles and release deployment modes
 
 Implement in order:
 
-1. service shell
-2. authority sync role
-3. read broker role
-4. mutation broker role
-5. runtime gateway role
-6. later event engine role
+1. release-oriented DB-backed authority family
+   - SQLite single-instance deployment
+   - Postgres hosted or multi-instance deployment
+2. service shell
+3. authority sync role
+4. read broker role
+5. mutation broker role
+6. runtime gateway role
+7. later event engine role
 
 Exit criteria:
 
+- the release-oriented deployment path uses the DB-backed authority family cleanly
 - the service is built on the settled lower seams and stays thin rather than becoming a hidden
   authority blob
 
@@ -373,7 +459,11 @@ This ordering is driven by real dependency structure:
 - spec engine depends on coordination seams being stable
 - spec coverage depends on both SpecQueryEngine and CoordinationQueryEngine
 - spec sync depends on mutation, query, and provenance seams being stable
-- service depends on all of the above being stable enough not to absorb missing architecture
+- service-backed runtime participation depends on service-owned coordination materialization
+- release-oriented deployment depends on the DB-backed authority family landing on the settled
+  coordination seams
+- remaining richer service roles depend on all of the above being stable enough not to absorb
+  missing architecture
 
 This is why the work is mostly sequential.
 
@@ -383,6 +473,7 @@ Do not:
 
 - parallelize by adding temporary bypasses
 - leave direct authority or SQLite access behind “for now”
+- leave runtime-owned coordination materialization behind “for now”
 - couple branch-local spec state into authoritative coordination by accident
 - build service roles before the lower seams are actually clean
 - ship fake abstractions that still require handler-specific logic everywhere
@@ -398,7 +489,7 @@ The implementation order to stake the project on is:
 5. mutation protocol
 6. full coordination cutover
 7. trust and provenance cleanup
-8. freeze coordination platform
+8. freeze service-backed coordination platform
 9. full spec engine
 10. full spec-coordination coverage and sync
-11. PRISM service
+11. DB-backed release deployment and remaining richer PRISM service roles

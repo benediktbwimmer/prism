@@ -12,10 +12,19 @@ This document is the higher-level federated-runtime architecture note and rollou
 
 ## 1. Summary
 
-PRISM should support a federated runtime architecture that removes the need for a mandatory shared
-Postgres runtime for most repositories.
+PRISM should eventually support a federated runtime architecture for the Git-backed and richer
+runtime-to-runtime future.
 
-The design uses four primary layers:
+This document no longer describes the primary release path.
+
+The current launch direction is:
+
+- coordination participation requires a reachable PRISM Service
+- the service owns coordination materialization
+- DB-backed authority is the first production path
+- Git-backed federation remains a later or advanced backend shape
+
+The federated Git-oriented design uses four primary layers:
 
 - shared Git refs for compact authoritative coordination and runtime discovery
 - worktree-local SQLite for rich append-only runtime state and hot local serving
@@ -29,7 +38,7 @@ The core principle is:
 - the normal read tools stay primary, but may optionally target another runtime for enrichment
 - peer reads and blob exports provide opportunistic enrichment, not required correctness
 
-This makes PRISM a distributed system, but in a repo-native way rather than a database-first way.
+This makes PRISM a distributed system in a repo-native way when that backend family is selected.
 
 ---
 
@@ -38,7 +47,12 @@ This makes PRISM a distributed system, but in a repo-native way rather than a da
 Several older PRISM documents assumed a centralized shared runtime database that might eventually
 be implemented by Postgres or another shared backend.
 
-That model works, but it has real costs:
+The current architecture decision is more precise:
+
+- DB-backed authority and a required PRISM Service are the first production path
+- this federated design is now the later repo-native backend direction rather than the launch path
+
+That distinction matters because the federated Git model still has real costs:
 
 - an always-on shared service becomes part of the product's correctness envelope
 - local-first usage grows a second operational dependency
@@ -64,12 +78,12 @@ The architecture should therefore avoid both extremes:
 
 Required goals:
 
-- eliminate mandatory dependence on a centralized shared Postgres runtime for normal repo use
+- preserve a path to repo-native and federated operation when the Git backend is selected
 - preserve a durable shared coordination truth across worktrees, branches, and machines
 - keep rich append-only runtime state local by default
 - support optional runtime-to-runtime state exchange when peers are reachable
 - support durable cold retrieval of session/runtime state after a runtime exits
-- preserve local-first and offline operation
+- preserve local-first operation where a local PRISM Service is present
 - keep correctness independent of peer liveness
 - keep authority boundaries explicit and inspectable
 - keep the MCP and query surface simple by reusing existing read tools with an optional runtime
@@ -224,8 +238,9 @@ knowledge and branch-published intent.
 One configured coordination authority backend becomes the authoritative cross-branch coordination
 plane for a coordination root.
 
-Git shared refs are the current default backend. PostgreSQL or another service-backed backend may
-later implement the same authority contract.
+DB-backed authority is the current release path. Git shared refs remain the repo-native federated
+backend explored by this document, and both backend families should satisfy the same authority
+contract.
 
 ### 5.3 Local runtime authority
 

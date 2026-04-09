@@ -21,9 +21,10 @@ use prism_coordination::{
 use prism_core::{
     default_workspace_shared_runtime, hydrate_workspace_session,
     hydrate_workspace_session_with_options, index_workspace_session,
-    index_workspace_session_with_curator, index_workspace_session_with_options, PrismPaths,
-    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
-    ValidationFeedbackVerdict, WorkspaceSessionOptions,
+    index_workspace_session_with_curator, index_workspace_session_with_options,
+    CoordinationAuthorityMutationError, PrismPaths, SharedRuntimeBackend,
+    ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
+    WorkspaceSessionOptions,
 };
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CandidateEdge, CandidateMemory,
@@ -714,6 +715,7 @@ fn git_execution_start_auto_resumes_stale_same_principal_task() {
                         coordination_depends_on: Vec::new(),
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
+                        spec_refs: Vec::new(),
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
@@ -862,6 +864,7 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
                         coordination_depends_on: Vec::new(),
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
+                        spec_refs: Vec::new(),
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
@@ -2611,7 +2614,22 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
         .unwrap();
     assert!(rejected.rejected);
     assert!(!rejected.event_ids.is_empty());
-    assert_eq!(rejected.state, Value::Null);
+    assert_eq!(
+        rejected.state["outcome"],
+        Value::String("Rejected".to_string())
+    );
+    assert_eq!(
+        rejected.state["rejection"]["stage"],
+        Value::String("domain".to_string())
+    );
+    assert_eq!(
+        rejected.state["rejection"]["category"],
+        Value::String("domain_violation".to_string())
+    );
+    assert_eq!(
+        rejected.state["rejection"]["reasonCode"],
+        Value::String("domain_validation_failed".to_string())
+    );
     assert!(rejected
         .violations
         .iter()
@@ -2625,6 +2643,469 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
     assert_eq!(
         events.last().unwrap().kind,
         prism_ir::CoordinationEventKind::MutationRejected
+    );
+}
+
+#[test]
+fn mcp_returns_structured_protocol_rejections_before_any_coordination_event() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let rejected = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::CoordinationTransaction,
+                payload: json!({
+                    "mutations": [{
+                        "action": "plan_create",
+                        "input": {
+                            "clientPlanId": "plan",
+                            "title": "Plan",
+                            "goal": "Plan"
+                        }
+                    }],
+                    "optimisticPreconditions": {
+                        "expectedAuthorityStamp": "authority:demo"
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .expect("protocol rejection should be surfaced structurally");
+
+    assert!(rejected.rejected);
+    assert!(rejected.event_ids.is_empty());
+    assert_eq!(rejected.violations.len(), 1);
+    assert_eq!(
+        rejected.violations[0].code,
+        "unsupported_optimistic_preconditions"
+    );
+    assert_eq!(
+        rejected.state["outcome"],
+        Value::String("Rejected".to_string())
+    );
+    assert_eq!(
+        rejected.state["rejection"]["stage"],
+        Value::String("input_shape".to_string())
+    );
+    assert_eq!(
+        rejected.state["rejection"]["category"],
+        Value::String("unsupported".to_string())
+    );
+    assert_eq!(
+        rejected.state["rejection"]["reasonCode"],
+        Value::String("unsupported_optimistic_preconditions".to_string())
+    );
+}
+
+#[test]
+fn mcp_returns_structured_authority_indeterminate_before_any_coordination_event() {
+    let result = crate::host_mutations::coordination_transaction_protocol_result(
+        &EventId::new("coord:tx:authority-indeterminate"),
+        &anyhow::Error::new(CoordinationAuthorityMutationError::indeterminate(
+            "shared_ref_transport_uncertain",
+            "shared coordination ref publish may have succeeded but the outcome could not be verified",
+            None,
+        )),
+    )
+    .expect("authority indeterminate should be surfaced structurally");
+
+    assert!(!result.rejected);
+    assert!(result.event_ids.is_empty());
+    assert_eq!(result.violations.len(), 0);
+    assert_eq!(
+        result.state["outcome"],
+        Value::String("Indeterminate".to_string())
+    );
+    assert_eq!(
+        result.state["indeterminate"]["reasonCode"],
+        Value::String("shared_ref_transport_uncertain".to_string())
+    );
+}
+
+#[test]
+fn mcp_returns_structured_authority_conflicts_before_any_coordination_event() {
+    let result = crate::host_mutations::coordination_transaction_protocol_result(
+        &EventId::new("coord:tx:authority-conflict"),
+        &anyhow::Error::new(CoordinationAuthorityMutationError::conflict(
+            "authority_transaction_conflict",
+            "authority stamp no longer matches the current shared-ref head",
+            None,
+        )),
+    )
+    .expect("authority conflict should be surfaced structurally");
+
+    assert!(result.rejected);
+    assert!(result.event_ids.is_empty());
+    assert_eq!(result.violations.len(), 1);
+    assert_eq!(result.violations[0].code, "authority_transaction_conflict");
+    assert_eq!(
+        result.state["outcome"],
+        Value::String("Rejected".to_string())
+    );
+    assert_eq!(
+        result.state["rejection"]["stage"],
+        Value::String("commit".to_string())
+    );
+    assert_eq!(
+        result.state["rejection"]["category"],
+        Value::String("conflict".to_string())
+    );
+}
+
+#[test]
+fn mcp_returns_structured_protocol_conflicts_before_any_coordination_event() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanCreate,
+            payload: json!({ "title": "Seed", "goal": "Seed" }),
+            task_id: None,
+        },
+    )
+    .expect("seed coordination mutation should commit");
+
+    let rejected = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::CoordinationTransaction,
+                payload: json!({
+                    "mutations": [{
+                        "action": "plan_create",
+                        "input": {
+                            "clientPlanId": "plan",
+                            "title": "Plan",
+                            "goal": "Plan"
+                        }
+                    }],
+                    "optimisticPreconditions": {
+                        "expectedRevision": 0
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .expect("protocol conflict should be surfaced structurally");
+
+    assert!(rejected.rejected);
+    assert!(rejected.event_ids.is_empty());
+    assert_eq!(rejected.violations[0].code, "stale_revision");
+    assert_eq!(
+        rejected.state["rejection"]["stage"],
+        Value::String("conflict".to_string())
+    );
+    assert_eq!(
+        rejected.state["rejection"]["category"],
+        Value::String("conflict".to_string())
+    );
+    assert_eq!(
+        rejected.state["rejection"]["reasonCode"],
+        Value::String("stale_revision".to_string())
+    );
+}
+
+#[test]
+fn plan_create_surfaces_transaction_metadata_in_state() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let created = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "title": "Ship reviewed change", "goal": "Ship reviewed change" }),
+                task_id: None,
+            },
+        )
+        .expect("plan creation should succeed");
+
+    assert_eq!(
+        created.state["outcome"],
+        Value::String("Committed".to_string())
+    );
+    assert!(
+        created.state["commit"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= 1
+    );
+    assert!(created.state["commit"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
+    assert_eq!(
+        created.state["authorityVersion"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default(),
+        created.state["commit"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+    );
+    assert_eq!(
+        created.state["authorityVersion"]["lastEventId"],
+        created.state["commit"]["lastEventId"]
+    );
+}
+
+#[test]
+fn workflow_update_surfaces_transaction_metadata_in_state() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "title": "Update metadata coverage", "goal": "Update metadata coverage" }),
+                task_id: None,
+            },
+        )
+        .expect("plan creation should succeed");
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .expect("task creation should succeed");
+
+    let updated = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task.state["id"].as_str().unwrap(),
+                    "status": "in_progress"
+                }),
+                task_id: None,
+            },
+        )
+        .expect("workflow update should succeed");
+
+    assert_eq!(
+        updated.state["outcome"],
+        Value::String("Committed".to_string())
+    );
+    assert!(
+        updated.state["commit"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= 1
+    );
+    assert!(
+        updated.state["authorityVersion"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= updated.state["commit"]["eventCount"]
+                .as_u64()
+                .unwrap_or_default()
+    );
+    assert!(updated.state["authorityVersion"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
+}
+
+#[test]
+fn handoff_surfaces_transaction_metadata_in_state() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "title": "Handoff metadata", "goal": "Handoff metadata" }),
+                task_id: None,
+            },
+        )
+        .expect("plan creation should succeed");
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .expect("task creation should succeed");
+
+    let handoff = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Handoff,
+                payload: json!({
+                    "taskId": task.state["id"].as_str().unwrap(),
+                    "summary": "Hand off to another agent"
+                }),
+                task_id: None,
+            },
+        )
+        .expect("handoff should succeed");
+
+    assert_eq!(
+        handoff.state["outcome"],
+        Value::String("Committed".to_string())
+    );
+    assert!(
+        handoff.state["commit"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= 1
+    );
+    assert!(
+        handoff.state["authorityVersion"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= handoff.state["commit"]["eventCount"]
+                .as_u64()
+                .unwrap_or_default()
+    );
+    assert!(handoff.state["authorityVersion"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
+}
+
+#[test]
+fn task_create_surfaces_transaction_metadata_in_state() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "title": "Task metadata coverage", "goal": "Task metadata coverage" }),
+                task_id: None,
+            },
+        )
+        .expect("plan creation should succeed");
+
+    let created = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit beta",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::beta",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .expect("task creation should succeed");
+
+    assert_eq!(
+        created.state["outcome"],
+        Value::String("Committed".to_string())
+    );
+    assert!(
+        created.state["commit"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= 1
+    );
+    assert!(created.state["commit"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
+    assert!(
+        created.state["authorityVersion"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= created.state["commit"]["eventCount"]
+                .as_u64()
+                .unwrap_or_default()
+    );
+}
+
+#[test]
+fn plan_bootstrap_surfaces_transaction_metadata_in_state() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let bootstrapped = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanBootstrap,
+                payload: json!({
+                    "plan": {
+                        "title": "Bootstrap metadata coverage",
+                        "goal": "Bootstrap metadata coverage"
+                    },
+                    "tasks": [{
+                        "clientId": "task-alpha",
+                        "title": "Edit alpha",
+                        "anchors": [{
+                            "type": "node",
+                            "crateName": "demo",
+                            "path": "demo::alpha",
+                            "kind": "function"
+                        }]
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .expect("plan bootstrap should succeed");
+
+    assert_eq!(
+        bootstrapped.state["outcome"],
+        Value::String("Committed".to_string())
+    );
+    assert!(
+        bootstrapped.state["commit"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= 1
+    );
+    assert!(bootstrapped.state["commit"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
+    assert!(
+        bootstrapped.state["authorityVersion"]["eventCount"]
+            .as_u64()
+            .unwrap_or_default()
+            >= bootstrapped.state["commit"]["eventCount"]
+                .as_u64()
+                .unwrap_or_default()
     );
 }
 
@@ -12391,6 +12872,7 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
                     stale_after_graph_change: true,
                     ..CoordinationPolicy::default()
                 }),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -12418,6 +12900,7 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -12496,6 +12979,7 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
                     lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
                     ..CoordinationPolicy::default()
                 }),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -12520,6 +13004,7 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -12612,6 +13097,7 @@ fn compact_task_brief_suppresses_heartbeat_instruction_when_local_assistance_is_
                     lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
                     ..CoordinationPolicy::default()
                 }),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -12636,6 +13122,7 @@ fn compact_task_brief_suppresses_heartbeat_instruction_when_local_assistance_is_
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -12707,6 +13194,7 @@ fn compact_task_brief_exposes_authoritative_task_lease_without_claim_holders() {
                 goal: "Show task lease holder".into(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: Some(CoordinationPolicy::default()),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -12731,6 +13219,7 @@ fn compact_task_brief_exposes_authoritative_task_lease_without_claim_holders() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -16267,6 +16756,17 @@ return {
         PrismPaths::for_workspace_root(&root)
             .unwrap()
             .worktree_cache_db_path()
+            .unwrap()
+            .display()
+            .to_string()
+    );
+    assert_eq!(
+        status["coordinationMaterializationPath"]
+            .as_str()
+            .unwrap_or_default(),
+        PrismPaths::for_workspace_root(&root)
+            .unwrap()
+            .coordination_materialization_db_path()
             .unwrap()
             .display()
             .to_string()
@@ -21001,10 +21501,19 @@ pub fn runtime_status() {}
         .iter()
         .find(|scope| scope.scope == "session")
         .expect("session overlay scope should exist");
-    assert_eq!(repo_overlay.plan_count, 1);
-    assert!(repo_overlay.plan_node_count > 0);
-    assert_eq!(worktree_overlay.overlay_count, 0);
-    assert_eq!(session_overlay.overlay_count, 1);
+    assert_eq!(
+        repo_overlay.plan_count, 0,
+        "repo-scoped coordination overlay counts now reflect only the service-backed coordination surface"
+    );
+    assert_eq!(repo_overlay.plan_node_count, 0);
+    assert_eq!(
+        worktree_overlay.overlay_count, 1,
+        "runtime overlay scopes still surface the current worktree binding for live coordination work"
+    );
+    assert_eq!(
+        session_overlay.overlay_count, 1,
+        "runtime status overlays still read live coordination session bindings directly until the runtime-status surface is cut over"
+    );
 }
 
 #[test]
@@ -23691,6 +24200,7 @@ fn plan_queries_surface_activity_without_task_journal_replay() {
                 coordination_depends_on: Vec::new(),
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
+                spec_refs: Vec::new(),
                 base_revision: prism.workspace_revision(),
             },
         )
@@ -23729,6 +24239,264 @@ return {{
     );
     assert_eq!(result.result["plan"]["activity"]["createdAt"], 10);
     assert_eq!(result.result["plan"]["activity"]["lastUpdatedAt"], 20);
+}
+
+#[test]
+fn native_spec_queries_surface_materialized_spec_views() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join(".prism/specs")).unwrap();
+    fs::write(
+        root.join(".prism/specs/2026-04-09-alpha.md"),
+        "---\n\
+id: spec:alpha\n\
+title: Alpha\n\
+status: in_progress\n\
+created: 2026-04-09\n\
+---\n\
+\n\
+- [ ] implement core flow <!-- id: item-1 -->\n\
+- [ ] validate rollout <!-- id: item-2 -->\n",
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let plan = host
+        .current_prism()
+        .create_native_plan_from_spec_transaction(
+            EventMeta {
+                id: EventId::new("coord:plan:mcp-spec-query"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            prism_query::NativeSpecPlanCreateInput {
+                title: "Ship alpha".into(),
+                goal: "Ship alpha".into(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+                scheduling: None,
+                spec_ref: prism_coordination::CoordinationSpecRef {
+                    spec_id: "spec:alpha".into(),
+                    source_path: ".prism/specs/2026-04-09-alpha.md".into(),
+                    source_revision: Some("rev-plan".into()),
+                },
+            },
+        )
+        .expect("spec-linked plan create should succeed");
+    let task = host
+        .current_prism()
+        .create_native_task_from_spec_transaction(
+            EventMeta {
+                id: EventId::new("coord:task:mcp-spec-query"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            prism_query::NativeSpecTaskCreateInput {
+                task: TaskCreateInput {
+                    plan_id: plan.plan_id.clone(),
+                    title: "Implement alpha".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    spec_refs: Vec::new(),
+                    base_revision: prism_ir::WorkspaceRevision::default(),
+                },
+                spec_ref: prism_coordination::CoordinationTaskSpecRef {
+                    spec_id: "spec:alpha".into(),
+                    source_path: ".prism/specs/2026-04-09-alpha.md".into(),
+                    source_revision: Some("rev-task".into()),
+                    sync_kind: "task".into(),
+                    covered_checklist_items: vec!["spec:alpha::checklist::item-1".into()],
+                    covered_sections: Vec::new(),
+                },
+            },
+        )
+        .expect("spec-linked task create should succeed");
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+return {
+  specs: prism.specs(),
+  spec: prism.spec("spec:alpha"),
+  brief: prism.specSyncBrief("spec:alpha"),
+  coverage: prism.specCoverage("spec:alpha"),
+  provenance: prism.specSyncProvenance("spec:alpha"),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("native spec queries should succeed");
+
+    assert!(result.diagnostics.is_empty());
+    assert_eq!(result.result["specs"][0]["specId"], "spec:alpha");
+    assert_eq!(result.result["spec"]["specId"], "spec:alpha");
+    assert_eq!(result.result["brief"]["spec"]["specId"], "spec:alpha");
+    assert_eq!(
+        result.result["brief"]["requiredChecklistItems"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let coverage = result.result["coverage"]
+        .as_array()
+        .expect("coverage should be an array");
+    assert_eq!(coverage.len(), 2);
+    assert!(coverage.iter().any(|record| {
+        record["checklistItemId"] == "spec:alpha::checklist::item-1"
+            && record["coverageKind"] == "represented"
+            && record["coordinationRef"] == task.task_id.0.as_str()
+    }));
+    assert!(coverage.iter().any(|record| {
+        record["checklistItemId"] == "spec:alpha::checklist::item-2"
+            && record["coverageKind"] == "uncovered"
+            && record["coordinationRef"].is_null()
+    }));
+    let provenance = result.result["provenance"]
+        .as_array()
+        .expect("provenance should be an array");
+    assert_eq!(provenance.len(), 2);
+    assert!(provenance.iter().any(|record| {
+        record["targetCoordinationRef"] == task.task_id.0.as_str() && record["syncKind"] == "task"
+    }));
+    assert!(provenance.iter().any(|record| {
+        record["targetCoordinationRef"] == plan.plan_id.0.as_str() && record["syncKind"] == "plan"
+    }));
+}
+
+#[test]
+fn plan_and_task_queries_surface_linked_spec_summaries() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join(".prism/specs")).unwrap();
+    fs::write(
+        root.join(".prism/specs/2026-04-09-alpha.md"),
+        "---\n\
+id: spec:alpha\n\
+title: Alpha\n\
+status: in_progress\n\
+created: 2026-04-09\n\
+---\n\
+\n\
+- [ ] implement core flow <!-- id: item-1 -->\n\
+- [ ] validate rollout <!-- id: item-2 -->\n",
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let plan = host
+        .current_prism()
+        .create_native_plan_from_spec_transaction(
+            EventMeta {
+                id: EventId::new("coord:plan:mcp-linked-specs"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            prism_query::NativeSpecPlanCreateInput {
+                title: "Ship alpha".into(),
+                goal: "Ship alpha".into(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+                scheduling: None,
+                spec_ref: prism_coordination::CoordinationSpecRef {
+                    spec_id: "spec:alpha".into(),
+                    source_path: ".prism/specs/2026-04-09-alpha.md".into(),
+                    source_revision: Some("rev-plan".into()),
+                },
+            },
+        )
+        .expect("spec-linked plan create should succeed");
+    let task = host
+        .current_prism()
+        .create_native_task_from_spec_transaction(
+            EventMeta {
+                id: EventId::new("coord:task:mcp-linked-specs"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            prism_query::NativeSpecTaskCreateInput {
+                task: TaskCreateInput {
+                    plan_id: plan.plan_id.clone(),
+                    title: "Implement alpha".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    spec_refs: Vec::new(),
+                    base_revision: prism_ir::WorkspaceRevision::default(),
+                },
+                spec_ref: prism_coordination::CoordinationTaskSpecRef {
+                    spec_id: "spec:alpha".into(),
+                    source_path: ".prism/specs/2026-04-09-alpha.md".into(),
+                    source_revision: Some("rev-task".into()),
+                    sync_kind: "task".into(),
+                    covered_checklist_items: vec!["spec:alpha::checklist::item-1".into()],
+                    covered_sections: Vec::new(),
+                },
+            },
+        )
+        .expect("spec-linked task create should succeed");
+
+    let result = host
+        .execute(
+            test_session(&host),
+            &format!(
+                r#"
+return {{
+  plan: prism.plan("{}"),
+  task: prism.task("{}"),
+}};
+"#,
+                plan.plan_id.0, task.task_id.0
+            ),
+            QueryLanguage::Ts,
+        )
+        .expect("linked spec task and plan queries should succeed");
+
+    assert!(result.diagnostics.is_empty());
+    assert_eq!(
+        result.result["plan"]["linkedSpecs"][0]["specId"],
+        "spec:alpha"
+    );
+    assert_eq!(result.result["plan"]["linkedSpecs"][0]["title"], "Alpha");
+    assert_eq!(
+        result.result["plan"]["linkedSpecs"][0]["sourcePath"],
+        ".prism/specs/2026-04-09-alpha.md"
+    );
+    assert_eq!(
+        result.result["task"]["linkedSpecs"][0]["specId"],
+        "spec:alpha"
+    );
+    assert_eq!(result.result["task"]["linkedSpecs"][0]["syncKind"], "task");
+    assert_eq!(
+        result.result["task"]["linkedSpecs"][0]["coveredChecklistItems"][0],
+        "spec:alpha::checklist::item-1"
+    );
 }
 
 #[test]
@@ -24025,6 +24793,7 @@ fn session_resource_surfaces_stale_current_task_context() {
                     stale_after_graph_change: true,
                     ..CoordinationPolicy::default()
                 }),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24052,6 +24821,7 @@ fn session_resource_surfaces_stale_current_task_context() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24160,6 +24930,7 @@ fn session_resource_derives_coordination_binding_from_coord_task_id_for_stale_re
                     stale_after_graph_change: true,
                     ..CoordinationPolicy::default()
                 }),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24186,6 +24957,7 @@ fn session_resource_derives_coordination_binding_from_coord_task_id_for_stale_re
                 coordination_depends_on: Vec::new(),
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
+                spec_refs: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
             },
         )
@@ -24267,6 +25039,7 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
                     lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
                     ..CoordinationPolicy::default()
                 }),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24291,6 +25064,7 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24353,6 +25127,7 @@ fn session_resource_surfaces_publish_failed_repair_action() {
                 goal: "Retry shared publish".into(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
+                spec_refs: Vec::new(),
             },
         )
         .unwrap();
@@ -24387,6 +25162,7 @@ fn session_resource_surfaces_publish_failed_repair_action() {
         base_revision: prism_ir::WorkspaceRevision::default(),
         priority: None,
         tags: Vec::new(),
+        spec_refs: Vec::new(),
         metadata: serde_json::Value::Null,
         git_execution: prism_coordination::TaskGitExecution {
             status: prism_ir::GitExecutionStatus::PublishFailed,

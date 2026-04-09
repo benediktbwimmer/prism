@@ -2,8 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    coordination_queue_read_model_from_snapshot, ready_task_count_for_active_plans,
-    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, WorkClaim,
+    ready_task_count_for_active_plans, CoordinationSnapshot, CoordinationSnapshotV2, WorkClaim,
 };
 use prism_ir::{
     sortable_token_timestamp, ClaimStatus, CoordinationEventKind, CoordinationTaskId,
@@ -400,11 +399,8 @@ impl QueryHostUiReadModelsExt for QueryHost {
 
     fn ui_plans_view(&self, options: UiPlansQueryOptions) -> Result<PrismPlansView> {
         let prism = self.current_prism();
-        let all_plans = prism
-            .plans(None, None, None)
-            .into_iter()
-            .map(plan_list_entry_view)
-            .collect::<Vec<_>>();
+        let coordination_snapshot_v2 = self.current_coordination_snapshot_v2()?;
+        let all_plans = crate::plan_surface::all_plan_entries(self)?;
         let status_filter = UiPlanStatusFilter::parse(options.status.as_deref());
         let sort = UiPlanSort::parse(options.sort.as_deref());
         let search = options
@@ -447,7 +443,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
             .filter(|plan| {
                 agent
                     .as_deref()
-                    .map(|query| plan_matches_agent(&prism, plan, query))
+                    .map(|query| plan_matches_agent(&prism, &coordination_snapshot_v2, plan, query))
                     .unwrap_or(true)
             })
             .collect::<Vec<_>>();
@@ -504,6 +500,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
 
     fn ui_graph_view(&self, selected_concept_handle: Option<&str>) -> Result<PrismGraphView> {
         let prism = self.current_prism();
+        let coordination_snapshot_v2 = self.current_coordination_snapshot_v2()?;
         let root_packet = prism
             .concept_by_handle(GRAPH_DEFAULT_CONCEPT_HANDLE)
             .or_else(|| prism.concept("prism architecture"))
@@ -530,7 +527,8 @@ impl QueryHostUiReadModelsExt for QueryHost {
             None,
         );
         let entry_concepts = graph_entry_concepts(&prism, &root_packet);
-        let related_plans = graph_plan_touchpoints(&prism, &selected_concept_handle);
+        let related_plans =
+            graph_plan_touchpoints(&prism, &coordination_snapshot_v2, &selected_concept_handle);
 
         Ok(PrismGraphView {
             selected_concept_handle,
@@ -542,11 +540,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
 
     fn ui_plan_detail_view(&self, plan_id: &str) -> Result<Option<PrismPlanDetailView>> {
         let prism = self.current_prism();
-        let plans = prism
-            .plans(None, None, None)
-            .into_iter()
-            .map(plan_list_entry_view)
-            .collect::<Vec<_>>();
+        let plans = crate::plan_surface::all_plan_entries(self)?;
         build_plan_detail_view(self, &prism, &plans, plan_id)
     }
 
@@ -554,9 +548,13 @@ impl QueryHostUiReadModelsExt for QueryHost {
         let prism = self.current_prism();
         let now = crate::current_timestamp();
         let task_id = prism_ir::CoordinationTaskId::new(task_id.to_string());
+        let evidence_status = prism.task_evidence_status(&task_id, now);
         let (task_view, blockers) = if let Some(task) = prism.coordination_task(&task_id) {
-            let blockers = prism
-                .blockers(&task_id, now)
+            debug_assert!(evidence_status.is_some());
+            let blockers = evidence_status
+                .as_ref()
+                .map(|status| status.blockers.clone())
+                .unwrap_or_default()
                 .into_iter()
                 .map(|blocker| {
                     let related_task = blocker
@@ -594,8 +592,15 @@ impl QueryHostUiReadModelsExt for QueryHost {
             })
             .collect::<Vec<_>>();
         let recent_commits = task_recent_commits(&task_view);
-        let artifacts = prism
-            .artifacts(&task_id)
+        let artifacts = evidence_status
+            .map(|status| {
+                status
+                    .artifacts
+                    .into_iter()
+                    .map(|artifact| artifact.artifact)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
             .into_iter()
             .map(artifact_view)
             .collect::<Vec<_>>();
@@ -633,8 +638,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
     }
 
     fn ui_fleet_view(&self) -> Result<PrismUiFleetView> {
-        let prism = self.current_prism();
-        let snapshot = prism.coordination_snapshot();
+        let snapshot = self.current_coordination_snapshot()?;
         let now = current_timestamp();
         let window_start = now.saturating_sub(UI_FLEET_LOOKBACK_SECONDS);
         let shared_runtime_descriptors = runtime_status(self)
@@ -1024,12 +1028,12 @@ fn plan_matches_search(plan: &prism_js::PlanListEntryView, query: &str) -> bool 
 
 fn plan_matches_agent(
     prism: &prism_query::Prism,
+    snapshot: &CoordinationSnapshotV2,
     plan: &prism_js::PlanListEntryView,
     query: &str,
 ) -> bool {
     let query = query.to_ascii_lowercase();
     let plan_id = PlanId::new(plan.plan_id.clone());
-    let snapshot = prism.coordination_snapshot_v2();
     let Ok(graph) = snapshot.graph() else {
         return false;
     };
@@ -1906,20 +1910,8 @@ fn ui_overview_coordination_summary(host: &QueryHost) -> Result<PrismOverviewCoo
 
     let prism = host.current_prism();
     let now = current_timestamp();
-    let fallback_snapshot = prism.coordination_snapshot();
-    let read_model = host
-        .workspace_session()
-        .and_then(|workspace| workspace.load_coordination_read_model().ok().flatten())
-        .unwrap_or_else(|| fallback_coordination_read_model(&fallback_snapshot));
-    let queue_model = host
-        .workspace_session()
-        .and_then(|workspace| {
-            workspace
-                .load_coordination_queue_read_model()
-                .ok()
-                .flatten()
-        })
-        .unwrap_or_else(|| fallback_coordination_queue_read_model(&fallback_snapshot));
+    let read_model = host.current_coordination_read_model()?;
+    let queue_model = host.current_coordination_queue_read_model()?;
     let ready_task_count = ready_task_count_for_active_plans(&read_model.active_plans, |plan_id| {
         if let Some(caller) = current_executor_caller(host.workspace_root(), None) {
             prism.ready_tasks_for_executor(plan_id, now, &caller).len()
@@ -1974,17 +1966,7 @@ fn ui_overview_coordination_queues(
         });
     }
 
-    let prism = host.current_prism();
-    let fallback_snapshot = prism.coordination_snapshot();
-    let queue_model = host
-        .workspace_session()
-        .and_then(|workspace| {
-            workspace
-                .load_coordination_queue_read_model()
-                .ok()
-                .flatten()
-        })
-        .unwrap_or_else(|| fallback_coordination_queue_read_model(&fallback_snapshot));
+    let queue_model = host.current_coordination_queue_read_model()?;
 
     Ok(PrismOverviewCoordinationQueuesView {
         enabled: true,
@@ -2010,18 +1992,6 @@ fn ui_overview_coordination_queues(
             .map(artifact_view)
             .collect(),
     })
-}
-
-fn fallback_coordination_read_model(
-    snapshot: &prism_coordination::CoordinationSnapshot,
-) -> CoordinationReadModel {
-    prism_coordination::coordination_read_model_from_snapshot(snapshot)
-}
-
-fn fallback_coordination_queue_read_model(
-    snapshot: &prism_coordination::CoordinationSnapshot,
-) -> CoordinationQueueReadModel {
-    coordination_queue_read_model_from_snapshot(snapshot)
 }
 
 fn ui_session_view(host: &QueryHost, session: Option<&SessionState>) -> crate::SessionView {
@@ -2079,15 +2049,16 @@ fn current_task_journal(
 ) -> Result<prism_js::TaskJournalView> {
     let prism = host.current_prism();
     let task_id = TaskId::new(task_id.to_string());
-    let replay = crate::load_task_replay(host.workspace_session_ref(), prism.as_ref(), &task_id)?;
-    crate::task_journal_view_from_replay(
+    Ok(crate::load_task_journal(
+        host.workspace_session_ref(),
         session,
         prism.as_ref(),
-        replay,
+        &task_id,
         None,
         OVERVIEW_TASK_EVENT_LIMIT,
         OVERVIEW_TASK_MEMORY_LIMIT,
-    )
+    )?
+    .journal)
 }
 
 fn plan_recent_outcomes(
@@ -2266,9 +2237,9 @@ fn graph_entry_concepts(
 
 fn graph_plan_touchpoints(
     prism: &prism_query::Prism,
+    snapshot: &CoordinationSnapshotV2,
     selected_concept_handle: &str,
 ) -> Vec<GraphPlanTouchpointView> {
-    let snapshot = prism.coordination_snapshot_v2();
     let Ok(graph) = snapshot.graph() else {
         return Vec::new();
     };

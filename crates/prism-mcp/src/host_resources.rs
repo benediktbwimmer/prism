@@ -10,21 +10,22 @@ use std::time::Instant;
 
 use crate::file_queries::file_read;
 use crate::query_types::{parse_plan_scope, parse_plan_status};
-use crate::ui_read_models::{filtered_plan_entries_from_snapshot, PlansResourceSort};
+use crate::trust_surface::protected_state_stream_view;
+use crate::ui_read_models::PlansResourceSort;
 use crate::{
     anchor_resource_view_links, capabilities_resource_uri, capabilities_resource_value,
     capabilities_resource_view_link, co_change_view, compact_discovery_bundle_candidate_excerpts,
     compact_owner_candidate_excerpts, contract_packet_view,
-    contracts_resource_view_link_with_options, dedupe_resource_link_views, derive_task_metadata,
+    contracts_resource_view_link_with_options, dedupe_resource_link_views,
     discovery_bundle_view, edge_resource_uri, edge_resource_view_link, event_resource_view_link,
     file_resource_view_link, inferred_edge_record_view, instructions_resource_view_link,
     lineage_event_view, lineage_resource_view_link, lineage_status, memory_entry_view,
     memory_event_view, memory_resource_uri, memory_resource_view_link, owner_views_for_query,
     paginate_items, parse_resource_page, parse_resource_query_param, plan_resource_uri,
-    plan_resource_view_link, plan_summary_view, plan_view_from_v2, plans_resource_view_link,
-    plans_resource_view_link_with_options, protected_state_resource_view_link, resource_link_view,
-    resource_schema_catalog_entries, schema_resource_uri, schema_resource_view_link,
-    schemas_resource_uri, schemas_resource_view_link, search_ambiguity_from_diagnostics,
+    plan_resource_view_link, plans_resource_view_link, plans_resource_view_link_with_options,
+    protected_state_resource_view_link, resource_link_view, resource_schema_catalog_entries,
+    schema_resource_uri, schema_resource_view_link, schemas_resource_uri,
+    schemas_resource_view_link, search_ambiguity_from_diagnostics,
     search_resource_view_link_with_options, session_resource_uri, session_resource_view_link,
     symbol_for, symbol_resource_uri, symbol_resource_view_link, symbol_resource_view_link_for_id,
     symbol_view, symbol_views_for_ids, task_heartbeat_advice, task_heartbeat_next_action,
@@ -34,12 +35,11 @@ use crate::{
     CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
     EventResourcePayload, FeatureFlagsView, FileResourcePayload, InferredEdgeRecordView,
     LineageResourcePayload, MemoryResourcePayload, PlanResourcePayload, PlansResourcePayload,
-    ProtectedStateResourcePayload, ProtectedStateStreamView, QueryExecution, QueryHost,
-    ResourceSchemaCatalogPayload, RuntimeCapabilitiesView, SearchArgs, SearchResourcePayload,
-    SessionLimitsView, SessionRepairActionView, SessionResourcePayload, SessionState,
-    SessionTaskView, SessionView, SessionWorkView, SymbolResourcePayload, TaskHeartbeatAdvice,
-    TaskResourcePayload, VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
+    ProtectedStateResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload,
+    RuntimeCapabilitiesView, SearchArgs, SearchResourcePayload, SessionLimitsView,
+    SessionRepairActionView, SessionResourcePayload, SessionState, SessionTaskView, SessionView,
+    SessionWorkView, SymbolResourcePayload, TaskHeartbeatAdvice, TaskResourcePayload,
+    VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -225,25 +225,15 @@ impl QueryHost {
             })?;
             let stream_selector =
                 parse_resource_query_param(uri, "stream").filter(|value| !value.is_empty());
-            let streams = diagnose_protected_state(workspace_root, stream_selector.as_deref())?
-                .into_iter()
-                .map(|report| ProtectedStateStreamView {
-                    stream: report.stream,
-                    stream_id: report.stream_id,
-                    protected_path: report.protected_path,
-                    verification_status: report.verification_status,
-                    last_verified_event_id: report.last_verified_event_id,
-                    last_verified_entry_hash: report.last_verified_entry_hash,
-                    trust_bundle_id: report.trust_bundle_id,
-                    diagnostic_code: report.diagnostic_code,
-                    diagnostic_summary: report.diagnostic_summary,
-                    repair_hint: report.repair_hint,
-                })
-                .collect::<Vec<_>>();
-            let non_verified_stream_count = streams
+            let reports = diagnose_protected_state(workspace_root, stream_selector.as_deref())?;
+            let non_verified_stream_count = reports
                 .iter()
-                .filter(|stream| stream.verification_status != "Verified")
+                .filter(|report| !report.is_verified())
                 .count();
+            let streams = reports
+                .into_iter()
+                .map(protected_state_stream_view)
+                .collect::<Vec<_>>();
             let related_resources = dedupe_resource_link_views(vec![
                 instructions_resource_view_link(),
                 capabilities_resource_view_link(),
@@ -318,16 +308,7 @@ impl QueryHost {
         session: &SessionState,
         task_id: &TaskId,
     ) -> crate::ResolvedTaskMetadata {
-        let prism = self.current_prism();
-        let replay = crate::load_task_replay(self.workspace_session_ref(), prism.as_ref(), task_id)
-            .unwrap_or_else(|_| prism.resume_task(task_id));
-        derive_task_metadata(
-            session.effective_current_task_state().as_ref(),
-            prism.as_ref(),
-            task_id,
-            &replay.events,
-            None,
-        )
+        crate::task_surface::resolved_task_metadata(self, session, task_id)
     }
 
     pub(crate) fn entrypoints_resource_value(
@@ -415,7 +396,6 @@ impl QueryHost {
     ) -> Result<PlansResourcePayload> {
         self.execute_traced_resource_read("plans", uri, || {
             let schema_uri = schema_resource_uri("plans");
-            let prism = self.current_prism();
             let status =
                 parse_resource_query_param(uri, "status").filter(|value| !value.is_empty());
             let scope = parse_resource_query_param(uri, "scope").filter(|value| !value.is_empty());
@@ -425,15 +405,14 @@ impl QueryHost {
             let parsed_status = status.as_deref().map(parse_plan_status).transpose()?;
             let parsed_scope = scope.as_deref().map(parse_plan_scope).transpose()?;
             let parsed_sort = PlansResourceSort::parse(sort.as_deref());
-            let snapshot = prism.coordination_snapshot();
             let paged = paginate_items(
-                filtered_plan_entries_from_snapshot(
-                    &snapshot,
+                crate::plan_surface::filtered_plan_resource_entries(
+                    self,
                     parsed_status,
                     parsed_scope,
                     contains.as_deref(),
                     parsed_sort,
-                ),
+                )?,
                 parse_resource_page(
                     uri,
                     DEFAULT_RESOURCE_PAGE_LIMIT,
@@ -472,10 +451,12 @@ impl QueryHost {
                     .iter()
                     .map(|plan| plan_resource_view_link(&plan.plan_id)),
             );
+            let workspace_revision =
+                workspace_revision_view(self.current_prism().workspace_revision());
             Ok(PlansResourcePayload {
                 uri: uri.to_string(),
                 schema_uri,
-                workspace_revision: workspace_revision_view(prism.workspace_revision()),
+                workspace_revision,
                 status,
                 scope,
                 contains,
@@ -493,20 +474,12 @@ impl QueryHost {
         let uri = plan_resource_uri(&plan_id.0);
         self.execute_traced_resource_read("plan", &uri, || {
             let schema_uri = schema_resource_uri("plan");
-            let prism = self.current_prism();
-            let plan_v2 = prism
-                .coordination_plan_v2(plan_id)
+            let plan_surface = crate::plan_surface::linked_plan_resource(self, plan_id)?
                 .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-            let plan = plan_view_from_v2(
-                plan_v2,
-                prism.coordination_plan(plan_id),
-                prism.plan_activity(plan_id),
-            );
-            let summary = prism.plan_summary(plan_id).map(plan_summary_view);
             let related_resources = vec![
                 session_resource_view_link(),
                 plans_resource_view_link(),
-                plan_resource_view_link(&plan.id),
+                plan_resource_view_link(&plan_surface.plan.id),
             ];
             let related_resources = if self.features.cognition_layer_enabled() {
                 dedupe_resource_link_views(
@@ -522,12 +495,14 @@ impl QueryHost {
             } else {
                 dedupe_resource_link_views(related_resources)
             };
+            let workspace_revision =
+                workspace_revision_view(self.current_prism().workspace_revision());
             Ok(PlanResourcePayload {
                 uri: uri.clone(),
                 schema_uri,
-                workspace_revision: workspace_revision_view(prism.workspace_revision()),
-                plan,
-                summary,
+                workspace_revision,
+                plan: plan_surface.plan,
+                summary: plan_surface.summary,
                 related_resources,
             })
         })
@@ -1014,52 +989,7 @@ impl QueryHost {
         task_id: &TaskId,
     ) -> Result<TaskResourcePayload> {
         self.execute_traced_resource_read("task", uri, || {
-            let schema_uri = schema_resource_uri("task");
-            let prism = self.current_prism();
-            let replay =
-                crate::load_task_replay(self.workspace_session_ref(), prism.as_ref(), task_id)
-                    .unwrap_or_else(|_| prism.resume_task(task_id));
-            let journal = crate::task_journal_view_from_replay(
-                session,
-                prism.as_ref(),
-                replay.clone(),
-                None,
-                DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-                DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
-            )?;
-            let paged = paginate_items(
-                replay.events,
-                parse_resource_page(
-                    uri,
-                    DEFAULT_RESOURCE_PAGE_LIMIT,
-                    session.limits().max_result_nodes,
-                )?,
-            );
-            let mut related_resources = vec![
-                session_resource_view_link(),
-                task_resource_view_link(replay.task.0.as_str()),
-                schema_resource_view_link("task"),
-                schemas_resource_view_link(),
-            ];
-            related_resources.extend(
-                paged
-                    .items
-                    .iter()
-                    .map(|event| event_resource_view_link(event.meta.id.0.as_str())),
-            );
-            related_resources.extend(paged.items.iter().flat_map(|event| {
-                anchor_resource_view_links(prism.as_ref(), self.workspace_root(), &event.anchors)
-            }));
-            Ok(TaskResourcePayload {
-                uri: uri.to_string(),
-                schema_uri,
-                task_id: replay.task.0.to_string(),
-                journal,
-                events: paged.items,
-                page: paged.page,
-                truncated: paged.truncated,
-                related_resources: dedupe_resource_link_views(related_resources),
-            })
+            crate::task_surface::task_resource(self, session, uri, task_id)
         })
     }
 
@@ -1228,7 +1158,11 @@ pub(crate) fn session_task_view(
         .and_then(|task_id| prism.coordination_task(&CoordinationTaskId::new(task_id.clone())));
     let blockers = coordination_task_id
         .as_ref()
-        .map(|task_id| prism.blockers(&CoordinationTaskId::new(task_id.clone()), now))
+        .and_then(|task_id| {
+            prism
+                .task_evidence_status(&CoordinationTaskId::new(task_id.clone()), now)
+                .map(|status| status.blockers)
+        })
         .unwrap_or_default();
     let heartbeat_advice = coordination_task_id.as_ref().and_then(|task_id| {
         task_heartbeat_advice(

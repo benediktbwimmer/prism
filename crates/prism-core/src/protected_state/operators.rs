@@ -34,6 +34,20 @@ pub struct ProtectedStateStreamReport {
     pub repair_hint: Option<String>,
 }
 
+impl ProtectedStateStreamReport {
+    pub fn is_verified(&self) -> bool {
+        self.verification_status == "Verified"
+    }
+
+    pub fn is_conflict(&self) -> bool {
+        self.verification_status == "Conflict"
+    }
+
+    pub fn is_truncated(&self) -> bool {
+        self.verification_status == "Truncated"
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtectedStateVerifyReport {
@@ -99,7 +113,7 @@ pub fn verify_protected_state(root: &Path) -> Result<ProtectedStateVerifyReport>
     let streams = collect_protected_state_reports(root)?;
     let non_verified_stream_count = streams
         .iter()
-        .filter(|stream| stream.verification_status != "Verified")
+        .filter(|stream| !stream.is_verified())
         .count();
     Ok(ProtectedStateVerifyReport {
         all_verified: non_verified_stream_count == 0,
@@ -168,7 +182,7 @@ pub fn quarantine_protected_state_stream(
     let stream = resolve_stream(root, selector)?;
     let report = inspect_stream_report(root, &stream)?;
     ensure!(
-        report.verification_status != "Verified",
+        !report.is_verified(),
         "refusing to quarantine verified protected stream `{}`",
         report.stream_id
     );
@@ -192,19 +206,19 @@ pub fn repair_protected_state_stream_to_last_valid(
     let stream = resolve_stream(root, selector)?;
     let report = inspect_stream_report(root, &stream)?;
     ensure!(
-        report.verification_status != "Verified",
+        !report.is_verified(),
         "protected stream `{}` is already verified",
         report.stream_id
     );
     ensure!(
-        report.verification_status != "Conflict",
+        !report.is_conflict(),
         "conflicted protected stream `{}` requires explicit reconcile-stream instead of repair",
         report.stream_id
     );
 
     let restored_entries = if let Some(last_event_id) = report.last_verified_event_id.as_deref() {
         prefix_entries_through_event(root, &stream, last_event_id)?
-    } else if report.verification_status == "Truncated" {
+    } else if report.is_truncated() {
         prefix_entries_until_invalid(root, &stream)?
     } else {
         Vec::new()
@@ -232,7 +246,7 @@ pub fn reconcile_protected_state_stream(
     let stream = resolve_stream(root, selector)?;
     let report = inspect_stream_report(root, &stream)?;
     ensure!(
-        report.verification_status == "Conflict",
+        report.is_conflict(),
         "protected stream `{}` is not in conflict",
         report.stream_id
     );
@@ -618,6 +632,7 @@ mod tests {
         export_protected_state_trust_material, import_protected_state_trust_material,
         quarantine_protected_state_stream, reconcile_protected_state_stream,
         repair_protected_state_stream_to_last_valid, verify_protected_state,
+        ProtectedStateStreamReport,
     };
     use crate::prism_paths::set_test_prism_home_override;
     use crate::protected_state::repo_streams::{
@@ -811,5 +826,38 @@ mod tests {
         assert!(reports
             .iter()
             .any(|stream| stream.stream_id == "concepts:events"));
+    }
+
+    #[test]
+    fn stream_report_status_helpers_match_trust_labels() {
+        let verified = ProtectedStateStreamReport {
+            stream: "concepts".to_string(),
+            stream_id: "concepts:events".to_string(),
+            protected_path: ".prism/concepts/events.jsonl".to_string(),
+            verification_status: "Verified".to_string(),
+            last_verified_event_id: None,
+            last_verified_entry_hash: None,
+            trust_bundle_id: None,
+            diagnostic_code: None,
+            diagnostic_summary: None,
+            repair_hint: None,
+        };
+        assert!(verified.is_verified());
+        assert!(!verified.is_conflict());
+        assert!(!verified.is_truncated());
+
+        let conflict = ProtectedStateStreamReport {
+            verification_status: "Conflict".to_string(),
+            ..verified.clone()
+        };
+        assert!(conflict.is_conflict());
+        assert!(!conflict.is_verified());
+
+        let truncated = ProtectedStateStreamReport {
+            verification_status: "Truncated".to_string(),
+            ..verified
+        };
+        assert!(truncated.is_truncated());
+        assert!(!truncated.is_verified());
     }
 }

@@ -4,7 +4,8 @@ use prism_ir::{
     ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, DerivedPlanStatus, EdgeKind,
     EdgeOrigin, EffectiveTaskStatus, ExecutorClass, GitExecutionStatus, GitIntegrationEvidence,
     GitIntegrationMode, GitIntegrationStatus, Language, NodeKind, NodeRefKind, PlanKind,
-    PlanNodeKind, PlanOperatorState, PlanScope, PlanStatus, Span, TaskLifecycleStatus,
+    PlanNodeKind, PlanOperatorState, PlanScope, PlanStatus, ReviewVerdict, Span,
+    TaskLifecycleStatus,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;
@@ -875,6 +876,8 @@ pub struct RuntimeStatusView {
     pub mcp_call_log_bytes: Option<u64>,
     pub cache_path: String,
     pub cache_bytes: Option<u64>,
+    pub coordination_materialization_path: String,
+    pub coordination_materialization_bytes: Option<u64>,
     pub health_path: String,
     pub health: RuntimeHealthView,
     pub daemon_count: usize,
@@ -1582,6 +1585,51 @@ pub struct ArtifactRiskView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ArtifactReviewView {
+    pub id: String,
+    pub artifact_id: String,
+    pub verdict: ReviewVerdict,
+    pub summary: String,
+    pub ts: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskEvidenceArtifactStatusView {
+    pub artifact: ArtifactView,
+    pub reviews: Vec<ArtifactReviewView>,
+    pub latest_review: Option<ArtifactReviewView>,
+    pub latest_review_verdict: Option<ReviewVerdict>,
+    pub pending_review: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskEvidenceStatusView {
+    pub task_id: String,
+    pub artifacts: Vec<TaskEvidenceArtifactStatusView>,
+    pub blockers: Vec<BlockerView>,
+    pub pending_review_count: usize,
+    pub approved_artifact_count: usize,
+    pub rejected_artifact_count: usize,
+    pub missing_validations: Vec<String>,
+    pub stale_artifact_ids: Vec<String>,
+    pub review_required: bool,
+    pub has_approved_artifact: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskReviewStatusView {
+    pub task_id: String,
+    pub artifacts: Vec<TaskEvidenceArtifactStatusView>,
+    pub pending_review_count: usize,
+    pub approved_artifact_count: usize,
+    pub rejected_artifact_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct DriftCandidateView {
     pub spec: NodeIdView,
     pub implementations: Vec<NodeIdView>,
@@ -1622,6 +1670,21 @@ pub struct WorkspaceRevisionView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct LinkedSpecSummaryView {
+    pub spec_id: String,
+    pub source_path: String,
+    pub linked_source_revision: Option<String>,
+    pub current_source_revision: Option<String>,
+    pub drift_status: String,
+    pub title: Option<String>,
+    pub declared_status: Option<String>,
+    pub overall_status: Option<String>,
+    pub sync_kind: Option<String>,
+    pub covered_checklist_items: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct PlanView {
     pub id: String,
     pub title: String,
@@ -1635,6 +1698,7 @@ pub struct PlanView {
     pub tags: Vec<String>,
     pub created_from: Option<String>,
     pub activity: Option<PlanActivityView>,
+    pub linked_specs: Vec<LinkedSpecSummaryView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1900,6 +1964,7 @@ pub struct CoordinationTaskView {
     pub priority: Option<u8>,
     pub tags: Vec<String>,
     pub git_execution: TaskGitExecutionView,
+    pub linked_specs: Vec<LinkedSpecSummaryView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -2455,6 +2520,82 @@ pub struct QueryLogEntryView {
 pub struct QueryTraceView {
     pub entry: QueryLogEntryView,
     pub phases: Vec<QueryPhaseView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecListEntryView {
+    pub spec_id: String,
+    pub title: String,
+    pub source_path: String,
+    pub declared_status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overall_status: Option<String>,
+    pub created: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecChecklistItemView {
+    pub item_id: String,
+    pub label: String,
+    pub checked: bool,
+    pub requirement_level: String,
+    pub section_path: Vec<String>,
+    pub line_number: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecStatusView {
+    pub declared_status: String,
+    pub checklist_posture: String,
+    pub dependency_posture: String,
+    pub overall_status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecDocumentView {
+    pub spec_id: String,
+    pub source_path: String,
+    pub title: String,
+    pub declared_status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overall_status: Option<String>,
+    pub created: String,
+    pub content_digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git_revision: Option<String>,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecCoverageRecordView {
+    pub checklist_item_id: String,
+    pub coverage_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coordination_ref: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecSyncProvenanceRecordView {
+    pub target_coordination_ref: String,
+    pub sync_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_revision: Option<String>,
+    pub covered_checklist_items: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecSyncBriefView {
+    pub spec: SpecDocumentView,
+    pub required_checklist_items: Vec<SpecChecklistItemView>,
+    pub coverage: Vec<SpecCoverageRecordView>,
+    pub linked_coordination_refs: Vec<SpecSyncProvenanceRecordView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

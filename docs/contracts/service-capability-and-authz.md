@@ -53,6 +53,8 @@ The contract must distinguish at least:
 - runtime-local diagnostics or observability inspection
 - future event execution control
 - future runtime-targeted read or peer enrichment
+- browser-session operator access
+- principal and repo access administration
 
 ## 4. Caller context
 
@@ -64,6 +66,25 @@ relevant:
 - coordination root identity
 - target repo or project scope
 - requested operation family
+- browser session identity when the caller is a human operator using the service UI
+
+## 4.1 Browser session and login rules
+
+The service UI must not invent a separate anonymous browser authority model.
+
+Browser access must resolve to an effective `principal_id`.
+
+The service may support at least two login families:
+
+- bring-your-own PRISM principal login, for example via a signed challenge or device-style flow
+- optional service-managed identities that are mapped to PRISM principals by the service
+
+Regardless of login family:
+
+- the authorization layer evaluates the resulting effective principal and capabilities
+- UI-triggered reads and mutations use the same capability model as MCP- or CLI-triggered
+  operations
+- the browser session is transport state, not a second source of identity truth
 
 ## 5. Strong read rules
 
@@ -104,6 +125,21 @@ inspection paths.
 
 The authority store defines semantics.
 The authorization contract defines who may invoke which semantic surface.
+
+## 8.1 Admin surface rules
+
+Service-hosted admin surfaces for principal and repo access management are service-level
+operations.
+
+They should support, at minimum:
+
+- viewing allowed principals
+- viewing repo or project membership
+- granting or revoking capability bundles or roles
+- optional request-access or approval flows later
+
+Those operations remain capability-gated administrative actions rather than ad hoc UI-only
+behavior.
 
 ## 9. Minimum implementation bar
 

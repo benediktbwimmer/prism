@@ -7,11 +7,11 @@ use prism_store::{
     CoordinationStartupCheckpointAuthority,
 };
 
+use crate::coordination_authority_api::shared_coordination_startup_authority;
 use crate::coordination_snapshot_sanitization::sanitize_persisted_coordination_snapshot;
 use crate::published_plans::{
     merge_shared_coordination_into_snapshot, HydratedCoordinationPlanState,
 };
-use crate::shared_coordination_ref::shared_coordination_startup_authority;
 use crate::util::current_timestamp;
 
 pub(crate) fn load_persisted_coordination_plan_state<S>(

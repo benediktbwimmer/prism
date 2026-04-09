@@ -288,6 +288,15 @@ pub struct SharedCoordinationRefStatusSummary {
     pub compaction_status: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SharedCoordinationRetainedHistoryEntry {
+    pub(crate) head_commit: String,
+    pub(crate) manifest_digest: Option<String>,
+    pub(crate) published_at: Option<u64>,
+    pub(crate) previous_manifest_digest: Option<String>,
+    pub(crate) summary: String,
+}
+
 pub(crate) enum SharedCoordinationRefLiveSync {
     Unchanged,
     Changed(SharedCoordinationRefState),
@@ -930,23 +939,57 @@ pub(crate) fn sync_shared_coordination_ref_state(
     Ok(())
 }
 
-pub fn sync_live_runtime_descriptor(root: &Path) -> Result<()> {
+pub(crate) fn publish_runtime_descriptor_record(
+    root: &Path,
+    descriptor: &RuntimeDescriptor,
+) -> Result<()> {
     if !git_repo_available(root) {
         return Ok(());
     }
     let mut desired_state = load_shared_coordination_ref_state_authoritative(root)?
         .unwrap_or_else(empty_shared_coordination_ref_state);
     let existing = desired_state.runtime_descriptors.clone();
-    let local = local_runtime_descriptor(root, None, Some(&existing))?;
-    desired_state.runtime_descriptors = overlay_records(&existing, &[local], |descriptor| {
-        descriptor.runtime_id.as_str()
-    });
+    desired_state.runtime_descriptors =
+        overlay_records(&existing, std::slice::from_ref(descriptor), |descriptor| {
+            descriptor.runtime_id.as_str()
+        });
     sync_shared_coordination_ref_family_state(root, &desired_state, None)?;
     record_observed_shared_coordination_head(
         root,
         authoritative_shared_coordination_state_key(root)?,
     );
     Ok(())
+}
+
+pub(crate) fn clear_runtime_descriptor_record(root: &Path, runtime_id: &str) -> Result<()> {
+    if !git_repo_available(root) {
+        return Ok(());
+    }
+    let mut desired_state = load_shared_coordination_ref_state_authoritative(root)?
+        .unwrap_or_else(empty_shared_coordination_ref_state);
+    desired_state
+        .runtime_descriptors
+        .retain(|descriptor| descriptor.runtime_id != runtime_id);
+    sync_shared_coordination_ref_family_state(root, &desired_state, None)?;
+    record_observed_shared_coordination_head(
+        root,
+        authoritative_shared_coordination_state_key(root)?,
+    );
+    Ok(())
+}
+
+pub(crate) fn build_local_runtime_descriptor_for_current_state(
+    root: &Path,
+) -> Result<RuntimeDescriptor> {
+    let existing = load_shared_coordination_ref_state_authoritative(root)?
+        .map(|state| state.runtime_descriptors)
+        .unwrap_or_default();
+    local_runtime_descriptor(root, None, Some(&existing))
+}
+
+pub fn sync_live_runtime_descriptor(root: &Path) -> Result<()> {
+    let local = build_local_runtime_descriptor_for_current_state(root)?;
+    publish_runtime_descriptor_record(root, &local)
 }
 
 fn sync_shared_coordination_ref_family_state(
@@ -1684,7 +1727,7 @@ fn load_authoritative_shared_coordination_ref_state(
         .map(Some)
 }
 
-fn load_shared_coordination_runtime_refs(root: &Path) -> Result<Vec<RuntimeDescriptor>> {
+pub(crate) fn load_shared_coordination_runtime_refs(root: &Path) -> Result<Vec<RuntimeDescriptor>> {
     let mut runtime_descriptors = load_shared_coordination_sharded_records(
         root,
         &shared_coordination_runtime_ref_prefix(root),
@@ -1773,6 +1816,60 @@ pub(crate) fn shared_coordination_startup_authority(
         head_commit: Some(head_commit),
         manifest_digest,
     }))
+}
+
+pub(crate) fn load_shared_coordination_retained_history(
+    root: &Path,
+    limit: Option<u64>,
+) -> Result<Vec<SharedCoordinationRetainedHistoryEntry>> {
+    if !git_repo_available(root) {
+        return Ok(Vec::new());
+    }
+    let ref_name = shared_coordination_ref_name(root);
+    if resolve_ref_commit(root, &ref_name)?.is_none() {
+        return Ok(Vec::new());
+    }
+    let mut args = vec!["rev-list".to_string()];
+    if let Some(limit) = limit {
+        args.push(format!("--max-count={limit}"));
+    }
+    args.push(ref_name);
+    let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+    let output = run_git(root, &arg_refs)?;
+    let mut entries = Vec::new();
+    for commit in output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
+        let manifest = load_shared_coordination_manifest_from_ref(root, commit)?;
+        let manifest_digest = manifest
+            .as_ref()
+            .map(canonical_manifest_digest)
+            .transpose()?;
+        let published_at = manifest.as_ref().map(|value| value.published_at);
+        let previous_manifest_digest = manifest
+            .as_ref()
+            .and_then(|value| value.previous_manifest_digest.clone());
+        let summary = manifest.as_ref().map_or_else(
+            || "shared coordination commit".to_string(),
+            |value| {
+                format!(
+                    "shared coordination publish at {} with {} files",
+                    value.published_at,
+                    value.files.len()
+                )
+            },
+        );
+        entries.push(SharedCoordinationRetainedHistoryEntry {
+            head_commit: commit.to_string(),
+            manifest_digest,
+            published_at,
+            previous_manifest_digest,
+            summary,
+        });
+    }
+    Ok(entries)
 }
 
 fn load_shared_coordination_ref_state_from_current_ref(
@@ -3033,8 +3130,11 @@ fn push_shared_coordination_ref_updates_atomic(
     remote: &str,
     updates: &[PreparedSharedCoordinationRefUpdate],
 ) -> Result<()> {
-    if updates.is_empty() || !git_remote_available(root, remote) {
+    if updates.is_empty() {
         return Ok(());
+    }
+    if !git_remote_available(root, remote) {
+        return apply_local_shared_coordination_ref_updates_atomic(root, updates);
     }
     let mut args = vec![
         "push".to_string(),
@@ -3048,6 +3148,62 @@ fn push_shared_coordination_ref_updates_atomic(
     let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
     let _ = run_git(root, &arg_refs)?;
     Ok(())
+}
+
+fn apply_local_shared_coordination_ref_updates_atomic(
+    root: &Path,
+    updates: &[PreparedSharedCoordinationRefUpdate],
+) -> Result<()> {
+    let mut command = Command::new("git");
+    command
+        .current_dir(root)
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_COMMON_DIR")
+        .env_remove("GIT_INDEX_FILE")
+        .env_remove("GIT_OBJECT_DIRECTORY")
+        .env_remove("GIT_ALTERNATE_OBJECT_DIRECTORIES")
+        .env("GIT_AUTHOR_NAME", "PRISM")
+        .env("GIT_AUTHOR_EMAIL", "prism@local")
+        .env("GIT_COMMITTER_NAME", "PRISM")
+        .env("GIT_COMMITTER_EMAIL", "prism@local")
+        .args(["update-ref", "--stdin"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = command.spawn().context(
+        "failed to spawn `git update-ref --stdin` for local shared coordination publish",
+    )?;
+    {
+        let mut stdin = child
+            .stdin
+            .take()
+            .context("failed to open stdin for `git update-ref --stdin`")?;
+        writeln!(stdin, "start")?;
+        for update in updates {
+            if let Some(old_commit) = resolve_ref_commit(root, &update.ref_name)? {
+                writeln!(
+                    stdin,
+                    "update {} {} {}",
+                    update.ref_name, update.new_commit, old_commit
+                )?;
+            } else {
+                writeln!(stdin, "create {} {}", update.ref_name, update.new_commit)?;
+            }
+        }
+        writeln!(stdin, "prepare")?;
+        writeln!(stdin, "commit")?;
+    }
+    let output = child
+        .wait_with_output()
+        .context("failed to wait for local shared coordination ref update transaction")?;
+    if output.status.success() {
+        return Ok(());
+    }
+    Err(anyhow!(
+        "git update-ref --stdin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    ))
 }
 
 fn maybe_compact_shared_coordination_ref(
@@ -4101,6 +4257,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -4133,6 +4290,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -4168,6 +4326,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -4200,6 +4359,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution {
                 status: prism_ir::GitExecutionStatus::CoordinationPublished,
@@ -4357,6 +4517,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -4389,6 +4550,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution {
                 status: prism_ir::GitExecutionStatus::CoordinationPublished,
@@ -4587,6 +4749,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -4619,6 +4782,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution {
                 status: prism_ir::GitExecutionStatus::CoordinationPublished,
@@ -4711,6 +4875,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -4743,6 +4908,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -4920,6 +5086,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -4952,6 +5119,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -5118,6 +5286,7 @@ mod tests {
             revision: 1,
             scheduling: PlanScheduling::default(),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             created_from: None,
             metadata: serde_json::Value::Null,
         };
@@ -5150,6 +5319,7 @@ mod tests {
             base_revision: WorkspaceRevision::default(),
             priority: Some(1),
             tags: Vec::new(),
+            spec_refs: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -5305,17 +5475,9 @@ mod tests {
             .unwrap();
         assert_eq!(
             eventual_after_initial.freshness,
-            CoordinationReadFreshness::VerifiedCurrent
+            CoordinationReadFreshness::Unavailable
         );
-        assert_eq!(
-            eventual_after_initial
-                .value
-                .as_ref()
-                .and_then(|state| state.snapshot.tasks.first())
-                .map(|task| task.title.as_str())
-                .unwrap(),
-            "ship it"
-        );
+        assert!(eventual_after_initial.value.is_none());
     }
 
     #[test]
@@ -5362,6 +5524,7 @@ mod tests {
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
+                        spec_refs: Vec::new(),
                     },
                 )?;
                 Ok::<_, anyhow::Error>((plan_id, task.id))
@@ -5449,6 +5612,7 @@ mod tests {
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
+                        spec_refs: Vec::new(),
                     },
                 )?;
                 Ok::<_, anyhow::Error>(task.id)

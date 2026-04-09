@@ -27,13 +27,12 @@ This should read as a direct architecture extension of PRISM's current model, no
 - coordination authority stays explicit and backend-defined
 - rebuildable acceleration stays disposable
 
-Local SQLite and runtime-local state are still important, but their role is different:
+Local state is still important, but its role is different:
 
-- local materialized coordination snapshots
+- service-owned coordination materialization and checkpoints
 - local checkout and worktree bindings
-- startup checkpoints
 - draft cross-repo relations and concepts before promotion
-- runtime projections and query acceleration
+- runtime-local projections and query acceleration
 
 They must **not** become the only home of durable published system knowledge or authoritative coordination state.
 
@@ -89,8 +88,9 @@ That enables workflows such as:
 - Add first-class cross-repo plans, concepts, contracts, and memories.
 - Keep published knowledge explicit and reviewable.
 - Keep coordination authority behind one explicit backend per coordination root.
-- Keep local SQLite and runtime state in a non-authoritative materialization role.
-- Support one machine-level daemon managing many repos and worktrees.
+- Keep service-owned coordination materialization and runtime-local state in a non-authoritative
+  role.
+- Support one machine-level PRISM Service managing many repos and worktrees.
 - Support future multi-machine coordination without redefining the data model.
 - Avoid blurring repo-local truth, project truth, configured coordination authority, local
   bindings, and rebuildable caches.
@@ -101,7 +101,8 @@ That enables workflows such as:
 - Do not make local SQLite or any future backend the sole home of durable cross-repo truth.
 - Do not duplicate all repo-local concepts and contracts into the project repo.
 - Do not require one database per worktree.
-- Do not require a remote backend in the first implementation.
+- Do not require a hosted remote backend in the first implementation; a local PRISM Service is a
+  valid deployment.
 - Do not make project scope mandatory for all repos.
 
 ---
@@ -152,13 +153,15 @@ That means:
 
 - project-scoped plans, tasks, claims, artifacts, and reviews are committed through one authority
   backend for that root
-- Git shared refs are the initial and default backend
-- PostgreSQL may later be added as an alternative authority backend with the same coordination
+- the first release-oriented backend family should be DB-backed
+- PostgreSQL is the first production-grade project authority backend
+- SQLite remains the single-instance or local-service DB-backed option
+- Git shared refs remain a serious later or advanced authority backend with the same coordination
   semantics
 - compare-and-swap, replay, and semantic merge remain backend-defined implementations of one
   coordination conflict contract
-- local SQLite and runtime state materialize committed authority results for fast reads and restart
-  acceleration
+- service-owned coordination materialization may cache committed authority results for fast reads
+  and restart acceleration
 - machine-local checkout bindings remain local and non-authoritative
 
 Cross-repo coordination should therefore extend the existing coordination semantics rather than
@@ -169,8 +172,9 @@ introducing a second mutable authority plane.
 Even with project scope, the live serving model remains:
 
 - one `WorkspaceRuntimeEngine` per worktree/workspace context
-- optional project-scoped coordination state materialized above repo scope
-- one machine-level daemon as the normal operating shape
+- one machine-level or hosted PRISM Service as the normal coordination host
+- optional project-scoped coordination state materialized by that service above repo scope
+- one machine-level service as the normal operating shape
 
 The project scope does **not** replace repo-scoped runtime state or worktree-scoped hot state.
 

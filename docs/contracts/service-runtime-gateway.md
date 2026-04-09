@@ -15,6 +15,7 @@ This role exists so that:
 - runtime connectivity and runtime-targeted access have one owner inside the service
 - runtime-local information does not leak into the authority path accidentally
 - local and hosted runtime modeling use one gateway boundary
+- runtimes participate in coordination as service clients rather than as mini coordination stores
 
 ## 2. Responsibilities
 
@@ -25,6 +26,7 @@ The runtime gateway owns:
 - local fanout notifications to connected runtimes
 - runtime-targeted read serving when allowed
 - runtime-local diagnostics and packet access when allowed
+- coordination-facing runtime registration and reachability checks
 
 ## 3. Non-goals
 
@@ -48,6 +50,12 @@ This role is a client of:
 
 The runtime gateway must preserve the rule that runtime-local data is not authority unless another
 contract explicitly promotes a bounded summary into authority.
+
+It must also preserve the rule that:
+
+- interactive coordination participation requires a reachable PRISM Service
+- runtimes do not fall back to runtime-owned coordination materialization when the service is
+  unavailable
 
 ## 6. Minimum implementation bar
 

@@ -2038,6 +2038,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "prism-coordination",
  "prism-core",
  "prism-ir",
  "prism-memory",
@@ -2091,11 +2092,14 @@ dependencies = [
  "prism-parser",
  "prism-projections",
  "prism-query",
+ "prism-spec",
  "prism-store",
  "rand 0.8.5",
+ "rusqlite",
  "serde",
  "serde_jcs",
  "serde_json",
+ "serde_yaml",
  "sha2",
  "smol_str",
  "tar",
@@ -2302,10 +2306,26 @@ dependencies = [
  "prism-ir",
  "prism-memory",
  "prism-projections",
+ "prism-spec",
  "prism-store",
  "serde",
  "serde_json",
  "tracing",
+]
+
+[[package]]
+name = "prism-spec"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "prism-coordination",
+ "prism-ir",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "walkdir",
 ]
 
 [[package]]

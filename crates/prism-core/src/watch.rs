@@ -10,9 +10,8 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
 use prism_coordination::{
-    assisted_heartbeat_window, coordination_queue_read_model_from_snapshot,
-    coordination_read_model_from_snapshot, CoordinationPolicy, CoordinationTask,
-    LeaseHeartbeatDueState, LeaseState, WorkClaim,
+    assisted_heartbeat_window, CoordinationPolicy, CoordinationTask, LeaseHeartbeatDueState,
+    LeaseState, WorkClaim,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
@@ -23,28 +22,24 @@ use prism_ir::{
 use prism_memory::OutcomeMemory;
 use prism_projections::ProjectionIndex;
 use prism_query::Prism;
-use prism_store::{CoordinationCheckpointStore, CoordinationJournal};
 use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, info, warn};
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
+use crate::coordination_authority_sync::sync_coordination_authority_update;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
-use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::curator::{enqueue_curator_for_observed_async, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
 use crate::layout::discover_layout;
 use crate::observed_change_tracker::SharedObservedChangeTracker;
 use crate::protected_state::runtime_sync::{
+    build_runtime_state_with_materialized_coordination_state,
     load_repo_protected_knowledge_for_runtime, load_repo_protected_plan_state,
     sync_selected_repo_protected_state, ProtectedStateImportSelection,
 };
 use crate::protected_state::streams::{classify_protected_repo_relative_path, ProtectedRepoStream};
 use crate::session::{
     WorkspaceRefreshBreakdown, WorkspaceRefreshResult, WorkspaceRefreshState, WorkspaceSession,
-};
-use crate::shared_coordination_ref::{
-    poll_shared_coordination_ref_live_sync, SharedCoordinationRefLiveSync,
-    SharedCoordinationRefState,
 };
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::current_timestamp;
@@ -584,20 +579,31 @@ fn refresh_prism_snapshot_with_guard(
         match indexer.index_with_refresh_plan_and_meta(trigger.clone(), &plan, observed_meta) {
             Ok(observed) => observed,
             Err(error) => {
-                let mut fallback_graph = Graph::from_snapshot(current_prism.graph().snapshot());
-                fallback_graph.bind_workspace_root(root);
+                let fallback_state = if coordination_enabled {
+                    let mut local_store = store.lock().expect("workspace store lock poisoned");
+                    build_runtime_state_with_materialized_coordination_state(
+                        root,
+                        &mut *local_store,
+                        current_prism.as_ref(),
+                        next_layout,
+                    )?
+                } else {
+                    let mut fallback_graph = Graph::from_snapshot(current_prism.graph().snapshot());
+                    fallback_graph.bind_workspace_root(root);
+                    WorkspaceRuntimeState::new(
+                        next_layout,
+                        fallback_graph,
+                        HistoryStore::from_snapshot(current_prism.history_snapshot()),
+                        OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
+                        Default::default(),
+                        Vec::new(),
+                        ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
+                        current_prism.runtime_capabilities(),
+                    )
+                };
                 *runtime_state
                     .lock()
-                    .expect("workspace runtime state lock poisoned") = WorkspaceRuntimeState::new(
-                    next_layout,
-                    fallback_graph,
-                    HistoryStore::from_snapshot(current_prism.history_snapshot()),
-                    OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
-                    current_prism.coordination_snapshot(),
-                    current_prism.runtime_descriptors(),
-                    ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
-                    current_prism.runtime_capabilities(),
-                );
+                    .expect("workspace runtime state lock poisoned") = fallback_state;
                 return Err(error);
             }
         };
@@ -632,13 +638,10 @@ fn refresh_prism_snapshot_with_guard(
         let assisted_lease_started = Instant::now();
         match maybe_auto_heartbeat_assisted_leases(root, next.prism_arc().as_ref(), store) {
             Ok(true) => {
-                let prism = next.prism_arc();
-                next_state.replace_coordination_runtime(
-                    prism.coordination_snapshot(),
-                    prism.runtime_descriptors(),
-                );
                 let republish_started = Instant::now();
-                next = next_state.publish_generation(
+                next = publish_local_assisted_lease_overlay_generation(
+                    &mut next_state,
+                    &next.prism_arc(),
                     published_workspace_revision.clone(),
                     coordination_context.clone(),
                 );
@@ -726,6 +729,20 @@ fn refresh_prism_snapshot_with_guard(
         observed,
         breakdown,
     })
+}
+
+fn publish_local_assisted_lease_overlay_generation(
+    runtime_state: &mut WorkspaceRuntimeState,
+    prism: &Arc<Prism>,
+    workspace_revision: prism_ir::WorkspaceRevision,
+    coordination_context: Option<prism_store::CoordinationPersistContext>,
+) -> WorkspacePublishedGeneration {
+    // Assisted lease heartbeats are a local liveness overlay, not authoritative coordination.
+    // Republish the runtime generation with the live overlay snapshot, but do not treat it as a
+    // service-backed current-state application or materialization write.
+    runtime_state
+        .replace_coordination_runtime(prism.coordination_snapshot(), prism.runtime_descriptors());
+    runtime_state.publish_generation(workspace_revision, coordination_context)
 }
 
 #[derive(Debug, Clone)]
@@ -866,13 +883,11 @@ fn select_assisted_lease_target(
     now: u64,
 ) -> Option<AssistedLeaseTarget> {
     let task_targets = prism
-        .coordination_snapshot()
-        .tasks
+        .coordination_tasks()
         .into_iter()
         .filter_map(|task| assisted_task_target(prism, worktree_id, task, now));
     let claim_targets = prism
-        .coordination_snapshot()
-        .claims
+        .coordination_claims()
         .into_iter()
         .filter_map(|claim| assisted_claim_target(prism, worktree_id, claim, now));
     let mut targets = task_targets.chain(claim_targets).collect::<Vec<_>>();
@@ -1216,16 +1231,7 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
     coordination_runtime_revision: &Arc<AtomicU64>,
     coordination_enabled: bool,
 ) -> Result<()> {
-    if !coordination_enabled {
-        return Ok(());
-    }
-    let SharedCoordinationRefLiveSync::Changed(shared) =
-        poll_shared_coordination_ref_live_sync(root)?
-    else {
-        return Ok(());
-    };
-
-    apply_shared_coordination_ref_watch_state(
+    sync_coordination_authority_update(
         root,
         published_generation,
         runtime_state,
@@ -1234,85 +1240,8 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
         refresh_lock,
         loaded_workspace_revision,
         coordination_runtime_revision,
-        &shared,
+        coordination_enabled,
     )
-}
-
-fn apply_shared_coordination_ref_watch_state(
-    root: &Path,
-    published_generation: &Arc<RwLock<WorkspacePublishedGeneration>>,
-    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
-    store: &Arc<Mutex<SqliteStore>>,
-    cold_query_store: &Arc<Mutex<SqliteStore>>,
-    refresh_lock: &Arc<Mutex<()>>,
-    loaded_workspace_revision: &Arc<AtomicU64>,
-    coordination_runtime_revision: &Arc<AtomicU64>,
-    shared: &SharedCoordinationRefState,
-) -> Result<()> {
-    let _guard = refresh_lock
-        .lock()
-        .expect("shared coordination ref refresh lock poisoned");
-
-    let local_workspace_revision = store
-        .lock()
-        .expect("workspace store lock poisoned")
-        .workspace_revision()?;
-    let persisted_coordination_revision = store
-        .lock()
-        .expect("workspace store lock poisoned")
-        .coordination_revision()?;
-    let mut next_state = runtime_state
-        .lock()
-        .expect("workspace runtime state lock poisoned")
-        .clone();
-    save_shared_coordination_startup_checkpoint(
-        root,
-        &mut *store.lock().expect("workspace store lock poisoned"),
-        &shared.snapshot,
-        &shared.canonical_snapshot_v2,
-        Some(&shared.runtime_descriptors),
-    )?;
-    next_state
-        .replace_coordination_runtime(shared.snapshot.clone(), shared.runtime_descriptors.clone());
-    let next = next_state.publish_generation(
-        prism_ir::WorkspaceRevision {
-            graph_version: local_workspace_revision,
-            git_commit: None,
-        },
-        Some(coordination_persist_context_for_root(root, None)),
-    );
-    WorkspaceSession::attach_cold_query_backends(next.prism_arc().as_ref(), cold_query_store);
-    *runtime_state
-        .lock()
-        .expect("workspace runtime state lock poisoned") = next_state;
-    *published_generation
-        .write()
-        .expect("workspace published generation lock poisoned") = next;
-    loaded_workspace_revision.store(local_workspace_revision, Ordering::Relaxed);
-    let next_coordination_revision = coordination_runtime_revision
-        .load(Ordering::Relaxed)
-        .max(persisted_coordination_revision)
-        .saturating_add(1);
-    {
-        let mut store = store.lock().expect("workspace store lock poisoned");
-        let mut read_model = coordination_read_model_from_snapshot(&shared.snapshot);
-        read_model.revision = next_coordination_revision;
-        store.save_coordination_read_model(&read_model)?;
-        let mut queue_read_model = coordination_queue_read_model_from_snapshot(&shared.snapshot);
-        queue_read_model.revision = next_coordination_revision;
-        store.save_coordination_queue_read_model(&queue_read_model)?;
-    }
-    coordination_runtime_revision.store(next_coordination_revision, Ordering::Relaxed);
-    info!(
-        root = %root.display(),
-        plan_count = shared.snapshot.plans.len(),
-        task_count = shared.snapshot.tasks.len(),
-        claim_count = shared.snapshot.claims.len(),
-        artifact_count = shared.snapshot.artifacts.len(),
-        review_count = shared.snapshot.reviews.len(),
-        "applied shared coordination ref live sync"
-    );
-    Ok(())
 }
 
 fn is_ignored_watch_relative_path(relative: &Path) -> bool {
@@ -1372,9 +1301,10 @@ mod tests {
     use std::sync::atomic::Ordering;
     use std::sync::{Mutex, OnceLock};
 
-    use crate::shared_coordination_ref::SharedCoordinationRefState;
+    use crate::coordination_authority_sync::apply_coordination_authority_current_state;
     use crate::util::current_timestamp;
     use crate::workspace_identity::coordination_persist_context_for_root;
+    use crate::CoordinationCurrentState;
     use crate::{
         index_workspace_session_with_options, SharedRuntimeBackend, WorkspaceSessionOptions,
     };
@@ -1572,7 +1502,7 @@ mod tests {
         session
             .loaded_workspace_revision
             .store(0, Ordering::Relaxed);
-        super::apply_shared_coordination_ref_watch_state(
+        apply_coordination_authority_current_state(
             &root,
             &session.published_generation,
             &session.runtime_state,
@@ -1581,7 +1511,7 @@ mod tests {
             &session.refresh_lock,
             &session.loaded_workspace_revision,
             &session.coordination_runtime_revision,
-            &SharedCoordinationRefState {
+            &CoordinationCurrentState {
                 snapshot: Default::default(),
                 canonical_snapshot_v2: Default::default(),
                 runtime_descriptors: Vec::new(),
@@ -1673,6 +1603,7 @@ mod tests {
                         lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
                         ..CoordinationPolicy::default()
                     }),
+                    spec_refs: Vec::new(),
                 },
             )
             .unwrap();
@@ -1697,6 +1628,7 @@ mod tests {
                     integrated_depends_on: Vec::new(),
                     acceptance: Vec::new(),
                     base_revision: prism_ir::WorkspaceRevision::default(),
+                    spec_refs: Vec::new(),
                 },
             )
             .unwrap();
@@ -1705,12 +1637,7 @@ mod tests {
         let mut store = MemoryStore::default();
         let worktree_id = super::workspace_identity_for_root(root.as_path()).worktree_id;
         let target = super::select_assisted_lease_target(&prism, &worktree_id, current_timestamp())
-            .unwrap_or_else(|| {
-                panic!(
-                    "missing assisted target: {:?}",
-                    prism.coordination_snapshot().tasks
-                )
-            });
+            .unwrap_or_else(|| panic!("missing assisted target: {:?}", prism.coordination_tasks()));
         assert!(matches!(
             target.due_state(&prism, current_timestamp()),
             prism_coordination::LeaseHeartbeatDueState::DueSoon
@@ -1787,6 +1714,7 @@ mod tests {
                         lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
                         ..CoordinationPolicy::default()
                     }),
+                    spec_refs: Vec::new(),
                 },
             )
             .unwrap();
@@ -1812,6 +1740,7 @@ mod tests {
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         base_revision: prism_ir::WorkspaceRevision::default(),
+                        spec_refs: Vec::new(),
                     },
                 )
                 .unwrap();

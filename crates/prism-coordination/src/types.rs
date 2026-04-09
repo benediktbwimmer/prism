@@ -107,6 +107,29 @@ pub struct AcceptanceCriterion {
     pub anchors: Vec<AnchorRef>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationSpecRef {
+    pub spec_id: String,
+    pub source_path: String,
+    #[serde(default)]
+    pub source_revision: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTaskSpecRef {
+    pub spec_id: String,
+    pub source_path: String,
+    #[serde(default)]
+    pub source_revision: Option<String>,
+    pub sync_kind: String,
+    #[serde(default)]
+    pub covered_checklist_items: Vec<String>,
+    #[serde(default)]
+    pub covered_sections: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Plan {
     pub id: PlanId,
@@ -127,6 +150,8 @@ pub struct Plan {
     pub tags: Vec<String>,
     #[serde(default)]
     pub created_from: Option<String>,
+    #[serde(default)]
+    pub spec_refs: Vec<CoordinationSpecRef>,
     #[serde(default)]
     pub metadata: Value,
 }
@@ -179,6 +204,8 @@ pub struct CoordinationTask {
     pub priority: Option<u8>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub spec_refs: Vec<CoordinationTaskSpecRef>,
     #[serde(default)]
     pub metadata: Value,
     #[serde(default)]
@@ -407,6 +434,7 @@ pub struct PlanCreateInput {
     pub goal: String,
     pub status: Option<PlanStatus>,
     pub policy: Option<CoordinationPolicy>,
+    pub spec_refs: Vec<CoordinationSpecRef>,
 }
 
 #[derive(Debug, Clone)]
@@ -416,6 +444,7 @@ pub struct PlanUpdateInput {
     pub status: Option<PlanStatus>,
     pub goal: Option<String>,
     pub policy: Option<CoordinationPolicy>,
+    pub spec_refs: Option<Vec<CoordinationSpecRef>>,
 }
 
 #[derive(Debug, Clone)]
@@ -433,6 +462,7 @@ pub struct TaskCreateInput {
     pub integrated_depends_on: Vec<CoordinationTaskId>,
     pub acceptance: Vec<AcceptanceCriterion>,
     pub base_revision: WorkspaceRevision,
+    pub spec_refs: Vec<CoordinationTaskSpecRef>,
 }
 
 #[derive(Debug, Clone)]
@@ -459,6 +489,7 @@ pub struct TaskUpdateInput {
     pub base_revision: Option<WorkspaceRevision>,
     pub priority: Option<Option<u8>>,
     pub tags: Option<Vec<String>>,
+    pub spec_refs: Option<Vec<CoordinationTaskSpecRef>>,
     pub completion_context: Option<TaskCompletionContext>,
 }
 

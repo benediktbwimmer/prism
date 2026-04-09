@@ -22,8 +22,12 @@ use prism_store::{
 };
 use tracing::warn;
 
+use crate::coordination_materialized_store::{
+    CoordinationCompactionWriteRequest, CoordinationMaterializedStore,
+    CoordinationReadModelsWriteRequest, CoordinationStartupCheckpointWriteRequest,
+    SqliteCoordinationMaterializedStore,
+};
 use crate::coordination_persistence::repo_semantic_coordination_snapshot;
-use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::memory_refresh::reanchor_episodic_snapshot;
 use crate::tracked_snapshot::{sync_coordination_snapshot_state, TrackedSnapshotPublishContext};
 
@@ -471,12 +475,17 @@ where
     read_model.revision = materialization.authoritative_revision;
     let mut queue_model = coordination_queue_read_model_from_snapshot(&materialization.snapshot);
     queue_model.revision = materialization.authoritative_revision;
-    store.save_coordination_read_model(&read_model)?;
-    store.save_coordination_queue_read_model(&queue_model)?;
-    if store.load_coordination_event_stream()?.suffix_events.len()
-        >= COORDINATION_COMPACTION_SUFFIX_THRESHOLD
-    {
-        store.save_coordination_compaction(&materialization.snapshot)?;
+    let materialized_store = SqliteCoordinationMaterializedStore::new(root);
+    materialized_store.write_read_models(CoordinationReadModelsWriteRequest {
+        read_model,
+        queue_read_model: queue_model,
+    })?;
+    let should_compact = store.load_coordination_event_stream()?.suffix_events.len()
+        >= COORDINATION_COMPACTION_SUFFIX_THRESHOLD;
+    if should_compact {
+        materialized_store.write_compaction(CoordinationCompactionWriteRequest {
+            snapshot: materialization.snapshot.clone(),
+        })?;
     }
     if let Some(canonical_snapshot_v2) = materialization.canonical_snapshot_v2.as_ref() {
         let repo_semantic_snapshot =
@@ -487,13 +496,14 @@ where
             materialization.publish_context.as_ref(),
             Some(materialization.authoritative_revision),
         )?;
-        save_shared_coordination_startup_checkpoint(
-            root,
-            store,
-            &repo_semantic_snapshot,
-            canonical_snapshot_v2,
-            materialization.runtime_descriptors.as_deref(),
-        )?;
+        materialized_store.write_startup_checkpoint(CoordinationStartupCheckpointWriteRequest {
+            snapshot: repo_semantic_snapshot,
+            canonical_snapshot_v2: canonical_snapshot_v2.clone(),
+            runtime_descriptors: materialization
+                .runtime_descriptors
+                .clone()
+                .unwrap_or_default(),
+        })?;
     }
     Ok(())
 }

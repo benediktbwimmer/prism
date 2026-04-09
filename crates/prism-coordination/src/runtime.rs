@@ -553,6 +553,30 @@ impl CoordinationRuntimeState {
             .collect()
     }
 
+    pub fn tasks_in_scope(&self, worktree_id: Option<&str>) -> Vec<CoordinationTask> {
+        let mut tasks = self
+            .state
+            .tasks
+            .values()
+            .filter(|task| task_matches_worktree_scope(task, worktree_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        tasks.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+        tasks
+    }
+
+    pub fn claims_in_scope(&self, worktree_id: Option<&str>) -> Vec<WorkClaim> {
+        let mut claims = self
+            .state
+            .claims
+            .values()
+            .filter(|claim| claim_matches_worktree_scope(claim, worktree_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        claims.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+        claims
+    }
+
     pub fn artifacts(&self, task_id: &prism_ir::CoordinationTaskId) -> Vec<Artifact> {
         self.artifacts_in_scope(task_id, None)
     }
@@ -647,5 +671,19 @@ impl CoordinationRuntimeState {
     ) -> Option<Artifact> {
         let artifact = self.state.artifacts.get(artifact_id)?;
         artifact_matches_worktree_scope(artifact, worktree_id).then(|| artifact.clone())
+    }
+
+    pub fn review(&self, review_id: &ReviewId) -> Option<ArtifactReview> {
+        self.review_in_scope(review_id, None)
+    }
+
+    pub fn review_in_scope(
+        &self,
+        review_id: &ReviewId,
+        worktree_id: Option<&str>,
+    ) -> Option<ArtifactReview> {
+        let review = self.state.reviews.get(review_id)?;
+        let artifact = self.state.artifacts.get(&review.artifact)?;
+        artifact_matches_worktree_scope(artifact, worktree_id).then(|| review.clone())
     }
 }

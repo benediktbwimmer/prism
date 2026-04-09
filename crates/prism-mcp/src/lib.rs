@@ -1,6 +1,9 @@
 use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
+use prism_coordination::{
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
+};
 use prism_core::{
     default_workspace_shared_runtime, hydrate_workspace_session_with_options,
     ActiveWorkContextBinding, PrismRuntimeMode, SharedRuntimeBackend, WorkspaceSession,
@@ -59,6 +62,7 @@ mod memory_metadata;
 mod mutation_provenance;
 mod mutation_trace;
 mod peer_runtime_router;
+mod plan_surface;
 mod process_lifecycle;
 mod proxy_server;
 mod query_errors;
@@ -74,28 +78,34 @@ mod query_view_materialization;
 mod query_view_playbook;
 mod query_view_validation_plan;
 mod query_views;
+mod read_broker;
 mod refresh_phases;
 mod request_envelope;
 mod resource_schemas;
 mod resource_trace;
 mod resources;
+mod runtime_freshness_surface;
 mod runtime_state;
 mod runtime_views;
 mod schema_examples;
 mod self_description;
 mod semantic_contexts;
 mod server_surface;
+mod service_shell;
 mod serving_projection_models;
 mod session_seed;
 mod session_state;
 mod slow_call_snapshot;
 mod spec_insights;
+mod spec_surface;
 mod ssr_console;
 mod suggested_queries;
 mod task_journal;
+mod task_surface;
 mod text_search;
 mod tool_args;
 mod tool_schemas;
+mod trust_surface;
 mod ui_assets;
 mod ui_credentials;
 mod ui_identity;
@@ -125,6 +135,7 @@ use diagnostics_state::DiagnosticsState;
 use discovery_bundle::*;
 use discovery_helpers::*;
 pub use features::{CoordinationFeatureFlag, PrismMcpFeatures, QueryViewFeatureFlag};
+use host_mutations::WorkspaceMutationBroker;
 use js_runtime::JsWorkerPool;
 use lease_advice::*;
 use lineage_views::*;
@@ -140,6 +151,9 @@ use query_helpers::*;
 use query_log::*;
 use query_runtime::*;
 use query_types::*;
+use read_broker::{
+    current_coordination_surface_for_workspace, CurrentCoordinationSurface, WorkspaceReadBroker,
+};
 use request_envelope::*;
 use resource_schemas::*;
 use resources::*;
@@ -147,9 +161,8 @@ use runtime_state::*;
 use schema_examples::*;
 use self_description::*;
 use semantic_contexts::*;
-use session_seed::{
-    load_session_seed, persist_session_seed, restore_session_seed, PersistedSessionSeed,
-};
+use service_shell::WorkspaceServiceShell;
+use session_seed::{persist_session_seed, restore_session_seed};
 use session_state::SessionState;
 use spec_insights::*;
 use suggested_queries::*;
@@ -159,7 +172,8 @@ use tool_schemas::*;
 use views::*;
 use vocab_resource::*;
 use vocabulary::*;
-use workspace_host::{WorkspaceRuntimeBinding, WorkspaceRuntimeHost};
+use workspace_host::WorkspaceRuntimeBinding;
+use workspace_runtime::WorkspaceAuthoritySyncOwner;
 
 const DEFAULT_SEARCH_LIMIT: usize = 20;
 const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
@@ -520,15 +534,6 @@ impl PrismMcpServer {
         let prism_started = std::time::Instant::now();
         let prism = session.prism_arc();
         let get_prism_ms = prism_started.elapsed().as_millis();
-        if features.coordination_layer_enabled() {
-            if let Err(error) = prism_core::sync_live_runtime_descriptor(root) {
-                debug!(
-                    error = %error,
-                    root = %root.display(),
-                    "failed to publish shared coordination runtime descriptor on server startup"
-                );
-            }
-        }
         info!(
             root = %root.display(),
             node_count = prism.graph().node_count(),
@@ -657,8 +662,7 @@ struct QueryHost {
     pub(crate) mcp_call_log_store: Arc<McpCallLogStore>,
     diagnostics_state: Arc<DiagnosticsState>,
     next_mutation_trace_id: Arc<AtomicU64>,
-    workspace_runtime_binding: Option<Arc<WorkspaceRuntimeBinding>>,
-    restored_session_seed: Option<PersistedSessionSeed>,
+    workspace_service_shell: Option<Arc<WorkspaceServiceShell>>,
     features: PrismMcpFeatures,
     #[cfg(test)]
     test_session: OnceLock<Arc<SessionState>>,
@@ -772,8 +776,7 @@ impl QueryHost {
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(None)),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             next_mutation_trace_id: Arc::new(AtomicU64::new(1)),
-            workspace_runtime_binding: None,
-            restored_session_seed: None,
+            workspace_service_shell: None,
             features: features.clone(),
             #[cfg(test)]
             test_session: OnceLock::new(),
@@ -842,31 +845,14 @@ impl QueryHost {
         let inferred_edges = Arc::new(InferenceStore::new());
         let mcp_call_log_store = Arc::new(McpCallLogStore::for_root(Some(workspace.root())));
         let diagnostics_state = Arc::new(DiagnosticsState::default());
-        let workspace_runtime_host = Arc::new(WorkspaceRuntimeHost::new());
-        let workspace_runtime_binding = workspace_runtime_host.bind_workspace(
+        let workspace_service_shell = Arc::new(WorkspaceServiceShell::bind_workspace(
             Arc::clone(&workspace),
             Arc::clone(&notes),
             Arc::clone(&inferred_edges),
             Arc::clone(&diagnostics_state),
             Arc::clone(&mcp_call_log_store),
-            features.runtime_diagnostics_auto_refresh,
-        );
-        if features.coordination_layer_enabled() {
-            if let Err(error) = prism_core::sync_live_runtime_descriptor(workspace.root()) {
-                debug!(
-                    error = %error,
-                    root = %workspace.root().display(),
-                    "failed to publish shared coordination runtime descriptor for query host"
-                );
-            }
-        }
-        let restored_session_seed = match load_session_seed(workspace.root()) {
-            Ok(seed) => seed,
-            Err(error) => {
-                debug!(error = %error, "failed to load persisted session seed");
-                None
-            }
-        };
+            &features,
+        ));
         Self {
             prism: Arc::clone(&prism),
             notes,
@@ -877,8 +863,7 @@ impl QueryHost {
             mcp_call_log_store,
             diagnostics_state,
             next_mutation_trace_id: Arc::new(AtomicU64::new(1)),
-            workspace_runtime_binding: Some(Arc::clone(&workspace_runtime_binding)),
-            restored_session_seed,
+            workspace_service_shell: Some(Arc::clone(&workspace_service_shell)),
             features,
             #[cfg(test)]
             test_session: OnceLock::new(),
@@ -892,7 +877,10 @@ impl QueryHost {
             Arc::clone(&self.next_event),
             self.default_limits,
         ));
-        if let Some(seed) = self.restored_session_seed.as_ref() {
+        if let Some(seed) = self
+            .workspace_service_shell()
+            .and_then(|shell| shell.restored_session_seed())
+        {
             restore_session_seed(session.as_ref(), seed);
         }
         self.sync_workspace_active_work_context(session.as_ref());
@@ -1003,14 +991,94 @@ impl QueryHost {
         Ok(self.session_view_without_refresh(session))
     }
 
+    pub(crate) fn workspace_service_shell(&self) -> Option<&Arc<WorkspaceServiceShell>> {
+        self.workspace_service_shell.as_ref()
+    }
+
+    pub(crate) fn workspace_read_broker(&self) -> Option<&Arc<WorkspaceReadBroker>> {
+        self.workspace_service_shell()
+            .map(|shell| shell.read_broker())
+    }
+
+    pub(crate) fn workspace_mutation_broker(&self) -> Option<&Arc<WorkspaceMutationBroker>> {
+        self.workspace_service_shell()
+            .map(|shell| shell.mutation_broker())
+    }
+
+    pub(crate) fn workspace_authority_sync_owner(
+        &self,
+    ) -> Option<&Arc<WorkspaceAuthoritySyncOwner>> {
+        self.workspace_service_shell()
+            .map(|shell| shell.authority_sync_owner())
+    }
+
     pub(crate) fn current_prism(&self) -> Arc<Prism> {
-        self.workspace_runtime_binding_ref()
-            .map(|binding| binding.workspace().prism_arc())
+        self.workspace_read_broker()
+            .map(|broker| broker.current_prism())
             .unwrap_or_else(|| Arc::clone(&self.prism))
     }
 
+    pub(crate) fn refresh_workspace(&self) -> Result<()> {
+        let Some(owner) = self.workspace_authority_sync_owner() else {
+            return Ok(());
+        };
+        owner.refresh_workspace()
+    }
+
+    pub(crate) fn observe_workspace_for_read(&self) -> Result<WorkspaceRefreshReport> {
+        let Some(owner) = self.workspace_authority_sync_owner() else {
+            return Ok(WorkspaceRefreshReport::none());
+        };
+        owner.observe_workspace_for_read()
+    }
+
+    pub(crate) fn refresh_workspace_for_mutation(&self) -> Result<WorkspaceRefreshReport> {
+        let Some(owner) = self.workspace_authority_sync_owner() else {
+            return Ok(WorkspaceRefreshReport::none());
+        };
+        owner.refresh_workspace_for_mutation()
+    }
+
+    pub(crate) fn current_coordination_surface(&self) -> Result<CurrentCoordinationSurface> {
+        if let Some(broker) = self.workspace_read_broker() {
+            return broker.current_coordination_surface();
+        }
+        current_coordination_surface_for_workspace(None, Arc::clone(&self.prism))
+    }
+
+    pub(crate) fn current_coordination_snapshot(&self) -> Result<CoordinationSnapshot> {
+        if let Some(broker) = self.workspace_read_broker() {
+            return broker.current_coordination_snapshot();
+        }
+        Ok(self.current_coordination_surface()?.snapshot)
+    }
+
+    pub(crate) fn current_coordination_snapshot_v2(&self) -> Result<CoordinationSnapshotV2> {
+        if let Some(broker) = self.workspace_read_broker() {
+            return broker.current_coordination_snapshot_v2();
+        }
+        Ok(self.current_coordination_surface()?.snapshot_v2)
+    }
+
+    pub(crate) fn current_coordination_read_model(&self) -> Result<CoordinationReadModel> {
+        if let Some(broker) = self.workspace_read_broker() {
+            return broker.current_coordination_read_model();
+        }
+        Ok(self.current_coordination_surface()?.read_model)
+    }
+
+    pub(crate) fn current_coordination_queue_read_model(
+        &self,
+    ) -> Result<CoordinationQueueReadModel> {
+        if let Some(broker) = self.workspace_read_broker() {
+            return broker.current_coordination_queue_read_model();
+        }
+        Ok(self.current_coordination_surface()?.queue_read_model)
+    }
+
     pub(crate) fn workspace_runtime_binding_ref(&self) -> Option<&Arc<WorkspaceRuntimeBinding>> {
-        self.workspace_runtime_binding.as_ref()
+        self.workspace_service_shell()
+            .map(|shell| shell.workspace_runtime_binding())
     }
 
     pub(crate) fn diagnostics_state(&self) -> Arc<DiagnosticsState> {

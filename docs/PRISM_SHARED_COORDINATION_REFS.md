@@ -2,7 +2,7 @@
 
 Status: implemented architecture with validated coverage
 Audience: PRISM core, coordination, storage, git execution, and MCP maintainers
-Scope: shared multi-agent coordination without an external database
+Scope: implemented Git-backed coordination authority backend and protocol
 
 Concurrent-write replay, semantic merge, and deterministic rejection rules are defined in
 [PRISM_COORDINATION_CONFLICT_HANDLING.md](./PRISM_COORDINATION_CONFLICT_HANDLING.md).
@@ -11,10 +11,10 @@ Concurrent-write replay, semantic merge, and deterministic rejection rules are d
 
 ## 1. Summary
 
-PRISM uses a dedicated shared Git ref namespace as its authoritative cross-branch
-coordination plane.
+PRISM has an implemented dedicated shared Git ref namespace as one authoritative cross-branch
+coordination backend.
 
-This replaces the need for a separate shared remote database for durable coordination state such as:
+It can carry durable coordination state such as:
 
 - active plans
 - task status
@@ -32,8 +32,15 @@ The core idea is:
 - PRISM reads and writes that shared ref with fetch, verify, compare-and-swap push, and retry
   semantics
 
-This gives PRISM one repo-native shared control plane, keeps history auditable in Git, and avoids
-splitting truth across Git plus an external coordination service.
+This gives PRISM one repo-native shared control plane and keeps history auditable in Git.
+
+This document no longer defines the primary release path for PRISM coordination. The accepted
+release ordering is:
+
+- DB-backed authority first
+- Postgres as the first production-grade hosted backend
+- SQLite as the single-instance DB-backed backend
+- Git shared refs as an implemented serious backend that continues to mature
 
 ### 1.1 Implemented coverage and closure status
 
@@ -66,7 +73,8 @@ shared coordination ref as a startup database:
 No items in the matrix below remain intentionally deferred. The matrix is now a closure record for
 the work that brought this document from target design to implemented reality.
 
-Pre-v1 follow-up: this document describes the implemented baseline. The compatibility contract and
+Pre-v1 follow-up: this document describes the implemented Git-backed baseline. The compatibility
+contract and
 1000-agent-scale topology that should replace the single live ref as the hot write path are defined
 in `docs/PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`.
 

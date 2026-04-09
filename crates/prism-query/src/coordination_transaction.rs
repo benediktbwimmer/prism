@@ -1,15 +1,17 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 
 use anyhow::{anyhow, Result};
 use prism_coordination::{
     AcceptanceCriterion, CoordinationPolicy, CoordinationRuntimeState, CoordinationSnapshot,
-    PlanCreateInput, PlanScheduling, PlanUpdateInput, TaskCompletionContext, TaskCreateInput,
-    TaskGitExecution, TaskUpdateInput,
+    CoordinationSpecRef, CoordinationTaskSpecRef, PlanCreateInput, PlanScheduling, PlanUpdateInput,
+    TaskCompletionContext, TaskCreateInput, TaskGitExecution, TaskUpdateInput,
 };
 use prism_ir::{
     AgentId, AnchorRef, CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus, EventId,
     EventMeta, PlanBinding, PlanId, PlanStatus, SessionId, ValidationRef, WorkspaceRevision,
 };
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::Prism;
@@ -76,6 +78,7 @@ pub enum CoordinationTransactionMutation {
         status: Option<PlanStatus>,
         policy: Option<CoordinationPolicy>,
         scheduling: Option<PlanScheduling>,
+        spec_refs: Vec<CoordinationSpecRef>,
     },
     PlanUpdate {
         plan: CoordinationTransactionPlanRef,
@@ -84,6 +87,7 @@ pub enum CoordinationTransactionMutation {
         status: Option<PlanStatus>,
         policy: Option<CoordinationTransactionPolicyPatch>,
         scheduling: Option<CoordinationTransactionPlanSchedulingPatch>,
+        spec_refs: Option<Vec<CoordinationSpecRef>>,
     },
     PlanArchive {
         plan: CoordinationTransactionPlanRef,
@@ -103,6 +107,7 @@ pub enum CoordinationTransactionMutation {
         integrated_depends_on: Vec<CoordinationTransactionTaskRef>,
         acceptance: Vec<AcceptanceCriterion>,
         base_revision: WorkspaceRevision,
+        spec_refs: Vec<CoordinationTaskSpecRef>,
     },
     TaskUpdate {
         task: CoordinationTransactionTaskRef,
@@ -124,12 +129,37 @@ pub enum CoordinationTransactionMutation {
         priority: Option<Option<u8>>,
         tags: Option<Vec<String>>,
         completion_context: Option<TaskCompletionContext>,
+        spec_refs: Option<Vec<CoordinationTaskSpecRef>>,
     },
     DependencyCreate {
         task: CoordinationTransactionTaskRef,
         depends_on: CoordinationTransactionTaskRef,
         kind: CoordinationDependencyKind,
         base_revision: WorkspaceRevision,
+    },
+    TaskHandoff {
+        task: CoordinationTransactionTaskRef,
+        to_agent: Option<AgentId>,
+        summary: String,
+        base_revision: WorkspaceRevision,
+    },
+    TaskHandoffAccept {
+        task: CoordinationTransactionTaskRef,
+        agent: Option<AgentId>,
+        worktree_id: Option<String>,
+        branch_ref: Option<String>,
+    },
+    TaskResume {
+        task: CoordinationTransactionTaskRef,
+        agent: Option<AgentId>,
+        worktree_id: Option<String>,
+        branch_ref: Option<String>,
+    },
+    TaskReclaim {
+        task: CoordinationTransactionTaskRef,
+        agent: Option<AgentId>,
+        worktree_id: Option<String>,
+        branch_ref: Option<String>,
     },
 }
 
@@ -142,6 +172,10 @@ impl CoordinationTransactionMutation {
             Self::TaskCreate { .. } => "task_create",
             Self::TaskUpdate { .. } => "task_update",
             Self::DependencyCreate { .. } => "dependency_create",
+            Self::TaskHandoff { .. } => "task_handoff",
+            Self::TaskHandoffAccept { .. } => "task_handoff_accept",
+            Self::TaskResume { .. } => "task_resume",
+            Self::TaskReclaim { .. } => "task_reclaim",
         }
     }
 }
@@ -153,12 +187,276 @@ pub struct CoordinationTransactionInput {
     pub optimistic_preconditions: Option<Value>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct CoordinationTransactionOptimisticPreconditions {
+    expected_revision: Option<u64>,
+    expected_event_count: Option<usize>,
+    expected_last_event_id: Option<EventId>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoordinationTransactionValidationStage {
+    InputShape,
+    Authorization,
+    ObjectIdentity,
+    Domain,
+    Conflict,
+    Commit,
+}
+
+impl CoordinationTransactionValidationStage {
+    pub fn tag(self) -> &'static str {
+        match self {
+            Self::InputShape => "input_shape",
+            Self::Authorization => "authorization",
+            Self::ObjectIdentity => "object_identity",
+            Self::Conflict => "conflict",
+            Self::Domain => "domain",
+            Self::Commit => "commit",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoordinationTransactionRejectionCategory {
+    InvalidInput,
+    Unauthorized,
+    NotFound,
+    DomainViolation,
+    Conflict,
+    Unsupported,
+}
+
+impl CoordinationTransactionRejectionCategory {
+    pub fn tag(self) -> &'static str {
+        match self {
+            Self::InvalidInput => "invalid_input",
+            Self::Unauthorized => "unauthorized",
+            Self::NotFound => "not_found",
+            Self::DomainViolation => "domain_violation",
+            Self::Conflict => "conflict",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoordinationTransactionRejection {
+    pub stage: CoordinationTransactionValidationStage,
+    pub category: CoordinationTransactionRejectionCategory,
+    pub reason_code: &'static str,
+    pub message: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum CoordinationTransactionError {
+    Rejected(CoordinationTransactionRejection),
+    Indeterminate {
+        reason_code: &'static str,
+        message: String,
+    },
+}
+
+impl CoordinationTransactionError {
+    fn rejected(
+        stage: CoordinationTransactionValidationStage,
+        category: CoordinationTransactionRejectionCategory,
+        reason_code: &'static str,
+        message: impl Into<String>,
+    ) -> Self {
+        Self::Rejected(CoordinationTransactionRejection {
+            stage,
+            category,
+            reason_code,
+            message: message.into(),
+        })
+    }
+
+    fn domain(error: anyhow::Error) -> Self {
+        Self::rejected(
+            CoordinationTransactionValidationStage::Domain,
+            CoordinationTransactionRejectionCategory::DomainViolation,
+            "domain_validation_failed",
+            error.to_string(),
+        )
+    }
+
+    pub fn protocol_state(&self) -> CoordinationTransactionProtocolState {
+        match self {
+            Self::Rejected(rejection) => CoordinationTransactionProtocolState {
+                outcome: "Rejected".to_string(),
+                commit: None,
+                authority_version: None,
+                rejection: Some(CoordinationTransactionProtocolRejection {
+                    stage: rejection.stage.tag().to_string(),
+                    category: rejection.category.tag().to_string(),
+                    reason_code: rejection.reason_code.to_string(),
+                    message: rejection.message.clone(),
+                }),
+                indeterminate: None,
+            },
+            Self::Indeterminate {
+                reason_code,
+                message,
+            } => CoordinationTransactionProtocolState {
+                outcome: "Indeterminate".to_string(),
+                commit: None,
+                authority_version: None,
+                rejection: None,
+                indeterminate: Some(CoordinationTransactionProtocolIndeterminate {
+                    reason_code: reason_code.to_string(),
+                    message: message.clone(),
+                }),
+            },
+        }
+    }
+}
+
+impl fmt::Display for CoordinationTransactionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Rejected(rejection) => write!(
+                f,
+                "{} [{}::{:?}]",
+                rejection.message, rejection.reason_code, rejection.category
+            ),
+            Self::Indeterminate {
+                reason_code,
+                message,
+            } => write!(f, "{message} [{reason_code}]"),
+        }
+    }
+}
+
+impl std::error::Error for CoordinationTransactionError {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoordinationTransactionOutcome {
+    Committed,
+}
+
+impl CoordinationTransactionOutcome {
+    pub fn tag(self) -> &'static str {
+        match self {
+            Self::Committed => "Committed",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
+pub struct CoordinationTransactionCommitMetadata {
+    pub event_ids: Vec<EventId>,
+    pub event_count: usize,
+    pub last_event_id: Option<EventId>,
+    pub committed_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct CoordinationTransactionAuthorityVersion {
+    pub total_event_count: usize,
+    pub last_event_id: Option<EventId>,
+    pub committed_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTransactionProtocolCommit {
+    pub event_ids: Vec<String>,
+    pub event_count: usize,
+    pub last_event_id: Option<String>,
+    pub committed_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTransactionProtocolAuthorityVersion {
+    pub event_count: usize,
+    pub last_event_id: Option<String>,
+    pub committed_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTransactionProtocolRejection {
+    pub stage: String,
+    pub category: String,
+    pub reason_code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTransactionProtocolIndeterminate {
+    pub reason_code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTransactionProtocolState {
+    pub outcome: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit: Option<CoordinationTransactionProtocolCommit>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authority_version: Option<CoordinationTransactionProtocolAuthorityVersion>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rejection: Option<CoordinationTransactionProtocolRejection>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub indeterminate: Option<CoordinationTransactionProtocolIndeterminate>,
+}
+
+#[derive(Debug, Clone)]
 pub struct CoordinationTransactionResult {
+    pub outcome: CoordinationTransactionOutcome,
+    pub commit: CoordinationTransactionCommitMetadata,
+    pub authority_version: CoordinationTransactionAuthorityVersion,
     pub plan_ids_by_client_id: BTreeMap<String, PlanId>,
     pub task_ids_by_client_id: BTreeMap<String, CoordinationTaskId>,
     pub touched_plan_ids: Vec<PlanId>,
     pub touched_task_ids: Vec<CoordinationTaskId>,
+}
+
+impl CoordinationTransactionCommitMetadata {
+    fn protocol_state(&self) -> CoordinationTransactionProtocolCommit {
+        CoordinationTransactionProtocolCommit {
+            event_ids: self
+                .event_ids
+                .iter()
+                .map(|event_id| event_id.0.to_string())
+                .collect(),
+            event_count: self.event_count,
+            last_event_id: self
+                .last_event_id
+                .as_ref()
+                .map(|event_id| event_id.0.to_string()),
+            committed_at: self.committed_at,
+        }
+    }
+}
+
+impl CoordinationTransactionAuthorityVersion {
+    fn protocol_state(&self) -> CoordinationTransactionProtocolAuthorityVersion {
+        CoordinationTransactionProtocolAuthorityVersion {
+            event_count: self.total_event_count,
+            last_event_id: self
+                .last_event_id
+                .as_ref()
+                .map(|event_id| event_id.0.to_string()),
+            committed_at: self.committed_at,
+        }
+    }
+}
+
+impl CoordinationTransactionResult {
+    pub fn protocol_state(&self) -> CoordinationTransactionProtocolState {
+        CoordinationTransactionProtocolState {
+            outcome: self.outcome.tag().to_string(),
+            commit: Some(self.commit.protocol_state()),
+            authority_version: Some(self.authority_version.protocol_state()),
+            rejection: None,
+            indeterminate: None,
+        }
+    }
 }
 
 impl Prism {
@@ -166,26 +464,41 @@ impl Prism {
         &self,
         meta: EventMeta,
         input: CoordinationTransactionInput,
-    ) -> Result<CoordinationTransactionResult> {
-        if input.intent_metadata.is_some() {
-            return Err(anyhow!(
-                "coordination_transaction intentMetadata is not supported yet"
-            ));
-        }
-        if input.optimistic_preconditions.is_some() {
-            return Err(anyhow!(
-                "coordination_transaction optimisticPreconditions are not supported yet"
-            ));
-        }
-
+    ) -> std::result::Result<CoordinationTransactionResult, CoordinationTransactionError> {
+        validate_transaction_input_shape(&input)?;
+        validate_transaction_authorization(&input)?;
+        let optimistic_preconditions =
+            parse_optimistic_preconditions(input.optimistic_preconditions.as_ref())?;
         self.coordination_transaction(|coordination_runtime| {
+            validate_transaction_identity(coordination_runtime, &input)?;
+            validate_transaction_conflict(coordination_runtime, optimistic_preconditions.as_ref())?;
             apply_coordination_transaction(coordination_runtime, meta.clone(), input)
+                .map_err(CoordinationTransactionError::domain)
         })
     }
 
-    pub(crate) fn coordination_transaction<T, F>(&self, mutate: F) -> Result<T>
+    pub fn execute_coordination_mutation(
+        &self,
+        meta: EventMeta,
+        mutation: CoordinationTransactionMutation,
+    ) -> std::result::Result<CoordinationTransactionResult, CoordinationTransactionError> {
+        self.execute_coordination_transaction(
+            meta,
+            CoordinationTransactionInput {
+                mutations: vec![mutation],
+                ..CoordinationTransactionInput::default()
+            },
+        )
+    }
+
+    pub(crate) fn coordination_transaction<T, F>(
+        &self,
+        mutate: F,
+    ) -> std::result::Result<T, CoordinationTransactionError>
     where
-        F: FnOnce(&mut CoordinationRuntimeState) -> Result<T>,
+        F: FnOnce(
+            &mut CoordinationRuntimeState,
+        ) -> std::result::Result<T, CoordinationTransactionError>,
     {
         let mut runtime = self
             .materialized_runtime
@@ -197,8 +510,13 @@ impl Prism {
             match mutate(coordination_runtime) {
                 Ok(value) => {
                     let snapshot = coordination_runtime.snapshot();
-                    snapshot.validate_canonical_projection()?;
-                    snapshot.to_canonical_snapshot_v2().validate_graph()?;
+                    snapshot
+                        .validate_canonical_projection()
+                        .map_err(CoordinationTransactionError::domain)?;
+                    snapshot
+                        .to_canonical_snapshot_v2()
+                        .validate_graph()
+                        .map_err(CoordinationTransactionError::domain)?;
                     Ok(value)
                 }
                 Err(error) => Err(error),
@@ -223,11 +541,466 @@ impl Prism {
     }
 }
 
+fn validate_transaction_input_shape(
+    input: &CoordinationTransactionInput,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    if input.mutations.is_empty() {
+        return Err(CoordinationTransactionError::rejected(
+            CoordinationTransactionValidationStage::InputShape,
+            CoordinationTransactionRejectionCategory::InvalidInput,
+            "empty_transaction",
+            "coordination_transaction requires at least one staged mutation",
+        ));
+    }
+    if input.intent_metadata.is_some() {
+        return Err(CoordinationTransactionError::rejected(
+            CoordinationTransactionValidationStage::InputShape,
+            CoordinationTransactionRejectionCategory::Unsupported,
+            "unsupported_intent_metadata",
+            "coordination_transaction intentMetadata is not supported yet",
+        ));
+    }
+
+    let mut seen_plan_client_ids = BTreeSet::new();
+    let mut seen_task_client_ids = BTreeSet::new();
+    for mutation in &input.mutations {
+        match mutation {
+            CoordinationTransactionMutation::PlanCreate {
+                client_plan_id: Some(client_plan_id),
+                ..
+            } => {
+                if !seen_plan_client_ids.insert(client_plan_id.clone()) {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "duplicate_plan_client_id",
+                        format!(
+                            "coordination transaction plan client id `{client_plan_id}` was used more than once"
+                        ),
+                    ));
+                }
+            }
+            CoordinationTransactionMutation::TaskCreate {
+                client_task_id: Some(client_task_id),
+                ..
+            } => {
+                if !seen_task_client_ids.insert(client_task_id.clone()) {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "duplicate_task_client_id",
+                        format!(
+                            "coordination transaction task client id `{client_task_id}` was used more than once"
+                        ),
+                    ));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
+fn parse_optimistic_preconditions(
+    optimistic_preconditions: Option<&Value>,
+) -> std::result::Result<
+    Option<CoordinationTransactionOptimisticPreconditions>,
+    CoordinationTransactionError,
+> {
+    let Some(value) = optimistic_preconditions else {
+        return Ok(None);
+    };
+    let Value::Object(map) = value else {
+        return Err(CoordinationTransactionError::rejected(
+            CoordinationTransactionValidationStage::InputShape,
+            CoordinationTransactionRejectionCategory::Unsupported,
+            "unsupported_optimistic_preconditions",
+            "coordination_transaction optimisticPreconditions must be an object when provided",
+        ));
+    };
+
+    let mut expected_revision = None;
+    let mut expected_event_count = None;
+    let mut expected_last_event_id = None;
+    for (key, value) in map {
+        match key.as_str() {
+            "expectedRevision" => {
+                let Value::Number(number) = value else {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "invalid_expected_revision",
+                        "coordination_transaction optimisticPreconditions.expectedRevision must be a non-negative integer",
+                    ));
+                };
+                let Some(parsed) = number.as_u64() else {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "invalid_expected_revision",
+                        "coordination_transaction optimisticPreconditions.expectedRevision must be a non-negative integer",
+                    ));
+                };
+                expected_revision = Some(parsed);
+            }
+            "expectedEventCount" => {
+                let Value::Number(number) = value else {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "invalid_expected_event_count",
+                        "coordination_transaction optimisticPreconditions.expectedEventCount must be a non-negative integer",
+                    ));
+                };
+                let Some(parsed) = number
+                    .as_u64()
+                    .and_then(|value| usize::try_from(value).ok())
+                else {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "invalid_expected_event_count",
+                        "coordination_transaction optimisticPreconditions.expectedEventCount must be a non-negative integer",
+                    ));
+                };
+                expected_event_count = Some(parsed);
+            }
+            "expectedLastEventId" => {
+                let Value::String(event_id) = value else {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "invalid_expected_last_event_id",
+                        "coordination_transaction optimisticPreconditions.expectedLastEventId must be a string",
+                    ));
+                };
+                expected_last_event_id = Some(EventId::new(event_id.clone()));
+            }
+            _ => {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::InputShape,
+                    CoordinationTransactionRejectionCategory::Unsupported,
+                    "unsupported_optimistic_preconditions",
+                    format!(
+                        "coordination_transaction optimisticPreconditions field `{key}` is not supported yet"
+                    ),
+                ));
+            }
+        }
+    }
+
+    if expected_revision.is_none()
+        && expected_event_count.is_none()
+        && expected_last_event_id.is_none()
+    {
+        return Err(CoordinationTransactionError::rejected(
+            CoordinationTransactionValidationStage::InputShape,
+            CoordinationTransactionRejectionCategory::Unsupported,
+            "unsupported_optimistic_preconditions",
+            "coordination_transaction optimisticPreconditions must include at least one supported field",
+        ));
+    }
+
+    Ok(Some(CoordinationTransactionOptimisticPreconditions {
+        expected_revision,
+        expected_event_count,
+        expected_last_event_id,
+    }))
+}
+
+fn validate_transaction_authorization(
+    _input: &CoordinationTransactionInput,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    Ok(())
+}
+
+fn validate_transaction_identity(
+    coordination_runtime: &CoordinationRuntimeState,
+    input: &CoordinationTransactionInput,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    let mut declared_plan_client_ids = BTreeSet::new();
+    let mut declared_task_client_ids = BTreeSet::new();
+    for mutation in &input.mutations {
+        match mutation {
+            CoordinationTransactionMutation::PlanCreate {
+                client_plan_id: Some(client_plan_id),
+                ..
+            } => {
+                declared_plan_client_ids.insert(client_plan_id.clone());
+            }
+            CoordinationTransactionMutation::TaskCreate {
+                client_task_id: Some(client_task_id),
+                ..
+            } => {
+                declared_task_client_ids.insert(client_task_id.clone());
+            }
+            _ => {}
+        }
+    }
+
+    let mut seen_plan_client_ids = BTreeSet::new();
+    let mut seen_task_client_ids = BTreeSet::new();
+    for mutation in &input.mutations {
+        match mutation {
+            CoordinationTransactionMutation::PlanCreate { client_plan_id, .. } => {
+                if let Some(client_plan_id) = client_plan_id {
+                    seen_plan_client_ids.insert(client_plan_id.clone());
+                }
+            }
+            CoordinationTransactionMutation::PlanUpdate { plan, .. }
+            | CoordinationTransactionMutation::PlanArchive { plan } => {
+                validate_plan_ref(
+                    coordination_runtime,
+                    plan,
+                    &seen_plan_client_ids,
+                    &declared_plan_client_ids,
+                )?;
+            }
+            CoordinationTransactionMutation::TaskCreate {
+                client_task_id,
+                plan,
+                depends_on,
+                coordination_depends_on,
+                integrated_depends_on,
+                ..
+            } => {
+                validate_plan_ref(
+                    coordination_runtime,
+                    plan,
+                    &seen_plan_client_ids,
+                    &declared_plan_client_ids,
+                )?;
+                validate_task_refs(
+                    coordination_runtime,
+                    depends_on,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+                validate_task_refs(
+                    coordination_runtime,
+                    coordination_depends_on,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+                validate_task_refs(
+                    coordination_runtime,
+                    integrated_depends_on,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+                if let Some(client_task_id) = client_task_id {
+                    seen_task_client_ids.insert(client_task_id.clone());
+                }
+            }
+            CoordinationTransactionMutation::TaskUpdate { task, .. } => {
+                validate_task_ref(
+                    coordination_runtime,
+                    task,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+            }
+            CoordinationTransactionMutation::DependencyCreate {
+                task, depends_on, ..
+            } => {
+                validate_task_ref(
+                    coordination_runtime,
+                    task,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+                validate_task_ref(
+                    coordination_runtime,
+                    depends_on,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+            }
+            CoordinationTransactionMutation::TaskHandoff { task, .. }
+            | CoordinationTransactionMutation::TaskHandoffAccept { task, .. }
+            | CoordinationTransactionMutation::TaskResume { task, .. }
+            | CoordinationTransactionMutation::TaskReclaim { task, .. } => {
+                validate_task_ref(
+                    coordination_runtime,
+                    task,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_transaction_conflict(
+    coordination_runtime: &CoordinationRuntimeState,
+    optimistic_preconditions: Option<&CoordinationTransactionOptimisticPreconditions>,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    let Some(optimistic_preconditions) = optimistic_preconditions else {
+        return Ok(());
+    };
+    let snapshot = coordination_runtime.snapshot();
+    if let Some(expected_revision) = optimistic_preconditions.expected_revision {
+        let actual_revision = u64::try_from(snapshot.events.len()).unwrap_or(u64::MAX);
+        if actual_revision != expected_revision {
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::Conflict,
+                CoordinationTransactionRejectionCategory::Conflict,
+                "stale_revision",
+                format!(
+                    "coordination transaction optimisticPreconditions.expectedRevision expected `{expected_revision}` but current revision is `{actual_revision}`"
+                ),
+            ));
+        }
+    }
+    if let Some(expected_event_count) = optimistic_preconditions.expected_event_count {
+        let actual_event_count = snapshot.events.len();
+        if actual_event_count != expected_event_count {
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::Conflict,
+                CoordinationTransactionRejectionCategory::Conflict,
+                "stale_event_count",
+                format!(
+                    "coordination transaction optimisticPreconditions.expectedEventCount expected `{expected_event_count}` but current event count is `{actual_event_count}`"
+                ),
+            ));
+        }
+    }
+    if let Some(expected_last_event_id) = optimistic_preconditions.expected_last_event_id.as_ref() {
+        let actual_last_event_id = snapshot.events.last().map(|event| event.meta.id.clone());
+        if actual_last_event_id.as_ref() != Some(expected_last_event_id) {
+            let actual_last_event_id_label = actual_last_event_id
+                .as_ref()
+                .map(|value| value.0.as_str())
+                .unwrap_or("<none>");
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::Conflict,
+                CoordinationTransactionRejectionCategory::Conflict,
+                "stale_last_event_id",
+                format!(
+                    "coordination transaction optimisticPreconditions.expectedLastEventId expected `{}` but current last event id is `{}`",
+                    expected_last_event_id.0,
+                    actual_last_event_id_label
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_plan_ref(
+    coordination_runtime: &CoordinationRuntimeState,
+    plan: &CoordinationTransactionPlanRef,
+    seen_plan_client_ids: &BTreeSet<String>,
+    declared_plan_client_ids: &BTreeSet<String>,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    match plan {
+        CoordinationTransactionPlanRef::Id(plan_id) => {
+            if coordination_runtime.plan(plan_id).is_none() {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::ObjectIdentity,
+                    CoordinationTransactionRejectionCategory::NotFound,
+                    "unknown_plan",
+                    format!("unknown plan `{}`", plan_id.0),
+                ));
+            }
+            Ok(())
+        }
+        CoordinationTransactionPlanRef::ClientId(client_id) => {
+            if seen_plan_client_ids.contains(client_id) {
+                return Ok(());
+            }
+            let reason_code = if declared_plan_client_ids.contains(client_id) {
+                "forward_plan_client_reference"
+            } else {
+                "unknown_plan_client_id"
+            };
+            let message = if declared_plan_client_ids.contains(client_id) {
+                format!(
+                    "coordination transaction plan client id `{client_id}` was referenced before it was created"
+                )
+            } else {
+                format!("unknown coordination transaction plan client id `{client_id}`")
+            };
+            Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::ObjectIdentity,
+                CoordinationTransactionRejectionCategory::NotFound,
+                reason_code,
+                message,
+            ))
+        }
+    }
+}
+
+fn validate_task_ref(
+    coordination_runtime: &CoordinationRuntimeState,
+    task: &CoordinationTransactionTaskRef,
+    seen_task_client_ids: &BTreeSet<String>,
+    declared_task_client_ids: &BTreeSet<String>,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    match task {
+        CoordinationTransactionTaskRef::Id(task_id) => {
+            if coordination_runtime.task(task_id).is_none() {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::ObjectIdentity,
+                    CoordinationTransactionRejectionCategory::NotFound,
+                    "unknown_task",
+                    format!("unknown task `{}`", task_id.0),
+                ));
+            }
+            Ok(())
+        }
+        CoordinationTransactionTaskRef::ClientId(client_id) => {
+            if seen_task_client_ids.contains(client_id) {
+                return Ok(());
+            }
+            let reason_code = if declared_task_client_ids.contains(client_id) {
+                "forward_task_client_reference"
+            } else {
+                "unknown_task_client_id"
+            };
+            let message = if declared_task_client_ids.contains(client_id) {
+                format!(
+                    "coordination transaction task client id `{client_id}` was referenced before it was created"
+                )
+            } else {
+                format!("unknown coordination transaction task client id `{client_id}`")
+            };
+            Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::ObjectIdentity,
+                CoordinationTransactionRejectionCategory::NotFound,
+                reason_code,
+                message,
+            ))
+        }
+    }
+}
+
+fn validate_task_refs(
+    coordination_runtime: &CoordinationRuntimeState,
+    refs: &[CoordinationTransactionTaskRef],
+    seen_task_client_ids: &BTreeSet<String>,
+    declared_task_client_ids: &BTreeSet<String>,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    for task_ref in refs {
+        validate_task_ref(
+            coordination_runtime,
+            task_ref,
+            seen_task_client_ids,
+            declared_task_client_ids,
+        )?;
+    }
+    Ok(())
+}
+
 fn apply_coordination_transaction(
     coordination_runtime: &mut CoordinationRuntimeState,
     meta: EventMeta,
     input: CoordinationTransactionInput,
 ) -> Result<CoordinationTransactionResult> {
+    let before_event_len = coordination_runtime.snapshot().events.len();
     let mut seen_plan_client_ids = BTreeSet::new();
     let mut seen_task_client_ids = BTreeSet::new();
     let mut plan_ids_by_client_id = BTreeMap::new();
@@ -247,6 +1020,7 @@ fn apply_coordination_transaction(
                 status,
                 policy,
                 scheduling,
+                spec_refs,
             } => {
                 if let Some(client_plan_id) = client_plan_id.as_deref() {
                     ensure_unique_client_id(
@@ -262,6 +1036,7 @@ fn apply_coordination_transaction(
                         goal,
                         status,
                         policy,
+                        spec_refs,
                     },
                 )?;
                 if let Some(scheduling) = scheduling {
@@ -283,6 +1058,7 @@ fn apply_coordination_transaction(
                 status,
                 policy,
                 scheduling,
+                spec_refs,
             } => {
                 let plan_id = resolve_plan_ref(&plan_ids_by_client_id, &plan)?;
                 let existing_plan = coordination_runtime
@@ -297,6 +1073,7 @@ fn apply_coordination_transaction(
                             goal,
                             status,
                             policy: policy.map(|patch| merge_policy(existing_plan.policy, patch)),
+                            spec_refs,
                         },
                     )?;
                 }
@@ -327,6 +1104,7 @@ fn apply_coordination_transaction(
                             goal: None,
                             status: Some(PlanStatus::Abandoned),
                             policy: None,
+                            spec_refs: None,
                         },
                     )?;
                     archive_meta = EventMeta {
@@ -345,6 +1123,7 @@ fn apply_coordination_transaction(
                             goal: None,
                             status: Some(PlanStatus::Archived),
                             policy: None,
+                            spec_refs: None,
                         },
                     )?;
                 }
@@ -365,6 +1144,7 @@ fn apply_coordination_transaction(
                 integrated_depends_on,
                 acceptance,
                 base_revision,
+                spec_refs,
             } => {
                 if let Some(client_task_id) = client_task_id.as_deref() {
                     ensure_unique_client_id(
@@ -400,6 +1180,7 @@ fn apply_coordination_transaction(
                         )?,
                         acceptance,
                         base_revision: base_revision.clone(),
+                        spec_refs,
                     },
                 )?;
                 if let Some(client_task_id) = client_task_id {
@@ -436,6 +1217,7 @@ fn apply_coordination_transaction(
                 priority,
                 tags,
                 completion_context,
+                spec_refs,
             } => {
                 let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
                 let existing_task = coordination_runtime
@@ -467,6 +1249,7 @@ fn apply_coordination_transaction(
                     priority,
                     tags,
                     completion_context,
+                    spec_refs,
                 };
                 if is_authoritative_git_execution_only_update(&update_input) {
                     coordination_runtime.update_task_authoritative_only(
@@ -541,16 +1324,134 @@ fn apply_coordination_transaction(
                         priority: None,
                         tags: None,
                         completion_context: None,
+                        spec_refs: None,
                     },
                     base_revision,
                     meta.ts,
                 )?;
                 touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
             }
+            CoordinationTransactionMutation::TaskHandoff {
+                task,
+                to_agent,
+                summary,
+                base_revision,
+            } => {
+                let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
+                let updated = coordination_runtime.handoff(
+                    step_meta,
+                    prism_coordination::HandoffInput {
+                        task_id: task_id.clone(),
+                        to_agent,
+                        summary,
+                        base_revision: base_revision.clone(),
+                    },
+                    base_revision,
+                )?;
+                touch_plan(
+                    &mut touched_plan_ids,
+                    &mut touched_plan_seen,
+                    updated.plan.clone(),
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+            }
+            CoordinationTransactionMutation::TaskHandoffAccept {
+                task,
+                agent,
+                worktree_id,
+                branch_ref,
+            } => {
+                let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
+                let updated = coordination_runtime.accept_handoff(
+                    step_meta,
+                    prism_coordination::HandoffAcceptInput {
+                        task_id: task_id.clone(),
+                        agent,
+                        worktree_id,
+                        branch_ref,
+                    },
+                )?;
+                touch_plan(
+                    &mut touched_plan_ids,
+                    &mut touched_plan_seen,
+                    updated.plan.clone(),
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+            }
+            CoordinationTransactionMutation::TaskResume {
+                task,
+                agent,
+                worktree_id,
+                branch_ref,
+            } => {
+                let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
+                let updated = coordination_runtime.resume_task(
+                    step_meta,
+                    prism_coordination::TaskResumeInput {
+                        task_id: task_id.clone(),
+                        agent,
+                        worktree_id,
+                        branch_ref,
+                    },
+                )?;
+                touch_plan(
+                    &mut touched_plan_ids,
+                    &mut touched_plan_seen,
+                    updated.plan.clone(),
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+            }
+            CoordinationTransactionMutation::TaskReclaim {
+                task,
+                agent,
+                worktree_id,
+                branch_ref,
+            } => {
+                let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
+                let updated = coordination_runtime.reclaim_task(
+                    step_meta,
+                    prism_coordination::TaskReclaimInput {
+                        task_id: task_id.clone(),
+                        agent,
+                        worktree_id,
+                        branch_ref,
+                    },
+                )?;
+                touch_plan(
+                    &mut touched_plan_ids,
+                    &mut touched_plan_seen,
+                    updated.plan.clone(),
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+            }
         }
     }
 
+    let committed_events = coordination_runtime.snapshot().events;
+    let committed_event_ids = committed_events
+        .iter()
+        .skip(before_event_len)
+        .map(|event| event.meta.id.clone())
+        .collect::<Vec<_>>();
+    let committed_at = committed_events
+        .iter()
+        .skip(before_event_len)
+        .map(|event| event.meta.ts)
+        .max();
+
     Ok(CoordinationTransactionResult {
+        outcome: CoordinationTransactionOutcome::Committed,
+        commit: CoordinationTransactionCommitMetadata {
+            event_count: committed_event_ids.len(),
+            last_event_id: committed_event_ids.last().cloned(),
+            event_ids: committed_event_ids,
+            committed_at,
+        },
+        authority_version: CoordinationTransactionAuthorityVersion {
+            total_event_count: committed_events.len(),
+            last_event_id: committed_events.last().map(|event| event.meta.id.clone()),
+            committed_at: committed_events.last().map(|event| event.meta.ts),
+        },
         plan_ids_by_client_id,
         task_ids_by_client_id,
         touched_plan_ids,

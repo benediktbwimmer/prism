@@ -67,7 +67,8 @@ struct McpPaths {
     uri_file: PathBuf,
     public_url_file: PathBuf,
     log_path: PathBuf,
-    cache_path: PathBuf,
+    runtime_cache_path: PathBuf,
+    coordination_materialization_path: PathBuf,
     runtime_state_path: PathBuf,
     startup_marker: PathBuf,
 }
@@ -308,14 +309,29 @@ fn status(root: &Path) -> Result<()> {
     } else {
         println!("log_path: {} (missing)", paths.log_path.display());
     }
-    if let Ok(metadata) = fs::metadata(&paths.cache_path) {
+    if let Ok(metadata) = fs::metadata(&paths.runtime_cache_path) {
         println!(
-            "cache_path: {} ({} bytes)",
-            paths.cache_path.display(),
+            "runtime_cache_path: {} ({} bytes)",
+            paths.runtime_cache_path.display(),
             metadata.len()
         );
     } else {
-        println!("cache_path: {} (missing)", paths.cache_path.display());
+        println!(
+            "runtime_cache_path: {} (missing)",
+            paths.runtime_cache_path.display()
+        );
+    }
+    if let Ok(metadata) = fs::metadata(&paths.coordination_materialization_path) {
+        println!(
+            "coordination_materialization_path: {} ({} bytes)",
+            paths.coordination_materialization_path.display(),
+            metadata.len()
+        );
+    } else {
+        println!(
+            "coordination_materialization_path: {} (missing)",
+            paths.coordination_materialization_path.display()
+        );
     }
     if let Some(shared_coordination_ref) = shared_coordination_ref_diagnostics(root)? {
         println!(
@@ -1579,7 +1595,9 @@ impl McpPaths {
             uri_file: prism_paths.mcp_http_uri_path()?,
             public_url_file: prism_paths.mcp_public_url_path()?,
             log_path: prism_paths.mcp_daemon_log_path()?,
-            cache_path: prism_paths.worktree_cache_db_path()?,
+            runtime_cache_path: prism_paths.worktree_cache_db_path()?,
+            coordination_materialization_path: prism_paths
+                .coordination_materialization_db_path()?,
             runtime_state_path: prism_paths.mcp_runtime_state_path()?,
             startup_marker: prism_paths.mcp_startup_marker_path()?,
         })
@@ -1701,7 +1719,7 @@ mod tests {
     }
 
     #[test]
-    fn mcp_paths_report_worktree_cache_db() {
+    fn mcp_paths_report_runtime_and_coordination_db_paths() {
         let root = temp_root("paths-cache");
         fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
 
@@ -1709,12 +1727,20 @@ mod tests {
         let prism_paths = PrismPaths::for_workspace_root(&root).unwrap();
 
         assert_eq!(
-            paths.cache_path,
+            paths.runtime_cache_path,
             prism_paths.worktree_cache_db_path().unwrap()
         );
         assert_ne!(
-            paths.cache_path,
+            paths.runtime_cache_path,
             prism_paths.shared_runtime_db_path().unwrap()
+        );
+        assert_eq!(
+            paths.coordination_materialization_path,
+            prism_paths.coordination_materialization_db_path().unwrap()
+        );
+        assert_ne!(
+            paths.coordination_materialization_path,
+            paths.runtime_cache_path
         );
 
         let _ = fs::remove_dir_all(root);

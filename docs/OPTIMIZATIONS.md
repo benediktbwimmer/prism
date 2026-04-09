@@ -24,7 +24,7 @@ The recommended order is:
 * multi-workspace/worktree support
 * incremental indexing and invalidation
 * partial materialization and boundary semantics
-* optional service-backed coordination authority backend
+* DB-backed coordination authority and service hardening
 * lazy deep parsing
 * graph-ranking and centrality-based retrieval
 * database-pushed traversals for very large graphs
@@ -473,7 +473,7 @@ After the persistence split and multi-workspace scoping land, follow this order:
 1. incremental indexing and invalidation
 2. partial materialization / depth tiers
 3. explicit boundary-node semantics
-4. optional service-backed coordination authority backend
+4. DB-backed coordination authority and service hardening
 5. worktree-aware projections and runtime overlays
 6. lazy deep parsing
 7. graph centrality / large-repo ranking

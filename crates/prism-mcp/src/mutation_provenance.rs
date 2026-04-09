@@ -6,7 +6,9 @@ use prism_ir::{
     WorkContextSnapshot,
 };
 use prism_memory::MemoryEvent;
-use prism_query::{ConceptEvent, ConceptRelationEvent, ContractEvent, Prism};
+use prism_query::{
+    ConceptEvent, ConceptProvenance, ConceptRelationEvent, ConceptScope, ContractEvent, Prism,
+};
 use std::sync::Arc;
 
 use crate::request_envelope::current_request_id;
@@ -21,7 +23,54 @@ pub(crate) struct MutationProvenance {
     current_work: Option<SessionWorkState>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MutationProvenanceMode {
+    General,
+    CoordinationAuthority,
+}
+
 impl MutationProvenance {
+    pub(crate) fn for_execution(
+        workspace: Option<&WorkspaceSession>,
+        session: &SessionState,
+        prism: Arc<Prism>,
+        authenticated: Option<&AuthenticatedPrincipal>,
+        mode: MutationProvenanceMode,
+    ) -> Self {
+        match mode {
+            MutationProvenanceMode::General => {
+                if let Some(authenticated) = authenticated {
+                    return Self::authenticated(workspace, session, prism, authenticated);
+                }
+                if let Some(workspace) = workspace {
+                    if let Some(slot) = workspace.current_worktree_mutator_slot() {
+                        return Self::worktree_executor(workspace, session, prism, &slot, None);
+                    }
+                }
+                Self::fallback(workspace, session, prism)
+            }
+            MutationProvenanceMode::CoordinationAuthority => {
+                if let Some(workspace) = workspace {
+                    if let Some(slot) = workspace.current_worktree_mutator_slot() {
+                        let credential_id = authenticated
+                            .map(|authenticated| &authenticated.credential.credential_id);
+                        return Self::worktree_executor(
+                            workspace,
+                            session,
+                            prism,
+                            &slot,
+                            credential_id,
+                        );
+                    }
+                }
+                if let Some(authenticated) = authenticated {
+                    return Self::authenticated(workspace, session, prism, authenticated);
+                }
+                Self::fallback(workspace, session, prism)
+            }
+        }
+    }
+
     pub(crate) fn fallback(
         workspace: Option<&WorkspaceSession>,
         session: &SessionState,
@@ -153,6 +202,41 @@ impl MutationProvenance {
         event.execution_context = execution_context;
     }
 
+    pub(crate) fn concept_packet_provenance(
+        scope: ConceptScope,
+        kind: impl Into<String>,
+        task_id: &TaskId,
+    ) -> ConceptProvenance {
+        ConceptProvenance {
+            origin: concept_scope_origin(scope).to_string(),
+            kind: kind.into(),
+            task_id: Some(task_id.0.to_string()),
+        }
+    }
+
+    pub(crate) fn concept_packet_provenance_for_origin(
+        origin: impl Into<String>,
+        kind: impl Into<String>,
+        task_id: &TaskId,
+    ) -> ConceptProvenance {
+        ConceptProvenance {
+            origin: origin.into(),
+            kind: kind.into(),
+            task_id: Some(task_id.0.to_string()),
+        }
+    }
+
+    pub(crate) fn ensure_concept_packet_provenance(
+        provenance: &mut ConceptProvenance,
+        scope: ConceptScope,
+        kind: impl Into<String>,
+        task_id: &TaskId,
+    ) {
+        if *provenance == ConceptProvenance::default() {
+            *provenance = Self::concept_packet_provenance(scope, kind, task_id);
+        }
+    }
+
     fn work_context_snapshot(&self, task_id: Option<&str>) -> Option<WorkContextSnapshot> {
         let task_id = task_id?.trim();
         if task_id.is_empty() {
@@ -245,6 +329,14 @@ impl MutationProvenance {
     }
 }
 
+pub(crate) fn concept_scope_origin(scope: ConceptScope) -> &'static str {
+    match scope {
+        ConceptScope::Local => "local_mutation",
+        ConceptScope::Session => "session_mutation",
+        ConceptScope::Repo => "repo_mutation",
+    }
+}
+
 fn stamp_work_context(
     execution_context: &mut Option<EventExecutionContext>,
     work_context: Option<WorkContextSnapshot>,
@@ -260,6 +352,53 @@ fn stamp_work_context(
                 ..EventExecutionContext::default()
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{concept_scope_origin, MutationProvenance};
+    use prism_ir::TaskId;
+    use prism_query::{ConceptProvenance, ConceptScope};
+
+    #[test]
+    fn concept_packet_provenance_uses_scope_origin_and_task() {
+        let provenance = MutationProvenance::concept_packet_provenance(
+            ConceptScope::Repo,
+            "manual_concept_promote",
+            &TaskId::new("task:provenance".to_string()),
+        );
+        assert_eq!(provenance.origin, "repo_mutation");
+        assert_eq!(provenance.kind, "manual_concept_promote");
+        assert_eq!(provenance.task_id.as_deref(), Some("task:provenance"));
+    }
+
+    #[test]
+    fn ensure_concept_packet_provenance_preserves_existing_metadata() {
+        let mut provenance = ConceptProvenance {
+            origin: "curator".to_string(),
+            kind: "seed".to_string(),
+            task_id: Some("task:seed".to_string()),
+        };
+        MutationProvenance::ensure_concept_packet_provenance(
+            &mut provenance,
+            ConceptScope::Session,
+            "manual_concept_update",
+            &TaskId::new("task:new".to_string()),
+        );
+        assert_eq!(provenance.origin, "curator");
+        assert_eq!(provenance.kind, "seed");
+        assert_eq!(provenance.task_id.as_deref(), Some("task:seed"));
+    }
+
+    #[test]
+    fn concept_scope_origin_matches_current_scope_labels() {
+        assert_eq!(concept_scope_origin(ConceptScope::Local), "local_mutation");
+        assert_eq!(
+            concept_scope_origin(ConceptScope::Session),
+            "session_mutation"
+        );
+        assert_eq!(concept_scope_origin(ConceptScope::Repo), "repo_mutation");
     }
 }
 

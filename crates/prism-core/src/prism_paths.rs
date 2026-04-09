@@ -61,6 +61,8 @@ pub struct PrismPaths {
     home_root: PathBuf,
     repo_prism_dir: PathBuf,
     repo_home_dir: PathBuf,
+    coordination_materialization_dir: PathBuf,
+    coordination_materialization_db_path: PathBuf,
     worktree_cache_dir: PathBuf,
     worktree_cache_db_path: PathBuf,
     worktree_backups_dir: PathBuf,
@@ -91,6 +93,7 @@ impl PrismPaths {
             metadata.apply_to_identity(&mut identity);
         }
         let worktree_cache_dir = worktree_dir.join("cache");
+        let coordination_materialization_dir = repo_home_dir.join("shared").join("coordination");
         let feedback_dir = repo_home_dir.join("feedback");
         let worktree_mcp_state_dir = worktree_dir.join("mcp").join("state");
         let worktree_mcp_logs_dir = worktree_dir.join("mcp").join("logs");
@@ -98,6 +101,8 @@ impl PrismPaths {
             identity,
             home_root,
             repo_prism_dir: canonical_root.join(".prism"),
+            coordination_materialization_dir: coordination_materialization_dir.clone(),
+            coordination_materialization_db_path: coordination_materialization_dir.join("state.db"),
             worktree_cache_dir: worktree_cache_dir.clone(),
             worktree_cache_db_path: worktree_cache_dir.join("state.db"),
             worktree_backups_dir: worktree_dir.join("backups"),
@@ -117,6 +122,10 @@ impl PrismPaths {
 
     pub fn repo_prism_dir(&self) -> &Path {
         &self.repo_prism_dir
+    }
+
+    pub fn spec_engine_config_path(&self) -> PathBuf {
+        self.repo_prism_dir.join("spec-engine.json")
     }
 
     pub(crate) fn identity(&self) -> &WorkspaceIdentity {
@@ -145,6 +154,10 @@ impl PrismPaths {
 
     pub fn worktree_cache_dir(&self) -> &Path {
         &self.worktree_cache_dir
+    }
+
+    pub fn coordination_materialization_dir(&self) -> &Path {
+        &self.coordination_materialization_dir
     }
 
     pub fn worktree_backups_dir(&self) -> &Path {
@@ -201,6 +214,17 @@ impl PrismPaths {
     pub fn shared_runtime_db_path(&self) -> Result<PathBuf> {
         self.ensure_home_metadata()?;
         Ok(self.shared_runtime_db_path.clone())
+    }
+
+    pub fn coordination_materialization_db_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
+        fs::create_dir_all(&self.coordination_materialization_dir).with_context(|| {
+            format!(
+                "failed to create {}",
+                self.coordination_materialization_dir.display()
+            )
+        })?;
+        Ok(self.coordination_materialization_db_path.clone())
     }
 
     pub fn worktree_cache_db_path(&self) -> Result<PathBuf> {
@@ -1279,6 +1303,29 @@ mod tests {
             .worktree_cache_db_path()
             .expect("local cache path again");
         assert_eq!(resolved_again, local_db);
+
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&prism_home);
+    }
+
+    #[test]
+    fn coordination_materialization_db_path_is_repo_shared_not_worktree_local() {
+        let root = temp_dir("workspace-coordination-materialization");
+        let prism_home = temp_dir("home-coordination-materialization");
+        let _guard = set_test_prism_home_override(&prism_home);
+        write_workspace_root(&root);
+
+        let paths = PrismPaths::for_workspace_root(&root).expect("paths");
+        let coordination_db = paths
+            .coordination_materialization_db_path()
+            .expect("coordination materialization path");
+        let worktree_cache_db = paths.worktree_cache_db_path().expect("worktree cache path");
+        let shared_runtime_db = paths.shared_runtime_db_path().expect("shared runtime path");
+
+        assert!(coordination_db.starts_with(paths.repo_home_dir()));
+        assert!(coordination_db.starts_with(paths.coordination_materialization_dir()));
+        assert_ne!(coordination_db, worktree_cache_db);
+        assert_ne!(coordination_db, shared_runtime_db);
 
         let _ = fs::remove_dir_all(&root);
         let _ = fs::remove_dir_all(&prism_home);

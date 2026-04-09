@@ -11,6 +11,7 @@ mod parsing;
 mod projection_commands;
 mod protected_state_commands;
 mod runtime;
+mod spec_commands;
 mod workspace_root;
 mod worktree_commands;
 

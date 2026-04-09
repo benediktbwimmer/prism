@@ -1,14 +1,16 @@
+#[cfg(test)]
 use std::path::Path;
 
-use anyhow::Result;
-use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
-use prism_store::{CoordinationCheckpointStore, CoordinationJournal};
-
-use crate::coordination_startup_checkpoint::{
-    load_persisted_coordination_plan_state, load_persisted_coordination_snapshot,
-    load_persisted_coordination_snapshot_v2,
+#[cfg(test)]
+use crate::coordination_materialized_store::{
+    CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
+#[cfg(test)]
 use crate::published_plans::HydratedCoordinationPlanState;
+#[cfg(test)]
+use anyhow::Result;
+#[cfg(test)]
+use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CoordinationReadConsistency {
@@ -71,35 +73,34 @@ impl<T> CoordinationReadResult<T> {
     }
 }
 
-pub(crate) fn load_eventual_coordination_snapshot_for_root<S>(
+#[cfg(test)]
+pub(crate) fn load_eventual_coordination_snapshot_for_root(
     root: &Path,
-    store: &mut S,
-) -> Result<Option<CoordinationSnapshot>>
-where
-    S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
-{
-    let _ = root;
-    load_persisted_coordination_snapshot(store)
+) -> Result<Option<CoordinationSnapshot>> {
+    Ok(SqliteCoordinationMaterializedStore::new(root)
+        .read_snapshot()?
+        .value)
 }
 
-pub(crate) fn load_eventual_coordination_snapshot_v2_for_root<S>(
+#[cfg(test)]
+pub(crate) fn load_eventual_coordination_snapshot_v2_for_root(
     root: &Path,
-    store: &mut S,
-) -> Result<Option<CoordinationSnapshotV2>>
-where
-    S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
-{
-    let _ = root;
-    load_persisted_coordination_snapshot_v2(store)
+) -> Result<Option<CoordinationSnapshotV2>> {
+    Ok(SqliteCoordinationMaterializedStore::new(root)
+        .read_snapshot_v2()?
+        .value)
 }
 
-pub(crate) fn load_eventual_coordination_plan_state_for_root<S>(
+#[cfg(test)]
+pub(crate) fn load_eventual_coordination_plan_state_for_root(
     root: &Path,
-    store: &mut S,
-) -> Result<Option<HydratedCoordinationPlanState>>
-where
-    S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
-{
-    let _ = root;
-    load_persisted_coordination_plan_state(store)
+) -> Result<Option<HydratedCoordinationPlanState>> {
+    Ok(SqliteCoordinationMaterializedStore::new(root)
+        .read_plan_state()?
+        .value
+        .map(|value| HydratedCoordinationPlanState {
+            snapshot: value.snapshot,
+            canonical_snapshot_v2: value.canonical_snapshot_v2,
+            runtime_descriptors: value.runtime_descriptors,
+        }))
 }

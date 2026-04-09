@@ -6,6 +6,7 @@ use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
+use prism_coordination::CoordinationSnapshot;
 use prism_core::runtime_engine::{
     RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspacePublishedGeneration,
     WorkspaceRuntimeQueueSnapshot,
@@ -18,13 +19,11 @@ use prism_js::{
     ConnectionInfoView, ProjectionAuthorityPlaneView, ProjectionClassView,
     ProjectionFreshnessStateView, ProjectionMaterializationStateView, ProjectionReadModelView,
     RuntimeAssistedLeaseRenewalView, RuntimeBoundaryRegionView, RuntimeCoordinationLagView,
-    RuntimeCoordinationSurfaceLagItemView, RuntimeDescriptorCapabilityView,
-    RuntimeDiscoveryModeView, RuntimeDomainFreshnessView, RuntimeFreshnessView, RuntimeHealthView,
-    RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
-    RuntimeMaterializationView, RuntimeOverlayScopeView, RuntimeProcessView,
-    RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView,
-    RuntimeSharedCoordinationRefView, RuntimeSharedCoordinationRuntimeDescriptorView,
-    RuntimeStatusView,
+    RuntimeCoordinationSurfaceLagItemView, RuntimeDomainFreshnessView, RuntimeFreshnessView,
+    RuntimeHealthView, RuntimeLogEventView, RuntimeMaterializationCoverageView,
+    RuntimeMaterializationItemView, RuntimeMaterializationView, RuntimeOverlayScopeView,
+    RuntimeProcessView, RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView,
+    RuntimeSharedCoordinationRefView, RuntimeStatusView,
 };
 use prism_projections::{
     ProjectionAuthorityPlane, ProjectionClass, ProjectionFreshnessState,
@@ -37,10 +36,13 @@ use crate::daemon_log;
 use crate::diagnostics_state::RuntimeStatusRevisionKey;
 use crate::log_scope::{select_log_sources, LogScope, RepoLogSource};
 use crate::mcp_call_log::McpCallLogStore;
+use crate::read_broker::current_coordination_surface_for_workspace;
+use crate::runtime_freshness_surface::runtime_freshness_status_label;
 use crate::runtime_state::{
     process_is_live, read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord, RuntimeState,
 };
 use crate::serving_projection_models::runtime_projection_scopes;
+use crate::trust_surface::runtime_shared_coordination_ref_view;
 use crate::workspace_diagnostics::WorkspaceDiagnosticsConfig;
 use crate::{QueryHost, RuntimeLogArgs, RuntimeTimelineArgs};
 
@@ -53,7 +55,8 @@ const MAX_LOG_SCAN_LINES: usize = 4_000;
 struct RuntimePaths {
     uri_file: PathBuf,
     log_path: PathBuf,
-    cache_path: PathBuf,
+    runtime_cache_path: PathBuf,
+    coordination_materialization_path: PathBuf,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,10 +136,18 @@ pub(crate) fn refresh_cached_runtime_status(host: &QueryHost) -> Result<RuntimeS
     let binding = host.workspace_runtime_binding_ref().ok_or_else(|| {
         anyhow!("runtime introspection requires a workspace-backed PRISM session")
     })?;
+    let coordination_surface = host.current_coordination_surface()?;
+    let live_overlay_coordination_snapshot = host.current_prism().coordination_snapshot();
     let inputs = RuntimeStatusInputs {
         root: workspace.root(),
         workspace: workspace.as_ref(),
         prism: host.current_prism(),
+        service_backed_coordination_snapshot: coordination_surface.snapshot,
+        live_overlay_coordination_snapshot,
+        tracked_coordination_snapshot_revision: coordination_surface.tracked_snapshot_revision,
+        coordination_startup_checkpoint_revision: coordination_surface.startup_checkpoint_revision,
+        coordination_read_model_revision: coordination_surface.read_model_revision,
+        coordination_queue_read_model_revision: coordination_surface.queue_read_model_revision,
         loaded_workspace_revision: host.loaded_workspace_revision_value(),
         loaded_episodic_revision: host.loaded_episodic_revision_value(),
         loaded_inference_revision: host.loaded_inference_revision_value(),
@@ -181,10 +192,21 @@ pub(crate) fn refresh_cached_runtime_status_for_config(
         .lock()
         .expect("workspace runtime engine lock poisoned")
         .queue_snapshot();
+    let coordination_surface = current_coordination_surface_for_workspace(
+        Some(config.workspace.as_ref()),
+        config.workspace.prism_arc(),
+    )?;
+    let live_overlay_coordination_snapshot = config.workspace.prism().coordination_snapshot();
     let inputs = RuntimeStatusInputs {
         root: config.workspace.root(),
         workspace: config.workspace.as_ref(),
         prism: config.workspace.prism_arc(),
+        service_backed_coordination_snapshot: coordination_surface.snapshot,
+        live_overlay_coordination_snapshot,
+        tracked_coordination_snapshot_revision: coordination_surface.tracked_snapshot_revision,
+        coordination_startup_checkpoint_revision: coordination_surface.startup_checkpoint_revision,
+        coordination_read_model_revision: coordination_surface.read_model_revision,
+        coordination_queue_read_model_revision: coordination_surface.queue_read_model_revision,
         loaded_workspace_revision: config.loaded_workspace_revision.load(Ordering::Relaxed),
         loaded_episodic_revision: config.loaded_episodic_revision.load(Ordering::Relaxed),
         loaded_inference_revision: config.loaded_inference_revision.load(Ordering::Relaxed),
@@ -220,6 +242,12 @@ struct RuntimeStatusInputs<'a> {
     root: &'a Path,
     workspace: &'a WorkspaceSession,
     prism: std::sync::Arc<prism_query::Prism>,
+    service_backed_coordination_snapshot: CoordinationSnapshot,
+    live_overlay_coordination_snapshot: CoordinationSnapshot,
+    tracked_coordination_snapshot_revision: Option<u64>,
+    coordination_startup_checkpoint_revision: Option<u64>,
+    coordination_read_model_revision: Option<u64>,
+    coordination_queue_read_model_revision: Option<u64>,
     loaded_workspace_revision: u64,
     loaded_episodic_revision: u64,
     loaded_inference_revision: u64,
@@ -367,17 +395,18 @@ fn runtime_status_from_inputs(
     let bridge_counts = classify_bridges(&bridges, &connected_bridge_pids);
     let connection =
         daemon_connection_info(inputs.root, &paths, &daemons, process_error.as_deref())?;
-    let (freshness, shared_coordination_ref, scopes) =
-        match runtime_status_details_from_inputs(inputs, runtime_state, cached_shared_coordination_ref)
-        {
-            Ok(details) => details,
-            Err(error) => {
-                let freshness =
-                    degraded_runtime_freshness_from_inputs(inputs, runtime_state, &error);
-                let scopes = runtime_scopes_from_prism(inputs.prism.as_ref(), &freshness);
-                (freshness, None, scopes)
-            }
-        };
+    let (freshness, shared_coordination_ref, scopes) = match runtime_status_details_from_inputs(
+        inputs,
+        runtime_state,
+        cached_shared_coordination_ref,
+    ) {
+        Ok(details) => details,
+        Err(error) => {
+            let freshness = degraded_runtime_freshness_from_inputs(inputs, runtime_state, &error);
+            let scopes = runtime_scopes_from_inputs(inputs, &freshness);
+            (freshness, None, scopes)
+        }
+    };
 
     Ok(RuntimeStatusView {
         root: inputs.root.display().to_string(),
@@ -391,8 +420,13 @@ fn runtime_status_from_inputs(
             .path()
             .map(|path| path.display().to_string()),
         mcp_call_log_bytes: inputs.mcp_call_log_store.file_len(),
-        cache_path: paths.cache_path.display().to_string(),
-        cache_bytes: file_len(&paths.cache_path),
+        cache_path: paths.runtime_cache_path.display().to_string(),
+        cache_bytes: file_len(&paths.runtime_cache_path),
+        coordination_materialization_path: paths
+            .coordination_materialization_path
+            .display()
+            .to_string(),
+        coordination_materialization_bytes: file_len(&paths.coordination_materialization_path),
         health_path: daemon_health_path(&daemons).to_string(),
         health: connection.health.clone(),
         daemon_count: daemons.len(),
@@ -427,98 +461,8 @@ fn runtime_status_details_from_inputs(
         None => shared_coordination_ref_diagnostics(inputs.root)?
             .map(runtime_shared_coordination_ref_view),
     };
-    let scopes = runtime_scopes_from_prism(inputs.prism.as_ref(), &freshness);
+    let scopes = runtime_scopes_from_inputs(inputs, &freshness);
     Ok((freshness, shared_coordination_ref, scopes))
-}
-
-fn runtime_shared_coordination_ref_view(
-    value: prism_core::SharedCoordinationRefDiagnostics,
-) -> RuntimeSharedCoordinationRefView {
-    RuntimeSharedCoordinationRefView {
-        ref_name: value.ref_name,
-        head_commit: value.head_commit,
-        history_depth: value.history_depth,
-        max_history_commits: value.max_history_commits,
-        snapshot_file_count: value.snapshot_file_count,
-        verification_status: value.verification_status,
-        authoritative_hydration_allowed: value.authoritative_hydration_allowed,
-        degraded: value.degraded,
-        verification_error: value.verification_error,
-        repair_hint: value.repair_hint,
-        current_manifest_digest: value.current_manifest_digest,
-        last_verified_manifest_digest: value.last_verified_manifest_digest,
-        previous_manifest_digest: value.previous_manifest_digest,
-        last_successful_publish_at: value.last_successful_publish_at,
-        last_successful_publish_retry_count: value.last_successful_publish_retry_count,
-        publish_retry_budget: value.publish_retry_budget,
-        compacted_head: value.compacted_head,
-        needs_compaction: value.needs_compaction,
-        compaction_status: value.compaction_status,
-        compaction_mode: value.compaction_mode,
-        last_compacted_at: value.last_compacted_at,
-        compaction_previous_head_commit: value.compaction_previous_head_commit,
-        compaction_previous_history_depth: value.compaction_previous_history_depth,
-        archive_boundary_manifest_digest: value.archive_boundary_manifest_digest,
-        summary_published_at: value.summary_published_at,
-        summary_freshness_status: value.summary_freshness_status,
-        authoritative_fallback_required: value.authoritative_fallback_required,
-        freshness_reason: value.freshness_reason,
-        lagging_task_shard_refs: value.lagging_task_shard_refs,
-        lagging_claim_shard_refs: value.lagging_claim_shard_refs,
-        lagging_runtime_refs: value.lagging_runtime_refs,
-        newest_authoritative_ref_at: value.newest_authoritative_ref_at,
-        runtime_descriptor_count: value.runtime_descriptor_count,
-        runtime_descriptors: value
-            .runtime_descriptors
-            .into_iter()
-            .map(runtime_shared_coordination_runtime_descriptor_view)
-            .collect(),
-    }
-}
-
-fn runtime_shared_coordination_runtime_descriptor_view(
-    value: prism_coordination::RuntimeDescriptor,
-) -> RuntimeSharedCoordinationRuntimeDescriptorView {
-    RuntimeSharedCoordinationRuntimeDescriptorView {
-        runtime_id: value.runtime_id,
-        repo_id: value.repo_id,
-        worktree_id: value.worktree_id,
-        principal_id: value.principal_id,
-        instance_started_at: value.instance_started_at,
-        last_seen_at: value.last_seen_at,
-        branch_ref: value.branch_ref,
-        checked_out_commit: value.checked_out_commit,
-        capabilities: value
-            .capabilities
-            .into_iter()
-            .map(|capability| match capability {
-                prism_coordination::RuntimeDescriptorCapability::CoordinationRefPublisher => {
-                    RuntimeDescriptorCapabilityView::CoordinationRefPublisher
-                }
-                prism_coordination::RuntimeDescriptorCapability::BoundedPeerReads => {
-                    RuntimeDescriptorCapabilityView::BoundedPeerReads
-                }
-                prism_coordination::RuntimeDescriptorCapability::BundleExports => {
-                    RuntimeDescriptorCapabilityView::BundleExports
-                }
-            })
-            .collect(),
-        discovery_mode: match value.discovery_mode {
-            prism_coordination::RuntimeDiscoveryMode::None => RuntimeDiscoveryModeView::None,
-            prism_coordination::RuntimeDiscoveryMode::LanDirect => {
-                RuntimeDiscoveryModeView::LanDirect
-            }
-            prism_coordination::RuntimeDiscoveryMode::PublicUrl => {
-                RuntimeDiscoveryModeView::PublicUrl
-            }
-            prism_coordination::RuntimeDiscoveryMode::Full => RuntimeDiscoveryModeView::Full,
-        },
-        peer_endpoint: value.peer_endpoint,
-        public_endpoint: value.public_endpoint,
-        peer_transport_identity: value.peer_transport_identity,
-        blob_snapshot_head: value.blob_snapshot_head,
-        export_policy: value.export_policy,
-    }
 }
 
 fn runtime_assisted_lease_renewal_view() -> RuntimeAssistedLeaseRenewalView {
@@ -581,36 +525,22 @@ fn runtime_freshness_from_inputs(
         authoritative_revision: authoritative_coordination_revision,
         tracked_snapshot: coordination_surface_lag_item(
             "tracked_snapshot",
-            optional_coordination_surface_revision(
-                inputs.workspace.load_tracked_coordination_snapshot_revision(),
-            ),
+            inputs.tracked_coordination_snapshot_revision,
             authoritative_coordination_revision,
         ),
         startup_checkpoint: coordination_surface_lag_item(
             "startup_checkpoint",
-            optional_coordination_surface_revision(
-                inputs.workspace.load_coordination_startup_checkpoint_revision(),
-            ),
+            inputs.coordination_startup_checkpoint_revision,
             authoritative_coordination_revision,
         ),
         read_model: coordination_surface_lag_item(
             "read_model",
-            optional_coordination_surface_revision(
-                inputs
-                    .workspace
-                    .load_coordination_read_model()
-                    .map(|model| model.map(|model| model.revision)),
-            ),
+            inputs.coordination_read_model_revision,
             authoritative_coordination_revision,
         ),
         queue_read_model: coordination_surface_lag_item(
             "queue_read_model",
-            optional_coordination_surface_revision(
-                inputs
-                    .workspace
-                    .load_coordination_queue_read_model()
-                    .map(|model| model.map(|model| model.revision)),
-            ),
+            inputs.coordination_queue_read_model_revision,
             authoritative_coordination_revision,
         ),
     });
@@ -671,7 +601,7 @@ fn runtime_freshness_from_inputs(
             .as_ref()
             .map(|snapshot| runtime_queue_depth_views(snapshot))
             .unwrap_or_default(),
-        status: freshness_status(
+        status: runtime_freshness_status_label(
             fs_dirty,
             &materialization,
             last_refresh.as_ref().map(|refresh| refresh.path.as_str()),
@@ -879,16 +809,18 @@ fn runtime_queue_class_label(
     }
 }
 
-fn runtime_scopes_from_prism(
-    prism: &prism_query::Prism,
+fn runtime_scopes_from_inputs(
+    inputs: &RuntimeStatusInputs<'_>,
     freshness: &RuntimeFreshnessView,
 ) -> RuntimeScopesView {
-    let projections = runtime_projection_scopes(prism, freshness)
+    let projections = runtime_projection_scopes(inputs.prism.as_ref(), freshness)
         .into_iter()
         .map(projection_scope_view)
         .collect();
-    let coordination = prism.coordination_snapshot();
-    let overlays = overlay_scope_views(&coordination);
+    let overlays = overlay_scope_views(
+        &inputs.service_backed_coordination_snapshot,
+        &inputs.live_overlay_coordination_snapshot,
+    );
 
     RuntimeScopesView {
         projections,
@@ -922,6 +854,7 @@ fn projection_scope_view(scope: ProjectionScopeReadModel) -> RuntimeProjectionSc
 
 fn overlay_scope_views(
     snapshot: &prism_coordination::CoordinationSnapshot,
+    live_overlay_snapshot: &prism_coordination::CoordinationSnapshot,
 ) -> Vec<RuntimeOverlayScopeView> {
     let canonical_snapshot = snapshot.to_canonical_snapshot_v2();
     vec![
@@ -935,7 +868,7 @@ fn overlay_scope_views(
             scope: "worktree".to_string(),
             plan_count: 0,
             plan_node_count: 0,
-            overlay_count: snapshot
+            overlay_count: live_overlay_snapshot
                 .tasks
                 .iter()
                 .filter(|task| task.worktree_id.is_some() || task.branch_ref.is_some())
@@ -945,7 +878,7 @@ fn overlay_scope_views(
             scope: "session".to_string(),
             plan_count: 0,
             plan_node_count: 0,
-            overlay_count: snapshot
+            overlay_count: live_overlay_snapshot
                 .tasks
                 .iter()
                 .filter(|task| task.session.is_some())
@@ -1041,10 +974,6 @@ fn coordination_surface_lag_item(
     }
 }
 
-fn optional_coordination_surface_revision(result: Result<Option<u64>>) -> Option<u64> {
-    result.ok().flatten()
-}
-
 fn workspace_materialization_item(
     loaded_revision: u64,
     current_revision: Option<u64>,
@@ -1106,32 +1035,6 @@ fn coordination_surface_lag_status(
         Some(revision) if revision == authoritative_revision => "current",
         Some(_) => "stale",
         None => "missing",
-    }
-}
-
-fn freshness_status(
-    fs_dirty: bool,
-    materialization: &RuntimeMaterializationView,
-    last_refresh_path: Option<&str>,
-) -> &'static str {
-    if fs_dirty {
-        return "refresh-queued";
-    }
-    if last_refresh_path == Some("deferred") {
-        return "deferred";
-    }
-    let statuses = [
-        materialization.workspace.status.as_str(),
-        materialization.episodic.status.as_str(),
-        materialization.inference.status.as_str(),
-        materialization.coordination.status.as_str(),
-    ];
-    if statuses.contains(&"stale") {
-        "stale"
-    } else if statuses.contains(&"unknown") {
-        "unknown"
-    } else {
-        "current"
     }
 }
 
@@ -1677,7 +1580,9 @@ impl RuntimePaths {
         Ok(Self {
             uri_file: prism_paths.mcp_http_uri_path()?,
             log_path: prism_paths.mcp_daemon_log_path()?,
-            cache_path: prism_paths.worktree_cache_db_path()?,
+            runtime_cache_path: prism_paths.worktree_cache_db_path()?,
+            coordination_materialization_path: prism_paths
+                .coordination_materialization_db_path()?,
         })
     }
 }
@@ -1703,7 +1608,7 @@ mod tests {
     }
 
     #[test]
-    fn runtime_paths_report_worktree_cache_db() {
+    fn runtime_paths_report_runtime_and_coordination_db_paths() {
         let root = temp_root("paths-cache");
         fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
 
@@ -1711,12 +1616,20 @@ mod tests {
         let prism_paths = PrismPaths::for_workspace_root(&root).unwrap();
 
         assert_eq!(
-            paths.cache_path,
+            paths.runtime_cache_path,
             prism_paths.worktree_cache_db_path().unwrap()
         );
         assert_ne!(
-            paths.cache_path,
+            paths.runtime_cache_path,
             prism_paths.shared_runtime_db_path().unwrap()
+        );
+        assert_eq!(
+            paths.coordination_materialization_path,
+            prism_paths.coordination_materialization_db_path().unwrap()
+        );
+        assert_ne!(
+            paths.coordination_materialization_path,
+            paths.runtime_cache_path
         );
 
         let _ = fs::remove_dir_all(root);

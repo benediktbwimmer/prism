@@ -3,6 +3,11 @@ mod checkpoint_materializer;
 mod concept_events;
 mod concept_relation_events;
 mod contract_events;
+mod coordination_authority_api;
+mod coordination_authority_store;
+mod coordination_authority_sync;
+mod coordination_materialized_store;
+mod coordination_mutation_error;
 mod coordination_persistence;
 mod coordination_reads;
 mod coordination_snapshot_sanitization;
@@ -71,6 +76,35 @@ use session_bootstrap::{
 };
 
 pub use admission::AdmissionBusyError;
+pub use coordination_authority_api::{
+    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor,
+};
+pub use coordination_authority_store::{
+    default_coordination_authority_store_provider, open_coordination_authority_store,
+    open_default_coordination_authority_store, CoordinationAuthorityBackendConfig,
+    CoordinationAuthorityBackendDetails, CoordinationAuthorityBackendKind,
+    CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
+    CoordinationAuthorityProvenance, CoordinationAuthorityStamp, CoordinationAuthorityStore,
+    CoordinationAuthorityStoreProvider, CoordinationConflictInfo, CoordinationCurrentState,
+    CoordinationDerivedStateMode, CoordinationDiagnosticsRequest, CoordinationHistoryEntry,
+    CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
+    CoordinationReadRequest, CoordinationStateView, CoordinationTransactionBase,
+    CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
+    CoordinationTransactionResult, CoordinationTransactionStatus,
+    GitSharedRefsCoordinationAuthorityStore, RuntimeDescriptorClearRequest,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+};
+pub use coordination_materialized_store::{
+    CoordinationCompactionWriteRequest, CoordinationMaterializationMetadata,
+    CoordinationMaterializedBackendKind, CoordinationMaterializedCapabilities,
+    CoordinationMaterializedClearRequest, CoordinationMaterializedReadEnvelope,
+    CoordinationMaterializedState, CoordinationMaterializedStore,
+    CoordinationMaterializedWriteResult, CoordinationReadModelsWriteRequest,
+    CoordinationStartupCheckpointWriteRequest, SqliteCoordinationMaterializedStore,
+};
+pub use coordination_mutation_error::{
+    CoordinationAuthorityMutationError, CoordinationAuthorityMutationStatus,
+};
 pub use coordination_reads::{
     CoordinationReadConsistency, CoordinationReadFreshness, CoordinationReadResult,
 };
@@ -108,6 +142,22 @@ pub use prism_doc::{
 };
 pub use prism_ir::{PrismLayerSet, PrismRuntimeCapabilities, PrismRuntimeLayer, PrismRuntimeMode};
 pub use prism_paths::PrismPaths;
+pub use prism_spec::{
+    default_spec_materialized_db_path, discover_spec_sources, parse_spec_source,
+    parse_spec_sources, refresh_spec_materialization, resolve_spec_root, DiscoveredSpecSource,
+    MaterializedSpecQueryEngine, MaterializedSpecRecord, ParsedSpecDocument, ParsedSpecSet,
+    SpecChecklistIdentitySource, SpecChecklistItem, SpecChecklistRequirementLevel,
+    SpecChecklistView, SpecCoverageView, SpecDeclaredStatus, SpecDependency, SpecDependencyView,
+    SpecDocumentView, SpecListEntry, SpecMaterializationMetadata, SpecMaterializationRefreshResult,
+    SpecMaterializedBackendKind, SpecMaterializedCapabilities, SpecMaterializedClearRequest,
+    SpecMaterializedReadEnvelope, SpecMaterializedReplaceRequest, SpecMaterializedStore,
+    SpecMaterializedWriteResult, SpecMetadataView, SpecParseDiagnostic, SpecParseDiagnosticKind,
+    SpecQueryEngine, SpecQueryLookup, SpecRootResolution, SpecRootSource, SpecSourceMetadata,
+    SpecSyncBriefView, SpecSyncProvenanceView, SqliteSpecMaterializedStore,
+    StoredSpecChecklistItemRecord, StoredSpecChecklistPosture, StoredSpecCoverageRecord,
+    StoredSpecDependencyPosture, StoredSpecDependencyRecord, StoredSpecStatusRecord,
+    StoredSpecSyncProvenanceRecord, WorkspaceSpecSurface,
+};
 pub use protected_state::migration::{
     migrate_legacy_protected_repo_state, ProtectedStateMigrationReport,
 };
@@ -125,10 +175,7 @@ pub use session::{
     WorkspaceFsRefreshOutcome, WorkspaceRefreshBreakdown, WorkspaceRefreshWork, WorkspaceSession,
     WorkspaceSnapshotRevisions,
 };
-pub use shared_coordination_ref::{
-    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor,
-    SharedCoordinationRefDiagnostics,
-};
+pub use shared_coordination_ref::SharedCoordinationRefDiagnostics;
 pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use snapshot_artifact_repair::regenerate_repo_snapshot_derived_artifacts;
 pub use snapshot_restoration::{

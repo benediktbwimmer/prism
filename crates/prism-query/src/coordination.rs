@@ -1,15 +1,15 @@
 use prism_coordination::{
-    Artifact, CanonicalTaskRecord, CoordinationConflict, CoordinationDerivations,
-    CoordinationEvent, CoordinationTask, Plan, TaskBlocker, TaskExecutorCaller, WorkClaim,
+    Artifact, ArtifactReview, CoordinationConflict, CoordinationEvent, CoordinationTask, Plan,
+    TaskBlocker, TaskExecutorCaller, WorkClaim,
 };
 use prism_ir::{
-    AnchorRef, ArtifactId, BlockerCause, BlockerCauseSource, Capability, ClaimMode,
-    CoordinationTaskId, NodeRef, PlanId, PrincipalId, SessionId, TaskId, Timestamp,
-    WorkspaceRevision,
+    AnchorRef, ArtifactId, Capability, ClaimMode, CoordinationTaskId, NodeRef, PlanId, ReviewId,
+    SessionId, TaskId, Timestamp, WorkspaceRevision,
 };
 
 use crate::common::{anchor_sort_key, sort_node_ids};
-use crate::{CoordinationPlanV2, CoordinationTaskV2, Prism};
+use crate::coordination_query_engine::CoordinationQueryEngine;
+use crate::{CoordinationPlanV2, CoordinationTaskV2, Prism, TaskEvidenceStatus, TaskReviewStatus};
 
 impl Prism {
     fn coordination_worktree_scope(&self) -> Option<String> {
@@ -33,44 +33,11 @@ impl Prism {
     }
 
     pub fn coordination_plan_v2(&self, plan_id: &PlanId) -> Option<CoordinationPlanV2> {
-        let snapshot = self.coordination_snapshot_v2();
-        let derivations = snapshot.derive_statuses().ok()?;
-        let graph = snapshot.graph().ok()?;
-        let plan = snapshot
-            .plans
-            .iter()
-            .find(|plan| plan.id == *plan_id)
-            .cloned()?;
-        let derived = derivations.plan_state(plan_id)?;
-        Some(CoordinationPlanV2 {
-            plan: plan.clone(),
-            status: derived.derived_status,
-            children: graph.children_of_plan(plan_id),
-            dependencies: graph.dependency_targets(&NodeRef::plan(plan_id.clone())),
-            dependents: graph.dependency_sources(&NodeRef::plan(plan_id.clone())),
-            estimated_minutes_total: derived.estimated_minutes_total,
-            remaining_estimated_minutes: derived.remaining_estimated_minutes,
-        })
+        CoordinationQueryEngine::new(self).coordination_plan_v2(plan_id)
     }
 
     pub fn coordination_task_v2(&self, task_id: &TaskId) -> Option<CoordinationTaskV2> {
-        let snapshot = self.coordination_snapshot_v2();
-        let derivations = snapshot.derive_statuses().ok()?;
-        let graph = snapshot.graph().ok()?;
-        let task = snapshot
-            .tasks
-            .iter()
-            .find(|task| task.id == *task_id)
-            .cloned()?;
-        let derived = derivations.task_state(task_id)?;
-        Some(CoordinationTaskV2 {
-            task: task.clone(),
-            status: derived.effective_status,
-            graph_actionable: derived.graph_actionable,
-            blocker_causes: derived.blocker_causes.clone(),
-            dependencies: graph.dependency_targets(&NodeRef::task(task_id.clone())),
-            dependents: graph.dependency_sources(&NodeRef::task(task_id.clone())),
-        })
+        CoordinationQueryEngine::new(self).coordination_task_v2(task_id)
     }
 
     pub fn plan_children_v2(&self, plan_id: &PlanId) -> Vec<NodeRef> {
@@ -98,55 +65,31 @@ impl Prism {
     }
 
     pub fn graph_actionable_tasks_v2(&self) -> Vec<CoordinationTaskV2> {
-        let snapshot = self.coordination_snapshot_v2();
-        actionable_task_views_from_snapshot(&snapshot, snapshot.derive_statuses().ok(), None)
+        CoordinationQueryEngine::new(self).graph_actionable_tasks_v2()
     }
 
     pub fn actionable_tasks_for_executor_v2(
         &self,
         caller: &TaskExecutorCaller,
     ) -> Vec<CoordinationTaskV2> {
-        let snapshot = self.coordination_snapshot_v2();
-        actionable_task_views_from_snapshot(
-            &snapshot,
-            snapshot.derive_statuses().ok(),
-            Some(caller),
-        )
+        CoordinationQueryEngine::new(self).actionable_tasks_for_executor_v2(caller)
     }
 
     pub fn root_plans_v2(&self) -> Vec<CoordinationPlanV2> {
-        let snapshot = self.coordination_snapshot_v2();
-        let Some(derivations) = snapshot.derive_statuses().ok() else {
-            return Vec::new();
-        };
-        let Ok(graph) = snapshot.graph() else {
-            return Vec::new();
-        };
-        let mut plans = snapshot
-            .plans
-            .iter()
-            .filter(|plan| plan.parent_plan_id.is_none())
-            .filter_map(|plan| {
-                let derived = derivations.plan_state(&plan.id)?;
-                Some(CoordinationPlanV2 {
-                    plan: plan.clone(),
-                    status: derived.derived_status,
-                    children: graph.children_of_plan(&plan.id),
-                    dependencies: graph.dependency_targets(&NodeRef::plan(plan.id.clone())),
-                    dependents: graph.dependency_sources(&NodeRef::plan(plan.id.clone())),
-                    estimated_minutes_total: derived.estimated_minutes_total,
-                    remaining_estimated_minutes: derived.remaining_estimated_minutes,
-                })
-            })
-            .collect::<Vec<_>>();
-        plans.sort_by(|left, right| left.plan.id.0.cmp(&right.plan.id.0));
-        plans
+        CoordinationQueryEngine::new(self).root_plans_v2()
     }
 
     pub fn coordination_artifact(&self, artifact_id: &ArtifactId) -> Option<Artifact> {
         let worktree_id = self.coordination_worktree_scope();
         self.with_coordination_runtime(|runtime| {
             runtime.artifact_in_scope(artifact_id, worktree_id.as_deref())
+        })
+    }
+
+    pub fn coordination_review(&self, review_id: &ReviewId) -> Option<ArtifactReview> {
+        let worktree_id = self.coordination_worktree_scope();
+        self.with_coordination_runtime(|runtime| {
+            runtime.review_in_scope(review_id, worktree_id.as_deref())
         })
     }
 
@@ -192,6 +135,16 @@ impl Prism {
         })
     }
 
+    pub fn coordination_tasks(&self) -> Vec<CoordinationTask> {
+        let worktree_id = self.coordination_worktree_scope();
+        self.with_coordination_runtime(|runtime| runtime.tasks_in_scope(worktree_id.as_deref()))
+    }
+
+    pub fn coordination_claims(&self) -> Vec<WorkClaim> {
+        let worktree_id = self.coordination_worktree_scope();
+        self.with_coordination_runtime(|runtime| runtime.claims_in_scope(worktree_id.as_deref()))
+    }
+
     pub fn task_claim_history(
         &self,
         task_id: &CoordinationTaskId,
@@ -212,110 +165,35 @@ impl Prism {
     }
 
     pub fn blockers(&self, task_id: &CoordinationTaskId, now: Timestamp) -> Vec<TaskBlocker> {
-        let mut blockers = self.with_coordination_runtime(|runtime| {
-            runtime.blockers(task_id, self.workspace_revision(), now)
-        });
-        if let Some(risk) = self.task_risk(task_id, now) {
-            if !risk.stale_artifact_ids.is_empty() {
-                blockers.push(TaskBlocker {
-                    kind: prism_coordination::BlockerKind::ArtifactStale,
-                    summary: format!(
-                        "approved artifact is stale against graph version {}",
-                        self.workspace_revision().graph_version
-                    ),
-                    related_task_id: Some(task_id.clone()),
-                    related_artifact_id: risk.stale_artifact_ids.first().cloned(),
-                    risk_score: Some(risk.risk_score),
-                    validation_checks: Vec::new(),
-                    causes: vec![BlockerCause {
-                        source: BlockerCauseSource::ArtifactState,
-                        code: Some("approved_artifact_stale".to_string()),
-                        acceptance_label: None,
-                        threshold_metric: None,
-                        threshold_value: None,
-                        observed_value: None,
-                    }],
-                });
-            }
-            if risk.review_required && !risk.has_approved_artifact {
-                let threshold = self
-                    .coordination_task(task_id)
-                    .and_then(|task| self.coordination_plan(&task.plan))
-                    .and_then(|plan| plan.policy.review_required_above_risk_score);
-                blockers.push(TaskBlocker {
-                    kind: prism_coordination::BlockerKind::RiskReviewRequired,
-                    summary: format!(
-                        "task risk score {:.2} requires review before completion",
-                        risk.risk_score
-                    ),
-                    related_task_id: Some(task_id.clone()),
-                    related_artifact_id: None,
-                    risk_score: Some(risk.risk_score),
-                    validation_checks: Vec::new(),
-                    causes: vec![
-                        BlockerCause {
-                            source: BlockerCauseSource::DerivedThreshold,
-                            code: Some("review_required_above_risk_score".to_string()),
-                            acceptance_label: None,
-                            threshold_metric: Some("risk_score".to_string()),
-                            threshold_value: threshold,
-                            observed_value: Some(risk.risk_score),
-                        },
-                        BlockerCause {
-                            source: BlockerCauseSource::ArtifactState,
-                            code: Some("missing_approved_artifact".to_string()),
-                            acceptance_label: None,
-                            threshold_metric: None,
-                            threshold_value: None,
-                            observed_value: None,
-                        },
-                    ],
-                });
-            }
-            if !risk.missing_validations.is_empty() {
-                blockers.push(TaskBlocker {
-                    kind: prism_coordination::BlockerKind::ValidationRequired,
-                    summary: format!(
-                        "task is missing required validations: {}",
-                        risk.missing_validations.join(", ")
-                    ),
-                    related_task_id: Some(task_id.clone()),
-                    related_artifact_id: risk.approved_artifact_ids.first().cloned(),
-                    risk_score: Some(risk.risk_score),
-                    validation_checks: risk.missing_validations.clone(),
-                    causes: vec![BlockerCause {
-                        source: BlockerCauseSource::PlanPolicy,
-                        code: Some("require_validation_for_completion".to_string()),
-                        acceptance_label: None,
-                        threshold_metric: None,
-                        threshold_value: None,
-                        observed_value: None,
-                    }],
-                });
-            }
-        }
-
-        dedupe_blockers(blockers)
+        CoordinationQueryEngine::new(self).blockers(task_id, now)
     }
 
     pub fn base_blockers(&self, task_id: &CoordinationTaskId, now: Timestamp) -> Vec<TaskBlocker> {
-        self.with_coordination_runtime(|runtime| {
-            runtime.blockers(task_id, self.workspace_revision(), now)
-        })
+        CoordinationQueryEngine::new(self).base_blockers(task_id, now)
     }
 
     pub fn pending_reviews(&self, plan_id: Option<&PlanId>) -> Vec<Artifact> {
-        let worktree_id = self.coordination_worktree_scope();
-        self.with_coordination_runtime(|runtime| {
-            runtime.pending_reviews_in_scope(plan_id, worktree_id.as_deref())
-        })
+        CoordinationQueryEngine::new(self).pending_reviews(plan_id)
     }
 
     pub fn artifacts(&self, task_id: &CoordinationTaskId) -> Vec<Artifact> {
-        let worktree_id = self.coordination_worktree_scope();
-        self.with_coordination_runtime(|runtime| {
-            runtime.artifacts_in_scope(task_id, worktree_id.as_deref())
-        })
+        CoordinationQueryEngine::new(self).artifacts(task_id)
+    }
+
+    pub fn task_evidence_status(
+        &self,
+        task_id: &CoordinationTaskId,
+        now: Timestamp,
+    ) -> Option<TaskEvidenceStatus> {
+        CoordinationQueryEngine::new(self).task_evidence_status(task_id, now)
+    }
+
+    pub fn task_review_status(
+        &self,
+        task_id: &CoordinationTaskId,
+        now: Timestamp,
+    ) -> Option<TaskReviewStatus> {
+        CoordinationQueryEngine::new(self).task_review_status(task_id, now)
     }
 
     pub fn policy_violations(
@@ -394,75 +272,4 @@ impl Prism {
     pub(crate) fn coordinating_artifact(&self, artifact_id: &ArtifactId) -> Option<Artifact> {
         self.coordination_artifact(artifact_id)
     }
-}
-
-fn actionable_task_views_from_snapshot(
-    snapshot: &prism_coordination::CoordinationSnapshotV2,
-    derivations: Option<CoordinationDerivations>,
-    caller: Option<&TaskExecutorCaller>,
-) -> Vec<CoordinationTaskV2> {
-    let Some(derivations) = derivations else {
-        return Vec::new();
-    };
-    let Ok(graph) = snapshot.graph() else {
-        return Vec::new();
-    };
-    let actionable_ids = derivations
-        .graph_actionable_tasks()
-        .iter()
-        .map(|task_id| task_id.0.to_string())
-        .collect::<std::collections::BTreeSet<_>>();
-    let mut tasks = snapshot
-        .tasks
-        .iter()
-        .filter(|task| actionable_ids.contains(task.id.0.as_str()))
-        .filter(|task| {
-            caller
-                .map(|caller| canonical_task_matches_executor(task, caller))
-                .unwrap_or(true)
-        })
-        .filter_map(|task| {
-            let derived = derivations.task_state(&task.id)?;
-            Some(CoordinationTaskV2 {
-                task: task.clone(),
-                status: derived.effective_status,
-                graph_actionable: derived.graph_actionable,
-                blocker_causes: derived.blocker_causes.clone(),
-                dependencies: graph.dependency_targets(&NodeRef::task(task.id.clone())),
-                dependents: graph.dependency_sources(&NodeRef::task(task.id.clone())),
-            })
-        })
-        .collect::<Vec<_>>();
-    tasks.sort_by(|left, right| left.task.id.0.cmp(&right.task.id.0));
-    tasks
-}
-
-fn canonical_task_matches_executor(
-    task: &CanonicalTaskRecord,
-    caller: &TaskExecutorCaller,
-) -> bool {
-    let policy = &task.executor;
-    caller.executor_class == policy.executor_class
-        && policy
-            .target_label
-            .as_ref()
-            .is_none_or(|label| caller.target_label.as_ref() == Some(label))
-        && principal_allowed(&policy.allowed_principals, caller.principal_id.as_ref())
-}
-
-fn principal_allowed(allowed: &[PrincipalId], caller_principal: Option<&PrincipalId>) -> bool {
-    allowed.is_empty()
-        || caller_principal
-            .as_ref()
-            .is_some_and(|principal| allowed.contains(*principal))
-}
-
-fn dedupe_blockers(mut blockers: Vec<TaskBlocker>) -> Vec<TaskBlocker> {
-    blockers.sort_by(|left, right| {
-        format!("{:?}", left.kind)
-            .cmp(&format!("{:?}", right.kind))
-            .then_with(|| left.summary.cmp(&right.summary))
-    });
-    blockers.dedup_by(|left, right| left.kind == right.kind && left.summary == right.summary);
-    blockers
 }

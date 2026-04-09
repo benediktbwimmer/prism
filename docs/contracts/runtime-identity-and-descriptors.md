@@ -16,6 +16,8 @@ This contract exists so that:
   future service
 - runtime publication and discovery use one authority-backed shape
 - runtime-local diagnostics and peer hints do not leak into authority as ad hoc blobs
+- runtimes can participate in coordination as service clients rather than as mini coordination
+  databases
 
 Canonical ownership:
 
@@ -62,6 +64,7 @@ A runtime descriptor is not:
 - a full telemetry stream
 - a local diagnostics dump
 - a substitute for local runtime state
+- a runtime-owned coordination cache
 
 ## 4. Required descriptor fields
 
@@ -115,9 +118,14 @@ That means:
 It does not mean:
 
 - every runtime-local packet or diagnostic becomes authority data
+- runtimes may bypass the service for coordination participation
 
 Local diagnostics, hot telemetry, command traces, and intervention packets remain runtime-local
 unless another explicit contract says otherwise.
+
+Interactive coordination participation still requires a reachable PRISM Service, which brokers
+descriptor publication, discovery, coordination reads, and coordination mutations on behalf of the
+runtime.
 
 ## 7. Discovery rules
 
@@ -146,7 +154,7 @@ This distinction matters especially for future cross-repo coordination.
 ## 9. Relationship to the authority backend
 
 Runtime descriptor semantics must not depend on whether the active authority backend is Git shared
-refs or a future PostgreSQL backend.
+refs or a DB-backed backend.
 
 The backend may store descriptors differently.
 The meaning of publication, clearing, discovery, and freshness must remain the same.

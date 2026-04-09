@@ -52,6 +52,7 @@ Initial rules:
 
 - default root: `.prism/specs/`
 - repos may configure another repo-relative root
+- v1 repo-local override configuration should live at `.prism/spec-engine.json`
 - the configured root must remain inside the repo
 
 Native spec support must therefore not assume one hardcoded path such as `docs/specs/`.
@@ -177,7 +178,11 @@ Coverage is not authoritative coordination truth by itself.
 
 ## 12. Sync provenance semantics
 
-When PRISM explicitly creates or syncs coordination objects from a spec, it must retain
+Because translating a flat markdown checklist into an explicit coordination DAG requires semantic
+understanding, PRISM does not automatically "compile" specs into coordination state. Syncing is an
+explicit, typically agent-driven action.
+
+When an agent or human explicitly creates or syncs coordination objects from a spec, PRISM must retain
 queryable sync provenance.
 
 The minimum sync provenance must identify:
@@ -187,7 +192,10 @@ The minimum sync provenance must identify:
 - source spec revision, commit, or equivalent source-version marker
 - target coordination object id
 - sync kind such as `create_from_spec` or `update_from_spec`
-- checklist item ids and/or section ids used for the sync when relevant
+- exact checklist item ids and/or section ids used for the sync (`covered_checklist_items`)
+
+Every task explicitly created from a spec sync must identify the checklist items it covers. This
+many-to-many linkage is an absolute requirement for local coverage and drift detection to work.
 
 General actor and timestamp attribution should rely on the shared provenance contract rather than
 inventing a second parallel authorship model here.
