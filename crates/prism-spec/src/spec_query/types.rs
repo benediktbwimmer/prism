@@ -50,6 +50,14 @@ pub struct SpecCoverageView {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpecSyncBriefView {
+    pub spec: SpecDocumentView,
+    pub required_checklist_items: Vec<StoredSpecChecklistItemRecord>,
+    pub coverage: Vec<StoredSpecCoverageRecord>,
+    pub linked_coordination_refs: Vec<StoredSpecSyncProvenanceRecord>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpecSyncProvenanceView {
     pub spec_id: String,
     pub records: Vec<StoredSpecSyncProvenanceRecord>,

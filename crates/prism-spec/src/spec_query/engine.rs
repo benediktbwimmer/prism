@@ -8,13 +8,14 @@ use crate::{
 
 use super::types::{
     SpecChecklistView, SpecCoverageView, SpecDependencyView, SpecDocumentView, SpecListEntry,
-    SpecMetadataView, SpecQueryLookup, SpecSyncProvenanceView,
+    SpecMetadataView, SpecQueryLookup, SpecSyncBriefView, SpecSyncProvenanceView,
 };
 
 pub trait SpecQueryEngine {
     fn metadata(&self) -> Result<SpecMetadataView>;
     fn list_specs(&self) -> Result<Vec<SpecListEntry>>;
     fn spec(&self, spec_id: &str) -> Result<SpecQueryLookup<SpecDocumentView>>;
+    fn sync_brief(&self, spec_id: &str) -> Result<SpecQueryLookup<SpecSyncBriefView>>;
     fn checklist_items(&self, spec_id: &str) -> Result<SpecQueryLookup<SpecChecklistView>>;
     fn dependencies(&self, spec_id: &str) -> Result<SpecQueryLookup<SpecDependencyView>>;
     fn status(&self, spec_id: &str) -> Result<SpecQueryLookup<StoredSpecStatusRecord>>;
@@ -74,6 +75,40 @@ where
             .into_iter()
             .find(|status| status.spec_id == spec_id);
         Ok(SpecQueryLookup::Found(SpecDocumentView { record, status }))
+    }
+
+    fn sync_brief(&self, spec_id: &str) -> Result<SpecQueryLookup<SpecSyncBriefView>> {
+        let spec = match self.spec(spec_id)? {
+            SpecQueryLookup::Found(view) => view,
+            SpecQueryLookup::NotFound => return Ok(SpecQueryLookup::NotFound),
+        };
+        let checklist_items = match self.checklist_items(spec_id)? {
+            SpecQueryLookup::Found(view) => view.items,
+            SpecQueryLookup::NotFound => Vec::new(),
+        };
+        let coverage = match self.coverage(spec_id)? {
+            SpecQueryLookup::Found(view) => view.records,
+            SpecQueryLookup::NotFound => Vec::new(),
+        };
+        let linked_coordination_refs = match self.sync_provenance(spec_id)? {
+            SpecQueryLookup::Found(view) => view.records,
+            SpecQueryLookup::NotFound => Vec::new(),
+        };
+        let required_checklist_items = checklist_items
+            .into_iter()
+            .filter(|item| {
+                matches!(
+                    item.item.requirement_level,
+                    crate::SpecChecklistRequirementLevel::Required
+                )
+            })
+            .collect();
+        Ok(SpecQueryLookup::Found(SpecSyncBriefView {
+            spec,
+            required_checklist_items,
+            coverage,
+            linked_coordination_refs,
+        }))
     }
 
     fn checklist_items(&self, spec_id: &str) -> Result<SpecQueryLookup<SpecChecklistView>> {
@@ -482,6 +517,20 @@ mod tests {
                 );
             }
             SpecQueryLookup::NotFound => panic!("expected coverage records"),
+        }
+
+        match engine.sync_brief("spec:a").unwrap() {
+            SpecQueryLookup::Found(view) => {
+                assert_eq!(view.spec.record.spec_id, "spec:a");
+                assert_eq!(view.required_checklist_items.len(), 3);
+                assert_eq!(view.coverage.len(), 3);
+                assert_eq!(view.linked_coordination_refs.len(), 2);
+                assert_eq!(
+                    view.linked_coordination_refs[0].target_coordination_ref,
+                    "coord-task:current"
+                );
+            }
+            SpecQueryLookup::NotFound => panic!("expected sync brief"),
         }
     }
 }

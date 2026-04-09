@@ -1,6 +1,6 @@
 # Spec Sync Actions Phase 13
 
-Status: draft
+Status: in progress
 Audience: spec-engine, coordination, query, MCP, CLI, and agent-execution maintainers
 Scope: implement explicit spec-to-coordination sync actions that let agents and users create or extend authoritative coordination state from native specs while preserving stable sync provenance
 
@@ -32,7 +32,7 @@ Current state:
 - [ ] there is still no first-class action for creating coordination from a spec
 - [ ] coordination objects linked to specs are still authored only through lower-level mutation
   inputs
-- [ ] no canonical sync brief exists yet for agent-facing sync decisions
+- [x] a canonical sync brief now exists for agent-facing sync decisions
 
 Current slice notes:
 
@@ -40,6 +40,8 @@ Current slice notes:
 - PRISM should structure the input and persist the provenance, but the graph synthesis remains an
   agent or human decision
 - the first cut should prefer small, composable actions over one giant “compile spec” mutation
+- Slice 1 is complete on this branch: `SpecQueryEngine` now exposes `sync_brief(spec_id)` with
+  spec metadata, required checklist items, coverage posture, and linked coordination refs
 
 ## 3. Related roadmap
 
@@ -141,6 +143,10 @@ Exit criteria:
 - an agent can request one bounded sync-oriented view instead of manually stitching together
   several spec queries
 
+Status:
+
+- [x] complete
+
 ### Slice 2: Add explicit plan/task sync actions
 
 - add initial explicit mutation/action surfaces for creating linked plans/tasks from spec intent
@@ -187,7 +193,7 @@ This phase is complete only when:
 
 ## 11. Implementation checklist
 
-- [ ] Add a deterministic sync-brief query surface
+- [x] Add a deterministic sync-brief query surface
 - [ ] Add explicit plan/task sync actions
 - [ ] Preserve exact checklist-item and revision provenance
 - [ ] Validate end-to-end coverage/provenance refresh after sync

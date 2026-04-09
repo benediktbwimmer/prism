@@ -21,6 +21,6 @@ pub use spec_materialized_store::{
 pub use spec_query::{
     MaterializedSpecQueryEngine, SpecChecklistView, SpecCoverageView, SpecDependencyView,
     SpecDocumentView, SpecListEntry, SpecMetadataView, SpecQueryEngine, SpecQueryLookup,
-    SpecSyncProvenanceView,
+    SpecSyncBriefView, SpecSyncProvenanceView,
 };
 pub use spec_refresh::{refresh_spec_materialization, SpecMaterializationRefreshResult};
