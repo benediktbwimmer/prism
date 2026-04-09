@@ -11,6 +11,9 @@ use prism_store::{CoordinationCheckpointStore, CoordinationJournal, Graph};
 use crate::concept_events::load_repo_curated_concepts;
 use crate::concept_relation_events::load_repo_concept_relations;
 use crate::contract_events::load_repo_curated_contracts;
+use crate::coordination_authority_store::{
+    configured_coordination_authority_store_provider, CoordinationAuthorityBackendConfig,
+};
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
@@ -181,14 +184,33 @@ where
     S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
 {
     let _ = store;
-    Ok(SqliteCoordinationMaterializedStore::new(root)
-        .read_plan_state()?
-        .value
-        .map(|value| HydratedCoordinationPlanState {
-            snapshot: value.snapshot,
-            canonical_snapshot_v2: value.canonical_snapshot_v2,
-            runtime_descriptors: value.runtime_descriptors,
-        }))
+    let provider = configured_coordination_authority_store_provider(root)?;
+    match provider.config() {
+        CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
+            let mut authority_store = prism_store::SqliteStore::open(db_path)?;
+            Ok(authority_store
+                .load_coordination_startup_checkpoint()?
+                .map(|checkpoint| {
+                    let snapshot = checkpoint.snapshot;
+                    let canonical_snapshot_v2 = checkpoint
+                        .canonical_snapshot_v2
+                        .unwrap_or_else(|| snapshot.to_canonical_snapshot_v2());
+                    HydratedCoordinationPlanState {
+                        snapshot,
+                        canonical_snapshot_v2,
+                        runtime_descriptors: checkpoint.runtime_descriptors,
+                    }
+                }))
+        }
+        _ => Ok(SqliteCoordinationMaterializedStore::new(root)
+            .read_plan_state()?
+            .value
+            .map(|value| HydratedCoordinationPlanState {
+                snapshot: value.snapshot,
+                canonical_snapshot_v2: value.canonical_snapshot_v2,
+                runtime_descriptors: value.runtime_descriptors,
+            })),
+    }
 }
 
 pub(crate) fn load_repo_protected_plan_state_or_default<S>(

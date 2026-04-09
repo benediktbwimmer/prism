@@ -51,6 +51,11 @@ use crate::contract_events::append_repo_contract_event;
 use crate::coordination_authority_sync::{
     apply_service_backed_coordination_current_state, sync_coordination_authority_update,
 };
+use crate::coordination_authority_store::{
+    configured_coordination_authority_store_provider, coordination_materialization_enabled_by_default,
+    CoordinationAuthorityBackendKind, CoordinationAuthorityStamp, CoordinationReadRequest,
+    CoordinationStateView,
+};
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
@@ -2009,12 +2014,18 @@ impl WorkspaceSession {
         &self,
         consistency: CoordinationReadConsistency,
     ) -> Result<CoordinationReadResult<CoordinationSnapshot>> {
+        let materialization_enabled = self.coordination_materialization_enabled()?;
         self.read_coordination_with_consistency(
             consistency,
             || {
-                Ok(SqliteCoordinationMaterializedStore::new(&self.root)
-                    .read_snapshot()?
-                    .value)
+                if materialization_enabled {
+                    return Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+                        .read_snapshot()?
+                        .value);
+                }
+                Ok(self
+                    .read_coordination_current_state_from_authority()?
+                    .map(|state| state.snapshot))
             },
             || crate::published_plans::load_authoritative_coordination_snapshot(&self.root),
         )
@@ -2024,12 +2035,18 @@ impl WorkspaceSession {
         &self,
         consistency: CoordinationReadConsistency,
     ) -> Result<CoordinationReadResult<CoordinationSnapshotV2>> {
+        let materialization_enabled = self.coordination_materialization_enabled()?;
         self.read_coordination_with_consistency(
             consistency,
             || {
-                Ok(SqliteCoordinationMaterializedStore::new(&self.root)
-                    .read_snapshot_v2()?
-                    .value)
+                if materialization_enabled {
+                    return Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+                        .read_snapshot_v2()?
+                        .value);
+                }
+                Ok(self
+                    .read_coordination_current_state_from_authority()?
+                    .map(|state| state.canonical_snapshot_v2))
             },
             || crate::published_plans::load_authoritative_coordination_snapshot_v2(&self.root),
         )
@@ -2039,23 +2056,40 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        Ok(SqliteCoordinationMaterializedStore::new(&self.root)
-            .read_effective_read_model()?
-            .value)
+        if self.coordination_materialization_enabled()? {
+            return Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+                .read_effective_read_model()?
+                .value);
+        }
+        Ok(self
+            .read_coordination_current_state_from_authority()?
+            .map(|state| prism_coordination::coordination_read_model_from_snapshot(&state.snapshot)))
     }
 
     pub fn load_coordination_queue_read_model(&self) -> Result<Option<CoordinationQueueReadModel>> {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        Ok(SqliteCoordinationMaterializedStore::new(&self.root)
-            .read_effective_queue_read_model()?
-            .value)
+        if self.coordination_materialization_enabled()? {
+            return Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+                .read_effective_queue_read_model()?
+                .value);
+        }
+        Ok(self
+            .read_coordination_current_state_from_authority()?
+            .map(|state| {
+                prism_coordination::coordination_queue_read_model_from_snapshot(&state.snapshot)
+            }))
     }
 
     pub fn load_coordination_startup_checkpoint_revision(&self) -> Result<Option<u64>> {
         if !self.coordination_enabled {
             return Ok(None);
+        }
+        if !self.coordination_materialization_enabled()? {
+            return Ok(self
+                .read_coordination_authority_stamp()?
+                .and_then(|authority| authority_revision_from_stamp(&authority)));
         }
         let store = SqliteCoordinationMaterializedStore::new(&self.root);
         let metadata_revision = store.read_metadata()?.startup_checkpoint_coordination_revision;
@@ -2091,18 +2125,28 @@ impl WorkspaceSession {
         &self,
         consistency: CoordinationReadConsistency,
     ) -> Result<CoordinationReadResult<CoordinationPlanState>> {
+        let materialization_enabled = self.coordination_materialization_enabled()?;
         self.read_coordination_with_consistency(
             consistency,
             || {
-                Ok(SqliteCoordinationMaterializedStore::new(&self.root)
-                    .read_plan_state()?
-                    .value
-                    .map(|value| {
-                        CoordinationPlanState::from(HydratedCoordinationPlanState {
-                            snapshot: value.snapshot,
-                            canonical_snapshot_v2: value.canonical_snapshot_v2,
-                            runtime_descriptors: value.runtime_descriptors,
-                        })
+                if materialization_enabled {
+                    return Ok(SqliteCoordinationMaterializedStore::new(&self.root)
+                        .read_plan_state()?
+                        .value
+                        .map(|value| {
+                            CoordinationPlanState::from(HydratedCoordinationPlanState {
+                                snapshot: value.snapshot,
+                                canonical_snapshot_v2: value.canonical_snapshot_v2,
+                                runtime_descriptors: value.runtime_descriptors,
+                            })
+                        }));
+                }
+                Ok(self
+                    .read_coordination_current_state_from_authority()?
+                    .map(|state| CoordinationPlanState {
+                        snapshot: state.snapshot,
+                        canonical_snapshot_v2: state.canonical_snapshot_v2,
+                        runtime_descriptors: state.runtime_descriptors,
                     }))
             },
             || {
@@ -2152,6 +2196,36 @@ impl WorkspaceSession {
                 }
             }
         }
+    }
+
+    fn coordination_materialization_enabled(&self) -> Result<bool> {
+        Ok(coordination_materialization_enabled_by_default(
+            configured_coordination_authority_store_provider(&self.root)?.config(),
+        ))
+    }
+
+    fn read_coordination_current_state_from_authority(
+        &self,
+    ) -> Result<Option<crate::CoordinationCurrentState>> {
+        let provider = configured_coordination_authority_store_provider(&self.root)?;
+        Ok(provider
+            .open(&self.root)?
+            .read_current(CoordinationReadRequest {
+                consistency: CoordinationReadConsistency::Eventual,
+                view: CoordinationStateView::PlanState,
+            })?
+            .value)
+    }
+
+    fn read_coordination_authority_stamp(&self) -> Result<Option<CoordinationAuthorityStamp>> {
+        let provider = configured_coordination_authority_store_provider(&self.root)?;
+        Ok(provider
+            .open(&self.root)?
+            .read_current(CoordinationReadRequest {
+                consistency: CoordinationReadConsistency::Eventual,
+                view: CoordinationStateView::PlanState,
+            })?
+            .authority)
     }
 
     fn stale_coordination_read_fallback<T, E>(
@@ -3004,6 +3078,27 @@ impl WorkspaceSession {
             dirty_paths_override,
         )
     }
+}
+
+fn authority_revision_from_stamp(authority: &CoordinationAuthorityStamp) -> Option<u64> {
+    match authority.backend_kind {
+        CoordinationAuthorityBackendKind::Sqlite => {
+            parse_authority_revision_token(&authority.snapshot_id, "sqlite-revision:")
+        }
+        CoordinationAuthorityBackendKind::Postgres => {
+            parse_authority_revision_token(&authority.snapshot_id, "postgres-revision:")
+        }
+        CoordinationAuthorityBackendKind::GitSharedRefs => None,
+    }
+}
+
+fn parse_authority_revision_token(snapshot_id: &str, prefix: &str) -> Option<u64> {
+    snapshot_id
+        .strip_prefix(prefix)?
+        .split(':')
+        .next()?
+        .parse()
+        .ok()
 }
 
 fn publish_pending_repo_patch_provenance(

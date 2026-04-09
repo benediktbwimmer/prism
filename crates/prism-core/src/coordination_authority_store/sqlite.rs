@@ -28,7 +28,7 @@ use super::types::{
     RuntimeDescriptorQuery, SqliteCoordinationAuthorityBackendDetails,
 };
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
-use crate::coordination_snapshot_sanitization::sanitize_persisted_coordination_snapshot;
+use crate::coordination_persistence::repo_semantic_coordination_snapshot;
 use crate::util::current_timestamp;
 use crate::workspace_identity::{
     coordination_persist_context_for_root, workspace_identity_for_root,
@@ -74,23 +74,41 @@ impl SqliteCoordinationAuthorityStore {
         }
     }
 
+    fn effective_revision(
+        revision: u64,
+        checkpoint: Option<&CoordinationStartupCheckpoint>,
+    ) -> u64 {
+        checkpoint
+            .map(|value| value.coordination_revision.max(revision))
+            .unwrap_or(revision)
+    }
+
     fn load_current_state_from_store(
         &self,
         store: &mut SqliteStore,
     ) -> Result<Option<CoordinationCurrentState>> {
         let revision = store.coordination_revision()?;
         let checkpoint = self.load_checkpoint(store)?;
+        let effective_revision = Self::effective_revision(revision, checkpoint.as_ref());
         let stream = store.load_coordination_event_stream()?;
         if let Some(snapshot) =
             coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot)
         {
+            let snapshot = if let Some(checkpoint) = checkpoint
+                .as_ref()
+                .filter(|value| value.coordination_revision == effective_revision)
+            {
+                merge_checkpoint_counters(snapshot, &checkpoint.snapshot)
+            } else {
+                snapshot
+            };
             let runtime_descriptors = checkpoint
                 .as_ref()
                 .map(|value| value.runtime_descriptors.clone())
                 .unwrap_or_default();
             let canonical_snapshot_v2 = checkpoint
                 .as_ref()
-                .filter(|value| value.coordination_revision == revision)
+                .filter(|value| value.coordination_revision == effective_revision)
                 .and_then(|value| value.canonical_snapshot_v2.clone())
                 .unwrap_or_else(|| snapshot.to_canonical_snapshot_v2());
             return Ok(Some(CoordinationCurrentState {
@@ -112,11 +130,12 @@ impl SqliteCoordinationAuthorityStore {
     ) -> Result<Option<CoordinationAuthorityStamp>> {
         let revision = store.coordination_revision()?;
         let checkpoint = self.load_checkpoint(store)?;
-        if revision == 0 && checkpoint.is_none() {
+        let effective_revision = Self::effective_revision(revision, checkpoint.as_ref());
+        if effective_revision == 0 && checkpoint.is_none() {
             return Ok(None);
         }
         let logical_repo_id = workspace_identity_for_root(&self.root).repo_id;
-        let snapshot_id = format!("sqlite-revision:{revision}");
+        let snapshot_id = format!("sqlite-revision:{effective_revision}");
         let committed_at = checkpoint.as_ref().map(|value| value.materialized_at);
         Ok(Some(CoordinationAuthorityStamp {
             backend_kind: CoordinationAuthorityBackendKind::Sqlite,
@@ -207,7 +226,7 @@ impl SqliteCoordinationAuthorityStore {
         canonical_snapshot_v2: &CoordinationSnapshotV2,
         runtime_descriptors: &[RuntimeDescriptor],
     ) -> Result<()> {
-        let mut sanitized_snapshot = sanitize_persisted_coordination_snapshot(snapshot.clone());
+        let mut sanitized_snapshot = repo_semantic_coordination_snapshot(snapshot.clone());
         sanitized_snapshot.events.clear();
         store.save_coordination_startup_checkpoint(&CoordinationStartupCheckpoint {
             version: CoordinationStartupCheckpoint::VERSION,
@@ -419,6 +438,18 @@ impl SqliteCoordinationAuthorityStore {
             }
         }
     }
+}
+
+fn merge_checkpoint_counters(
+    mut snapshot: CoordinationSnapshot,
+    checkpoint_snapshot: &CoordinationSnapshot,
+) -> CoordinationSnapshot {
+    snapshot.next_plan = snapshot.next_plan.max(checkpoint_snapshot.next_plan);
+    snapshot.next_task = snapshot.next_task.max(checkpoint_snapshot.next_task);
+    snapshot.next_claim = snapshot.next_claim.max(checkpoint_snapshot.next_claim);
+    snapshot.next_artifact = snapshot.next_artifact.max(checkpoint_snapshot.next_artifact);
+    snapshot.next_review = snapshot.next_review.max(checkpoint_snapshot.next_review);
+    snapshot
 }
 
 impl CoordinationAuthorityStore for SqliteCoordinationAuthorityStore {

@@ -130,10 +130,9 @@ fn load_hydrated_plan_state_from_runtime_store(
     session: &crate::session::WorkspaceSession,
 ) -> crate::published_plans::HydratedCoordinationPlanState {
     let mut store = session.store.lock().expect("workspace store lock poisoned");
-    store
-        .load_eventual_coordination_plan_state_for_root(&session.root)
+    crate::protected_state::runtime_sync::load_repo_protected_plan_state(&session.root, &mut *store)
         .unwrap()
-        .expect("workspace store should load eventual coordination plan state")
+        .expect("coordination startup checkpoint should load persisted plan state")
 }
 
 fn track_temp_dir(path: &std::path::Path) {
@@ -7225,7 +7224,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
 }
 
 #[test]
-fn coordination_session_materializes_read_models_off_request_path() {
+fn coordination_session_derives_read_models_from_authority_off_request_path() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -7294,8 +7293,6 @@ fn coordination_session_materializes_read_models_off_request_path() {
             .is_none());
     }
 
-    let authoritative_revision = session.coordination_revision().unwrap();
-
     session.flush_materializations().unwrap();
 
     let mut worktree_store = SqliteStore::open(
@@ -7305,19 +7302,30 @@ fn coordination_session_materializes_read_models_off_request_path() {
             .unwrap(),
     )
     .unwrap();
-    let persisted_read_model = worktree_store
+    assert!(
+        worktree_store.load_coordination_read_model().unwrap().is_none(),
+        "db-backed default topology should not materialize coordination read models into the worktree store"
+    );
+    assert!(
+        worktree_store
+            .load_coordination_queue_read_model()
+            .unwrap()
+            .is_none(),
+        "db-backed default topology should not materialize coordination queue models into the worktree store"
+    );
+    let derived_read_model = session
         .load_coordination_read_model()
         .unwrap()
-        .expect("persisted coordination read model should materialize after flush");
-    assert_eq!(persisted_read_model.active_plans.len(), 1);
-    assert_eq!(persisted_read_model.task_count, 1);
-    assert_eq!(persisted_read_model.revision, authoritative_revision);
-    let persisted_queue_model = worktree_store
+        .expect("authority-backed coordination read model should derive after flush");
+    assert_eq!(derived_read_model.active_plans.len(), 1);
+    assert_eq!(derived_read_model.task_count, 1);
+    assert_eq!(derived_read_model.revision, 0);
+    let derived_queue_model = session
         .load_coordination_queue_read_model()
         .unwrap()
-        .expect("persisted coordination queue model should materialize after flush");
-    assert!(persisted_queue_model.pending_handoff_tasks.is_empty());
-    assert_eq!(persisted_queue_model.revision, authoritative_revision);
+        .expect("authority-backed coordination queue model should derive after flush");
+    assert!(derived_queue_model.pending_handoff_tasks.is_empty());
+    assert_eq!(derived_queue_model.revision, 0);
     assert!(
         crate::tracked_snapshot::load_tracked_coordination_materialization_status(&root)
             .unwrap()
@@ -8183,15 +8191,15 @@ fn checkpoint_materialization_preserves_authoritative_task_lease_fields() {
         .unwrap();
     flush_coordination_materializations(&session);
 
-    let mut materialized_store = SqliteStore::open(
+    let mut authority_store = SqliteStore::open(
         PrismPaths::for_workspace_root(&root)
             .unwrap()
-            .coordination_materialization_db_path()
+            .coordination_authority_db_path()
             .unwrap(),
     )
     .unwrap();
     let checkpoint = prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(
-        &mut materialized_store,
+        &mut authority_store,
     )
     .unwrap()
     .expect("coordination startup checkpoint");

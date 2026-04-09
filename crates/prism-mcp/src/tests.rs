@@ -47,8 +47,7 @@ use prism_query::{
     ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptScope, ContractKind,
     ContractStability, ContractStatus,
 };
-use prism_store::{Graph, SqliteStore, Store};
-use rusqlite::Connection;
+use prism_store::{CoordinationCheckpointStore, CoordinationStartupCheckpoint, Graph, SqliteStore, Store};
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -20997,12 +20996,11 @@ fn runtime_status_tolerates_legacy_startup_checkpoint_plan_shape() {
     let root = temp_workspace();
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
-    let cache = PrismPaths::for_workspace_root(&root)
+    let authority_db = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .coordination_materialization_db_path()
+        .coordination_authority_db_path()
         .unwrap();
-    let conn = Connection::open(cache).unwrap();
-    let checkpoint = serde_json::json!({
+    let checkpoint: CoordinationStartupCheckpoint = serde_json::from_value(serde_json::json!({
         "version": 4,
         "materialized_at": 123,
         "coordination_revision": 77,
@@ -21062,13 +21060,11 @@ fn runtime_status_tolerates_legacy_startup_checkpoint_plan_shape() {
         },
         "canonical_snapshot_v2": null,
         "runtime_descriptors": []
-    });
-    conn.execute(
-        "INSERT INTO snapshots(key, value) VALUES (?1, ?2)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        rusqlite::params!["coordination_startup_checkpoint", checkpoint.to_string()],
-    )
+    }))
     .unwrap();
+    let mut store = SqliteStore::open(authority_db).unwrap();
+    CoordinationCheckpointStore::save_coordination_startup_checkpoint(&mut store, &checkpoint)
+        .unwrap();
 
     host.diagnostics_state().invalidate_runtime_status();
     let status = crate::runtime_views::refresh_cached_runtime_status(&host)
