@@ -84,10 +84,10 @@ pub(crate) fn coordination_startup_checkpoint_authority_with_provider(
     root: &Path,
     provider: &CoordinationAuthorityStoreProvider,
 ) -> Result<Option<CoordinationStartupCheckpointAuthority>> {
-    let store = provider.open_projection(root)?;
+    let store = provider.open_stamp_reads(root)?;
     let authority = store
-        .read_summary(CoordinationReadConsistency::Strong)?
-        .authority;
+        .read_authority_stamp(CoordinationReadConsistency::Strong)?
+        .value;
     Ok(
         authority.map(|authority| CoordinationStartupCheckpointAuthority {
             ref_name: authority.provenance.ref_name.unwrap_or_else(|| {

@@ -61,7 +61,7 @@ Current phase checklist:
 - [x] Phase 3: harden the SQL authority seam for Postgres
 - [x] Phase 4: finalize the SQL authority contract for Postgres
 - [x] Phase 5: narrow the SQL authority query/provider seams
-- [ ] Phase 6: replace generic authority reads with sharp SQL read-model and command ports
+- [x] Phase 6: replace generic authority reads with sharp SQL read-model and command ports
 - [ ] Phase 7: implement the shared execution substrate core
 - [ ] Phase 8: move warm-state validation onto the shared execution substrate
 - [ ] Phase 9: add `Action` as a first-class graph leaf on the shared execution substrate
@@ -72,7 +72,7 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 6: replace generic authority reads with sharp SQL read-model and command ports
+- Phase 7: implement the shared execution substrate core
 
 Current implementation note (2026-04-09):
 
@@ -81,7 +81,8 @@ Current implementation note (2026-04-09):
 - Phase 3 is landed by splitting the hot authority contract from snapshot and recovery operations, adding an explicit secondary snapshot seam, and removing full-state payloads from normal authority write results
 - Phase 4 is landed by replacing the misleading hot `read_plan_state` authority read with a direct current-state read, splitting the SQL authority seam into smaller traits, removing derived-state persistence policy from the public append contract, and replacing `prism_store` persist-result leakage with backend-neutral commit receipts
 - Phase 5 is landed by removing the public hot-path full-current-state read, switching the provider to explicit responsibility-scoped openings, and moving hot query callers onto narrower projection/runtime/diagnostics surfaces
-- the next blocking work is Phase 6: replace the remaining generic projection/store-shaped authority reads with final caller-shaped SQL read-model ports and a sharp SQL command seam before substrate work continues
+- Phase 6 is landed by replacing the generic projection seam with exact authority-stamp and coordination-surface read ports, moving hot callers off canonical-snapshot reads, and keeping broad snapshot/current-state assembly on explicit secondary seams
+- the next blocking work is Phase 7: implement the shared execution substrate core against that finalized SQL authority/query contract
 
 ## 3. Ordering thesis
 
@@ -399,6 +400,11 @@ Exit criteria:
 - the SQL command seam is explicit and storage-agnostic, without leaking SQLite or Postgres details
 - snapshot/export/recovery access is clearly separate from hot query/command paths
 - SQLite and the Postgres stub compile against the new read-model/command surface
+
+Status note (2026-04-10):
+
+- complete
+- hot callers now use exact authority-stamp and coordination-surface read ports instead of the generic projection seam or canonical-snapshot reads
 
 ### Phase 7: Implement the shared execution substrate core
 

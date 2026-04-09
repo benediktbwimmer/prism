@@ -455,11 +455,11 @@ fn coordination_transaction_authority_stamp_view(
     let provider = authority_store_provider
         .cloned()
         .or_else(|| configured_coordination_authority_store_provider(workspace_root).ok())?;
-    let store = provider.open_projection(workspace_root).ok()?;
+    let store = provider.open_stamp_reads(workspace_root).ok()?;
     let authority = store
-        .read_summary(CoordinationReadConsistency::Strong)
+        .read_authority_stamp(CoordinationReadConsistency::Strong)
         .ok()?
-        .authority?;
+        .value?;
     serde_json::to_value(AuthorityStampView {
         backend_kind: format!("{:?}", authority.backend_kind),
         logical_repo_id: authority.logical_repo_id,

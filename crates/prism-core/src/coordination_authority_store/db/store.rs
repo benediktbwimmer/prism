@@ -2,23 +2,23 @@ use anyhow::Result;
 use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
 
 use super::traits::{
-    CoordinationAuthorityDiagnosticsDb, CoordinationAuthorityEventExecutionDb,
-    CoordinationAuthorityHistoryDb, CoordinationAuthorityMutationDb,
-    CoordinationAuthorityProjectionDb, CoordinationAuthorityRuntimeDb,
-    CoordinationAuthoritySnapshotDb,
+    CoordinationAuthorityCoordinationSurfaceReadDb, CoordinationAuthorityDiagnosticsDb,
+    CoordinationAuthorityEventExecutionDb, CoordinationAuthorityHistoryDb,
+    CoordinationAuthorityMutationDb, CoordinationAuthorityRuntimeDb,
+    CoordinationAuthoritySnapshotDb, CoordinationAuthorityStampReadDb,
 };
 use crate::coordination_authority_store::{
-    CoordinationAppendRequest, CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
+    CoordinationAppendRequest, CoordinationAuthorityCoordinationSurface,
+    CoordinationAuthorityCoordinationSurfaceReadPort, CoordinationAuthorityDiagnostics,
     CoordinationAuthorityDiagnosticsStore, CoordinationAuthorityEventExecutionStore,
     CoordinationAuthorityHistoryStore, CoordinationAuthorityMutationStore,
-    CoordinationAuthorityProjectionStore, CoordinationAuthorityRuntimeStore,
-    CoordinationAuthoritySnapshotStore, CoordinationAuthoritySummary,
-    CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
-    CoordinationReadEnvelope, CoordinationReplaceCurrentStateRequest,
-    CoordinationTransactionResult, EventExecutionRecordAuthorityQuery,
-    EventExecutionRecordWriteResult, EventExecutionTransitionRequest,
-    EventExecutionTransitionResult, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
-    RuntimeDescriptorQuery,
+    CoordinationAuthorityRuntimeStore, CoordinationAuthoritySnapshotStore,
+    CoordinationAuthorityStamp, CoordinationAuthorityStampReadPort, CoordinationDiagnosticsRequest,
+    CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
+    CoordinationReplaceCurrentStateRequest, CoordinationTransactionResult,
+    EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
+    EventExecutionTransitionRequest, EventExecutionTransitionResult, RuntimeDescriptorClearRequest,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
@@ -33,26 +33,27 @@ impl<Db> DbCoordinationAuthorityStore<Db> {
     }
 }
 
-impl<Db> CoordinationAuthorityProjectionStore for DbCoordinationAuthorityStore<Db>
+impl<Db> CoordinationAuthorityStampReadPort for DbCoordinationAuthorityStore<Db>
 where
-    Db: CoordinationAuthorityProjectionDb,
+    Db: CoordinationAuthorityStampReadDb,
 {
-    fn capabilities(&self) -> CoordinationAuthorityCapabilities {
-        self.db.capabilities()
-    }
-
-    fn read_summary(
+    fn read_authority_stamp(
         &self,
         consistency: CoordinationReadConsistency,
-    ) -> Result<CoordinationReadEnvelope<CoordinationAuthoritySummary>> {
-        self.db.read_summary(consistency)
+    ) -> Result<CoordinationReadEnvelope<CoordinationAuthorityStamp>> {
+        self.db.read_authority_stamp(consistency)
     }
+}
 
-    fn read_canonical_snapshot_v2(
+impl<Db> CoordinationAuthorityCoordinationSurfaceReadPort for DbCoordinationAuthorityStore<Db>
+where
+    Db: CoordinationAuthorityCoordinationSurfaceReadDb,
+{
+    fn read_coordination_surface(
         &self,
         consistency: CoordinationReadConsistency,
-    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>> {
-        self.db.read_canonical_snapshot_v2(consistency)
+    ) -> Result<CoordinationReadEnvelope<CoordinationAuthorityCoordinationSurface>> {
+        self.db.read_coordination_surface(consistency)
     }
 }
 

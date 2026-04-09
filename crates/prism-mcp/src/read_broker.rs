@@ -7,8 +7,7 @@ use prism_coordination::{
 };
 use prism_core::{
     configured_coordination_authority_store_provider,
-    coordination_materialization_enabled_by_default, CoordinationAuthorityBackendKind,
-    CoordinationAuthorityStamp, CoordinationReadConsistency, WorkspaceSession,
+    coordination_materialization_enabled_by_default, CoordinationReadConsistency, WorkspaceSession,
 };
 use prism_query::Prism;
 
@@ -129,42 +128,27 @@ fn current_coordination_surface_from_authority(
     workspace: &WorkspaceSession,
     provider: &prism_core::CoordinationAuthorityStoreProvider,
 ) -> Result<CurrentCoordinationSurface> {
-    let store = provider.open_projection(workspace.root())?;
-    let envelope = store.read_canonical_snapshot_v2(CoordinationReadConsistency::Eventual)?;
-    let authority_revision = authority_revision_from_stamp(envelope.authority.as_ref());
-    let snapshot_v2 = envelope
-        .value
-        .unwrap_or_else(CoordinationSnapshotV2::default);
-    let read_model = coordination_read_model_from_snapshot_v2(&snapshot_v2);
-    let queue_read_model = coordination_queue_read_model_from_snapshot_v2(&snapshot_v2);
+    let store = provider.open_coordination_surface_reads(workspace.root())?;
+    let envelope = store.read_coordination_surface(CoordinationReadConsistency::Eventual)?;
+    let surface =
+        envelope
+            .value
+            .unwrap_or_else(|| prism_core::CoordinationAuthorityCoordinationSurface {
+                canonical_snapshot_v2: CoordinationSnapshotV2::default(),
+                read_model: CoordinationReadModel::default(),
+                queue_read_model: CoordinationQueueReadModel::default(),
+                tracked_snapshot_revision: None,
+                startup_checkpoint_revision: None,
+                read_model_revision: None,
+                queue_read_model_revision: None,
+            });
     Ok(CurrentCoordinationSurface {
-        snapshot_v2,
-        read_model,
-        queue_read_model,
-        tracked_snapshot_revision: authority_revision,
-        startup_checkpoint_revision: authority_revision,
-        read_model_revision: authority_revision,
-        queue_read_model_revision: authority_revision,
+        snapshot_v2: surface.canonical_snapshot_v2,
+        read_model: surface.read_model,
+        queue_read_model: surface.queue_read_model,
+        tracked_snapshot_revision: surface.tracked_snapshot_revision,
+        startup_checkpoint_revision: surface.startup_checkpoint_revision,
+        read_model_revision: surface.read_model_revision,
+        queue_read_model_revision: surface.queue_read_model_revision,
     })
-}
-
-fn authority_revision_from_stamp(authority: Option<&CoordinationAuthorityStamp>) -> Option<u64> {
-    let authority = authority?;
-    match authority.backend_kind {
-        CoordinationAuthorityBackendKind::Sqlite => {
-            parse_authority_revision_token(&authority.snapshot_id, "sqlite-revision:")
-        }
-        CoordinationAuthorityBackendKind::Postgres => {
-            parse_authority_revision_token(&authority.snapshot_id, "postgres-revision:")
-        }
-    }
-}
-
-fn parse_authority_revision_token(snapshot_id: &str, prefix: &str) -> Option<u64> {
-    snapshot_id
-        .strip_prefix(prefix)?
-        .split(':')
-        .next()?
-        .parse()
-        .ok()
 }

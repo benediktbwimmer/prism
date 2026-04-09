@@ -2224,9 +2224,9 @@ impl WorkspaceSession {
     fn read_coordination_authority_stamp(&self) -> Result<Option<CoordinationAuthorityStamp>> {
         let provider = configured_coordination_authority_store_provider(&self.root)?;
         Ok(provider
-            .open_projection(&self.root)?
-            .read_summary(CoordinationReadConsistency::Eventual)?
-            .authority)
+            .open_stamp_reads(&self.root)?
+            .read_authority_stamp(CoordinationReadConsistency::Eventual)?
+            .value)
     }
 
     fn stale_coordination_read_fallback<T, E>(

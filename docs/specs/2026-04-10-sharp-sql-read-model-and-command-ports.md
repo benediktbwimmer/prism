@@ -1,6 +1,6 @@
 # Sharp SQL Read-Model And Command Ports
 
-Status: proposed
+Status: implemented
 Audience: coordination, storage, runtime, query, MCP, CLI, UI, and service maintainers
 Scope: replace the remaining generic SQL authority read/store abstraction with exact caller-shaped read-model ports plus a final backend-neutral SQL command seam
 
@@ -32,6 +32,12 @@ SQLite remains the local-first implementation.
 Postgres is the production target.
 
 Both must implement the same caller-shaped ports.
+
+Progress note (2026-04-10):
+
+- implementation landed by replacing the generic projection seam with exact authority-stamp and
+  coordination-surface read ports, migrating hot callers off canonical-snapshot reads, and keeping
+  snapshot/current-state assembly on explicit secondary seams
 
 ## 2. Goals
 

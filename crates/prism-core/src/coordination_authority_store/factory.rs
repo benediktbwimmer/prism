@@ -4,26 +4,28 @@ use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 
 use super::db::{
+    open_postgres_coordination_authority_coordination_surface_read_port,
     open_postgres_coordination_authority_diagnostics_store,
     open_postgres_coordination_authority_event_execution_store,
     open_postgres_coordination_authority_history_store,
     open_postgres_coordination_authority_mutation_store,
-    open_postgres_coordination_authority_projection_store,
     open_postgres_coordination_authority_runtime_store,
     open_postgres_coordination_authority_snapshot_store,
+    open_postgres_coordination_authority_stamp_read_port,
+    open_sqlite_coordination_authority_coordination_surface_read_port,
     open_sqlite_coordination_authority_diagnostics_store,
     open_sqlite_coordination_authority_event_execution_store,
     open_sqlite_coordination_authority_history_store,
     open_sqlite_coordination_authority_mutation_store,
-    open_sqlite_coordination_authority_projection_store,
     open_sqlite_coordination_authority_runtime_store,
     open_sqlite_coordination_authority_snapshot_store,
+    open_sqlite_coordination_authority_stamp_read_port,
 };
 use super::traits::{
-    CoordinationAuthorityDiagnosticsStore, CoordinationAuthorityEventExecutionStore,
-    CoordinationAuthorityHistoryStore, CoordinationAuthorityMutationStore,
-    CoordinationAuthorityProjectionStore, CoordinationAuthorityRuntimeStore,
-    CoordinationAuthoritySnapshotStore,
+    CoordinationAuthorityCoordinationSurfaceReadPort, CoordinationAuthorityDiagnosticsStore,
+    CoordinationAuthorityEventExecutionStore, CoordinationAuthorityHistoryStore,
+    CoordinationAuthorityMutationStore, CoordinationAuthorityRuntimeStore,
+    CoordinationAuthoritySnapshotStore, CoordinationAuthorityStampReadPort,
 };
 use crate::PrismPaths;
 
@@ -55,11 +57,18 @@ impl CoordinationAuthorityStoreProvider {
         &self.config
     }
 
-    pub fn open_projection(
+    pub fn open_stamp_reads(
         &self,
         root: &Path,
-    ) -> Result<Box<dyn CoordinationAuthorityProjectionStore>> {
-        open_coordination_authority_projection_store(root, &self.config)
+    ) -> Result<Box<dyn CoordinationAuthorityStampReadPort>> {
+        open_coordination_authority_stamp_read_port(root, &self.config)
+    }
+
+    pub fn open_coordination_surface_reads(
+        &self,
+        root: &Path,
+    ) -> Result<Box<dyn CoordinationAuthorityCoordinationSurfaceReadPort>> {
+        open_coordination_authority_coordination_surface_read_port(root, &self.config)
     }
 
     pub fn open_mutation(
@@ -233,16 +242,33 @@ fn resolve_configured_path(root: &Path, path: PathBuf) -> PathBuf {
     }
 }
 
-pub fn open_coordination_authority_projection_store(
+pub fn open_coordination_authority_stamp_read_port(
     root: &Path,
     config: &CoordinationAuthorityBackendConfig,
-) -> Result<Box<dyn CoordinationAuthorityProjectionStore>> {
+) -> Result<Box<dyn CoordinationAuthorityStampReadPort>> {
     match config {
         CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
-            open_sqlite_coordination_authority_projection_store(root, db_path)
+            open_sqlite_coordination_authority_stamp_read_port(root, db_path)
         }
         CoordinationAuthorityBackendConfig::Postgres { connection_url } => {
-            open_postgres_coordination_authority_projection_store(root, connection_url)
+            open_postgres_coordination_authority_stamp_read_port(root, connection_url)
+        }
+    }
+}
+
+pub fn open_coordination_authority_coordination_surface_read_port(
+    root: &Path,
+    config: &CoordinationAuthorityBackendConfig,
+) -> Result<Box<dyn CoordinationAuthorityCoordinationSurfaceReadPort>> {
+    match config {
+        CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
+            open_sqlite_coordination_authority_coordination_surface_read_port(root, db_path)
+        }
+        CoordinationAuthorityBackendConfig::Postgres { connection_url } => {
+            open_postgres_coordination_authority_coordination_surface_read_port(
+                root,
+                connection_url,
+            )
         }
     }
 }
@@ -331,10 +357,16 @@ pub fn open_coordination_authority_snapshot_store(
     }
 }
 
-pub fn open_default_coordination_authority_projection_store(
+pub fn open_default_coordination_authority_stamp_read_port(
     root: &Path,
-) -> Result<Box<dyn CoordinationAuthorityProjectionStore>> {
-    default_coordination_authority_store_provider().open_projection(root)
+) -> Result<Box<dyn CoordinationAuthorityStampReadPort>> {
+    default_coordination_authority_store_provider().open_stamp_reads(root)
+}
+
+pub fn open_default_coordination_authority_coordination_surface_read_port(
+    root: &Path,
+) -> Result<Box<dyn CoordinationAuthorityCoordinationSurfaceReadPort>> {
+    default_coordination_authority_store_provider().open_coordination_surface_reads(root)
 }
 
 pub fn open_default_coordination_authority_mutation_store(
@@ -383,8 +415,8 @@ mod tests {
     use super::{
         configured_coordination_authority_store_provider,
         default_coordination_authority_store_provider,
+        open_coordination_authority_coordination_surface_read_port,
         open_coordination_authority_diagnostics_store,
-        open_coordination_authority_projection_store,
         resolve_coordination_authority_store_provider, CoordinationAuthorityBackendConfig,
         CoordinationAuthorityStoreProvider,
     };
@@ -469,7 +501,7 @@ mod tests {
 
     #[test]
     fn opening_postgres_backend_is_explicitly_unimplemented() {
-        let error = match open_coordination_authority_projection_store(
+        let error = match open_coordination_authority_coordination_surface_read_port(
             Path::new("."),
             &CoordinationAuthorityBackendConfig::Postgres {
                 connection_url: "postgres://localhost/prism".to_string(),

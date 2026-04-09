@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use prism_coordination::{
-    CoordinationEvent, CoordinationSnapshot, CoordinationSnapshotV2, EventExecutionOwner,
-    EventExecutionRecord, RuntimeDescriptor,
+    CoordinationEvent, CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    CoordinationSnapshotV2, EventExecutionOwner, EventExecutionRecord, RuntimeDescriptor,
 };
 use prism_ir::EventExecutionStatus;
 use prism_ir::{EventExecutionId, SessionId};
@@ -14,16 +14,6 @@ use crate::published_plans::HydratedCoordinationPlanState;
 pub enum CoordinationAuthorityBackendKind {
     Sqlite,
     Postgres,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CoordinationAuthorityCapabilities {
-    pub supports_eventual_reads: bool,
-    pub supports_transactions: bool,
-    pub supports_runtime_descriptors: bool,
-    pub supports_event_execution_records: bool,
-    pub supports_retained_history: bool,
-    pub supports_diagnostics: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -70,10 +60,15 @@ impl From<CoordinationCurrentState> for HydratedCoordinationPlanState {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CoordinationAuthoritySummary {
-    pub has_current_state: bool,
-    pub runtime_descriptor_count: usize,
+#[derive(Debug, Clone, PartialEq)]
+pub struct CoordinationAuthorityCoordinationSurface {
+    pub canonical_snapshot_v2: CoordinationSnapshotV2,
+    pub read_model: CoordinationReadModel,
+    pub queue_read_model: CoordinationQueueReadModel,
+    pub tracked_snapshot_revision: Option<u64>,
+    pub startup_checkpoint_revision: Option<u64>,
+    pub read_model_revision: Option<u64>,
+    pub queue_read_model_revision: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

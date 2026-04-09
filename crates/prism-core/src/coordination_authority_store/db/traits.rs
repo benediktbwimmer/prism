@@ -3,28 +3,29 @@ use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
 
 use crate::coordination_authority_store::CoordinationReplaceCurrentStateRequest;
 use crate::coordination_authority_store::{
-    CoordinationAppendRequest, CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
-    CoordinationAuthoritySummary, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
-    CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationTransactionResult,
-    EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
-    EventExecutionTransitionRequest, EventExecutionTransitionResult, RuntimeDescriptorClearRequest,
-    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    CoordinationAppendRequest, CoordinationAuthorityCoordinationSurface,
+    CoordinationAuthorityDiagnostics, CoordinationAuthorityStamp, CoordinationDiagnosticsRequest,
+    CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
+    CoordinationTransactionResult, EventExecutionRecordAuthorityQuery,
+    EventExecutionRecordWriteResult, EventExecutionTransitionRequest,
+    EventExecutionTransitionResult, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
+    RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
 
-pub(crate) trait CoordinationAuthorityProjectionDb: Send + Sync {
-    fn capabilities(&self) -> CoordinationAuthorityCapabilities;
-
-    fn read_summary(
+pub(crate) trait CoordinationAuthorityStampReadDb: Send + Sync {
+    fn read_authority_stamp(
         &self,
         consistency: CoordinationReadConsistency,
-    ) -> Result<CoordinationReadEnvelope<CoordinationAuthoritySummary>>;
+    ) -> Result<CoordinationReadEnvelope<CoordinationAuthorityStamp>>;
+}
 
-    fn read_canonical_snapshot_v2(
+pub(crate) trait CoordinationAuthorityCoordinationSurfaceReadDb: Send + Sync {
+    fn read_coordination_surface(
         &self,
         consistency: CoordinationReadConsistency,
-    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>>;
+    ) -> Result<CoordinationReadEnvelope<CoordinationAuthorityCoordinationSurface>>;
 }
 
 pub(crate) trait CoordinationAuthorityMutationDb: Send + Sync {
