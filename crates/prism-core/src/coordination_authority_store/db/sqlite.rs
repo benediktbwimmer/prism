@@ -27,12 +27,16 @@ use crate::coordination_authority_store::{
     EventExecutionOwnerExpectation, EventExecutionRecordAuthorityQuery,
     EventExecutionRecordWriteResult, EventExecutionTransitionKind,
     EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
-    EventExecutionTransitionResult, EventExecutionTransitionStatus, RuntimeDescriptorClearRequest,
-    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    EventExecutionTransitionResult, EventExecutionTransitionStatus,
+    RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
     SqliteCoordinationAuthorityBackendDetails,
 };
-use crate::coordination_reads::CoordinationReadConsistency;
+use crate::coordination_materialized_store::{
+    CoordinationMaterializedStore, CoordinationStartupCheckpointWriteRequest,
+    SqliteCoordinationMaterializedStore,
+};
 use crate::coordination_persistence::repo_semantic_coordination_snapshot;
+use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
 use crate::util::current_timestamp;
 use crate::workspace_identity::{
     coordination_persist_context_for_root, workspace_identity_for_root,
@@ -268,6 +272,13 @@ impl SqliteCoordinationAuthorityDb {
             &canonical_snapshot_v2,
             &runtime_descriptors,
         )?;
+        SqliteCoordinationMaterializedStore::new(&self.root).write_startup_checkpoint(
+            CoordinationStartupCheckpointWriteRequest {
+                legacy_snapshot: snapshot,
+                canonical_snapshot_v2,
+                runtime_descriptors,
+            },
+        )?;
         Ok(())
     }
 
@@ -455,7 +466,9 @@ fn merge_checkpoint_counters(
     snapshot.next_plan = snapshot.next_plan.max(checkpoint_snapshot.next_plan);
     snapshot.next_task = snapshot.next_task.max(checkpoint_snapshot.next_task);
     snapshot.next_claim = snapshot.next_claim.max(checkpoint_snapshot.next_claim);
-    snapshot.next_artifact = snapshot.next_artifact.max(checkpoint_snapshot.next_artifact);
+    snapshot.next_artifact = snapshot
+        .next_artifact
+        .max(checkpoint_snapshot.next_artifact);
     snapshot.next_review = snapshot.next_review.max(checkpoint_snapshot.next_review);
     snapshot
 }
@@ -478,18 +491,56 @@ impl CoordinationAuthorityDb for SqliteCoordinationAuthorityDb {
     ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>> {
         let authority_view = self.load_authority_view()?;
         match request.consistency {
-            CoordinationReadConsistency::Strong | CoordinationReadConsistency::Eventual => {
-                match authority_view.current_state {
-                    Some(state) => Ok(CoordinationReadEnvelope::verified_current(
-                        request.consistency,
-                        Some(authority_view.authority),
-                        state,
-                    )),
-                    None => Ok(CoordinationReadEnvelope::unavailable(
-                        request.consistency,
-                        Some(authority_view.authority),
-                        None,
-                    )),
+            CoordinationReadConsistency::Strong => match authority_view.current_state {
+                Some(state) => Ok(CoordinationReadEnvelope::verified_current(
+                    request.consistency,
+                    Some(authority_view.authority),
+                    state,
+                )),
+                None => Ok(CoordinationReadEnvelope::unavailable(
+                    request.consistency,
+                    Some(authority_view.authority),
+                    None,
+                )),
+            },
+            CoordinationReadConsistency::Eventual => {
+                let envelope =
+                    SqliteCoordinationMaterializedStore::new(&self.root).read_plan_state()?;
+                match envelope.value {
+                    Some(state) => {
+                        let stale = envelope.metadata.startup_checkpoint_coordination_revision
+                            != envelope.metadata.coordination_revision;
+                        Ok(CoordinationReadEnvelope {
+                            consistency: request.consistency,
+                            freshness: if stale {
+                                CoordinationReadFreshness::VerifiedStale
+                            } else {
+                                CoordinationReadFreshness::VerifiedCurrent
+                            },
+                            authority: Some(authority_view.authority),
+                            value: Some(CoordinationCurrentState {
+                                snapshot: state.legacy_snapshot,
+                                canonical_snapshot_v2: state.canonical_snapshot_v2,
+                                runtime_descriptors: state.runtime_descriptors,
+                            }),
+                            refresh_error: stale.then_some(
+                                "coordination startup checkpoint is behind the authoritative sqlite revision"
+                                    .to_string(),
+                            ),
+                        })
+                    }
+                    None => match authority_view.current_state {
+                        Some(state) => Ok(CoordinationReadEnvelope::verified_current(
+                            request.consistency,
+                            Some(authority_view.authority),
+                            state,
+                        )),
+                        None => Ok(CoordinationReadEnvelope::unavailable(
+                            request.consistency,
+                            Some(authority_view.authority),
+                            None,
+                        )),
+                    },
                 }
             }
         }

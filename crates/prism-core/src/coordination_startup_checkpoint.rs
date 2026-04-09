@@ -54,7 +54,7 @@ pub(crate) fn save_coordination_startup_checkpoint<S>(
     root: &Path,
     store: &mut S,
     snapshot: &CoordinationSnapshot,
-    _canonical_snapshot_v2: &CoordinationSnapshotV2,
+    canonical_snapshot_v2: &CoordinationSnapshotV2,
     runtime_descriptors: Option<&[RuntimeDescriptor]>,
 ) -> Result<()>
 where
@@ -69,7 +69,7 @@ where
         coordination_revision: store.coordination_revision()?,
         authority,
         snapshot: checkpoint_snapshot.clone(),
-        canonical_snapshot_v2: _canonical_snapshot_v2.clone(),
+        canonical_snapshot_v2: canonical_snapshot_v2.clone(),
         runtime_descriptors: runtime_descriptors.unwrap_or_default().to_vec(),
     })
 }

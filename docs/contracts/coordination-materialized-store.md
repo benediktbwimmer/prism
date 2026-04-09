@@ -98,7 +98,9 @@ Those belong to the authority store, mutation protocol, and related contracts.
 
 The materialized store should expose service-local eventual read families such as:
 
-- `read_eventual_snapshot(root_id)`
+- `read_eventual_canonical_snapshot(root_id)`
+- `read_eventual_legacy_snapshot(root_id)` only when an explicit continuity projection is still
+  required on the active path
 - `read_eventual_plan(plan_id)`
 - `read_eventual_task(task_id)`
 - `read_eventual_evidence_status(task_id)`
@@ -112,6 +114,8 @@ The exact function names may vary, but the semantic families should remain.
 The materialized store should expose update families such as:
 
 - `replace_from_authoritative_snapshot(...)`
+- `replace_from_authoritative_legacy_snapshot(...)` only when continuity state is explicitly part
+  of the materialized payload contract
 - `apply_committed_authority_result(...)`
 - `write_checkpoint_bundle(...)`
 - `invalidate_materialization(...)`

@@ -135,7 +135,9 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
         }
     }
 
-    fn read_snapshot(&self) -> Result<CoordinationMaterializedReadEnvelope<CoordinationSnapshot>> {
+    fn read_legacy_snapshot(
+        &self,
+    ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationSnapshot>> {
         self.load_envelope(load_persisted_coordination_snapshot)
     }
 
@@ -224,7 +226,7 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
         save_coordination_startup_checkpoint(
             &self.root,
             &mut store,
-            &request.snapshot,
+            &request.legacy_snapshot,
             &request.canonical_snapshot_v2,
             Some(&request.runtime_descriptors),
         )?;
@@ -250,7 +252,7 @@ impl CoordinationMaterializedStore for SqliteCoordinationMaterializedStore {
         request: CoordinationCompactionWriteRequest,
     ) -> Result<CoordinationMaterializedWriteResult> {
         let mut store = self.open_store()?;
-        store.save_coordination_compaction(&request.snapshot)?;
+        store.save_coordination_compaction(&request.legacy_snapshot)?;
         Ok(CoordinationMaterializedWriteResult {
             metadata: self.load_metadata_from_store(&mut store)?,
         })

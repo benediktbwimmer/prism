@@ -31,6 +31,25 @@ use super::{
     Prism,
 };
 
+fn prism_with_coordination_and_projections(
+    graph: Graph,
+    history: HistoryStore,
+    outcomes: OutcomeMemory,
+    coordination: CoordinationSnapshot,
+    projections: ProjectionIndex,
+) -> Prism {
+    let canonical_snapshot_v2 = coordination.to_canonical_snapshot_v2();
+    Prism::with_history_outcomes_coordination_and_projections_v2(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        canonical_snapshot_v2,
+        projections,
+        Vec::new(),
+    )
+}
+
 #[test]
 fn finds_documents_by_file_stem_and_path_fragment() {
     let mut graph = Graph::new();
@@ -101,7 +120,7 @@ fn finds_documents_by_file_stem_and_path_fragment() {
 fn coordination_snapshot_preserves_task_lease_fields() {
     let task_id = CoordinationTaskId::new("coord-task:lease");
     let plan_id = PlanId::new("plan:lease");
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -173,7 +192,7 @@ fn coordination_snapshot_preserves_task_lease_fields() {
     );
 
     let task = prism
-        .coordination_snapshot()
+        .legacy_coordination_snapshot()
         .tasks
         .into_iter()
         .find(|task| task.id == task_id)
@@ -199,7 +218,7 @@ fn coordination_snapshot_preserves_task_lease_fields() {
 fn coordination_snapshot_v2_projects_legacy_snapshot_into_canonical_records() {
     let task_id = CoordinationTaskId::new("coord-task:lease");
     let plan_id = PlanId::new("plan:lease");
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -289,7 +308,7 @@ fn plan_activity_falls_back_to_ids_and_embedded_timestamps_when_events_are_compa
     let expected_created_at =
         sortable_token_timestamp(plan_id.0.as_str()).expect("plan id should encode a timestamp");
     let expected_last_updated_at = expected_created_at + 50;
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -370,7 +389,7 @@ fn plan_activity_falls_back_to_ids_and_embedded_timestamps_when_events_are_compa
 fn effective_task_lease_state_joins_runtime_descriptors() {
     let plan_id = PlanId::new("plan:lease-runtime");
     let task_id = CoordinationTaskId::new("coord-task:lease-runtime");
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -554,7 +573,7 @@ fn authoritative_only_task_publish_intent_does_not_auto_complete_plan() {
         )
         .unwrap();
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::default(),
         OutcomeMemory::default(),
@@ -677,7 +696,7 @@ fn authoritative_only_final_publication_auto_completes_plan() {
         )
         .unwrap();
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::default(),
         OutcomeMemory::default(),
@@ -794,7 +813,7 @@ fn authoritative_only_final_publication_bypasses_expired_same_holder_lease() {
         )
         .unwrap();
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::default(),
         OutcomeMemory::default(),
@@ -951,7 +970,7 @@ fn authoritative_only_target_integration_auto_completes_plan() {
         },
     }];
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::default(),
         OutcomeMemory::default(),
@@ -2057,7 +2076,7 @@ fn coordination_queries_expand_into_neighboring_symbols() {
         )
         .unwrap();
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         history,
         OutcomeMemory::new(),
@@ -2116,7 +2135,7 @@ fn plans_contains_filter_matches_singular_and_plural_plan_terms() {
             },
         )
         .unwrap();
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         history,
         outcomes,
@@ -2192,7 +2211,7 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         )
         .unwrap();
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         history,
         OutcomeMemory::new(),
@@ -2200,7 +2219,7 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         ProjectionIndex::default(),
     );
 
-    let mut runtime_snapshot = prism.coordination_snapshot();
+    let mut runtime_snapshot = prism.legacy_coordination_snapshot();
     runtime_snapshot
         .tasks
         .iter_mut()
@@ -2252,11 +2271,11 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         Vec::new(),
     );
 
-    assert_eq!(prism.coordination_snapshot().claims.len(), 1);
-    assert_eq!(prism.coordination_snapshot().artifacts.len(), 1);
+    assert_eq!(prism.legacy_coordination_snapshot().claims.len(), 1);
+    assert_eq!(prism.legacy_coordination_snapshot().artifacts.len(), 1);
     assert_eq!(
         prism
-            .coordination_snapshot()
+            .legacy_coordination_snapshot()
             .tasks
             .into_iter()
             .find(|task| task.id == task_id)
@@ -2294,7 +2313,7 @@ fn claim_reads_and_simulation_respect_worktree_scope() {
         span: Span::line(1),
         language: Language::Rust,
     });
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -2309,7 +2328,7 @@ fn claim_reads_and_simulation_respect_worktree_scope() {
         instance_id: Some("instance:test".into()),
     }));
 
-    let mut runtime_snapshot = prism.coordination_snapshot();
+    let mut runtime_snapshot = prism.legacy_coordination_snapshot();
     runtime_snapshot.claims.push(WorkClaim {
         id: prism_ir::ClaimId::new("claim:a"),
         holder: SessionId::new("session:a"),
@@ -2380,7 +2399,7 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
         span: Span::line(1),
         language: Language::Rust,
     });
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -2615,7 +2634,7 @@ fn task_evidence_status_aggregates_artifacts_reviews_and_blockers() {
         },
     });
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -2668,7 +2687,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
             },
         )
         .unwrap();
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -2816,7 +2835,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
 
 #[test]
 fn spec_sync_create_helpers_attach_typed_spec_refs() {
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -2888,7 +2907,7 @@ fn spec_sync_create_helpers_attach_typed_spec_refs() {
         )
         .expect("spec-linked task create should succeed");
 
-    let snapshot = prism.coordination_snapshot();
+    let snapshot = prism.legacy_coordination_snapshot();
     let plan_record = snapshot
         .plans
         .iter()
@@ -2942,7 +2961,7 @@ fn spec_sync_helpers_refresh_coverage_and_sync_provenance_end_to_end() {
         root
     }
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -3097,7 +3116,7 @@ fn ready_tasks_for_executor_filters_by_executor_policy() {
     let plan_id = PlanId::new("plan:executor-routing");
     let matching_task_id = CoordinationTaskId::new("coord-task:match");
     let pinned_elsewhere_task_id = CoordinationTaskId::new("coord-task:pinned-elsewhere");
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         history,
         outcomes,
@@ -3339,7 +3358,7 @@ fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
         )
         .unwrap();
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         history,
         outcomes,
@@ -3430,7 +3449,7 @@ fn plans_cache_invalidates_when_workspace_revision_changes() {
         )
         .unwrap();
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         history,
         outcomes,
@@ -3519,7 +3538,7 @@ fn persisted_coordination_snapshot_updates_task_backed_plan_nodes() {
         )
         .unwrap();
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         history,
         outcomes,
@@ -3703,7 +3722,7 @@ fn contract_target_matching_skips_graph_enrichment_without_cognition() {
         publication: None,
     };
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -3960,7 +3979,7 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
         provenance: Default::default(),
         publication: None,
     });
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         history,
         outcomes,
@@ -4128,7 +4147,7 @@ fn coordination_only_artifact_risk_uses_artifact_fields_without_cognition() {
         )
         .unwrap();
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -4255,7 +4274,7 @@ fn exposes_intent_links_and_task_intent() {
         )
         .unwrap();
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         graph,
         HistoryStore::new(),
         OutcomeMemory::new(),
@@ -4500,7 +4519,7 @@ fn policy_violations_expose_rejected_coordination_mutations() {
         )
         .unwrap_err();
 
-    let prism = Prism::with_history_outcomes_coordination_and_projections(
+    let prism = prism_with_coordination_and_projections(
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),

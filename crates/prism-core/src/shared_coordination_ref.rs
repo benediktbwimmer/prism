@@ -5430,12 +5430,12 @@ mod tests {
         .unwrap();
         assert!(session
             .prism()
-            .coordination_snapshot()
+            .legacy_coordination_snapshot()
             .claims
             .iter()
             .any(|claim| claim.id.0 == "claim:shared-live-sync"));
         let eventual = session
-            .read_coordination_snapshot_with_consistency(
+            .read_legacy_coordination_snapshot_with_consistency(
                 crate::coordination_reads::CoordinationReadConsistency::Eventual,
             )
             .unwrap()

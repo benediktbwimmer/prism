@@ -42,6 +42,10 @@ The first internal follow-through slice under this phase is:
 - [2026-04-09-canonical-assisted-overlay-follow-through-phase-6.md](./2026-04-09-canonical-assisted-overlay-follow-through-phase-6.md)
 - [2026-04-09-canonical-startup-checkpoint-follow-through-phase-6.md](./2026-04-09-canonical-startup-checkpoint-follow-through-phase-6.md)
 - [2026-04-09-canonical-runtime-replacement-follow-through-phase-6.md](./2026-04-09-canonical-runtime-replacement-follow-through-phase-6.md)
+- [2026-04-09-canonical-session-read-surface-follow-through-phase-6.md](./2026-04-09-canonical-session-read-surface-follow-through-phase-6.md)
+- [2026-04-09-legacy-prism-snapshot-surface-demotion-phase-6.md](./2026-04-09-legacy-prism-snapshot-surface-demotion-phase-6.md)
+- [2026-04-09-canonical-prism-constructor-surface-follow-through-phase-6.md](./2026-04-09-canonical-prism-constructor-surface-follow-through-phase-6.md)
+- [2026-04-09-legacy-materialized-snapshot-surface-demotion-phase-6.md](./2026-04-09-legacy-materialized-snapshot-surface-demotion-phase-6.md)
 
 ## 2. Required changes
 
@@ -93,6 +97,14 @@ The first internal follow-through slice under this phase is:
   payload with legacy-snapshot fallback logic
 - remove legacy snapshot-only runtime replacement helpers so live runtime replacement and rollback
   paths require canonical coordination state explicitly
+- remove the public legacy session continuity-snapshot read surface and keep any remaining
+  continuity reads internal to explicit legacy backend code
+- demote the remaining public `Prism` continuity-snapshot accessor so the normal public snapshot
+  surface is v2-only and continuity access is explicitly marked legacy
+- remove the remaining public `Prism` constructor aliases that accept only legacy continuity
+  snapshots and quietly synthesize canonical state
+- demote the remaining materialized-store continuity snapshot APIs and request fields so
+  unqualified materialized coordination reads stay canonical/v2-oriented
 - delete legacy-only translation helpers once no active runtime path depends on them
 - keep Git-shared-ref-specific compatibility only where it is part of the explicit Git backend,
   not in backend-neutral coordination code

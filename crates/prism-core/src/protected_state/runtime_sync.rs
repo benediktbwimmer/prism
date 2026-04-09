@@ -187,7 +187,12 @@ where
     let provider = configured_coordination_authority_store_provider(root)?;
     match provider.config() {
         CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
-            let mut authority_store = prism_store::SqliteStore::open(db_path)?;
+            let resolved_db_path = if db_path.is_absolute() {
+                db_path.clone()
+            } else {
+                root.join(db_path)
+            };
+            let mut authority_store = prism_store::SqliteStore::open(&resolved_db_path)?;
             Ok(authority_store
                 .load_coordination_startup_checkpoint()?
                 .map(|checkpoint| {
@@ -204,7 +209,7 @@ where
             .read_plan_state()?
             .value
             .map(|value| HydratedCoordinationPlanState {
-                snapshot: value.snapshot,
+                snapshot: value.legacy_snapshot,
                 canonical_snapshot_v2: value.canonical_snapshot_v2,
                 runtime_descriptors: value.runtime_descriptors,
             })),

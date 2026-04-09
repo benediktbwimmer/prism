@@ -741,7 +741,7 @@ fn publish_local_assisted_lease_overlay_generation(
     // Republish the runtime generation with the live overlay snapshot, but do not treat it as a
     // service-backed current-state application or materialization write.
     runtime_state.replace_coordination_runtime(
-        prism.coordination_snapshot(),
+        prism.legacy_coordination_snapshot(),
         prism.coordination_snapshot_v2(),
         prism.runtime_descriptors(),
     );

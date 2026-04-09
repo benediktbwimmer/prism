@@ -1455,12 +1455,15 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn into_prism(self) -> Prism {
-        Prism::with_history_outcomes_coordination_and_projections(
+        let canonical_snapshot_v2 = self.coordination_snapshot.to_canonical_snapshot_v2();
+        Prism::with_history_outcomes_coordination_and_projections_v2(
             self.graph,
             self.history,
             self.outcomes,
             self.coordination_snapshot,
+            canonical_snapshot_v2,
             self.projections,
+            Vec::new(),
         )
     }
 

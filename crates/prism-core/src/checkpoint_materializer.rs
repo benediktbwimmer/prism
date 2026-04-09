@@ -485,7 +485,7 @@ where
         >= COORDINATION_COMPACTION_SUFFIX_THRESHOLD;
     if should_compact {
         materialized_store.write_compaction(CoordinationCompactionWriteRequest {
-            snapshot: materialization.snapshot.clone(),
+            legacy_snapshot: materialization.snapshot.clone(),
         })?;
     }
     let repo_semantic_snapshot = repo_semantic_coordination_snapshot(materialization.snapshot.clone());
@@ -496,7 +496,7 @@ where
         Some(materialization.authoritative_revision),
     )?;
     materialized_store.write_startup_checkpoint(CoordinationStartupCheckpointWriteRequest {
-        snapshot: repo_semantic_snapshot,
+        legacy_snapshot: repo_semantic_snapshot,
         canonical_snapshot_v2,
         runtime_descriptors: materialization
             .runtime_descriptors

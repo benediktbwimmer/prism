@@ -21,7 +21,7 @@ pub struct CoordinationMaterializedCapabilities {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoordinationMaterializedState {
-    pub snapshot: CoordinationSnapshot,
+    pub legacy_snapshot: CoordinationSnapshot,
     pub canonical_snapshot_v2: CoordinationSnapshotV2,
     pub runtime_descriptors: Vec<RuntimeDescriptor>,
 }
@@ -29,7 +29,7 @@ pub struct CoordinationMaterializedState {
 impl From<HydratedCoordinationPlanState> for CoordinationMaterializedState {
     fn from(value: HydratedCoordinationPlanState) -> Self {
         Self {
-            snapshot: value.snapshot,
+            legacy_snapshot: value.snapshot,
             canonical_snapshot_v2: value.canonical_snapshot_v2,
             runtime_descriptors: value.runtime_descriptors,
         }
@@ -65,7 +65,7 @@ impl<T> CoordinationMaterializedReadEnvelope<T> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoordinationStartupCheckpointWriteRequest {
-    pub snapshot: CoordinationSnapshot,
+    pub legacy_snapshot: CoordinationSnapshot,
     pub canonical_snapshot_v2: CoordinationSnapshotV2,
     pub runtime_descriptors: Vec<RuntimeDescriptor>,
 }
@@ -78,7 +78,7 @@ pub struct CoordinationReadModelsWriteRequest {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoordinationCompactionWriteRequest {
-    pub snapshot: CoordinationSnapshot,
+    pub legacy_snapshot: CoordinationSnapshot,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -138,7 +138,7 @@ mod tests {
             runtime_descriptors: runtime_descriptors.clone(),
         });
 
-        assert_eq!(state.snapshot.events.len(), 0);
+        assert_eq!(state.legacy_snapshot.events.len(), 0);
         assert_eq!(state.canonical_snapshot_v2.events.len(), 0);
         assert_eq!(state.runtime_descriptors, runtime_descriptors);
     }

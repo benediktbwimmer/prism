@@ -15,7 +15,9 @@ use super::types::{
 pub trait CoordinationMaterializedStore {
     fn capabilities(&self) -> CoordinationMaterializedCapabilities;
 
-    fn read_snapshot(&self) -> Result<CoordinationMaterializedReadEnvelope<CoordinationSnapshot>>;
+    fn read_legacy_snapshot(
+        &self,
+    ) -> Result<CoordinationMaterializedReadEnvelope<CoordinationSnapshot>>;
 
     fn read_snapshot_v2(
         &self,

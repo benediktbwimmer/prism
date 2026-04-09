@@ -78,7 +78,7 @@ pub(crate) fn load_eventual_coordination_snapshot_for_root(
     root: &Path,
 ) -> Result<Option<CoordinationSnapshot>> {
     Ok(SqliteCoordinationMaterializedStore::new(root)
-        .read_snapshot()?
+        .read_legacy_snapshot()?
         .value)
 }
 
@@ -99,7 +99,7 @@ pub(crate) fn load_eventual_coordination_plan_state_for_root(
         .read_plan_state()?
         .value
         .map(|value| HydratedCoordinationPlanState {
-            snapshot: value.snapshot,
+            snapshot: value.legacy_snapshot,
             canonical_snapshot_v2: value.canonical_snapshot_v2,
             runtime_descriptors: value.runtime_descriptors,
         }))

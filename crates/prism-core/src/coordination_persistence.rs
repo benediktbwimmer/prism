@@ -17,9 +17,10 @@ use prism_store::{
 use serde_json::{json, Value};
 
 use crate::coordination_authority_store::{
-    configured_coordination_authority_store_provider, coordination_materialization_enabled_for_root,
-    CoordinationDerivedStateMode, CoordinationTransactionBase, CoordinationTransactionRequest,
-    CoordinationTransactionResult, CoordinationTransactionStatus,
+    configured_coordination_authority_store_provider,
+    coordination_materialization_enabled_for_root, CoordinationDerivedStateMode,
+    CoordinationTransactionBase, CoordinationTransactionRequest, CoordinationTransactionResult,
+    CoordinationTransactionStatus,
 };
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
@@ -194,7 +195,9 @@ where
                 canonical_snapshot_v2: derived.canonical_snapshot_v2.clone(),
                 appended_events: appended_events.to_vec(),
                 derived_state_mode: match derived_persistence_mode {
-                    CoordinationDerivedPersistenceMode::Inline => CoordinationDerivedStateMode::Inline,
+                    CoordinationDerivedPersistenceMode::Inline => {
+                        CoordinationDerivedStateMode::Inline
+                    }
                     CoordinationDerivedPersistenceMode::Deferred => {
                         CoordinationDerivedStateMode::Deferred
                     }
@@ -281,7 +284,7 @@ where
                 let _ = store;
                 SqliteCoordinationMaterializedStore::new(root).write_startup_checkpoint(
                     CoordinationStartupCheckpointWriteRequest {
-                        snapshot: repo_semantic_snapshot.clone(),
+                        legacy_snapshot: repo_semantic_snapshot.clone(),
                         canonical_snapshot_v2: derived.canonical_snapshot_v2.clone(),
                         runtime_descriptors: Vec::new(),
                     },
@@ -414,7 +417,7 @@ where
                 let _ = store;
                 SqliteCoordinationMaterializedStore::new(root).write_compaction(
                     crate::CoordinationCompactionWriteRequest {
-                        snapshot: snapshot.clone(),
+                        legacy_snapshot: snapshot.clone(),
                     },
                 )?;
                 Ok::<(), anyhow::Error>(())
@@ -452,7 +455,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         sync_repo_published_plans(root, snapshot, canonical_snapshot_v2, None)?;
         SqliteCoordinationMaterializedStore::new(root).write_startup_checkpoint(
             CoordinationStartupCheckpointWriteRequest {
-                snapshot: snapshot.clone(),
+                legacy_snapshot: snapshot.clone(),
                 canonical_snapshot_v2: canonical_snapshot_v2.clone(),
                 runtime_descriptors: Vec::new(),
             },

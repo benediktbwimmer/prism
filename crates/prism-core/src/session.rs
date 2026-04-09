@@ -48,13 +48,13 @@ use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::concept_events::append_repo_concept_event;
 use crate::concept_relation_events::append_repo_concept_relation_event;
 use crate::contract_events::append_repo_contract_event;
+use crate::coordination_authority_store::{
+    configured_coordination_authority_store_provider,
+    coordination_materialization_enabled_by_default, CoordinationAuthorityBackendKind,
+    CoordinationAuthorityStamp, CoordinationReadRequest, CoordinationStateView,
+};
 use crate::coordination_authority_sync::{
     apply_service_backed_coordination_current_state, sync_coordination_authority_update,
-};
-use crate::coordination_authority_store::{
-    configured_coordination_authority_store_provider, coordination_materialization_enabled_by_default,
-    CoordinationAuthorityBackendKind, CoordinationAuthorityStamp, CoordinationReadRequest,
-    CoordinationStateView,
 };
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
@@ -1996,15 +1996,6 @@ impl WorkspaceSession {
         result
     }
 
-    pub fn load_coordination_snapshot(&self) -> Result<Option<CoordinationSnapshot>> {
-        if !self.coordination_enabled {
-            return Ok(None);
-        }
-        Ok(self
-            .read_coordination_snapshot_with_consistency(CoordinationReadConsistency::Eventual)?
-            .into_value())
-    }
-
     pub fn load_coordination_snapshot_v2(&self) -> Result<Option<CoordinationSnapshotV2>> {
         if !self.coordination_enabled {
             return Ok(None);
@@ -2014,7 +2005,7 @@ impl WorkspaceSession {
             .into_value())
     }
 
-    pub fn read_coordination_snapshot_with_consistency(
+    pub(crate) fn read_legacy_coordination_snapshot_with_consistency(
         &self,
         consistency: CoordinationReadConsistency,
     ) -> Result<CoordinationReadResult<CoordinationSnapshot>> {
@@ -2024,7 +2015,7 @@ impl WorkspaceSession {
             || {
                 if materialization_enabled {
                     return Ok(SqliteCoordinationMaterializedStore::new(&self.root)
-                        .read_snapshot()?
+                        .read_legacy_snapshot()?
                         .value);
                 }
                 Ok(self
@@ -2067,7 +2058,9 @@ impl WorkspaceSession {
         }
         Ok(self
             .read_coordination_current_state_from_authority()?
-            .map(|state| prism_coordination::coordination_read_model_from_snapshot(&state.snapshot)))
+            .map(|state| {
+                prism_coordination::coordination_read_model_from_snapshot(&state.snapshot)
+            }))
     }
 
     pub fn load_coordination_queue_read_model(&self) -> Result<Option<CoordinationQueueReadModel>> {
@@ -2096,7 +2089,9 @@ impl WorkspaceSession {
                 .and_then(|authority| authority_revision_from_stamp(&authority)));
         }
         let store = SqliteCoordinationMaterializedStore::new(&self.root);
-        let metadata_revision = store.read_metadata()?.startup_checkpoint_coordination_revision;
+        let metadata_revision = store
+            .read_metadata()?
+            .startup_checkpoint_coordination_revision;
         if metadata_revision.is_some() {
             return Ok(metadata_revision);
         }
@@ -2139,7 +2134,7 @@ impl WorkspaceSession {
                         .value
                         .map(|value| {
                             CoordinationPlanState::from(HydratedCoordinationPlanState {
-                                snapshot: value.snapshot,
+                                snapshot: value.legacy_snapshot,
                                 canonical_snapshot_v2: value.canonical_snapshot_v2,
                                 runtime_descriptors: value.runtime_descriptors,
                             })
@@ -2380,7 +2375,7 @@ impl WorkspaceSession {
             }
         };
         let prism = self.prism_arc();
-        let before = prism.coordination_snapshot();
+        let before = prism.legacy_coordination_snapshot();
         let mutate_started = Instant::now();
         let result = mutate(prism.as_ref());
         observe_phase(
@@ -2391,7 +2386,7 @@ impl WorkspaceSession {
             result.as_ref().err().map(|error| error.to_string()),
         );
         let delta_started = Instant::now();
-        let snapshot = prism.coordination_snapshot();
+        let snapshot = prism.legacy_coordination_snapshot();
         let appended_events = coordination_event_delta(&before.events, &snapshot.events);
         observe_phase(
             "mutation.coordination.captureDelta",
