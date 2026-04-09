@@ -1,6 +1,6 @@
 # Spec Engine Surfaces Phase 14
 
-Status: in progress
+Status: completed
 Audience: spec-engine, query, MCP, CLI, UI, and agent-execution maintainers
 Scope: expose the existing native spec engine coherently through CLI, MCP, and UI-facing reads so specs become a first-class feature-intent layer in normal PRISM workflows
 
@@ -34,7 +34,7 @@ Current state:
 - [x] sync actions can create spec-linked authoritative coordination
 - [x] CLI exposes native spec queries as a first-class surface
 - [x] MCP exposes native spec queries and sync brief views directly
-- [ ] task and plan reads do not yet consistently surface linked spec summaries or coverage posture
+- [x] task and plan reads consistently surface linked spec summaries and basic drift posture
 
 Current slice notes:
 
@@ -163,6 +163,7 @@ Exit criteria:
 
 - normal task and plan reads expose enough linked spec context that humans and agents can see the
   intent-execution relationship without manual stitching
+- status: completed
 
 ## 9. Validation
 
@@ -189,9 +190,8 @@ This phase is complete only when:
 
 ## 11. Implementation checklist
 
-- [ ] Expose native spec reads through MCP
 - [x] Expose native spec reads through MCP
 - [x] Expose native spec reads through CLI
-- [ ] Add linked spec summaries to coordination-facing reads
-- [ ] Validate affected crates and direct downstream dependents
-- [ ] Update roadmap/spec status as slices land
+- [x] Add linked spec summaries to coordination-facing reads
+- [x] Validate affected crates and direct downstream dependents
+- [x] Update roadmap/spec status as slices land

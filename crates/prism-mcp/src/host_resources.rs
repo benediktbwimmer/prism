@@ -22,7 +22,7 @@ use crate::{
     lineage_event_view, lineage_resource_view_link, lineage_status, memory_entry_view,
     memory_event_view, memory_resource_uri, memory_resource_view_link, owner_views_for_query,
     paginate_items, parse_resource_page, parse_resource_query_param, plan_resource_uri,
-    plan_resource_view_link, plan_summary_view, plan_view_from_v2, plans_resource_view_link,
+    plan_resource_view_link, plan_summary_view, plans_resource_view_link,
     plans_resource_view_link_with_options, protected_state_resource_view_link, resource_link_view,
     resource_schema_catalog_entries, schema_resource_uri, schema_resource_view_link,
     schemas_resource_uri, schemas_resource_view_link, search_ambiguity_from_diagnostics,
@@ -488,10 +488,19 @@ impl QueryHost {
             let plan_v2 = prism
                 .coordination_plan_v2(plan_id)
                 .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-            let plan = plan_view_from_v2(
+            let legacy = prism.coordination_plan(plan_id);
+            let linked_specs = legacy
+                .as_ref()
+                .map(|legacy| {
+                    crate::spec_surface::linked_plan_spec_summaries(self, &legacy.spec_refs)
+                })
+                .transpose()?
+                .unwrap_or_default();
+            let plan = crate::plan_view_from_v2_with_linked_specs(
                 plan_v2,
-                prism.coordination_plan(plan_id),
+                legacy,
                 prism.plan_activity(plan_id),
+                linked_specs,
             );
             let summary = prism.plan_summary(plan_id).map(plan_summary_view);
             let related_resources = vec![

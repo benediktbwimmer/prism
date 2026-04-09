@@ -1,13 +1,14 @@
 use std::path::Path;
 
 use anyhow::{anyhow, Result};
+use prism_coordination::{CoordinationSpecRef, CoordinationTaskSpecRef};
 use prism_core::{
     refresh_spec_materialization, MaterializedSpecQueryEngine, SpecQueryEngine, SpecQueryLookup,
     SqliteSpecMaterializedStore,
 };
 use prism_js::{
-    SpecChecklistItemView, SpecCoverageRecordView, SpecDocumentView, SpecListEntryView,
-    SpecSyncBriefView, SpecSyncProvenanceRecordView,
+    LinkedSpecSummaryView, SpecChecklistItemView, SpecCoverageRecordView, SpecDocumentView,
+    SpecListEntryView, SpecSyncBriefView, SpecSyncProvenanceRecordView,
 };
 
 use crate::QueryHost;
@@ -26,7 +27,11 @@ where
         .workspace_root()
         .ok_or_else(|| anyhow!("native spec reads require a workspace-backed host"))?;
     let store = SqliteSpecMaterializedStore::new(&spec_materialized_db_path(root));
-    refresh_spec_materialization(&store, root, Some(host.current_prism().coordination_snapshot()))?;
+    refresh_spec_materialization(
+        &store,
+        root,
+        Some(host.current_prism().coordination_snapshot()),
+    )?;
     let engine = MaterializedSpecQueryEngine::new(&store);
     f(&engine)
 }
@@ -161,5 +166,90 @@ pub(crate) fn spec_sync_provenance(
                 .collect(),
             SpecQueryLookup::NotFound => Vec::new(),
         })
+    })
+}
+
+pub(crate) fn linked_plan_spec_summaries(
+    host: &QueryHost,
+    spec_refs: &[CoordinationSpecRef],
+) -> Result<Vec<LinkedSpecSummaryView>> {
+    with_spec_query_engine(host, |engine| {
+        spec_refs
+            .iter()
+            .map(|spec_ref| {
+                build_linked_spec_summary(
+                    engine,
+                    &spec_ref.spec_id,
+                    &spec_ref.source_path,
+                    spec_ref.source_revision.as_deref(),
+                    None,
+                    &[],
+                )
+            })
+            .collect()
+    })
+}
+
+pub(crate) fn linked_task_spec_summaries(
+    host: &QueryHost,
+    spec_refs: &[CoordinationTaskSpecRef],
+) -> Result<Vec<LinkedSpecSummaryView>> {
+    with_spec_query_engine(host, |engine| {
+        spec_refs
+            .iter()
+            .map(|spec_ref| {
+                build_linked_spec_summary(
+                    engine,
+                    &spec_ref.spec_id,
+                    &spec_ref.source_path,
+                    spec_ref.source_revision.as_deref(),
+                    Some(spec_ref.sync_kind.as_str()),
+                    &spec_ref.covered_checklist_items,
+                )
+            })
+            .collect()
+    })
+}
+
+fn build_linked_spec_summary(
+    engine: &dyn SpecQueryEngine,
+    spec_id: &str,
+    source_path: &str,
+    linked_source_revision: Option<&str>,
+    sync_kind: Option<&str>,
+    covered_checklist_items: &[String],
+) -> Result<LinkedSpecSummaryView> {
+    Ok(match engine.spec(spec_id)? {
+        SpecQueryLookup::Found(view) => {
+            let current_source_revision = view.record.git_revision.clone();
+            let drift_status = match (linked_source_revision, current_source_revision.as_deref()) {
+                (Some(linked), Some(current)) if linked != current => "stale_link",
+                _ => "in_sync",
+            };
+            LinkedSpecSummaryView {
+                spec_id: view.record.spec_id,
+                source_path: source_path.to_string(),
+                linked_source_revision: linked_source_revision.map(str::to_owned),
+                current_source_revision,
+                drift_status: drift_status.to_string(),
+                title: Some(view.record.title),
+                declared_status: Some(view.record.declared_status),
+                overall_status: view.status.map(|status| status.overall_status),
+                sync_kind: sync_kind.map(str::to_owned),
+                covered_checklist_items: covered_checklist_items.to_vec(),
+            }
+        }
+        SpecQueryLookup::NotFound => LinkedSpecSummaryView {
+            spec_id: spec_id.to_string(),
+            source_path: source_path.to_string(),
+            linked_source_revision: linked_source_revision.map(str::to_owned),
+            current_source_revision: None,
+            drift_status: "missing_local_spec".to_string(),
+            title: None,
+            declared_status: None,
+            overall_status: None,
+            sync_kind: sync_kind.map(str::to_owned),
+            covered_checklist_items: covered_checklist_items.to_vec(),
+        },
     })
 }

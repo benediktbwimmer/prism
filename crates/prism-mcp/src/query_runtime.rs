@@ -37,16 +37,17 @@ use crate::{
     concept_relation_view, concept_resolution_is_ambiguous, conflict_view, contract_packet_view,
     convert_anchors, convert_capability, convert_claim_mode, convert_node_id,
     coordination_plan_v2_view, coordination_task_v2_view, coordination_task_view,
-    coordination_task_view_from_v2, current_timestamp, diff_for, diff_for_from_events,
-    drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol, entrypoints_for,
-    focused_block_for_symbol, invalid_query_argument_error, is_query_parse_error, js_runtime,
-    lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint,
-    next_reads, node_ref_view, owner_symbol_views_for_query, owner_symbol_views_for_target,
+    coordination_task_view_from_v2_with_linked_specs, coordination_task_view_with_linked_specs,
+    current_timestamp, diff_for, diff_for_from_events, drift_candidate_view, edge_kind_label,
+    edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol,
+    invalid_query_argument_error, is_query_parse_error, js_runtime, lineage_view,
+    memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
+    node_ref_view, owner_symbol_views_for_query, owner_symbol_views_for_target,
     owner_views_for_target, parse_event_actor, parse_memory_event_action, parse_memory_kind,
     parse_memory_scope, parse_node_kind, parse_outcome_kind, parse_outcome_result,
     parse_plan_scope, parse_plan_status, parse_typescript_error, plan_children_v2_view,
-    plan_summary_view, plan_view_from_v2, policy_violation_record_view, promoted_memory_entries,
-    promoted_summary_texts, promoted_validation_checks, query_diagnostic,
+    plan_summary_view, plan_view_from_v2_with_linked_specs, policy_violation_record_view,
+    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
     query_feature_disabled_error, query_method_specs, rank_search_results,
     read_context_view_cached, recent_change_context_view_cached, recent_patches,
     recent_patches_from_events, relations_view, resolve_concepts_for_session, result_decode_error,
@@ -1109,15 +1110,29 @@ impl QueryExecution {
                 "plan" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     let plan_id = PlanId::new(args.plan_id);
-                    Ok(serde_json::to_value(
-                        self.prism.coordination_plan_v2(&plan_id).map(|plan| {
-                            plan_view_from_v2(
+                    let plan = match self.prism.coordination_plan_v2(&plan_id) {
+                        Some(plan) => {
+                            let legacy = self.prism.coordination_plan(&plan_id);
+                            let linked_specs = legacy
+                                .as_ref()
+                                .map(|legacy| {
+                                    crate::spec_surface::linked_plan_spec_summaries(
+                                        &self.host,
+                                        &legacy.spec_refs,
+                                    )
+                                })
+                                .transpose()?
+                                .unwrap_or_default();
+                            Some(plan_view_from_v2_with_linked_specs(
                                 plan,
-                                self.prism.coordination_plan(&plan_id),
+                                legacy,
                                 self.prism.plan_activity(&plan_id),
-                            )
-                        }),
-                    )?)
+                                linked_specs,
+                            ))
+                        }
+                        None => None,
+                    };
+                    Ok(serde_json::to_value(plan)?)
                 }
                 "planV2" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
@@ -1179,23 +1194,44 @@ impl QueryExecution {
                 "coordinationTask" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
                     let task_id = args.task_id;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .coordination_task_v2(&TaskId::new(task_id.clone()))
-                            .map(|task| {
-                                coordination_task_view_from_v2(
-                                    task,
-                                    self.prism.coordination_task(&CoordinationTaskId::new(
-                                        task_id.clone(),
-                                    )),
+                    let task = if let Some(task_v2) = self
+                        .prism
+                        .coordination_task_v2(&TaskId::new(task_id.clone()))
+                    {
+                        let legacy = self
+                            .prism
+                            .coordination_task(&CoordinationTaskId::new(task_id.clone()));
+                        let linked_specs = legacy
+                            .as_ref()
+                            .map(|legacy| {
+                                crate::spec_surface::linked_task_spec_summaries(
+                                    &self.host,
+                                    &legacy.spec_refs,
                                 )
                             })
-                            .or_else(|| {
-                                self.prism
-                                    .coordination_task(&CoordinationTaskId::new(task_id))
-                                    .map(coordination_task_view)
-                            }),
-                    )?)
+                            .transpose()?
+                            .unwrap_or_default();
+                        Some(coordination_task_view_from_v2_with_linked_specs(
+                            task_v2,
+                            legacy,
+                            linked_specs,
+                        ))
+                    } else {
+                        self.prism
+                            .coordination_task(&CoordinationTaskId::new(task_id))
+                            .map(|task| {
+                                let linked_specs = crate::spec_surface::linked_task_spec_summaries(
+                                    &self.host,
+                                    &task.spec_refs,
+                                )?;
+                                Ok::<_, anyhow::Error>(coordination_task_view_with_linked_specs(
+                                    task,
+                                    linked_specs,
+                                ))
+                            })
+                            .transpose()?
+                    };
+                    Ok(serde_json::to_value(task)?)
                 }
                 "taskV2" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;

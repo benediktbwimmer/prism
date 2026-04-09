@@ -1664,6 +1664,19 @@ type WorkspaceRevisionView = {
   gitCommit?: string;
 };
 
+type LinkedSpecSummaryView = {
+  specId: string;
+  sourcePath: string;
+  linkedSourceRevision?: string;
+  currentSourceRevision?: string;
+  driftStatus: string;
+  title?: string;
+  declaredStatus?: string;
+  overallStatus?: string;
+  syncKind?: string;
+  coveredChecklistItems: string[];
+};
+
 type PlanView = {
   id: string;
   title: string;
@@ -1677,6 +1690,7 @@ type PlanView = {
   tags: string[];
   createdFrom?: string;
   activity?: PlanActivityView;
+  linkedSpecs: LinkedSpecSummaryView[];
 };
 
 type PlanListEntryView = {
@@ -1756,12 +1770,24 @@ type CoordinationTaskView = {
   id: string;
   planId: string;
   title: string;
+  summary?: string;
   status: string;
+  publishedTaskStatus?: string;
   assignee?: string;
   pendingHandoffTo?: string;
   anchors: AnchorRef[];
+  bindings: PlanBindingView;
   dependsOn: string[];
+  coordinationDependsOn: string[];
+  integratedDependsOn: string[];
+  lifecycle: CoordinationTaskLifecycleView;
+  validationRefs: ValidationRefView[];
+  isAbstract: boolean;
   baseRevision: WorkspaceRevisionView;
+  priority?: number;
+  tags: string[];
+  gitExecution: TaskGitExecutionView;
+  linkedSpecs: LinkedSpecSummaryView[];
 };
 
 type ClaimView = {

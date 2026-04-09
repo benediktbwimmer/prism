@@ -1668,6 +1668,21 @@ pub struct WorkspaceRevisionView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct LinkedSpecSummaryView {
+    pub spec_id: String,
+    pub source_path: String,
+    pub linked_source_revision: Option<String>,
+    pub current_source_revision: Option<String>,
+    pub drift_status: String,
+    pub title: Option<String>,
+    pub declared_status: Option<String>,
+    pub overall_status: Option<String>,
+    pub sync_kind: Option<String>,
+    pub covered_checklist_items: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct PlanView {
     pub id: String,
     pub title: String,
@@ -1681,6 +1696,7 @@ pub struct PlanView {
     pub tags: Vec<String>,
     pub created_from: Option<String>,
     pub activity: Option<PlanActivityView>,
+    pub linked_specs: Vec<LinkedSpecSummaryView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1946,6 +1962,7 @@ pub struct CoordinationTaskView {
     pub priority: Option<u8>,
     pub tags: Vec<String>,
     pub git_execution: TaskGitExecutionView,
+    pub linked_specs: Vec<LinkedSpecSummaryView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

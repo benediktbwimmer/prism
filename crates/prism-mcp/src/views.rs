@@ -16,8 +16,8 @@ use prism_js::{
     ContractTargetView, ContractValidationView, CoordinationPlanV2View,
     CoordinationTaskLifecycleView, CoordinationTaskV2View, CoordinationTaskView, CuratorJobView,
     CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView,
-    GitExecutionPolicyView, GitPreflightReportView, GitPublishReportView, MemoryEntryView,
-    MemoryEventView, NodeIdView, NodeRefView, PlanActivityView, PlanBindingView,
+    GitExecutionPolicyView, GitPreflightReportView, GitPublishReportView, LinkedSpecSummaryView,
+    MemoryEntryView, MemoryEventView, NodeIdView, NodeRefView, PlanActivityView, PlanBindingView,
     PlanChildrenV2View, PlanListEntryView, PlanNodeStatusCountsView, PlanSchedulingView,
     PlanSummaryView, PlanView, PolicyViolationRecordView, PolicyViolationView, QueryDiagnostic,
     ScoredMemoryView, TaskEvidenceArtifactStatusView, TaskEvidenceStatusView,
@@ -1352,6 +1352,15 @@ pub(crate) fn plan_view_from_v2(
     legacy: Option<prism_coordination::Plan>,
     activity: Option<PlanActivity>,
 ) -> PlanView {
+    plan_view_from_v2_with_linked_specs(value, legacy, activity, Vec::new())
+}
+
+pub(crate) fn plan_view_from_v2_with_linked_specs(
+    value: CoordinationPlanV2,
+    legacy: Option<prism_coordination::Plan>,
+    activity: Option<PlanActivity>,
+    linked_specs: Vec<LinkedSpecSummaryView>,
+) -> PlanView {
     PlanView {
         id: value.plan.id.0.to_string(),
         title: value.plan.title,
@@ -1365,6 +1374,7 @@ pub(crate) fn plan_view_from_v2(
         tags: value.plan.tags,
         created_from: value.plan.created_from,
         activity: activity.map(plan_activity_view),
+        linked_specs,
     }
 }
 
@@ -1491,6 +1501,14 @@ pub(crate) fn coordination_task_view_from_v2(
     value: CoordinationTaskV2,
     legacy: Option<prism_coordination::CoordinationTask>,
 ) -> CoordinationTaskView {
+    coordination_task_view_from_v2_with_linked_specs(value, legacy, Vec::new())
+}
+
+pub(crate) fn coordination_task_view_from_v2_with_linked_specs(
+    value: CoordinationTaskV2,
+    legacy: Option<prism_coordination::CoordinationTask>,
+    linked_specs: Vec<LinkedSpecSummaryView>,
+) -> CoordinationTaskView {
     let published_task_status = legacy
         .as_ref()
         .and_then(|task| task.published_task_status)
@@ -1583,6 +1601,7 @@ pub(crate) fn coordination_task_view_from_v2(
                 .last_publish
                 .map(git_publish_report_view),
         },
+        linked_specs,
     }
 }
 
@@ -1728,6 +1747,13 @@ fn plan_binding_view(value: prism_ir::PlanBinding) -> PlanBindingView {
 pub(crate) fn coordination_task_view(
     value: prism_coordination::CoordinationTask,
 ) -> CoordinationTaskView {
+    coordination_task_view_with_linked_specs(value, Vec::new())
+}
+
+pub(crate) fn coordination_task_view_with_linked_specs(
+    value: prism_coordination::CoordinationTask,
+    linked_specs: Vec<LinkedSpecSummaryView>,
+) -> CoordinationTaskView {
     let effective_status = effective_coordination_task_status(&value);
     let lifecycle = coordination_task_lifecycle_view(effective_status, &value.git_execution);
     CoordinationTaskView {
@@ -1791,6 +1817,7 @@ pub(crate) fn coordination_task_view(
                 .last_publish
                 .map(git_publish_report_view),
         },
+        linked_specs,
     }
 }
 

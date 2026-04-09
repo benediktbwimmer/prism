@@ -623,6 +623,7 @@ schema_types! {
     "GitPreflightReportView" => crate::GitPreflightReportView,
     "GitPublishReportView" => crate::GitPublishReportView,
     "PlanSummaryView" => crate::PlanSummaryView,
+    "LinkedSpecSummaryView" => crate::LinkedSpecSummaryView,
     "CoordinationTaskView" => crate::CoordinationTaskView,
     "CoordinationTaskV2View" => crate::CoordinationTaskV2View,
     "TaskGitExecutionView" => crate::TaskGitExecutionView,
