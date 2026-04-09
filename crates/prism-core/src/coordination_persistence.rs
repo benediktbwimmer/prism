@@ -22,7 +22,7 @@ use serde_json::{json, Value};
 use crate::coordination_authority_store::{
     configured_coordination_authority_store_provider,
     coordination_materialization_enabled_for_root, CoordinationAppendRequest,
-    CoordinationDerivedStateMode, CoordinationTransactionBase, CoordinationTransactionResult,
+    CoordinationCommitReceipt, CoordinationTransactionBase, CoordinationTransactionResult,
     CoordinationTransactionStatus,
 };
 use crate::coordination_materialized_store::{
@@ -126,7 +126,7 @@ fn apply_coordination_authority_transaction_observed<O>(
     _derived: &CoordinationDerivedSyncInputs,
     appended_events: &[CoordinationEvent],
     session_id: Option<&SessionId>,
-    derived_persistence_mode: CoordinationDerivedPersistenceMode,
+    _derived_persistence_mode: CoordinationDerivedPersistenceMode,
     observe_phase: &mut O,
 ) -> Result<()>
 where
@@ -137,10 +137,6 @@ where
         base: CoordinationTransactionBase::LatestStrong,
         session_id: session_id.cloned(),
         appended_events: appended_events.to_vec(),
-        derived_state_mode: match derived_persistence_mode {
-            CoordinationDerivedPersistenceMode::Inline => CoordinationDerivedStateMode::Inline,
-            CoordinationDerivedPersistenceMode::Deferred => CoordinationDerivedStateMode::Deferred,
-        },
     };
     observe_coordination_step(
         observe_phase,
@@ -172,7 +168,7 @@ fn persist_authority_transaction_observed<O>(
     _derived: &CoordinationDerivedSyncInputs,
     appended_events: &[CoordinationEvent],
     session_id: Option<&SessionId>,
-    derived_persistence_mode: CoordinationDerivedPersistenceMode,
+    _derived_persistence_mode: CoordinationDerivedPersistenceMode,
     observe_phase: &mut O,
 ) -> Result<CoordinationTransactionResult>
 where
@@ -183,10 +179,6 @@ where
         base: CoordinationTransactionBase::LatestStrong,
         session_id: session_id.cloned(),
         appended_events: appended_events.to_vec(),
-        derived_state_mode: match derived_persistence_mode {
-            CoordinationDerivedPersistenceMode::Inline => CoordinationDerivedStateMode::Inline,
-            CoordinationDerivedPersistenceMode::Deferred => CoordinationDerivedStateMode::Deferred,
-        },
     };
     observe_coordination_step(
         observe_phase,
@@ -565,7 +557,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         )?;
         let result = match transaction.status {
             CoordinationTransactionStatus::Committed => {
-                transaction.persisted.unwrap_or(CoordinationPersistResult {
+                transaction.commit.unwrap_or(CoordinationCommitReceipt {
                     revision: expected_revision.saturating_add(1),
                     inserted_events: appended_events.len(),
                     applied: true,
@@ -578,6 +570,11 @@ pub(crate) trait CoordinationPersistenceBackend:
                 )
                 .into())
             }
+        };
+        let result = CoordinationPersistResult {
+            revision: result.revision,
+            inserted_events: result.inserted_events,
+            applied: result.applied,
         };
         if !result.applied {
             if matches!(

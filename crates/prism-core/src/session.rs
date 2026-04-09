@@ -2218,7 +2218,7 @@ impl WorkspaceSession {
         let provider = configured_coordination_authority_store_provider(&self.root)?;
         Ok(provider
             .open(&self.root)?
-            .read_plan_state(CoordinationReadConsistency::Eventual)?
+            .read_current_state(CoordinationReadConsistency::Eventual)?
             .value
             .map(Into::into))
     }

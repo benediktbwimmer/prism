@@ -177,26 +177,30 @@ where
                 "status": format!("{:?}", result.status),
             })
         },
-        || match authority_store.replace_current_state(CoordinationReplaceCurrentStateRequest {
-            base: CoordinationTransactionBase::LatestStrong,
-            state: CoordinationCurrentState {
-                snapshot: snapshot.clone(),
-                canonical_snapshot_v2: canonical_snapshot_v2.clone(),
-                runtime_descriptors: authority_store
-                    .list_runtime_descriptors(crate::RuntimeDescriptorQuery {
-                        consistency: CoordinationReadConsistency::Strong,
-                    })?
-                    .value
-                    .unwrap_or_default(),
-            },
-        })? {
-            result if matches!(result.status, CoordinationTransactionStatus::Committed) => {
-                Ok(result)
+        || {
+            let runtime_store =
+                configured_coordination_authority_store_provider(root)?.open(root)?;
+            match authority_store.replace_current_state(CoordinationReplaceCurrentStateRequest {
+                base: CoordinationTransactionBase::LatestStrong,
+                state: CoordinationCurrentState {
+                    snapshot: snapshot.clone(),
+                    canonical_snapshot_v2: canonical_snapshot_v2.clone(),
+                    runtime_descriptors: runtime_store
+                        .list_runtime_descriptors(crate::RuntimeDescriptorQuery {
+                            consistency: CoordinationReadConsistency::Strong,
+                        })?
+                        .value
+                        .unwrap_or_default(),
+                },
+            })? {
+                result if matches!(result.status, CoordinationTransactionStatus::Committed) => {
+                    Ok(result)
+                }
+                result => Err(anyhow::anyhow!(
+                    "coordination authority transaction did not commit successfully: {:?}",
+                    result.status
+                )),
             }
-            result => Err(anyhow::anyhow!(
-                "coordination authority transaction did not commit successfully: {:?}",
-                result.status
-            )),
         },
     )?;
     observe_published_plan_step(
@@ -235,8 +239,9 @@ pub(crate) fn load_authoritative_coordination_plan_state(
 ) -> Result<Option<HydratedCoordinationPlanState>> {
     let store = configured_coordination_authority_store_provider(root)?.open(root)?;
     Ok(store
-        .read_plan_state(CoordinationReadConsistency::Strong)?
-        .value)
+        .read_current_state(CoordinationReadConsistency::Strong)?
+        .value
+        .map(Into::into))
 }
 
 pub(crate) fn merge_shared_coordination_into_snapshot(

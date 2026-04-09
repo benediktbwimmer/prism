@@ -130,7 +130,7 @@ fn current_coordination_surface_from_authority(
     provider: &prism_core::CoordinationAuthorityStoreProvider,
 ) -> Result<CurrentCoordinationSurface> {
     let store = provider.open(workspace.root())?;
-    let envelope = store.read_plan_state(CoordinationReadConsistency::Eventual)?;
+    let envelope = store.read_current_state(CoordinationReadConsistency::Eventual)?;
     let authority_revision = authority_revision_from_stamp(envelope.authority.as_ref());
     let current_state = envelope
         .value

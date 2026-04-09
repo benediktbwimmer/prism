@@ -6,19 +6,24 @@ use prism_coordination::{
 };
 
 use super::store::DbCoordinationAuthorityStore;
-use super::traits::{CoordinationAuthorityDb, CoordinationAuthoritySnapshotDb};
+use super::traits::{
+    CoordinationAuthorityCurrentStateDb, CoordinationAuthorityDiagnosticsDb,
+    CoordinationAuthorityEventExecutionDb, CoordinationAuthorityHistoryDb,
+    CoordinationAuthorityMutationDb, CoordinationAuthorityRuntimeDb,
+    CoordinationAuthoritySnapshotDb,
+};
+use crate::coordination_authority_store::CoordinationAuthorityDiagnostics;
 use crate::coordination_authority_store::{
-    CoordinationAppendRequest, CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
+    CoordinationAppendRequest, CoordinationAuthorityCapabilities,
     CoordinationAuthoritySnapshotStore, CoordinationAuthorityStore, CoordinationAuthoritySummary,
-    CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
-    CoordinationReadEnvelope, CoordinationReplaceCurrentStateRequest,
+    CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
+    CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReplaceCurrentStateRequest,
     CoordinationTransactionResult, EventExecutionRecordAuthorityQuery,
     EventExecutionRecordWriteResult, EventExecutionTransitionRequest,
     EventExecutionTransitionResult, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
     RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
-use crate::published_plans::HydratedCoordinationPlanState;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PostgresCoordinationAuthorityDb {
@@ -40,7 +45,7 @@ impl PostgresCoordinationAuthorityDb {
     }
 }
 
-impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
+impl CoordinationAuthorityCurrentStateDb for PostgresCoordinationAuthorityDb {
     fn capabilities(&self) -> CoordinationAuthorityCapabilities {
         CoordinationAuthorityCapabilities {
             supports_eventual_reads: false,
@@ -52,10 +57,10 @@ impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
         }
     }
 
-    fn read_plan_state(
+    fn read_current_state(
         &self,
         _consistency: CoordinationReadConsistency,
-    ) -> Result<CoordinationReadEnvelope<HydratedCoordinationPlanState>> {
+    ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>> {
         Err(self.not_implemented())
     }
 
@@ -65,14 +70,18 @@ impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
     ) -> Result<CoordinationReadEnvelope<CoordinationAuthoritySummary>> {
         Err(self.not_implemented())
     }
+}
 
+impl CoordinationAuthorityMutationDb for PostgresCoordinationAuthorityDb {
     fn append_events(
         &self,
         _request: CoordinationAppendRequest,
     ) -> Result<CoordinationTransactionResult> {
         Err(self.not_implemented())
     }
+}
 
+impl CoordinationAuthorityRuntimeDb for PostgresCoordinationAuthorityDb {
     fn publish_runtime_descriptor(
         &self,
         _request: RuntimeDescriptorPublishRequest,
@@ -93,7 +102,9 @@ impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
     ) -> Result<CoordinationReadEnvelope<Vec<RuntimeDescriptor>>> {
         Err(self.not_implemented())
     }
+}
 
+impl CoordinationAuthorityEventExecutionDb for PostgresCoordinationAuthorityDb {
     fn read_event_execution_records(
         &self,
         _request: EventExecutionRecordAuthorityQuery,
@@ -114,14 +125,18 @@ impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
     ) -> Result<EventExecutionTransitionResult> {
         Err(self.not_implemented())
     }
+}
 
+impl CoordinationAuthorityHistoryDb for PostgresCoordinationAuthorityDb {
     fn read_history(
         &self,
         _request: CoordinationHistoryRequest,
     ) -> Result<CoordinationHistoryEnvelope> {
         Err(self.not_implemented())
     }
+}
 
+impl CoordinationAuthorityDiagnosticsDb for PostgresCoordinationAuthorityDb {
     fn diagnostics(
         &self,
         _request: CoordinationDiagnosticsRequest,

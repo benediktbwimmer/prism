@@ -13,13 +13,18 @@ pub use factory::{
     CoordinationAuthorityBackendConfig, CoordinationAuthorityStoreProvider,
 };
 pub use sqlite::SqliteCoordinationAuthorityStore;
-pub use traits::{CoordinationAuthoritySnapshotStore, CoordinationAuthorityStore};
+pub use traits::{
+    CoordinationAuthorityCurrentStateStore, CoordinationAuthorityDiagnosticsStore,
+    CoordinationAuthorityEventExecutionStore, CoordinationAuthorityHistoryStore,
+    CoordinationAuthorityMutationStore, CoordinationAuthorityRuntimeStore,
+    CoordinationAuthoritySnapshotStore, CoordinationAuthorityStore,
+};
 pub use types::{
     CoordinationAppendRequest, CoordinationAuthorityBackendDetails,
     CoordinationAuthorityBackendKind, CoordinationAuthorityCapabilities,
     CoordinationAuthorityDiagnostics, CoordinationAuthorityProvenance, CoordinationAuthorityStamp,
-    CoordinationAuthoritySummary, CoordinationConflictInfo, CoordinationCurrentState,
-    CoordinationDerivedStateMode, CoordinationDiagnosticsRequest, CoordinationHistoryEntry,
+    CoordinationAuthoritySummary, CoordinationCommitReceipt, CoordinationConflictInfo,
+    CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEntry,
     CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
     CoordinationReplaceCurrentStateRequest, CoordinationTransactionBase,
     CoordinationTransactionDiagnostic, CoordinationTransactionResult,

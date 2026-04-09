@@ -6,7 +6,6 @@ use prism_coordination::{
 };
 use prism_ir::EventExecutionStatus;
 use prism_ir::{EventExecutionId, SessionId};
-use prism_store::CoordinationPersistResult;
 
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
 use crate::published_plans::HydratedCoordinationPlanState;
@@ -116,12 +115,6 @@ impl<T> CoordinationReadEnvelope<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CoordinationDerivedStateMode {
-    Inline,
-    Deferred,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CoordinationTransactionBase {
     LatestStrong,
@@ -134,7 +127,6 @@ pub struct CoordinationAppendRequest {
     pub base: CoordinationTransactionBase,
     pub session_id: Option<SessionId>,
     pub appended_events: Vec<CoordinationEvent>,
-    pub derived_state_mode: CoordinationDerivedStateMode,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -162,12 +154,19 @@ pub struct CoordinationTransactionDiagnostic {
     pub message: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoordinationCommitReceipt {
+    pub revision: u64,
+    pub inserted_events: usize,
+    pub applied: bool,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoordinationTransactionResult {
     pub status: CoordinationTransactionStatus,
     pub committed: bool,
     pub authority: Option<CoordinationAuthorityStamp>,
-    pub persisted: Option<CoordinationPersistResult>,
+    pub commit: Option<CoordinationCommitReceipt>,
     pub conflict: Option<CoordinationConflictInfo>,
     pub diagnostics: Vec<CoordinationTransactionDiagnostic>,
 }

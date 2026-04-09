@@ -1,19 +1,26 @@
 use anyhow::Result;
 use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
 
-use super::traits::{CoordinationAuthorityDb, CoordinationAuthoritySnapshotDb};
+use super::traits::{
+    CoordinationAuthorityCurrentStateDb, CoordinationAuthorityDiagnosticsDb,
+    CoordinationAuthorityEventExecutionDb, CoordinationAuthorityHistoryDb,
+    CoordinationAuthorityMutationDb, CoordinationAuthorityRuntimeDb,
+    CoordinationAuthoritySnapshotDb,
+};
 use crate::coordination_authority_store::{
-    CoordinationAppendRequest, CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
-    CoordinationAuthoritySnapshotStore, CoordinationAuthorityStore, CoordinationAuthoritySummary,
-    CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
-    CoordinationReadEnvelope, CoordinationReplaceCurrentStateRequest,
-    CoordinationTransactionResult, EventExecutionRecordAuthorityQuery,
-    EventExecutionRecordWriteResult, EventExecutionTransitionRequest,
-    EventExecutionTransitionResult, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
-    RuntimeDescriptorQuery,
+    CoordinationAppendRequest, CoordinationAuthorityCapabilities,
+    CoordinationAuthorityCurrentStateStore, CoordinationAuthorityDiagnostics,
+    CoordinationAuthorityDiagnosticsStore, CoordinationAuthorityEventExecutionStore,
+    CoordinationAuthorityHistoryStore, CoordinationAuthorityMutationStore,
+    CoordinationAuthorityRuntimeStore, CoordinationAuthoritySnapshotStore,
+    CoordinationAuthoritySummary, CoordinationCurrentState, CoordinationDiagnosticsRequest,
+    CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
+    CoordinationReplaceCurrentStateRequest, CoordinationTransactionResult,
+    EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
+    EventExecutionTransitionRequest, EventExecutionTransitionResult, RuntimeDescriptorClearRequest,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
-use crate::published_plans::HydratedCoordinationPlanState;
 use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
 
 pub(crate) struct DbCoordinationAuthorityStore<Db> {
@@ -26,19 +33,19 @@ impl<Db> DbCoordinationAuthorityStore<Db> {
     }
 }
 
-impl<Db> CoordinationAuthorityStore for DbCoordinationAuthorityStore<Db>
+impl<Db> CoordinationAuthorityCurrentStateStore for DbCoordinationAuthorityStore<Db>
 where
-    Db: CoordinationAuthorityDb,
+    Db: CoordinationAuthorityCurrentStateDb,
 {
     fn capabilities(&self) -> CoordinationAuthorityCapabilities {
         self.db.capabilities()
     }
 
-    fn read_plan_state(
+    fn read_current_state(
         &self,
         consistency: CoordinationReadConsistency,
-    ) -> Result<CoordinationReadEnvelope<HydratedCoordinationPlanState>> {
-        self.db.read_plan_state(consistency)
+    ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>> {
+        self.db.read_current_state(consistency)
     }
 
     fn read_summary(
@@ -47,14 +54,24 @@ where
     ) -> Result<CoordinationReadEnvelope<CoordinationAuthoritySummary>> {
         self.db.read_summary(consistency)
     }
+}
 
+impl<Db> CoordinationAuthorityMutationStore for DbCoordinationAuthorityStore<Db>
+where
+    Db: CoordinationAuthorityMutationDb,
+{
     fn append_events(
         &self,
         request: CoordinationAppendRequest,
     ) -> Result<CoordinationTransactionResult> {
         self.db.append_events(request)
     }
+}
 
+impl<Db> CoordinationAuthorityRuntimeStore for DbCoordinationAuthorityStore<Db>
+where
+    Db: CoordinationAuthorityRuntimeDb,
+{
     fn publish_runtime_descriptor(
         &self,
         request: RuntimeDescriptorPublishRequest,
@@ -75,7 +92,12 @@ where
     ) -> Result<CoordinationReadEnvelope<Vec<RuntimeDescriptor>>> {
         self.db.list_runtime_descriptors(request)
     }
+}
 
+impl<Db> CoordinationAuthorityEventExecutionStore for DbCoordinationAuthorityStore<Db>
+where
+    Db: CoordinationAuthorityEventExecutionDb,
+{
     fn read_event_execution_records(
         &self,
         request: EventExecutionRecordAuthorityQuery,
@@ -96,14 +118,24 @@ where
     ) -> Result<EventExecutionTransitionResult> {
         self.db.apply_event_execution_transition(request)
     }
+}
 
+impl<Db> CoordinationAuthorityHistoryStore for DbCoordinationAuthorityStore<Db>
+where
+    Db: CoordinationAuthorityHistoryDb,
+{
     fn read_history(
         &self,
         request: CoordinationHistoryRequest,
     ) -> Result<CoordinationHistoryEnvelope> {
         self.db.read_history(request)
     }
+}
 
+impl<Db> CoordinationAuthorityDiagnosticsStore for DbCoordinationAuthorityStore<Db>
+where
+    Db: CoordinationAuthorityDiagnosticsDb,
+{
     fn diagnostics(
         &self,
         request: CoordinationDiagnosticsRequest,
