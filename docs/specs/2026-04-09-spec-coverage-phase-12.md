@@ -1,6 +1,6 @@
 # Spec Coverage Phase 12
 
-Status: draft
+Status: completed
 Audience: spec-engine, coordination, query, MCP, CLI, and UI maintainers
 Scope: implement the first full `SpecCoverageView` by deriving stable local checklist-coverage posture from explicit coordination spec links plus local spec state
 
@@ -30,16 +30,16 @@ Current state:
 - [x] Phase 11 is complete
 - [x] plans and tasks now carry explicit typed spec links
 - [x] local sync provenance is derived from authoritative coordination links
-- [ ] coverage records remain empty scaffolding only
-- [ ] no checklist-level uncovered versus represented posture is computed yet
-- [ ] no drift posture is computed yet
+- [x] coverage records are now derived during canonical materialization refresh
+- [x] checklist-level uncovered versus represented posture is computed deterministically
+- [x] stale revision posture is computed when local source revision is known
 
 Current slice notes:
 
 - this phase should compute coverage from authoritative coordination links, not from local-only
   annotations
 - initial coverage should stay deterministic and structural
-- richer drift and review-backed rollups may start in this phase, but must not force speculative
+- richer review-backed rollups still remain for later phases and must not force speculative
   heuristics
 
 ## 3. Related roadmap
@@ -147,6 +147,10 @@ Exit criteria:
 
 - the coverage derivation model is explicit and testable
 
+Status:
+
+- [x] complete
+
 ### Slice 2: Populate materialized coverage records
 
 - derive coverage rows during canonical spec materialization refresh
@@ -157,6 +161,10 @@ Exit criteria:
 
 - local materialization writes real coverage rows instead of leaving the table empty
 
+Status:
+
+- [x] complete
+
 ### Slice 3: Expose coverage through the query engine
 
 - extend query tests to assert stable `SpecCoverageView` behavior
@@ -165,6 +173,10 @@ Exit criteria:
 Exit criteria:
 
 - spec queries can answer what checklist items are covered, stale, or uncovered
+
+Status:
+
+- [x] complete
 
 ## 9. Validation
 
@@ -193,9 +205,9 @@ This phase is complete only when:
 
 ## 11. Implementation checklist
 
-- [ ] Define coverage derivation inputs and vocabulary
-- [ ] Populate materialized coverage records from explicit task links
-- [ ] Preserve explicit uncovered posture for required items
-- [ ] Expose populated coverage through the query engine
-- [ ] Validate affected crates and direct downstream dependents
-- [ ] Update roadmap/spec status as slices land
+- [x] Define coverage derivation inputs and vocabulary
+- [x] Populate materialized coverage records from explicit task links
+- [x] Preserve explicit uncovered posture for required items
+- [x] Expose populated coverage through the query engine
+- [x] Validate affected crates and direct downstream dependents
+- [x] Update roadmap/spec status as slices land

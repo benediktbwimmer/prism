@@ -56,14 +56,14 @@ Current phase checklist:
 - [x] Phase 9: implement spec local materialization
 - [x] Phase 10: implement SpecQueryEngine fully
 - [x] Phase 11: implement explicit spec-coordination linking and sync provenance
-- [ ] Phase 12: implement SpecCoverageView fully
+- [x] Phase 12: implement SpecCoverageView fully
 - [ ] Phase 13: implement explicit spec-to-coordination sync actions
 - [ ] Phase 14: expose the spec engine fully through CLI, MCP, and UI
 - [ ] Phase 15: implement the remaining PRISM Service roles and release deployment modes
 
 Current active phase:
 
-- Phase 12: implement SpecCoverageView fully
+- Phase 13: implement explicit spec-to-coordination sync actions
 
 Current phase spec:
 
@@ -91,6 +91,8 @@ Current phase spec:
   [../specs/2026-04-09-spec-coordination-linking-and-sync-provenance-phase-11.md](../specs/2026-04-09-spec-coordination-linking-and-sync-provenance-phase-11.md)
 - Phase 12 active:
   [../specs/2026-04-09-spec-coverage-phase-12.md](../specs/2026-04-09-spec-coverage-phase-12.md)
+- Phase 13 active:
+  [../specs/2026-04-09-spec-sync-actions-phase-13.md](../specs/2026-04-09-spec-sync-actions-phase-13.md)
 
 ## 3. Ordering thesis
 

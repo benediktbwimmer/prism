@@ -499,6 +499,25 @@ impl SpecMaterializedStore for SqliteSpecMaterializedStore {
             )?;
         }
 
+        let derived_coverage =
+            derive_coverage_records(&request.parsed, request.coordination.as_ref());
+        for record in derived_coverage {
+            tx.execute(
+                "INSERT INTO spec_materialized_coverage (
+                    spec_id,
+                    checklist_item_id,
+                    coverage_kind,
+                    coordination_ref
+                ) VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    record.spec_id,
+                    record.checklist_item_id,
+                    record.coverage_kind,
+                    record.coordination_ref,
+                ],
+            )?;
+        }
+
         let derived_sync_provenance =
             derive_sync_provenance_records(&request.parsed, request.coordination.as_ref());
         for record in derived_sync_provenance {
@@ -582,6 +601,108 @@ fn current_timestamp_millis() -> u64 {
         .duration_since(UNIX_EPOCH)
         .expect("system clock should be after unix epoch")
         .as_millis() as u64
+}
+
+fn derive_coverage_records(
+    parsed: &[ParsedSpecDocument],
+    coordination: Option<&CoordinationSnapshot>,
+) -> Vec<StoredSpecCoverageRecord> {
+    let mut checklist_items =
+        std::collections::BTreeMap::<String, (&str, bool, bool, Option<&str>)>::new();
+    for spec in parsed {
+        for item in &spec.checklist_items {
+            checklist_items.insert(
+                item.item_id.clone(),
+                (
+                    spec.spec_id.as_str(),
+                    matches!(
+                        item.requirement_level,
+                        SpecChecklistRequirementLevel::Required
+                    ),
+                    item.checked,
+                    spec.source_metadata.git_revision.as_deref(),
+                ),
+            );
+        }
+    }
+
+    let mut represented_item_ids = std::collections::BTreeSet::new();
+    let mut seen_records = std::collections::BTreeSet::new();
+    let mut records = Vec::new();
+
+    if let Some(coordination) = coordination {
+        for task in &coordination.tasks {
+            for spec_ref in &task.spec_refs {
+                for checklist_item_id in &spec_ref.covered_checklist_items {
+                    let Some((spec_id, _required, _checked, local_revision)) =
+                        checklist_items.get(checklist_item_id)
+                    else {
+                        continue;
+                    };
+                    let coverage_kind = match (local_revision, spec_ref.source_revision.as_deref())
+                    {
+                        (Some(local), Some(linked)) if local != &linked => "stale_revision",
+                        _ => "represented",
+                    };
+                    represented_item_ids.insert(checklist_item_id.clone());
+                    let record = StoredSpecCoverageRecord {
+                        spec_id: (*spec_id).to_owned(),
+                        checklist_item_id: checklist_item_id.clone(),
+                        coverage_kind: coverage_kind.to_owned(),
+                        coordination_ref: Some(task.id.0.to_string()),
+                    };
+                    if seen_records.insert((
+                        record.spec_id.clone(),
+                        record.checklist_item_id.clone(),
+                        record.coverage_kind.clone(),
+                        record.coordination_ref.clone(),
+                    )) {
+                        records.push(record);
+                    }
+                }
+            }
+        }
+    }
+
+    for spec in parsed {
+        for item in &spec.checklist_items {
+            if !matches!(
+                item.requirement_level,
+                SpecChecklistRequirementLevel::Required
+            ) {
+                continue;
+            }
+            if item.checked {
+                continue;
+            }
+            if represented_item_ids.contains(&item.item_id) {
+                continue;
+            }
+            let record = StoredSpecCoverageRecord {
+                spec_id: spec.spec_id.clone(),
+                checklist_item_id: item.item_id.clone(),
+                coverage_kind: "uncovered".to_owned(),
+                coordination_ref: None,
+            };
+            if seen_records.insert((
+                record.spec_id.clone(),
+                record.checklist_item_id.clone(),
+                record.coverage_kind.clone(),
+                record.coordination_ref.clone(),
+            )) {
+                records.push(record);
+            }
+        }
+    }
+
+    records.sort_by(|left, right| {
+        left.spec_id
+            .cmp(&right.spec_id)
+            .then(left.checklist_item_id.cmp(&right.checklist_item_id))
+            .then(left.coverage_kind.cmp(&right.coverage_kind))
+            .then(left.coordination_ref.cmp(&right.coordination_ref))
+    });
+    records
 }
 
 fn derive_sync_provenance_records(
@@ -819,7 +940,7 @@ mod tests {
         assert_eq!(write_result.metadata.spec_count, 2);
         assert_eq!(write_result.metadata.checklist_item_count, 2);
         assert_eq!(write_result.metadata.dependency_count, 1);
-        assert_eq!(write_result.metadata.coverage_record_count, 0);
+        assert_eq!(write_result.metadata.coverage_record_count, 1);
         assert_eq!(write_result.metadata.sync_provenance_record_count, 0);
 
         let specs = store.read_specs().unwrap();
@@ -989,5 +1110,204 @@ mod tests {
             "plan:alpha"
         );
         assert_eq!(sync_provenance.value[1].sync_kind, "plan");
+    }
+
+    #[test]
+    fn sqlite_spec_materialized_store_derives_coverage_from_task_links_and_required_gaps() {
+        let root = temp_repo("coverage");
+        write_spec(
+            &root,
+            ".prism/specs/2026-04-09-a.md",
+            "---\nid: spec:a\ntitle: Alpha\nstatus: in_progress\ncreated: 2026-04-09\n---\n\n## Build\n\n- [ ] implement <!-- id: item-1 -->\n- [ ] review <!-- id: item-2 -->\n## Notes (informational)\n\n- [ ] doc later <!-- id: item-3 -->\n",
+        );
+
+        let discovered = discover_spec_sources(&root).unwrap();
+        let parsed = parse_spec_sources(&discovered);
+        assert!(parsed.diagnostics.is_empty());
+        let mut parsed_documents = parsed.parsed;
+        parsed_documents[0].source_metadata.git_revision = Some("current-revision".into());
+
+        let store = SqliteSpecMaterializedStore::new(&root.join(".tmp/spec-materialized.db"));
+        store
+            .replace_materialization(SpecMaterializedReplaceRequest {
+                parsed: parsed_documents,
+                coordination: Some(CoordinationSnapshot {
+                    plans: vec![Plan {
+                        id: PlanId::new("plan:alpha"),
+                        goal: "Ship alpha".into(),
+                        title: "Ship alpha".into(),
+                        status: PlanStatus::Active,
+                        policy: CoordinationPolicy::default(),
+                        scope: PlanScope::Repo,
+                        kind: PlanKind::TaskExecution,
+                        revision: 1,
+                        scheduling: PlanScheduling::default(),
+                        tags: Vec::new(),
+                        spec_refs: vec![CoordinationSpecRef {
+                            spec_id: "spec:a".into(),
+                            source_path: ".prism/specs/2026-04-09-a.md".into(),
+                            source_revision: Some("plan-rev".into()),
+                        }],
+                        created_from: None,
+                        metadata: serde_json::Value::Null,
+                    }],
+                    tasks: vec![
+                        CoordinationTask {
+                            id: CoordinationTaskId::new("coord-task:current"),
+                            plan: PlanId::new("plan:alpha"),
+                            kind: PlanNodeKind::Edit,
+                            title: "Implement alpha".into(),
+                            summary: None,
+                            status: CoordinationTaskStatus::Ready,
+                            published_task_status: None,
+                            assignee: None,
+                            pending_handoff_to: None,
+                            session: None,
+                            lease_holder: None,
+                            lease_started_at: None,
+                            lease_refreshed_at: None,
+                            lease_stale_at: None,
+                            lease_expires_at: None,
+                            worktree_id: None,
+                            branch_ref: None,
+                            anchors: Vec::new(),
+                            bindings: Default::default(),
+                            depends_on: Vec::new(),
+                            coordination_depends_on: Vec::new(),
+                            integrated_depends_on: Vec::new(),
+                            acceptance: Vec::new(),
+                            validation_refs: Vec::new(),
+                            is_abstract: false,
+                            base_revision: WorkspaceRevision::default(),
+                            priority: None,
+                            tags: Vec::new(),
+                            spec_refs: vec![CoordinationTaskSpecRef {
+                                spec_id: "spec:a".into(),
+                                source_path: ".prism/specs/2026-04-09-a.md".into(),
+                                source_revision: Some("current-revision".into()),
+                                sync_kind: "task".into(),
+                                covered_checklist_items: vec!["spec:a::checklist::item-1".into()],
+                                covered_sections: Vec::new(),
+                            }],
+                            metadata: serde_json::Value::Null,
+                            git_execution: TaskGitExecution::default(),
+                        },
+                        CoordinationTask {
+                            id: CoordinationTaskId::new("coord-task:stale"),
+                            plan: PlanId::new("plan:alpha"),
+                            kind: PlanNodeKind::Edit,
+                            title: "Review alpha".into(),
+                            summary: None,
+                            status: CoordinationTaskStatus::Ready,
+                            published_task_status: None,
+                            assignee: None,
+                            pending_handoff_to: None,
+                            session: None,
+                            lease_holder: None,
+                            lease_started_at: None,
+                            lease_refreshed_at: None,
+                            lease_stale_at: None,
+                            lease_expires_at: None,
+                            worktree_id: None,
+                            branch_ref: None,
+                            anchors: Vec::new(),
+                            bindings: Default::default(),
+                            depends_on: Vec::new(),
+                            coordination_depends_on: Vec::new(),
+                            integrated_depends_on: Vec::new(),
+                            acceptance: Vec::new(),
+                            validation_refs: Vec::new(),
+                            is_abstract: false,
+                            base_revision: WorkspaceRevision::default(),
+                            priority: None,
+                            tags: Vec::new(),
+                            spec_refs: vec![CoordinationTaskSpecRef {
+                                spec_id: "spec:a".into(),
+                                source_path: ".prism/specs/2026-04-09-a.md".into(),
+                                source_revision: Some("definitely-stale".into()),
+                                sync_kind: "task".into(),
+                                covered_checklist_items: vec!["spec:a::checklist::item-2".into()],
+                                covered_sections: Vec::new(),
+                            }],
+                            metadata: serde_json::Value::Null,
+                            git_execution: TaskGitExecution::default(),
+                        },
+                    ],
+                    claims: Vec::new(),
+                    artifacts: Vec::new(),
+                    reviews: Vec::new(),
+                    events: Vec::new(),
+                    next_plan: 2,
+                    next_task: 3,
+                    next_claim: 1,
+                    next_artifact: 1,
+                    next_review: 1,
+                }),
+            })
+            .unwrap();
+
+        let coverage = store.read_coverage_records().unwrap();
+        assert_eq!(coverage.value.len(), 2);
+        assert_eq!(
+            coverage.value[0].checklist_item_id,
+            "spec:a::checklist::item-1"
+        );
+        assert_eq!(coverage.value[0].coverage_kind, "represented");
+        assert_eq!(
+            coverage.value[0].coordination_ref.as_deref(),
+            Some("coord-task:current")
+        );
+        assert_eq!(
+            coverage.value[1].checklist_item_id,
+            "spec:a::checklist::item-2"
+        );
+        assert_eq!(coverage.value[1].coverage_kind, "stale_revision");
+        assert_eq!(
+            coverage.value[1].coordination_ref.as_deref(),
+            Some("coord-task:stale")
+        );
+    }
+
+    #[test]
+    fn sqlite_spec_materialized_store_marks_required_items_without_task_links_as_uncovered() {
+        let root = temp_repo("uncovered");
+        write_spec(
+            &root,
+            ".prism/specs/2026-04-09-a.md",
+            "---\nid: spec:a\ntitle: Alpha\nstatus: draft\ncreated: 2026-04-09\n---\n\n- [ ] required <!-- id: required -->\n## Notes (informational)\n\n- [ ] informational <!-- id: info -->\n",
+        );
+
+        let discovered = discover_spec_sources(&root).unwrap();
+        let parsed = parse_spec_sources(&discovered);
+        assert!(parsed.diagnostics.is_empty());
+
+        let store = SqliteSpecMaterializedStore::new(&root.join(".tmp/spec-materialized.db"));
+        store
+            .replace_materialization(SpecMaterializedReplaceRequest {
+                parsed: parsed.parsed,
+                coordination: Some(CoordinationSnapshot {
+                    plans: Vec::new(),
+                    tasks: Vec::new(),
+                    claims: Vec::new(),
+                    artifacts: Vec::new(),
+                    reviews: Vec::new(),
+                    events: Vec::new(),
+                    next_plan: 1,
+                    next_task: 1,
+                    next_claim: 1,
+                    next_artifact: 1,
+                    next_review: 1,
+                }),
+            })
+            .unwrap();
+
+        let coverage = store.read_coverage_records().unwrap();
+        assert_eq!(coverage.value.len(), 1);
+        assert_eq!(
+            coverage.value[0].checklist_item_id,
+            "spec:a::checklist::required"
+        );
+        assert_eq!(coverage.value[0].coverage_kind, "uncovered");
+        assert_eq!(coverage.value[0].coordination_ref, None);
     }
 }

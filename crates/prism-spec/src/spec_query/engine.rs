@@ -191,6 +191,15 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use prism_coordination::{
+        CoordinationPolicy, CoordinationSnapshot, CoordinationTask, CoordinationTaskSpecRef, Plan,
+        PlanScheduling, TaskGitExecution,
+    };
+    use prism_ir::{
+        CoordinationTaskId, CoordinationTaskStatus, PlanId, PlanKind, PlanNodeKind, PlanScope,
+        PlanStatus, WorkspaceRevision,
+    };
+
     use crate::{
         discover_spec_sources, parse_spec_sources, SpecMaterializedReplaceRequest,
         SpecMaterializedStore, SqliteSpecMaterializedStore,
@@ -262,7 +271,7 @@ mod tests {
     }
 
     #[test]
-    fn checklist_dependency_and_empty_coverage_queries_are_spec_scoped() {
+    fn checklist_dependency_and_uncovered_coverage_queries_are_spec_scoped() {
         let root = temp_repo("scoped");
         write_spec(
             &root,
@@ -294,8 +303,15 @@ mod tests {
         }
 
         match engine.coverage("spec:a").unwrap() {
-            SpecQueryLookup::Found(view) => assert!(view.records.is_empty()),
-            SpecQueryLookup::NotFound => panic!("expected empty coverage view"),
+            SpecQueryLookup::Found(view) => {
+                assert_eq!(view.records.len(), 1);
+                assert_eq!(view.records[0].coverage_kind, "uncovered");
+                assert_eq!(
+                    view.records[0].checklist_item_id,
+                    "spec:a::checklist::first"
+                );
+            }
+            SpecQueryLookup::NotFound => panic!("expected coverage view"),
         }
     }
 
@@ -321,5 +337,151 @@ mod tests {
             engine.sync_provenance("spec:missing").unwrap(),
             SpecQueryLookup::NotFound
         ));
+    }
+
+    #[test]
+    fn coverage_queries_return_represented_stale_and_uncovered_records() {
+        let root = temp_repo("coverage");
+        write_spec(
+            &root,
+            ".prism/specs/2026-04-09-a.md",
+            "---\nid: spec:a\ntitle: Alpha\nstatus: in_progress\ncreated: 2026-04-09\n---\n\n- [ ] implement <!-- id: item-1 -->\n- [ ] review <!-- id: item-2 -->\n- [ ] ship <!-- id: item-3 -->\n",
+        );
+        let discovered = discover_spec_sources(&root).unwrap();
+        let parsed = parse_spec_sources(&discovered);
+        assert!(parsed.diagnostics.is_empty());
+        let mut parsed_documents = parsed.parsed;
+        parsed_documents[0].source_metadata.git_revision = Some("current-revision".into());
+        let store = Box::leak(Box::new(SqliteSpecMaterializedStore::new(
+            &root.join(".tmp/spec-materialized.db"),
+        )));
+        store
+            .replace_materialization(SpecMaterializedReplaceRequest {
+                parsed: parsed_documents,
+                coordination: Some(CoordinationSnapshot {
+                    plans: vec![Plan {
+                        id: PlanId::new("plan:alpha"),
+                        goal: "Ship alpha".into(),
+                        title: "Ship alpha".into(),
+                        status: PlanStatus::Active,
+                        policy: CoordinationPolicy::default(),
+                        scope: PlanScope::Repo,
+                        kind: PlanKind::TaskExecution,
+                        revision: 1,
+                        scheduling: PlanScheduling::default(),
+                        tags: Vec::new(),
+                        created_from: None,
+                        spec_refs: Vec::new(),
+                        metadata: serde_json::Value::Null,
+                    }],
+                    tasks: vec![
+                        CoordinationTask {
+                            id: CoordinationTaskId::new("coord-task:current"),
+                            plan: PlanId::new("plan:alpha"),
+                            kind: PlanNodeKind::Edit,
+                            title: "Implement alpha".into(),
+                            summary: None,
+                            status: CoordinationTaskStatus::Ready,
+                            published_task_status: None,
+                            assignee: None,
+                            pending_handoff_to: None,
+                            session: None,
+                            lease_holder: None,
+                            lease_started_at: None,
+                            lease_refreshed_at: None,
+                            lease_stale_at: None,
+                            lease_expires_at: None,
+                            worktree_id: None,
+                            branch_ref: None,
+                            anchors: Vec::new(),
+                            bindings: Default::default(),
+                            depends_on: Vec::new(),
+                            coordination_depends_on: Vec::new(),
+                            integrated_depends_on: Vec::new(),
+                            acceptance: Vec::new(),
+                            validation_refs: Vec::new(),
+                            is_abstract: false,
+                            base_revision: WorkspaceRevision::default(),
+                            priority: None,
+                            tags: Vec::new(),
+                            spec_refs: vec![CoordinationTaskSpecRef {
+                                spec_id: "spec:a".into(),
+                                source_path: ".prism/specs/2026-04-09-a.md".into(),
+                                source_revision: Some("current-revision".into()),
+                                sync_kind: "task".into(),
+                                covered_checklist_items: vec!["spec:a::checklist::item-1".into()],
+                                covered_sections: Vec::new(),
+                            }],
+                            metadata: serde_json::Value::Null,
+                            git_execution: TaskGitExecution::default(),
+                        },
+                        CoordinationTask {
+                            id: CoordinationTaskId::new("coord-task:stale"),
+                            plan: PlanId::new("plan:alpha"),
+                            kind: PlanNodeKind::Edit,
+                            title: "Review alpha".into(),
+                            summary: None,
+                            status: CoordinationTaskStatus::Ready,
+                            published_task_status: None,
+                            assignee: None,
+                            pending_handoff_to: None,
+                            session: None,
+                            lease_holder: None,
+                            lease_started_at: None,
+                            lease_refreshed_at: None,
+                            lease_stale_at: None,
+                            lease_expires_at: None,
+                            worktree_id: None,
+                            branch_ref: None,
+                            anchors: Vec::new(),
+                            bindings: Default::default(),
+                            depends_on: Vec::new(),
+                            coordination_depends_on: Vec::new(),
+                            integrated_depends_on: Vec::new(),
+                            acceptance: Vec::new(),
+                            validation_refs: Vec::new(),
+                            is_abstract: false,
+                            base_revision: WorkspaceRevision::default(),
+                            priority: None,
+                            tags: Vec::new(),
+                            spec_refs: vec![CoordinationTaskSpecRef {
+                                spec_id: "spec:a".into(),
+                                source_path: ".prism/specs/2026-04-09-a.md".into(),
+                                source_revision: Some("definitely-stale".into()),
+                                sync_kind: "task".into(),
+                                covered_checklist_items: vec!["spec:a::checklist::item-2".into()],
+                                covered_sections: Vec::new(),
+                            }],
+                            metadata: serde_json::Value::Null,
+                            git_execution: TaskGitExecution::default(),
+                        },
+                    ],
+                    claims: Vec::new(),
+                    artifacts: Vec::new(),
+                    reviews: Vec::new(),
+                    events: Vec::new(),
+                    next_plan: 2,
+                    next_task: 3,
+                    next_claim: 1,
+                    next_artifact: 1,
+                    next_review: 1,
+                }),
+            })
+            .unwrap();
+        let engine = MaterializedSpecQueryEngine::new(store);
+
+        match engine.coverage("spec:a").unwrap() {
+            SpecQueryLookup::Found(view) => {
+                assert_eq!(view.records.len(), 3);
+                assert_eq!(view.records[0].coverage_kind, "represented");
+                assert_eq!(view.records[1].coverage_kind, "stale_revision");
+                assert_eq!(view.records[2].coverage_kind, "uncovered");
+                assert_eq!(
+                    view.records[2].checklist_item_id,
+                    "spec:a::checklist::item-3"
+                );
+            }
+            SpecQueryLookup::NotFound => panic!("expected coverage records"),
+        }
     }
 }
