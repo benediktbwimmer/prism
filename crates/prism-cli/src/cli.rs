@@ -346,6 +346,8 @@ pub enum ServiceCommand {
         )]
         kill_bridges: bool,
     },
+    Endpoint,
+    EnrollRepo,
     Status,
     Health,
 }
@@ -686,6 +688,30 @@ mod tests {
         match cli.command {
             Command::Service {
                 command: ServiceCommand::Status,
+            } => {}
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn service_endpoint_parses() {
+        let cli = Cli::parse_from(["prism", "service", "endpoint"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Service {
+                command: ServiceCommand::Endpoint,
+            } => {}
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn service_enroll_repo_parses() {
+        let cli = Cli::parse_from(["prism", "service", "enroll-repo"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Service {
+                command: ServiceCommand::EnrollRepo,
             } => {}
             _ => panic!("unexpected command"),
         }

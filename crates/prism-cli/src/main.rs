@@ -12,6 +12,7 @@ mod projection_commands;
 mod protected_state_commands;
 mod runtime;
 mod service;
+mod service_state;
 mod spec_commands;
 mod workspace_root;
 mod worktree_commands;

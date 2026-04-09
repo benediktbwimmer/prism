@@ -1575,6 +1575,22 @@ fn health_status(uri: &Option<String>, health_path: &str) -> Result<HealthStatus
     }
 }
 
+pub(crate) fn normalize_service_endpoint_uri(uri: &str) -> Result<String> {
+    let authority = uri_authority(uri).ok_or_else(|| anyhow!("invalid uri"))?;
+    let scheme = if uri.starts_with("https://") {
+        "https"
+    } else if uri.starts_with("http://") {
+        "http"
+    } else {
+        bail!("invalid uri");
+    };
+    Ok(format!("{scheme}://{authority}"))
+}
+
+pub(crate) fn probe_service_endpoint(endpoint: &str) -> Result<()> {
+    http_health_check(endpoint, DEFAULT_HEALTH_PATH)
+}
+
 fn http_health_check(uri: &str, health_path: &str) -> Result<()> {
     let authority = uri_authority(uri).ok_or_else(|| anyhow!("invalid uri"))?;
     let request =

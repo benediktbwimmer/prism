@@ -1,6 +1,6 @@
 # Service Endpoint Selection And Machine State Phase 3
 
-Status: approved
+Status: completed
 Audience: service, CLI, MCP, runtime, UI, storage, and deployment maintainers
 Scope: make service endpoint selection explicit, move service-owned discovery state under
 machine-local PRISM home, and add an explicit temporary repo-enrollment bootstrap command for
@@ -23,6 +23,17 @@ This slice should:
   ad hoc files
 - add an explicit temporary `prism service enroll-repo` bootstrap path for local dogfooding before
   auth-backed capability-gated enrollment exists
+
+That target has landed:
+
+- `prism-cli` now has a shared `service_state` owner for endpoint resolution and machine-local
+  service state
+- `prism service endpoint` resolves configured endpoints before local discovery and fails loudly
+  when the explicit configured endpoint is unavailable
+- `prism service up|stop|restart` now sync or clear a machine-local service endpoint record under
+  PRISM home
+- `prism service enroll-repo` provides the temporary explicit local bootstrap path for pre-auth
+  dogfooding
 
 This slice should not:
 
@@ -133,7 +144,7 @@ This spec is complete when:
 
 ## 9. Implementation checklist
 
-- [ ] Add a shared service-endpoint resolution owner
-- [ ] Move local service discovery state under machine-local service naming
-- [ ] Add explicit pre-auth repo enrollment bootstrap
-- [ ] Update roadmap and spec status after landing
+- [x] Add a shared service-endpoint resolution owner
+- [x] Move local service discovery state under machine-local service naming
+- [x] Add explicit pre-auth repo enrollment bootstrap
+- [x] Update roadmap and spec status after landing

@@ -4,6 +4,7 @@ use anyhow::Result;
 
 use crate::cli::{McpCommand, ServiceCommand};
 use crate::mcp::{self, DaemonRestartOptions, DaemonStartOptions};
+use crate::service_state;
 
 pub(crate) fn handle(root: &Path, command: ServiceCommand) -> Result<()> {
     match command {
@@ -16,36 +17,10 @@ pub(crate) fn handle(root: &Path, command: ServiceCommand) -> Result<()> {
             coordination_authority_backend,
             coordination_authority_sqlite_db,
             coordination_authority_postgres_url,
-        } => mcp::start_with_options(
-            root,
-            DaemonStartOptions {
-                no_coordination,
-                internal_developer,
-                runtime_mode: runtime_mode.into(),
-                ui: true,
-                http_bind,
-                shared_runtime_uri,
-                coordination_authority_backend,
-                coordination_authority_sqlite_db,
-                coordination_authority_postgres_url,
-            },
-        ),
-        ServiceCommand::Stop { kill_bridges } => mcp::handle(root, McpCommand::Stop { kill_bridges }),
-        ServiceCommand::Restart {
-            no_coordination,
-            internal_developer,
-            runtime_mode,
-            http_bind,
-            shared_runtime_uri,
-            coordination_authority_backend,
-            coordination_authority_sqlite_db,
-            coordination_authority_postgres_url,
-            kill_bridges,
-        } => mcp::restart_with_options(
-            root,
-            DaemonRestartOptions {
-                kill_bridges,
-                start: DaemonStartOptions {
+        } => {
+            mcp::start_with_options(
+                root,
+                DaemonStartOptions {
                     no_coordination,
                     internal_developer,
                     runtime_mode: runtime_mode.into(),
@@ -56,8 +31,54 @@ pub(crate) fn handle(root: &Path, command: ServiceCommand) -> Result<()> {
                     coordination_authority_sqlite_db,
                     coordination_authority_postgres_url,
                 },
-            },
-        ),
+            )?;
+            service_state::sync_local_service_endpoint(root)
+        }
+        ServiceCommand::Stop { kill_bridges } => {
+            mcp::handle(root, McpCommand::Stop { kill_bridges })?;
+            service_state::clear_local_service_endpoint(root)
+        }
+        ServiceCommand::Restart {
+            no_coordination,
+            internal_developer,
+            runtime_mode,
+            http_bind,
+            shared_runtime_uri,
+            coordination_authority_backend,
+            coordination_authority_sqlite_db,
+            coordination_authority_postgres_url,
+            kill_bridges,
+        } => {
+            mcp::restart_with_options(
+                root,
+                DaemonRestartOptions {
+                    kill_bridges,
+                    start: DaemonStartOptions {
+                        no_coordination,
+                        internal_developer,
+                        runtime_mode: runtime_mode.into(),
+                        ui: true,
+                        http_bind,
+                        shared_runtime_uri,
+                        coordination_authority_backend,
+                        coordination_authority_sqlite_db,
+                        coordination_authority_postgres_url,
+                    },
+                },
+            )?;
+            service_state::sync_local_service_endpoint(root)
+        }
+        ServiceCommand::Endpoint => {
+            println!("{}", service_state::render_endpoint(root)?);
+            Ok(())
+        }
+        ServiceCommand::EnrollRepo => {
+            let record = service_state::enroll_current_repo(root)?;
+            println!("enrolled repo");
+            println!("canonical_root = {}", record.canonical_root);
+            println!("enrolled_at_ms = {}", record.enrolled_at_ms);
+            Ok(())
+        }
         ServiceCommand::Status => mcp::handle(root, McpCommand::Status),
         ServiceCommand::Health => mcp::handle(root, McpCommand::Health),
     }
