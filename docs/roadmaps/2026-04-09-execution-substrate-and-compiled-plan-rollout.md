@@ -45,7 +45,7 @@ This roadmap depends on:
 Current phase checklist:
 
 - [x] Phase 0: freeze sequencing and spec boundaries
-- [ ] Phase 1: implement the coordination artifact/review model
+- [x] Phase 1: implement the coordination artifact/review model
 - [ ] Phase 2: implement the shared execution substrate core
 - [ ] Phase 3: move warm-state validation onto the shared execution substrate
 - [ ] Phase 4: add `Action` as a first-class graph leaf on the shared execution substrate
@@ -56,12 +56,12 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 1: implement the coordination artifact/review model
+- Phase 2: implement the shared execution substrate core
 
 Current implementation note (2026-04-09):
 
-- the coordination-core portion of Phase 1 is landed in `prism-coordination`
-- remaining Phase 1 work is the public-surface follow-through in query, MCP, and JS-facing views
+- Phase 1 is landed across `prism-coordination`, `prism-query`, `prism-core`, `prism-mcp`, and `prism-js`
+- the next execution work should start from the Phase 2 shared-substrate spec rather than extending the old placeholder evidence model
 
 ## 3. Ordering thesis
 
@@ -174,6 +174,11 @@ Exit criteria:
 
 - artifact and review state is durable, queryable, and no longer needs placeholder result shapes
 - later validation and action execution can attach evidence to the real model
+
+Status note (2026-04-09):
+
+- complete
+- declared artifact and review requirements now round-trip through coordination mutations, canonical/shared-query surfaces, MCP payloads, and JS-facing views
 
 ### Phase 2: Implement the shared execution substrate core
 

@@ -491,6 +491,8 @@ fn maybe_advance_auto_pr_integration_from_review(
             tags: None,
             completion_context: None,
             spec_refs: None,
+            artifact_requirements: None,
+            review_requirements: None,
         },
         prism.workspace_revision(),
         current_timestamp(),
@@ -809,6 +811,8 @@ fn maybe_observe_target_integration(
             tags: None,
             completion_context: None,
             spec_refs: None,
+            artifact_requirements: None,
+            review_requirements: None,
         },
         prism.workspace_revision(),
         current_timestamp(),
@@ -884,6 +888,8 @@ fn maybe_link_review_artifact_to_task_git_execution(
             tags: None,
             completion_context: None,
             spec_refs: None,
+            artifact_requirements: None,
+            review_requirements: None,
         },
         prism.workspace_revision(),
         current_timestamp(),
@@ -992,6 +998,7 @@ fn ensure_auto_pr_review_artifact_in_mutation(
         next_coordination_meta(session, task_id, meta),
         prism_coordination::ArtifactProposeInput {
             task_id: task_id.clone(),
+            artifact_requirement_id: None,
             anchors: task.task.anchors.clone(),
             diff_ref: Some(desired_diff_ref),
             evidence: Vec::new(),
@@ -1290,6 +1297,8 @@ fn coordination_transaction_task_update(
             completion_context
         },
         spec_refs: None,
+        artifact_requirements: payload.artifact_requirements,
+        review_requirements: payload.review_requirements,
     })
 }
 
@@ -4277,6 +4286,8 @@ impl QueryHost {
                         tags: None,
                         completion_context: None,
                         spec_refs: None,
+                        artifact_requirements: None,
+                        review_requirements: None,
                     },
                     prism.workspace_revision(),
                     current_timestamp(),
@@ -4399,6 +4410,8 @@ impl QueryHost {
                         tags: None,
                         completion_context: None,
                         spec_refs: None,
+                        artifact_requirements: None,
+                        review_requirements: None,
                     },
                     prism.workspace_revision(),
                     current_timestamp(),
@@ -4457,6 +4470,8 @@ impl QueryHost {
                         tags: None,
                         completion_context: None,
                         spec_refs: None,
+                        artifact_requirements: None,
+                        review_requirements: None,
                     },
                     prism.workspace_revision(),
                     current_timestamp(),
@@ -4514,6 +4529,8 @@ impl QueryHost {
                         tags: None,
                         completion_context: None,
                         spec_refs: None,
+                        artifact_requirements: None,
+                        review_requirements: None,
                     },
                     prism.workspace_revision(),
                     current_timestamp(),
@@ -4576,6 +4593,8 @@ impl QueryHost {
                         tags: None,
                         completion_context: Some(TaskCompletionContext::default()),
                         spec_refs: None,
+                        artifact_requirements: None,
+                        review_requirements: None,
                     },
                     prism.workspace_revision(),
                     current_timestamp(),
@@ -5042,6 +5061,8 @@ impl QueryHost {
                                         payload.acceptance,
                                     )?,
                                     base_revision: prism.workspace_revision(),
+                                    artifact_requirements: payload.artifact_requirements,
+                                    review_requirements: payload.review_requirements,
                                 })
                             }
                             CoordinationTransactionMutationPayload::TaskUpdate(payload) => {
@@ -5179,9 +5200,9 @@ impl QueryHost {
                     payload.status.map(convert_plan_status),
                     payload.goal,
                     match (existing_policy, payload.policy) {
-                        (Some(existing), Some(policy)) => Some(
-                            crate::query_types::merge_policy_payload(existing, policy),
-                        ),
+                        (Some(existing), Some(policy)) => {
+                            Some(crate::query_types::merge_policy_payload(existing, policy))
+                        }
                         (None, Some(policy)) => convert_policy(Some(policy))?,
                         (_, None) => None,
                     },
@@ -5243,6 +5264,8 @@ impl QueryHost {
                             payload.acceptance,
                         )?,
                         base_revision: prism.workspace_revision(),
+                        artifact_requirements: payload.artifact_requirements,
+                        review_requirements: payload.review_requirements,
                     },
                 )?;
                 let task_id = result.task_id.clone();
@@ -5278,6 +5301,8 @@ impl QueryHost {
                     priority,
                     tags,
                     completion_context,
+                    artifact_requirements,
+                    review_requirements,
                 } = payload;
                 match resolve_workflow_update_target(prism, &id)? {
                     WorkflowUpdateTarget::CoordinationTask(task_id) => {
@@ -5311,6 +5336,8 @@ impl QueryHost {
                                 priority,
                                 tags,
                                 completion_context,
+                                artifact_requirements,
+                                review_requirements,
                             },
                         )?;
                         let result =
@@ -5655,6 +5682,7 @@ impl QueryHost {
                     meta.clone(),
                     prism_coordination::ArtifactProposeInput {
                         task_id,
+                        artifact_requirement_id: payload.artifact_requirement_id,
                         anchors,
                         diff_ref: payload.diff_ref,
                         evidence: evidence.clone(),
@@ -5719,6 +5747,7 @@ impl QueryHost {
                     meta.clone(),
                     prism_coordination::ArtifactReviewInput {
                         artifact_id,
+                        review_requirement_id: payload.review_requirement_id,
                         verdict: convert_review_verdict(payload.verdict),
                         summary: payload.summary,
                         required_validations: payload.required_validations.unwrap_or_else(|| {

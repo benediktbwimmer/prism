@@ -108,6 +108,8 @@ pub enum CoordinationTransactionMutation {
         acceptance: Vec<AcceptanceCriterion>,
         base_revision: WorkspaceRevision,
         spec_refs: Vec<CoordinationTaskSpecRef>,
+        artifact_requirements: Vec<prism_coordination::ArtifactRequirement>,
+        review_requirements: Vec<prism_coordination::ReviewRequirement>,
     },
     TaskUpdate {
         task: CoordinationTransactionTaskRef,
@@ -130,6 +132,8 @@ pub enum CoordinationTransactionMutation {
         tags: Option<Vec<String>>,
         completion_context: Option<TaskCompletionContext>,
         spec_refs: Option<Vec<CoordinationTaskSpecRef>>,
+        artifact_requirements: Option<Vec<prism_coordination::ArtifactRequirement>>,
+        review_requirements: Option<Vec<prism_coordination::ReviewRequirement>>,
     },
     DependencyCreate {
         task: CoordinationTransactionTaskRef,
@@ -1146,6 +1150,8 @@ fn apply_coordination_transaction(
                 acceptance,
                 base_revision,
                 spec_refs,
+                artifact_requirements,
+                review_requirements,
             } => {
                 if let Some(client_task_id) = client_task_id.as_deref() {
                     ensure_unique_client_id(
@@ -1182,6 +1188,8 @@ fn apply_coordination_transaction(
                         acceptance,
                         base_revision: base_revision.clone(),
                         spec_refs,
+                        artifact_requirements,
+                        review_requirements,
                     },
                 )?;
                 if let Some(client_task_id) = client_task_id {
@@ -1219,6 +1227,8 @@ fn apply_coordination_transaction(
                 tags,
                 completion_context,
                 spec_refs,
+                artifact_requirements,
+                review_requirements,
             } => {
                 let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
                 let existing_task = coordination_runtime
@@ -1251,6 +1261,8 @@ fn apply_coordination_transaction(
                     tags,
                     completion_context,
                     spec_refs,
+                    artifact_requirements,
+                    review_requirements,
                 };
                 if is_authoritative_git_execution_only_update(&update_input) {
                     coordination_runtime.update_task_authoritative_only(
@@ -1326,6 +1338,8 @@ fn apply_coordination_transaction(
                         tags: None,
                         completion_context: None,
                         spec_refs: None,
+                        artifact_requirements: None,
+                        review_requirements: None,
                     },
                     base_revision,
                     meta.ts,

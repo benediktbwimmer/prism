@@ -1,6 +1,6 @@
 # Coordination Artifact And Review Model Phase 1
 
-Status: in progress
+Status: complete
 Audience: coordination, query, MCP, UI, and workflow maintainers
 Scope: implement declared artifact and review requirements on tasks, requirement-linked artifact and review records, lineage-head selection, and completion/query surfaces that honor those declared requirements
 
@@ -34,13 +34,13 @@ Coarse checklist:
 - [x] require primitive reviews to target declared review requirements
 - [x] add lineage-head and requirement-satisfaction helpers
 - [x] update completion blockers and review queries to use declared requirements
-- [ ] surface the new model through MCP and JS view types
+- [x] surface the new model through MCP and JS view types
 
 Progress note (2026-04-09):
 
 - coordination-core storage, mutation, replay, blocker, and pending-review semantics are implemented in `prism-coordination`
-- task updates now reject requirement changes that would invalidate retained review requirements
-- MCP, query-transaction, and JS/public view wiring is the remaining Phase 1 work
+- task updates reject requirement changes that would invalidate retained review requirements
+- query transaction inputs, shared coordination fixtures, MCP payloads/views, and JS-facing view types now expose the declared requirement model end to end
 
 ## 3. Non-goals
 
@@ -252,17 +252,14 @@ Add:
 
 Status:
 
-- in progress
+- complete
 
 ## 8. Validation
 
 Tier 1:
 
 - `cargo test -p prism-coordination`
-
-Tier 2:
-
-- `cargo test -p prism-mcp`
+- `cargo test -p prism-query -p prism-core -p prism-js -p prism-mcp`
 
 Targeted tests should cover at least:
 

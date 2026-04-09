@@ -4303,6 +4303,8 @@ mod tests {
             priority: Some(1),
             tags: Vec::new(),
             spec_refs: Vec::new(),
+            artifact_requirements: Vec::new(),
+            review_requirements: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -4372,6 +4374,8 @@ mod tests {
             priority: Some(1),
             tags: Vec::new(),
             spec_refs: Vec::new(),
+            artifact_requirements: Vec::new(),
+            review_requirements: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution {
                 status: prism_ir::GitExecutionStatus::CoordinationPublished,
@@ -4563,6 +4567,8 @@ mod tests {
             priority: Some(1),
             tags: Vec::new(),
             spec_refs: Vec::new(),
+            artifact_requirements: Vec::new(),
+            review_requirements: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution {
                 status: prism_ir::GitExecutionStatus::CoordinationPublished,
@@ -4659,10 +4665,7 @@ mod tests {
             .load_coordination_startup_checkpoint()
             .unwrap()
             .expect("coordination startup checkpoint");
-        assert_eq!(
-            checkpoint.canonical_snapshot_v2,
-            canonical_snapshot_v2
-        );
+        assert_eq!(checkpoint.canonical_snapshot_v2, canonical_snapshot_v2);
     }
 
     #[test]
@@ -4795,6 +4798,8 @@ mod tests {
             priority: Some(1),
             tags: Vec::new(),
             spec_refs: Vec::new(),
+            artifact_requirements: Vec::new(),
+            review_requirements: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution {
                 status: prism_ir::GitExecutionStatus::CoordinationPublished,
@@ -4921,6 +4926,8 @@ mod tests {
             priority: Some(1),
             tags: Vec::new(),
             spec_refs: Vec::new(),
+            artifact_requirements: Vec::new(),
+            review_requirements: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -4974,6 +4981,7 @@ mod tests {
         let artifact_a = prism_coordination::Artifact {
             id: prism_ir::ArtifactId::new("artifact:a".to_string()),
             task: task_id.clone(),
+            artifact_requirement_id: "__legacy_task_artifact__".to_string(),
             worktree_id: Some("worktree:a".to_string()),
             branch_ref: Some("refs/heads/task/a".to_string()),
             anchors: Vec::new(),
@@ -5017,6 +5025,7 @@ mod tests {
         let artifact_b = prism_coordination::Artifact {
             id: prism_ir::ArtifactId::new("artifact:b".to_string()),
             task: task_id.clone(),
+            artifact_requirement_id: "__legacy_task_artifact__".to_string(),
             worktree_id: Some("worktree:b".to_string()),
             branch_ref: Some("refs/heads/task/b".to_string()),
             anchors: Vec::new(),
@@ -5132,6 +5141,8 @@ mod tests {
             priority: Some(1),
             tags: Vec::new(),
             spec_refs: Vec::new(),
+            artifact_requirements: Vec::new(),
+            review_requirements: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -5332,6 +5343,8 @@ mod tests {
             priority: Some(1),
             tags: Vec::new(),
             spec_refs: Vec::new(),
+            artifact_requirements: Vec::new(),
+            review_requirements: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         };
@@ -5537,6 +5550,8 @@ mod tests {
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
                         spec_refs: Vec::new(),
+                        artifact_requirements: Vec::new(),
+                        review_requirements: Vec::new(),
                     },
                 )?;
                 Ok::<_, anyhow::Error>((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
@@ -5625,6 +5640,8 @@ mod tests {
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
                         spec_refs: Vec::new(),
+                        artifact_requirements: Vec::new(),
+                        review_requirements: Vec::new(),
                     },
                 )?;
                 Ok::<_, anyhow::Error>(CoordinationTaskId::new(task.task.id.0.clone()))
@@ -5694,6 +5711,7 @@ mod tests {
             let artifact = prism_coordination::Artifact {
                 id: prism_ir::ArtifactId::new(format!("artifact:shared-compaction-{iteration}")),
                 task: task_id.clone(),
+                artifact_requirement_id: "__legacy_task_artifact__".to_string(),
                 worktree_id: Some(format!("worktree:shared-compaction-{iteration}")),
                 branch_ref: Some(format!("refs/heads/task/shared-compaction-{iteration}")),
                 anchors: Vec::new(),

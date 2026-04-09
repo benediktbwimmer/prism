@@ -16,7 +16,7 @@ use crate::ui_read_models::QueryHostUiReadModelsExt;
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_coordination::{
     CoordinationPolicy, CoordinationStore, GitExecutionCompletionMode, GitExecutionPolicy,
-    GitExecutionStartMode, PlanCreateInput, TaskCreateInput, TaskUpdateInput,
+    GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
 };
 use prism_core::{
     default_workspace_shared_runtime, hydrate_workspace_session,
@@ -47,7 +47,9 @@ use prism_query::{
     ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptScope, ContractKind,
     ContractStability, ContractStatus,
 };
-use prism_store::{CoordinationCheckpointStore, CoordinationStartupCheckpoint, Graph, SqliteStore, Store};
+use prism_store::{
+    CoordinationCheckpointStore, CoordinationStartupCheckpoint, Graph, SqliteStore, Store,
+};
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -720,6 +722,8 @@ fn git_execution_start_auto_resumes_stale_same_principal_task() {
                         acceptance: Vec::new(),
                         spec_refs: Vec::new(),
                         base_revision: prism.workspace_revision(),
+                        artifact_requirements: Vec::new(),
+                        review_requirements: Vec::new(),
                     },
                 )?;
                 Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
@@ -872,6 +876,8 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
                         acceptance: Vec::new(),
                         spec_refs: Vec::new(),
                         base_revision: prism.workspace_revision(),
+                        artifact_requirements: Vec::new(),
+                        review_requirements: Vec::new(),
                     },
                 )?;
                 let task = prism.update_native_task_authoritative_only(
@@ -908,6 +914,8 @@ fn git_execution_start_allows_same_worktree_continuity_before_preflight() {
                         tags: None,
                         completion_context: None,
                         spec_refs: None,
+                        artifact_requirements: None,
+                        review_requirements: None,
                     },
                     prism.workspace_revision(),
                     active_ts,
@@ -3667,7 +3675,10 @@ fn mcp_plan_bootstrap_rejects_unknown_client_ids_without_partial_state() {
     .expect("unknown client ids should return a structured rejection");
     assert!(result.rejected);
     assert_eq!(result.state["outcome"], "Rejected");
-    assert_eq!(result.state["rejection"]["reasonCode"], "unknown_task_client_id");
+    assert_eq!(
+        result.state["rejection"]["reasonCode"],
+        "unknown_task_client_id"
+    );
     assert!(result.state["rejection"]["message"]
         .as_str()
         .unwrap_or_default()
@@ -12932,6 +12943,8 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -13041,6 +13054,8 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -13164,6 +13179,8 @@ fn compact_task_brief_suppresses_heartbeat_instruction_when_local_assistance_is_
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -13266,6 +13283,8 @@ fn compact_task_brief_exposes_authoritative_task_lease_without_claim_holders() {
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -20966,7 +20985,9 @@ fn runtime_status_omits_git_coordination_authority_diagnostics_on_sqlite_default
                 clear_compaction: true,
             },
         )
-        .expect("sqlite-default runtime status should not require local coordination materialization");
+        .expect(
+            "sqlite-default runtime status should not require local coordination materialization",
+        );
         if coordination_materialization_path.exists() {
             fs::remove_file(&coordination_materialization_path).unwrap();
         }
@@ -20981,7 +21002,9 @@ fn runtime_status_omits_git_coordination_authority_diagnostics_on_sqlite_default
                 task_id: None,
             },
         )
-        .expect("follow-up task create should still succeed without local coordination materialization");
+        .expect(
+            "follow-up task create should still succeed without local coordination materialization",
+        );
         workspace.flush_materializations().unwrap();
         assert!(
             !coordination_materialization_path.exists(),
@@ -21027,7 +21050,8 @@ fn runtime_status_tolerates_legacy_startup_checkpoint_plan_shape() {
         .unwrap()
         .coordination_authority_db_path()
         .unwrap();
-    let canonical_snapshot_v2 = prism_coordination::CoordinationSnapshot::default().to_canonical_snapshot_v2();
+    let canonical_snapshot_v2 =
+        prism_coordination::CoordinationSnapshot::default().to_canonical_snapshot_v2();
     let checkpoint: CoordinationStartupCheckpoint = serde_json::from_value(serde_json::json!({
         "version": 4,
         "materialized_at": 123,
@@ -24243,6 +24267,8 @@ fn plan_queries_surface_activity_without_task_journal_replay() {
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 base_revision: prism.workspace_revision(),
             },
         )
@@ -24265,7 +24291,10 @@ return {{
         )
         .expect("plan activity query should succeed");
 
-    assert_eq!(result.result["plans"][0]["planId"], Value::from(plan_id.0.to_string()));
+    assert_eq!(
+        result.result["plans"][0]["planId"],
+        Value::from(plan_id.0.to_string())
+    );
     assert_eq!(result.result["plans"][0]["activity"]["createdAt"], 10);
     assert_eq!(result.result["plans"][0]["activity"]["lastUpdatedAt"], 20);
     assert_eq!(
@@ -24276,7 +24305,10 @@ return {{
         result.result["plans"][0]["activity"]["lastEventTaskId"],
         Value::from(task.task.id.0.to_string())
     );
-    assert_eq!(result.result["plan"]["id"], Value::from(plan_id.0.to_string()));
+    assert_eq!(
+        result.result["plan"]["id"],
+        Value::from(plan_id.0.to_string())
+    );
 }
 
 #[test]
@@ -24350,6 +24382,8 @@ created: 2026-04-09\n\
                     acceptance: Vec::new(),
                     spec_refs: Vec::new(),
                     base_revision: prism_ir::WorkspaceRevision::default(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                 },
                 spec_ref: prism_coordination::CoordinationTaskSpecRef {
                     spec_id: "spec:alpha".into(),
@@ -24487,6 +24521,8 @@ created: 2026-04-09\n\
                     acceptance: Vec::new(),
                     spec_refs: Vec::new(),
                     base_revision: prism_ir::WorkspaceRevision::default(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                 },
                 spec_ref: prism_coordination::CoordinationTaskSpecRef {
                     spec_id: "spec:alpha".into(),
@@ -24860,6 +24896,8 @@ fn session_resource_surfaces_stale_current_task_context() {
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -25001,6 +25039,8 @@ fn session_resource_derives_coordination_binding_from_coord_task_id_for_stale_re
                 integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
             },
         )
@@ -25113,6 +25153,8 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -25216,6 +25258,8 @@ fn session_resource_surfaces_publish_failed_repair_action() {
         priority: None,
         tags: Vec::new(),
         spec_refs: Vec::new(),
+        artifact_requirements: Vec::new(),
+        review_requirements: Vec::new(),
         metadata: serde_json::Value::Null,
         git_execution: prism_coordination::TaskGitExecution {
             status: prism_ir::GitExecutionStatus::PublishFailed,

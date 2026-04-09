@@ -242,11 +242,7 @@ impl Prism {
             Arc::new(history),
             Arc::new(outcomes),
             projections,
-            MaterializedCoordinationRuntime::new(
-                coordination,
-                canonical_snapshot_v2,
-                Vec::new(),
-            ),
+            MaterializedCoordinationRuntime::new(coordination, canonical_snapshot_v2, Vec::new()),
             None,
             false,
         )
@@ -943,6 +939,8 @@ impl Prism {
                 tags: input.tags,
                 completion_context: input.completion_context,
                 spec_refs: input.spec_refs,
+                artifact_requirements: input.artifact_requirements,
+                review_requirements: input.review_requirements,
             },
         )?)
     }
@@ -1374,6 +1372,8 @@ impl Prism {
                 acceptance: task.acceptance.clone(),
                 base_revision: task.base_revision.clone(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             });
         }
         for task in tasks {
@@ -1584,6 +1584,8 @@ impl Prism {
                     acceptance: input.acceptance,
                     base_revision: input.base_revision,
                     spec_refs: input.spec_refs,
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                 }],
                 ..CoordinationTransactionInput::default()
             },

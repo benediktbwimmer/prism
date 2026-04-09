@@ -156,6 +156,8 @@ fn coordination_snapshot_preserves_task_lease_fields() {
                 priority: None,
                 tags: Vec::new(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 metadata: serde_json::Value::Null,
                 git_execution: TaskGitExecution::default(),
             }],
@@ -249,6 +251,8 @@ fn coordination_snapshot_v2_projects_legacy_snapshot_into_canonical_records() {
                 priority: None,
                 tags: Vec::new(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 metadata: serde_json::json!({"estimatedMinutes": 12}),
                 git_execution: TaskGitExecution::default(),
             }],
@@ -339,6 +343,8 @@ fn plan_activity_falls_back_to_ids_and_embedded_timestamps_when_events_are_compa
                 priority: None,
                 tags: Vec::new(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 metadata: serde_json::Value::Null,
                 git_execution: TaskGitExecution::default(),
             }],
@@ -425,6 +431,8 @@ fn effective_task_lease_state_joins_runtime_descriptors() {
                 priority: None,
                 tags: Vec::new(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 metadata: serde_json::Value::Null,
                 git_execution: TaskGitExecution::default(),
             }],
@@ -550,6 +558,8 @@ fn authoritative_only_task_publish_intent_does_not_auto_complete_plan() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -601,6 +611,8 @@ fn authoritative_only_task_publish_intent_does_not_auto_complete_plan() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
             },
             WorkspaceRevision::default(),
             3,
@@ -673,6 +685,8 @@ fn authoritative_only_final_publication_auto_completes_plan() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -726,6 +740,8 @@ fn authoritative_only_final_publication_auto_completes_plan() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
             },
             WorkspaceRevision::default(),
             3,
@@ -790,6 +806,8 @@ fn authoritative_only_final_publication_bypasses_expired_same_holder_lease() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -843,6 +861,8 @@ fn authoritative_only_final_publication_bypasses_expired_same_holder_lease() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
             },
             WorkspaceRevision::default(),
             10_000,
@@ -907,6 +927,8 @@ fn authoritative_only_target_integration_auto_completes_plan() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -942,6 +964,8 @@ fn authoritative_only_target_integration_auto_completes_plan() {
         priority: None,
         tags: Vec::new(),
         spec_refs: Vec::new(),
+        artifact_requirements: Vec::new(),
+        review_requirements: Vec::new(),
         metadata: serde_json::Value::Null,
         git_execution: TaskGitExecution {
             status: prism_ir::GitExecutionStatus::CoordinationPublished,
@@ -1004,6 +1028,8 @@ fn authoritative_only_target_integration_auto_completes_plan() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
             },
             WorkspaceRevision::default(),
             3,
@@ -2022,6 +2048,8 @@ fn coordination_queries_expand_into_neighboring_symbols() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2188,6 +2216,8 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2234,6 +2264,7 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
     runtime_snapshot.artifacts.push(Artifact {
         id: prism_ir::ArtifactId::new("artifact:runtime"),
         task: task_id.clone(),
+        artifact_requirement_id: "__legacy_task_artifact__".into(),
         worktree_id: None,
         branch_ref: None,
         anchors: vec![AnchorRef::Node(alpha.clone())],
@@ -2440,6 +2471,8 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2448,6 +2481,7 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
     runtime_snapshot.artifacts.push(Artifact {
         id: prism_ir::ArtifactId::new("artifact:a"),
         task: task_id.clone(),
+        artifact_requirement_id: "__legacy_task_artifact__".into(),
         worktree_id: Some("worktree:a".into()),
         branch_ref: Some("refs/heads/a".into()),
         anchors: vec![AnchorRef::Node(alpha.clone())],
@@ -2463,6 +2497,7 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
     runtime_snapshot.artifacts.push(Artifact {
         id: prism_ir::ArtifactId::new("artifact:b"),
         task: task_id.clone(),
+        artifact_requirement_id: "__legacy_task_artifact__".into(),
         worktree_id: Some("worktree:b".into()),
         branch_ref: Some("refs/heads/b".into()),
         anchors: vec![AnchorRef::Node(alpha.clone())],
@@ -2480,6 +2515,8 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
         .push(prism_coordination::ArtifactReview {
             id: review_id.clone(),
             artifact: prism_ir::ArtifactId::new("artifact:a"),
+            review_requirement_id: "__legacy_artifact_review__".into(),
+            reviewer_class: None,
             verdict: prism_ir::ReviewVerdict::Approved,
             meta: EventMeta {
                 id: EventId::new("coord:review:artifact-scope"),
@@ -2579,6 +2616,8 @@ fn task_evidence_status_aggregates_artifacts_reviews_and_blockers() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2588,6 +2627,7 @@ fn task_evidence_status_aggregates_artifacts_reviews_and_blockers() {
     snapshot.artifacts.push(Artifact {
         id: artifact_id.clone(),
         task: task_id.clone(),
+        artifact_requirement_id: "__legacy_task_artifact__".into(),
         worktree_id: None,
         branch_ref: None,
         anchors: Vec::new(),
@@ -2603,6 +2643,8 @@ fn task_evidence_status_aggregates_artifacts_reviews_and_blockers() {
     snapshot.reviews.push(prism_coordination::ArtifactReview {
         id: review_id.clone(),
         artifact: artifact_id.clone(),
+        review_requirement_id: "__legacy_artifact_review__".into(),
+        reviewer_class: None,
         verdict: prism_ir::ReviewVerdict::ChangesRequested,
         summary: "needs changes".into(),
         meta: EventMeta {
@@ -2708,6 +2750,8 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2875,6 +2919,8 @@ fn spec_sync_create_helpers_attach_typed_spec_refs() {
                     acceptance: Vec::new(),
                     base_revision: WorkspaceRevision::default(),
                     spec_refs: Vec::new(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                 },
                 spec_ref: CoordinationTaskSpecRef {
                     spec_id: "spec:alpha".into(),
@@ -3016,6 +3062,8 @@ created: 2026-04-09\n\
                     acceptance: Vec::new(),
                     base_revision: WorkspaceRevision::default(),
                     spec_refs: Vec::new(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                 },
                 spec_ref: CoordinationTaskSpecRef {
                     spec_id: "spec:alpha".into(),
@@ -3148,6 +3196,8 @@ fn ready_tasks_for_executor_filters_by_executor_policy() {
                     priority: None,
                     tags: Vec::new(),
                     spec_refs: Vec::new(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                     metadata: json!({
                         "executor": {
                             "executorClass": "worktree_executor",
@@ -3187,6 +3237,8 @@ fn ready_tasks_for_executor_filters_by_executor_policy() {
                     priority: None,
                     tags: Vec::new(),
                     spec_refs: Vec::new(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                     metadata: json!({
                         "executor": {
                             "executorClass": "worktree_executor",
@@ -3335,6 +3387,8 @@ fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3426,6 +3480,8 @@ fn plans_cache_invalidates_when_workspace_revision_changes() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3515,6 +3571,8 @@ fn persisted_coordination_snapshot_updates_task_backed_plan_nodes() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3569,6 +3627,8 @@ fn persisted_coordination_snapshot_updates_task_backed_plan_nodes() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
             },
             WorkspaceRevision::default(),
             3,
@@ -3881,6 +3941,8 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3896,6 +3958,7 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
             },
             ArtifactProposeInput {
                 task_id: task_id.clone(),
+                artifact_requirement_id: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 diff_ref: Some("patch:1".into()),
                 evidence: Vec::new(),
@@ -4093,6 +4156,8 @@ fn coordination_only_artifact_risk_uses_artifact_fields_without_cognition() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -4108,6 +4173,7 @@ fn coordination_only_artifact_risk_uses_artifact_fields_without_cognition() {
             },
             ArtifactProposeInput {
                 task_id: task_id.clone(),
+                artifact_requirement_id: None,
                 anchors: Vec::new(),
                 diff_ref: Some("patch:artifact-risk".into()),
                 evidence: Vec::new(),
@@ -4251,6 +4317,8 @@ fn exposes_intent_links_and_task_intent() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -4453,6 +4521,8 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -4491,6 +4561,8 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
             },
             WorkspaceRevision {
                 graph_version: 1,
@@ -4591,6 +4663,8 @@ fn coordination_transaction_rejects_forward_task_client_refs_before_domain_stage
                         acceptance: Vec::new(),
                         base_revision: WorkspaceRevision::default(),
                         spec_refs: Vec::new(),
+                        artifact_requirements: Vec::new(),
+                        review_requirements: Vec::new(),
                     },
                     CoordinationTransactionMutation::TaskCreate {
                         client_task_id: Some("later".to_string()),
@@ -4608,6 +4682,8 @@ fn coordination_transaction_rejects_forward_task_client_refs_before_domain_stage
                         acceptance: Vec::new(),
                         base_revision: WorkspaceRevision::default(),
                         spec_refs: Vec::new(),
+                        artifact_requirements: Vec::new(),
+                        review_requirements: Vec::new(),
                     },
                 ],
                 ..CoordinationTransactionInput::default()

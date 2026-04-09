@@ -8,7 +8,7 @@ use crate::tests_support::{
     register_test_agent_worktree, register_test_human_worktree, response_json, server_with_node,
     temp_workspace, workspace_session_with_owner_credential,
 };
-use prism_coordination::{TaskCreateInput, TaskUpdateInput};
+use prism_coordination::TaskCreateInput;
 use prism_core::{
     default_workspace_shared_runtime, index_workspace_session,
     index_workspace_session_with_options, BootstrapOwnerInput, MintPrincipalRequest,
@@ -743,6 +743,8 @@ async fn mcp_server_auto_resumes_stale_same_principal_task_on_update() {
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
                         spec_refs: Vec::new(),
+                        artifact_requirements: Vec::new(),
+                        review_requirements: Vec::new(),
                     },
                 )?;
                 Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
@@ -897,6 +899,8 @@ async fn mcp_server_auto_resumes_stale_same_principal_ready_task_on_update() {
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
                         spec_refs: Vec::new(),
+                        artifact_requirements: Vec::new(),
+                        review_requirements: Vec::new(),
                     },
                 )?;
                 Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
@@ -1015,6 +1019,8 @@ async fn mcp_server_auto_resumes_stale_same_worktree_executor_task_on_update() {
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
                         spec_refs: Vec::new(),
+                        artifact_requirements: Vec::new(),
+                        review_requirements: Vec::new(),
                     },
                 )?;
                 Ok((plan_id, CoordinationTaskId::new(task.task.id.0.clone())))
@@ -1168,6 +1174,8 @@ async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_i
                         acceptance: Vec::new(),
                         base_revision: prism.workspace_revision(),
                         spec_refs: Vec::new(),
+                        artifact_requirements: Vec::new(),
+                        review_requirements: Vec::new(),
                     },
                 )?;
                 let task = prism.update_native_task_authoritative_only(
@@ -1204,6 +1212,8 @@ async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_i
                         tags: None,
                         completion_context: None,
                         spec_refs: None,
+                        artifact_requirements: None,
+                        review_requirements: None,
                     },
                     prism.workspace_revision(),
                     stale_ts,
@@ -2381,11 +2391,9 @@ async fn mcp_server_accepts_relative_file_anchor_paths_in_coordination_only_mode
 
     assert_eq!(bootstrap["action"], "coordination");
     assert!(bootstrap["result"]["state"]["id"].as_str().is_some());
-    assert!(
-        bootstrap["result"]["state"]["taskIdsByClientId"]["t0"]
-            .as_str()
-            .is_some()
-    );
+    assert!(bootstrap["result"]["state"]["taskIdsByClientId"]["t0"]
+        .as_str()
+        .is_some());
 
     running.cancel().await.unwrap();
 }

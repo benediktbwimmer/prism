@@ -2813,6 +2813,10 @@ pub(crate) struct CoordinationTransactionTaskCreatePayload {
     #[serde(default)]
     pub(crate) integrated_depends_on: Vec<CoordinationTaskRefPayload>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+    #[serde(default)]
+    pub(crate) artifact_requirements: Vec<prism_coordination::ArtifactRequirement>,
+    #[serde(default)]
+    pub(crate) review_requirements: Vec<prism_coordination::ReviewRequirement>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -2832,6 +2836,8 @@ pub(crate) struct CoordinationTransactionTaskUpdatePayload {
     pub(crate) priority: Option<SparsePatchInput<u8>>,
     pub(crate) tags: Option<Vec<String>>,
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
+    pub(crate) artifact_requirements: Option<Vec<prism_coordination::ArtifactRequirement>>,
+    pub(crate) review_requirements: Option<Vec<prism_coordination::ReviewRequirement>>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -2958,6 +2964,10 @@ pub(crate) struct TaskCreatePayload {
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) depends_on: Option<Vec<String>>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+    #[serde(default)]
+    pub(crate) artifact_requirements: Vec<prism_coordination::ArtifactRequirement>,
+    #[serde(default)]
+    pub(crate) review_requirements: Vec<prism_coordination::ReviewRequirement>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -2979,6 +2989,8 @@ pub(crate) struct WorkflowUpdatePayload {
     pub(crate) tags: Option<Vec<String>>,
     #[serde(alias = "completionContext", alias = "completion_context")]
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
+    pub(crate) artifact_requirements: Option<Vec<prism_coordination::ArtifactRequirement>>,
+    pub(crate) review_requirements: Option<Vec<prism_coordination::ReviewRequirement>>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -3050,6 +3062,7 @@ pub(crate) struct ClaimReleasePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ArtifactProposePayload {
     pub(crate) task_id: String,
+    pub(crate) artifact_requirement_id: Option<String>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) diff_ref: Option<String>,
     pub(crate) evidence: Option<Vec<String>>,
@@ -3068,6 +3081,7 @@ pub(crate) struct ArtifactSupersedePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ArtifactReviewPayload {
     pub(crate) artifact_id: String,
+    pub(crate) review_requirement_id: Option<String>,
     pub(crate) verdict: ReviewVerdictInput,
     pub(crate) summary: String,
     pub(crate) required_validations: Option<Vec<String>>,

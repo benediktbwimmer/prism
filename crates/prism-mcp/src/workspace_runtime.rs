@@ -2545,6 +2545,8 @@ mod tests {
                 priority: None,
                 tags: Vec::new(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 metadata: Value::Null,
                 git_execution: TaskGitExecution::default(),
             }],
@@ -2558,13 +2560,11 @@ mod tests {
             next_artifact: 0,
             next_review: 0,
         };
-        workspace
-            .prism()
-            .replace_coordination_runtime(
-                live_snapshot.clone(),
-                live_snapshot.to_canonical_snapshot_v2(),
-                Vec::new(),
-            );
+        workspace.prism().replace_coordination_runtime(
+            live_snapshot.clone(),
+            live_snapshot.to_canonical_snapshot_v2(),
+            Vec::new(),
+        );
 
         let runtime_only_revision = persisted_revision.saturating_add(1);
         let reload =

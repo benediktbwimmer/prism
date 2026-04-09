@@ -1642,6 +1642,8 @@ mod tests {
                     acceptance: Vec::new(),
                     base_revision: prism_ir::WorkspaceRevision::default(),
                     spec_refs: Vec::new(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                 },
             )
             .unwrap();
@@ -1735,11 +1737,7 @@ mod tests {
         let mut canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
         canonical_snapshot_v2.next_plan += 11;
         canonical_snapshot_v2.next_task += 5;
-        prism.replace_coordination_runtime(
-            snapshot,
-            canonical_snapshot_v2.clone(),
-            Vec::new(),
-        );
+        prism.replace_coordination_runtime(snapshot, canonical_snapshot_v2.clone(), Vec::new());
 
         let published = super::publish_local_assisted_lease_overlay_generation(
             &mut runtime_state,
@@ -1810,6 +1808,8 @@ mod tests {
                         acceptance: Vec::new(),
                         base_revision: prism_ir::WorkspaceRevision::default(),
                         spec_refs: Vec::new(),
+                        artifact_requirements: Vec::new(),
+                        review_requirements: Vec::new(),
                     },
                 )
                 .unwrap();
