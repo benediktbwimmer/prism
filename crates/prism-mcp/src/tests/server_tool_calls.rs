@@ -2306,3 +2306,170 @@ async fn mcp_server_executes_coordination_mutation_round_trip_in_coordination_on
 
     running.cancel().await.unwrap();
 }
+
+#[tokio::test]
+async fn mcp_server_accepts_relative_file_anchor_paths_in_coordination_only_mode() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session_and_features(
+        session,
+        PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
+    );
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Exercise relative file anchors in reduced runtime mode"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let declared_work = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared_work["action"], "declare_work");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_mutate",
+            json!({
+                "action": "coordination",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "kind": "plan_bootstrap",
+                    "payload": {
+                        "plan": {
+                            "title": "Coordinate reduced runtime file anchors",
+                            "goal": "Verify coordination-only plan bootstrap accepts workspace-relative file anchor paths"
+                        },
+                        "tasks": [{
+                            "clientId": "t0",
+                            "title": "Create file-anchored task",
+                            "anchors": [{
+                                "type": "file",
+                                "path": "src/lib.rs"
+                            }]
+                        }]
+                    }
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let bootstrap = first_tool_content_json(client.receive().await.unwrap());
+
+    assert_eq!(bootstrap["action"], "coordination");
+    assert!(bootstrap["result"]["state"]["id"].as_str().is_some());
+    assert!(
+        bootstrap["result"]["state"]["taskIdsByClientId"]["t0"]
+            .as_str()
+            .is_some()
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_rejects_absolute_file_anchor_paths_in_coordination_only_mode() {
+    let root = temp_workspace();
+    let absolute_file = root.join("src/lib.rs");
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session_and_features(
+        session,
+        PrismMcpFeatures::full().with_runtime_mode(PrismRuntimeMode::CoordinationOnly),
+    );
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Reject absolute file anchors in reduced runtime mode"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let declared_work = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared_work["action"], "declare_work");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_mutate",
+            json!({
+                "action": "coordination",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "kind": "plan_bootstrap",
+                    "payload": {
+                        "plan": {
+                            "title": "Reject absolute file anchors",
+                            "goal": "Verify coordination-only mode rejects absolute file anchor paths"
+                        },
+                        "tasks": [{
+                            "clientId": "t0",
+                            "title": "Reject absolute path",
+                            "anchors": [{
+                                "type": "file",
+                                "path": absolute_file.to_string_lossy()
+                            }]
+                        }]
+                    }
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let response = response_json(client.receive().await.unwrap());
+    assert_eq!(response["error"]["code"], -32603);
+    assert!(
+        response["error"]["data"]["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("coordination-only mode only accepts workspace-relative file anchor paths"),
+        "{response}"
+    );
+
+    running.cancel().await.unwrap();
+}

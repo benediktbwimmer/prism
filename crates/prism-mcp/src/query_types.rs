@@ -592,10 +592,21 @@ pub(crate) fn convert_anchors(
                 Ok(AnchorRef::Lineage(prism_ir::LineageId::new(lineage_id)))
             }
             AnchorRefInput::File { file_id, path } => {
-                if !prism.runtime_capabilities().cognition_enabled() {
-                    return Err(anyhow!(
-                        "file anchors are unavailable when cognition is disabled; coordination-only mode only supports durable non-file anchors on direct public APIs"
-                    ));
+                let cognition_enabled = prism.runtime_capabilities().cognition_enabled();
+                if !cognition_enabled {
+                    match path.as_deref() {
+                        Some(path) if !Path::new(path.trim()).is_absolute() => {}
+                        Some(_) => {
+                            return Err(anyhow!(
+                                "coordination-only mode only accepts workspace-relative file anchor paths when cognition is disabled"
+                            ));
+                        }
+                        None => {
+                            return Err(anyhow!(
+                                "coordination-only mode only accepts relative file anchor `path` values when cognition is disabled"
+                            ));
+                        }
+                    }
                 }
                 let resolved_from_path = match path {
                     Some(path) => {
@@ -618,7 +629,12 @@ pub(crate) fn convert_anchors(
                         }
                         Ok(AnchorRef::File(prism_ir::FileId(file_id)))
                     }
-                    (Some(file_id), None) => Ok(AnchorRef::File(prism_ir::FileId(file_id))),
+                    (Some(file_id), None) if cognition_enabled => {
+                        Ok(AnchorRef::File(prism_ir::FileId(file_id)))
+                    }
+                    (Some(_), None) => Err(anyhow!(
+                        "coordination-only mode only accepts relative file anchor `path` values when cognition is disabled"
+                    )),
                     (None, Some((_, resolved_file_id))) => Ok(AnchorRef::File(resolved_file_id)),
                     (None, None) => Err(anyhow!(
                         "file anchors require either `fileId` or `path`"
