@@ -417,9 +417,10 @@ pub(crate) fn sync_coordination_snapshot_state(
     _publish: Option<&TrackedSnapshotPublishContext>,
     _coordination_revision: Option<u64>,
 ) -> Result<()> {
-    // Coordination state now lives in shared refs and runtime-local read models rather than the
-    // tracked snapshot authority. Keep the normal mutation path side-effect free so coordination
-    // work does not republish unrelated tracked `.prism/state` manifests for concepts/memory.
+    // Coordination state now lives in the coordination authority backend plus runtime-local read
+    // models rather than the tracked snapshot authority. Keep the normal mutation path side-effect
+    // free so coordination work does not republish unrelated tracked `.prism/state` manifests for
+    // concepts/memory.
     let _ = root;
     Ok(())
 }

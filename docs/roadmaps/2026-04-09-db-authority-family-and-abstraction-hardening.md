@@ -66,7 +66,7 @@ Current active phase:
 
 Current phase spec:
 
-- [../specs/2026-04-09-authority-sync-and-legacy-alias-demotion-follow-through-phase-4.md](../specs/2026-04-09-authority-sync-and-legacy-alias-demotion-follow-through-phase-4.md)
+- [../specs/2026-04-09-backend-neutral-wording-residue-cleanup-phase-4.md](../specs/2026-04-09-backend-neutral-wording-residue-cleanup-phase-4.md)
 
 Current assessment:
 
@@ -133,6 +133,9 @@ Latest checkpoint:
   authority-sync wording no longer mentions a shared-ref refresh lock, and the remaining
   shared-ref diagnostics helpers are now explicit deprecated compatibility aliases behind preferred
   Git-named exports
+- the backend-neutral wording residue cleanup is complete; remaining shared-ref terminology outside
+  the Git backend is now either an intentional compatibility surface or explicit Git-focused test
+  coverage rather than accidental SQLite-default product wording
 
 ## 3. Ordering thesis
 

@@ -7413,7 +7413,7 @@ fn coordination_strong_reads_do_not_materialize_runtime_local_state() {
     assert_eq!(
         strong.freshness,
         CoordinationReadFreshness::VerifiedCurrent,
-        "the SQLite-default authority backend should satisfy strong reads without requiring shared-ref publication"
+        "the SQLite-default authority backend should satisfy strong reads without requiring Git authority publication"
     );
     assert!(strong.value.is_some());
 
