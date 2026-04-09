@@ -114,6 +114,8 @@ Current phase spec:
   [../specs/2026-04-09-event-trigger-execution-lifecycle-phase-15.md](../specs/2026-04-09-event-trigger-execution-lifecycle-phase-15.md)
 - Phase 15 service extraction and DB read-path follow-through roadmap:
   [../roadmaps/2026-04-09-prism-service-extraction-and-db-read-simplification.md](../roadmaps/2026-04-09-prism-service-extraction-and-db-read-simplification.md)
+- Phase 15 first-class service and auth rollout roadmap:
+  [../roadmaps/2026-04-09-first-class-prism-service-and-auth-rollout.md](../roadmaps/2026-04-09-first-class-prism-service-and-auth-rollout.md)
 
 ## 3. Ordering thesis
 
