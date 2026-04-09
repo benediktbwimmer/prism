@@ -462,12 +462,13 @@ Two sub-rules:
 **authoritative** side must come from the authority store’s current authority metadata rather than
 from direct revision helpers alone.
 
-### O. `crates/prism-mcp/src/peer_runtime_router.rs`
+### O. `crates/prism-mcp/src/peer_runtime_router.rs` and `crates/prism-mcp/src/runtime_gateway.rs`
 
-#### Current call site to replace
+#### Current call sites to replace
 
-- `423-453`: `resolve_runtime_descriptor(...)` calls `shared_coordination_ref_diagnostics(root)?`
-  and extracts runtime descriptors from diagnostics
+- peer runtime router: descriptor discovery must not come from diagnostics
+- runtime gateway: degraded-authority gating must come from authority diagnostics, but descriptor
+  discovery and backend-neutral error wording must not remain shared-ref-shaped
 
 #### Required change
 
@@ -478,6 +479,13 @@ That means splitting two concerns cleanly:
 
 - diagnostics
 - runtime descriptor discovery
+
+For `runtime_gateway.rs`, the same split applies:
+
+- use authority diagnostics only for degraded Git-backend verification checks
+- use `CoordinationAuthorityStore::list_runtime_descriptors(...)` for descriptor lookup
+- keep backend-neutral remote-runtime errors framed in coordination-authority terms rather than
+  shared-ref terms
 
 ---
 

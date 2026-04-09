@@ -66,7 +66,7 @@ Current active phase:
 
 Current phase spec:
 
-- [../specs/2026-04-09-coordination-startup-authority-naming-follow-through-phase-4.md](../specs/2026-04-09-coordination-startup-authority-naming-follow-through-phase-4.md)
+- [../specs/2026-04-09-runtime-gateway-authority-diagnostics-follow-through-phase-4.md](../specs/2026-04-09-runtime-gateway-authority-diagnostics-follow-through-phase-4.md)
 
 Current assessment:
 
@@ -116,6 +116,10 @@ Latest checkpoint:
 - the startup-checkpoint authority naming follow-through is complete; backend-neutral startup
   checkpoint provenance now resolves through coordination-authority-named helpers instead of
   shared-ref-shaped naming in the checkpoint and authority API layers
+- the runtime-gateway authority diagnostics follow-through is complete; backend-neutral remote-runtime
+  routing now reads degraded verification through authority diagnostics, keeps descriptor lookup on
+  the authority store, and reports SQLite-default authority failures without shared-ref-shaped
+  wording
 
 ## 3. Ordering thesis
 

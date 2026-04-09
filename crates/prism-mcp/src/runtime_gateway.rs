@@ -4,10 +4,10 @@ use anyhow::Result;
 use axum::{http::StatusCode, Json};
 use prism_coordination::{RuntimeDescriptor, RuntimeDescriptorCapability};
 use prism_core::{
-    configured_coordination_authority_store_provider, runtime_query_endpoint,
-    shared_coordination_ref_diagnostics, shared_coordination_ref_diagnostics_with_provider,
-    CoordinationAuthorityStoreProvider, CoordinationReadConsistency, RuntimeDescriptorQuery,
-    WorkspaceSession,
+    configured_coordination_authority_store_provider,
+    coordination_authority_diagnostics_with_provider, runtime_query_endpoint,
+    CoordinationAuthorityBackendDetails, CoordinationAuthorityStoreProvider,
+    CoordinationReadConsistency, RuntimeDescriptorQuery, WorkspaceSession,
 };
 use prism_ir::{CredentialCapability, CredentialId};
 
@@ -154,10 +154,10 @@ pub(crate) fn resolve_remote_runtime_target_for_root(
             "remote_runtime_descriptor_stale",
             Some(runtime_id),
             format!(
-                "runtime `{runtime_id}` has a stale shared descriptor from {}",
+                "runtime `{runtime_id}` has a stale published runtime descriptor from {}",
                 descriptor.last_seen_at
             ),
-            "Wait for the peer to refresh its shared runtime descriptor, or pick a different runtime id.",
+            "Wait for the peer to refresh its published runtime descriptor, or pick a different runtime id.",
         ));
     }
     if !descriptor
@@ -199,35 +199,28 @@ fn resolve_runtime_descriptor(
     authority_store_provider: Option<&CoordinationAuthorityStoreProvider>,
     runtime_id: &str,
 ) -> Result<RuntimeDescriptor> {
-    let diagnostics = match authority_store_provider {
-        Some(provider) => shared_coordination_ref_diagnostics_with_provider(root, provider)?,
-        None => shared_coordination_ref_diagnostics(root)?,
-    };
-    if let Some(diagnostics) = diagnostics {
-        if !diagnostics.authoritative_hydration_allowed {
-            return Err(remote_runtime_query_error(
-                "remote_runtime_shared_ref_degraded",
-                Some(runtime_id),
-                diagnostics
-                    .verification_error
-                    .unwrap_or_else(|| "shared coordination verification is degraded".to_string()),
-                diagnostics.repair_hint.as_deref().unwrap_or(
-                    "Repair or republish the shared coordination ref before relying on peer runtime routing.",
-                ),
-            ));
-        }
-        if let Some(descriptor) = diagnostics
-            .runtime_descriptors
-            .into_iter()
-            .find(|descriptor| descriptor.runtime_id == runtime_id)
-        {
-            return Ok(descriptor);
-        }
-    }
-
     let provider = authority_store_provider
         .cloned()
         .unwrap_or(configured_coordination_authority_store_provider(root)?);
+    let diagnostics = coordination_authority_diagnostics_with_provider(root, &provider)?;
+    if let CoordinationAuthorityBackendDetails::GitSharedRefs(diagnostics) =
+        diagnostics.backend_details
+    {
+        if !diagnostics.authoritative_hydration_allowed {
+            return Err(remote_runtime_query_error(
+                "remote_runtime_authority_degraded",
+                Some(runtime_id),
+                diagnostics
+                    .verification_error
+                    .unwrap_or_else(|| {
+                        "coordination authority verification is degraded".to_string()
+                    }),
+                diagnostics.repair_hint.as_deref().unwrap_or(
+                    "Repair or republish the coordination authority state before relying on peer runtime routing.",
+                ),
+            ));
+        }
+    }
     let store = provider.open(root)?;
     let runtime_descriptors = store
         .list_runtime_descriptors(RuntimeDescriptorQuery {
@@ -237,10 +230,10 @@ fn resolve_runtime_descriptor(
         .unwrap_or_default();
     if runtime_descriptors.is_empty() {
         return Err(remote_runtime_query_error(
-            "remote_runtime_shared_ref_unavailable",
+            "remote_runtime_authority_unavailable",
             Some(runtime_id),
-            "shared coordination ref is unavailable".to_string(),
-            "Restore shared coordination connectivity, or query the local runtime instead.",
+            "coordination authority has no published runtime descriptors".to_string(),
+            "Wait for the peer to publish its runtime descriptor, or query the local runtime instead.",
         ));
     }
     runtime_descriptors
@@ -250,7 +243,9 @@ fn resolve_runtime_descriptor(
             remote_runtime_query_error(
                 "remote_runtime_descriptor_missing",
                 Some(runtime_id),
-                format!("runtime `{runtime_id}` is not present in shared coordination"),
+                format!(
+                    "runtime `{runtime_id}` is not present in the published coordination authority descriptors"
+                ),
                 "Check the runtime id or wait for the peer to publish its descriptor.",
             )
         })
@@ -261,4 +256,83 @@ fn current_timestamp_secs() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_secs())
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use prism_coordination::{RuntimeDescriptor, RuntimeDiscoveryMode};
+    use prism_core::{
+        configured_coordination_authority_store_provider, CoordinationTransactionBase,
+        RuntimeDescriptorPublishRequest,
+    };
+
+    use crate::tests_support::temp_workspace;
+    use crate::QueryExecutionError;
+
+    use super::resolve_remote_runtime_target_for_root;
+
+    fn sample_runtime_descriptor(runtime_id: &str) -> RuntimeDescriptor {
+        RuntimeDescriptor {
+            runtime_id: runtime_id.to_string(),
+            repo_id: "repo:test".to_string(),
+            worktree_id: "worktree:test".to_string(),
+            principal_id: "principal:test".to_string(),
+            instance_started_at: 10,
+            last_seen_at: u64::MAX / 2,
+            branch_ref: Some("refs/heads/main".to_string()),
+            checked_out_commit: Some("abc123".to_string()),
+            capabilities: vec![prism_coordination::RuntimeDescriptorCapability::BoundedPeerReads],
+            discovery_mode: RuntimeDiscoveryMode::Full,
+            peer_endpoint: Some("http://127.0.0.1:9001/mcp".to_string()),
+            public_endpoint: Some("https://example.test/mcp".to_string()),
+            peer_transport_identity: None,
+            blob_snapshot_head: None,
+            export_policy: None,
+        }
+    }
+
+    #[test]
+    fn runtime_gateway_resolves_runtime_descriptor_from_sqlite_authority_store() {
+        let root = temp_workspace();
+        let provider = configured_coordination_authority_store_provider(&root).unwrap();
+        let store = provider.open(&root).unwrap();
+        let descriptor = sample_runtime_descriptor("runtime:test");
+        store
+            .publish_runtime_descriptor(RuntimeDescriptorPublishRequest {
+                base: CoordinationTransactionBase::LatestStrong,
+                descriptor: descriptor.clone(),
+            })
+            .unwrap();
+
+        let resolved =
+            resolve_remote_runtime_target_for_root(&root, Some(&provider), "runtime:test").unwrap();
+
+        assert_eq!(resolved.runtime_descriptor.runtime_id, "runtime:test");
+        assert_eq!(resolved.endpoint, "https://example.test/mcp");
+        assert_eq!(
+            resolved.secondary_endpoint.as_deref(),
+            Some("http://127.0.0.1:9001/mcp")
+        );
+    }
+
+    #[test]
+    fn runtime_gateway_reports_authority_unavailable_when_no_descriptors_are_published() {
+        let root = temp_workspace();
+        let provider = configured_coordination_authority_store_provider(&root).unwrap();
+
+        let error =
+            resolve_remote_runtime_target_for_root(&root, Some(&provider), "runtime:missing")
+                .unwrap_err();
+        let runtime = error.downcast::<QueryExecutionError>().unwrap();
+
+        assert_eq!(
+            runtime.code(),
+            Some("remote_runtime_authority_unavailable")
+        );
+        assert!(
+            runtime
+                .to_string()
+                .contains("coordination authority has no published runtime descriptors")
+        );
+    }
 }
