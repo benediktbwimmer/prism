@@ -6,7 +6,7 @@ use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
-use prism_coordination::CoordinationSnapshot;
+use prism_coordination::CoordinationSnapshotV2;
 use prism_core::runtime_engine::{
     RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspacePublishedGeneration,
     WorkspaceRuntimeQueueSnapshot,
@@ -18,12 +18,12 @@ use prism_core::{
 use prism_js::{
     ConnectionInfoView, ProjectionAuthorityPlaneView, ProjectionClassView,
     ProjectionFreshnessStateView, ProjectionMaterializationStateView, ProjectionReadModelView,
-    RuntimeAssistedLeaseRenewalView, RuntimeBoundaryRegionView, RuntimeCoordinationLagView,
-    RuntimeCoordinationSurfaceLagItemView, RuntimeDomainFreshnessView, RuntimeFreshnessView,
-    RuntimeHealthView, RuntimeLogEventView, RuntimeMaterializationCoverageView,
-    RuntimeMaterializationItemView, RuntimeMaterializationView, RuntimeOverlayScopeView,
-    RuntimeProcessView, RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView,
-    RuntimeCoordinationAuthorityView, RuntimeStatusView,
+    RuntimeAssistedLeaseRenewalView, RuntimeBoundaryRegionView, RuntimeCoordinationAuthorityView,
+    RuntimeCoordinationLagView, RuntimeCoordinationSurfaceLagItemView, RuntimeDomainFreshnessView,
+    RuntimeFreshnessView, RuntimeHealthView, RuntimeLogEventView,
+    RuntimeMaterializationCoverageView, RuntimeMaterializationItemView, RuntimeMaterializationView,
+    RuntimeOverlayScopeView, RuntimeProcessView, RuntimeProjectionScopeView, RuntimeQueueDepthView,
+    RuntimeScopesView, RuntimeStatusView,
 };
 use prism_projections::{
     ProjectionAuthorityPlane, ProjectionClass, ProjectionFreshnessState,
@@ -137,12 +137,12 @@ pub(crate) fn refresh_cached_runtime_status(host: &QueryHost) -> Result<RuntimeS
         anyhow!("runtime introspection requires a workspace-backed PRISM session")
     })?;
     let coordination_surface = host.current_coordination_surface()?;
-    let live_overlay_coordination_snapshot = host.current_prism().coordination_snapshot();
+    let live_overlay_coordination_snapshot = host.current_prism().coordination_snapshot_v2();
     let inputs = RuntimeStatusInputs {
         root: workspace.root(),
         workspace: workspace.as_ref(),
         prism: host.current_prism(),
-        service_backed_coordination_snapshot: coordination_surface.snapshot,
+        service_backed_coordination_snapshot: coordination_surface.snapshot_v2,
         live_overlay_coordination_snapshot,
         tracked_coordination_snapshot_revision: coordination_surface.tracked_snapshot_revision,
         coordination_startup_checkpoint_revision: coordination_surface.startup_checkpoint_revision,
@@ -196,12 +196,12 @@ pub(crate) fn refresh_cached_runtime_status_for_config(
         Some(config.workspace.as_ref()),
         config.workspace.prism_arc(),
     )?;
-    let live_overlay_coordination_snapshot = config.workspace.prism().coordination_snapshot();
+    let live_overlay_coordination_snapshot = config.workspace.prism().coordination_snapshot_v2();
     let inputs = RuntimeStatusInputs {
         root: config.workspace.root(),
         workspace: config.workspace.as_ref(),
         prism: config.workspace.prism_arc(),
-        service_backed_coordination_snapshot: coordination_surface.snapshot,
+        service_backed_coordination_snapshot: coordination_surface.snapshot_v2,
         live_overlay_coordination_snapshot,
         tracked_coordination_snapshot_revision: coordination_surface.tracked_snapshot_revision,
         coordination_startup_checkpoint_revision: coordination_surface.startup_checkpoint_revision,
@@ -242,8 +242,8 @@ struct RuntimeStatusInputs<'a> {
     root: &'a Path,
     workspace: &'a WorkspaceSession,
     prism: std::sync::Arc<prism_query::Prism>,
-    service_backed_coordination_snapshot: CoordinationSnapshot,
-    live_overlay_coordination_snapshot: CoordinationSnapshot,
+    service_backed_coordination_snapshot: CoordinationSnapshotV2,
+    live_overlay_coordination_snapshot: CoordinationSnapshotV2,
     tracked_coordination_snapshot_revision: Option<u64>,
     coordination_startup_checkpoint_revision: Option<u64>,
     coordination_read_model_revision: Option<u64>,
@@ -859,15 +859,14 @@ fn projection_scope_view(scope: ProjectionScopeReadModel) -> RuntimeProjectionSc
 }
 
 fn overlay_scope_views(
-    snapshot: &prism_coordination::CoordinationSnapshot,
-    live_overlay_snapshot: &prism_coordination::CoordinationSnapshot,
+    snapshot: &prism_coordination::CoordinationSnapshotV2,
+    live_overlay_snapshot: &prism_coordination::CoordinationSnapshotV2,
 ) -> Vec<RuntimeOverlayScopeView> {
-    let canonical_snapshot = snapshot.to_canonical_snapshot_v2();
     vec![
         RuntimeOverlayScopeView {
             scope: "repo".to_string(),
-            plan_count: canonical_snapshot.plans.len(),
-            plan_node_count: canonical_snapshot.tasks.len(),
+            plan_count: snapshot.plans.len(),
+            plan_node_count: snapshot.tasks.len(),
             overlay_count: 0,
         },
         RuntimeOverlayScopeView {

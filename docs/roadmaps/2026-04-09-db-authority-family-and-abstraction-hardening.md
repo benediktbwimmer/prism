@@ -72,6 +72,7 @@ Current phase spec:
 - [../specs/2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md](../specs/2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md)
 - [../specs/2026-04-09-host-mutation-canonical-follow-through-phase-6.md](../specs/2026-04-09-host-mutation-canonical-follow-through-phase-6.md)
+- [../specs/2026-04-09-canonical-read-surface-follow-through-phase-6.md](../specs/2026-04-09-canonical-read-surface-follow-through-phase-6.md)
 - [../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md](../specs/2026-04-09-native-task-mutation-return-v2-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-lease-and-live-runtime-mutation-follow-through-phase-6.md)
 
@@ -176,6 +177,10 @@ Latest checkpoint:
   auto-resume and git-execution admissibility now run on canonical task records, canonical
   lease-holder helpers live in `prism-coordination`, and the last live-runtime native task
   helpers now return `CoordinationTaskV2`
+- the canonical read-surface follow-through is complete; `prism-query` now exposes canonical
+  ready-task helpers, plan activity/discovery no longer reload legacy plan/task records, MCP
+  plan-resource and runtime-overlay reads use `CoordinationSnapshotV2`, and the broker no longer
+  exposes the legacy snapshot as part of the current coordination surface
 - the remaining Phase 6 work is the deeper purge of active-path `CoordinationSnapshot` / legacy
   coordination-model dependencies that still exist under `prism-coordination`, `prism-query`,
   `prism-mcp` host mutation/runtime paths, and adjacent materialization code
@@ -327,12 +332,16 @@ This includes:
 - removing remaining Git-shaped assumptions from architecture surfaces that are now wrong for the default path
 - updating contracts, specs, roadmaps, and architecture docs to the actual steady state
 - confirming the Git backend still works as a supported alternative rather than as the invisible default assumption
+- removing the dual-snapshot read path so broker/runtime/UI plan surfaces stop carrying
+  `CoordinationSnapshot` as a first-class production read model
 
 Exit criteria:
 
 - no product-facing module depends on migration-era compatibility aliases
 - no live MCP/query/UI coordination surface depends on the old plan/task projection model
 - v2 plan/task/artifact/review payloads are the only supported coordination surface model
+- broker/runtime/UI read paths use `CoordinationSnapshotV2` directly for plan/task overlays and
+  ready-task reads rather than threading legacy snapshots through those surfaces
 - the code and docs agree on the authority family shape
 - SQLite is the real default
 - Git remains supported without distorting the public architecture story

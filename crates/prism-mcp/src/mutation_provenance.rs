@@ -284,9 +284,10 @@ impl MutationProvenance {
         let coordination_task = coordination_task_id
             .as_ref()
             .and_then(|coordination_task_id| {
-                self.prism.coordination_task_v2_by_coordination_id(
-                    &CoordinationTaskId::new(coordination_task_id.clone()),
-                )
+                self.prism
+                    .coordination_task_v2_by_coordination_id(&CoordinationTaskId::new(
+                        coordination_task_id.clone(),
+                    ))
             });
         let plan = coordination_task
             .as_ref()

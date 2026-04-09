@@ -13,7 +13,6 @@ use crate::workspace_host::WorkspaceRuntimeBinding;
 
 #[derive(Debug, Clone)]
 pub(crate) struct CurrentCoordinationSurface {
-    pub(crate) snapshot: CoordinationSnapshot,
     pub(crate) snapshot_v2: CoordinationSnapshotV2,
     pub(crate) read_model: CoordinationReadModel,
     pub(crate) queue_read_model: CoordinationQueueReadModel,
@@ -48,10 +47,6 @@ impl WorkspaceReadBroker {
             Some(self.workspace_session()),
             self.current_prism(),
         )
-    }
-
-    pub(crate) fn current_coordination_snapshot(&self) -> Result<CoordinationSnapshot> {
-        Ok(self.current_coordination_surface()?.snapshot)
     }
 
     pub(crate) fn current_coordination_snapshot_v2(&self) -> Result<CoordinationSnapshotV2> {
@@ -114,7 +109,6 @@ pub(crate) fn current_coordination_surface_for_workspace(
     }
 
     Ok(CurrentCoordinationSurface {
-        snapshot,
         snapshot_v2,
         read_model,
         queue_read_model,

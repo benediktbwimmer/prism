@@ -1415,7 +1415,10 @@ pub(crate) fn coordination_task_v2_view(value: CoordinationTaskV2) -> Coordinati
         estimated_minutes: value.task.estimated_minutes,
         executor: task_executor_policy_view(value.task.executor),
         assignee: value.task.assignee.map(|agent| agent.0.to_string()),
-        pending_handoff_to: value.task.pending_handoff_to.map(|agent| agent.0.to_string()),
+        pending_handoff_to: value
+            .task
+            .pending_handoff_to
+            .map(|agent| agent.0.to_string()),
         session: value.task.session.map(|session| session.0.to_string()),
         worktree_id: value.task.worktree_id,
         branch_ref: value.task.branch_ref,

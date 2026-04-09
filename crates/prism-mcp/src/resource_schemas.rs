@@ -1,10 +1,10 @@
 pub(crate) use prism_js::{
     AnchorRefView, ChangeImpactView, CoChangeView, ContractKindView, ContractPacketView,
-    ContractStatusView, DiscoveryBundleView, EdgeView, EditContextView, LineageEventView,
-    LineageStatus, LineageView, MemoryEntryView, MemoryEventView, OwnerCandidateView,
-    PlanListEntryView, PlanSummaryView, QueryDiagnostic, ReadContextView, RelationsView,
-    SourceExcerptView, SuggestedQueryView, SymbolView, TaskJournalView, ValidationRecipeView,
-    WorkspaceRevisionView, CoordinationPlanV2View,
+    ContractStatusView, CoordinationPlanV2View, DiscoveryBundleView, EdgeView, EditContextView,
+    LineageEventView, LineageStatus, LineageView, MemoryEntryView, MemoryEventView,
+    OwnerCandidateView, PlanListEntryView, PlanSummaryView, QueryDiagnostic, ReadContextView,
+    RelationsView, SourceExcerptView, SuggestedQueryView, SymbolView, TaskJournalView,
+    ValidationRecipeView, WorkspaceRevisionView,
 };
 use rmcp::schemars::JsonSchema;
 use serde_json::Value;

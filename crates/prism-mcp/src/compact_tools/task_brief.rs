@@ -3,9 +3,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::{anyhow, Result};
-use prism_coordination::{
-    CanonicalTaskRecord, LeaseState, TaskBlocker, TaskGitExecution,
-};
+use prism_coordination::{CanonicalTaskRecord, LeaseState, TaskBlocker, TaskGitExecution};
 use prism_ir::{
     AnchorRef, CoordinationTaskId, EdgeKind, GitExecutionStatus, GitIntegrationStatus, NodeId,
     NodeRef, NodeRefKind, TaskId, WorkspaceRevision,

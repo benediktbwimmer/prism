@@ -1252,10 +1252,7 @@ async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_i
         resumed["result"]["state"]["id"],
         Value::from(task_id.0.to_string())
     );
-    assert_eq!(
-        resumed["result"]["state"]["status"],
-        Value::from("active")
-    );
+    assert_eq!(resumed["result"]["state"]["status"], Value::from("active"));
 
     running.cancel().await.unwrap();
 }
@@ -1508,10 +1505,7 @@ async fn mcp_server_supports_mcp_only_self_described_workflows() {
         .await
         .unwrap();
     let updated = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(
-        updated["result"]["state"]["status"],
-        Value::from("active")
-    );
+    assert_eq!(updated["result"]["state"]["status"], Value::from("active"));
 
     let claim_input = json!({
         "action": "claim",

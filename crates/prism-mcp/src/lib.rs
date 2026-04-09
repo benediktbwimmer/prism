@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
 use prism_coordination::{
-    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshotV2,
 };
 use prism_core::{
     configured_coordination_authority_store_provider, default_workspace_shared_runtime,
@@ -1222,13 +1222,6 @@ impl QueryHost {
             return broker.current_coordination_surface();
         }
         current_coordination_surface_for_workspace(None, Arc::clone(&self.prism))
-    }
-
-    pub(crate) fn current_coordination_snapshot(&self) -> Result<CoordinationSnapshot> {
-        if let Some(broker) = self.workspace_read_broker() {
-            return broker.current_coordination_snapshot();
-        }
-        Ok(self.current_coordination_surface()?.snapshot)
     }
 
     pub(crate) fn current_coordination_snapshot_v2(&self) -> Result<CoordinationSnapshotV2> {

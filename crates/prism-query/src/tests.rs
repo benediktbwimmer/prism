@@ -2737,7 +2737,10 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
             WorkspaceRevision::default(),
         )
         .unwrap();
-    assert_eq!(handoff.task_id, CoordinationTaskId::new(task.task.id.0.clone()));
+    assert_eq!(
+        handoff.task_id,
+        CoordinationTaskId::new(task.task.id.0.clone())
+    );
     assert!(handoff.transaction.commit.event_count >= 1);
     assert_eq!(
         handoff.transaction.authority_version.last_event_id,
@@ -2769,7 +2772,10 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
             },
         )
         .unwrap();
-    assert_eq!(accepted.task_id, CoordinationTaskId::new(task.task.id.0.clone()));
+    assert_eq!(
+        accepted.task_id,
+        CoordinationTaskId::new(task.task.id.0.clone())
+    );
     assert!(accepted.transaction.commit.event_count >= 1);
     assert_eq!(
         accepted.transaction.authority_version.last_event_id,

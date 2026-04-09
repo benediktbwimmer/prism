@@ -79,6 +79,18 @@ impl Prism {
         CoordinationQueryEngine::new(self).graph_actionable_tasks_v2()
     }
 
+    pub fn ready_tasks_v2(&self, plan_id: &PlanId) -> Vec<CoordinationTaskV2> {
+        CoordinationQueryEngine::new(self).ready_tasks_v2(plan_id)
+    }
+
+    pub fn ready_tasks_for_executor_v2(
+        &self,
+        plan_id: &PlanId,
+        caller: &TaskExecutorCaller,
+    ) -> Vec<CoordinationTaskV2> {
+        CoordinationQueryEngine::new(self).ready_tasks_for_executor_v2(plan_id, caller)
+    }
+
     pub fn actionable_tasks_for_executor_v2(
         &self,
         caller: &TaskExecutorCaller,

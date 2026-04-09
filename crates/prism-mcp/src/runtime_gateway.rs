@@ -325,14 +325,9 @@ mod tests {
                 .unwrap_err();
         let runtime = error.downcast::<QueryExecutionError>().unwrap();
 
-        assert_eq!(
-            runtime.code(),
-            Some("remote_runtime_authority_unavailable")
-        );
-        assert!(
-            runtime
-                .to_string()
-                .contains("coordination authority has no published runtime descriptors")
-        );
+        assert_eq!(runtime.code(), Some("remote_runtime_authority_unavailable"));
+        assert!(runtime
+            .to_string()
+            .contains("coordination authority has no published runtime descriptors"));
     }
 }

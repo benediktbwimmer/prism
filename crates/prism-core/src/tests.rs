@@ -19,13 +19,13 @@ use prism_curator::{
     CuratorProposal, CuratorRun,
 };
 use prism_ir::{
-    AnchorRef, ChangeTrigger, CoordinationEventKind, CoordinationTaskId,
-    CredentialCapability, CredentialId, CredentialRecord, CredentialStatus, EdgeKind, EventActor,
-    EventExecutionContext, EventId, EventMeta, GraphChange, HumanAttestationAssurance,
-    HumanAttestationOperation, HumanAttestationRecord, HumanPrincipalProfile, LineageEvent,
-    LineageEventKind, LineageEvidence, LineageId, NodeId, NodeKind, PrincipalAuthorityId,
-    PrincipalId, PrincipalKind, PrincipalProfile, PrincipalRegistrySnapshot, PrincipalStatus,
-    SessionId, TaskId, WorkContextKind, WorkContextSnapshot,
+    AnchorRef, ChangeTrigger, CoordinationEventKind, CoordinationTaskId, CredentialCapability,
+    CredentialId, CredentialRecord, CredentialStatus, EdgeKind, EventActor, EventExecutionContext,
+    EventId, EventMeta, GraphChange, HumanAttestationAssurance, HumanAttestationOperation,
+    HumanAttestationRecord, HumanPrincipalProfile, LineageEvent, LineageEventKind, LineageEvidence,
+    LineageId, NodeId, NodeKind, PrincipalAuthorityId, PrincipalId, PrincipalKind,
+    PrincipalProfile, PrincipalRegistrySnapshot, PrincipalStatus, SessionId, TaskId,
+    WorkContextKind, WorkContextSnapshot,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
@@ -1444,8 +1444,7 @@ fn coordination_mutation_updates_published_plans_without_reloading_full_projecti
         .expect("coordination mutation should acquire the refresh lock");
 
     assert!(operations.contains(&"mutation.coordination.syncDerivedState".to_string()));
-    assert!(operations
-        .contains(&"mutation.coordination.authority.applyTransaction".to_string()));
+    assert!(operations.contains(&"mutation.coordination.authority.applyTransaction".to_string()));
     assert!(operations
         .contains(&"mutation.coordination.publishedPlans.syncTrackedSnapshot".to_string()));
     assert!(
@@ -6625,9 +6624,10 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
         .plans
         .iter()
         .any(|plan| plan.goal == "Published plan should stay mutable"));
-    assert!(loaded.tasks.iter().any(|task| {
-        task.title == "Published task should be available to mutations"
-    }));
+    assert!(loaded
+        .tasks
+        .iter()
+        .any(|task| { task.title == "Published task should be available to mutations" }));
 
     let _ = fs::remove_dir_all(root);
 }
@@ -6944,7 +6944,9 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
     let read_model = materialized_store
         .load_coordination_read_model()
         .unwrap()
-        .expect("coordination read model should be persisted in the coordination materialization store");
+        .expect(
+            "coordination read model should be persisted in the coordination materialization store",
+        );
     assert_eq!(read_model.task_count, 1);
     let queue_model = materialized_store
         .load_coordination_queue_read_model()
@@ -7695,7 +7697,9 @@ fn coordination_authority_state_ignores_stale_persisted_shared_runtime_cache() {
         .read_coordination_plan_state_with_consistency(CoordinationReadConsistency::Strong)
         .unwrap()
         .into_value()
-        .expect("reloaded strong coordination plan state should ignore the stale shared runtime cache");
+        .expect(
+            "reloaded strong coordination plan state should ignore the stale shared runtime cache",
+        );
     assert_eq!(reloaded_plan_state.snapshot.tasks.len(), 1);
 
     let _ = fs::remove_dir_all(root);
@@ -8192,11 +8196,12 @@ fn checkpoint_materialization_preserves_authoritative_task_lease_fields() {
             .unwrap(),
     )
     .unwrap();
-    let checkpoint = prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(
-        &mut materialized_store,
-    )
-    .unwrap()
-    .expect("coordination startup checkpoint");
+    let checkpoint =
+        prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(
+            &mut materialized_store,
+        )
+        .unwrap()
+        .expect("coordination startup checkpoint");
     assert!(!checkpoint.authority.ref_name.is_empty());
     let loaded_task = checkpoint
         .snapshot

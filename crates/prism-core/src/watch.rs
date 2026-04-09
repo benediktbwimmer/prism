@@ -867,13 +867,11 @@ where
     }
     let local_until = last_explicit_ts.saturating_add(target.assisted_window());
     let changed = match &target {
-        AssistedLeaseTarget::Task { task, .. } => {
-            prism.record_local_assisted_task_lease(
-                &CoordinationTaskId::new(task.id.0.clone()),
-                now,
-                local_until,
-            )
-        }
+        AssistedLeaseTarget::Task { task, .. } => prism.record_local_assisted_task_lease(
+            &CoordinationTaskId::new(task.id.0.clone()),
+            now,
+            local_until,
+        ),
         AssistedLeaseTarget::Claim { claim, .. } => {
             prism.record_local_assisted_claim_lease(&claim.id, now, local_until)
         }

@@ -10,8 +10,8 @@ use prism_core::{
 };
 use prism_ir::EventId;
 use prism_js::{
-    RuntimeCoordinationAuthorityView, RuntimeDescriptorCapabilityView,
-    RuntimeDiscoveryModeView, RuntimeSharedCoordinationRuntimeDescriptorView, RuntimeStatusView,
+    RuntimeCoordinationAuthorityView, RuntimeDescriptorCapabilityView, RuntimeDiscoveryModeView,
+    RuntimeSharedCoordinationRuntimeDescriptorView, RuntimeStatusView,
 };
 use prism_query::{
     CoordinationTransactionError, CoordinationTransactionProtocolIndeterminate,

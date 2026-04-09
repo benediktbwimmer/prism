@@ -2,12 +2,9 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    ready_task_count_for_active_plans, CoordinationSnapshot, CoordinationSnapshotV2, WorkClaim,
+    ready_task_count_for_active_plans, CanonicalTaskRecord, CoordinationSnapshotV2, WorkClaim,
 };
-use prism_ir::{
-    sortable_token_timestamp, ClaimStatus, CoordinationEventKind, CoordinationTaskId,
-    CoordinationTaskStatus,
-};
+use prism_ir::{sortable_token_timestamp, ClaimStatus, CoordinationEventKind, CoordinationTaskId};
 use prism_ir::{
     DerivedPlanStatus, EffectiveTaskStatus, NodeRefKind, PlanId, PlanScope, PlanStatus, TaskId,
 };
@@ -281,7 +278,6 @@ impl QueryHostUiReadModelsExt for QueryHost {
         let coordination_queues = ui_overview_coordination_queues(self)?;
         let prism = self.current_prism();
 
-        let now = crate::current_timestamp();
         let mut plan_spotlights = prism
             .root_plans_v2()
             .into_iter()
@@ -289,13 +285,9 @@ impl QueryHostUiReadModelsExt for QueryHost {
             .filter_map(|plan| {
                 let summary = prism.plan_summary(&plan.plan.id)?;
                 let ready_tasks = prism
-                    .ready_tasks(&plan.plan.id, now)
+                    .ready_tasks_v2(&plan.plan.id)
                     .into_iter()
-                    .filter_map(|task| {
-                        prism
-                            .coordination_task_v2(&TaskId::new(task.id.0.clone()))
-                            .map(coordination_task_v2_view)
-                    })
+                    .map(coordination_task_v2_view)
                     .take(OVERVIEW_PLAN_NEXT_LIMIT)
                     .collect::<Vec<_>>();
                 Some(OverviewPlanSpotlightView {
@@ -550,11 +542,10 @@ impl QueryHostUiReadModelsExt for QueryHost {
         let now = crate::current_timestamp();
         let task_id = prism_ir::CoordinationTaskId::new(task_id.to_string());
         let evidence_status = prism.task_evidence_status(&task_id, now);
-        let (task_view, blockers) =
-            if let Some(task_view) = prism
-                .coordination_task_v2(&TaskId::new(task_id.0.clone()))
-                .map(coordination_task_v2_view)
-            {
+        let (task_view, blockers) = if let Some(task_view) = prism
+            .coordination_task_v2(&TaskId::new(task_id.0.clone()))
+            .map(coordination_task_v2_view)
+        {
             debug_assert!(evidence_status.is_some());
             let blockers = evidence_status
                 .as_ref()
@@ -643,7 +634,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
     }
 
     fn ui_fleet_view(&self) -> Result<PrismUiFleetView> {
-        let snapshot = self.current_coordination_snapshot()?;
+        let snapshot = self.current_coordination_snapshot_v2()?;
         let now = current_timestamp();
         let window_start = now.saturating_sub(UI_FLEET_LOOKBACK_SECONDS);
         let shared_runtime_descriptors = runtime_status(self)
@@ -808,7 +799,7 @@ fn fleet_lane_from_descriptor(
 
 fn fleet_bar_from_claim(
     claim: &WorkClaim,
-    task: Option<&prism_coordination::CoordinationTask>,
+    task: Option<&CanonicalTaskRecord>,
     claim_release_ts: &BTreeMap<String, u64>,
     now: u64,
     window_start: u64,
@@ -872,7 +863,7 @@ fn fleet_bar_from_claim(
             .map(|task| task.title.clone())
             .unwrap_or_else(|| "Unscoped claim".to_string()),
         task_status: task
-            .map(|task| format!("{:?}", task.status).to_ascii_lowercase())
+            .map(|task| format!("{:?}", task.lifecycle_status).to_ascii_lowercase())
             .unwrap_or_else(|| "unknown".to_string()),
         claim_id: Some(claim.id.0.to_string()),
         claim_status: Some(format!("{:?}", claim.status).to_ascii_lowercase()),
@@ -893,13 +884,13 @@ fn fleet_bar_from_claim(
 }
 
 fn fleet_bar_from_task_lease(
-    task: &prism_coordination::CoordinationTask,
+    task: &CanonicalTaskRecord,
     now: u64,
     window_start: u64,
     lanes: &mut BTreeMap<String, FleetLaneAccumulator>,
 ) -> Option<PrismUiFleetBarView> {
     let started_at = task.lease_started_at?;
-    let active = matches!(task.status, CoordinationTaskStatus::InProgress);
+    let active = task.lifecycle_status == prism_ir::TaskLifecycleStatus::Active;
     let ended_at = if active {
         None
     } else {
@@ -941,7 +932,7 @@ fn fleet_bar_from_task_lease(
         runtime_id,
         task_id: Some(task.id.0.to_string()),
         task_title: task.title.clone(),
-        task_status: format!("{:?}", task.status).to_ascii_lowercase(),
+        task_status: format!("{:?}", task.lifecycle_status).to_ascii_lowercase(),
         claim_id: None,
         claim_status: None,
         holder: task.session.as_ref().map(|session| session.0.to_string()),
@@ -1059,7 +1050,7 @@ fn plan_matches_agent(
 }
 
 pub(crate) fn filtered_plan_entries_from_snapshot(
-    snapshot: &CoordinationSnapshot,
+    snapshot: &CoordinationSnapshotV2,
     status: Option<PlanStatus>,
     scope: Option<PlanScope>,
     contains: Option<&str>,
@@ -1126,27 +1117,20 @@ fn normalize_plan_term(token: &str) -> String {
 }
 
 pub(crate) fn plan_entries_from_snapshot(
-    snapshot: &CoordinationSnapshot,
+    snapshot: &CoordinationSnapshotV2,
 ) -> Vec<prism_js::PlanListEntryView> {
-    let canonical_snapshot = snapshot.to_canonical_snapshot_v2();
-    let Some(derivations) = canonical_snapshot.derive_statuses().ok() else {
+    let Some(derivations) = snapshot.derive_statuses().ok() else {
         return Vec::new();
     };
-    let Ok(graph) = canonical_snapshot.graph() else {
+    let Ok(graph) = snapshot.graph() else {
         return Vec::new();
     };
     let activity_by_plan = plan_activity_index_from_snapshot(snapshot);
-    let legacy_status_by_plan = snapshot
-        .plans
-        .iter()
-        .map(|plan| (plan.id.0.clone(), plan.status))
-        .collect::<BTreeMap<_, _>>();
-    canonical_snapshot
+    snapshot
         .plans
         .iter()
         .filter_map(|plan| {
-            let summary =
-                plan_summary_from_canonical_snapshot(&canonical_snapshot, &derivations, &plan.id)?;
+            let summary = plan_summary_from_canonical_snapshot(snapshot, &derivations, &plan.id)?;
             let node_status_counts =
                 canonical_plan_node_status_counts(&derivations, &graph, &plan.id);
             let activity = activity_by_plan
@@ -1155,10 +1139,7 @@ pub(crate) fn plan_entries_from_snapshot(
                 .unwrap_or_default();
             let activity = plan_activity_present(&activity).then(|| plan_activity_view(activity));
             let derived_status = derivations.plan_state(&plan.id)?;
-            let status = legacy_status_by_plan
-                .get(plan.id.0.as_str())
-                .copied()
-                .unwrap_or_else(|| compatibility_plan_status(derived_status.derived_status));
+            let status = compatibility_plan_status(derived_status.derived_status);
             Some(prism_js::PlanListEntryView {
                 plan_id: plan.id.0.to_string(),
                 title: plan.title.clone(),
@@ -1534,7 +1515,7 @@ fn plan_activity_present(activity: &PlanActivity) -> bool {
 }
 
 fn plan_activity_index_from_snapshot(
-    snapshot: &CoordinationSnapshot,
+    snapshot: &CoordinationSnapshotV2,
 ) -> BTreeMap<String, PlanActivity> {
     let mut fallback_last_updated = BTreeMap::<String, (u64, Option<CoordinationTaskId>)>::new();
     let mut activity = snapshot
@@ -1555,7 +1536,7 @@ fn plan_activity_index_from_snapshot(
     let task_to_plan = snapshot
         .tasks
         .iter()
-        .map(|task| (task.id.clone(), task.plan.clone()))
+        .map(|task| (task.id.clone(), task.parent_plan_id.clone()))
         .collect::<BTreeMap<_, _>>();
     let artifact_to_task = snapshot
         .artifacts
@@ -1566,8 +1547,8 @@ fn plan_activity_index_from_snapshot(
         .claims
         .iter()
         .filter_map(|claim| {
-            let task_id = claim.task.as_ref()?;
-            let plan_id = task_to_plan.get(task_id)?;
+            let task_id = TaskId::new(claim.task.as_ref()?.0.clone());
+            let plan_id = task_to_plan.get(&task_id)?;
             Some((claim.id.clone(), plan_id.clone()))
         })
         .collect::<BTreeMap<_, _>>();
@@ -1576,34 +1557,36 @@ fn plan_activity_index_from_snapshot(
         .iter()
         .filter_map(|review| {
             let task_id = artifact_to_task.get(&review.artifact)?;
-            let plan_id = task_to_plan.get(task_id)?;
+            let plan_id = task_to_plan.get(&TaskId::new(task_id.0.clone()))?;
             Some((review.id.clone(), plan_id.clone()))
         })
         .collect::<BTreeMap<_, _>>();
 
     for task in &snapshot.tasks {
-        let Some(entry) = activity.get_mut(task.plan.0.as_str()) else {
+        let plan_id = &task.parent_plan_id;
+        let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
             continue;
         };
         let created_at = sortable_token_timestamp(task.id.0.as_str());
+        let task_id = CoordinationTaskId::new(task.id.0.clone());
         observe_created_at(entry, created_at);
         observe_fallback_update(
             &mut fallback_last_updated,
-            task.plan.0.as_str(),
+            plan_id.0.as_str(),
             created_at,
-            Some(&task.id),
+            Some(&task_id),
         );
         observe_fallback_update(
             &mut fallback_last_updated,
-            task.plan.0.as_str(),
+            plan_id.0.as_str(),
             task.lease_started_at,
-            Some(&task.id),
+            Some(&task_id),
         );
         observe_fallback_update(
             &mut fallback_last_updated,
-            task.plan.0.as_str(),
+            plan_id.0.as_str(),
             task.lease_refreshed_at,
-            Some(&task.id),
+            Some(&task_id),
         );
     }
 
@@ -1611,48 +1594,51 @@ fn plan_activity_index_from_snapshot(
         let Some(task_id) = claim.task.as_ref() else {
             continue;
         };
-        let Some(plan_id) = task_to_plan.get(task_id) else {
+        let task_id = TaskId::new(task_id.0.clone());
+        let Some(plan_id) = task_to_plan.get(&task_id) else {
             continue;
         };
         let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
             continue;
         };
         let created_at = sortable_token_timestamp(claim.id.0.as_str()).or(Some(claim.since));
+        let task_id = CoordinationTaskId::new(task_id.0.clone());
         observe_created_at(entry, created_at);
         observe_fallback_update(
             &mut fallback_last_updated,
             plan_id.0.as_str(),
             sortable_token_timestamp(claim.id.0.as_str()),
-            Some(task_id),
+            Some(&task_id),
         );
         observe_fallback_update(
             &mut fallback_last_updated,
             plan_id.0.as_str(),
             Some(claim.since),
-            Some(task_id),
+            Some(&task_id),
         );
         observe_fallback_update(
             &mut fallback_last_updated,
             plan_id.0.as_str(),
             claim.refreshed_at,
-            Some(task_id),
+            Some(&task_id),
         );
     }
 
     for artifact in &snapshot.artifacts {
-        let Some(plan_id) = task_to_plan.get(&artifact.task) else {
+        let Some(plan_id) = task_to_plan.get(&TaskId::new(artifact.task.0.clone())) else {
             continue;
         };
         let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
             continue;
         };
         let created_at = sortable_token_timestamp(artifact.id.0.as_str());
+        let task_id = CoordinationTaskId::new(artifact.task.0.clone());
         observe_created_at(entry, created_at);
         observe_fallback_update(
             &mut fallback_last_updated,
             plan_id.0.as_str(),
             created_at,
-            Some(&artifact.task),
+            Some(&task_id),
         );
     }
 
@@ -1660,25 +1646,27 @@ fn plan_activity_index_from_snapshot(
         let Some(task_id) = artifact_to_task.get(&review.artifact) else {
             continue;
         };
-        let Some(plan_id) = task_to_plan.get(task_id) else {
+        let task_id = TaskId::new(task_id.0.clone());
+        let Some(plan_id) = task_to_plan.get(&task_id) else {
             continue;
         };
         let Some(entry) = activity.get_mut(plan_id.0.as_str()) else {
             continue;
         };
         let created_at = sortable_token_timestamp(review.id.0.as_str()).or(Some(review.meta.ts));
+        let task_id = CoordinationTaskId::new(task_id.0.clone());
         observe_created_at(entry, created_at);
         observe_fallback_update(
             &mut fallback_last_updated,
             plan_id.0.as_str(),
             sortable_token_timestamp(review.id.0.as_str()),
-            Some(task_id),
+            Some(&task_id),
         );
         observe_fallback_update(
             &mut fallback_last_updated,
             plan_id.0.as_str(),
             Some(review.meta.ts),
-            Some(task_id),
+            Some(&task_id),
         );
     }
 
@@ -1690,7 +1678,8 @@ fn plan_activity_index_from_snapshot(
                 event
                     .task
                     .as_ref()
-                    .and_then(|task_id| task_to_plan.get(task_id).cloned())
+                    .and_then(|task_id| task_to_plan.get(&TaskId::new(task_id.0.clone())))
+                    .cloned()
             })
             .or_else(|| {
                 event
@@ -1702,7 +1691,7 @@ fn plan_activity_index_from_snapshot(
                 event.artifact.as_ref().and_then(|artifact_id| {
                     artifact_to_task
                         .get(artifact_id)
-                        .and_then(|task_id| task_to_plan.get(task_id))
+                        .and_then(|task_id| task_to_plan.get(&TaskId::new(task_id.0.clone())))
                         .cloned()
                 })
             })
@@ -1819,12 +1808,11 @@ fn build_plan_detail_view(
         .take(PLAN_DETAIL_CHILD_LIMIT)
         .collect::<Vec<_>>();
     let ready_tasks = if let Some(caller) = current_executor_caller(host.workspace_root(), None) {
-        prism.ready_tasks_for_executor(&plan_id, crate::current_timestamp(), &caller)
+        prism.ready_tasks_for_executor_v2(&plan_id, &caller)
     } else {
-        prism.ready_tasks(&plan_id, crate::current_timestamp())
+        prism.ready_tasks_v2(&plan_id)
     }
     .into_iter()
-    .filter_map(|task| prism.coordination_task_v2(&TaskId::new(task.id.0.to_string())))
     .take(PLAN_DETAIL_READY_LIMIT)
     .map(coordination_task_v2_view)
     .collect::<Vec<_>>();
@@ -1920,9 +1908,9 @@ fn ui_overview_coordination_summary(host: &QueryHost) -> Result<PrismOverviewCoo
     let queue_model = host.current_coordination_queue_read_model()?;
     let ready_task_count = ready_task_count_for_active_plans(&read_model.active_plans, |plan_id| {
         if let Some(caller) = current_executor_caller(host.workspace_root(), None) {
-            prism.ready_tasks_for_executor(plan_id, now, &caller).len()
+            prism.ready_tasks_for_executor_v2(plan_id, &caller).len()
         } else {
-            prism.ready_tasks(plan_id, now).len()
+            prism.ready_tasks_v2(plan_id).len()
         }
     });
     let recent_pending_reviews = read_model

@@ -827,7 +827,9 @@ mod tests {
         };
 
         let derivations = CoordinationDerivations::derive(&snapshot).unwrap();
-        let task_state = derivations.task_state(&TaskId::new("task:handoff")).unwrap();
+        let task_state = derivations
+            .task_state(&TaskId::new("task:handoff"))
+            .unwrap();
         assert_eq!(task_state.effective_status, EffectiveTaskStatus::Blocked);
         assert!(!task_state.graph_actionable);
     }

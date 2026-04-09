@@ -34,6 +34,7 @@ The first internal follow-through slice under this phase is:
 
 - [2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md](./2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md)
 - [2026-04-09-canonical-task-handoff-follow-through-phase-6.md](./2026-04-09-canonical-task-handoff-follow-through-phase-6.md)
+- [2026-04-09-canonical-read-surface-follow-through-phase-6.md](./2026-04-09-canonical-read-surface-follow-through-phase-6.md)
 
 ## 2. Required changes
 

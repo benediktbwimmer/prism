@@ -1153,13 +1153,11 @@ pub(crate) fn session_task_view(
             .starts_with("coord-task:")
             .then(|| task.id.0.to_string())
     });
-    let coordination_task = coordination_task_id
-        .as_ref()
-        .and_then(|task_id| {
-            prism
-                .coordination_task_v2_by_coordination_id(&CoordinationTaskId::new(task_id.clone()))
-                .map(|task| task.task)
-        });
+    let coordination_task = coordination_task_id.as_ref().and_then(|task_id| {
+        prism
+            .coordination_task_v2_by_coordination_id(&CoordinationTaskId::new(task_id.clone()))
+            .map(|task| task.task)
+    });
     let blockers = coordination_task_id
         .as_ref()
         .and_then(|task_id| {
@@ -1295,8 +1293,7 @@ fn session_task_context_summary(
                         }
                     }
                 }),
-                label: "Retry authoritative coordination publication for this task."
-                    .to_string(),
+                label: "Retry authoritative coordination publication for this task.".to_string(),
             });
             return SessionTaskContextSummary {
                 status,

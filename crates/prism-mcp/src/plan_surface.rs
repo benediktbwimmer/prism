@@ -9,7 +9,7 @@ use crate::ui_read_models::{
 use crate::{plan_summary_view, QueryHost};
 
 pub(crate) fn all_plan_entries(host: &QueryHost) -> Result<Vec<PlanListEntryView>> {
-    let snapshot = host.current_coordination_snapshot()?;
+    let snapshot = host.current_coordination_snapshot_v2()?;
     Ok(plan_entries_from_snapshot(&snapshot))
 }
 
@@ -20,7 +20,7 @@ pub(crate) fn filtered_plan_resource_entries(
     contains: Option<&str>,
     sort: PlansResourceSort,
 ) -> Result<Vec<PlanListEntryView>> {
-    let snapshot = host.current_coordination_snapshot()?;
+    let snapshot = host.current_coordination_snapshot_v2()?;
     Ok(filtered_plan_entries_from_snapshot(
         &snapshot, status, scope, contains, sort,
     ))

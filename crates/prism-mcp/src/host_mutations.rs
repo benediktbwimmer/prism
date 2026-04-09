@@ -2,11 +2,11 @@ use anyhow::{anyhow, Result};
 use std::path::Path;
 
 use prism_coordination::{
-    canonical_authoritative_task_holder, canonical_current_task_holder,
-    canonical_task_lease_state, same_holder, CanonicalTaskRecord, GitExecutionCompletionMode,
-    GitExecutionStartMode, GitPreflightReport, GitPublishReport, HandoffAcceptInput,
-    HandoffInput, LeaseState, PolicyViolation, TaskCompletionContext, TaskGitExecution,
-    TaskReclaimInput, TaskResumeInput, TaskUpdateInput,
+    canonical_authoritative_task_holder, canonical_current_task_holder, canonical_task_lease_state,
+    same_holder, CanonicalTaskRecord, GitExecutionCompletionMode, GitExecutionStartMode,
+    GitPreflightReport, GitPublishReport, HandoffAcceptInput, HandoffInput, LeaseState,
+    PolicyViolation, TaskCompletionContext, TaskGitExecution, TaskReclaimInput, TaskResumeInput,
+    TaskUpdateInput,
 };
 use prism_core::{
     AdmissionBusyError, AuthenticatedPrincipal, CoordinationAuthorityMutationError,
@@ -34,11 +34,11 @@ use prism_query::{
     ConceptRelationKind, ConceptScope, ContractCompatibility, ContractEvent, ContractEventAction,
     ContractEventPatch, ContractGuarantee, ContractGuaranteeStrength, ContractKind, ContractPacket,
     ContractStability, ContractStatus, ContractTarget, ContractValidation,
-    CoordinationDependencyKind, CoordinationTransactionError,
-    CoordinationTransactionGitExecutionPolicyPatch, CoordinationTransactionInput,
-    CoordinationTransactionMutation, CoordinationTransactionPlanRef,
+    CoordinationDependencyKind, CoordinationPlanV2, CoordinationTaskV2,
+    CoordinationTransactionError, CoordinationTransactionGitExecutionPolicyPatch,
+    CoordinationTransactionInput, CoordinationTransactionMutation, CoordinationTransactionPlanRef,
     CoordinationTransactionPlanSchedulingPatch, CoordinationTransactionPolicyPatch,
-    CoordinationTransactionTaskRef, CoordinationPlanV2, CoordinationTaskV2, Prism,
+    CoordinationTransactionTaskRef, Prism,
 };
 use serde_json::{json, Value};
 
@@ -64,10 +64,9 @@ use crate::{
     convert_node_id, convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
     convert_plan_binding, convert_plan_scheduling, convert_plan_status, convert_policy,
     convert_review_verdict, convert_validation_refs, coordination_plan_v2_view,
-    coordination_task_v2_view,
-    curator_disposition_label, curator_job_status_label, curator_memory_metadata, curator_proposal,
-    curator_proposal_state, curator_trigger_label, current_timestamp,
-    ensure_repo_publication_metadata, manual_memory_metadata, parse_edge_kind,
+    coordination_task_v2_view, curator_disposition_label, curator_job_status_label,
+    curator_memory_metadata, curator_proposal, curator_proposal_state, curator_trigger_label,
+    current_timestamp, ensure_repo_publication_metadata, manual_memory_metadata, parse_edge_kind,
     retire_repo_publication_metadata, task_journal_memory_metadata, ArtifactActionInput,
     ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
     ArtifactSupersedePayload, CheckpointMutationResult, ClaimAcquirePayload, ClaimActionInput,
@@ -446,7 +445,10 @@ fn maybe_advance_auto_pr_integration_from_review(
             prism_ir::ArtifactStatus::Rejected => prism_ir::GitIntegrationStatus::IntegrationFailed,
             _ => prism_ir::GitIntegrationStatus::IntegrationPending,
         }
-    } else if matches!(task.task.git_execution.integration_status, prism_ir::GitIntegrationStatus::IntegratedToTarget) {
+    } else if matches!(
+        task.task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegratedToTarget
+    ) {
         return Ok(());
     } else {
         prism_ir::GitIntegrationStatus::IntegrationPending
@@ -1545,10 +1547,13 @@ fn sync_session_after_coordination_mutation(
                 .or_else(|| state.get("id"))
                 .and_then(Value::as_str)
             {
-                if let Ok(task) =
-                    current_coordination_task_view(prism, &CoordinationTaskId::new(task_id.to_string()))
-                {
-                    maybe_bind_current_work_to_coordination_task(host, session, prism, &task.task, false)?;
+                if let Ok(task) = current_coordination_task_view(
+                    prism,
+                    &CoordinationTaskId::new(task_id.to_string()),
+                ) {
+                    maybe_bind_current_work_to_coordination_task(
+                        host, session, prism, &task.task, false,
+                    )?;
                 }
             }
         }
@@ -1569,10 +1574,13 @@ fn sync_session_after_coordination_mutation(
                 rebind_current_work_plan(host, session, prism, plan_id)?;
             }
             if let Some(task_id) = state.get("id").and_then(Value::as_str) {
-                if let Ok(task) =
-                    current_coordination_task_view(prism, &CoordinationTaskId::new(task_id.to_string()))
-                {
-                    maybe_bind_current_work_to_coordination_task(host, session, prism, &task.task, false)?;
+                if let Ok(task) = current_coordination_task_view(
+                    prism,
+                    &CoordinationTaskId::new(task_id.to_string()),
+                ) {
+                    maybe_bind_current_work_to_coordination_task(
+                        host, session, prism, &task.task, false,
+                    )?;
                 }
             }
         }
@@ -1585,10 +1593,13 @@ fn sync_session_after_coordination_mutation(
         | CoordinationMutationKindInput::Reclaim
         | CoordinationMutationKindInput::HandoffAccept => {
             if let Some(task_id) = state.get("id").and_then(Value::as_str) {
-                if let Ok(task) =
-                    current_coordination_task_view(prism, &CoordinationTaskId::new(task_id.to_string()))
-                {
-                    maybe_bind_current_work_to_coordination_task(host, session, prism, &task.task, true)?;
+                if let Ok(task) = current_coordination_task_view(
+                    prism,
+                    &CoordinationTaskId::new(task_id.to_string()),
+                ) {
+                    maybe_bind_current_work_to_coordination_task(
+                        host, session, prism, &task.task, true,
+                    )?;
                 }
             }
         }
@@ -1709,7 +1720,11 @@ fn maybe_auto_resume_stale_same_holder_task(
         next_coordination_meta(session, task_id, meta),
         TaskResumeInput {
             task_id: task_id.clone(),
-            agent: task.task.assignee.clone().or_else(|| execution.assignee.clone()),
+            agent: task
+                .task
+                .assignee
+                .clone()
+                .or_else(|| execution.assignee.clone()),
             worktree_id: task
                 .task
                 .worktree_id
@@ -1725,7 +1740,10 @@ fn maybe_auto_resume_stale_same_holder_task(
     Ok(true)
 }
 
-fn ensure_git_execution_task_admissible(task: &CanonicalTaskRecord, meta: &EventMeta) -> Result<()> {
+fn ensure_git_execution_task_admissible(
+    task: &CanonicalTaskRecord,
+    meta: &EventMeta,
+) -> Result<()> {
     let lease_state = canonical_task_lease_state(task, meta.ts);
     if matches!(lease_state, LeaseState::Unleased) {
         return Ok(());
@@ -1830,7 +1848,10 @@ fn git_execution_request(
 
 fn resolve_workflow_update_target(prism: &Prism, id: &str) -> Result<WorkflowUpdateTarget> {
     let task_id = CoordinationTaskId::new(id.to_string());
-    if prism.coordination_task_v2_by_coordination_id(&task_id).is_some() {
+    if prism
+        .coordination_task_v2_by_coordination_id(&task_id)
+        .is_some()
+    {
         return Ok(WorkflowUpdateTarget::CoordinationTask(task_id));
     }
     Err(anyhow!("unknown coordination task `{id}`"))
@@ -1887,7 +1908,10 @@ impl QueryHost {
         let coordination_task = coordination_task_id
             .as_ref()
             .map(|task_id| {
-                current_coordination_task_view(prism.as_ref(), &CoordinationTaskId::new(task_id.clone()))
+                current_coordination_task_view(
+                    prism.as_ref(),
+                    &CoordinationTaskId::new(task_id.clone()),
+                )
             })
             .transpose()?;
         let resolved_plan = if let Some(plan_id) = args.plan_id.as_ref() {
@@ -3404,12 +3428,12 @@ impl QueryHost {
             let record_result = self.record_task_git_execution(
                 session,
                 authenticated,
-                    &request.task_id,
-                    task_git_execution_record(
-                        &task.task.git_execution,
-                        &policy,
-                        &preflight.report,
-                        prism_ir::GitExecutionStatus::PreflightFailed,
+                &request.task_id,
+                task_git_execution_record(
+                    &task.task.git_execution,
+                    &policy,
+                    &preflight.report,
+                    prism_ir::GitExecutionStatus::PreflightFailed,
                     None,
                     None,
                     prism_ir::GitIntegrationStatus::NotStarted,
@@ -3702,12 +3726,12 @@ impl QueryHost {
                     let final_authoritative_prism_paths =
                         prism_managed_paths(&final_authoritative_paths);
                     if !final_authoritative_prism_paths.is_empty() {
-                            let _ = commit_paths(
-                                root,
-                                &format!("prism: record failed publish {}", task.task.title),
-                                current_timestamp(),
-                                &final_authoritative_prism_paths,
-                            )?;
+                        let _ = commit_paths(
+                            root,
+                            &format!("prism: record failed publish {}", task.task.title),
+                            current_timestamp(),
+                            &final_authoritative_prism_paths,
+                        )?;
                     }
                     return Err(anyhow!(failure));
                 }
@@ -3978,14 +4002,16 @@ impl QueryHost {
                 );
                 match direct_integrate_result {
                     Ok(integration) => {
-                        let current_task =
-                            current_coordination_task_view(self.current_prism().as_ref(), &request.task_id)
-                                .map_err(|_| {
-                                anyhow!(
-                                    "unknown coordination task `{}` after direct integration",
-                                    request.task_id.0
-                                )
-                            })?;
+                        let current_task = current_coordination_task_view(
+                            self.current_prism().as_ref(),
+                            &request.task_id,
+                        )
+                        .map_err(|_| {
+                            anyhow!(
+                                "unknown coordination task `{}` after direct integration",
+                                request.task_id.0
+                            )
+                        })?;
                         let authoritative_started = std::time::Instant::now();
                         let authoritative_result = self
                             .record_task_git_execution_authoritative_state(
@@ -4015,14 +4041,16 @@ impl QueryHost {
                     }
                     Err(error) => {
                         let failure = error.to_string();
-                        let current_task =
-                            current_coordination_task_view(self.current_prism().as_ref(), &request.task_id)
-                                .map_err(|_| {
-                                anyhow!(
-                                    "unknown coordination task `{}` after failed direct integration",
-                                    request.task_id.0
-                                )
-                            })?;
+                        let current_task = current_coordination_task_view(
+                            self.current_prism().as_ref(),
+                            &request.task_id,
+                        )
+                        .map_err(|_| {
+                            anyhow!(
+                                "unknown coordination task `{}` after failed direct integration",
+                                request.task_id.0
+                            )
+                        })?;
                         let authoritative_started = std::time::Instant::now();
                         let authoritative_result = self
                             .record_task_git_execution_authoritative_state(

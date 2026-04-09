@@ -16,7 +16,8 @@ pub(crate) fn task_heartbeat_advice(
 ) -> Option<TaskHeartbeatAdvice> {
     let task = prism.coordination_task_v2_by_coordination_id(task_id)?;
     let plan = prism.coordination_plan_v2(&task.task.parent_plan_id)?;
-    let due_state = prism.effective_canonical_task_heartbeat_due_state(&task.task, &plan.plan.policy, now);
+    let due_state =
+        prism.effective_canonical_task_heartbeat_due_state(&task.task, &plan.plan.policy, now);
     if !matches!(due_state, LeaseHeartbeatDueState::NotDue)
         && prism.canonical_task_has_active_local_assisted_lease(&task.task, now)
     {

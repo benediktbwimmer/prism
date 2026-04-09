@@ -107,6 +107,30 @@ impl<'a> CoordinationQueryEngine<'a> {
         )
     }
 
+    pub(crate) fn ready_tasks_v2(&self, plan_id: &PlanId) -> Vec<CoordinationTaskV2> {
+        let snapshot = self.prism.coordination_snapshot_v2();
+        ready_task_views_for_plan_from_snapshot(
+            &snapshot,
+            snapshot.derive_statuses().ok(),
+            plan_id,
+            None,
+        )
+    }
+
+    pub(crate) fn ready_tasks_for_executor_v2(
+        &self,
+        plan_id: &PlanId,
+        caller: &TaskExecutorCaller,
+    ) -> Vec<CoordinationTaskV2> {
+        let snapshot = self.prism.coordination_snapshot_v2();
+        ready_task_views_for_plan_from_snapshot(
+            &snapshot,
+            snapshot.derive_statuses().ok(),
+            plan_id,
+            Some(caller),
+        )
+    }
+
     pub(crate) fn root_plans_v2(&self) -> Vec<CoordinationPlanV2> {
         let snapshot = self.prism.coordination_snapshot_v2();
         let Some(derivations) = snapshot.derive_statuses().ok() else {
@@ -495,6 +519,53 @@ fn actionable_task_views_from_snapshot(
     let mut tasks = snapshot
         .tasks
         .iter()
+        .filter(|task| actionable_ids.contains(task.id.0.as_str()))
+        .filter(|task| {
+            caller
+                .map(|caller| canonical_task_matches_executor(task, caller))
+                .unwrap_or(true)
+        })
+        .filter_map(|task| {
+            let derived = derivations.task_state(&task.id)?;
+            Some(CoordinationTaskV2 {
+                task: task.clone(),
+                status: derived.effective_status,
+                graph_actionable: derived.graph_actionable,
+                blocker_causes: derived.blocker_causes.clone(),
+                dependencies: graph.dependency_targets(&NodeRef::task(task.id.clone())),
+                dependents: graph.dependency_sources(&NodeRef::task(task.id.clone())),
+            })
+        })
+        .collect::<Vec<_>>();
+    tasks.sort_by(|left, right| left.task.id.0.cmp(&right.task.id.0));
+    tasks
+}
+
+fn ready_task_views_for_plan_from_snapshot(
+    snapshot: &prism_coordination::CoordinationSnapshotV2,
+    derivations: Option<CoordinationDerivations>,
+    plan_id: &PlanId,
+    caller: Option<&TaskExecutorCaller>,
+) -> Vec<CoordinationTaskV2> {
+    let Some(derivations) = derivations else {
+        return Vec::new();
+    };
+    let Ok(graph) = snapshot.graph() else {
+        return Vec::new();
+    };
+    let descendant_task_ids = canonical_descendant_task_ids(&graph, plan_id)
+        .into_iter()
+        .map(|task_id| task_id.0)
+        .collect::<std::collections::BTreeSet<_>>();
+    let actionable_ids = derivations
+        .graph_actionable_tasks()
+        .iter()
+        .map(|task_id| task_id.0.to_string())
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut tasks = snapshot
+        .tasks
+        .iter()
+        .filter(|task| descendant_task_ids.contains(task.id.0.as_str()))
         .filter(|task| actionable_ids.contains(task.id.0.as_str()))
         .filter(|task| {
             caller

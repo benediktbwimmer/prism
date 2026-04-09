@@ -1563,18 +1563,15 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
     assert!(
         operations.contains(&"mutation.gitExecution.recordPublishIntentStep.commitPersistBatch")
     );
-    assert!(operations.contains(
-        &"mutation.gitExecution.recordPublishIntentStep.authority.applyTransaction"
-    ));
-    assert!(operations.contains(
-        &"mutation.gitExecution.recordPublishIntentStep.scheduleMaterialization"
-    ));
+    assert!(operations
+        .contains(&"mutation.gitExecution.recordPublishIntentStep.authority.applyTransaction"));
+    assert!(operations
+        .contains(&"mutation.gitExecution.recordPublishIntentStep.scheduleMaterialization"));
     assert!(operations.contains(&"mutation.gitExecution.pushBranch"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeState"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeStateStep"));
-    assert!(operations.contains(
-        &"mutation.gitExecution.recordAuthoritativeStateStep.scheduleMaterialization"
-    ));
+    assert!(operations
+        .contains(&"mutation.gitExecution.recordAuthoritativeStateStep.scheduleMaterialization"));
     assert!(operations.contains(&"mutation.gitExecution.flushMaterializations"));
     assert!(operations.contains(&"mutation.gitExecution.syncSessionAfter"));
     assert!(operations.contains(&"mutation.gitExecution.persistSessionSeed"));
