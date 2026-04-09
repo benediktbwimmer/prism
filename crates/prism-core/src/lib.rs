@@ -94,6 +94,9 @@ pub use coordination_authority_store::{
     CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
     CoordinationTransactionResult, CoordinationTransactionStatus,
     EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
+    EventExecutionOwnerExpectation, EventExecutionTransitionKind,
+    EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
+    EventExecutionTransitionResult, EventExecutionTransitionStatus,
     GitSharedRefsCoordinationAuthorityStore, RuntimeDescriptorClearRequest,
     RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery, SqliteCoordinationAuthorityStore,
 };

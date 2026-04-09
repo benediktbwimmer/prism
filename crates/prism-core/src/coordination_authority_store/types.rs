@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 
 use prism_coordination::{
-    CoordinationEvent, CoordinationSnapshot, CoordinationSnapshotV2, EventExecutionRecord,
-    RuntimeDescriptor,
+    CoordinationEvent, CoordinationSnapshot, CoordinationSnapshotV2, EventExecutionOwner,
+    EventExecutionRecord, RuntimeDescriptor,
 };
 use prism_ir::{EventExecutionId, SessionId};
+use prism_ir::EventExecutionStatus;
 use prism_store::CoordinationPersistResult;
 
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
@@ -197,6 +198,79 @@ pub struct EventExecutionRecordAuthorityQuery {
 pub struct EventExecutionRecordWriteResult {
     pub authority: Option<CoordinationAuthorityStamp>,
     pub record: EventExecutionRecord,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EventExecutionOwnerExpectation {
+    Any,
+    Missing,
+    Exact(EventExecutionOwner),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventExecutionTransitionPreconditions {
+    pub require_missing: bool,
+    pub expected_status: Option<EventExecutionStatus>,
+    pub expected_owner: EventExecutionOwnerExpectation,
+}
+
+impl Default for EventExecutionTransitionPreconditions {
+    fn default() -> Self {
+        Self {
+            require_missing: false,
+            expected_status: None,
+            expected_owner: EventExecutionOwnerExpectation::Any,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum EventExecutionTransitionKind {
+    Claim {
+        record: EventExecutionRecord,
+    },
+    Start {
+        started_at: u64,
+        summary: Option<String>,
+    },
+    Succeed {
+        finished_at: u64,
+        summary: Option<String>,
+    },
+    Fail {
+        finished_at: u64,
+        summary: Option<String>,
+    },
+    Expire {
+        finished_at: u64,
+        summary: Option<String>,
+    },
+    Abandon {
+        finished_at: u64,
+        summary: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EventExecutionTransitionRequest {
+    pub event_execution_id: EventExecutionId,
+    pub preconditions: EventExecutionTransitionPreconditions,
+    pub transition: EventExecutionTransitionKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventExecutionTransitionStatus {
+    Applied,
+    Conflict,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EventExecutionTransitionResult {
+    pub status: EventExecutionTransitionStatus,
+    pub authority: Option<CoordinationAuthorityStamp>,
+    pub record: Option<EventExecutionRecord>,
+    pub conflict: Option<CoordinationConflictInfo>,
+    pub diagnostics: Vec<CoordinationTransactionDiagnostic>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

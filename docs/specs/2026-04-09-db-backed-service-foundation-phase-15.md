@@ -45,7 +45,10 @@ Current state:
 - [x] SQLite authority now exists behind the settled authority-store contract
 - [x] runtime gateway foundation is complete
 - [x] event-engine foundation is complete
-- [ ] authoritative event-execution storage and mutation remain future service work
+- [x] authoritative event-execution storage and lifecycle transitions are implemented through the
+  service-owned event engine
+- [ ] richer event scheduling, trigger scanning, and execution orchestration remain future service
+  work
 
 Current slice notes:
 

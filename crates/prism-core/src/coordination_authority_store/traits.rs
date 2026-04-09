@@ -6,6 +6,7 @@ use super::types::{
     CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
     CoordinationReadEnvelope, CoordinationReadRequest, CoordinationTransactionRequest,
     CoordinationTransactionResult, EventExecutionRecordAuthorityQuery,
+    EventExecutionTransitionRequest, EventExecutionTransitionResult,
     EventExecutionRecordWriteResult, RuntimeDescriptorClearRequest,
     RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
@@ -47,6 +48,11 @@ pub trait CoordinationAuthorityStore: Send + Sync {
         &self,
         record: EventExecutionRecord,
     ) -> Result<EventExecutionRecordWriteResult>;
+
+    fn apply_event_execution_transition(
+        &self,
+        request: EventExecutionTransitionRequest,
+    ) -> Result<EventExecutionTransitionResult>;
 
     fn read_history(
         &self,

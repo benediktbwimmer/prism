@@ -23,5 +23,8 @@ pub use types::{
     CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
     CoordinationTransactionResult, CoordinationTransactionStatus,
     EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
+    EventExecutionOwnerExpectation, EventExecutionTransitionKind,
+    EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
+    EventExecutionTransitionResult, EventExecutionTransitionStatus,
     RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };

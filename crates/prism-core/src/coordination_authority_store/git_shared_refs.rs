@@ -11,8 +11,10 @@ use super::types::{
     CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
     CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
     CoordinationTransactionBase, CoordinationTransactionRequest, CoordinationTransactionResult,
-    CoordinationTransactionStatus, EventExecutionRecordAuthorityQuery,
-    EventExecutionRecordWriteResult, RuntimeDescriptorClearRequest,
+    CoordinationTransactionDiagnostic, CoordinationTransactionStatus,
+    EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
+    EventExecutionTransitionRequest, EventExecutionTransitionResult,
+    EventExecutionTransitionStatus, RuntimeDescriptorClearRequest,
     RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
@@ -349,6 +351,27 @@ impl CoordinationAuthorityStore for GitSharedRefsCoordinationAuthorityStore {
         Err(anyhow!(
             "event execution records are not supported by the git shared-refs authority backend"
         ))
+    }
+
+    fn apply_event_execution_transition(
+        &self,
+        _request: EventExecutionTransitionRequest,
+    ) -> Result<EventExecutionTransitionResult> {
+        Ok(EventExecutionTransitionResult {
+            status: EventExecutionTransitionStatus::Conflict,
+            authority: self.authority_stamp()?,
+            record: None,
+            conflict: Some(CoordinationConflictInfo {
+                reason: "event execution transitions are not supported by the git shared-refs authority backend"
+                    .to_string(),
+            }),
+            diagnostics: vec![CoordinationTransactionDiagnostic {
+                code: "unsupported_backend".to_string(),
+                message:
+                    "event execution transitions are not supported by the git shared-refs authority backend"
+                        .to_string(),
+            }],
+        })
     }
 
     fn read_history(

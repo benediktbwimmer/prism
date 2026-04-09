@@ -5,6 +5,7 @@ use prism_coordination::{
     coordination_snapshot_from_events, CoordinationSnapshot, CoordinationSnapshotV2,
     EventExecutionRecord, RuntimeDescriptor,
 };
+use prism_ir::EventExecutionStatus;
 use prism_store::{
     CoordinationCheckpointStore, CoordinationEventExecutionStore, CoordinationJournal,
     CoordinationMutationLogEntry, CoordinationPersistBatch, CoordinationStartupCheckpoint,
@@ -19,9 +20,12 @@ use super::types::{
     CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
     CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReadRequest,
     CoordinationTransactionBase, CoordinationTransactionRequest, CoordinationTransactionResult,
-    CoordinationTransactionStatus, EventExecutionRecordAuthorityQuery,
-    EventExecutionRecordWriteResult, RuntimeDescriptorClearRequest,
-    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    CoordinationTransactionStatus,
+    EventExecutionOwnerExpectation, EventExecutionRecordAuthorityQuery,
+    EventExecutionRecordWriteResult, EventExecutionTransitionKind,
+    EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
+    EventExecutionTransitionResult, EventExecutionTransitionStatus,
+    RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
 use crate::coordination_snapshot_sanitization::sanitize_persisted_coordination_snapshot;
@@ -264,6 +268,154 @@ impl SqliteCoordinationAuthorityStore {
             format!("replayed coordination mutation for {scope}")
         }
     }
+
+    fn conflict_event_transition_result(
+        &self,
+        authority: Option<CoordinationAuthorityStamp>,
+        record: Option<EventExecutionRecord>,
+        reason: impl Into<String>,
+    ) -> EventExecutionTransitionResult {
+        EventExecutionTransitionResult {
+            status: EventExecutionTransitionStatus::Conflict,
+            authority,
+            record,
+            conflict: Some(CoordinationConflictInfo {
+                reason: reason.into(),
+            }),
+            diagnostics: Vec::new(),
+        }
+    }
+
+    fn validate_event_transition_preconditions(
+        &self,
+        preconditions: &EventExecutionTransitionPreconditions,
+        current: Option<&EventExecutionRecord>,
+        authority: &Option<CoordinationAuthorityStamp>,
+    ) -> Option<EventExecutionTransitionResult> {
+        if preconditions.require_missing {
+            if let Some(record) = current.cloned() {
+                return Some(self.conflict_event_transition_result(
+                    authority.clone(),
+                    Some(record),
+                    "event execution record already exists",
+                ));
+            }
+            return None;
+        }
+
+        let current = match current {
+            Some(current) => current,
+            None => {
+                return Some(self.conflict_event_transition_result(
+                    authority.clone(),
+                    None,
+                    "event execution record does not exist",
+                ))
+            }
+        };
+
+        if let Some(expected_status) = preconditions.expected_status {
+            if current.status != expected_status {
+                return Some(self.conflict_event_transition_result(
+                    authority.clone(),
+                    Some(current.clone()),
+                    format!(
+                        "event execution status no longer matches: expected `{:?}`, found `{:?}`",
+                        expected_status, current.status
+                    ),
+                ));
+            }
+        }
+
+        match &preconditions.expected_owner {
+            EventExecutionOwnerExpectation::Any => None,
+            EventExecutionOwnerExpectation::Missing => current.owner.as_ref().map(|_| {
+                self.conflict_event_transition_result(
+                    authority.clone(),
+                    Some(current.clone()),
+                    "event execution owner is already set",
+                )
+            }),
+            EventExecutionOwnerExpectation::Exact(expected_owner) => {
+                if current.owner.as_ref() == Some(expected_owner) {
+                    None
+                } else {
+                    Some(self.conflict_event_transition_result(
+                        authority.clone(),
+                        Some(current.clone()),
+                        "event execution owner no longer matches the expected owner",
+                    ))
+                }
+            }
+        }
+    }
+
+    fn apply_event_execution_transition_to_record(
+        &self,
+        current: Option<&EventExecutionRecord>,
+        transition: EventExecutionTransitionKind,
+    ) -> EventExecutionRecord {
+        match transition {
+            EventExecutionTransitionKind::Claim { record } => record,
+            EventExecutionTransitionKind::Start { started_at, summary } => {
+                let mut record = current.expect("validated current event record").clone();
+                record.status = EventExecutionStatus::Running;
+                record.started_at = Some(started_at);
+                if let Some(summary) = summary {
+                    record.summary = Some(summary);
+                }
+                record
+            }
+            EventExecutionTransitionKind::Succeed {
+                finished_at,
+                summary,
+            } => {
+                let mut record = current.expect("validated current event record").clone();
+                record.status = EventExecutionStatus::Succeeded;
+                record.finished_at = Some(finished_at);
+                if let Some(summary) = summary {
+                    record.summary = Some(summary);
+                }
+                record
+            }
+            EventExecutionTransitionKind::Fail {
+                finished_at,
+                summary,
+            } => {
+                let mut record = current.expect("validated current event record").clone();
+                record.status = EventExecutionStatus::Failed;
+                record.finished_at = Some(finished_at);
+                if let Some(summary) = summary {
+                    record.summary = Some(summary);
+                }
+                record
+            }
+            EventExecutionTransitionKind::Expire {
+                finished_at,
+                summary,
+            } => {
+                let mut record = current.expect("validated current event record").clone();
+                record.status = EventExecutionStatus::Expired;
+                record.finished_at = Some(finished_at);
+                if let Some(summary) = summary {
+                    record.summary = Some(summary);
+                }
+                record
+            }
+            EventExecutionTransitionKind::Abandon {
+                finished_at,
+                summary,
+            } => {
+                let mut record = current.expect("validated current event record").clone();
+                record.status = EventExecutionStatus::Abandoned;
+                record.finished_at = Some(finished_at);
+                if let Some(summary) = summary {
+                    record.summary = Some(summary);
+                }
+                record
+            }
+        }
+    }
 }
 
 impl CoordinationAuthorityStore for SqliteCoordinationAuthorityStore {
@@ -482,6 +634,32 @@ impl CoordinationAuthorityStore for SqliteCoordinationAuthorityStore {
         })
     }
 
+    fn apply_event_execution_transition(
+        &self,
+        request: EventExecutionTransitionRequest,
+    ) -> Result<EventExecutionTransitionResult> {
+        let mut store = self.open_store()?;
+        let authority = self.authority_stamp_from_store(&mut store)?;
+        let current = store.load_event_execution_record(&request.event_execution_id)?;
+        if let Some(conflict) = self.validate_event_transition_preconditions(
+            &request.preconditions,
+            current.as_ref(),
+            &authority,
+        ) {
+            return Ok(conflict);
+        }
+        let record =
+            self.apply_event_execution_transition_to_record(current.as_ref(), request.transition);
+        store.save_event_execution_record(&record)?;
+        Ok(EventExecutionTransitionResult {
+            status: EventExecutionTransitionStatus::Applied,
+            authority: self.authority_stamp_from_store(&mut store)?,
+            record: Some(record),
+            conflict: None,
+            diagnostics: Vec::new(),
+        })
+    }
+
     fn read_history(
         &self,
         request: CoordinationHistoryRequest,
@@ -652,6 +830,17 @@ mod tests {
         }
     }
 
+    fn claim_transition(record: EventExecutionRecord) -> EventExecutionTransitionRequest {
+        EventExecutionTransitionRequest {
+            event_execution_id: record.id.clone(),
+            preconditions: EventExecutionTransitionPreconditions {
+                require_missing: true,
+                ..EventExecutionTransitionPreconditions::default()
+            },
+            transition: EventExecutionTransitionKind::Claim { record },
+        }
+    }
+
     #[test]
     fn sqlite_authority_commits_and_reads_current_state() {
         let root = temp_root();
@@ -807,6 +996,113 @@ mod tests {
             })
             .expect("event execution record read should succeed");
         assert_eq!(records.value.unwrap_or_default(), vec![record]);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn sqlite_authority_claims_missing_event_execution_record() {
+        let root = temp_root();
+        let store = SqliteCoordinationAuthorityStore::new(&root, temp_db_path(&root));
+        let record = event_execution_record("event-exec:sqlite:claim", 100);
+
+        let result = store
+            .apply_event_execution_transition(claim_transition(record.clone()))
+            .expect("claim transition should succeed");
+
+        assert_eq!(result.status, EventExecutionTransitionStatus::Applied);
+        assert_eq!(result.record, Some(record.clone()));
+
+        let stored = store
+            .read_event_execution_records(EventExecutionRecordAuthorityQuery {
+                consistency: CoordinationReadConsistency::Strong,
+                event_execution_id: Some(record.id.clone()),
+                limit: None,
+            })
+            .expect("claimed event execution record should be readable")
+            .value
+            .unwrap_or_default();
+        assert_eq!(stored, vec![record]);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn sqlite_authority_conflicts_when_event_execution_owner_is_stale() {
+        let root = temp_root();
+        let store = SqliteCoordinationAuthorityStore::new(&root, temp_db_path(&root));
+        let record = event_execution_record("event-exec:sqlite:owner-conflict", 100);
+        let stale_owner = EventExecutionOwner {
+            principal: Some(PrincipalActor {
+                authority_id: PrincipalAuthorityId::new("authority:other"),
+                principal_id: PrincipalId::new("principal:other"),
+                kind: Some(PrincipalKind::Agent),
+                name: Some("principal:other".to_string()),
+            }),
+            session_id: Some(SessionId::new("session:other")),
+            worktree_id: Some("worktree:other".to_string()),
+            service_instance_id: Some("service:other".to_string()),
+        };
+
+        store
+            .apply_event_execution_transition(claim_transition(record.clone()))
+            .expect("claim transition should succeed");
+
+        let result = store
+            .apply_event_execution_transition(EventExecutionTransitionRequest {
+                event_execution_id: record.id.clone(),
+                preconditions: EventExecutionTransitionPreconditions {
+                    require_missing: false,
+                    expected_status: Some(EventExecutionStatus::Claimed),
+                    expected_owner: EventExecutionOwnerExpectation::Exact(stale_owner),
+                },
+                transition: EventExecutionTransitionKind::Start {
+                    started_at: 110,
+                    summary: Some("started".to_string()),
+                },
+            })
+            .expect("start transition should return a conflict result");
+
+        assert_eq!(result.status, EventExecutionTransitionStatus::Conflict);
+        assert_eq!(
+            result.conflict.as_ref().map(|value| value.reason.as_str()),
+            Some("event execution owner no longer matches the expected owner")
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn sqlite_authority_starts_claimed_event_execution_when_preconditions_match() {
+        let root = temp_root();
+        let store = SqliteCoordinationAuthorityStore::new(&root, temp_db_path(&root));
+        let record = event_execution_record("event-exec:sqlite:start", 100);
+
+        store
+            .apply_event_execution_transition(claim_transition(record.clone()))
+            .expect("claim transition should succeed");
+
+        let result = store
+            .apply_event_execution_transition(EventExecutionTransitionRequest {
+                event_execution_id: record.id.clone(),
+                preconditions: EventExecutionTransitionPreconditions {
+                    require_missing: false,
+                    expected_status: Some(EventExecutionStatus::Claimed),
+                    expected_owner: EventExecutionOwnerExpectation::Exact(
+                        record.owner.clone().expect("event execution owner"),
+                    ),
+                },
+                transition: EventExecutionTransitionKind::Start {
+                    started_at: 120,
+                    summary: Some("running".to_string()),
+                },
+            })
+            .expect("start transition should succeed");
+
+        let started = result.record.expect("transition result record");
+        assert_eq!(started.status, EventExecutionStatus::Running);
+        assert_eq!(started.started_at, Some(120));
+        assert_eq!(started.summary.as_deref(), Some("running"));
 
         let _ = fs::remove_dir_all(root);
     }

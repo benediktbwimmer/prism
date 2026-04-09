@@ -1,6 +1,6 @@
 # Event Execution Authority Transitions Phase 15
 
-Status: partially implemented
+Status: completed
 Audience: service, coordination, storage, authority-store, MCP, and future event-engine maintainers
 Scope: add explicit authoritative lifecycle transitions for event-execution records so the event engine can claim, start, finish, expire, and abandon work through named semantics instead of generic record replacement
 
@@ -137,8 +137,8 @@ This spec is complete when:
 
 ## 9. Implementation checklist
 
-- [ ] Define authority-facing transition types
-- [ ] Implement SQLite-backed transition behavior
+- [x] Define authority-facing transition types
+- [x] Implement SQLite-backed transition behavior
 - [x] Centralize raw event-record authority access under `WorkspaceEventEngine`
-- [ ] Validate affected crates and direct downstream dependents
-- [ ] Update roadmap and spec status as slices land
+- [x] Validate affected crates and direct downstream dependents
+- [x] Update roadmap and spec status as slices land
