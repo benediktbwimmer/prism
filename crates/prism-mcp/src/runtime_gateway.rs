@@ -203,7 +203,7 @@ fn resolve_runtime_descriptor(
         .cloned()
         .unwrap_or(configured_coordination_authority_store_provider(root)?);
     let _ = coordination_authority_diagnostics_with_provider(root, &provider)?;
-    let store = provider.open(root)?;
+    let store = provider.open_runtime(root)?;
     let runtime_descriptors = store
         .list_runtime_descriptors(RuntimeDescriptorQuery {
             consistency: CoordinationReadConsistency::Strong,
@@ -277,7 +277,7 @@ mod tests {
     fn runtime_gateway_resolves_runtime_descriptor_from_sqlite_authority_store() {
         let root = temp_workspace();
         let provider = configured_coordination_authority_store_provider(&root).unwrap();
-        let store = provider.open(&root).unwrap();
+        let store = provider.open_runtime(&root).unwrap();
         let descriptor = sample_runtime_descriptor("runtime:test");
         store
             .publish_runtime_descriptor(RuntimeDescriptorPublishRequest {

@@ -2215,18 +2215,16 @@ impl WorkspaceSession {
     fn read_coordination_current_state_from_authority(
         &self,
     ) -> Result<Option<crate::CoordinationCurrentState>> {
-        let provider = configured_coordination_authority_store_provider(&self.root)?;
-        Ok(provider
-            .open(&self.root)?
-            .read_current_state(CoordinationReadConsistency::Eventual)?
-            .value
-            .map(Into::into))
+        crate::published_plans::load_authoritative_coordination_current_state_with_consistency(
+            &self.root,
+            CoordinationReadConsistency::Eventual,
+        )
     }
 
     fn read_coordination_authority_stamp(&self) -> Result<Option<CoordinationAuthorityStamp>> {
         let provider = configured_coordination_authority_store_provider(&self.root)?;
         Ok(provider
-            .open(&self.root)?
+            .open_projection(&self.root)?
             .read_summary(CoordinationReadConsistency::Eventual)?
             .authority)
     }

@@ -7257,14 +7257,12 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
         "db-backed default topology should not persist incremental coordination queue models into the coordination materialization store"
     );
 
-    let authority_store = crate::configured_coordination_authority_store_provider(&root)
+    let authoritative_state =
+        crate::published_plans::load_authoritative_coordination_current_state_with_consistency(
+            &root,
+            crate::CoordinationReadConsistency::Strong,
+        )
         .unwrap()
-        .open(&root)
-        .unwrap();
-    let authoritative_state = authority_store
-        .read_current_state(crate::CoordinationReadConsistency::Strong)
-        .unwrap()
-        .value
         .expect("authority-backed coordination state");
     let expected_read_model =
         prism_coordination::coordination_read_model_from_snapshot(&updated_snapshot);

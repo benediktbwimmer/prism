@@ -132,7 +132,8 @@ fn apply_coordination_authority_transaction_observed<O>(
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
-    let authority_store = configured_coordination_authority_store_provider(root)?.open(root)?;
+    let authority_store =
+        configured_coordination_authority_store_provider(root)?.open_mutation(root)?;
     let request = CoordinationAppendRequest {
         base: CoordinationTransactionBase::LatestStrong,
         session_id: session_id.cloned(),
@@ -174,7 +175,8 @@ fn persist_authority_transaction_observed<O>(
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
-    let authority_store = configured_coordination_authority_store_provider(root)?.open(root)?;
+    let authority_store =
+        configured_coordination_authority_store_provider(root)?.open_mutation(root)?;
     let request = CoordinationAppendRequest {
         base: CoordinationTransactionBase::LatestStrong,
         session_id: session_id.cloned(),

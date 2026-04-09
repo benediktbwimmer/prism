@@ -42,7 +42,7 @@ impl WorkspaceEventEngine {
     ) -> Result<Vec<prism_coordination::EventExecutionRecord>> {
         Ok(self
             .authority_store_provider
-            .open(&self.workspace_root)?
+            .open_event_execution(&self.workspace_root)?
             .read_event_execution_records(request)?
             .value
             .unwrap_or_default())
@@ -65,7 +65,7 @@ impl WorkspaceEventEngine {
         request: EventExecutionTransitionRequest,
     ) -> Result<EventExecutionTransitionResult> {
         self.authority_store_provider
-            .open(&self.workspace_root)?
+            .open_event_execution(&self.workspace_root)?
             .apply_event_execution_transition(request)
     }
 }

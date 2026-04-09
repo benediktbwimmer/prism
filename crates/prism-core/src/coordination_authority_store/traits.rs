@@ -4,28 +4,27 @@ use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
 use super::types::CoordinationReplaceCurrentStateRequest;
 use super::types::{
     CoordinationAppendRequest, CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
-    CoordinationAuthoritySummary, CoordinationCurrentState, CoordinationDiagnosticsRequest,
-    CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
-    CoordinationTransactionResult, EventExecutionRecordAuthorityQuery,
-    EventExecutionRecordWriteResult, EventExecutionTransitionRequest,
-    EventExecutionTransitionResult, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
-    RuntimeDescriptorQuery,
+    CoordinationAuthoritySummary, CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope,
+    CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationTransactionResult,
+    EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
+    EventExecutionTransitionRequest, EventExecutionTransitionResult, RuntimeDescriptorClearRequest,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
 
-pub trait CoordinationAuthorityCurrentStateStore: Send + Sync {
+pub trait CoordinationAuthorityProjectionStore: Send + Sync {
     fn capabilities(&self) -> CoordinationAuthorityCapabilities;
-
-    fn read_current_state(
-        &self,
-        consistency: CoordinationReadConsistency,
-    ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>>;
 
     fn read_summary(
         &self,
         consistency: CoordinationReadConsistency,
     ) -> Result<CoordinationReadEnvelope<CoordinationAuthoritySummary>>;
+
+    fn read_canonical_snapshot_v2(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>>;
 }
 
 pub trait CoordinationAuthorityMutationStore: Send + Sync {
@@ -81,26 +80,6 @@ pub trait CoordinationAuthorityDiagnosticsStore: Send + Sync {
         &self,
         request: CoordinationDiagnosticsRequest,
     ) -> Result<CoordinationAuthorityDiagnostics>;
-}
-
-pub trait CoordinationAuthorityStore:
-    CoordinationAuthorityCurrentStateStore
-    + CoordinationAuthorityMutationStore
-    + CoordinationAuthorityRuntimeStore
-    + CoordinationAuthorityEventExecutionStore
-    + CoordinationAuthorityHistoryStore
-    + CoordinationAuthorityDiagnosticsStore
-{
-}
-
-impl<T> CoordinationAuthorityStore for T where
-    T: CoordinationAuthorityCurrentStateStore
-        + CoordinationAuthorityMutationStore
-        + CoordinationAuthorityRuntimeStore
-        + CoordinationAuthorityEventExecutionStore
-        + CoordinationAuthorityHistoryStore
-        + CoordinationAuthorityDiagnosticsStore
-{
 }
 
 pub trait CoordinationAuthoritySnapshotStore: Send + Sync {

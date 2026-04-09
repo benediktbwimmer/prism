@@ -179,7 +179,7 @@ where
         },
         || {
             let runtime_store =
-                configured_coordination_authority_store_provider(root)?.open(root)?;
+                configured_coordination_authority_store_provider(root)?.open_runtime(root)?;
             match authority_store.replace_current_state(CoordinationReplaceCurrentStateRequest {
                 base: CoordinationTransactionBase::LatestStrong,
                 state: CoordinationCurrentState {
@@ -234,14 +234,42 @@ pub(crate) fn load_authoritative_coordination_snapshot_v2(
         .value)
 }
 
+pub(crate) fn load_authoritative_coordination_current_state_with_consistency(
+    root: &Path,
+    consistency: CoordinationReadConsistency,
+) -> Result<Option<CoordinationCurrentState>> {
+    let provider = configured_coordination_authority_store_provider(root)?;
+    let snapshot_store = provider.open_snapshot(root)?;
+    let snapshot = snapshot_store.read_snapshot(consistency)?.value;
+    let Some(snapshot) = snapshot else {
+        return Ok(None);
+    };
+    let canonical_snapshot_v2 = snapshot_store
+        .read_snapshot_v2(consistency)?
+        .value
+        .unwrap_or_else(|| snapshot.to_canonical_snapshot_v2());
+    let runtime_descriptors = provider
+        .open_runtime(root)?
+        .list_runtime_descriptors(crate::RuntimeDescriptorQuery { consistency })?
+        .value
+        .unwrap_or_default();
+    Ok(Some(CoordinationCurrentState {
+        snapshot,
+        canonical_snapshot_v2,
+        runtime_descriptors,
+    }))
+}
+
 pub(crate) fn load_authoritative_coordination_plan_state(
     root: &Path,
 ) -> Result<Option<HydratedCoordinationPlanState>> {
-    let store = configured_coordination_authority_store_provider(root)?.open(root)?;
-    Ok(store
-        .read_current_state(CoordinationReadConsistency::Strong)?
-        .value
-        .map(Into::into))
+    Ok(
+        load_authoritative_coordination_current_state_with_consistency(
+            root,
+            CoordinationReadConsistency::Strong,
+        )?
+        .map(Into::into),
+    )
 }
 
 pub(crate) fn merge_shared_coordination_into_snapshot(

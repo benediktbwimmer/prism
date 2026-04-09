@@ -129,18 +129,12 @@ fn current_coordination_surface_from_authority(
     workspace: &WorkspaceSession,
     provider: &prism_core::CoordinationAuthorityStoreProvider,
 ) -> Result<CurrentCoordinationSurface> {
-    let store = provider.open(workspace.root())?;
-    let envelope = store.read_current_state(CoordinationReadConsistency::Eventual)?;
+    let store = provider.open_projection(workspace.root())?;
+    let envelope = store.read_canonical_snapshot_v2(CoordinationReadConsistency::Eventual)?;
     let authority_revision = authority_revision_from_stamp(envelope.authority.as_ref());
-    let current_state = envelope
+    let snapshot_v2 = envelope
         .value
-        .map(prism_core::CoordinationCurrentState::from)
-        .unwrap_or_else(|| prism_core::CoordinationCurrentState {
-            snapshot: prism_coordination::CoordinationSnapshot::default(),
-            canonical_snapshot_v2: CoordinationSnapshotV2::default(),
-            runtime_descriptors: Vec::new(),
-        });
-    let snapshot_v2 = current_state.canonical_snapshot_v2;
+        .unwrap_or_else(CoordinationSnapshotV2::default);
     let read_model = coordination_read_model_from_snapshot_v2(&snapshot_v2);
     let queue_read_model = coordination_queue_read_model_from_snapshot_v2(&snapshot_v2);
     Ok(CurrentCoordinationSurface {

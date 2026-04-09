@@ -16,26 +16,29 @@ use rusqlite::Connection;
 
 use super::store::DbCoordinationAuthorityStore;
 use super::traits::{
-    CoordinationAuthorityCurrentStateDb, CoordinationAuthorityDiagnosticsDb,
-    CoordinationAuthorityEventExecutionDb, CoordinationAuthorityHistoryDb,
-    CoordinationAuthorityMutationDb, CoordinationAuthorityRuntimeDb,
+    CoordinationAuthorityDiagnosticsDb, CoordinationAuthorityEventExecutionDb,
+    CoordinationAuthorityHistoryDb, CoordinationAuthorityMutationDb,
+    CoordinationAuthorityProjectionDb, CoordinationAuthorityRuntimeDb,
     CoordinationAuthoritySnapshotDb,
 };
 use crate::coordination_authority_store::{
     CoordinationAppendRequest, CoordinationAuthorityBackendDetails,
     CoordinationAuthorityBackendKind, CoordinationAuthorityCapabilities,
-    CoordinationAuthorityDiagnostics, CoordinationAuthorityProvenance,
-    CoordinationAuthoritySnapshotStore, CoordinationAuthorityStamp, CoordinationAuthorityStore,
-    CoordinationAuthoritySummary, CoordinationCommitReceipt, CoordinationConflictInfo,
-    CoordinationCurrentState, CoordinationDiagnosticsRequest, CoordinationHistoryEntry,
-    CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
-    CoordinationReplaceCurrentStateRequest, CoordinationTransactionBase,
-    CoordinationTransactionResult, CoordinationTransactionStatus, EventExecutionOwnerExpectation,
-    EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
-    EventExecutionTransitionKind, EventExecutionTransitionPreconditions,
-    EventExecutionTransitionRequest, EventExecutionTransitionResult,
-    EventExecutionTransitionStatus, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
-    RuntimeDescriptorQuery, SqliteCoordinationAuthorityBackendDetails,
+    CoordinationAuthorityDiagnostics, CoordinationAuthorityDiagnosticsStore,
+    CoordinationAuthorityEventExecutionStore, CoordinationAuthorityHistoryStore,
+    CoordinationAuthorityMutationStore, CoordinationAuthorityProjectionStore,
+    CoordinationAuthorityProvenance, CoordinationAuthorityRuntimeStore,
+    CoordinationAuthoritySnapshotStore, CoordinationAuthorityStamp, CoordinationAuthoritySummary,
+    CoordinationCommitReceipt, CoordinationConflictInfo, CoordinationCurrentState,
+    CoordinationDiagnosticsRequest, CoordinationHistoryEntry, CoordinationHistoryEnvelope,
+    CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReplaceCurrentStateRequest,
+    CoordinationTransactionBase, CoordinationTransactionResult, CoordinationTransactionStatus,
+    EventExecutionOwnerExpectation, EventExecutionRecordAuthorityQuery,
+    EventExecutionRecordWriteResult, EventExecutionTransitionKind,
+    EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
+    EventExecutionTransitionResult, EventExecutionTransitionStatus, RuntimeDescriptorClearRequest,
+    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    SqliteCoordinationAuthorityBackendDetails,
 };
 use crate::coordination_persistence::repo_semantic_coordination_snapshot;
 use crate::coordination_reads::CoordinationReadConsistency;
@@ -464,7 +467,7 @@ fn merge_checkpoint_counters(
     snapshot
 }
 
-impl CoordinationAuthorityCurrentStateDb for SqliteCoordinationAuthorityDb {
+impl CoordinationAuthorityProjectionDb for SqliteCoordinationAuthorityDb {
     fn capabilities(&self) -> CoordinationAuthorityCapabilities {
         CoordinationAuthorityCapabilities {
             supports_eventual_reads: true,
@@ -473,29 +476,6 @@ impl CoordinationAuthorityCurrentStateDb for SqliteCoordinationAuthorityDb {
             supports_event_execution_records: true,
             supports_retained_history: true,
             supports_diagnostics: true,
-        }
-    }
-
-    fn read_current_state(
-        &self,
-        consistency: CoordinationReadConsistency,
-    ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>> {
-        let authority_view = self.load_authority_view()?;
-        match consistency {
-            CoordinationReadConsistency::Strong | CoordinationReadConsistency::Eventual => {
-                match authority_view.current_state {
-                    Some(state) => Ok(CoordinationReadEnvelope::verified_current(
-                        consistency,
-                        Some(authority_view.authority),
-                        state,
-                    )),
-                    None => Ok(CoordinationReadEnvelope::unavailable(
-                        consistency,
-                        Some(authority_view.authority),
-                        None,
-                    )),
-                }
-            }
         }
     }
 
@@ -517,6 +497,29 @@ impl CoordinationAuthorityCurrentStateDb for SqliteCoordinationAuthorityDb {
                 runtime_descriptor_count,
             },
         ))
+    }
+
+    fn read_canonical_snapshot_v2(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>> {
+        let authority_view = self.load_authority_view()?;
+        match consistency {
+            CoordinationReadConsistency::Strong | CoordinationReadConsistency::Eventual => {
+                match authority_view.current_state {
+                    Some(state) => Ok(CoordinationReadEnvelope::verified_current(
+                        consistency,
+                        Some(authority_view.authority),
+                        state.canonical_snapshot_v2,
+                    )),
+                    None => Ok(CoordinationReadEnvelope::unavailable(
+                        consistency,
+                        Some(authority_view.authority),
+                        None,
+                    )),
+                }
+            }
+        }
     }
 }
 
@@ -927,10 +930,50 @@ impl CoordinationAuthoritySnapshotDb for SqliteCoordinationAuthorityDb {
     }
 }
 
-pub(crate) fn open_sqlite_coordination_authority_store(
+pub(crate) fn open_sqlite_coordination_authority_projection_store(
     root: &Path,
     db_path: &Path,
-) -> Result<Box<dyn CoordinationAuthorityStore>> {
+) -> Result<Box<dyn CoordinationAuthorityProjectionStore>> {
+    let db = SqliteCoordinationAuthorityDb::open(root, db_path)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_sqlite_coordination_authority_mutation_store(
+    root: &Path,
+    db_path: &Path,
+) -> Result<Box<dyn CoordinationAuthorityMutationStore>> {
+    let db = SqliteCoordinationAuthorityDb::open(root, db_path)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_sqlite_coordination_authority_runtime_store(
+    root: &Path,
+    db_path: &Path,
+) -> Result<Box<dyn CoordinationAuthorityRuntimeStore>> {
+    let db = SqliteCoordinationAuthorityDb::open(root, db_path)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_sqlite_coordination_authority_event_execution_store(
+    root: &Path,
+    db_path: &Path,
+) -> Result<Box<dyn CoordinationAuthorityEventExecutionStore>> {
+    let db = SqliteCoordinationAuthorityDb::open(root, db_path)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_sqlite_coordination_authority_history_store(
+    root: &Path,
+    db_path: &Path,
+) -> Result<Box<dyn CoordinationAuthorityHistoryStore>> {
+    let db = SqliteCoordinationAuthorityDb::open(root, db_path)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_sqlite_coordination_authority_diagnostics_store(
+    root: &Path,
+    db_path: &Path,
+) -> Result<Box<dyn CoordinationAuthorityDiagnosticsStore>> {
     let db = SqliteCoordinationAuthorityDb::open(root, db_path)?;
     Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
 }
@@ -955,8 +998,8 @@ mod tests {
 
     use super::SqliteCoordinationAuthorityDb;
     use crate::coordination_authority_store::db::traits::{
-        CoordinationAuthorityCurrentStateDb, CoordinationAuthorityMutationDb,
-        CoordinationAuthorityRuntimeDb,
+        CoordinationAuthorityMutationDb, CoordinationAuthorityRuntimeDb,
+        CoordinationAuthoritySnapshotDb,
     };
     use crate::coordination_authority_store::{
         CoordinationAppendRequest, CoordinationAuthorityBackendKind, CoordinationTransactionBase,
@@ -1044,9 +1087,9 @@ mod tests {
         assert_eq!(result.commit.as_ref().unwrap().revision, 1);
 
         let current = authority
-            .read_current_state(CoordinationReadConsistency::Strong)
+            .read_snapshot(CoordinationReadConsistency::Strong)
             .unwrap();
-        assert_eq!(current.value.unwrap().snapshot.events.len(), 1);
+        assert_eq!(current.value.unwrap().events.len(), 1);
     }
 
     #[test]

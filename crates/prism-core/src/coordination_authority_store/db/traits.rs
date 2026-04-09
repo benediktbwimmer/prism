@@ -1,7 +1,6 @@
 use anyhow::Result;
 use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
 
-use crate::coordination_authority_store::CoordinationCurrentState;
 use crate::coordination_authority_store::CoordinationReplaceCurrentStateRequest;
 use crate::coordination_authority_store::{
     CoordinationAppendRequest, CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
@@ -14,18 +13,18 @@ use crate::coordination_authority_store::{
 use crate::coordination_reads::CoordinationReadConsistency;
 use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
 
-pub(crate) trait CoordinationAuthorityCurrentStateDb: Send + Sync {
+pub(crate) trait CoordinationAuthorityProjectionDb: Send + Sync {
     fn capabilities(&self) -> CoordinationAuthorityCapabilities;
-
-    fn read_current_state(
-        &self,
-        consistency: CoordinationReadConsistency,
-    ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>>;
 
     fn read_summary(
         &self,
         consistency: CoordinationReadConsistency,
     ) -> Result<CoordinationReadEnvelope<CoordinationAuthoritySummary>>;
+
+    fn read_canonical_snapshot_v2(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>>;
 }
 
 pub(crate) trait CoordinationAuthorityMutationDb: Send + Sync {

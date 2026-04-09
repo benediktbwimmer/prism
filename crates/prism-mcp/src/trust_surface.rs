@@ -455,7 +455,7 @@ fn coordination_transaction_authority_stamp_view(
     let provider = authority_store_provider
         .cloned()
         .or_else(|| configured_coordination_authority_store_provider(workspace_root).ok())?;
-    let store = provider.open(workspace_root).ok()?;
+    let store = provider.open_projection(workspace_root).ok()?;
     let authority = store
         .read_summary(CoordinationReadConsistency::Strong)
         .ok()?

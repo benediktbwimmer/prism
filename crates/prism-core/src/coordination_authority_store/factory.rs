@@ -4,11 +4,27 @@ use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 
 use super::db::{
+    open_postgres_coordination_authority_diagnostics_store,
+    open_postgres_coordination_authority_event_execution_store,
+    open_postgres_coordination_authority_history_store,
+    open_postgres_coordination_authority_mutation_store,
+    open_postgres_coordination_authority_projection_store,
+    open_postgres_coordination_authority_runtime_store,
     open_postgres_coordination_authority_snapshot_store,
-    open_postgres_coordination_authority_store, open_sqlite_coordination_authority_snapshot_store,
-    open_sqlite_coordination_authority_store,
+    open_sqlite_coordination_authority_diagnostics_store,
+    open_sqlite_coordination_authority_event_execution_store,
+    open_sqlite_coordination_authority_history_store,
+    open_sqlite_coordination_authority_mutation_store,
+    open_sqlite_coordination_authority_projection_store,
+    open_sqlite_coordination_authority_runtime_store,
+    open_sqlite_coordination_authority_snapshot_store,
 };
-use super::traits::{CoordinationAuthoritySnapshotStore, CoordinationAuthorityStore};
+use super::traits::{
+    CoordinationAuthorityDiagnosticsStore, CoordinationAuthorityEventExecutionStore,
+    CoordinationAuthorityHistoryStore, CoordinationAuthorityMutationStore,
+    CoordinationAuthorityProjectionStore, CoordinationAuthorityRuntimeStore,
+    CoordinationAuthoritySnapshotStore,
+};
 use crate::PrismPaths;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,8 +55,40 @@ impl CoordinationAuthorityStoreProvider {
         &self.config
     }
 
-    pub fn open(&self, root: &Path) -> Result<Box<dyn CoordinationAuthorityStore>> {
-        open_coordination_authority_store(root, &self.config)
+    pub fn open_projection(
+        &self,
+        root: &Path,
+    ) -> Result<Box<dyn CoordinationAuthorityProjectionStore>> {
+        open_coordination_authority_projection_store(root, &self.config)
+    }
+
+    pub fn open_mutation(
+        &self,
+        root: &Path,
+    ) -> Result<Box<dyn CoordinationAuthorityMutationStore>> {
+        open_coordination_authority_mutation_store(root, &self.config)
+    }
+
+    pub fn open_runtime(&self, root: &Path) -> Result<Box<dyn CoordinationAuthorityRuntimeStore>> {
+        open_coordination_authority_runtime_store(root, &self.config)
+    }
+
+    pub fn open_event_execution(
+        &self,
+        root: &Path,
+    ) -> Result<Box<dyn CoordinationAuthorityEventExecutionStore>> {
+        open_coordination_authority_event_execution_store(root, &self.config)
+    }
+
+    pub fn open_history(&self, root: &Path) -> Result<Box<dyn CoordinationAuthorityHistoryStore>> {
+        open_coordination_authority_history_store(root, &self.config)
+    }
+
+    pub fn open_diagnostics(
+        &self,
+        root: &Path,
+    ) -> Result<Box<dyn CoordinationAuthorityDiagnosticsStore>> {
+        open_coordination_authority_diagnostics_store(root, &self.config)
     }
 
     pub fn open_snapshot(
@@ -185,16 +233,86 @@ fn resolve_configured_path(root: &Path, path: PathBuf) -> PathBuf {
     }
 }
 
-pub fn open_coordination_authority_store(
+pub fn open_coordination_authority_projection_store(
     root: &Path,
     config: &CoordinationAuthorityBackendConfig,
-) -> Result<Box<dyn CoordinationAuthorityStore>> {
+) -> Result<Box<dyn CoordinationAuthorityProjectionStore>> {
     match config {
         CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
-            open_sqlite_coordination_authority_store(root, db_path)
+            open_sqlite_coordination_authority_projection_store(root, db_path)
         }
         CoordinationAuthorityBackendConfig::Postgres { connection_url } => {
-            open_postgres_coordination_authority_store(root, connection_url)
+            open_postgres_coordination_authority_projection_store(root, connection_url)
+        }
+    }
+}
+
+pub fn open_coordination_authority_mutation_store(
+    root: &Path,
+    config: &CoordinationAuthorityBackendConfig,
+) -> Result<Box<dyn CoordinationAuthorityMutationStore>> {
+    match config {
+        CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
+            open_sqlite_coordination_authority_mutation_store(root, db_path)
+        }
+        CoordinationAuthorityBackendConfig::Postgres { connection_url } => {
+            open_postgres_coordination_authority_mutation_store(root, connection_url)
+        }
+    }
+}
+
+pub fn open_coordination_authority_runtime_store(
+    root: &Path,
+    config: &CoordinationAuthorityBackendConfig,
+) -> Result<Box<dyn CoordinationAuthorityRuntimeStore>> {
+    match config {
+        CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
+            open_sqlite_coordination_authority_runtime_store(root, db_path)
+        }
+        CoordinationAuthorityBackendConfig::Postgres { connection_url } => {
+            open_postgres_coordination_authority_runtime_store(root, connection_url)
+        }
+    }
+}
+
+pub fn open_coordination_authority_event_execution_store(
+    root: &Path,
+    config: &CoordinationAuthorityBackendConfig,
+) -> Result<Box<dyn CoordinationAuthorityEventExecutionStore>> {
+    match config {
+        CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
+            open_sqlite_coordination_authority_event_execution_store(root, db_path)
+        }
+        CoordinationAuthorityBackendConfig::Postgres { connection_url } => {
+            open_postgres_coordination_authority_event_execution_store(root, connection_url)
+        }
+    }
+}
+
+pub fn open_coordination_authority_history_store(
+    root: &Path,
+    config: &CoordinationAuthorityBackendConfig,
+) -> Result<Box<dyn CoordinationAuthorityHistoryStore>> {
+    match config {
+        CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
+            open_sqlite_coordination_authority_history_store(root, db_path)
+        }
+        CoordinationAuthorityBackendConfig::Postgres { connection_url } => {
+            open_postgres_coordination_authority_history_store(root, connection_url)
+        }
+    }
+}
+
+pub fn open_coordination_authority_diagnostics_store(
+    root: &Path,
+    config: &CoordinationAuthorityBackendConfig,
+) -> Result<Box<dyn CoordinationAuthorityDiagnosticsStore>> {
+    match config {
+        CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
+            open_sqlite_coordination_authority_diagnostics_store(root, db_path)
+        }
+        CoordinationAuthorityBackendConfig::Postgres { connection_url } => {
+            open_postgres_coordination_authority_diagnostics_store(root, connection_url)
         }
     }
 }
@@ -213,10 +331,40 @@ pub fn open_coordination_authority_snapshot_store(
     }
 }
 
-pub fn open_default_coordination_authority_store(
+pub fn open_default_coordination_authority_projection_store(
     root: &Path,
-) -> Result<Box<dyn CoordinationAuthorityStore>> {
-    default_coordination_authority_store_provider().open(root)
+) -> Result<Box<dyn CoordinationAuthorityProjectionStore>> {
+    default_coordination_authority_store_provider().open_projection(root)
+}
+
+pub fn open_default_coordination_authority_mutation_store(
+    root: &Path,
+) -> Result<Box<dyn CoordinationAuthorityMutationStore>> {
+    default_coordination_authority_store_provider().open_mutation(root)
+}
+
+pub fn open_default_coordination_authority_runtime_store(
+    root: &Path,
+) -> Result<Box<dyn CoordinationAuthorityRuntimeStore>> {
+    default_coordination_authority_store_provider().open_runtime(root)
+}
+
+pub fn open_default_coordination_authority_event_execution_store(
+    root: &Path,
+) -> Result<Box<dyn CoordinationAuthorityEventExecutionStore>> {
+    default_coordination_authority_store_provider().open_event_execution(root)
+}
+
+pub fn open_default_coordination_authority_history_store(
+    root: &Path,
+) -> Result<Box<dyn CoordinationAuthorityHistoryStore>> {
+    default_coordination_authority_store_provider().open_history(root)
+}
+
+pub fn open_default_coordination_authority_diagnostics_store(
+    root: &Path,
+) -> Result<Box<dyn CoordinationAuthorityDiagnosticsStore>> {
+    default_coordination_authority_store_provider().open_diagnostics(root)
 }
 
 pub fn open_default_coordination_authority_snapshot_store(
@@ -234,7 +382,9 @@ mod tests {
 
     use super::{
         configured_coordination_authority_store_provider,
-        default_coordination_authority_store_provider, open_coordination_authority_store,
+        default_coordination_authority_store_provider,
+        open_coordination_authority_diagnostics_store,
+        open_coordination_authority_projection_store,
         resolve_coordination_authority_store_provider, CoordinationAuthorityBackendConfig,
         CoordinationAuthorityStoreProvider,
     };
@@ -282,7 +432,9 @@ mod tests {
             CoordinationAuthorityStoreProvider::new(CoordinationAuthorityBackendConfig::Sqlite {
                 db_path: root.join("coordination-authority.db"),
             });
-        let store = provider.open(&root).expect("sqlite backend should open");
+        let store = provider
+            .open_diagnostics(&root)
+            .expect("sqlite backend should open");
         let diagnostics = store
             .diagnostics(CoordinationDiagnosticsRequest {
                 include_backend_details: true,
@@ -297,7 +449,7 @@ mod tests {
     #[test]
     fn opening_sqlite_backend_uses_sqlite_authority() {
         let root = temp_root();
-        let store = open_coordination_authority_store(
+        let store = open_coordination_authority_diagnostics_store(
             &root,
             &CoordinationAuthorityBackendConfig::Sqlite {
                 db_path: root.join("coordination-authority.db"),
@@ -317,7 +469,7 @@ mod tests {
 
     #[test]
     fn opening_postgres_backend_is_explicitly_unimplemented() {
-        let error = match open_coordination_authority_store(
+        let error = match open_coordination_authority_projection_store(
             Path::new("."),
             &CoordinationAuthorityBackendConfig::Postgres {
                 connection_url: "postgres://localhost/prism".to_string(),

@@ -13,9 +13,9 @@ use prism_store::{
 };
 
 use super::traits::{
-    CoordinationAuthorityCurrentStateStore, CoordinationAuthorityDiagnosticsStore,
-    CoordinationAuthorityEventExecutionStore, CoordinationAuthorityHistoryStore,
-    CoordinationAuthorityMutationStore, CoordinationAuthorityRuntimeStore,
+    CoordinationAuthorityDiagnosticsStore, CoordinationAuthorityEventExecutionStore,
+    CoordinationAuthorityHistoryStore, CoordinationAuthorityMutationStore,
+    CoordinationAuthorityProjectionStore, CoordinationAuthorityRuntimeStore,
     CoordinationAuthoritySnapshotStore,
 };
 use super::types::{
@@ -456,7 +456,7 @@ fn merge_checkpoint_counters(
     snapshot
 }
 
-impl CoordinationAuthorityCurrentStateStore for SqliteCoordinationAuthorityStore {
+impl CoordinationAuthorityProjectionStore for SqliteCoordinationAuthorityStore {
     fn capabilities(&self) -> CoordinationAuthorityCapabilities {
         CoordinationAuthorityCapabilities {
             supports_eventual_reads: false,
@@ -465,26 +465,6 @@ impl CoordinationAuthorityCurrentStateStore for SqliteCoordinationAuthorityStore
             supports_event_execution_records: true,
             supports_retained_history: true,
             supports_diagnostics: true,
-        }
-    }
-
-    fn read_current_state(
-        &self,
-        consistency: CoordinationReadConsistency,
-    ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>> {
-        let mut store = self.open_store()?;
-        let authority = self.authority_stamp_from_store(&mut store)?;
-        match self.load_current_state_from_store(&mut store)? {
-            Some(state) => Ok(CoordinationReadEnvelope::verified_current(
-                consistency,
-                authority,
-                state,
-            )),
-            None => Ok(CoordinationReadEnvelope::unavailable(
-                consistency,
-                authority,
-                None,
-            )),
         }
     }
 
@@ -506,6 +486,26 @@ impl CoordinationAuthorityCurrentStateStore for SqliteCoordinationAuthorityStore
                     .unwrap_or(0),
             },
         ))
+    }
+
+    fn read_canonical_snapshot_v2(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>> {
+        let mut store = self.open_store()?;
+        let authority = self.authority_stamp_from_store(&mut store)?;
+        match self.load_current_state_from_store(&mut store)? {
+            Some(state) => Ok(CoordinationReadEnvelope::verified_current(
+                consistency,
+                authority,
+                state.canonical_snapshot_v2,
+            )),
+            None => Ok(CoordinationReadEnvelope::unavailable(
+                consistency,
+                authority,
+                None,
+            )),
+        }
     }
 }
 

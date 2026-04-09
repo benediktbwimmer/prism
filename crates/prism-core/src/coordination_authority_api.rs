@@ -28,7 +28,7 @@ pub fn coordination_authority_diagnostics_with_provider(
     root: &Path,
     provider: &CoordinationAuthorityStoreProvider,
 ) -> Result<CoordinationAuthorityDiagnostics> {
-    let store = provider.open(root)?;
+    let store = provider.open_diagnostics(root)?;
     store.diagnostics(CoordinationDiagnosticsRequest {
         include_backend_details: true,
     })
@@ -45,7 +45,7 @@ pub fn publish_local_runtime_descriptor_with_provider(
     root: &Path,
     provider: &CoordinationAuthorityStoreProvider,
 ) -> Result<()> {
-    let store = provider.open(root)?;
+    let store = provider.open_runtime(root)?;
     let descriptor = build_local_runtime_descriptor_for_current_state(root)?;
     let result = store.publish_runtime_descriptor(RuntimeDescriptorPublishRequest {
         base: CoordinationTransactionBase::LatestStrong,
@@ -84,7 +84,7 @@ pub(crate) fn coordination_startup_checkpoint_authority_with_provider(
     root: &Path,
     provider: &CoordinationAuthorityStoreProvider,
 ) -> Result<Option<CoordinationStartupCheckpointAuthority>> {
-    let store = provider.open(root)?;
+    let store = provider.open_projection(root)?;
     let authority = store
         .read_summary(CoordinationReadConsistency::Strong)?
         .authority;
