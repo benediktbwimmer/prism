@@ -1035,6 +1035,21 @@ const __prismBase = Object.freeze({
     }
     return __prismHost("contractsFor", targetPayload);
   },
+  specs() {
+    return __prismHost("specs", {});
+  },
+  spec(specId) {
+    return __prismHost("spec", { specId });
+  },
+  specSyncBrief(specId) {
+    return __prismHost("specSyncBrief", { specId });
+  },
+  specCoverage(specId) {
+    return __prismHost("specCoverage", { specId });
+  },
+  specSyncProvenance(specId) {
+    return __prismHost("specSyncProvenance", { specId });
+  },
   conceptRelations(handle) {
     return __prismHost("conceptRelations", { handle });
   },

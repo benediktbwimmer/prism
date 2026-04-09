@@ -53,6 +53,14 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("contract(query: string): ContractPacketView | null;"));
     assert!(docs.contains("contracts(options?: ContractListOptions): ContractPacketView[];"));
     assert!(docs.contains("contractsFor(target: QueryTarget): ContractPacketView[];"));
+    assert!(docs.contains("specs(): SpecListEntryView[];"));
+    assert!(docs.contains("spec(specId: string): SpecDocumentView | null;"));
+    assert!(docs.contains("specSyncBrief(specId: string): SpecSyncBriefView | null;"));
+    assert!(docs.contains("specCoverage(specId: string): SpecCoverageRecordView[];"));
+    assert!(docs.contains("specSyncProvenance(specId: string): SpecSyncProvenanceRecordView[];"));
+    assert!(docs.contains("type SpecListEntryView = {"));
+    assert!(docs.contains("type SpecDocumentView = {"));
+    assert!(docs.contains("type SpecSyncBriefView = {"));
     assert!(docs.contains("type ContractListOptions = {"));
     assert!(docs.contains("status?: \"candidate\" | \"active\" | \"deprecated\" | \"retired\";"));
     assert!(docs.contains("scope?: \"local\" | \"session\" | \"repo\";"));

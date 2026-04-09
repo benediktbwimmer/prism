@@ -139,6 +139,21 @@ pub use prism_doc::{
 };
 pub use prism_ir::{PrismLayerSet, PrismRuntimeCapabilities, PrismRuntimeLayer, PrismRuntimeMode};
 pub use prism_paths::PrismPaths;
+pub use prism_spec::{
+    discover_spec_sources, parse_spec_source, parse_spec_sources, refresh_spec_materialization,
+    resolve_spec_root, DiscoveredSpecSource, MaterializedSpecQueryEngine, MaterializedSpecRecord,
+    ParsedSpecDocument, ParsedSpecSet, SpecChecklistIdentitySource, SpecChecklistItem,
+    SpecChecklistRequirementLevel, SpecChecklistView, SpecCoverageView, SpecDeclaredStatus,
+    SpecDependency, SpecDependencyView, SpecDocumentView, SpecListEntry,
+    SpecMaterializationMetadata, SpecMaterializationRefreshResult, SpecMaterializedBackendKind,
+    SpecMaterializedCapabilities, SpecMaterializedClearRequest, SpecMaterializedReadEnvelope,
+    SpecMaterializedReplaceRequest, SpecMaterializedStore, SpecMaterializedWriteResult,
+    SpecMetadataView, SpecParseDiagnostic, SpecParseDiagnosticKind, SpecQueryEngine,
+    SpecQueryLookup, SpecRootResolution, SpecRootSource, SpecSourceMetadata,
+    SpecSyncProvenanceView, SqliteSpecMaterializedStore, StoredSpecChecklistItemRecord,
+    StoredSpecChecklistPosture, StoredSpecCoverageRecord, StoredSpecDependencyPosture,
+    StoredSpecDependencyRecord, StoredSpecStatusRecord, StoredSpecSyncProvenanceRecord,
+};
 pub use protected_state::migration::{
     migrate_legacy_protected_repo_state, ProtectedStateMigrationReport,
 };
@@ -161,21 +176,6 @@ pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use snapshot_artifact_repair::regenerate_repo_snapshot_derived_artifacts;
 pub use snapshot_restoration::{
     restore_legacy_repo_published_knowledge, LegacyRepoKnowledgeRestoreReport,
-};
-pub use prism_spec::{
-    discover_spec_sources, parse_spec_source, parse_spec_sources, resolve_spec_root,
-    DiscoveredSpecSource, ParsedSpecDocument, ParsedSpecSet, SpecChecklistIdentitySource,
-    SpecChecklistItem, SpecChecklistRequirementLevel, SpecDeclaredStatus, SpecDependency,
-    SpecParseDiagnostic, SpecParseDiagnosticKind, SpecRootResolution, SpecRootSource,
-    SpecSourceMetadata, MaterializedSpecRecord, SpecMaterializationMetadata,
-    SpecMaterializedBackendKind, SpecMaterializedCapabilities, SpecMaterializedClearRequest,
-    SpecMaterializedReadEnvelope, SpecMaterializedReplaceRequest, SpecMaterializedStore,
-    SpecMaterializedWriteResult, SqliteSpecMaterializedStore, StoredSpecChecklistItemRecord,
-    StoredSpecChecklistPosture, StoredSpecCoverageRecord, StoredSpecDependencyPosture,
-    StoredSpecDependencyRecord, StoredSpecStatusRecord, StoredSpecSyncProvenanceRecord,
-    MaterializedSpecQueryEngine, SpecChecklistView, SpecCoverageView, SpecDependencyView,
-    SpecDocumentView, SpecListEntry, SpecMetadataView, SpecQueryEngine, SpecQueryLookup,
-    SpecSyncProvenanceView,
 };
 pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,

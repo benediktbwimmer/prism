@@ -1289,6 +1289,56 @@ type SpecDriftExplanationView = {
   cluster: SpecImplementationClusterView;
 };
 
+type SpecListEntryView = {
+  specId: string;
+  title: string;
+  sourcePath: string;
+  declaredStatus: string;
+  overallStatus?: string;
+  created: string;
+};
+
+type SpecChecklistItemView = {
+  itemId: string;
+  label: string;
+  checked: boolean;
+  requirementLevel: string;
+  sectionPath: string[];
+  lineNumber: number;
+};
+
+type SpecDocumentView = {
+  specId: string;
+  sourcePath: string;
+  title: string;
+  declaredStatus: string;
+  overallStatus?: string;
+  created: string;
+  contentDigest: string;
+  gitRevision?: string;
+  body: string;
+};
+
+type SpecCoverageRecordView = {
+  checklistItemId: string;
+  coverageKind: string;
+  coordinationRef?: string;
+};
+
+type SpecSyncProvenanceRecordView = {
+  targetCoordinationRef: string;
+  syncKind: string;
+  sourceRevision?: string;
+  coveredChecklistItems: string[];
+};
+
+type SpecSyncBriefView = {
+  spec: SpecDocumentView;
+  requiredChecklistItems: SpecChecklistItemView[];
+  coverage: SpecCoverageRecordView[];
+  linkedCoordinationRefs: SpecSyncProvenanceRecordView[];
+};
+
 type TaskValidationRecipeView = {
   taskId: string;
   checks: string[];

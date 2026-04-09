@@ -65,12 +65,12 @@ use crate::{
     PendingReviewsArgs, PlanTargetArgs, PlansQueryArgs, PolicyViolationQueryArgs, QueryHost,
     QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs,
     RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache,
-    SessionState, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs,
-    TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs,
-    ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
-    DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
-    INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER,
-    USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
+    SessionState, SimulateClaimArgs, SourceExcerptArgs, SpecIdArgs, SymbolQueryArgs,
+    SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs,
+    ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
+    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -1075,6 +1075,23 @@ impl QueryExecution {
                 "contractsFor" => {
                     let args: SymbolTargetArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(self.contracts_for(args)?)?)
+                }
+                "specs" => Ok(serde_json::to_value(self.specs()?)?),
+                "spec" => {
+                    let args: SpecIdArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.spec(args)?)?)
+                }
+                "specSyncBrief" => {
+                    let args: SpecIdArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.spec_sync_brief(args)?)?)
+                }
+                "specCoverage" => {
+                    let args: SpecIdArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.spec_coverage(args)?)?)
+                }
+                "specSyncProvenance" => {
+                    let args: SpecIdArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.spec_sync_provenance(args)?)?)
                 }
                 "conceptRelations" => {
                     let args: ConceptHandleArgs = serde_json::from_value(args)?;
@@ -3458,6 +3475,45 @@ return prism.file(__prismFileAroundArgs.path).around({
                 contract_packet_view(self.prism.as_ref(), self.workspace_root(), packet, None)
             })
             .collect())
+    }
+
+    fn specs(&self) -> Result<Vec<prism_js::SpecListEntryView>> {
+        crate::spec_surface::list_specs(&self.host)
+    }
+
+    fn spec(&self, args: SpecIdArgs) -> Result<Option<prism_js::SpecDocumentView>> {
+        let spec = crate::spec_surface::spec_document(&self.host, &args.spec_id)?;
+        if spec.is_none() {
+            self.push_diagnostic(
+                "anchor_unresolved",
+                format!("No native spec matched `{}`.", args.spec_id),
+                Some(json!({ "specId": args.spec_id })),
+            );
+        }
+        Ok(spec)
+    }
+
+    fn spec_sync_brief(&self, args: SpecIdArgs) -> Result<Option<prism_js::SpecSyncBriefView>> {
+        let brief = crate::spec_surface::spec_sync_brief(&self.host, &args.spec_id)?;
+        if brief.is_none() {
+            self.push_diagnostic(
+                "anchor_unresolved",
+                format!("No native spec matched `{}`.", args.spec_id),
+                Some(json!({ "specId": args.spec_id })),
+            );
+        }
+        Ok(brief)
+    }
+
+    fn spec_coverage(&self, args: SpecIdArgs) -> Result<Vec<prism_js::SpecCoverageRecordView>> {
+        crate::spec_surface::spec_coverage(&self.host, &args.spec_id)
+    }
+
+    fn spec_sync_provenance(
+        &self,
+        args: SpecIdArgs,
+    ) -> Result<Vec<prism_js::SpecSyncProvenanceRecordView>> {
+        crate::spec_surface::spec_sync_provenance(&self.host, &args.spec_id)
     }
 
     fn concept_relations(

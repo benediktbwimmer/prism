@@ -95,6 +95,7 @@ mod session_seed;
 mod session_state;
 mod slow_call_snapshot;
 mod spec_insights;
+mod spec_surface;
 mod ssr_console;
 mod suggested_queries;
 mod task_journal;

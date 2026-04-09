@@ -24231,6 +24231,143 @@ return {{
 }
 
 #[test]
+fn native_spec_queries_surface_materialized_spec_views() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join(".prism/specs")).unwrap();
+    fs::write(
+        root.join(".prism/specs/2026-04-09-alpha.md"),
+        "---\n\
+id: spec:alpha\n\
+title: Alpha\n\
+status: in_progress\n\
+created: 2026-04-09\n\
+---\n\
+\n\
+- [ ] implement core flow <!-- id: item-1 -->\n\
+- [ ] validate rollout <!-- id: item-2 -->\n",
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let plan = host
+        .current_prism()
+        .create_native_plan_from_spec_transaction(
+            EventMeta {
+                id: EventId::new("coord:plan:mcp-spec-query"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            prism_query::NativeSpecPlanCreateInput {
+                title: "Ship alpha".into(),
+                goal: "Ship alpha".into(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+                scheduling: None,
+                spec_ref: prism_coordination::CoordinationSpecRef {
+                    spec_id: "spec:alpha".into(),
+                    source_path: ".prism/specs/2026-04-09-alpha.md".into(),
+                    source_revision: Some("rev-plan".into()),
+                },
+            },
+        )
+        .expect("spec-linked plan create should succeed");
+    let task = host
+        .current_prism()
+        .create_native_task_from_spec_transaction(
+            EventMeta {
+                id: EventId::new("coord:task:mcp-spec-query"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            prism_query::NativeSpecTaskCreateInput {
+                task: TaskCreateInput {
+                    plan_id: plan.plan_id.clone(),
+                    title: "Implement alpha".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    spec_refs: Vec::new(),
+                    base_revision: prism_ir::WorkspaceRevision::default(),
+                },
+                spec_ref: prism_coordination::CoordinationTaskSpecRef {
+                    spec_id: "spec:alpha".into(),
+                    source_path: ".prism/specs/2026-04-09-alpha.md".into(),
+                    source_revision: Some("rev-task".into()),
+                    sync_kind: "task".into(),
+                    covered_checklist_items: vec!["spec:alpha::checklist::item-1".into()],
+                    covered_sections: Vec::new(),
+                },
+            },
+        )
+        .expect("spec-linked task create should succeed");
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+return {
+  specs: prism.specs(),
+  spec: prism.spec("spec:alpha"),
+  brief: prism.specSyncBrief("spec:alpha"),
+  coverage: prism.specCoverage("spec:alpha"),
+  provenance: prism.specSyncProvenance("spec:alpha"),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("native spec queries should succeed");
+
+    assert!(result.diagnostics.is_empty());
+    assert_eq!(result.result["specs"][0]["specId"], "spec:alpha");
+    assert_eq!(result.result["spec"]["specId"], "spec:alpha");
+    assert_eq!(result.result["brief"]["spec"]["specId"], "spec:alpha");
+    assert_eq!(
+        result.result["brief"]["requiredChecklistItems"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let coverage = result.result["coverage"]
+        .as_array()
+        .expect("coverage should be an array");
+    assert_eq!(coverage.len(), 2);
+    assert!(coverage.iter().any(|record| {
+        record["checklistItemId"] == "spec:alpha::checklist::item-1"
+            && record["coverageKind"] == "represented"
+            && record["coordinationRef"] == task.task_id.0.as_str()
+    }));
+    assert!(coverage.iter().any(|record| {
+        record["checklistItemId"] == "spec:alpha::checklist::item-2"
+            && record["coverageKind"] == "uncovered"
+            && record["coordinationRef"].is_null()
+    }));
+    let provenance = result.result["provenance"]
+        .as_array()
+        .expect("provenance should be an array");
+    assert_eq!(provenance.len(), 2);
+    assert!(provenance.iter().any(|record| {
+        record["targetCoordinationRef"] == task.task_id.0.as_str() && record["syncKind"] == "task"
+    }));
+    assert!(provenance.iter().any(|record| {
+        record["targetCoordinationRef"] == plan.plan_id.0.as_str() && record["syncKind"] == "plan"
+    }));
+}
+
+#[test]
 fn call_graph_depth_limit_diagnostic_includes_next_action() {
     let host = host_with_node(demo_node());
     let result = host

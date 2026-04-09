@@ -33,7 +33,7 @@ Current state:
 - [x] native specs expose deterministic query surfaces
 - [x] sync actions can create spec-linked authoritative coordination
 - [ ] CLI does not yet expose native spec queries as a first-class surface
-- [ ] MCP does not yet expose native spec queries and sync brief views directly
+- [x] MCP exposes native spec queries and sync brief views directly
 - [ ] task and plan reads do not yet consistently surface linked spec summaries or coverage posture
 
 Current slice notes:
@@ -43,6 +43,8 @@ Current slice notes:
 - linked spec summaries should be additive read surfaces, not hidden blockers
 - surface-level joins must preserve the distinction between authoritative coordination truth and
   local branch-bound spec state
+- the MCP surface now exposes `specs`, `spec`, `specSyncBrief`, `specCoverage`, and
+  `specSyncProvenance` through one shared `spec_surface` adapter over `SpecQueryEngine`
 
 ## 3. Related roadmap
 
@@ -134,6 +136,7 @@ Exit criteria:
 
 - agents can inspect native specs through MCP without opening raw markdown or re-parsing specs in
   handler code
+- status: completed
 
 ### Slice 2: Expose native spec reads through CLI
 
@@ -184,6 +187,7 @@ This phase is complete only when:
 ## 11. Implementation checklist
 
 - [ ] Expose native spec reads through MCP
+- [x] Expose native spec reads through MCP
 - [ ] Expose native spec reads through CLI
 - [ ] Add linked spec summaries to coordination-facing reads
 - [ ] Validate affected crates and direct downstream dependents

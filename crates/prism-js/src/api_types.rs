@@ -2505,6 +2505,82 @@ pub struct QueryTraceView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct SpecListEntryView {
+    pub spec_id: String,
+    pub title: String,
+    pub source_path: String,
+    pub declared_status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overall_status: Option<String>,
+    pub created: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecChecklistItemView {
+    pub item_id: String,
+    pub label: String,
+    pub checked: bool,
+    pub requirement_level: String,
+    pub section_path: Vec<String>,
+    pub line_number: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecStatusView {
+    pub declared_status: String,
+    pub checklist_posture: String,
+    pub dependency_posture: String,
+    pub overall_status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecDocumentView {
+    pub spec_id: String,
+    pub source_path: String,
+    pub title: String,
+    pub declared_status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overall_status: Option<String>,
+    pub created: String,
+    pub content_digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git_revision: Option<String>,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecCoverageRecordView {
+    pub checklist_item_id: String,
+    pub coverage_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coordination_ref: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecSyncProvenanceRecordView {
+    pub target_coordination_ref: String,
+    pub sync_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_revision: Option<String>,
+    pub covered_checklist_items: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecSyncBriefView {
+    pub spec: SpecDocumentView,
+    pub required_checklist_items: Vec<SpecChecklistItemView>,
+    pub coverage: Vec<SpecCoverageRecordView>,
+    pub linked_coordination_refs: Vec<SpecSyncProvenanceRecordView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ValidationFeedbackOptions {
     pub limit: Option<usize>,
     pub since: Option<u64>,

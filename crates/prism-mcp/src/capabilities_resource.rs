@@ -226,6 +226,36 @@ pub(crate) fn query_method_specs() -> Vec<(
             "List contract packets that govern or consume a target.",
         ),
         (
+            "specs",
+            "core",
+            None,
+            "List native implementation specs discovered from the configured spec root.",
+        ),
+        (
+            "spec",
+            "core",
+            None,
+            "Read one native spec document with its current local status posture.",
+        ),
+        (
+            "specSyncBrief",
+            "core",
+            None,
+            "Read one sync-oriented spec brief with required checklist items, coverage, and linked coordination refs.",
+        ),
+        (
+            "specCoverage",
+            "core",
+            None,
+            "Read local checklist coverage records for one native spec.",
+        ),
+        (
+            "specSyncProvenance",
+            "core",
+            None,
+            "Read local sync provenance records linking a native spec to authoritative coordination objects.",
+        ),
+        (
             "entrypoints",
             "core",
             None,
