@@ -19,8 +19,8 @@ pub use patch_projection::{
     PatchEventSummary, PatchEventSummaryQuery, PatchFileSummary, PatchFileSummaryQuery,
 };
 pub use persistence::{
-    ColdQueryStore, CoordinationCheckpointStore, CoordinationJournal, EventJournalStore,
-    MaterializationStore,
+    ColdQueryStore, CoordinationCheckpointStore, CoordinationEventExecutionStore,
+    CoordinationJournal, EventJournalStore, MaterializationStore,
 };
 pub use sqlite::{
     migrate_worktree_cache_from_shared_runtime, PatchPathIdentityRepairReport, SnapshotRevisions,
@@ -29,8 +29,8 @@ pub use sqlite::{
 pub use store::{
     AuxiliaryPersistBatch, CoordinationEventStream, CoordinationMutationLogEntry,
     CoordinationPersistBatch, CoordinationPersistContext, CoordinationPersistResult,
-    IndexPersistBatch, ProjectionMaterializationMetadata, Store, WorkspaceTreeDirectoryFingerprint,
-    WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
+    EventExecutionRecordQuery, IndexPersistBatch, ProjectionMaterializationMetadata, Store,
+    WorkspaceTreeDirectoryFingerprint, WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
 };
 
 #[cfg(test)]

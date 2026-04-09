@@ -4,13 +4,16 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use prism_agent::{EdgeId, InferenceSnapshot, InferredEdgeRecord, InferredEdgeScope};
-use prism_coordination::{CoordinationEvent, CoordinationSnapshot};
+use prism_coordination::{
+    CoordinationEvent, CoordinationSnapshot, EventExecutionOwner, EventExecutionRecord,
+};
 use prism_history::{HistoryPersistDelta, HistorySnapshot, LineageTombstone};
 use prism_ir::{
     CoordinationEventKind, CredentialCapability, CredentialId, CredentialRecord, CredentialStatus,
-    Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId, GraphChange, Language,
-    LineageEvent, LineageId, Node, NodeId, NodeKind, PrincipalAuthorityId, PrincipalId,
-    PrincipalKind, PrincipalProfile, PrincipalRegistrySnapshot, PrincipalStatus, Span, TaskId,
+    Edge, EdgeKind, EdgeOrigin, EventActor, EventExecutionId, EventExecutionStatus, EventId,
+    EventMeta, EventTriggerKind, FileId, GraphChange, Language, LineageEvent, LineageId, Node,
+    NodeId, NodeKind, PlanId, PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalKind,
+    PrincipalProfile, PrincipalRegistrySnapshot, PrincipalStatus, SessionId, Span, TaskId,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryId, MemoryKind,
@@ -1816,6 +1819,35 @@ fn temp_sqlite_path(prefix: &str) -> PathBuf {
     std::env::temp_dir().join(format!("{prefix}-{nanos}.db"))
 }
 
+fn sample_event_execution_record(id: &str, claimed_at: u64) -> EventExecutionRecord {
+    EventExecutionRecord {
+        id: EventExecutionId::new(id),
+        trigger_kind: EventTriggerKind::RecurringPlanTick,
+        trigger_target: Some(prism_ir::NodeRef::plan(PlanId::new("plan:test"))),
+        hook_id: Some("hook:test".to_string()),
+        hook_version_digest: Some("sha256:test".to_string()),
+        authoritative_revision: Some(41),
+        status: EventExecutionStatus::Claimed,
+        owner: Some(EventExecutionOwner {
+            principal: Some(PrincipalActor {
+                principal_id: PrincipalId::new("principal:test"),
+                authority_id: PrincipalAuthorityId::new("authority:test"),
+                kind: Some(PrincipalKind::Agent),
+                name: Some("principal:test".to_string()),
+            }),
+            session_id: Some(SessionId::new("session:test")),
+            worktree_id: Some("worktree:test".to_string()),
+            service_instance_id: Some("service:test".to_string()),
+        }),
+        claimed_at,
+        started_at: None,
+        finished_at: None,
+        expires_at: Some(claimed_at + 30),
+        summary: Some("tick".to_string()),
+        metadata: serde_json::json!({ "attempt": 1 }),
+    }
+}
+
 #[test]
 fn sqlite_store_round_trips_workspace_tree_snapshot() {
     let path = std::env::temp_dir().join(format!(
@@ -2448,6 +2480,52 @@ fn sqlite_store_load_coordination_mutation_log_returns_latest_entries_first() {
     assert_eq!(all_entries.len(), 2);
     assert_eq!(all_entries[0].revision, 2);
     assert_eq!(all_entries[1].revision, 1);
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_round_trips_event_execution_record() {
+    let path = temp_sqlite_path("prism-store-event-execution-roundtrip");
+    let mut store = SqliteStore::open(&path).unwrap();
+    let record = sample_event_execution_record("event-exec:test:1", 100);
+
+    store.save_event_execution_record(&record).unwrap();
+
+    let loaded = store
+        .load_event_execution_record(&record.id)
+        .unwrap()
+        .expect("event execution record");
+    assert_eq!(loaded, record);
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_lists_event_execution_records_by_claimed_at_desc() {
+    let path = temp_sqlite_path("prism-store-event-execution-list");
+    let mut store = SqliteStore::open(&path).unwrap();
+    let older = sample_event_execution_record("event-exec:test:older", 100);
+    let newer = sample_event_execution_record("event-exec:test:newer", 200);
+
+    store.save_event_execution_record(&older).unwrap();
+    store.save_event_execution_record(&newer).unwrap();
+
+    let records = store
+        .load_event_execution_records(&crate::EventExecutionRecordQuery { limit: Some(1) })
+        .unwrap();
+    assert_eq!(records, vec![newer.clone()]);
+
+    let all_records = store
+        .load_event_execution_records(&crate::EventExecutionRecordQuery { limit: None })
+        .unwrap();
+    assert_eq!(all_records, vec![newer, older]);
 
     drop(store);
     let _ = std::fs::remove_file(&path);

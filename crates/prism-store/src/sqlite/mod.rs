@@ -2,6 +2,7 @@ mod codecs;
 mod coordination_compaction;
 mod coordination_events;
 mod coordination_mutations;
+mod event_executions;
 mod graph_io;
 mod history_io;
 mod inference_records;
@@ -55,7 +56,8 @@ use crate::patch_projection::{
 };
 use crate::store::{
     AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
-    CoordinationPersistResult, IndexPersistBatch, Store, WorkspaceTreeSnapshot,
+    CoordinationPersistResult, EventExecutionRecordQuery, IndexPersistBatch, Store,
+    WorkspaceTreeSnapshot,
 };
 
 const WORKSPACE_REVISION_KEY: &str = "revision:workspace";
@@ -1070,6 +1072,27 @@ impl Store for SqliteStore {
         limit: Option<usize>,
     ) -> Result<Vec<crate::store::CoordinationMutationLogEntry>> {
         coordination_mutations::load_mutation_log(&self.conn, limit)
+    }
+
+    fn load_event_execution_record(
+        &mut self,
+        event_execution_id: &prism_ir::EventExecutionId,
+    ) -> Result<Option<prism_coordination::EventExecutionRecord>> {
+        event_executions::load_event_execution_record(&self.conn, event_execution_id)
+    }
+
+    fn load_event_execution_records(
+        &mut self,
+        query: &EventExecutionRecordQuery,
+    ) -> Result<Vec<prism_coordination::EventExecutionRecord>> {
+        event_executions::load_event_execution_records(&self.conn, query)
+    }
+
+    fn save_event_execution_record(
+        &mut self,
+        record: &prism_coordination::EventExecutionRecord,
+    ) -> Result<()> {
+        self.with_immediate_tx(|tx| event_executions::upsert_event_execution_record_tx(tx, record))
     }
 
     fn commit_coordination_persist_batch(

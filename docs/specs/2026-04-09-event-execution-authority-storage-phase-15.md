@@ -1,6 +1,6 @@
 # Event Execution Authority Storage Phase 15
 
-Status: approved
+Status: partially implemented
 Audience: service, coordination, storage, authority-store, query, and future event-engine maintainers
 Scope: add the first authoritative event-execution storage namespace beneath the settled authority and store seams so later event claiming, retries, and scheduling build on durable records rather than ad hoc service state
 
@@ -142,8 +142,8 @@ This spec is complete when:
 
 ## 9. Implementation checklist
 
-- [ ] Add the event-execution persistence seam in `prism-store`
-- [ ] Implement SQLite-backed event-execution storage
+- [x] Add the event-execution persistence seam in `prism-store`
+- [x] Implement SQLite-backed event-execution storage
 - [ ] Wire the SQLite authority backend to the new seam
 - [ ] Validate affected crates and direct downstream dependents
 - [ ] Update roadmap and spec status as slices land

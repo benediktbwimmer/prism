@@ -6,10 +6,13 @@ use anyhow::Result;
 use prism_agent::{InferenceSnapshot, InferredEdgeRecord};
 use prism_coordination::{
     CoordinationEvent, CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    EventExecutionRecord,
 };
 use prism_curator::CuratorSnapshot;
 use prism_history::{HistoryPersistDelta, HistorySnapshot};
-use prism_ir::{EventId, LineageEvent, LineageId, PrincipalRegistrySnapshot, TaskId};
+use prism_ir::{
+    EventExecutionId, EventId, LineageEvent, LineageId, PrincipalRegistrySnapshot, TaskId,
+};
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEvent, OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot,
     OutcomeRecallQuery, TaskReplay,
@@ -108,6 +111,11 @@ pub struct CoordinationMutationLogEntry {
 pub struct CoordinationEventStream {
     pub fallback_snapshot: Option<CoordinationSnapshot>,
     pub suffix_events: Vec<CoordinationEvent>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct EventExecutionRecordQuery {
+    pub limit: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -306,6 +314,15 @@ pub trait Store {
         &mut self,
         limit: Option<usize>,
     ) -> Result<Vec<CoordinationMutationLogEntry>>;
+    fn load_event_execution_record(
+        &mut self,
+        event_execution_id: &EventExecutionId,
+    ) -> Result<Option<EventExecutionRecord>>;
+    fn load_event_execution_records(
+        &mut self,
+        query: &EventExecutionRecordQuery,
+    ) -> Result<Vec<EventExecutionRecord>>;
+    fn save_event_execution_record(&mut self, record: &EventExecutionRecord) -> Result<()>;
     fn commit_coordination_persist_batch(
         &mut self,
         batch: &CoordinationPersistBatch,
@@ -574,6 +591,24 @@ impl<T: Store + ?Sized> Store for MutexGuard<'_, T> {
         limit: Option<usize>,
     ) -> Result<Vec<CoordinationMutationLogEntry>> {
         Store::load_coordination_mutation_log(&mut **self, limit)
+    }
+
+    fn load_event_execution_record(
+        &mut self,
+        event_execution_id: &EventExecutionId,
+    ) -> Result<Option<EventExecutionRecord>> {
+        Store::load_event_execution_record(&mut **self, event_execution_id)
+    }
+
+    fn load_event_execution_records(
+        &mut self,
+        query: &EventExecutionRecordQuery,
+    ) -> Result<Vec<EventExecutionRecord>> {
+        Store::load_event_execution_records(&mut **self, query)
+    }
+
+    fn save_event_execution_record(&mut self, record: &EventExecutionRecord) -> Result<()> {
+        Store::save_event_execution_record(&mut **self, record)
     }
 
     fn commit_coordination_persist_batch(

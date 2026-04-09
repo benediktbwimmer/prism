@@ -3,9 +3,12 @@ use std::path::Path;
 use anyhow::Result;
 use prism_coordination::{
     CoordinationEvent, CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    EventExecutionRecord,
 };
 use prism_history::{HistoryPersistDelta, HistorySnapshot};
-use prism_ir::{EventId, LineageEvent, LineageId, PrincipalRegistrySnapshot, TaskId};
+use prism_ir::{
+    EventExecutionId, EventId, LineageEvent, LineageId, PrincipalRegistrySnapshot, TaskId,
+};
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEvent, OutcomeEvent, OutcomeMemorySnapshot, OutcomeRecallQuery,
     TaskReplay,
@@ -17,7 +20,8 @@ use crate::graph::Graph;
 use crate::store::{
     AuxiliaryPersistBatch, CoordinationEventStream, CoordinationMutationLogEntry,
     CoordinationPersistBatch, CoordinationPersistContext, CoordinationPersistResult,
-    IndexPersistBatch, ProjectionMaterializationMetadata, Store, WorkspaceTreeSnapshot,
+    EventExecutionRecordQuery, IndexPersistBatch, ProjectionMaterializationMetadata, Store,
+    WorkspaceTreeSnapshot,
 };
 
 /// Synchronous runtime-authority operations that must remain durable across crash/restart.
@@ -39,6 +43,20 @@ pub trait CoordinationJournal {
         &mut self,
         batch: &CoordinationPersistBatch,
     ) -> Result<CoordinationPersistResult>;
+}
+
+/// Authoritative event-execution records that live beside, but not inside, the coordination
+/// summary namespace.
+pub trait CoordinationEventExecutionStore {
+    fn load_event_execution_record(
+        &mut self,
+        event_execution_id: &EventExecutionId,
+    ) -> Result<Option<EventExecutionRecord>>;
+    fn load_event_execution_records(
+        &mut self,
+        query: &EventExecutionRecordQuery,
+    ) -> Result<Vec<EventExecutionRecord>>;
+    fn save_event_execution_record(&mut self, record: &EventExecutionRecord) -> Result<()>;
 }
 
 /// Checkpoints and read models that accelerate coordination recovery and queries, but are not the
@@ -243,6 +261,26 @@ impl<T: Store + ?Sized> CoordinationCheckpointStore for T {
 
     fn clear_coordination_queue_read_model(&mut self) -> Result<()> {
         Store::clear_coordination_queue_read_model(self)
+    }
+}
+
+impl<T: Store + ?Sized> CoordinationEventExecutionStore for T {
+    fn load_event_execution_record(
+        &mut self,
+        event_execution_id: &EventExecutionId,
+    ) -> Result<Option<EventExecutionRecord>> {
+        Store::load_event_execution_record(self, event_execution_id)
+    }
+
+    fn load_event_execution_records(
+        &mut self,
+        query: &EventExecutionRecordQuery,
+    ) -> Result<Vec<EventExecutionRecord>> {
+        Store::load_event_execution_records(self, query)
+    }
+
+    fn save_event_execution_record(&mut self, record: &EventExecutionRecord) -> Result<()> {
+        Store::save_event_execution_record(self, record)
     }
 }
 

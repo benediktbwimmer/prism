@@ -1,13 +1,13 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-pub(crate) const SCHEMA_VERSION: i64 = 22;
+pub(crate) const SCHEMA_VERSION: i64 = 23;
 
 pub(super) fn init_schema(conn: &mut Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     match version {
         0 | SCHEMA_VERSION => {}
-        11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 => {}
+        11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 => {}
         _ => reset_schema(conn)?,
     }
 
@@ -257,6 +257,24 @@ fn current_schema_sql() -> &'static str {
 
         CREATE INDEX IF NOT EXISTS idx_coordination_event_log_ts_sequence
             ON coordination_event_log(ts, sequence);
+
+        CREATE TABLE IF NOT EXISTS event_execution_record (
+            id TEXT PRIMARY KEY,
+            trigger_kind TEXT NOT NULL,
+            status TEXT NOT NULL,
+            authoritative_revision INTEGER,
+            claimed_at INTEGER NOT NULL,
+            started_at INTEGER,
+            finished_at INTEGER,
+            expires_at INTEGER,
+            payload TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_event_execution_record_claimed_at
+            ON event_execution_record(claimed_at DESC, id ASC);
+
+        CREATE INDEX IF NOT EXISTS idx_event_execution_record_status_claimed_at
+            ON event_execution_record(status, claimed_at DESC, id ASC);
 
         CREATE TABLE IF NOT EXISTS coordination_event_compaction (
             id INTEGER PRIMARY KEY CHECK (id = 1),

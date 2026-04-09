@@ -1,5 +1,8 @@
 use anyhow::{anyhow, Result};
-use prism_coordination::{CoordinationEvent, CoordinationQueueReadModel, CoordinationReadModel};
+use prism_coordination::{
+    CoordinationEvent, CoordinationQueueReadModel, CoordinationReadModel, EventExecutionRecord,
+};
+use prism_ir::EventExecutionId;
 use prism_projections::ProjectionIndex;
 
 use crate::graph::{Graph, GraphSnapshot};
@@ -37,6 +40,7 @@ pub struct MemoryStore {
     coordination_revision: u64,
     latest_coordination_context: Option<CoordinationPersistContext>,
     coordination_mutation_log: Vec<CoordinationMutationLogEntry>,
+    event_execution_records: Vec<EventExecutionRecord>,
 }
 
 impl Store for MemoryStore {
@@ -453,6 +457,41 @@ impl Store for MemoryStore {
             .cloned()
             .collect();
         Ok(entries)
+    }
+
+    fn load_event_execution_record(
+        &mut self,
+        event_execution_id: &EventExecutionId,
+    ) -> Result<Option<EventExecutionRecord>> {
+        Ok(self
+            .event_execution_records
+            .iter()
+            .find(|record| &record.id == event_execution_id)
+            .cloned())
+    }
+
+    fn load_event_execution_records(
+        &mut self,
+        query: &crate::store::EventExecutionRecordQuery,
+    ) -> Result<Vec<EventExecutionRecord>> {
+        let mut records = self.event_execution_records.clone();
+        records.sort_by(|left, right| {
+            right
+                .claimed_at
+                .cmp(&left.claimed_at)
+                .then_with(|| left.id.0.cmp(&right.id.0))
+        });
+        if let Some(limit) = query.limit {
+            records.truncate(limit);
+        }
+        Ok(records)
+    }
+
+    fn save_event_execution_record(&mut self, record: &EventExecutionRecord) -> Result<()> {
+        self.event_execution_records
+            .retain(|existing| existing.id != record.id);
+        self.event_execution_records.push(record.clone());
+        Ok(())
     }
 
     fn commit_coordination_persist_batch(
