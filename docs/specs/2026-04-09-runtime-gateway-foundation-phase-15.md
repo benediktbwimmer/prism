@@ -126,7 +126,7 @@ This spec is complete when:
 ## 9. Implementation checklist
 
 - [x] Introduce the runtime-gateway owner
-- [ ] Centralize runtime-descriptor resolution
+- [x] Centralize runtime-descriptor resolution
 - [ ] Centralize gateway trust and capability checks
 - [ ] Validate affected crates and direct downstream dependents
 - [ ] Update roadmap/spec status as slices land
