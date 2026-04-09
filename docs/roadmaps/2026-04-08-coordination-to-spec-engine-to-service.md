@@ -97,6 +97,8 @@ Current phase spec:
   [../specs/2026-04-09-spec-engine-surfaces-phase-14.md](../specs/2026-04-09-spec-engine-surfaces-phase-14.md)
 - Phase 15 active:
   [../specs/2026-04-09-db-backed-service-foundation-phase-15.md](../specs/2026-04-09-db-backed-service-foundation-phase-15.md)
+- Phase 15 next slice drafted:
+  [../specs/2026-04-09-runtime-gateway-foundation-phase-15.md](../specs/2026-04-09-runtime-gateway-foundation-phase-15.md)
 
 ## 3. Ordering thesis
 
