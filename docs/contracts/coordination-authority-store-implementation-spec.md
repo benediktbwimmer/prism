@@ -296,6 +296,8 @@ Two concrete rules:
 
 - **authoritative loads** of current coordination state move to `CoordinationAuthorityStore`
 - **derived branch publication** remains here, but it must consume already-read authority results
+- backend-neutral trace operation names and skip reasons in this module must stop describing the
+  authority path as `syncSharedCoordinationRef` or `shared_ref_authority_only`
 
 This file should become a consumer of authority, not part of the authority backend.
 
@@ -349,7 +351,7 @@ This file is the largest architectural cleanup target.
 
 #### Current functions to replace or dissolve
 
-- `104`: `sync_authoritative_shared_coordination_ref_observed(...)`
+- `104`: `apply_coordination_authority_transaction_observed(...)`
 - `259`: `persist_coordination_authoritative_state_for_root(...)`
 - `304-322`: direct authoritative loader wrappers
 - `364`: `persist_coordination_authoritative_mutation_state_for_root_with_session_observed(...)`
@@ -369,6 +371,10 @@ Split this file into two responsibilities:
 
 `CoordinationPersistenceBackend` should not remain the apparent authority API.
 The new `CoordinationAuthorityStore` should replace it.
+
+Any remaining backend-neutral mutation traces, test-only opt-in markers, and fallback wording in
+this module must describe coordination authority generally rather than shared-ref publication
+specifically.
 
 #### Specific design note
 
@@ -588,6 +594,9 @@ After the migration is complete, these responsibilities should no longer exist o
 
 This file should no longer be the place where backend-neutral application code learns how
 coordination authority is persisted.
+
+That includes operation names, skip reasons, and test opt-in switches: those must use
+authority-neutral naming once the SQLite-default path is established.
 
 ---
 

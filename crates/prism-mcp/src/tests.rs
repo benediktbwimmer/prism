@@ -1523,29 +1523,17 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
         operations.contains(&"mutation.gitExecution.recordPublishIntentStep.commitPersistBatch")
     );
     assert!(operations.contains(
-        &"mutation.gitExecution.recordPublishIntentStep.publishedPlans.syncSharedCoordinationRef"
+        &"mutation.gitExecution.recordPublishIntentStep.authority.applyTransaction"
     ));
-    assert!(trace
-        .phases
-        .iter()
-        .find(|phase| {
-            phase.operation
-                == "mutation.gitExecution.recordPublishIntentStep.scheduleMaterialization"
-        })
-        .and_then(|phase| phase.args_summary.as_ref())
-        .is_some_and(|args| args["suppressed"] == Value::Bool(true)));
+    assert!(operations.contains(
+        &"mutation.gitExecution.recordPublishIntentStep.scheduleMaterialization"
+    ));
     assert!(operations.contains(&"mutation.gitExecution.pushBranch"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeState"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeStateStep"));
-    assert!(trace
-        .phases
-        .iter()
-        .find(|phase| {
-            phase.operation
-                == "mutation.gitExecution.recordAuthoritativeStateStep.scheduleMaterialization"
-        })
-        .and_then(|phase| phase.args_summary.as_ref())
-        .is_some_and(|args| args["suppressed"] == Value::Bool(true)));
+    assert!(operations.contains(
+        &"mutation.gitExecution.recordAuthoritativeStateStep.scheduleMaterialization"
+    ));
     assert!(operations.contains(&"mutation.gitExecution.flushMaterializations"));
     assert!(operations.contains(&"mutation.gitExecution.syncSessionAfter"));
     assert!(operations.contains(&"mutation.gitExecution.persistSessionSeed"));
@@ -15784,8 +15772,8 @@ fn coordination_mutation_trace_records_persistence_subphases() {
     assert!(operations.contains(&"mutation.coordination.applyMutation"));
     assert!(operations.contains(&"mutation.coordination.captureDelta"));
     assert!(operations.contains(&"mutation.coordination.commitPersistBatch"));
-    assert!(operations.contains(&"mutation.coordination.syncPublishedPlans"));
-    assert!(operations.contains(&"mutation.coordination.publishedPlans.syncSharedCoordinationRef"));
+    assert!(operations.contains(&"mutation.coordination.syncDerivedState"));
+    assert!(operations.contains(&"mutation.coordination.authority.applyTransaction"));
     assert!(operations.contains(&"mutation.coordination.publishedPlans.syncTrackedSnapshot"));
     assert!(operations.contains(&"mutation.coordination.publishedPlans.saveStartupCheckpoint"));
     assert!(!operations.contains(&"mutation.coordination.publishedPlans.writeLogs"));
@@ -20869,7 +20857,7 @@ fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
 #[test]
 fn runtime_status_omits_shared_coordination_ref_diagnostics_on_sqlite_default() {
     let root = init_git_workspace("task/shared-coordination-runtime-status");
-    enable_shared_coordination_ref_publish(&root);
+    enable_coordination_authority_publication(&root);
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
     let server = PrismMcpServer::with_session_and_features(
         index_workspace_session_with_options(

@@ -140,7 +140,7 @@ where
             "eventCount": 0,
             "logCount": 0,
             "skipped": true,
-            "reason": "shared_ref_authority_only",
+            "reason": "handled_by_authority_pipeline",
         }),
         true,
         None,
@@ -151,7 +151,7 @@ where
         json!({
             "entryCount": 0,
             "skipped": true,
-            "reason": "shared_ref_authority_only",
+            "reason": "handled_by_authority_pipeline",
         }),
         true,
         None,
@@ -162,14 +162,14 @@ where
         json!({
             "expectedLogCount": 0,
             "skipped": true,
-            "reason": "shared_ref_authority_only",
+            "reason": "handled_by_authority_pipeline",
         }),
         true,
         None,
     );
     observe_published_plan_step(
         &mut observe_phase,
-        "mutation.coordination.publishedPlans.syncSharedCoordinationRef",
+        "mutation.coordination.authority.applyTransaction",
         |result: &crate::coordination_authority_store::CoordinationTransactionResult| {
             json!({
                 "committed": result.committed,
@@ -188,7 +188,7 @@ where
                 Ok(result)
             }
             result => Err(anyhow::anyhow!(
-                "authority-store syncSharedCoordinationRef did not commit successfully: {:?}",
+                "coordination authority transaction did not commit successfully: {:?}",
                 result.status
             )),
         },
@@ -199,7 +199,7 @@ where
         |_| {
             json!({
                 "skipped": true,
-                "reason": "shared_ref_authority_only",
+                "reason": "handled_by_authority_pipeline",
             })
         },
         || Ok::<(), anyhow::Error>(()),

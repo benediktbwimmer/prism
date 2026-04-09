@@ -66,7 +66,7 @@ Current active phase:
 
 Current phase spec:
 
-- [../specs/2026-04-09-runtime-gateway-authority-diagnostics-follow-through-phase-4.md](../specs/2026-04-09-runtime-gateway-authority-diagnostics-follow-through-phase-4.md)
+- [../specs/2026-04-09-authority-publication-operation-naming-follow-through-phase-4.md](../specs/2026-04-09-authority-publication-operation-naming-follow-through-phase-4.md)
 
 Current assessment:
 
@@ -120,6 +120,11 @@ Latest checkpoint:
   routing now reads degraded verification through authority diagnostics, keeps descriptor lookup on
   the authority store, and reports SQLite-default authority failures without shared-ref-shaped
   wording
+- the authority-publication operation naming follow-through is complete; backend-neutral authority
+  traces, test opt-in markers, skip reasons, and repo-state export wording now use
+  coordination-authority language instead of shared-ref-shaped names, and git-execution tracing
+  now distinguishes deferred materialization scheduling from suppressed inline materialization on
+  the SQLite-default authority path
 
 ## 3. Ordering thesis
 

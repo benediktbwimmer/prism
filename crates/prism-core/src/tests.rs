@@ -1443,9 +1443,9 @@ fn coordination_mutation_updates_published_plans_without_reloading_full_projecti
         .unwrap()
         .expect("coordination mutation should acquire the refresh lock");
 
-    assert!(operations.contains(&"mutation.coordination.syncPublishedPlans".to_string()));
+    assert!(operations.contains(&"mutation.coordination.syncDerivedState".to_string()));
     assert!(operations
-        .contains(&"mutation.coordination.publishedPlans.syncSharedCoordinationRef".to_string()));
+        .contains(&"mutation.coordination.authority.applyTransaction".to_string()));
     assert!(operations
         .contains(&"mutation.coordination.publishedPlans.syncTrackedSnapshot".to_string()));
     assert!(
@@ -5393,7 +5393,9 @@ fn repo_plan_events_require_explicit_prism_doc_sync() {
     assert!(plan_doc.contains("- Max fetch age seconds: `300`"));
     assert!(plan_doc.contains("## Branch Snapshot Export"));
     assert!(
-        plan_doc.contains("- Shared coordination authority: shared coordination ref when present")
+        plan_doc.contains(
+            "- Authoritative coordination state: coordination authority backend (`SQLite` by default; Git shared refs when explicitly selected)"
+        )
     );
     assert!(plan_doc.contains(
         "- Branch-local tracked `.prism/state/plans/**` export: disabled; plans no longer mirror into tracked repo snapshot state"

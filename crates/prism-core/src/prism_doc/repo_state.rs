@@ -537,7 +537,9 @@ fn render_plan_doc_parts(plan: &PublishedPlanDoc) -> String {
     markdown.push('\n');
 
     markdown.push_str("## Branch Snapshot Export\n\n");
-    markdown.push_str("- Shared coordination authority: shared coordination ref when present\n");
+    markdown.push_str(
+        "- Authoritative coordination state: coordination authority backend (`SQLite` by default; Git shared refs when explicitly selected)\n",
+    );
     markdown.push_str(
         "- Local hot cache: shared-runtime SQLite startup checkpoint and hydrated in-memory runtime\n",
     );
