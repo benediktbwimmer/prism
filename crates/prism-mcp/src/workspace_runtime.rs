@@ -2560,7 +2560,11 @@ mod tests {
         };
         workspace
             .prism()
-            .replace_coordination_runtime(live_snapshot.clone(), Vec::new());
+            .replace_coordination_runtime(
+                live_snapshot.clone(),
+                live_snapshot.to_canonical_snapshot_v2(),
+                Vec::new(),
+            );
 
         let runtime_only_revision = persisted_revision.saturating_add(1);
         let reload =

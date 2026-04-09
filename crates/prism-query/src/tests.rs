@@ -2246,7 +2246,11 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         validated_checks: Vec::new(),
         risk_score: None,
     });
-    prism.replace_coordination_snapshot(runtime_snapshot);
+    prism.replace_coordination_runtime(
+        runtime_snapshot.clone(),
+        runtime_snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
 
     assert_eq!(prism.coordination_snapshot().claims.len(), 1);
     assert_eq!(prism.coordination_snapshot().artifacts.len(), 1);
@@ -2342,7 +2346,11 @@ fn claim_reads_and_simulation_respect_worktree_scope() {
         status: prism_ir::ClaimStatus::Active,
         base_revision: WorkspaceRevision::default(),
     });
-    prism.replace_coordination_snapshot(runtime_snapshot);
+    prism.replace_coordination_runtime(
+        runtime_snapshot.clone(),
+        runtime_snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
 
     let claims = prism.claims(&[AnchorRef::Node(alpha.clone())], 10);
     assert_eq!(claims.len(), 1);
@@ -2483,7 +2491,11 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
             },
             summary: "LGTM".into(),
         });
-    prism.replace_coordination_snapshot(runtime_snapshot);
+    prism.replace_coordination_runtime(
+        runtime_snapshot.clone(),
+        runtime_snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
 
     let artifacts = prism.artifacts(&task_id);
     assert_eq!(artifacts.len(), 1);
@@ -3563,8 +3575,9 @@ fn persisted_coordination_snapshot_updates_task_backed_plan_nodes() {
         )
         .unwrap();
 
+    let snapshot = coordination.snapshot();
     prism
-        .persist_coordination_snapshot(coordination.snapshot())
+        .persist_coordination_runtime(snapshot.clone(), snapshot.to_canonical_snapshot_v2())
         .expect("persisted coordination snapshot should refresh plan runtime");
 
     assert_eq!(

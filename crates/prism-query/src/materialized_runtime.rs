@@ -10,23 +10,7 @@ pub(crate) struct MaterializedCoordinationRuntime {
 }
 
 impl MaterializedCoordinationRuntime {
-    pub(crate) fn from_snapshot(snapshot: CoordinationSnapshot) -> Self {
-        Self::from_snapshot_with_runtime_descriptors(snapshot, Vec::new())
-    }
-
-    pub(crate) fn from_snapshot_with_runtime_descriptors(
-        snapshot: CoordinationSnapshot,
-        runtime_descriptors: Vec<RuntimeDescriptor>,
-    ) -> Self {
-        let canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
-        Self::from_snapshots_with_runtime_descriptors(
-            snapshot,
-            canonical_snapshot_v2,
-            runtime_descriptors,
-        )
-    }
-
-    pub(crate) fn from_snapshots_with_runtime_descriptors(
+    pub(crate) fn new(
         snapshot: CoordinationSnapshot,
         canonical_snapshot_v2: CoordinationSnapshotV2,
         runtime_descriptors: Vec<RuntimeDescriptor>,
@@ -77,36 +61,29 @@ impl MaterializedCoordinationRuntime {
             .replace_runtime_descriptors(runtime_descriptors);
     }
 
-    pub(crate) fn replace_from_snapshot(&mut self, snapshot: CoordinationSnapshot) {
-        *self = Self::from_snapshot_with_runtime_descriptors(
-            snapshot,
-            self.runtime_descriptors.clone(),
-        );
-    }
-
-    pub(crate) fn replace_from_snapshots(
+    pub(crate) fn replace(
         &mut self,
         snapshot: CoordinationSnapshot,
         canonical_snapshot_v2: CoordinationSnapshotV2,
     ) {
-        *self = Self::from_snapshots_with_runtime_descriptors(
+        *self = Self::new(
             snapshot,
             canonical_snapshot_v2,
             self.runtime_descriptors.clone(),
         );
     }
 
-    pub(crate) fn persist_coordination_snapshot(
+    pub(crate) fn persist_coordination_runtime(
         &mut self,
         snapshot: CoordinationSnapshot,
+        canonical_snapshot_v2: CoordinationSnapshotV2,
     ) -> Result<()> {
         self.continuity_runtime
             .replace_from_snapshot_with_runtime_descriptors(
                 snapshot,
                 self.runtime_descriptors.clone(),
             );
-        self.refresh_canonical_snapshot_v2();
+        self.canonical_snapshot_v2 = canonical_snapshot_v2;
         Ok(())
     }
-
 }

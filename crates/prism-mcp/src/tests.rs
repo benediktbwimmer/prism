@@ -421,7 +421,11 @@ fn ready_tasks_query_filters_executor_routed_tasks_for_current_agent() {
             });
         }
     }
-    prism.replace_coordination_snapshot(snapshot);
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
 
     let execution = QueryExecution::new(
         host.clone(),
@@ -12937,7 +12941,12 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
 
     let brief = host
@@ -13041,7 +13050,12 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
 
     let brief = host
@@ -13159,7 +13173,12 @@ fn compact_task_brief_suppresses_heartbeat_instruction_when_local_assistance_is_
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     assert!(prism.record_local_assisted_task_lease(&task_id, now, now.saturating_add(120),));
     let host = host_with_prism(prism);
 
@@ -13256,7 +13275,12 @@ fn compact_task_brief_exposes_authoritative_task_lease_without_claim_holders() {
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
 
     let brief = host
@@ -24822,7 +24846,12 @@ fn session_resource_surfaces_stale_current_task_context() {
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
     test_session(&host).set_current_task(
         TaskId::new(task_id.0.clone()),
@@ -24959,7 +24988,12 @@ fn session_resource_derives_coordination_binding_from_coord_task_id_for_stale_re
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
     test_session(&host).set_current_task(
         TaskId::new(task_id.0.clone()),
@@ -25065,7 +25099,12 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
         )
         .unwrap();
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(coordination.snapshot());
+    let snapshot = coordination.snapshot();
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
     test_session(&host).set_current_task(
         TaskId::new(task_id.0.clone()),
@@ -25177,7 +25216,11 @@ fn session_resource_surfaces_publish_failed_repair_action() {
         },
     }];
     let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
-    prism.replace_coordination_snapshot(snapshot);
+    prism.replace_coordination_runtime(
+        snapshot.clone(),
+        snapshot.to_canonical_snapshot_v2(),
+        Vec::new(),
+    );
     let host = host_with_prism(prism);
     test_session(&host).set_current_task(
         TaskId::new(task_id.0.clone()),

@@ -740,7 +740,7 @@ fn publish_local_assisted_lease_overlay_generation(
     // Assisted lease heartbeats are a local liveness overlay, not authoritative coordination.
     // Republish the runtime generation with the live overlay snapshot, but do not treat it as a
     // service-backed current-state application or materialization write.
-    runtime_state.replace_coordination_runtime_with_snapshot_v2(
+    runtime_state.replace_coordination_runtime(
         prism.coordination_snapshot(),
         prism.coordination_snapshot_v2(),
         prism.runtime_descriptors(),
@@ -1183,7 +1183,7 @@ pub(crate) fn sync_protected_state_watch_update(
             .replace_concept_relations(repo_knowledge.concept_relations);
     }
     if coordination_enabled && selection.reloads_coordination() {
-        next_state.replace_coordination_runtime_with_snapshot_v2(
+        next_state.replace_coordination_runtime(
             plan_state
                 .as_ref()
                 .map(|state| state.snapshot.clone())
@@ -1645,7 +1645,12 @@ mod tests {
                 },
             )
             .unwrap();
-        prism.replace_coordination_snapshot(coordination.snapshot());
+        let snapshot = coordination.snapshot();
+        prism.replace_coordination_runtime(
+            snapshot.clone(),
+            snapshot.to_canonical_snapshot_v2(),
+            Vec::new(),
+        );
 
         let mut store = MemoryStore::default();
         let worktree_id = super::workspace_identity_for_root(root.as_path()).worktree_id;
@@ -1730,7 +1735,7 @@ mod tests {
         let mut canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
         canonical_snapshot_v2.next_plan += 11;
         canonical_snapshot_v2.next_task += 5;
-        prism.replace_coordination_runtime_with_snapshot_v2(
+        prism.replace_coordination_runtime(
             snapshot,
             canonical_snapshot_v2.clone(),
             Vec::new(),
@@ -1809,7 +1814,12 @@ mod tests {
                 )
                 .unwrap();
         }
-        prism.replace_coordination_snapshot(coordination.snapshot());
+        let snapshot = coordination.snapshot();
+        prism.replace_coordination_runtime(
+            snapshot.clone(),
+            snapshot.to_canonical_snapshot_v2(),
+            Vec::new(),
+        );
 
         let event_count = prism.coordination_events().len();
         let mut store = MemoryStore::default();

@@ -41,6 +41,7 @@ The first internal follow-through slice under this phase is:
 - [2026-04-09-canonical-materialization-envelope-follow-through-phase-6.md](./2026-04-09-canonical-materialization-envelope-follow-through-phase-6.md)
 - [2026-04-09-canonical-assisted-overlay-follow-through-phase-6.md](./2026-04-09-canonical-assisted-overlay-follow-through-phase-6.md)
 - [2026-04-09-canonical-startup-checkpoint-follow-through-phase-6.md](./2026-04-09-canonical-startup-checkpoint-follow-through-phase-6.md)
+- [2026-04-09-canonical-runtime-replacement-follow-through-phase-6.md](./2026-04-09-canonical-runtime-replacement-follow-through-phase-6.md)
 
 ## 2. Required changes
 
@@ -90,6 +91,8 @@ The first internal follow-through slice under this phase is:
   of re-deriving it from the legacy continuity snapshot
 - make startup checkpoints require canonical coordination state instead of carrying an optional v2
   payload with legacy-snapshot fallback logic
+- remove legacy snapshot-only runtime replacement helpers so live runtime replacement and rollback
+  paths require canonical coordination state explicitly
 - delete legacy-only translation helpers once no active runtime path depends on them
 - keep Git-shared-ref-specific compatibility only where it is part of the explicit Git backend,
   not in backend-neutral coordination code

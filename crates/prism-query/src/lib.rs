@@ -242,35 +242,12 @@ impl Prism {
             Arc::new(history),
             Arc::new(outcomes),
             projections,
-            MaterializedCoordinationRuntime::from_snapshots_with_runtime_descriptors(
+            MaterializedCoordinationRuntime::new(
                 coordination,
                 canonical_snapshot_v2,
                 Vec::new(),
             ),
             None,
-            false,
-        )
-    }
-
-    pub fn with_shared_history_outcomes_coordination_projections_and_intent(
-        graph: Arc<Graph>,
-        history: Arc<HistoryStore>,
-        outcomes: Arc<OutcomeMemory>,
-        coordination: CoordinationSnapshot,
-        projections: ProjectionIndex,
-        runtime_descriptors: Vec<RuntimeDescriptor>,
-        intent_override: Option<IntentIndex>,
-    ) -> Self {
-        let canonical_snapshot_v2 = coordination.to_canonical_snapshot_v2();
-        Self::with_shared_history_outcomes_coordination_projections_and_query_state_v2(
-            graph,
-            history,
-            outcomes,
-            coordination,
-            canonical_snapshot_v2,
-            projections,
-            runtime_descriptors,
-            intent_override,
             false,
         )
     }
@@ -315,7 +292,7 @@ impl Prism {
             history,
             outcomes,
             projections,
-            MaterializedCoordinationRuntime::from_snapshots_with_runtime_descriptors(
+            MaterializedCoordinationRuntime::new(
                 coordination,
                 canonical_snapshot_v2,
                 runtime_descriptors,
@@ -597,29 +574,7 @@ impl Prism {
         runtime.snapshot_v2()
     }
 
-    pub fn replace_coordination_snapshot(&self, snapshot: CoordinationSnapshot) {
-        self.materialized_runtime
-            .write()
-            .expect("materialized runtime lock poisoned")
-            .replace_from_snapshot(snapshot.clone());
-        self.prune_local_assisted_leases(&snapshot);
-        self.invalidate_plan_discovery_cache();
-    }
-
     pub fn replace_coordination_runtime(
-        &self,
-        snapshot: CoordinationSnapshot,
-        runtime_descriptors: Vec<RuntimeDescriptor>,
-    ) {
-        let canonical_snapshot_v2 = snapshot.to_canonical_snapshot_v2();
-        self.replace_coordination_runtime_with_snapshot_v2(
-            snapshot,
-            canonical_snapshot_v2,
-            runtime_descriptors,
-        );
-    }
-
-    pub fn replace_coordination_runtime_with_snapshot_v2(
         &self,
         snapshot: CoordinationSnapshot,
         canonical_snapshot_v2: CoordinationSnapshotV2,
@@ -630,7 +585,7 @@ impl Prism {
             .materialized_runtime
             .write()
             .expect("materialized runtime lock poisoned");
-        runtime.replace_from_snapshots(snapshot, canonical_snapshot_v2);
+        runtime.replace(snapshot, canonical_snapshot_v2);
         runtime.replace_runtime_descriptors(runtime_descriptors);
         self.prune_local_assisted_leases(&prune_snapshot);
         self.invalidate_plan_discovery_cache();
@@ -857,13 +812,17 @@ impl Prism {
         });
     }
 
-    fn persist_coordination_snapshot(&self, snapshot: CoordinationSnapshot) -> Result<()> {
+    fn persist_coordination_runtime(
+        &self,
+        snapshot: CoordinationSnapshot,
+        canonical_snapshot_v2: CoordinationSnapshotV2,
+    ) -> Result<()> {
         {
             let mut runtime = self
                 .materialized_runtime
                 .write()
                 .expect("materialized runtime lock poisoned");
-            runtime.persist_coordination_snapshot(snapshot.clone())?;
+            runtime.persist_coordination_runtime(snapshot.clone(), canonical_snapshot_v2)?;
         }
         self.prune_local_assisted_leases(&snapshot);
         self.invalidate_plan_discovery_cache();
@@ -874,16 +833,17 @@ impl Prism {
     where
         F: FnOnce(&mut CoordinationRuntimeState) -> Result<T>,
     {
-        let (result, snapshot) = {
+        let (result, snapshot, canonical_snapshot_v2) = {
             let mut runtime = self
                 .materialized_runtime
                 .write()
                 .expect("materialized runtime lock poisoned");
             let result = mutate(runtime.continuity_runtime_mut());
             let snapshot = runtime.refresh_canonical_snapshot_v2();
-            (result, snapshot)
+            let canonical_snapshot_v2 = runtime.snapshot_v2();
+            (result, snapshot, canonical_snapshot_v2)
         };
-        self.persist_coordination_snapshot(snapshot)?;
+        self.persist_coordination_runtime(snapshot, canonical_snapshot_v2)?;
         result
     }
 
@@ -915,7 +875,10 @@ impl Prism {
                 Ok(value)
             }
             Err(error) => {
-                self.persist_coordination_snapshot(snapshot)?;
+                self.persist_coordination_runtime(
+                    snapshot.clone(),
+                    snapshot.to_canonical_snapshot_v2(),
+                )?;
                 Err(error)
             }
         }

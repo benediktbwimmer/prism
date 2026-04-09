@@ -168,7 +168,7 @@ impl WorkspaceRuntimeState {
         }
     }
 
-    pub(crate) fn replace_coordination_runtime_with_snapshot_v2(
+    pub(crate) fn replace_coordination_runtime(
         &mut self,
         snapshot: CoordinationSnapshot,
         canonical_snapshot_v2: CoordinationSnapshotV2,
