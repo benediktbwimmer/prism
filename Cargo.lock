@@ -2305,6 +2305,7 @@ dependencies = [
  "prism-ir",
  "prism-memory",
  "prism-projections",
+ "prism-spec",
  "prism-store",
  "serde",
  "serde_json",

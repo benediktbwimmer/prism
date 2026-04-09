@@ -2886,6 +2886,181 @@ fn spec_sync_create_helpers_attach_typed_spec_refs() {
 }
 
 #[test]
+fn spec_sync_helpers_refresh_coverage_and_sync_provenance_end_to_end() {
+    use prism_spec::{
+        refresh_spec_materialization, MaterializedSpecQueryEngine, SpecQueryEngine,
+        SpecQueryLookup, SqliteSpecMaterializedStore,
+    };
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static NEXT_TEMP_REPO: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_repo(label: &str) -> PathBuf {
+        let nonce = NEXT_TEMP_REPO.fetch_add(1, Ordering::Relaxed);
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("prism-query-spec-sync-{label}-{unique}-{nonce}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join(".git")).unwrap();
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+        fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+        root
+    }
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        CoordinationSnapshot::default(),
+        ProjectionIndex::default(),
+    );
+    let spec_root = temp_repo("end-to-end");
+    let spec_path = ".prism/specs/2026-04-09-alpha.md";
+    fs::create_dir_all(spec_root.join(".prism/specs")).unwrap();
+    fs::write(
+        spec_root.join(spec_path),
+        "---\n\
+id: spec:alpha\n\
+title: Alpha\n\
+status: in_progress\n\
+created: 2026-04-09\n\
+---\n\
+\n\
+- [ ] implement core flow <!-- id: item-1 -->\n\
+- [ ] validate rollout <!-- id: item-2 -->\n",
+    )
+    .unwrap();
+
+    let plan = prism
+        .create_native_plan_from_spec_transaction(
+            EventMeta {
+                id: EventId::new("coord:plan:spec-sync:e2e"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            NativeSpecPlanCreateInput {
+                title: "Ship alpha".into(),
+                goal: "Ship alpha".into(),
+                status: Some(PlanStatus::Active),
+                policy: None,
+                scheduling: None,
+                spec_ref: CoordinationSpecRef {
+                    spec_id: "spec:alpha".into(),
+                    source_path: spec_path.into(),
+                    source_revision: Some("rev-plan".into()),
+                },
+            },
+        )
+        .expect("spec-linked plan create should succeed");
+    let task = prism
+        .create_native_task_from_spec_transaction(
+            EventMeta {
+                id: EventId::new("coord:task:spec-sync:e2e"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            NativeSpecTaskCreateInput {
+                task: TaskCreateInput {
+                    plan_id: plan.plan_id.clone(),
+                    title: "Implement alpha".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision::default(),
+                    spec_refs: Vec::new(),
+                },
+                spec_ref: CoordinationTaskSpecRef {
+                    spec_id: "spec:alpha".into(),
+                    source_path: spec_path.into(),
+                    source_revision: Some("rev-task".into()),
+                    sync_kind: "task".into(),
+                    covered_checklist_items: vec!["spec:alpha::checklist::item-1".into()],
+                    covered_sections: Vec::new(),
+                },
+            },
+        )
+        .expect("spec-linked task create should succeed");
+
+    let store = SqliteSpecMaterializedStore::new(&spec_root.join(".tmp/spec-materialized.db"));
+    let refresh =
+        refresh_spec_materialization(&store, &spec_root, Some(prism.coordination_snapshot()))
+            .expect("spec refresh should succeed");
+    assert!(refresh.diagnostics.is_empty());
+
+    let engine = MaterializedSpecQueryEngine::new(&store);
+
+    match engine.coverage("spec:alpha").unwrap() {
+        SpecQueryLookup::Found(view) => {
+            assert_eq!(view.records.len(), 2);
+            assert_eq!(
+                view.records
+                    .iter()
+                    .map(|record| record.coverage_kind.as_str())
+                    .collect::<Vec<_>>(),
+                vec!["represented", "uncovered"]
+            );
+            assert_eq!(
+                view.records[0].checklist_item_id,
+                "spec:alpha::checklist::item-1"
+            );
+            assert_eq!(
+                view.records[0].coordination_ref.as_deref(),
+                Some(task.task_id.0.as_str())
+            );
+            assert_eq!(
+                view.records[1].checklist_item_id,
+                "spec:alpha::checklist::item-2"
+            );
+            assert_eq!(view.records[1].coordination_ref, None);
+        }
+        SpecQueryLookup::NotFound => panic!("expected coverage view"),
+    }
+
+    match engine.sync_provenance("spec:alpha").unwrap() {
+        SpecQueryLookup::Found(view) => {
+            assert_eq!(view.records.len(), 2);
+            assert_eq!(view.records[0].target_coordination_ref, task.task_id.0);
+            assert_eq!(view.records[0].sync_kind, "task");
+            assert_eq!(
+                view.records[0].covered_checklist_items,
+                vec!["spec:alpha::checklist::item-1"]
+            );
+            assert_eq!(view.records[1].target_coordination_ref, plan.plan_id.0);
+            assert_eq!(view.records[1].sync_kind, "plan");
+        }
+        SpecQueryLookup::NotFound => panic!("expected sync provenance view"),
+    }
+
+    match engine.sync_brief("spec:alpha").unwrap() {
+        SpecQueryLookup::Found(view) => {
+            assert_eq!(view.required_checklist_items.len(), 2);
+            assert_eq!(view.coverage.len(), 2);
+            assert_eq!(view.linked_coordination_refs.len(), 2);
+        }
+        SpecQueryLookup::NotFound => panic!("expected sync brief"),
+    }
+}
+
+#[test]
 fn ready_tasks_for_executor_filters_by_executor_policy() {
     let graph = Graph::new();
     let history = HistoryStore::new();

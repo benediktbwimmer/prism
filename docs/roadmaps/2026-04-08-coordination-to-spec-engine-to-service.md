@@ -57,13 +57,13 @@ Current phase checklist:
 - [x] Phase 10: implement SpecQueryEngine fully
 - [x] Phase 11: implement explicit spec-coordination linking and sync provenance
 - [x] Phase 12: implement SpecCoverageView fully
-- [ ] Phase 13: implement explicit spec-to-coordination sync actions
+- [x] Phase 13: implement explicit spec-to-coordination sync actions
 - [ ] Phase 14: expose the spec engine fully through CLI, MCP, and UI
 - [ ] Phase 15: implement the remaining PRISM Service roles and release deployment modes
 
 Current active phase:
 
-- Phase 13: implement explicit spec-to-coordination sync actions
+- Phase 14: expose the spec engine fully through CLI, MCP, and UI
 
 Current phase spec:
 
@@ -85,14 +85,16 @@ Current phase spec:
   [../specs/2026-04-09-spec-engine-local-materialization-phase-9.md](../specs/2026-04-09-spec-engine-local-materialization-phase-9.md)
 - Phase 10 prerequisite:
   [../specs/2026-04-09-spec-engine-crate-extraction-pre-phase-10.md](../specs/2026-04-09-spec-engine-crate-extraction-pre-phase-10.md)
-- Phase 10 active:
+- Phase 10 completed:
   [../specs/2026-04-09-spec-query-engine-phase-10.md](../specs/2026-04-09-spec-query-engine-phase-10.md)
-- Phase 11 active:
+- Phase 11 completed:
   [../specs/2026-04-09-spec-coordination-linking-and-sync-provenance-phase-11.md](../specs/2026-04-09-spec-coordination-linking-and-sync-provenance-phase-11.md)
-- Phase 12 active:
+- Phase 12 completed:
   [../specs/2026-04-09-spec-coverage-phase-12.md](../specs/2026-04-09-spec-coverage-phase-12.md)
-- Phase 13 active:
+- Phase 13 completed:
   [../specs/2026-04-09-spec-sync-actions-phase-13.md](../specs/2026-04-09-spec-sync-actions-phase-13.md)
+- Phase 14 active:
+  [../specs/2026-04-09-spec-engine-surfaces-phase-14.md](../specs/2026-04-09-spec-engine-surfaces-phase-14.md)
 
 ## 3. Ordering thesis
 
@@ -403,6 +405,12 @@ Implement:
 Exit criteria:
 
 - the intent to execution to coverage loop is operational through explicit actions
+
+Current assessment:
+
+- completed by the bounded sync brief, explicit spec-aware plan and task sync helpers in
+  `prism-query`, and end-to-end refresh validation showing that sync-created links feed native
+  coverage and sync provenance views
 
 ### Phase 14: Expose the spec engine fully through CLI, MCP, and UI
 

@@ -1,6 +1,6 @@
 # Spec Sync Actions Phase 13
 
-Status: in progress
+Status: completed
 Audience: spec-engine, coordination, query, MCP, CLI, and agent-execution maintainers
 Scope: implement explicit spec-to-coordination sync actions that let agents and users create or extend authoritative coordination state from native specs while preserving stable sync provenance
 
@@ -33,6 +33,10 @@ Current state:
 - [ ] coordination objects linked to specs are still authored only through lower-level mutation
   inputs
 - [x] a canonical sync brief now exists for agent-facing sync decisions
+- [x] explicit spec-aware plan and task sync helpers now route through the canonical coordination
+  transaction protocol
+- [x] end-to-end refresh now proves that sync-created links feed deterministic coverage and sync
+  provenance views
 
 Current slice notes:
 
@@ -173,6 +177,10 @@ Exit criteria:
 
 - sync actions participate cleanly in the existing native spec loop
 
+Status:
+
+- [x] complete
+
 ## 9. Validation
 
 Minimum validation for this phase:
@@ -203,6 +211,6 @@ This phase is complete only when:
 - [x] Add a deterministic sync-brief query surface
 - [x] Add explicit plan/task sync actions
 - [x] Preserve exact checklist-item and revision provenance
-- [ ] Validate end-to-end coverage/provenance refresh after sync
-- [ ] Validate affected crates and direct downstream dependents
-- [ ] Update roadmap/spec status as slices land
+- [x] Validate end-to-end coverage/provenance refresh after sync
+- [x] Validate affected crates and direct downstream dependents
+- [x] Update roadmap/spec status as slices land
