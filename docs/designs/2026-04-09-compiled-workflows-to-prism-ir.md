@@ -26,6 +26,7 @@ This gives PRISM:
 - explicit inspectable graph structure
 - deterministic execution semantics
 - strong provenance over compiled artifacts
+- compiled IR as the reviewable and operational truth
 - lightweight service behavior
 - no arbitrary workflow code running in the service hot path
 
@@ -117,7 +118,71 @@ It should contain explicit PRISM-native structure such as:
 - execution metadata
 - provenance to the workflow source and compiled artifact
 
-## 5. Why compile to PRISM-native IR instead of reusing a workflow state machine directly
+The compiled IR is the default operational surface that PRISM should persist, review, render,
+query, and execute.
+
+## 5. Definition, compiled artifact, and instance
+
+This design should keep three concepts distinct.
+
+### 5.1 Workflow definition
+
+This is the authored source form.
+
+Examples:
+
+- JS or TS workflow-definition code
+- generated plan-definition source
+- later declarative workflow-definition input
+
+### 5.2 Compiled artifact
+
+This is the compiler output for a specific workflow definition revision and parameterization shape.
+
+It contains:
+
+- compiler metadata
+- source provenance
+- compiled artifact hash
+- explicit PRISM-native IR
+
+This is the reviewable and renderable workflow truth that PRISM should pin and inspect by default.
+
+### 5.3 Plan instance
+
+This is a concrete instantiated graph produced from the compiled artifact.
+
+It carries:
+
+- bound inputs
+- current execution state
+- produced outputs and evidence
+- lineage and provenance back to the compiled artifact and authored definition
+
+## 6. Control flow in compiled IR
+
+Compiled IR does not need to mean that every possible branch is flattened into only static leaf
+nodes and plain edges.
+
+The compiler may emit explicit IR-level control structures such as:
+
+- typed conditions
+- fan-out or fan-in constructs
+- joins
+- bounded map-like expansion constructs
+
+The key rule is that these remain:
+
+- explicit
+- typed
+- inspectable
+- queryable
+- free of arbitrary guest code at execution time
+
+This keeps branching and richer workflow structure available without turning the service into a
+workflow-code interpreter.
+
+## 7. Why compile to PRISM-native IR instead of reusing a workflow state machine directly
 
 PRISM should borrow the compiler architecture and the code-authored workflow idea aggressively.
 
@@ -134,7 +199,7 @@ The reason is that PRISM’s center of gravity is still:
 So the compiler target should remain PRISM-native and graph-shaped rather than replacing the graph
 with a generic workflow runtime abstraction.
 
-## 6. Relationship to existing PRISM designs
+## 8. Relationship to existing PRISM designs
 
 This design builds directly on:
 
@@ -151,7 +216,7 @@ The intended stack is:
 - shared execution substrate beneath Actions, validation, and event jobs
 - JS or TS-authored workflow definitions compiled into the native graph IR that these systems use
 
-## 7. Compiler output requirements
+## 9. Compiler output requirements
 
 The compiled artifact should be explicit, stable, and inspectable.
 
@@ -173,7 +238,7 @@ This gives PRISM:
 - reviewable compiled output
 - query and UI affordances that can refer back to authored source
 
-## 8. Source and instance provenance
+## 10. Source and instance provenance
 
 PRISM should be able to answer:
 
@@ -189,7 +254,7 @@ This is especially important for:
 - plan-template reuse
 - spec-to-workflow lineage
 
-## 9. Relationship to the native spec engine
+## 11. Relationship to the native spec engine
 
 This direction makes the native spec engine stronger.
 
@@ -208,7 +273,7 @@ That is a strong stack:
 - workflow code as ergonomic authoring
 - PRISM IR as deterministic execution substrate
 
-## 10. Why not replace the PRISM Service authority model with an append-log runtime
+## 12. Why not replace the PRISM Service authority model with an append-log runtime
 
 Compiled workflow authoring is highly compatible with PRISM.
 
@@ -228,7 +293,7 @@ So the long-term model should be:
 - compiled workflows are adopted
 - DB-backed coordination authority remains the system truth
 
-## 11. Future optimization: runtime-executed machine-only subgraphs
+## 13. Future optimization: runtime-executed machine-only subgraphs
 
 There is one important future optimization path that this design should explicitly preserve.
 
@@ -256,7 +321,7 @@ This is explicitly a **future optimization goal only if demand justifies it**.
 
 It should not be a v1 requirement.
 
-## 12. Recommended boundaries
+## 14. Recommended boundaries
 
 PRISM should keep these boundaries strict:
 
@@ -297,7 +362,7 @@ Runtime-executed machine-only subgraph optimization should remain:
 
 The service must still own coordination truth.
 
-## 13. Recommended rollout
+## 15. Recommended rollout
 
 ### Phase 1
 
@@ -320,7 +385,7 @@ Integrate spec-driven planning with workflow-definition authoring and compilatio
 Only later, if demand justifies it, add a fast runtime-executed lane for bounded machine-only
 subgraphs.
 
-## 14. Recommendation
+## 16. Recommendation
 
 PRISM should evolve toward JS or TS-authored workflows compiled into explicit PRISM-native IR.
 
