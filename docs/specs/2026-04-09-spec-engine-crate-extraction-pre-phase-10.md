@@ -1,6 +1,6 @@
 # Spec Engine Crate Extraction Pre-Phase 10
 
-Status: draft
+Status: completed
 Audience: spec-engine, core, query, MCP, CLI, and storage maintainers
 Scope: extract the native spec-engine parser and materialized-store seams from `prism-core` into a dedicated crate so Phase 10 can add a clean `SpecQueryEngine` without cross-crate layering violations
 
@@ -33,14 +33,15 @@ Current state:
 
 - [x] Phase 8 parser and identity layer exists
 - [x] Phase 9 local spec materialization layer exists
-- [ ] spec-engine code still lives in `prism-core`
-- [ ] no dedicated spec-engine crate exists
-- [ ] Phase 10 query work would currently cross crate boundaries awkwardly
+- [x] spec-engine code now lives in `prism-spec`
+- [x] dedicated `prism-spec` crate exists
+- [x] Phase 10 query work can proceed without cross-crate layering violations
 
 Current slice notes:
 
 - this is intentionally a small pre-Phase-10 restructure, not a broad workspace reorganization
 - the extraction should preserve behavior while improving ownership
+- completed by extracting spec discovery, parsing, and materialization into `crates/prism-spec`
 
 ## 3. Related roadmap
 
@@ -182,9 +183,9 @@ This extraction is complete only when:
 
 ## 11. Implementation checklist
 
-- [ ] Create `prism-spec`
-- [ ] Move spec discovery/parser/types into `prism-spec`
-- [ ] Move spec materialized-store seam into `prism-spec`
-- [ ] Rewire `prism-core` to the new crate
-- [ ] Validate changed crates and direct downstream dependents
-- [ ] Update roadmap/spec status as slices land
+- [x] Create `prism-spec`
+- [x] Move spec discovery/parser/types into `prism-spec`
+- [x] Move spec materialized-store seam into `prism-spec`
+- [x] Rewire `prism-core` to the new crate
+- [x] Validate changed crates and direct downstream dependents
+- [x] Update roadmap/spec status as slices land

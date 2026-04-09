@@ -5,8 +5,6 @@ use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 use walkdir::WalkDir;
 
-use crate::PrismPaths;
-
 use super::types::{DiscoveredSpecSource, SpecRootResolution, SpecRootSource};
 
 const DEFAULT_SPEC_ROOT: &str = ".prism/specs";
@@ -22,8 +20,7 @@ pub fn resolve_spec_root(root: &Path) -> Result<SpecRootResolution> {
     let repo_root = root
         .canonicalize()
         .unwrap_or_else(|_| root.to_path_buf());
-    let paths = PrismPaths::for_workspace_root(&repo_root)?;
-    let config_path = paths.spec_engine_config_path();
+    let config_path = repo_root.join(SPEC_ENGINE_CONFIG_PATH);
     if !config_path.exists() {
         let configured_root = PathBuf::from(DEFAULT_SPEC_ROOT);
         return Ok(SpecRootResolution {
@@ -142,7 +139,6 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{discover_spec_sources, resolve_spec_root, SpecRootSource};
-    use crate::prism_paths::set_test_prism_home_override;
 
     static NEXT_TEMP_REPO: AtomicU64 = AtomicU64::new(0);
 
@@ -170,8 +166,6 @@ mod tests {
     fn resolve_spec_root_uses_default_when_config_is_missing() {
         let root = temp_repo("default-root");
         let canonical_root = root.canonicalize().unwrap();
-        let home = temp_repo("default-home");
-        let _guard = set_test_prism_home_override(&home);
 
         let resolution = resolve_spec_root(&root).unwrap();
         assert_eq!(resolution.source, SpecRootSource::Default);
@@ -184,8 +178,6 @@ mod tests {
     fn resolve_spec_root_reads_repo_override_config() {
         let root = temp_repo("override-root");
         let canonical_root = root.canonicalize().unwrap();
-        let home = temp_repo("override-home");
-        let _guard = set_test_prism_home_override(&home);
         write_spec_config(&root, "{\n  \"root\": \"docs/specs\"\n}\n");
 
         let resolution = resolve_spec_root(&root).unwrap();
@@ -201,8 +193,6 @@ mod tests {
     #[test]
     fn resolve_spec_root_rejects_repo_escape() {
         let root = temp_repo("escape-root");
-        let home = temp_repo("escape-home");
-        let _guard = set_test_prism_home_override(&home);
         write_spec_config(&root, "{\n  \"root\": \"../outside\"\n}\n");
 
         let error = resolve_spec_root(&root).unwrap_err().to_string();
@@ -212,8 +202,6 @@ mod tests {
     #[test]
     fn resolve_spec_root_rejects_absolute_paths() {
         let root = temp_repo("absolute-root");
-        let home = temp_repo("absolute-home");
-        let _guard = set_test_prism_home_override(&home);
         write_spec_config(&root, "{\n  \"root\": \"/tmp/specs\"\n}\n");
 
         let error = resolve_spec_root(&root).unwrap_err().to_string();
@@ -223,8 +211,6 @@ mod tests {
     #[test]
     fn discover_spec_sources_returns_sorted_markdown_files_only() {
         let root = temp_repo("discovery-root");
-        let home = temp_repo("discovery-home");
-        let _guard = set_test_prism_home_override(&home);
         write_spec_config(&root, "{\n  \"root\": \"docs/specs\"\n}\n");
         fs::create_dir_all(root.join("docs/specs/nested")).unwrap();
         fs::write(root.join("docs/specs/b.md"), "# b\n").unwrap();
@@ -247,8 +233,6 @@ mod tests {
     #[test]
     fn discover_spec_sources_returns_empty_when_root_is_missing() {
         let root = temp_repo("missing-root");
-        let home = temp_repo("missing-home");
-        let _guard = set_test_prism_home_override(&home);
 
         let discovered = discover_spec_sources(&root).unwrap();
         assert!(discovered.is_empty());

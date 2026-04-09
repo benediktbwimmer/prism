@@ -52,8 +52,8 @@ Current phase checklist:
 - [x] Phase 5: cut over service-backed coordination runtime and product surfaces
 - [x] Phase 6: trust-family cleanup and centralization
 - [x] Phase 7: freeze coordination as the base platform
-- [ ] Phase 8: implement spec engine source, parser, and identity model
-- [ ] Phase 9: implement spec local materialization
+- [x] Phase 8: implement spec engine source, parser, and identity model
+- [x] Phase 9: implement spec local materialization
 - [ ] Phase 10: implement SpecQueryEngine fully
 - [ ] Phase 11: implement explicit spec-coordination linking and sync provenance
 - [ ] Phase 12: implement SpecCoverageView fully
@@ -63,7 +63,7 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 8: implement spec engine source, parser, and identity model
+- Phase 10: implement SpecQueryEngine fully
 
 Current phase spec:
 

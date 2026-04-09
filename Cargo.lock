@@ -2091,6 +2091,7 @@ dependencies = [
  "prism-parser",
  "prism-projections",
  "prism-query",
+ "prism-spec",
  "prism-store",
  "rand 0.8.5",
  "rusqlite",
@@ -2308,6 +2309,19 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+]
+
+[[package]]
+name = "prism-spec"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "walkdir",
 ]
 
 [[package]]

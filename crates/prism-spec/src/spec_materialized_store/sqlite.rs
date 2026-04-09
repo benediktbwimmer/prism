@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use rusqlite::{params, Connection};
@@ -10,27 +11,27 @@ use super::types::{
     SpecMaterializedReplaceRequest, SpecMaterializedWriteResult, StoredSpecChecklistPosture,
     StoredSpecDependencyPosture, StoredSpecDependencyRecord, StoredSpecStatusRecord,
 };
-use crate::prism_paths::PrismPaths;
-use crate::util::current_timestamp_millis;
 use crate::{
     ParsedSpecDocument, SpecChecklistIdentitySource, SpecChecklistItem,
     SpecChecklistRequirementLevel, SpecDeclaredStatus,
 };
 
 pub struct SqliteSpecMaterializedStore {
-    root: PathBuf,
+    db_path: PathBuf,
 }
 
 impl SqliteSpecMaterializedStore {
-    pub fn new(root: &Path) -> Self {
+    pub fn new(db_path: &Path) -> Self {
         Self {
-            root: root.to_path_buf(),
+            db_path: db_path.to_path_buf(),
         }
     }
 
     fn open_connection(&self) -> Result<Connection> {
-        let path = PrismPaths::for_workspace_root(&self.root)?.worktree_cache_db_path()?;
-        let conn = Connection::open(path)?;
+        if let Some(parent) = self.db_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let conn = Connection::open(&self.db_path)?;
         self.ensure_schema(&conn)?;
         Ok(conn)
     }
@@ -467,6 +468,13 @@ impl SpecMaterializedStore for SqliteSpecMaterializedStore {
     }
 }
 
+fn current_timestamp_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock should be after unix epoch")
+        .as_millis() as u64
+}
+
 fn derive_status_records(parsed: &[ParsedSpecDocument]) -> Vec<StoredSpecStatusRecord> {
     let checklist_complete = parsed
         .iter()
@@ -570,7 +578,6 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::SqliteSpecMaterializedStore;
-    use crate::prism_paths::set_test_prism_home_override;
     use crate::{
         discover_spec_sources, parse_spec_sources, SpecMaterializedClearRequest,
         SpecMaterializedReplaceRequest, SpecMaterializedStore,
@@ -602,8 +609,6 @@ mod tests {
     #[test]
     fn sqlite_spec_materialized_store_replaces_and_reads_parsed_batch() {
         let root = temp_repo("replace");
-        let home = temp_repo("replace-home");
-        let _guard = set_test_prism_home_override(&home);
         write_spec(
             &root,
             ".prism/specs/2026-04-09-a.md",
@@ -619,7 +624,7 @@ mod tests {
         let parsed = parse_spec_sources(&discovered);
         assert!(parsed.diagnostics.is_empty());
 
-        let store = SqliteSpecMaterializedStore::new(&root);
+        let store = SqliteSpecMaterializedStore::new(&root.join(".tmp/spec-materialized.db"));
         let write_result = store
             .replace_materialization(SpecMaterializedReplaceRequest {
                 parsed: parsed.parsed.clone(),
@@ -659,8 +664,6 @@ mod tests {
     #[test]
     fn sqlite_spec_materialized_store_clear_removes_persisted_state() {
         let root = temp_repo("clear");
-        let home = temp_repo("clear-home");
-        let _guard = set_test_prism_home_override(&home);
         write_spec(
             &root,
             ".prism/specs/2026-04-09-a.md",
@@ -669,7 +672,7 @@ mod tests {
 
         let discovered = discover_spec_sources(&root).unwrap();
         let parsed = parse_spec_sources(&discovered);
-        let store = SqliteSpecMaterializedStore::new(&root);
+        let store = SqliteSpecMaterializedStore::new(&root.join(".tmp/spec-materialized.db"));
         store
             .replace_materialization(SpecMaterializedReplaceRequest {
                 parsed: parsed.parsed,

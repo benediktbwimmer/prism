@@ -20,6 +20,7 @@ members = [
     "crates/prism-projections",
     "crates/prism-query",
     "crates/prism-store",
+    "crates/prism-spec",
 ]
 resolver = "2"
 
