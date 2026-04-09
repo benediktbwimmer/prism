@@ -43,7 +43,9 @@ Current state:
 - [x] the current host process now exposes an explicit workspace service shell plus initial
   authority-sync, read-broker, and mutation-broker owners
 - [x] SQLite authority now exists behind the settled authority-store contract
-- [ ] runtime gateway and event engine remain future service work
+- [x] runtime gateway foundation is complete
+- [x] event-engine foundation is complete
+- [ ] authoritative event-execution storage and mutation remain future service work
 
 Current slice notes:
 
@@ -57,6 +59,8 @@ Current slice notes:
 - local service-hosted coordination now defaults to repo-scoped SQLite authority
 - explicit daemon and bridge flags can still select Git shared refs or Postgres authority
 - repo-local service configuration may also select the authority backend via `.prism/service.json`
+- later Phase 15 slices now build out the dedicated event-engine namespace and richer service-role
+  behavior on top of this completed foundation
 
 ## 3. Related roadmap
 
