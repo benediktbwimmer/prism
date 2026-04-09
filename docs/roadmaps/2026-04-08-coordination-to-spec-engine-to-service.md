@@ -83,6 +83,8 @@ Current phase spec:
   [../specs/2026-04-09-spec-engine-source-parser-identity-phase-8.md](../specs/2026-04-09-spec-engine-source-parser-identity-phase-8.md)
 - Phase 9 completed:
   [../specs/2026-04-09-spec-engine-local-materialization-phase-9.md](../specs/2026-04-09-spec-engine-local-materialization-phase-9.md)
+- Phase 10 prerequisite:
+  [../specs/2026-04-09-spec-engine-crate-extraction-pre-phase-10.md](../specs/2026-04-09-spec-engine-crate-extraction-pre-phase-10.md)
 
 ## 3. Ordering thesis
 
