@@ -45,6 +45,7 @@ mod resolution;
 pub mod runtime_engine;
 mod session;
 mod session_bootstrap;
+#[allow(dead_code)]
 mod shared_coordination_ref;
 mod shared_coordination_schema;
 mod shared_runtime;

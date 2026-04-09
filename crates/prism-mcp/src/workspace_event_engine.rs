@@ -60,10 +60,6 @@ impl WorkspaceEventEngine {
         &self.workspace_root
     }
 
-    pub(crate) fn read_broker(&self) -> &WorkspaceReadBroker {
-        self._read_broker.as_ref()
-    }
-
     pub(crate) fn apply_event_execution_transition(
         &self,
         request: EventExecutionTransitionRequest,

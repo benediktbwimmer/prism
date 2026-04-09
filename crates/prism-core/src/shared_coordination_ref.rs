@@ -3935,9 +3935,8 @@ mod tests {
         WorkClaim,
     };
     use prism_ir::{
-        ClaimId, ClaimMode, ClaimStatus, CoordinationTaskId, CoordinationTaskStatus, EventActor,
-        EventId, EventMeta, PlanId, PlanKind, PlanScope, PlanStatus, SessionId, TaskId,
-        WorkspaceRevision,
+        ClaimId, ClaimMode, ClaimStatus, CoordinationTaskId, CoordinationTaskStatus, PlanId,
+        PlanKind, PlanScope, PlanStatus, SessionId, WorkspaceRevision,
     };
     use prism_store::{CoordinationCheckpointStore, CoordinationStartupCheckpoint, MemoryStore};
 
@@ -3948,7 +3947,6 @@ mod tests {
         SharedCoordinationRefLiveSync,
     };
     use crate::coordination_startup_checkpoint::load_persisted_coordination_plan_state;
-    use crate::index_workspace_session;
     use crate::published_plans::load_authoritative_coordination_plan_state;
     use crate::tracked_snapshot::TrackedSnapshotPublishContext;
     use crate::util::current_timestamp;
