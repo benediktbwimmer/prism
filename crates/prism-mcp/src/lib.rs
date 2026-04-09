@@ -5,9 +5,11 @@ use prism_coordination::{
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, CoordinationSnapshotV2,
 };
 use prism_core::{
-    default_workspace_shared_runtime, hydrate_workspace_session_with_options,
-    ActiveWorkContextBinding, PrismRuntimeMode, SharedRuntimeBackend, WorkspaceSession,
-    WorkspaceSessionOptions,
+    configured_coordination_authority_store_provider, default_workspace_shared_runtime,
+    hydrate_workspace_session_with_options, resolve_coordination_authority_store_provider,
+    ActiveWorkContextBinding, CoordinationAuthorityBackendConfig,
+    CoordinationAuthorityStoreProvider, PrismPaths, PrismRuntimeMode, SharedRuntimeBackend,
+    WorkspaceSession, WorkspaceSessionOptions,
 };
 use prism_ir::{EventId, TaskId};
 use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
@@ -285,6 +287,12 @@ pub struct PrismMcpCli {
     pub daemon_log: Option<PathBuf>,
     #[arg(long = "shared-runtime-uri")]
     pub shared_runtime_uri: Option<String>,
+    #[arg(long = "coordination-authority-backend", value_enum)]
+    pub coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
+    #[arg(long = "coordination-authority-sqlite-db")]
+    pub coordination_authority_sqlite_db: Option<PathBuf>,
+    #[arg(long = "coordination-authority-postgres-url")]
+    pub coordination_authority_postgres_url: Option<String>,
     #[arg(long = "restart-nonce", hide = true)]
     pub restart_nonce: Option<String>,
     #[arg(long = "daemon-start-timeout-ms")]
@@ -313,6 +321,14 @@ pub enum PrismRuntimeModeArg {
     Full,
     CoordinationOnly,
     KnowledgeStorage,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "snake_case")]
+pub enum CoordinationAuthorityBackendArg {
+    GitSharedRefs,
+    Sqlite,
+    Postgres,
 }
 
 impl From<PrismRuntimeModeArg> for PrismRuntimeMode {
@@ -355,6 +371,46 @@ impl PrismMcpCli {
             features.query_views.apply(*flag, false);
         }
         features
+    }
+
+    pub fn coordination_authority_store_provider(
+        &self,
+        root: &Path,
+    ) -> Result<CoordinationAuthorityStoreProvider> {
+        resolve_coordination_authority_store_provider(
+            root,
+            self.coordination_authority_override(root)?,
+        )
+    }
+
+    fn coordination_authority_override(
+        &self,
+        root: &Path,
+    ) -> Result<Option<CoordinationAuthorityBackendConfig>> {
+        let Some(backend) = self.coordination_authority_backend else {
+            return Ok(None);
+        };
+        Ok(Some(match backend {
+            CoordinationAuthorityBackendArg::GitSharedRefs => {
+                CoordinationAuthorityBackendConfig::GitSharedRefs
+            }
+            CoordinationAuthorityBackendArg::Sqlite => {
+                let db_path = match &self.coordination_authority_sqlite_db {
+                    Some(path) if path.is_absolute() => path.clone(),
+                    Some(path) => root.join(path),
+                    None => {
+                        PrismPaths::for_workspace_root(root)?.coordination_authority_db_path()?
+                    }
+                };
+                CoordinationAuthorityBackendConfig::Sqlite { db_path }
+            }
+            CoordinationAuthorityBackendArg::Postgres => {
+                let connection_url = self.coordination_authority_postgres_url.clone().ok_or_else(
+                    || anyhow!("--coordination-authority-postgres-url is required for postgres backend"),
+                )?;
+                CoordinationAuthorityBackendConfig::Postgres { connection_url }
+            }
+        }))
     }
 
     fn http_uri_file_path(&self, root: &Path) -> Result<PathBuf> {
@@ -438,6 +494,24 @@ impl PrismMcpCli {
             args.push("--shared-runtime-uri".to_string());
             args.push(uri.clone());
         }
+        if let Some(backend) = self.coordination_authority_backend {
+            args.push("--coordination-authority-backend".to_string());
+            args.push(
+                backend
+                    .to_possible_value()
+                    .expect("value enum")
+                    .get_name()
+                    .to_string(),
+            );
+        }
+        if let Some(db_path) = &self.coordination_authority_sqlite_db {
+            args.push("--coordination-authority-sqlite-db".to_string());
+            args.push(db_path.display().to_string());
+        }
+        if let Some(connection_url) = &self.coordination_authority_postgres_url {
+            args.push("--coordination-authority-postgres-url".to_string());
+            args.push(connection_url.clone());
+        }
         if let Some(restart_nonce) = &self.restart_nonce {
             args.push("--restart-nonce".to_string());
             args.push(restart_nonce.clone());
@@ -512,6 +586,22 @@ impl PrismMcpServer {
         shared_runtime: SharedRuntimeBackend,
     ) -> Result<Self> {
         let root = root.as_ref();
+        let authority_store_provider = configured_coordination_authority_store_provider(root)?;
+        Self::from_workspace_with_features_shared_runtime_and_authority_provider(
+            root,
+            features,
+            shared_runtime,
+            authority_store_provider,
+        )
+    }
+
+    pub fn from_workspace_with_features_shared_runtime_and_authority_provider(
+        root: impl AsRef<Path>,
+        features: PrismMcpFeatures,
+        shared_runtime: SharedRuntimeBackend,
+        authority_store_provider: CoordinationAuthorityStoreProvider,
+    ) -> Result<Self> {
+        let root = root.as_ref();
         git_support::ensure_repo_git_support_for_runtime(root);
         let started = std::time::Instant::now();
         info!(
@@ -558,7 +648,13 @@ impl PrismMcpServer {
                 "failed to update prism runtime state after building the workspace server"
             );
         }
-        Ok(Self::with_session_and_features(session, features))
+        Ok(
+            Self::with_session_and_features_and_authority_store_provider(
+                session,
+                features,
+                authority_store_provider,
+            ),
+        )
     }
 
     pub fn new(prism: Prism) -> Self {
@@ -608,7 +704,15 @@ impl PrismMcpServer {
         session: WorkspaceSession,
         features: PrismMcpFeatures,
     ) -> Self {
-        Self::with_session_limits_and_features(session, QueryLimits::default(), features)
+        let authority_store_provider =
+            configured_coordination_authority_store_provider(session.root())
+                .unwrap_or_else(|_| CoordinationAuthorityStoreProvider::default());
+        Self::with_session_limits_features_and_authority_store_provider(
+            session,
+            QueryLimits::default(),
+            features,
+            authority_store_provider,
+        )
     }
 
     pub fn with_session_limits_and_features(
@@ -616,9 +720,51 @@ impl PrismMcpServer {
         limits: QueryLimits,
         features: PrismMcpFeatures,
     ) -> Self {
-        let host = Arc::new(QueryHost::with_session_and_limits_and_features(
-            session, limits, features,
-        ));
+        let authority_store_provider =
+            configured_coordination_authority_store_provider(session.root())
+                .unwrap_or_else(|_| CoordinationAuthorityStoreProvider::default());
+        let host = Arc::new(
+            QueryHost::with_session_limits_features_and_authority_store_provider(
+                session,
+                limits,
+                features,
+                authority_store_provider,
+            ),
+        );
+        Self {
+            tool_router: Self::build_tool_router(),
+            session: host.new_session_state(),
+            host,
+        }
+    }
+
+    pub fn with_session_and_features_and_authority_store_provider(
+        session: WorkspaceSession,
+        features: PrismMcpFeatures,
+        authority_store_provider: CoordinationAuthorityStoreProvider,
+    ) -> Self {
+        Self::with_session_limits_features_and_authority_store_provider(
+            session,
+            QueryLimits::default(),
+            features,
+            authority_store_provider,
+        )
+    }
+
+    pub fn with_session_limits_features_and_authority_store_provider(
+        session: WorkspaceSession,
+        limits: QueryLimits,
+        features: PrismMcpFeatures,
+        authority_store_provider: CoordinationAuthorityStoreProvider,
+    ) -> Self {
+        let host = Arc::new(
+            QueryHost::with_session_limits_features_and_authority_store_provider(
+                session,
+                limits,
+                features,
+                authority_store_provider,
+            ),
+        );
         Self {
             tool_router: Self::build_tool_router(),
             session: host.new_session_state(),
@@ -797,25 +943,29 @@ impl QueryHost {
         limits: QueryLimits,
         features: PrismMcpFeatures,
     ) -> Self {
-        Self::with_session_limits_features_and_worker_count(
+        let authority_store_provider =
+            configured_coordination_authority_store_provider(workspace.root())
+                .unwrap_or_else(|_| CoordinationAuthorityStoreProvider::default());
+        Self::with_session_limits_features_and_authority_store_provider(
             workspace,
             limits,
             features,
-            default_query_worker_pool(),
+            authority_store_provider,
         )
     }
 
-    fn with_session_limits_features_and_worker_count(
+    fn with_session_limits_features_and_authority_store_provider(
         workspace: WorkspaceSession,
         limits: QueryLimits,
         features: PrismMcpFeatures,
-        worker_pool: JsWorkerPool,
+        authority_store_provider: CoordinationAuthorityStoreProvider,
     ) -> Self {
         Self::with_workspace_arc_limits_features_and_worker_count(
             Arc::new(workspace),
             limits,
             features,
-            worker_pool,
+            authority_store_provider,
+            default_query_worker_pool(),
         )
     }
 
@@ -825,10 +975,14 @@ impl QueryHost {
         limits: QueryLimits,
         features: PrismMcpFeatures,
     ) -> Self {
+        let authority_store_provider =
+            configured_coordination_authority_store_provider(workspace.root())
+                .unwrap_or_else(|_| CoordinationAuthorityStoreProvider::default());
         Self::with_workspace_arc_limits_features_and_worker_count(
             workspace,
             limits,
             features,
+            authority_store_provider,
             default_query_worker_pool(),
         )
     }
@@ -837,6 +991,7 @@ impl QueryHost {
         workspace: Arc<WorkspaceSession>,
         limits: QueryLimits,
         features: PrismMcpFeatures,
+        authority_store_provider: CoordinationAuthorityStoreProvider,
         worker_pool: JsWorkerPool,
     ) -> Self {
         let prism = workspace.prism_arc();
@@ -851,6 +1006,7 @@ impl QueryHost {
             Arc::clone(&inferred_edges),
             Arc::clone(&diagnostics_state),
             Arc::clone(&mcp_call_log_store),
+            authority_store_provider,
             &features,
         ));
         Self {
@@ -1010,6 +1166,13 @@ impl QueryHost {
     ) -> Option<&Arc<WorkspaceAuthoritySyncOwner>> {
         self.workspace_service_shell()
             .map(|shell| shell.authority_sync_owner())
+    }
+
+    pub(crate) fn workspace_authority_store_provider(
+        &self,
+    ) -> Option<&CoordinationAuthorityStoreProvider> {
+        self.workspace_service_shell()
+            .map(|shell| shell.authority_store_provider())
     }
 
     pub(crate) fn current_prism(&self) -> Arc<Prism> {

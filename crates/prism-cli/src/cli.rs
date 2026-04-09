@@ -185,6 +185,14 @@ pub enum PrismRuntimeModeArg {
     KnowledgeStorage,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "snake_case")]
+pub enum CoordinationAuthorityBackendArg {
+    GitSharedRefs,
+    Sqlite,
+    Postgres,
+}
+
 impl From<PrismRuntimeModeArg> for PrismRuntimeMode {
     fn from(value: PrismRuntimeModeArg) -> Self {
         match value {
@@ -216,6 +224,12 @@ pub enum McpCommand {
         ui: bool,
         #[arg(long = "shared-runtime-uri")]
         shared_runtime_uri: Option<String>,
+        #[arg(long = "coordination-authority-backend", value_enum)]
+        coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
+        #[arg(long = "coordination-authority-sqlite-db")]
+        coordination_authority_sqlite_db: Option<PathBuf>,
+        #[arg(long = "coordination-authority-postgres-url")]
+        coordination_authority_postgres_url: Option<String>,
         #[arg(long, hide = true, default_value_t = false)]
         bootstrap_build_worktree_release: bool,
         #[arg(long, hide = true)]
@@ -234,6 +248,12 @@ pub enum McpCommand {
         http_bind: Option<String>,
         #[arg(long = "shared-runtime-uri")]
         shared_runtime_uri: Option<String>,
+        #[arg(long = "coordination-authority-backend", value_enum)]
+        coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
+        #[arg(long = "coordination-authority-sqlite-db")]
+        coordination_authority_sqlite_db: Option<PathBuf>,
+        #[arg(long = "coordination-authority-postgres-url")]
+        coordination_authority_postgres_url: Option<String>,
     },
     Stop {
         #[arg(
@@ -256,6 +276,12 @@ pub enum McpCommand {
         http_bind: Option<String>,
         #[arg(long = "shared-runtime-uri")]
         shared_runtime_uri: Option<String>,
+        #[arg(long = "coordination-authority-backend", value_enum)]
+        coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
+        #[arg(long = "coordination-authority-sqlite-db")]
+        coordination_authority_sqlite_db: Option<PathBuf>,
+        #[arg(long = "coordination-authority-postgres-url")]
+        coordination_authority_postgres_url: Option<String>,
         #[arg(
             long,
             default_value_t = false,
@@ -490,9 +516,9 @@ mod tests {
     use clap::Parser;
 
     use super::{
-        AuthAssuranceArg, AuthCommand, Cli, Command, DocsBundleArg, DocsCommand, McpCommand,
-        PrincipalCommand, PrismRuntimeModeArg, ProtectedStateCommand, ProtectedStateTrustCommand,
-        SpecsCommand, WorktreeCommand,
+        AuthAssuranceArg, AuthCommand, Cli, Command, CoordinationAuthorityBackendArg,
+        DocsBundleArg, DocsCommand, McpCommand, PrincipalCommand, PrismRuntimeModeArg,
+        ProtectedStateCommand, ProtectedStateTrustCommand, SpecsCommand, WorktreeCommand,
     };
     use crate::worktree_commands::WorktreeModeArg;
 
@@ -511,6 +537,10 @@ mod tests {
                         ui,
                         http_bind,
                         shared_runtime_uri,
+                        coordination_authority_backend,
+                        coordination_authority_sqlite_db,
+                        coordination_authority_postgres_url,
+                        ..
                     },
             } => {
                 assert!(!kill_bridges);
@@ -520,6 +550,9 @@ mod tests {
                 assert!(!ui);
                 assert!(http_bind.is_none());
                 assert!(shared_runtime_uri.is_none());
+                assert!(coordination_authority_backend.is_none());
+                assert!(coordination_authority_sqlite_db.is_none());
+                assert!(coordination_authority_postgres_url.is_none());
             }
             _ => panic!("unexpected command"),
         }
@@ -692,6 +725,41 @@ mod tests {
             Command::Mcp {
                 command: McpCommand::Restart { runtime_mode, .. },
             } => assert_eq!(runtime_mode, PrismRuntimeModeArg::CoordinationOnly),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mcp_start_coordination_authority_backend_flags_parse() {
+        let cli = Cli::parse_from([
+            "prism",
+            "mcp",
+            "start",
+            "--coordination-authority-backend",
+            "sqlite",
+            "--coordination-authority-sqlite-db",
+            "service-authority.db",
+        ]);
+        match cli.command {
+            Command::Mcp {
+                command:
+                    McpCommand::Start {
+                        coordination_authority_backend,
+                        coordination_authority_sqlite_db,
+                        coordination_authority_postgres_url,
+                        ..
+                    },
+            } => {
+                assert_eq!(
+                    coordination_authority_backend,
+                    Some(CoordinationAuthorityBackendArg::Sqlite)
+                );
+                assert_eq!(
+                    coordination_authority_sqlite_db,
+                    Some(PathBuf::from("service-authority.db"))
+                );
+                assert!(coordination_authority_postgres_url.is_none());
+            }
             _ => panic!("unexpected command"),
         }
     }

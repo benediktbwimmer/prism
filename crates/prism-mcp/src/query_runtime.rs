@@ -25,7 +25,7 @@ use crate::file_queries::{
     file_around, file_read, DEFAULT_FILE_AROUND_CONTEXT_LINES, DEFAULT_FILE_AROUND_MAX_CHARS,
     DEFAULT_FILE_READ_MAX_CHARS,
 };
-use crate::peer_runtime_router::execute_remote_prism_query;
+use crate::peer_runtime_router::execute_remote_prism_query_with_provider;
 use crate::query_typecheck::StaticCheckMode;
 use crate::runtime_views::{connection_info, runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
@@ -1949,7 +1949,13 @@ return prism.file(__prismFileAroundArgs.path).around({
             }
         };
         let code = format!("const __prismRemoteArgs = {serialized_args}; {code}");
-        let remote = execute_remote_prism_query(root, &args.runtime_id, &code, QueryLanguage::Ts)?;
+        let remote = execute_remote_prism_query_with_provider(
+            root,
+            self.host.workspace_authority_store_provider(),
+            &args.runtime_id,
+            &code,
+            QueryLanguage::Ts,
+        )?;
         self.diagnostics
             .lock()
             .expect("diagnostics lock poisoned")

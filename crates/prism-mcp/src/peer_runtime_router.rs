@@ -9,8 +9,9 @@ use axum::routing::post;
 use axum::{Json, Router};
 use prism_coordination::{RuntimeDescriptor, RuntimeDescriptorCapability};
 use prism_core::{
-    default_coordination_authority_store_provider, local_runtime_id, runtime_query_endpoint,
-    shared_coordination_ref_diagnostics, CoordinationReadConsistency, CredentialsFile, PrismPaths,
+    configured_coordination_authority_store_provider, local_runtime_id, runtime_query_endpoint,
+    shared_coordination_ref_diagnostics, shared_coordination_ref_diagnostics_with_provider,
+    CoordinationAuthorityStoreProvider, CoordinationReadConsistency, CredentialsFile, PrismPaths,
     RuntimeDescriptorQuery, WorkspaceSession, PEER_RUNTIME_QUERY_PATH,
 };
 use prism_ir::{CredentialCapability, CredentialId};
@@ -198,6 +199,16 @@ pub(crate) fn execute_remote_prism_query(
     code: &str,
     language: QueryLanguage,
 ) -> Result<RemotePrismQueryResult> {
+    execute_remote_prism_query_with_provider(root, None, runtime_id, code, language)
+}
+
+pub(crate) fn execute_remote_prism_query_with_provider(
+    root: &Path,
+    authority_store_provider: Option<&CoordinationAuthorityStoreProvider>,
+    runtime_id: &str,
+    code: &str,
+    language: QueryLanguage,
+) -> Result<RemotePrismQueryResult> {
     if code.chars().count() > MAX_PEER_QUERY_CODE_CHARS {
         return Err(remote_runtime_query_error(
             "peer_runtime_query_too_large",
@@ -210,7 +221,7 @@ pub(crate) fn execute_remote_prism_query(
             ),
         ));
     }
-    let descriptor = resolve_runtime_descriptor(root, runtime_id)?;
+    let descriptor = resolve_runtime_descriptor(root, authority_store_provider, runtime_id)?;
     if descriptor
         .last_seen_at
         .saturating_add(STALE_RUNTIME_DESCRIPTOR_AFTER_SECS)
@@ -412,8 +423,16 @@ fn resolve_local_peer_read_credential(root: &Path) -> Result<LocalPeerReadCreden
     })
 }
 
-fn resolve_runtime_descriptor(root: &Path, runtime_id: &str) -> Result<RuntimeDescriptor> {
-    if let Some(diagnostics) = shared_coordination_ref_diagnostics(root)? {
+fn resolve_runtime_descriptor(
+    root: &Path,
+    authority_store_provider: Option<&CoordinationAuthorityStoreProvider>,
+    runtime_id: &str,
+) -> Result<RuntimeDescriptor> {
+    let diagnostics = match authority_store_provider {
+        Some(provider) => shared_coordination_ref_diagnostics_with_provider(root, provider)?,
+        None => shared_coordination_ref_diagnostics(root)?,
+    };
+    if let Some(diagnostics) = diagnostics {
         if !diagnostics.authoritative_hydration_allowed {
             return Err(remote_runtime_query_error(
                 "remote_runtime_shared_ref_degraded",
@@ -435,7 +454,10 @@ fn resolve_runtime_descriptor(root: &Path, runtime_id: &str) -> Result<RuntimeDe
         }
     }
 
-    let store = default_coordination_authority_store_provider().open(root)?;
+    let provider = authority_store_provider
+        .cloned()
+        .unwrap_or(configured_coordination_authority_store_provider(root)?);
+    let store = provider.open(root)?;
     let runtime_descriptors = store
         .list_runtime_descriptors(RuntimeDescriptorQuery {
             consistency: CoordinationReadConsistency::Strong,

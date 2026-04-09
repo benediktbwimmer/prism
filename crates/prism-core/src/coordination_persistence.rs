@@ -17,7 +17,7 @@ use prism_store::{
 use serde_json::{json, Value};
 
 use crate::coordination_authority_store::{
-    default_coordination_authority_store_provider, CoordinationDerivedStateMode,
+    configured_coordination_authority_store_provider, CoordinationDerivedStateMode,
     CoordinationTransactionBase, CoordinationTransactionRequest, CoordinationTransactionResult,
     CoordinationTransactionStatus,
 };
@@ -121,7 +121,7 @@ fn sync_authoritative_shared_coordination_ref_observed<O>(
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
-    let authority_store = default_coordination_authority_store_provider().open(root)?;
+    let authority_store = configured_coordination_authority_store_provider(root)?.open(root)?;
     observe_coordination_step(
         observe_phase,
         "mutation.coordination.publishedPlans.syncSharedCoordinationRef",

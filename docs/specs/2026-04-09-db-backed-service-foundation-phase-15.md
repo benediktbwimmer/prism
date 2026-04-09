@@ -1,6 +1,6 @@
 # DB-Backed Service Foundation Phase 15
 
-Status: in progress
+Status: completed
 Audience: service, storage, coordination, MCP, CLI, deployment, and release maintainers
 Scope: establish the release-oriented DB-backed coordination authority family and refactor the current service host into explicit shell, authority-sync, read-broker, and mutation-broker roles
 
@@ -37,7 +37,8 @@ Current state:
 
 - [x] service-backed coordination semantics are stable enough to build on
 - [x] spec-engine surfaces are complete enough that service work does not need to absorb that gap
-- [ ] DB-backed authority family is not yet the live release-oriented path
+- [x] DB-backed authority family is now the live release-oriented path for local service-hosted
+  coordination
 - [x] product-facing authority-store construction no longer hardcodes Git store instantiation
 - [x] the current host process now exposes an explicit workspace service shell plus initial
   authority-sync, read-broker, and mutation-broker owners
@@ -52,8 +53,10 @@ Current slice notes:
   cleanest path; the important change is explicit service role ownership, not crate theater
 - local SQLite authority now uses a repo-scoped authority DB path that is distinct from the
   service-owned coordination materialization DB path
-- release-oriented backend selection is still incomplete; Git remains the default until Slice 5
-  lands
+- release-oriented backend selection now resolves through one configured authority-provider path
+- local service-hosted coordination now defaults to repo-scoped SQLite authority
+- explicit daemon and bridge flags can still select Git shared refs or Postgres authority
+- repo-local service configuration may also select the authority backend via `.prism/service.json`
 
 ## 3. Related roadmap
 
@@ -220,6 +223,7 @@ Exit criteria:
 Exit criteria:
 
 - the release-oriented deployment path is explicit in config and code structure
+- status: completed
 
 ## 9. Validation
 
@@ -256,6 +260,6 @@ This opening Phase 15 spec is complete only when:
 - [x] Implement SQLite authority through that seam
 - [x] Introduce the service shell
 - [x] Extract explicit authority-sync, read-broker, and mutation-broker owners
-- [ ] Add release-oriented deployment configuration
+- [x] Add release-oriented deployment configuration
 - [x] Validate affected crates and direct downstream dependents
 - [x] Update roadmap/spec status as slices land

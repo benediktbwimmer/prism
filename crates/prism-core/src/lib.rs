@@ -77,19 +77,21 @@ use session_bootstrap::{
 
 pub use admission::AdmissionBusyError;
 pub use coordination_authority_api::{
-    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor,
+    shared_coordination_ref_diagnostics, shared_coordination_ref_diagnostics_with_provider,
+    sync_live_runtime_descriptor, sync_live_runtime_descriptor_with_provider,
 };
 pub use coordination_authority_store::{
+    configured_coordination_authority_store_provider,
     default_coordination_authority_store_provider, open_coordination_authority_store,
-    open_default_coordination_authority_store, CoordinationAuthorityBackendConfig,
-    CoordinationAuthorityBackendDetails, CoordinationAuthorityBackendKind,
-    CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
-    CoordinationAuthorityProvenance, CoordinationAuthorityStamp, CoordinationAuthorityStore,
-    CoordinationAuthorityStoreProvider, CoordinationConflictInfo, CoordinationCurrentState,
-    CoordinationDerivedStateMode, CoordinationDiagnosticsRequest, CoordinationHistoryEntry,
-    CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
-    CoordinationReadRequest, CoordinationStateView, CoordinationTransactionBase,
-    CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
+    open_default_coordination_authority_store, resolve_coordination_authority_store_provider,
+    CoordinationAuthorityBackendConfig, CoordinationAuthorityBackendDetails,
+    CoordinationAuthorityBackendKind, CoordinationAuthorityCapabilities,
+    CoordinationAuthorityDiagnostics, CoordinationAuthorityProvenance, CoordinationAuthorityStamp,
+    CoordinationAuthorityStore, CoordinationAuthorityStoreProvider, CoordinationConflictInfo,
+    CoordinationCurrentState, CoordinationDerivedStateMode, CoordinationDiagnosticsRequest,
+    CoordinationHistoryEntry, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
+    CoordinationReadEnvelope, CoordinationReadRequest, CoordinationStateView,
+    CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
     CoordinationTransactionResult, CoordinationTransactionStatus,
     GitSharedRefsCoordinationAuthorityStore, RuntimeDescriptorClearRequest,
     RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery, SqliteCoordinationAuthorityStore,

@@ -5,9 +5,10 @@ mod traits;
 mod types;
 
 pub use factory::{
+    configured_coordination_authority_store_provider,
     default_coordination_authority_store_provider, open_coordination_authority_store,
-    open_default_coordination_authority_store, CoordinationAuthorityBackendConfig,
-    CoordinationAuthorityStoreProvider,
+    open_default_coordination_authority_store, resolve_coordination_authority_store_provider,
+    CoordinationAuthorityBackendConfig, CoordinationAuthorityStoreProvider,
 };
 pub use git_shared_refs::GitSharedRefsCoordinationAuthorityStore;
 pub use sqlite::SqliteCoordinationAuthorityStore;

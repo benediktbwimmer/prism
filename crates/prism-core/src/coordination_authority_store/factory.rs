@@ -1,10 +1,12 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
+use serde::Deserialize;
 
 use super::git_shared_refs::GitSharedRefsCoordinationAuthorityStore;
 use super::sqlite::SqliteCoordinationAuthorityStore;
 use super::traits::CoordinationAuthorityStore;
+use crate::PrismPaths;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CoordinationAuthorityBackendConfig {
@@ -48,6 +50,125 @@ pub fn default_coordination_authority_store_provider() -> CoordinationAuthorityS
     CoordinationAuthorityStoreProvider::default()
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum CoordinationAuthorityBackendName {
+    GitSharedRefs,
+    Sqlite,
+    Postgres,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceServiceConfigFile {
+    coordination_authority: Option<WorkspaceCoordinationAuthorityConfigFile>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceCoordinationAuthorityConfigFile {
+    backend: CoordinationAuthorityBackendName,
+    sqlite_db_path: Option<PathBuf>,
+    postgres_connection_url: Option<String>,
+}
+
+pub fn configured_coordination_authority_store_provider(
+    root: &Path,
+) -> Result<CoordinationAuthorityStoreProvider> {
+    resolve_coordination_authority_store_provider(root, None)
+}
+
+pub fn resolve_coordination_authority_store_provider(
+    root: &Path,
+    override_config: Option<CoordinationAuthorityBackendConfig>,
+) -> Result<CoordinationAuthorityStoreProvider> {
+    let config = match override_config {
+        Some(config) => normalize_coordination_authority_backend_config(root, config)?,
+        None => load_workspace_coordination_authority_backend_config(root)?,
+    };
+    Ok(CoordinationAuthorityStoreProvider::new(config))
+}
+
+fn load_workspace_coordination_authority_backend_config(
+    root: &Path,
+) -> Result<CoordinationAuthorityBackendConfig> {
+    let paths = PrismPaths::for_workspace_root(root)?;
+    let config_path = paths.service_config_path();
+    if !config_path.exists() {
+        return default_service_coordination_authority_backend(root);
+    }
+    let bytes = std::fs::read(&config_path)
+        .with_context(|| format!("failed to read {}", config_path.display()))?;
+    let file: WorkspaceServiceConfigFile = serde_json::from_slice(&bytes)
+        .with_context(|| format!("failed to parse {}", config_path.display()))?;
+    match file.coordination_authority {
+        Some(config) => coordination_authority_backend_config_from_file(root, config),
+        None => default_service_coordination_authority_backend(root),
+    }
+}
+
+fn coordination_authority_backend_config_from_file(
+    root: &Path,
+    config: WorkspaceCoordinationAuthorityConfigFile,
+) -> Result<CoordinationAuthorityBackendConfig> {
+    match config.backend {
+        CoordinationAuthorityBackendName::GitSharedRefs => {
+            Ok(CoordinationAuthorityBackendConfig::GitSharedRefs)
+        }
+        CoordinationAuthorityBackendName::Sqlite => {
+            let db_path = match config.sqlite_db_path {
+                Some(path) => resolve_configured_path(root, path),
+                None => PrismPaths::for_workspace_root(root)?.coordination_authority_db_path()?,
+            };
+            Ok(CoordinationAuthorityBackendConfig::Sqlite { db_path })
+        }
+        CoordinationAuthorityBackendName::Postgres => {
+            let connection_url = config.postgres_connection_url.ok_or_else(|| {
+                anyhow!(
+                    "workspace service config selects postgres coordination authority without \
+                     `postgresConnectionUrl`"
+                )
+            })?;
+            Ok(CoordinationAuthorityBackendConfig::Postgres { connection_url })
+        }
+    }
+}
+
+fn normalize_coordination_authority_backend_config(
+    root: &Path,
+    config: CoordinationAuthorityBackendConfig,
+) -> Result<CoordinationAuthorityBackendConfig> {
+    Ok(match config {
+        CoordinationAuthorityBackendConfig::GitSharedRefs => {
+            CoordinationAuthorityBackendConfig::GitSharedRefs
+        }
+        CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
+            CoordinationAuthorityBackendConfig::Sqlite {
+                db_path: resolve_configured_path(root, db_path),
+            }
+        }
+        CoordinationAuthorityBackendConfig::Postgres { connection_url } => {
+            CoordinationAuthorityBackendConfig::Postgres { connection_url }
+        }
+    })
+}
+
+fn default_service_coordination_authority_backend(
+    root: &Path,
+) -> Result<CoordinationAuthorityBackendConfig> {
+    Ok(CoordinationAuthorityBackendConfig::Sqlite {
+        db_path: PrismPaths::for_workspace_root(root)?.coordination_authority_db_path()?,
+    })
+}
+
+fn resolve_configured_path(root: &Path, path: PathBuf) -> PathBuf {
+    if path.is_absolute() {
+        path
+    } else {
+        root.join(path)
+    }
+}
+
 pub fn open_coordination_authority_store(
     root: &Path,
     config: &CoordinationAuthorityBackendConfig,
@@ -75,13 +196,15 @@ pub fn open_default_coordination_authority_store(
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
+        configured_coordination_authority_store_provider,
         default_coordination_authority_store_provider, open_coordination_authority_store,
-        CoordinationAuthorityBackendConfig, CoordinationAuthorityStoreProvider,
+        resolve_coordination_authority_store_provider, CoordinationAuthorityBackendConfig,
+        CoordinationAuthorityStoreProvider,
     };
 
     static NEXT_TEMP_ROOT: AtomicU64 = AtomicU64::new(0);
@@ -157,5 +280,74 @@ mod tests {
         assert!(error
             .to_string()
             .contains("postgres-backed coordination authority is not implemented yet"));
+    }
+
+    #[test]
+    fn configured_provider_defaults_to_repo_scoped_sqlite_authority() {
+        let root = temp_root();
+        let provider = configured_coordination_authority_store_provider(&root)
+            .expect("configured provider should resolve");
+        match provider.config() {
+            CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
+                assert!(db_path.ends_with("authority.db"));
+            }
+            other => panic!("expected sqlite backend, got {other:?}"),
+        }
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn configured_provider_honors_service_config_file() {
+        let root = temp_root();
+        let prism_dir = root.join(".prism");
+        fs::create_dir_all(&prism_dir).unwrap();
+        fs::write(
+            prism_dir.join("service.json"),
+            r#"{
+  "coordinationAuthority": {
+    "backend": "git_shared_refs"
+  }
+}"#,
+        )
+        .unwrap();
+
+        let provider = configured_coordination_authority_store_provider(&root)
+            .expect("configured provider should resolve");
+        assert_eq!(
+            provider.config(),
+            &CoordinationAuthorityBackendConfig::GitSharedRefs
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn override_config_takes_precedence_over_service_file() {
+        let root = temp_root();
+        let prism_dir = root.join(".prism");
+        fs::create_dir_all(&prism_dir).unwrap();
+        fs::write(
+            prism_dir.join("service.json"),
+            r#"{
+  "coordinationAuthority": {
+    "backend": "git_shared_refs"
+  }
+}"#,
+        )
+        .unwrap();
+
+        let provider = resolve_coordination_authority_store_provider(
+            &root,
+            Some(CoordinationAuthorityBackendConfig::Sqlite {
+                db_path: PathBuf::from("custom-authority.db"),
+            }),
+        )
+        .expect("override should resolve");
+        match provider.config() {
+            CoordinationAuthorityBackendConfig::Sqlite { db_path } => {
+                assert_eq!(db_path, &root.join("custom-authority.db"));
+            }
+            other => panic!("expected sqlite backend, got {other:?}"),
+        }
+        let _ = fs::remove_dir_all(root);
     }
 }

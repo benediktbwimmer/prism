@@ -17,7 +17,7 @@ use prism_core::{
     shared_coordination_ref_diagnostics, sync_live_runtime_descriptor, PrismPaths, PrismRuntimeMode,
 };
 
-use crate::cli::McpCommand;
+use crate::cli::{CoordinationAuthorityBackendArg, McpCommand};
 use crate::daemon_log;
 
 const START_TIMEOUT: Duration = Duration::from_secs(180);
@@ -168,6 +168,9 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             runtime_mode,
             ui,
             shared_runtime_uri,
+            coordination_authority_backend,
+            coordination_authority_sqlite_db,
+            coordination_authority_postgres_url,
             bootstrap_build_worktree_release,
             bridge_daemon_binary,
         } => bridge(
@@ -177,6 +180,9 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             runtime_mode.into(),
             ui,
             shared_runtime_uri,
+            coordination_authority_backend,
+            coordination_authority_sqlite_db,
+            coordination_authority_postgres_url,
             bootstrap_build_worktree_release,
             bridge_daemon_binary,
         ),
@@ -187,6 +193,9 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             ui,
             http_bind,
             shared_runtime_uri,
+            coordination_authority_backend,
+            coordination_authority_sqlite_db,
+            coordination_authority_postgres_url,
         } => start(
             &root,
             no_coordination,
@@ -195,6 +204,9 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             ui,
             http_bind,
             shared_runtime_uri,
+            coordination_authority_backend,
+            coordination_authority_sqlite_db,
+            coordination_authority_postgres_url,
             "start",
             None,
             None,
@@ -208,6 +220,9 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             ui,
             http_bind,
             shared_runtime_uri,
+            coordination_authority_backend,
+            coordination_authority_sqlite_db,
+            coordination_authority_postgres_url,
         } => {
             let paths = McpPaths::for_root(&root)?;
             let restart_nonce = next_restart_nonce();
@@ -231,6 +246,9 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
                 ui,
                 http_bind,
                 shared_runtime_uri,
+                coordination_authority_backend,
+                coordination_authority_sqlite_db,
+                coordination_authority_postgres_url,
                 "restart",
                 Some(&restart_nonce),
                 Some(startup_marker),
@@ -248,6 +266,9 @@ fn bridge(
     runtime_mode: PrismRuntimeMode,
     ui: bool,
     shared_runtime_uri: Option<String>,
+    coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
+    coordination_authority_sqlite_db: Option<PathBuf>,
+    coordination_authority_postgres_url: Option<String>,
     bootstrap_build_worktree_release: bool,
     bridge_daemon_binary: Option<PathBuf>,
 ) -> Result<()> {
@@ -261,6 +282,9 @@ fn bridge(
         runtime_mode,
         ui,
         shared_runtime_uri.as_deref(),
+        coordination_authority_backend,
+        coordination_authority_sqlite_db.as_deref(),
+        coordination_authority_postgres_url.as_deref(),
         bootstrap_build_worktree_release,
         bridge_daemon_binary.as_deref(),
     );
@@ -447,6 +471,9 @@ fn start(
     ui: bool,
     http_bind: Option<String>,
     shared_runtime_uri: Option<String>,
+    coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
+    coordination_authority_sqlite_db: Option<PathBuf>,
+    coordination_authority_postgres_url: Option<String>,
     operation: &str,
     restart_nonce: Option<&str>,
     startup_marker: Option<StartupMarkerGuard>,
@@ -502,6 +529,9 @@ fn start(
         runtime_mode,
         ui,
         shared_runtime_uri.as_deref(),
+        coordination_authority_backend,
+        coordination_authority_sqlite_db.as_deref(),
+        coordination_authority_postgres_url.as_deref(),
         restart_nonce,
     )?;
     let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
@@ -745,6 +775,9 @@ fn bridge_exec_args(
     runtime_mode: PrismRuntimeMode,
     ui: bool,
     shared_runtime_uri: Option<&str>,
+    coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
+    coordination_authority_sqlite_db: Option<&Path>,
+    coordination_authority_postgres_url: Option<&str>,
     bootstrap_build_worktree_release: bool,
     bridge_daemon_binary: Option<&Path>,
 ) -> Vec<OsString> {
@@ -772,6 +805,22 @@ fn bridge_exec_args(
     if let Some(shared_runtime_uri) = shared_runtime_uri {
         args.push(OsString::from("--shared-runtime-uri"));
         args.push(OsString::from(shared_runtime_uri));
+    }
+    if let Some(backend) = coordination_authority_backend {
+        args.push(OsString::from("--coordination-authority-backend"));
+        args.push(OsString::from(match backend {
+            CoordinationAuthorityBackendArg::GitSharedRefs => "git_shared_refs",
+            CoordinationAuthorityBackendArg::Sqlite => "sqlite",
+            CoordinationAuthorityBackendArg::Postgres => "postgres",
+        }));
+    }
+    if let Some(db_path) = coordination_authority_sqlite_db {
+        args.push(OsString::from("--coordination-authority-sqlite-db"));
+        args.push(db_path.as_os_str().to_os_string());
+    }
+    if let Some(connection_url) = coordination_authority_postgres_url {
+        args.push(OsString::from("--coordination-authority-postgres-url"));
+        args.push(OsString::from(connection_url));
     }
     if bootstrap_build_worktree_release {
         args.push(OsString::from("--bootstrap-build-worktree-release"));
@@ -834,6 +883,9 @@ fn spawn_daemon(
     runtime_mode: PrismRuntimeMode,
     ui: bool,
     shared_runtime_uri: Option<&str>,
+    coordination_authority_backend: Option<CoordinationAuthorityBackendArg>,
+    coordination_authority_sqlite_db: Option<&Path>,
+    coordination_authority_postgres_url: Option<&str>,
     restart_nonce: Option<&str>,
 ) -> Result<()> {
     let mut args = vec![
@@ -869,6 +921,25 @@ fn spawn_daemon(
     if let Some(shared_runtime_uri) = shared_runtime_uri {
         args.push("--shared-runtime-uri".to_string());
         args.push(shared_runtime_uri.to_string());
+    }
+    if let Some(backend) = coordination_authority_backend {
+        args.push("--coordination-authority-backend".to_string());
+        args.push(
+            match backend {
+                CoordinationAuthorityBackendArg::GitSharedRefs => "git_shared_refs",
+                CoordinationAuthorityBackendArg::Sqlite => "sqlite",
+                CoordinationAuthorityBackendArg::Postgres => "postgres",
+            }
+            .to_string(),
+        );
+    }
+    if let Some(db_path) = coordination_authority_sqlite_db {
+        args.push("--coordination-authority-sqlite-db".to_string());
+        args.push(db_path.display().to_string());
+    }
+    if let Some(connection_url) = coordination_authority_postgres_url {
+        args.push("--coordination-authority-postgres-url".to_string());
+        args.push(connection_url.to_string());
     }
     if let Some(restart_nonce) = restart_nonce {
         args.push("--restart-nonce".to_string());
@@ -2234,6 +2305,9 @@ mod tests {
             PrismRuntimeMode::Full,
             false,
             None,
+            None,
+            None,
+            None,
             false,
             None,
         )
@@ -2268,6 +2342,9 @@ mod tests {
             PrismRuntimeMode::Full,
             false,
             None,
+            None,
+            None,
+            None,
             false,
             None,
         )
@@ -2292,6 +2369,9 @@ mod tests {
             PrismRuntimeMode::CoordinationOnly,
             true,
             None,
+            None,
+            None,
+            None,
             false,
             None,
         )
@@ -2307,6 +2387,45 @@ mod tests {
                 ]
         }));
         assert!(args.contains(&"--ui".to_string()));
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn bridge_exec_args_forward_authority_backend_flags() {
+        let root = temp_root("bridge-exec-authority");
+        let paths = McpPaths::for_root(&root).unwrap();
+        let args = bridge_exec_args(
+            &root,
+            &paths,
+            false,
+            false,
+            PrismRuntimeMode::Full,
+            false,
+            None,
+            Some(CoordinationAuthorityBackendArg::Sqlite),
+            Some(Path::new("service-authority.db")),
+            None,
+            false,
+            None,
+        )
+        .into_iter()
+        .map(|arg| arg.to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+
+        assert!(args.windows(2).any(|window| {
+            window
+                == [
+                    "--coordination-authority-backend".to_string(),
+                    "sqlite".to_string(),
+                ]
+        }));
+        assert!(args.windows(2).any(|window| {
+            window
+                == [
+                    "--coordination-authority-sqlite-db".to_string(),
+                    "service-authority.db".to_string(),
+                ]
+        }));
         fs::remove_dir_all(root).ok();
     }
 

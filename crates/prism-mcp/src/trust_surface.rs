@@ -2,11 +2,11 @@ use std::path::Path;
 
 use axum::{http::StatusCode, Json};
 use prism_core::{
-    default_coordination_authority_store_provider, AuthenticatedPrincipal,
+    configured_coordination_authority_store_provider, AuthenticatedPrincipal,
     CoordinationAuthorityMutationError, CoordinationAuthorityMutationStatus,
-    CoordinationReadConsistency, CoordinationReadRequest, CoordinationStateView,
-    ProtectedStateStreamReport, SharedCoordinationRefDiagnostics, WorktreeMode,
-    WorktreeMutatorSlotError, WorktreeRegistrationRecord,
+    CoordinationAuthorityStoreProvider, CoordinationReadConsistency, CoordinationReadRequest,
+    CoordinationStateView, ProtectedStateStreamReport, SharedCoordinationRefDiagnostics,
+    WorktreeMode, WorktreeMutatorSlotError, WorktreeRegistrationRecord,
 };
 use prism_ir::EventId;
 use prism_js::{
@@ -385,6 +385,7 @@ pub(crate) fn coordination_authority_protocol_result(
     let state = coordination_protocol_state_value(
         coordination_authority_protocol_state(authority_error),
         None,
+        None,
     )?;
     let rejected = !matches!(
         authority_error.status,
@@ -417,17 +418,20 @@ pub(crate) fn coordination_authority_protocol_result(
 pub(crate) fn coordination_protocol_state_value(
     protocol_state: CoordinationTransactionProtocolState,
     workspace_root: Option<&Path>,
+    authority_store_provider: Option<&CoordinationAuthorityStoreProvider>,
 ) -> Option<Value> {
     let mut state = serde_json::to_value(protocol_state).ok()?;
-    attach_coordination_authority_stamp(&mut state, workspace_root);
+    attach_coordination_authority_stamp(&mut state, workspace_root, authority_store_provider);
     Some(state)
 }
 
 pub(crate) fn attach_coordination_authority_stamp(
     state: &mut Value,
     workspace_root: Option<&Path>,
+    authority_store_provider: Option<&CoordinationAuthorityStoreProvider>,
 ) {
-    let Some(authority_stamp) = coordination_transaction_authority_stamp_view(workspace_root)
+    let Some(authority_stamp) =
+        coordination_transaction_authority_stamp_view(workspace_root, authority_store_provider)
     else {
         return;
     };
@@ -437,11 +441,15 @@ pub(crate) fn attach_coordination_authority_stamp(
     object.insert("authorityStamp".to_string(), authority_stamp);
 }
 
-fn coordination_transaction_authority_stamp_view(workspace_root: Option<&Path>) -> Option<Value> {
+fn coordination_transaction_authority_stamp_view(
+    workspace_root: Option<&Path>,
+    authority_store_provider: Option<&CoordinationAuthorityStoreProvider>,
+) -> Option<Value> {
     let workspace_root = workspace_root?;
-    let store = default_coordination_authority_store_provider()
-        .open(workspace_root)
-        .ok()?;
+    let provider = authority_store_provider
+        .cloned()
+        .or_else(|| configured_coordination_authority_store_provider(workspace_root).ok())?;
+    let store = provider.open(workspace_root).ok()?;
     let authority = store
         .read_current(CoordinationReadRequest {
             consistency: CoordinationReadConsistency::Strong,

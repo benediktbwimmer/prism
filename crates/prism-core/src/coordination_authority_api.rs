@@ -4,9 +4,9 @@ use anyhow::{anyhow, Result};
 use prism_store::CoordinationStartupCheckpointAuthority;
 
 use crate::coordination_authority_store::{
-    default_coordination_authority_store_provider, CoordinationAuthorityBackendDetails,
-    CoordinationDiagnosticsRequest, CoordinationReadRequest, CoordinationStateView,
-    CoordinationTransactionBase, RuntimeDescriptorPublishRequest,
+    configured_coordination_authority_store_provider, CoordinationAuthorityBackendDetails,
+    CoordinationAuthorityStoreProvider, CoordinationDiagnosticsRequest, CoordinationReadRequest,
+    CoordinationStateView, CoordinationTransactionBase, RuntimeDescriptorPublishRequest,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
 use crate::shared_coordination_ref::{
@@ -24,7 +24,17 @@ pub(crate) enum CoordinationAuthorityLiveSync {
 pub fn shared_coordination_ref_diagnostics(
     root: &Path,
 ) -> Result<Option<SharedCoordinationRefDiagnostics>> {
-    let store = default_coordination_authority_store_provider().open(root)?;
+    shared_coordination_ref_diagnostics_with_provider(
+        root,
+        &configured_coordination_authority_store_provider(root)?,
+    )
+}
+
+pub fn shared_coordination_ref_diagnostics_with_provider(
+    root: &Path,
+    provider: &CoordinationAuthorityStoreProvider,
+) -> Result<Option<SharedCoordinationRefDiagnostics>> {
+    let store = provider.open(root)?;
     let diagnostics = store.diagnostics(CoordinationDiagnosticsRequest {
         include_backend_details: true,
     })?;
@@ -36,7 +46,17 @@ pub fn shared_coordination_ref_diagnostics(
 }
 
 pub fn sync_live_runtime_descriptor(root: &Path) -> Result<()> {
-    let store = default_coordination_authority_store_provider().open(root)?;
+    sync_live_runtime_descriptor_with_provider(
+        root,
+        &configured_coordination_authority_store_provider(root)?,
+    )
+}
+
+pub fn sync_live_runtime_descriptor_with_provider(
+    root: &Path,
+    provider: &CoordinationAuthorityStoreProvider,
+) -> Result<()> {
+    let store = provider.open(root)?;
     let descriptor = build_local_runtime_descriptor_for_current_state(root)?;
     let result = store.publish_runtime_descriptor(RuntimeDescriptorPublishRequest {
         base: CoordinationTransactionBase::LatestStrong,
@@ -54,7 +74,17 @@ pub fn sync_live_runtime_descriptor(root: &Path) -> Result<()> {
 pub(crate) fn shared_coordination_startup_authority(
     root: &Path,
 ) -> Result<Option<CoordinationStartupCheckpointAuthority>> {
-    let store = default_coordination_authority_store_provider().open(root)?;
+    shared_coordination_startup_authority_with_provider(
+        root,
+        &configured_coordination_authority_store_provider(root)?,
+    )
+}
+
+pub(crate) fn shared_coordination_startup_authority_with_provider(
+    root: &Path,
+    provider: &CoordinationAuthorityStoreProvider,
+) -> Result<Option<CoordinationStartupCheckpointAuthority>> {
+    let store = provider.open(root)?;
     let authority = store
         .read_current(CoordinationReadRequest {
             consistency: CoordinationReadConsistency::Strong,

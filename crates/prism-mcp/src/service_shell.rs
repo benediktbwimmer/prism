@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use prism_agent::InferenceStore;
-use prism_core::{sync_live_runtime_descriptor, WorkspaceSession};
+use prism_core::{
+    sync_live_runtime_descriptor_with_provider, CoordinationAuthorityStoreProvider,
+    WorkspaceSession,
+};
 use prism_memory::SessionMemory;
 use tracing::debug;
 
@@ -20,6 +23,7 @@ pub(crate) struct WorkspaceServiceShell {
     authority_sync_owner: Arc<WorkspaceAuthoritySyncOwner>,
     read_broker: Arc<WorkspaceReadBroker>,
     mutation_broker: Arc<WorkspaceMutationBroker>,
+    authority_store_provider: CoordinationAuthorityStoreProvider,
     restored_session_seed: Option<PersistedSessionSeed>,
 }
 
@@ -30,6 +34,7 @@ impl WorkspaceServiceShell {
         inferred_edges: Arc<InferenceStore>,
         diagnostics_state: Arc<DiagnosticsState>,
         mcp_call_log_store: Arc<McpCallLogStore>,
+        authority_store_provider: CoordinationAuthorityStoreProvider,
         features: &PrismMcpFeatures,
     ) -> Self {
         let workspace_runtime_host = Arc::new(WorkspaceRuntimeHost::new());
@@ -49,7 +54,10 @@ impl WorkspaceServiceShell {
         )));
         let mutation_broker = Arc::new(WorkspaceMutationBroker);
         if features.coordination_layer_enabled() {
-            if let Err(error) = sync_live_runtime_descriptor(workspace.root()) {
+            if let Err(error) = sync_live_runtime_descriptor_with_provider(
+                workspace.root(),
+                &authority_store_provider,
+            ) {
                 debug!(
                     error = %error,
                     root = %workspace.root().display(),
@@ -69,6 +77,7 @@ impl WorkspaceServiceShell {
             authority_sync_owner,
             read_broker,
             mutation_broker,
+            authority_store_provider,
             restored_session_seed,
         }
     }
@@ -87,6 +96,10 @@ impl WorkspaceServiceShell {
 
     pub(crate) fn mutation_broker(&self) -> &Arc<WorkspaceMutationBroker> {
         &self.mutation_broker
+    }
+
+    pub(crate) fn authority_store_provider(&self) -> &CoordinationAuthorityStoreProvider {
+        &self.authority_store_provider
     }
 
     pub(crate) fn restored_session_seed(&self) -> Option<&PersistedSessionSeed> {

@@ -449,8 +449,10 @@ Current assessment:
 - initial service-shell, authority-sync, read-broker, and mutation-broker owners are already
   explicit in code
 - SQLite authority now exists behind `CoordinationAuthorityStore` as the first DB-backed backend
-- remaining work is centered on release-oriented backend selection/configuration and then the
-  richer service roles
+- release-oriented backend selection and configuration now route through one authority-provider
+  resolver, with local service-hosted coordination defaulting to repo-scoped SQLite authority
+- remaining work is now centered on the richer service roles, especially runtime gateway and later
+  event-engine behavior
 
 Exit criteria:
 

@@ -43,11 +43,13 @@ pub async fn serve_with_mode(cli: PrismMcpCli) -> Result<()> {
     let root = cli.root.canonicalize()?;
     match cli.mode {
         crate::PrismMcpMode::Stdio => {
-            let server = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
-                &root,
-                cli.features(),
-                cli.shared_runtime_backend(&root)?,
-            )?;
+            let server =
+                PrismMcpServer::from_workspace_with_features_shared_runtime_and_authority_provider(
+                    &root,
+                    cli.features(),
+                    cli.shared_runtime_backend(&root)?,
+                    cli.coordination_authority_store_provider(&root)?,
+                )?;
             server.serve_stdio().await
         }
         crate::PrismMcpMode::Daemon => run_daemon(&cli, &root).await,
@@ -69,11 +71,13 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         path: uri_file_path,
         expected_uri: http_uri.clone(),
     };
-    let server = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
-        root,
-        features.clone(),
-        cli.shared_runtime_backend(root)?,
-    )?;
+    let server =
+        PrismMcpServer::from_workspace_with_features_shared_runtime_and_authority_provider(
+            root,
+            features.clone(),
+            cli.shared_runtime_backend(root)?,
+            cli.coordination_authority_store_provider(root)?,
+        )?;
     info!(
         mode = "daemon",
         root = %root.display(),
@@ -574,6 +578,9 @@ mod tests {
             internal_developer: false,
             ui: false,
             shared_runtime_uri: None,
+            coordination_authority_backend: None,
+            coordination_authority_sqlite_db: None,
+            coordination_authority_postgres_url: None,
             restart_nonce: None,
             enable_coordination: Vec::new(),
             disable_coordination: Vec::new(),
