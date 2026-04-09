@@ -71,6 +71,7 @@ Current phase spec:
 - [../specs/2026-04-09-coordination-v2-breaking-compatibility-removal-phase-6.md](../specs/2026-04-09-coordination-v2-breaking-compatibility-removal-phase-6.md)
 - [../specs/2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md](../specs/2026-04-09-coordination-query-reader-v2-follow-through-phase-6.md)
 - [../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md](../specs/2026-04-09-canonical-task-handoff-follow-through-phase-6.md)
+- [../specs/2026-04-09-host-mutation-canonical-follow-through-phase-6.md](../specs/2026-04-09-host-mutation-canonical-follow-through-phase-6.md)
 
 Current assessment:
 
@@ -152,6 +153,14 @@ Latest checkpoint:
   on canonical task records, derived v2 task status treats pending handoff as blocked, and the
   task-brief, assisted-lease, and session-task readers no longer need legacy task lookups for
   handoff or lease metadata
+- the host-mutation canonical follow-through is complete; git-execution reloads, workflow update
+  reads, artifact default-anchor lookup, work declaration, and session binding now use canonical
+  v2 task and plan state wherever legacy lease-holder helpers are not required
+- the remaining legacy host-mutation callers are now explicitly limited to stale-same-holder
+  auto-resume and the git-execution admissibility path that still depends on legacy holder logic
+- the next Phase 6 cleanup is canonicalizing the remaining native mutation-return helpers and
+  active-path runtime mutation reloads under `prism-query` so host and runtime mutation flows stop
+  re-reading legacy `CoordinationTask` values after mutation commits
 - the remaining Phase 6 work is the deeper purge of active-path `CoordinationSnapshot` / legacy
   coordination-model dependencies that still exist under `prism-coordination`, `prism-query`,
   `prism-mcp` host mutation/runtime paths, and adjacent materialization code

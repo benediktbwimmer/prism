@@ -328,10 +328,10 @@ fn coordination_mutations_flow_through_query_runtime() {
         .unwrap();
     assert_eq!(plan_value["goal"], "Ship coordination");
     assert_eq!(plan_value["title"], "Ship coordination");
-    assert_eq!(plan_value["status"], "Active");
+    assert_eq!(plan_value["status"], "pending");
     assert_eq!(plan_value["scope"], "Repo");
     assert_eq!(plan_value["kind"], "TaskExecution");
-    assert_eq!(plan_value["revision"], 0);
+    assert_eq!(plan_value["revision"], Value::Null);
     assert_eq!(plan_value["tags"], json!([]));
     assert_eq!(plan_value["createdFrom"], Value::Null);
     assert_eq!(ready_value.as_array().unwrap().len(), 1);
