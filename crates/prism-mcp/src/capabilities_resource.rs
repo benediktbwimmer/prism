@@ -846,7 +846,7 @@ pub(crate) fn resource_template_capabilities(
                 uri_template: TOOL_SCHEMA_RESOURCE_TEMPLATE_URI.to_string(),
                 mime_type: "application/schema+json".to_string(),
                 description: "Read a JSON Schema for a PRISM MCP tool input payload.".to_string(),
-                example_uri: Some(tool_schema_resource_uri("prism_query")),
+                example_uri: Some(tool_schema_resource_uri("prism_code")),
                 shape_uri: None,
             },
             ResourceTemplateCapabilityView {
@@ -898,7 +898,9 @@ pub(crate) fn resource_template_capabilities(
     } else {
         "plan"
     };
-    let example_tool_name = if features.is_tool_enabled("prism_query") {
+    let example_tool_name = if features.is_tool_enabled("prism_code") {
+        "prism_code"
+    } else if features.is_tool_enabled("prism_query") {
         "prism_query"
     } else {
         "prism_mutate"

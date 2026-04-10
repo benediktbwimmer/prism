@@ -37,23 +37,24 @@ Target default agent path:
 - `why`, `nextAction`, and `suggestedActions` that let you continue without reconstructing context manually
 
 Use `prism_workset` after `prism_locate` and `prism_open` when you want the next bounded reads or validations before inventing a dedicated view.
-- `prism_query` only when the compact surface cannot express the need
+- `prism_code` only when the compact surface cannot express the need
 
 Compact-tool note:
 
 - the compact staged tools are available as top-level MCP tools
-- the rich semantic escape hatch is still `prism_query`
+- the rich semantic escape hatch is `prism_code`
 - this reference documents that rich query surface honestly so agents still have the escape hatch when they need it
 
 The MCP transport surface currently includes:
 
-- `prism_query` as the rich semantic read surface and escape hatch
+- `prism_code` as the canonical programmable read surface in the current cutover slice
+- `prism_query` as the legacy read transport while the cutover completes
 - `prism_mutate` for authoritative writes and narrow session repair mutations
 - `prism://session` as the read-only view of current work, task focus, and workspace context
 
 ## Mental model
 
-Treat the current query surface as the rich semantic escape hatch, not the long-term default first
+Treat the current programmable surface as the rich semantic escape hatch, not the long-term default first
 hop.
 
 - TypeScript is for composition.
@@ -62,7 +63,7 @@ hop.
 - Ordinary multi-statement snippets are supported, including top-level `await`.
 - The returned value must be JSON-serializable.
 - `language` currently supports only `"ts"`.
-- `prism_query` is read-only in this implementation.
+- `prism_code` is read-only in this implementation slice.
 
 Design principle for the future compact ABI:
 
@@ -85,7 +86,7 @@ interface QueryDiagnostic {
 
 Diagnostics are how the server tells you a query was ambiguous, truncated, or capped.
 
-Tool-level failures from `prism_query` now separate the main query failure classes:
+Tool-level failures from `prism_code` in this read-only slice now separate the main query failure classes:
 
 - `query_parse_failed` for TypeScript parse/transpile errors
 - `query_typecheck_failed` for pre-execution PRISM API shape errors on the stable `prism.*` surface
@@ -2054,7 +2055,7 @@ return prism.searchText("read context", {
 });
 ```
 
-### 5b. Inspect tool payload requirements without leaving `prism_query`
+### 5b. Inspect tool payload requirements without leaving `prism_code`
 
 ```ts
 const mutate = prism.tool("prism_mutate");
@@ -2413,7 +2414,7 @@ return prism.memory.outcomes({
 });
 ```
 
-### 29. Inspect recent curator proposals through `prism_query`
+### 29. Inspect recent curator proposals through `prism_code`
 
 ```ts
 return prism.curator.jobs({ status: "completed", limit: 5 }).map((job) => ({
@@ -2638,11 +2639,11 @@ likely validations, and 1 to 2 `nextReads`.
 
 - Target direction: a compact staged default agent ABI built around `prism_locate`, `prism_open`,
   `prism_gather`, `prism_workset`, `prism_expand`, `prism_task_brief`, and `prism_concept`, with
-  `prism_query` retained as the semantic IR and escape hatch.
+  `prism_code` as the canonical programmable surface and `prism_query` remaining only as a legacy read transport during the cutover.
 - Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, focused local block retrieval, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
 - Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
 - Available now: consistent eager bundle helpers through `prism.symbolBundle(...)`, `prism.searchBundle(...)`, `prism.textSearchBundle(...)`, and `prism.targetBundle(...)` with stable `summary`, `diagnostics`, and `suggestedReads` fields. These remain useful, but they are no longer the intended long-term default first hop for agent work.
-- Available now: bounded workspace file reads through `prism.file(path).read(...)` and `prism.file(path).around(...)` for exact line-range and around-line inspection without leaving the PRISM query surface.
+- Available now: bounded workspace file reads through `prism.file(path).read(...)` and `prism.file(path).around(...)` for exact line-range and around-line inspection without leaving the PRISM programmable surface.
 - Available now: bounded workspace text search through `prism.searchText(...)` with regex support, path/glob filters, exact match locations, and capped snippets, plus `prism.textSearchBundle(...)` to collapse text matches, one raw file window, and nearby semantic context into one helper.
 - Available now: semantic recent-change inspection through `prism.changedFiles(...)`, `prism.changedSymbols(path, ...)`, `prism.recentPatches(...)`, `prism.diffFor(target, ...)`, and `prism.taskChanges(taskId, ...)` backed by recorded patch outcomes instead of raw diff dumps.
 - Available now: direct daemon connection discovery through `prism.connectionInfo()` plus workspace-backed runtime introspection through `prism.runtimeStatus()`, `prism.runtimeLogs(...)`, and `prism.runtimeTimeline(...)` for daemon health, recent structured log events, startup/refresh diagnosis, and bridge upstream-resolution / connect latency without defaulting to shell status checks.
@@ -2660,7 +2661,7 @@ likely validations, and 1 to 2 `nextReads`.
 
 ## Mutation tool
 
-The query runtime is read-only. State changes happen through `prism_mutate`:
+The current `prism_code` implementation slice is still read-only. State changes happen through `prism_mutate` until the write-capable lowering path is cut over:
 
 - `prism_mutate`
   - action `declare_work`

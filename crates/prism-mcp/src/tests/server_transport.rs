@@ -1091,7 +1091,7 @@ async fn mcp_server_simple_mode_keeps_minimal_surface_and_reports_features() {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 9);
+    assert_eq!(tool_names.len(), 10);
     assert!(tool_names.contains(&"prism_locate"));
     assert!(tool_names.contains(&"prism_gather"));
     assert!(tool_names.contains(&"prism_open"));
@@ -1099,6 +1099,7 @@ async fn mcp_server_simple_mode_keeps_minimal_surface_and_reports_features() {
     assert!(tool_names.contains(&"prism_expand"));
     assert!(tool_names.contains(&"prism_task_brief"));
     assert!(tool_names.contains(&"prism_concept"));
+    assert!(tool_names.contains(&"prism_code"));
     assert!(tool_names.contains(&"prism_query"));
     assert!(tool_names.contains(&"prism_mutate"));
     assert!(!tool_names.contains(&"prism_session"));

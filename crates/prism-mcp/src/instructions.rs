@@ -325,7 +325,7 @@ fn append_coordination_mode_note(mut markdown: String, features: &PrismMcpFeatur
     let feature_summary = features.coordination_summary_lines().join("\n");
     if features.runtime_mode() == PrismRuntimeMode::CoordinationOnly {
         markdown.push_str(
-            "\n\nThis instruction set is running without cognition. Use `prism_query` only for the reduced coordination and operator surface, use `prism_mutate` only for the enabled coordination-related actions, and avoid graph-backed repo understanding or enrichment flows.",
+            "\n\nThis instruction set is running without cognition. Use `prism_code` for the reduced coordination and operator read surface, use `prism_mutate` only for the enabled coordination-related actions, and avoid graph-backed repo understanding or enrichment flows.",
         );
         markdown.push_str("\n\nMode contract:\n");
         markdown.push_str(&feature_summary);
@@ -342,7 +342,7 @@ fn append_coordination_mode_note(mut markdown: String, features: &PrismMcpFeatur
 }
 
 fn coordination_only_index_markdown(features: &PrismMcpFeatures) -> String {
-    let tools = ["prism_query", "prism_mutate", "prism_task_brief"]
+    let tools = ["prism_code", "prism_query", "prism_mutate", "prism_task_brief"]
         .into_iter()
         .filter(|tool| features.is_tool_enabled(tool))
         .map(|tool| format!("`{tool}`"))

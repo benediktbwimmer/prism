@@ -1229,6 +1229,32 @@ impl PrismMcpServer {
     }
 
     #[tool(
+        name = "prism_code",
+        description = "Execute JavaScript or TypeScript against the live PRISM runtime. In this cutover slice, prism_code is the canonical programmable read surface and remains read-only while the write-capable lowering path is migrated.",
+        annotations(title = "Programmable PRISM Code", read_only_hint = true),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<QueryEnvelopeSchema>()
+            .unwrap()
+    )]
+    fn prism_code(
+        &self,
+        Parameters(args): Parameters<PrismCodeArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        if args.code.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "code cannot be empty",
+                Some(json!({ "field": "code" })),
+            ));
+        }
+
+        let language = args.language.unwrap_or(QueryLanguage::Ts);
+        let envelope = self
+            .host
+            .execute(Arc::clone(&self.session), &args.code, language)
+            .map_err(map_code_error)?;
+        structured_tool_result(envelope)
+    }
+
+    #[tool(
         name = "prism_query",
         description = "Execute a read-only TypeScript query against the live PRISM runtime. Read the capabilities and schema resources for the currently available API surface.",
         annotations(title = "Programmable PRISM Query", read_only_hint = true),

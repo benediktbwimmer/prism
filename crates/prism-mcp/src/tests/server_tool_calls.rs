@@ -424,6 +424,88 @@ async fn mcp_server_surfaces_structured_prism_query_error_categories() {
 }
 
 #[tokio::test]
+async fn mcp_server_executes_prism_code_reads() {
+    let server = server_with_node(demo_node());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "code": "return { ok: true, toolName: prism.tool(\"prism_mutate\")?.toolName ?? null, toolCount: prism.tools().length };"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(response["result"]["ok"], true);
+    assert_eq!(response["result"]["toolName"], "prism_mutate");
+    assert!(response["result"]["toolCount"]
+        .as_u64()
+        .expect("toolCount should be numeric")
+        > 0);
+    assert_eq!(response["diagnostics"], json!([]));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_surfaces_structured_prism_code_error_categories() {
+    let server = server_with_node(demo_node());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "code": "const broken = ;\nreturn broken;"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = response_json(client.receive().await.unwrap());
+    assert_eq!(response["error"]["code"], -32603);
+    assert_eq!(response["error"]["message"], "prism_code parse failed");
+    assert_eq!(response["error"]["data"]["code"], "query_parse_failed");
+    assert_eq!(response["error"]["data"]["line"], 1);
+    assert_eq!(response["error"]["data"]["column"], 16);
+    assert!(response["error"]["data"]["nextAction"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("single expression such as `({ ... })`"));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);

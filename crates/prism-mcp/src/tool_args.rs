@@ -813,6 +813,14 @@ pub(crate) struct PrismQueryArgs {
     pub(crate) language: Option<QueryLanguage>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct PrismCodeArgs {
+    #[schemars(description = "JavaScript or TypeScript snippet evaluated with a global `prism` object.")]
+    pub(crate) code: String,
+    #[schemars(description = "Code language. Only `ts` is currently supported.")]
+    pub(crate) language: Option<QueryLanguage>,
+}
+
 #[derive(Debug, Clone, JsonSchema)]
 pub(crate) enum PrismLocateTaskIntentInput {
     Inspect,

@@ -105,6 +105,10 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
             "lens": "validation",
             "verbosity": "summary",
         })),
+        "prism_code" => Some(json!({
+            "code": "const peer = prism.from(\"runtime-demo\"); return { status: peer.runtime.status(), excerpt: peer.file(\"README.md\").read({ maxChars: 160 }) };",
+            "language": "ts",
+        })),
         "prism_query" => Some(json!({
             "code": "const peer = prism.from(\"runtime-demo\"); return { status: peer.runtime.status(), excerpt: peer.file(\"README.md\").read({ maxChars: 160 }) };",
             "language": "ts",
@@ -1096,6 +1100,11 @@ fn capabilities_payload_example() -> Value {
             "schemaUri": tool_schema_resource_uri("prism_locate"),
             "exampleInput": tool_input_example("prism_locate"),
         }, {
+            "name": "prism_code",
+            "description": "Input schema for the canonical programmable PRISM code surface.",
+            "schemaUri": tool_schema_resource_uri("prism_code"),
+            "exampleInput": tool_input_example("prism_code"),
+        }, {
             "name": "prism_query",
             "description": "Input schema for programmable read-only TypeScript PRISM queries.",
             "schemaUri": tool_schema_resource_uri("prism_query"),
@@ -1568,6 +1577,11 @@ fn tool_schema_catalog_payload_example() -> Value {
             "schemaUri": tool_schema_resource_uri("prism_concept"),
             "description": "Input schema for resolving a broad repo concept into a compact concept packet.",
             "exampleInput": tool_input_example("prism_concept"),
+        }, {
+            "toolName": "prism_code",
+            "schemaUri": tool_schema_resource_uri("prism_code"),
+            "description": "Input schema for the canonical programmable PRISM code surface.",
+            "exampleInput": tool_input_example("prism_code"),
         }, {
             "toolName": "prism_query",
             "schemaUri": tool_schema_resource_uri("prism_query"),

@@ -52,6 +52,7 @@ This roadmap depends on:
 - [../adrs/2026-04-10-prism-code-canonical-surface.md](../adrs/2026-04-10-prism-code-canonical-surface.md)
 - [../contracts/coordination-artifact-review-model.md](../contracts/coordination-artifact-review-model.md)
 - [../designs/2026-04-10-prism-code-and-unified-js-sdk.md](../designs/2026-04-10-prism-code-and-unified-js-sdk.md)
+- [../specs/2026-04-10-prism-code-hard-cutover-phase-7.md](../specs/2026-04-10-prism-code-hard-cutover-phase-7.md)
 - [../designs/2026-04-09-shared-execution-substrate.md](../designs/2026-04-09-shared-execution-substrate.md)
 - [../designs/2026-04-09-actions-and-machine-work.md](../designs/2026-04-09-actions-and-machine-work.md)
 - [../designs/2026-04-09-warm-state-validation-feedback.md](../designs/2026-04-09-warm-state-validation-feedback.md)
@@ -90,6 +91,7 @@ Current implementation note (2026-04-10):
 - Phase 4 is landed by replacing the misleading hot `read_plan_state` authority read with a direct current-state read, splitting the SQL authority seam into smaller traits, removing derived-state persistence policy from the public append contract, and replacing `prism_store` persist-result leakage with backend-neutral commit receipts
 - Phase 5 is landed by removing the public hot-path full-current-state read, switching the provider to explicit responsibility-scoped openings, and moving hot query callers onto narrower projection/runtime/diagnostics surfaces
 - Phase 6 is landed by replacing the generic projection seam with exact authority-stamp and coordination-surface read ports, moving hot callers off canonical-snapshot reads, and keeping broad snapshot/current-state assembly on explicit secondary seams
+- Phase 7 spec is now captured in `docs/specs/2026-04-10-prism-code-hard-cutover-phase-7.md`
 - the next blocking work is Phase 7: hard-cut to `prism_code`, land the minimum viable JS/TS compiler or lowering runtime, and remove `prism_query` / `prism_mutate` as target architecture before later phases build on them
 
 ## 3. Ordering thesis
@@ -409,6 +411,7 @@ Implement the public-surface and compiler pivot described in:
 
 - [../adrs/2026-04-10-prism-code-canonical-surface.md](../adrs/2026-04-10-prism-code-canonical-surface.md)
 - [../designs/2026-04-10-prism-code-and-unified-js-sdk.md](../designs/2026-04-10-prism-code-and-unified-js-sdk.md)
+- [../specs/2026-04-10-prism-code-hard-cutover-phase-7.md](../specs/2026-04-10-prism-code-hard-cutover-phase-7.md)
 
 This phase should settle:
 

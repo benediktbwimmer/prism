@@ -182,7 +182,7 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 9);
+    assert_eq!(tool_names.len(), 10);
     assert!(tool_names.contains(&"prism_locate"));
     assert!(tool_names.contains(&"prism_gather"));
     assert!(tool_names.contains(&"prism_open"));
@@ -190,6 +190,7 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     assert!(tool_names.contains(&"prism_expand"));
     assert!(tool_names.contains(&"prism_task_brief"));
     assert!(tool_names.contains(&"prism_concept"));
+    assert!(tool_names.contains(&"prism_code"));
     assert!(tool_names.contains(&"prism_query"));
     assert!(tool_names.contains(&"prism_mutate"));
     assert!(!tool_names.contains(&"prism_session"));
@@ -297,7 +298,7 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     assert!(api_reference.contains("prism_locate"));
     assert!(api_reference.contains("prism_gather"));
     assert!(api_reference.contains("prism_open"));
-    assert!(api_reference.contains("prism_query"));
+    assert!(api_reference.contains("prism_code"));
     assert!(!api_reference.contains("runtimeStatus(): RuntimeStatusView;"));
     assert!(!api_reference.contains("mcpLog(options?: McpLogOptions): McpCallLogEntryView[];"));
     assert!(!api_reference.contains("queryLog(options?: QueryLogOptions): QueryLogEntryView[];"));
@@ -500,7 +501,7 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(
         tool_names,
-        std::collections::BTreeSet::from(["prism_mutate", "prism_query", "prism_task_brief"])
+        std::collections::BTreeSet::from(["prism_code", "prism_mutate", "prism_query", "prism_task_brief"])
     );
     let mutate_tool_schema = tools["result"]["tools"]
         .as_array()
@@ -574,7 +575,7 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
             .iter()
             .filter_map(|tool| tool["name"].as_str())
             .collect::<std::collections::BTreeSet<_>>(),
-        std::collections::BTreeSet::from(["prism_mutate", "prism_query", "prism_task_brief"])
+        std::collections::BTreeSet::from(["prism_code", "prism_mutate", "prism_query", "prism_task_brief"])
     );
     let related_resource_uris = capabilities_payload["relatedResources"]
         .as_array()
@@ -755,7 +756,7 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
             .iter()
             .filter_map(|tool| tool["toolName"].as_str())
             .collect::<std::collections::BTreeSet<_>>(),
-        std::collections::BTreeSet::from(["prism_mutate", "prism_query", "prism_task_brief"])
+        std::collections::BTreeSet::from(["prism_code", "prism_mutate", "prism_query", "prism_task_brief"])
     );
     assert!(tool_schemas_payload["tools"]
         .as_array()
@@ -1555,6 +1556,14 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
             && tool["exampleInput"]["query"] == "session"
             && tool["exampleUri"] == "prism://example/tool/prism_locate"
             && tool["shapeUri"] == "prism://shape/tool/prism_locate"));
+    assert!(capabilities_payload["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|tool| tool["name"] == "prism_code"
+            && tool["exampleInput"]["language"] == "ts"
+            && tool["exampleUri"] == "prism://example/tool/prism_code"
+            && tool["shapeUri"] == "prism://shape/tool/prism_code"));
     assert!(capabilities_payload["tools"]
         .as_array()
         .unwrap()

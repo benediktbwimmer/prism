@@ -21,10 +21,10 @@ use crate::{
     ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload, ClaimReleasePayload,
     ClaimRenewPayload, CoordinationTransactionPayload, HandoffAcceptPayload, HandoffPayload,
     MemoryRetirePayload, MemoryStorePayload, PlanArchivePayload, PlanBootstrapPayload,
-    PlanCreatePayload, PlanUpdatePayload, PrismConceptArgs, PrismExpandArgs, PrismGatherArgs,
-    PrismLocateArgs, PrismMcpFeatures, PrismMutationArgs, PrismOpenArgs, PrismQueryArgs,
-    PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView, TaskCreatePayload, TaskReclaimPayload,
-    TaskResumePayload, WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
+    PlanCreatePayload, PlanUpdatePayload, PrismCodeArgs, PrismConceptArgs, PrismExpandArgs,
+    PrismGatherArgs, PrismLocateArgs, PrismMcpFeatures, PrismMutationArgs, PrismOpenArgs,
+    PrismQueryArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView, TaskCreatePayload,
+    TaskReclaimPayload, TaskResumePayload, WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -116,6 +116,15 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
             example_input: tool_input_example("prism_concept").expect("tool example"),
             example_uri: Some(tool_example_resource_uri("prism_concept")),
             shape_uri: Some(tool_shape_resource_uri("prism_concept")),
+        },
+        ToolSchemaCatalogEntry {
+            tool_name: "prism_code".to_string(),
+            schema_uri: tool_schema_resource_uri("prism_code"),
+            description:
+                "Input schema for the canonical programmable PRISM code surface.".to_string(),
+            example_input: tool_input_example("prism_code").expect("tool example"),
+            example_uri: Some(tool_example_resource_uri("prism_code")),
+            shape_uri: Some(tool_shape_resource_uri("prism_code")),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_query".to_string(),
@@ -499,6 +508,11 @@ pub(crate) fn tool_schema_resource_contents(
             "prism_concept",
             "JSON Schema for the `prism_concept` tool input payload.",
         ),
+        "prism_code" => tool_input_schema_contents::<PrismCodeArgs>(
+            uri,
+            "prism_code",
+            "JSON Schema for the `prism_code` tool input payload.",
+        ),
         "prism_query" => tool_input_schema_contents::<PrismQueryArgs>(
             uri,
             "prism_query",
@@ -564,6 +578,10 @@ pub(crate) fn tool_input_schema_value(tool_name: &str) -> Option<Value> {
         "prism_concept" => Some(tool_input_schema_value_for::<PrismConceptArgs>(
             "prism_concept",
             "JSON Schema for the `prism_concept` tool input payload.",
+        )),
+        "prism_code" => Some(tool_input_schema_value_for::<PrismCodeArgs>(
+            "prism_code",
+            "JSON Schema for the `prism_code` tool input payload.",
         )),
         "prism_query" => Some(tool_input_schema_value_for::<PrismQueryArgs>(
             "prism_query",
