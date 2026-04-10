@@ -373,62 +373,105 @@ impl PrismMcpServer {
         credential: Option<PrismMutationCredentialArgs>,
         bridge_execution: Option<PrismMutationBridgeExecutionArgs>,
         dry_run: bool,
-    ) -> crate::query_runtime::PrismCodeMutationContext {
-        let server = self.clone_with_shared_session();
-        crate::query_runtime::PrismCodeMutationContext::new(Arc::new(move |input: Value| {
-            let mut full_input = input
-                .as_object()
-                .cloned()
-                .ok_or_else(|| {
+    ) -> crate::prism_code_builder::PrismCodeExecutionContext {
+        let legacy_server = self.clone_with_shared_session();
+        let coordination_server = self.clone_with_shared_session();
+        let legacy_credential = credential.clone();
+        let legacy_bridge_execution = bridge_execution.clone();
+        crate::prism_code_builder::PrismCodeExecutionContext::new(
+            Arc::new(move |input: Value| {
+                let mut full_input = input.as_object().cloned().ok_or_else(|| {
                     anyhow::anyhow!(
                         "prism.mutate expects an object with `action` and `input` fields"
                     )
                 })?;
 
-            if let Some(credential) = credential.as_ref() {
-                full_input.insert(
-                    "credential".to_string(),
-                    json!({
+                if let Some(credential) = legacy_credential.as_ref() {
+                    full_input.insert(
+                        "credential".to_string(),
+                        json!({
+                            "credentialId": credential.credential_id,
+                            "principalToken": credential.principal_token,
+                        }),
+                    );
+                }
+                if let Some(bridge_execution) = legacy_bridge_execution.as_ref() {
+                    full_input.insert(
+                        "bridgeExecution".to_string(),
+                        json!({
+                            "worktreeId": bridge_execution.worktree_id,
+                            "agentLabel": bridge_execution.agent_label,
+                        }),
+                    );
+                }
+
+                let full_input = Value::Object(full_input);
+                if dry_run {
+                    let validation = validate_tool_input_value_with_features(
+                        "prism_mutate",
+                        full_input.clone(),
+                        &legacy_server.host.features,
+                    );
+                    let action = full_input
+                        .get("action")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown");
+                    return Ok(json!({
+                        "action": action,
+                        "dryRun": true,
+                        "validation": validation,
+                    }));
+                }
+
+                let args = serde_json::from_value::<PrismMutationArgs>(full_input)
+                    .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+                let result = legacy_server
+                    .execute_prism_mutation_via_tool(args)
+                    .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+                serde_json::to_value(result).map_err(Into::into)
+            }),
+            Arc::new(move |payload: Value| {
+                let mut full_input = json!({
+                    "action": "coordination",
+                    "input": {
+                        "kind": "coordination_transaction",
+                        "payload": payload,
+                    }
+                });
+                if let Some(credential) = credential.as_ref() {
+                    full_input["credential"] = json!({
                         "credentialId": credential.credential_id,
                         "principalToken": credential.principal_token,
-                    }),
-                );
-            }
-            if let Some(bridge_execution) = bridge_execution.as_ref() {
-                full_input.insert(
-                    "bridgeExecution".to_string(),
-                    json!({
+                    });
+                }
+                if let Some(bridge_execution) = bridge_execution.as_ref() {
+                    full_input["bridgeExecution"] = json!({
                         "worktreeId": bridge_execution.worktree_id,
                         "agentLabel": bridge_execution.agent_label,
-                    }),
-                );
-            }
-
-            let full_input = Value::Object(full_input);
-            if dry_run {
-                let validation = validate_tool_input_value_with_features(
-                    "prism_mutate",
-                    full_input.clone(),
-                    &server.host.features,
-                );
-                let action = full_input
-                    .get("action")
-                    .and_then(Value::as_str)
-                    .unwrap_or("unknown");
-                return Ok(json!({
-                    "action": action,
-                    "dryRun": true,
-                    "validation": validation,
-                }));
-            }
-
-            let args = serde_json::from_value::<PrismMutationArgs>(full_input)
-                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-            let result = server
-                .execute_prism_mutation_via_tool(args)
-                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-            serde_json::to_value(result).map_err(Into::into)
-        }))
+                    });
+                }
+                if dry_run {
+                    let validation = validate_tool_input_value_with_features(
+                        "prism_mutate",
+                        full_input,
+                        &coordination_server.host.features,
+                    );
+                    return Ok(PrismMutationResult {
+                        action: PrismMutationActionSchema::Coordination,
+                        result: json!({
+                            "dryRun": true,
+                            "validation": validation,
+                        }),
+                    });
+                }
+                let args = serde_json::from_value::<PrismMutationArgs>(full_input)
+                    .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+                coordination_server
+                    .execute_prism_mutation_via_tool(args)
+                    .map_err(|error| anyhow::anyhow!(error.to_string()))
+            }),
+            dry_run,
+        )
     }
 
     pub(crate) fn transport_bind_tool_schema(mut tool: Tool, features: &PrismMcpFeatures) -> Tool {
@@ -1331,11 +1374,7 @@ impl PrismMcpServer {
 
         let language = language.unwrap_or(QueryLanguage::Ts);
         let code_mutation = if credential.is_some() || bridge_execution.is_some() {
-            Some(self.prism_code_mutation_context(
-                credential,
-                bridge_execution,
-                dry_run,
-            ))
+            Some(self.prism_code_mutation_context(credential, bridge_execution, dry_run))
         } else {
             None
         };

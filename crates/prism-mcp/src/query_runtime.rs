@@ -103,35 +103,6 @@ struct TypescriptAttempt {
     output_cap_hit: bool,
 }
 
-type PrismCodeMutationExecutor = Arc<dyn Fn(Value) -> Result<Value> + Send + Sync>;
-
-#[derive(Clone)]
-pub(crate) struct PrismCodeMutationContext {
-    executor: PrismCodeMutationExecutor,
-    used: Arc<Mutex<bool>>,
-}
-
-impl PrismCodeMutationContext {
-    pub(crate) fn new(executor: PrismCodeMutationExecutor) -> Self {
-        Self {
-            executor,
-            used: Arc::new(Mutex::new(false)),
-        }
-    }
-
-    fn execute(&self, input: Value) -> Result<Value> {
-        let mut used = self.used.lock().expect("code mutation lock poisoned");
-        if *used {
-            return Err(anyhow!(
-                "prism_code currently supports at most one `prism.mutate(...)` call per invocation"
-            ));
-        }
-        *used = true;
-        drop(used);
-        (self.executor)(input)
-    }
-}
-
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RemoteQueryDispatchArgs {
@@ -143,6 +114,58 @@ struct RemoteQueryDispatchArgs {
 
 #[derive(Debug, serde::Deserialize)]
 struct CodeMutationArgs {
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct FinalizeCodeArgs {
+    result: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeCreatePlanArgs {
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeOpenPlanArgs {
+    plan_id: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeOpenTaskArgs {
+    task_id: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativePlanAddTaskArgs {
+    plan_handle_id: String,
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeTaskDependsOnArgs {
+    task: Value,
+    depends_on: Value,
+    kind: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeTaskUpdateArgs {
+    task: Value,
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeTaskCompleteArgs {
+    task: Value,
     input: Value,
 }
 
@@ -275,7 +298,7 @@ impl QueryHost {
         code: &str,
         language: QueryLanguage,
         surface_name: &'static str,
-        code_mutation: Option<PrismCodeMutationContext>,
+        code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
     ) -> Result<QueryEnvelope> {
         match language {
             QueryLanguage::Ts => {
@@ -463,7 +486,7 @@ impl QueryHost {
         session: Arc<SessionState>,
         code: &str,
         surface_name: &'static str,
-        code_mutation: Option<PrismCodeMutationContext>,
+        code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
     ) -> Result<QueryEnvelope> {
         let query_run = self
             .begin_query_run(session.as_ref(), surface_name, "typescript", code)
@@ -658,7 +681,7 @@ impl QueryHost {
         mode: TsSnippetMode,
         query_run: QueryRun,
         surface_name: &'static str,
-        code_mutation: Option<PrismCodeMutationContext>,
+        code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
     ) -> Result<TypescriptAttempt> {
         let prepared_started = Instant::now();
         let prepared = prepare_typescript_query(code, mode);
@@ -794,7 +817,7 @@ impl QueryHost {
             )
         })?;
         let decode_started = Instant::now();
-        let mut result = match serde_json::from_str(&raw_result) {
+        let decoded_result = match serde_json::from_str(&raw_result) {
             Ok(result) => {
                 execution.query_run().record_phase(
                     &format!("typescript.{}.decodeResult", mode.code()),
@@ -823,6 +846,7 @@ impl QueryHost {
                 return Err(error);
             }
         };
+        let mut result = execution.finalize_code_result(decoded_result)?;
         let mut output_cap_hit = false;
         let limits = session.limits();
         if raw_result.len() > limits.max_output_json_bytes {
@@ -854,7 +878,7 @@ fn prepare_typescript_query(code: &str, mode: TsSnippetMode) -> PreparedTypescri
         TsSnippetMode::ImplicitExpression => format!("return (\n{}\n);", code),
     };
     let source = format!(
-        "(async function() {{\n  const __prismLocationRegex = /(?:file:\\/\\/\\/prism\\/query\\.ts|eval_script):(?<line>\\d+):(?<column>\\d+)/;\n  const __prismParseLocation = (value) => {{\n    const __prismMatch = typeof value === \"string\" ? value.match(__prismLocationRegex) : null;\n    if (!__prismMatch || !__prismMatch.groups) {{\n      return null;\n    }}\n    return {{\n      line: Number(__prismMatch.groups.line),\n      column: Number(__prismMatch.groups.column),\n    }};\n  }};\n  const __prismFormatError = (error) => {{\n    const __prismMessage = error && typeof error === \"object\" && \"message\" in error && error.message\n      ? String(error.message)\n      : String(error);\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : null;\n    return __prismStack && __prismStack.includes(__prismMessage)\n      ? __prismStack\n      : __prismStack\n        ? `${{__prismMessage}}\\n${{__prismStack}}`\n        : __prismMessage;\n  }};\n  const __prismUserLocation = (error, baseLine) => {{\n    if (typeof baseLine !== \"number\") {{\n      return null;\n    }}\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : \"\";\n    const __prismLines = __prismStack.split(\"\\n\");\n    const __prismFrame = __prismLines.find((line) => line.includes(\"__prismUserQuery\"))\n      || __prismLines.find((line) => line.includes(\"eval_script:\"));\n    const __prismLocation = __prismParseLocation(__prismFrame);\n    if (!__prismLocation) {{\n      return null;\n    }}\n    return {{\n      line: Math.max(1, __prismLocation.line - baseLine + 1),\n      column: __prismLocation.column,\n    }};\n  }};\n  const __prismThrowTaggedError = (marker, error, userLocation = null) => {{\n    const __prismFormatted = __prismFormatError(error);\n    const __prismHeadline = __prismFormatted.split(\"\\n\")[0] || String(error);\n    const __prismUserLocationLine = userLocation\n      ? `\\n{} ${{userLocation.line}}:${{userLocation.column}}`\n      : \"\";\n    const __prismWrapped = new Error(`${{marker}}\\n${{__prismHeadline}}${{__prismUserLocationLine}}`);\n    __prismWrapped.stack = `${{userLocation ? `{} ${{userLocation.line}}:${{userLocation.column}}\\n` : \"\"}}${{__prismFormatted}}`;\n    throw __prismWrapped;\n  }};\n  let __prismUserSnippetBaseLine = null;\n  const __prismUserQuery = async () => {{\n    const __prismBaseLocation = __prismParseLocation(new Error().stack || \"\");\n    __prismUserSnippetBaseLine = __prismBaseLocation ? __prismBaseLocation.line + 1 : null;\n{}\n{}\n  }};\n  let __prismResult;\n  try {{\n    __prismResult = await __prismUserQuery();\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error, __prismUserLocation(error, __prismUserSnippetBaseLine));\n  }}\n  try {{\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error);\n  }}\n}})();\n",
+        "(async function() {{\n  const __prismLocationRegex = /(?:file:\\/\\/\\/prism\\/query\\.ts|eval_script):(?<line>\\d+):(?<column>\\d+)/;\n  const __prismParseLocation = (value) => {{\n    const __prismMatch = typeof value === \"string\" ? value.match(__prismLocationRegex) : null;\n    if (!__prismMatch || !__prismMatch.groups) {{\n      return null;\n    }}\n    return {{\n      line: Number(__prismMatch.groups.line),\n      column: Number(__prismMatch.groups.column),\n    }};\n  }};\n  const __prismFormatError = (error) => {{\n    const __prismMessage = error && typeof error === \"object\" && \"message\" in error && error.message\n      ? String(error.message)\n      : String(error);\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : null;\n    return __prismStack && __prismStack.includes(__prismMessage)\n      ? __prismStack\n      : __prismStack\n        ? `${{__prismMessage}}\\n${{__prismStack}}`\n        : __prismMessage;\n  }};\n  const __prismUserLocation = (error, baseLine) => {{\n    if (typeof baseLine !== \"number\") {{\n      return null;\n    }}\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : \"\";\n    const __prismLines = __prismStack.split(\"\\n\");\n    const __prismFrame = __prismLines.find((line) => line.includes(\"__prismUserQuery\"))\n      || __prismLines.find((line) => line.includes(\"eval_script:\"));\n    const __prismLocation = __prismParseLocation(__prismFrame);\n    if (!__prismLocation) {{\n      return null;\n    }}\n    return {{\n      line: Math.max(1, __prismLocation.line - baseLine + 1),\n      column: __prismLocation.column,\n    }};\n  }};\n  const __prismThrowTaggedError = (marker, error, userLocation = null) => {{\n    const __prismFormatted = __prismFormatError(error);\n    const __prismHeadline = __prismFormatted.split(\"\\n\")[0] || String(error);\n    const __prismUserLocationLine = userLocation\n      ? `\\n{} ${{userLocation.line}}:${{userLocation.column}}`\n      : \"\";\n    const __prismWrapped = new Error(`${{marker}}\\n${{__prismHeadline}}${{__prismUserLocationLine}}`);\n    __prismWrapped.stack = `${{userLocation ? `{} ${{userLocation.line}}:${{userLocation.column}}\\n` : \"\"}}${{__prismFormatted}}`;\n    throw __prismWrapped;\n  }};\n  let __prismUserSnippetBaseLine = null;\n  const __prismUserQuery = async () => {{\n    const __prismBaseLocation = __prismParseLocation(new Error().stack || \"\");\n    __prismUserSnippetBaseLine = __prismBaseLocation ? __prismBaseLocation.line + 1 : null;\n{}\n{}\n  }};\n  let __prismResult;\n  try {{\n    __prismResult = await __prismUserQuery();\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error, __prismUserLocation(error, __prismUserSnippetBaseLine));\n  }}\n  try {{\n    __prismResult = __prismHost(\"__finalizeCode\", {{ result: __prismResult }});\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error);\n  }}\n}})();\n",
         USER_SNIPPET_LOCATION_MARKER,
         USER_SNIPPET_LOCATION_MARKER,
         USER_SNIPPET_MARKER,
@@ -880,7 +904,7 @@ pub(crate) struct QueryExecution {
     prism: Arc<Prism>,
     query_run: QueryRun,
     surface_name: &'static str,
-    code_mutation: Option<PrismCodeMutationContext>,
+    code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
     diagnostics: Arc<Mutex<Vec<QueryDiagnostic>>>,
     semantic_context_cache: Arc<Mutex<SemanticContextCache>>,
 }
@@ -901,7 +925,7 @@ impl QueryExecution {
         prism: Arc<Prism>,
         query_run: QueryRun,
         surface_name: &'static str,
-        code_mutation: Option<PrismCodeMutationContext>,
+        code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
     ) -> Self {
         Self {
             host,
@@ -1710,6 +1734,42 @@ impl QueryExecution {
                     let args: CodeMutationArgs = serde_json::from_value(args)?;
                     Ok(self.execute_code_mutation(args.input)?)
                 }
+                "__finalizeCode" => {
+                    let args: FinalizeCodeArgs = serde_json::from_value(args)?;
+                    Ok(self.finalize_code_result(args.result)?)
+                }
+                "__coordinationCreatePlan" => {
+                    let args: NativeCreatePlanArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_create_plan(args.input)?)
+                }
+                "__coordinationOpenPlan" => {
+                    let args: NativeOpenPlanArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_open_plan(args.plan_id)?)
+                }
+                "__coordinationOpenTask" => {
+                    let args: NativeOpenTaskArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_open_task(args.task_id)?)
+                }
+                "__coordinationPlanAddTask" => {
+                    let args: NativePlanAddTaskArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_plan_add_task(args.plan_handle_id, args.input)?)
+                }
+                "__coordinationTaskDependsOn" => {
+                    let args: NativeTaskDependsOnArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_task_depends_on(
+                        args.task,
+                        args.depends_on,
+                        args.kind,
+                    )?)
+                }
+                "__coordinationTaskUpdate" => {
+                    let args: NativeTaskUpdateArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_task_update(args.task, args.input)?)
+                }
+                "__coordinationTaskComplete" => {
+                    let args: NativeTaskCompleteArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_task_complete(args.task, args.input)?)
+                }
                 "excerpt" => {
                     let args: SourceExcerptArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(self.source_excerpt(args)?)?)
@@ -2051,7 +2111,82 @@ return prism.file(__prismFileAroundArgs.path).around({
                 "prism.mutate requires an authenticated prism_code invocation"
             ));
         };
-        code_mutation.execute(input)
+        code_mutation.execute_legacy_mutation(input)
+    }
+
+    fn finalize_code_result(&self, result: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Ok(result);
+        };
+        code_mutation.finalize_result(result)
+    }
+
+    fn execute_native_create_plan(&self, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.create_plan(input)
+    }
+
+    fn execute_native_open_plan(&self, plan_id: String) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.open_plan(plan_id)
+    }
+
+    fn execute_native_open_task(&self, task_id: String) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.open_task(task_id)
+    }
+
+    fn execute_native_plan_add_task(&self, plan_handle_id: String, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.plan_add_task(plan_handle_id, input)
+    }
+
+    fn execute_native_task_depends_on(
+        &self,
+        task: Value,
+        depends_on: Value,
+        kind: Option<String>,
+    ) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.task_depends_on(task, depends_on, kind)
+    }
+
+    fn execute_native_task_update(&self, task: Value, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.task_update(task, input)
+    }
+
+    fn execute_native_task_complete(&self, task: Value, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.task_complete(task, input)
     }
 
     pub(crate) fn best_symbol(&self, query: &str) -> Result<Option<SymbolView>> {

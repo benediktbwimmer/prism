@@ -946,6 +946,106 @@ function __prismLoadDynamicViews() {
   return __prismDynamicViews;
 }
 
+function __prismCoordinationHandleId(handle, methodPath, expectedKind) {
+  const actualKind = handle?.__prismCoordinationHandleKind;
+  if (actualKind !== expectedKind) {
+    __prismThrowQueryUserError(
+      "prism_code coordination handle invalid",
+      `${methodPath} expects a ${expectedKind} handle.\nHint: Use the object returned by prism.coordination for this call.`,
+      {
+        code: "coordination_handle_invalid",
+        category: "coordination_builder",
+        method: methodPath,
+        expectedKind,
+        actualKind: actualKind ?? null,
+      }
+    );
+  }
+  const handleId = handle?.__prismCoordinationHandleId;
+  if (typeof handleId !== "string" || handleId.length === 0) {
+    __prismThrowQueryUserError(
+      "prism_code coordination handle invalid",
+      `${methodPath} received a coordination handle without an internal id.`,
+      {
+        code: "coordination_handle_missing_id",
+        category: "coordination_builder",
+        method: methodPath,
+      }
+    );
+  }
+  return handleId;
+}
+
+function __prismCoordinationTaskHandle(raw) {
+  if (raw == null || typeof raw !== "object") {
+    return raw;
+  }
+  return {
+    ...raw,
+    update(input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "task.update",
+        input,
+        "input",
+        ["title", "status", "summary"]
+      );
+      return __prismCoordinationTaskHandle(
+        __prismHost("__coordinationTaskUpdate", {
+          task: raw,
+          input: normalized,
+        })
+      );
+    },
+    complete(input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "task.complete",
+        input,
+        "input",
+        ["title", "summary"]
+      );
+      return __prismCoordinationTaskHandle(
+        __prismHost("__coordinationTaskComplete", {
+          task: raw,
+          input: normalized,
+        })
+      );
+    },
+    dependsOn(dependsOn, options = {}) {
+      return __prismHost("__coordinationTaskDependsOn", {
+        task: raw,
+        dependsOn,
+        kind: options?.kind,
+      });
+    },
+  };
+}
+
+function __prismCoordinationPlanHandle(raw) {
+  if (raw == null || typeof raw !== "object") {
+    return raw;
+  }
+  return {
+    ...raw,
+    addTask(input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "plan.addTask",
+        input,
+        "input",
+        ["title", "status", "dependsOn", "depends_on"]
+      );
+      return __prismCoordinationTaskHandle(
+        __prismHost("__coordinationPlanAddTask", {
+          planHandleId: __prismCoordinationHandleId(raw, "plan.addTask", "plan"),
+          input: normalized,
+        })
+      );
+    },
+    task(input = {}) {
+      return this.addTask(input);
+    },
+  };
+}
+
 const __prismBase = Object.freeze({
   from(runtimeId) {
     return __prismRemoteApi(runtimeId);
@@ -1101,6 +1201,51 @@ const __prismBase = Object.freeze({
   validateToolInput(name, input) {
     return __prismHost("validateToolInput", { name, input });
   },
+  coordination: Object.freeze({
+    createPlan(input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "prism.coordination.createPlan",
+        input,
+        "input",
+        ["title", "goal", "status"]
+      );
+      return __prismCoordinationPlanHandle(
+        __prismHost("__coordinationCreatePlan", { input: normalized })
+      );
+    },
+    openPlan(planId) {
+      if (typeof planId !== "string" || planId.trim() === "") {
+        __prismThrowQueryUserError(
+          "prism_code coordination plan id invalid",
+          "prism.coordination.openPlan(planId) requires a non-empty plan id string.",
+          {
+            code: "coordination_plan_id_required",
+            category: "coordination_builder",
+            method: "prism.coordination.openPlan",
+          }
+        );
+      }
+      return __prismCoordinationPlanHandle(
+        __prismHost("__coordinationOpenPlan", { planId: planId.trim() })
+      );
+    },
+    openTask(taskId) {
+      if (typeof taskId !== "string" || taskId.trim() === "") {
+        __prismThrowQueryUserError(
+          "prism_code coordination task id invalid",
+          "prism.coordination.openTask(taskId) requires a non-empty task id string.",
+          {
+            code: "coordination_task_id_required",
+            category: "coordination_builder",
+            method: "prism.coordination.openTask",
+          }
+        );
+      }
+      return __prismCoordinationTaskHandle(
+        __prismHost("__coordinationOpenTask", { taskId: taskId.trim() })
+      );
+    },
+  }),
   mutate(input) {
     return __prismHost("mutate", { input });
   },

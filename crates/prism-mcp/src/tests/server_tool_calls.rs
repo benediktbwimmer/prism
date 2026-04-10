@@ -46,20 +46,23 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
         .send(call_tool_request(
             2,
             "prism_code",
-            prism_code_mutation_arguments(json!({
-                "action": "validation_feedback",
-                "input": {
-                    "anchors": [],
-                    "prismSaid": "bad",
-                    "actuallyTrue": "worse",
-                    "category": "projection",
-                    "verdict": "helpful"
-                }
-            }), &crate::tests_support::MutationCredentialFixture {
-                credential_id: "credential:test".to_string(),
-                principal_id: "principal:test".to_string(),
-                principal_token: "prism_ptok_test".to_string(),
-            }),
+            prism_code_mutation_arguments(
+                json!({
+                    "action": "validation_feedback",
+                    "input": {
+                        "anchors": [],
+                        "prismSaid": "bad",
+                        "actuallyTrue": "worse",
+                        "category": "projection",
+                        "verdict": "helpful"
+                    }
+                }),
+                &crate::tests_support::MutationCredentialFixture {
+                    credential_id: "credential:test".to_string(),
+                    principal_id: "principal:test".to_string(),
+                    principal_token: "prism_ptok_test".to_string(),
+                },
+            ),
         ))
         .await
         .unwrap();
@@ -68,10 +71,7 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
     assert_eq!(response["error"]["code"], -32602);
     let message = response["error"]["message"].as_str().unwrap_or_default();
     assert!(message.contains("failed to deserialize parameters:"));
-    assert!(
-        message.contains("validation_feedback"),
-        "{message}"
-    );
+    assert!(message.contains("validation_feedback"), "{message}");
     assert!(message.contains("context"), "{message}");
     assert!(message.contains("required fields:"), "{message}");
     assert!(message.contains("prism.mutate"), "{message}");
@@ -429,10 +429,12 @@ async fn mcp_server_executes_prism_code_reads() {
     let response = first_tool_content_json(client.receive().await.unwrap());
     assert_eq!(response["result"]["ok"], true);
     assert_eq!(response["result"]["toolName"], "prism_code");
-    assert!(response["result"]["toolCount"]
-        .as_u64()
-        .expect("toolCount should be numeric")
-        > 0);
+    assert!(
+        response["result"]["toolCount"]
+            .as_u64()
+            .expect("toolCount should be numeric")
+            > 0
+    );
     assert_eq!(response["diagnostics"], json!([]));
 
     running.cancel().await.unwrap();
@@ -582,6 +584,333 @@ return {
     assert_eq!(response["result"]["action"], "validation_feedback");
     assert_eq!(response["result"]["dryRun"], true);
     assert_eq!(response["result"]["valid"], true);
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_executes_native_prism_code_coordination_builders() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+return prism.mutate({
+  action: "declare_work",
+  input: {
+    title: "Exercise native prism_code coordination builders",
+  },
+});
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let declared = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared["result"]["action"], "declare_work");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const plan = await prism.coordination.createPlan({
+  title: "Native prism_code builder plan",
+  goal: "Create coordination objects without prism.mutate payloads",
+});
+const baseline = await plan.addTask({ title: "Capture baseline timings" });
+const compare = await plan.addTask({ title: "Compare slow phases" });
+await compare.dependsOn(baseline);
+return { plan, baseline, compare };
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(
+        response["result"]["plan"]["title"],
+        "Native prism_code builder plan"
+    );
+    assert_eq!(
+        response["result"]["baseline"]["title"],
+        "Capture baseline timings"
+    );
+    assert_eq!(
+        response["result"]["compare"]["title"],
+        "Compare slow phases"
+    );
+    assert_eq!(
+        response["result"]["compare"]["dependencies"]
+            .as_array()
+            .map(Vec::len),
+        Some(1)
+    );
+    assert_eq!(
+        response["result"]["compare"]["parentPlanId"],
+        response["result"]["plan"]["id"]
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_extends_existing_plan_via_native_prism_code_coordination_builders() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const declared = await prism.mutate({
+  action: "declare_work",
+  input: {
+    title: "Exercise native prism_code plan extension",
+  },
+});
+return {
+  declaredAction: declared.action,
+};
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let declared = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared["result"]["declaredAction"], "declare_work");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const plan = await prism.coordination.createPlan({
+  title: "Extensible prism_code builder plan",
+  goal: "Verify openPlan and live extension",
+});
+const baseline = await plan.addTask({ title: "Collect baseline evidence" });
+return {
+  plan,
+  baseline,
+};
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let created = first_tool_content_json(client.receive().await.unwrap());
+    let plan_id = created["result"]["plan"]["id"]
+        .as_str()
+        .expect("plan id should be a string")
+        .to_string();
+    let baseline_id = created["result"]["baseline"]["id"]
+        .as_str()
+        .expect("baseline id should be a string")
+        .to_string();
+
+    client
+        .send(call_tool_request(
+            4,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": format!(
+                    r#"
+const plan = await prism.coordination.openPlan("{plan_id}");
+const followup = await plan.addTask({{
+  title: "Extend existing plan",
+  dependsOn: ["{baseline_id}"],
+}});
+return {{ plan, followup }};
+"#
+                ),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let extended = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(extended["result"]["plan"]["id"], plan_id);
+    assert_eq!(
+        extended["result"]["followup"]["title"],
+        "Extend existing plan"
+    );
+    assert_eq!(
+        extended["result"]["followup"]["parentPlanId"],
+        extended["result"]["plan"]["id"]
+    );
+    assert_eq!(
+        extended["result"]["followup"]["dependencies"]
+            .as_array()
+            .map(Vec::len),
+        Some(1)
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_updates_and_completes_existing_tasks_via_native_prism_code_coordination_builders(
+) {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const declared = await prism.mutate({
+  action: "declare_work",
+  input: {
+    title: "Exercise native prism_code task lifecycle builders",
+  },
+});
+return {
+  declaredAction: declared.action,
+};
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let declared = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared["result"]["declaredAction"], "declare_work");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const plan = await prism.coordination.createPlan({
+  title: "Task lifecycle builder plan",
+  goal: "Verify native task updates and completion",
+});
+const task = await plan.addTask({ title: "Investigate runtime behavior" });
+return { plan, task };
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let created = first_tool_content_json(client.receive().await.unwrap());
+    let task_id = created["result"]["task"]["id"]
+        .as_str()
+        .expect("task id should be a string")
+        .to_string();
+
+    client
+        .send(call_tool_request(
+            4,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": format!(
+                    r#"
+const task = await prism.coordination.openTask("{task_id}");
+await task.update({{
+  title: "Investigate runtime behavior thoroughly",
+  summary: "Inspect the staged builder path after the native cutover.",
+}});
+await task.complete();
+return {{ task }};
+"#
+                ),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let updated = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(updated["result"]["task"]["id"], task_id);
+    assert_eq!(
+        updated["result"]["task"]["title"],
+        "Investigate runtime behavior thoroughly"
+    );
+    assert_eq!(
+        updated["result"]["task"]["summary"],
+        "Inspect the staged builder path after the native cutover."
+    );
+    assert_eq!(updated["result"]["task"]["status"], "completed");
 
     running.cancel().await.unwrap();
 }

@@ -61,7 +61,8 @@ hop.
 - Ordinary multi-statement snippets are supported, including top-level `await`.
 - The returned value must be JSON-serializable.
 - `language` currently supports only `"ts"`.
-- `prism_code` now supports the first write-capable lowering path through `prism.mutate(...)`.
+- `prism_code` now supports a native coordination builder slice for plan/task authoring, while
+  `prism.mutate(...)` remains available as a transitional legacy escape hatch.
 
 Design principle for the future compact ABI:
 
@@ -2652,11 +2653,66 @@ likely validations, and 1 to 2 `nextReads`.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()`, flat proposal inspection through `prism.curator.proposals()`, and job detail through `prism.curator.job()`.
 - Available now: a canonical capabilities resource at `prism://capabilities` plus tool input schema resources through `prism://tool-schemas` and `prism://schema/tool/{toolName}` for direct MCP introspection.
 - Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, claim simulation, and workflow helpers for inbox/task/claim preview.
+- Available now: a first native coordination authoring slice through `prism.coordination.createPlan(...)`, `prism.coordination.openPlan(...)`, `prism.coordination.openTask(...)`, `plan.addTask(...)`, `task.dependsOn(...)`, `task.update(...)`, and `task.complete(...)`, committed automatically at the end of one `prism_code` invocation.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
+
+## Native coordination builders
+
+The current native builder slice is intentionally narrow:
+
+- `prism.coordination.createPlan(...)`
+- `prism.coordination.openPlan(planId)`
+- `prism.coordination.openTask(taskId)`
+- `plan.addTask(...)`
+- `task.dependsOn(...)`
+- `task.update(...)`
+- `task.complete(...)`
+
+These helpers stage one coordination transaction during the `prism_code` invocation and commit it
+at the end of the call.
+
+### Create a new plan with two tasks and one dependency
+
+```ts
+const plan = await prism.coordination.createPlan({
+  title: "Investigate refresh latency",
+  goal: "Understand the slow path before widening substrate work",
+});
+
+const baseline = await plan.addTask({ title: "Capture baseline timings" });
+const compare = await plan.addTask({
+  title: "Compare slow phases",
+  dependsOn: [baseline],
+});
+
+return { plan, baseline, compare };
+```
+
+### Extend an existing plan natively
+
+```ts
+const plan = await prism.coordination.openPlan("plan:123");
+const investigate = await plan.addTask({ title: "Investigate the latest regression" });
+return investigate;
+```
+
+### Update and complete an existing task natively
+
+```ts
+const task = await prism.coordination.openTask("task:123");
+await task.update({
+  title: "Investigate the latest regression thoroughly",
+  summary: "Re-check the refresh path after the runtime cutover.",
+});
+await task.complete();
+return task;
+```
 
 ## Mutation lowering
 
-The current `prism_code` implementation slice supports authoritative writes through `prism.mutate(...)`. Under the hood, the first lowering path still routes through the coarse mutation transport while later phases replace it with richer source-level builders:
+`prism.mutate(...)` is still available as a transitional legacy escape hatch. Under the hood, it
+still routes through the coarse mutation transport while later phases replace the remaining
+non-native paths with richer source-level builders:
 
 - `prism.mutate(...)`
   - action `declare_work`

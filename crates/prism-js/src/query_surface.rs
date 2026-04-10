@@ -331,6 +331,9 @@ pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
         method!("prism.tools", "tools(): ToolCatalogEntryView[];", PrismSurfaceTypeRef::ArrayOfNamed("ToolCatalogEntryView")),
         method!("prism.tool", "tool(name: string): ToolSchemaView | null;", PrismSurfaceTypeRef::NullableNamed("ToolSchemaView")),
         method!("prism.validateToolInput", "validateToolInput(name: string, input: unknown): ToolInputValidationView;", PrismSurfaceTypeRef::Named("ToolInputValidationView")),
+        method!("prism.coordination.createPlan", "createPlan(input: { title: string; goal?: string; status?: \"draft\" | \"active\" | \"blocked\" | \"completed\" | \"abandoned\" | \"archived\" }): unknown;", PrismSurfaceTypeRef::Unknown),
+        method!("prism.coordination.openPlan", "openPlan(planId: string): unknown;", PrismSurfaceTypeRef::Unknown),
+        method!("prism.coordination.openTask", "openTask(taskId: string): unknown;", PrismSurfaceTypeRef::Unknown),
         method!("prism.mutate", "mutate(input: unknown): unknown;", PrismSurfaceTypeRef::Unknown),
         method!("prism.entrypoints", "entrypoints(): SymbolView[];", PrismSurfaceTypeRef::ArrayOfNamed("SymbolView")),
         method!("prism.file", "file(path: string): FileView;", PrismSurfaceTypeRef::Unknown),
@@ -470,7 +473,10 @@ pub fn prism_api_declaration_block() -> &'static str {
                 let suffix = spec.path.strip_prefix("prism.").unwrap_or(spec.path);
                 let segments = suffix.split('.').collect::<Vec<_>>();
                 if segments.len() == 2
-                    && matches!(segments[0], "connection" | "runtime" | "memory" | "curator")
+                    && matches!(
+                        segments[0],
+                        "connection" | "runtime" | "memory" | "curator" | "coordination"
+                    )
                 {
                     namespaced.entry(segments[0]).or_default().push(declaration);
                 } else {

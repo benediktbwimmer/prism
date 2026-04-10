@@ -64,6 +64,13 @@ Success condition:
 - `prism_code` can create and stage multiple related coordination mutations in one invocation
   without exposing public mutation payload stitching
 
+Status note (2026-04-10):
+
+- landed: one per-invocation staged coordination transaction context now commits or dry-runs at the
+  end of the `prism_code` invocation
+- landed: internal handle identities stay inside the lowering layer
+- remaining: broaden the native builder surface beyond the first coordination slices
+
 ### Slice 2: Native plan and task authoring handles
 
 Deliver:
@@ -78,6 +85,13 @@ Success condition:
 - users and agents can create a plan, create tasks, and express dependencies without
   `prism.mutate(...)`
 
+Status note (2026-04-10):
+
+- landed: `prism.coordination.createPlan(...)`
+- landed: `prism.coordination.openPlan(...)`
+- landed: `plan.addTask(...)`
+- landed: `task.dependsOn(...)`
+
 ### Slice 3: Native extension and update slices
 
 Deliver:
@@ -90,6 +104,14 @@ Success condition:
 
 - the normal coordination lifecycle no longer requires the old mutation action catalog on the
   public `prism_code` surface
+
+Status note (2026-04-10):
+
+- landed: live-plan extension through `prism.coordination.openPlan(...)`
+- landed: task reopen/update/complete through `prism.coordination.openTask(...)`,
+  `task.update(...)`, and `task.complete(...)`
+- remaining: broaden native lifecycle coverage so normal coordination work no longer needs the
+  legacy `prism.mutate(...)` escape hatch at all
 
 ## 4. Hard rules
 
