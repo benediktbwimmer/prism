@@ -1362,7 +1362,7 @@ pub(crate) struct NodeIdInput {
     pub(crate) kind: String,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, serde::Serialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum AnchorRefInput {
     Node {
@@ -2783,6 +2783,10 @@ pub(crate) enum CoordinationTransactionMutationPayload {
     TaskCreate(CoordinationTransactionTaskCreatePayload),
     TaskUpdate(CoordinationTransactionTaskUpdatePayload),
     DependencyCreate(CoordinationTransactionDependencyCreatePayload),
+    TaskHandoff(CoordinationTransactionTaskHandoffPayload),
+    TaskHandoffAccept(CoordinationTransactionTaskHandoffAcceptPayload),
+    TaskResume(CoordinationTransactionTaskResumePayload),
+    TaskReclaim(CoordinationTransactionTaskReclaimPayload),
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -2862,6 +2866,35 @@ pub(crate) struct CoordinationTransactionTaskUpdatePayload {
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
     pub(crate) artifact_requirements: Option<Vec<prism_coordination::ArtifactRequirement>>,
     pub(crate) review_requirements: Option<Vec<prism_coordination::ReviewRequirement>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionTaskHandoffPayload {
+    pub(crate) task: CoordinationTaskRefPayload,
+    pub(crate) to_agent: Option<String>,
+    pub(crate) summary: String,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionTaskHandoffAcceptPayload {
+    pub(crate) task: CoordinationTaskRefPayload,
+    pub(crate) agent: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionTaskResumePayload {
+    pub(crate) task: CoordinationTaskRefPayload,
+    pub(crate) agent: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionTaskReclaimPayload {
+    pub(crate) task: CoordinationTaskRefPayload,
+    pub(crate) agent: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

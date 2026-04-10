@@ -125,6 +125,23 @@ enum CoordinationWriteOp {
         depends_on_handle_id: String,
         kind: String,
     },
+    TaskHandoff {
+        task_handle_id: String,
+        summary: String,
+        to_agent: Option<String>,
+    },
+    TaskAcceptHandoff {
+        task_handle_id: String,
+        agent: Option<String>,
+    },
+    TaskResume {
+        task_handle_id: String,
+        agent: Option<String>,
+    },
+    TaskReclaim {
+        task_handle_id: String,
+        agent: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -156,23 +173,6 @@ enum StructuredDirectWriteOp {
     ArtifactReview {
         artifact_handle_id: String,
         input: Value,
-    },
-    TaskHandoff {
-        task_handle_id: String,
-        summary: String,
-        to_agent: Option<String>,
-    },
-    TaskAcceptHandoff {
-        task_handle_id: String,
-        agent: Option<String>,
-    },
-    TaskResume {
-        task_handle_id: String,
-        agent: Option<String>,
-    },
-    TaskReclaim {
-        task_handle_id: String,
-        agent: Option<String>,
     },
 }
 
@@ -313,9 +313,24 @@ impl PrismCodeWriteRuntime {
         let mut state = self.state.lock().expect("code mutation lock poisoned");
         let handle_id = format!("claim-handle:{}", state.next_claim_handle);
         state.next_claim_handle += 1;
+        let coordination_task_id = task_handle_id
+            .as_ref()
+            .and_then(|handle_id| state.task_handles.get(handle_id))
+            .map(CurrentPreview::current_preview)
+            .and_then(preview_id)
+            .map(|id| Value::String(id.to_string()))
+            .unwrap_or_else(|| {
+                input.get("coordinationTaskId")
+                    .cloned()
+                    .unwrap_or(Value::Null)
+            });
         let preview = json!({
             "id": format!("claim_{}", state.next_claim_handle - 1),
             "status": "Active",
+            "anchors": input.get("anchors").cloned().unwrap_or(Value::Array(Vec::new())),
+            "coordinationTaskId": coordination_task_id,
+            "capability": input.get("capability").cloned().unwrap_or(Value::Null),
+            "mode": input.get("mode").cloned().unwrap_or(Value::Null),
             "provisional": true,
         });
         state.claim_handles.insert(
@@ -374,6 +389,13 @@ impl PrismCodeWriteRuntime {
                 claim_handle_id: claim_handle_id.clone(),
             }),
         )?;
+        if let Some(preview) = state
+            .claim_handles
+            .get_mut(&claim_handle_id)
+            .and_then(|entry| entry.current.as_object_mut())
+        {
+            preview.insert("status".to_string(), Value::String("Released".to_string()));
+        }
         let preview = state
             .claim_handles
             .get(&claim_handle_id)
@@ -396,9 +418,17 @@ impl PrismCodeWriteRuntime {
         let mut state = self.state.lock().expect("code mutation lock poisoned");
         let handle_id = format!("artifact-handle:{}", state.next_artifact_handle);
         state.next_artifact_handle += 1;
+        let task_id = task_handle_id
+            .as_ref()
+            .and_then(|handle_id| state.task_handles.get(handle_id))
+            .map(CurrentPreview::current_preview)
+            .and_then(preview_id)
+            .map(|id| Value::String(id.to_string()))
+            .unwrap_or_else(|| input.get("taskId").cloned().unwrap_or(Value::Null));
         let preview = json!({
             "id": format!("artifact_{}", state.next_artifact_handle - 1),
             "status": "Proposed",
+            "taskId": task_id,
             "diffRef": input.get("diffRef").cloned().unwrap_or(Value::Null),
             "provisional": true,
         });
@@ -435,6 +465,13 @@ impl PrismCodeWriteRuntime {
                 artifact_handle_id: artifact_handle_id.clone(),
             }),
         )?;
+        if let Some(preview) = state
+            .artifact_handles
+            .get_mut(&artifact_handle_id)
+            .and_then(|entry| entry.current.as_object_mut())
+        {
+            preview.insert("status".to_string(), Value::String("Superseded".to_string()));
+        }
         let preview = state
             .artifact_handles
             .get(&artifact_handle_id)
@@ -449,6 +486,7 @@ impl PrismCodeWriteRuntime {
 
     pub(crate) fn artifact_review(&self, artifact: Value, input: Value) -> Result<Value> {
         let input = Value::Object(expect_object(input, "prism.artifact.review")?);
+        let preview_input = input.clone();
         let artifact_handle_id =
             self.ensure_artifact_handle_from_value(artifact, "prism.artifact.review")?;
         let mut state = self.state.lock().expect("code mutation lock poisoned");
@@ -460,6 +498,26 @@ impl PrismCodeWriteRuntime {
                 input,
             }),
         )?;
+        if let Some(preview) = state
+            .artifact_handles
+            .get_mut(&artifact_handle_id)
+            .and_then(|entry| entry.current.as_object_mut())
+        {
+            let status = match preview
+                .get("verdict")
+                .and_then(Value::as_str)
+                .or_else(|| preview_input.get("verdict").and_then(Value::as_str))
+            {
+                Some("approved") | Some("Approved") => "Approved",
+                Some("changes_requested") | Some("ChangesRequested") => "InReview",
+                Some("rejected") | Some("Rejected") => "Rejected",
+                _ => "InReview",
+            };
+            preview.insert("status".to_string(), Value::String(status.to_string()));
+            if let Some(verdict) = preview_input.get("verdict").cloned() {
+                preview.insert("verdict".to_string(), verdict);
+            }
+        }
         let preview = state
             .artifact_handles
             .get(&artifact_handle_id)
@@ -482,7 +540,7 @@ impl PrismCodeWriteRuntime {
         self.record_write_effect(
             &mut state,
             "task.handoff",
-            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::TaskHandoff {
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::TaskHandoff {
                 task_handle_id: task_handle_id.clone(),
                 summary,
                 to_agent,
@@ -503,7 +561,7 @@ impl PrismCodeWriteRuntime {
         self.record_write_effect(
             &mut state,
             "task.acceptHandoff",
-            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::TaskAcceptHandoff {
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::TaskAcceptHandoff {
                 task_handle_id: task_handle_id.clone(),
                 agent,
             }),
@@ -522,7 +580,7 @@ impl PrismCodeWriteRuntime {
         self.record_write_effect(
             &mut state,
             "task.resume",
-            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::TaskResume {
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::TaskResume {
                 task_handle_id: task_handle_id.clone(),
                 agent,
             }),
@@ -541,7 +599,7 @@ impl PrismCodeWriteRuntime {
         self.record_write_effect(
             &mut state,
             "task.reclaim",
-            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::TaskReclaim {
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::TaskReclaim {
                 task_handle_id: task_handle_id.clone(),
                 agent,
             }),
@@ -707,6 +765,12 @@ impl PrismCodeWriteRuntime {
         state.next_client_task += 1;
         let preview = json!({
             "id": client_task_id,
+            "planId": state
+                .plan_handles
+                .get(&plan_handle_id)
+                .and_then(current_handle_id)
+                .map(Value::String)
+                .unwrap_or(Value::Null),
             "title": input.get("title").cloned().unwrap_or(Value::Null),
             "status": status.clone().unwrap_or_else(|| "proposed".to_string()),
             "provisional": true,
@@ -871,6 +935,46 @@ impl PrismCodeWriteRuntime {
         Ok(resolve_handles(result, &state))
     }
 
+    pub(crate) fn overlay_plan_read(&self, plan_id: &str, base: Option<Value>) -> Option<Value> {
+        let state = self.state.lock().expect("code mutation lock poisoned");
+        overlay_plan_read_from_state(&state, plan_id, base)
+    }
+
+    pub(crate) fn overlay_task_read(&self, task_id: &str, base: Option<Value>) -> Option<Value> {
+        let state = self.state.lock().expect("code mutation lock poisoned");
+        overlay_task_read_from_state(&state, task_id, base)
+    }
+
+    pub(crate) fn overlay_plan_list(&self, base: Vec<Value>) -> Vec<Value> {
+        let state = self.state.lock().expect("code mutation lock poisoned");
+        overlay_plan_list_from_state(&state, base)
+    }
+
+    pub(crate) fn overlay_task_list(&self, base: Vec<Value>) -> Vec<Value> {
+        let state = self.state.lock().expect("code mutation lock poisoned");
+        overlay_task_list_from_state(&state, base)
+    }
+
+    pub(crate) fn overlay_plan_children(&self, plan_id: &str, base: Vec<Value>) -> Vec<Value> {
+        let state = self.state.lock().expect("code mutation lock poisoned");
+        overlay_plan_children_from_state(&state, plan_id, base)
+    }
+
+    pub(crate) fn overlay_artifact_list(
+        &self,
+        task_id: Option<&str>,
+        plan_id: Option<&str>,
+        base: Vec<Value>,
+    ) -> Vec<Value> {
+        let state = self.state.lock().expect("code mutation lock poisoned");
+        overlay_artifact_list_from_state(&state, task_id, plan_id, base)
+    }
+
+    pub(crate) fn overlay_claim_list(&self, anchors: &[Value], base: Vec<Value>) -> Vec<Value> {
+        let state = self.state.lock().expect("code mutation lock poisoned");
+        overlay_claim_list_from_state(&state, anchors, base)
+    }
+
     fn flush_coordination_batch(
         &self,
         state: &mut PrismCodeWriteState,
@@ -1017,54 +1121,6 @@ impl PrismCodeWriteRuntime {
                 state
                     .artifact_handles
                     .insert(artifact_handle_id, DeferredHandleState { current: result });
-            }
-            StructuredDirectWriteOp::TaskHandoff {
-                task_handle_id,
-                summary,
-                to_agent,
-            } => {
-                let task_id = resolve_task_id_for_direct(state, &task_handle_id, "task.handoff")?;
-                let result = (self.direct_write_executor)(PrismCodeDirectWrite::TaskHandoff {
-                    task_id,
-                    summary,
-                    to_agent,
-                })?;
-                state.update_task_handle_current(&task_handle_id, result);
-            }
-            StructuredDirectWriteOp::TaskAcceptHandoff {
-                task_handle_id,
-                agent,
-            } => {
-                let task_id =
-                    resolve_task_id_for_direct(state, &task_handle_id, "task.acceptHandoff")?;
-                let result =
-                    (self.direct_write_executor)(PrismCodeDirectWrite::TaskAcceptHandoff {
-                        task_id,
-                        agent,
-                    })?;
-                state.update_task_handle_current(&task_handle_id, result);
-            }
-            StructuredDirectWriteOp::TaskResume {
-                task_handle_id,
-                agent,
-            } => {
-                let task_id = resolve_task_id_for_direct(state, &task_handle_id, "task.resume")?;
-                let result = (self.direct_write_executor)(PrismCodeDirectWrite::TaskResume {
-                    task_id,
-                    agent,
-                })?;
-                state.update_task_handle_current(&task_handle_id, result);
-            }
-            StructuredDirectWriteOp::TaskReclaim {
-                task_handle_id,
-                agent,
-            } => {
-                let task_id = resolve_task_id_for_direct(state, &task_handle_id, "task.reclaim")?;
-                let result = (self.direct_write_executor)(PrismCodeDirectWrite::TaskReclaim {
-                    task_id,
-                    agent,
-                })?;
-                state.update_task_handle_current(&task_handle_id, result);
             }
         }
         Ok(())
@@ -1274,6 +1330,217 @@ impl PrismCodeWriteState {
             None => {}
         }
     }
+}
+
+fn current_handle_id<T>(state: &T) -> Option<String>
+where
+    T: CurrentPreview,
+{
+    state.current_preview()
+        .get("id")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+}
+
+trait CurrentPreview {
+    fn current_preview(&self) -> &Value;
+}
+
+impl CurrentPreview for PlanHandleState {
+    fn current_preview(&self) -> &Value {
+        match self {
+            Self::Created { current, .. } | Self::Existing { current, .. } => current,
+        }
+    }
+}
+
+impl CurrentPreview for TaskHandleState {
+    fn current_preview(&self) -> &Value {
+        match self {
+            Self::Created { current, .. } | Self::Existing { current, .. } => current,
+        }
+    }
+}
+
+impl CurrentPreview for DeferredHandleState {
+    fn current_preview(&self) -> &Value {
+        &self.current
+    }
+}
+
+fn overlay_plan_read_from_state(
+    state: &PrismCodeWriteState,
+    plan_id: &str,
+    base: Option<Value>,
+) -> Option<Value> {
+    let overlay = state
+        .plan_handles
+        .values()
+        .map(CurrentPreview::current_preview)
+        .find(|preview| preview_id(preview).is_some_and(|id| id == plan_id))
+        .cloned();
+    match (base, overlay) {
+        (Some(base), Some(overlay)) => Some(merge_preview_overlay(base, &overlay)),
+        (Some(base), None) => Some(base),
+        (None, Some(overlay)) => Some(overlay),
+        (None, None) => None,
+    }
+}
+
+fn overlay_task_read_from_state(
+    state: &PrismCodeWriteState,
+    task_id: &str,
+    base: Option<Value>,
+) -> Option<Value> {
+    let overlay = state
+        .task_handles
+        .values()
+        .map(CurrentPreview::current_preview)
+        .find(|preview| preview_id(preview).is_some_and(|id| id == task_id))
+        .cloned();
+    match (base, overlay) {
+        (Some(base), Some(overlay)) => Some(merge_preview_overlay(base, &overlay)),
+        (Some(base), None) => Some(base),
+        (None, Some(overlay)) => Some(overlay),
+        (None, None) => None,
+    }
+}
+
+fn overlay_plan_list_from_state(state: &PrismCodeWriteState, base: Vec<Value>) -> Vec<Value> {
+    let overlays = state
+        .plan_handles
+        .values()
+        .map(CurrentPreview::current_preview)
+        .cloned()
+        .collect::<Vec<_>>();
+    overlay_collection_by_id(base, overlays)
+}
+
+fn overlay_task_list_from_state(state: &PrismCodeWriteState, base: Vec<Value>) -> Vec<Value> {
+    let overlays = state
+        .task_handles
+        .values()
+        .map(CurrentPreview::current_preview)
+        .cloned()
+        .collect::<Vec<_>>();
+    overlay_collection_by_id(base, overlays)
+}
+
+fn overlay_plan_children_from_state(
+    state: &PrismCodeWriteState,
+    plan_id: &str,
+    base: Vec<Value>,
+) -> Vec<Value> {
+    let overlays = state
+        .task_handles
+        .values()
+        .map(CurrentPreview::current_preview)
+        .filter(|preview| {
+            preview
+                .get("planId")
+                .and_then(Value::as_str)
+                .is_some_and(|candidate| candidate == plan_id)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    overlay_collection_by_id(base, overlays)
+}
+
+fn overlay_artifact_list_from_state(
+    state: &PrismCodeWriteState,
+    task_id: Option<&str>,
+    plan_id: Option<&str>,
+    base: Vec<Value>,
+) -> Vec<Value> {
+    let overlays = state
+        .artifact_handles
+        .values()
+        .map(CurrentPreview::current_preview)
+        .filter(|preview| matches_artifact_scope(state, preview, task_id, plan_id))
+        .cloned()
+        .collect::<Vec<_>>();
+    overlay_collection_by_id(base, overlays)
+}
+
+fn overlay_claim_list_from_state(
+    state: &PrismCodeWriteState,
+    anchors: &[Value],
+    base: Vec<Value>,
+) -> Vec<Value> {
+    let overlays = state
+        .claim_handles
+        .values()
+        .map(CurrentPreview::current_preview)
+        .filter(|preview| {
+            preview
+                .get("anchors")
+                .and_then(Value::as_array)
+                .is_some_and(|candidate| candidate == anchors)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    overlay_collection_by_id(base, overlays)
+}
+
+fn matches_artifact_scope(
+    state: &PrismCodeWriteState,
+    preview: &Value,
+    task_id: Option<&str>,
+    plan_id: Option<&str>,
+) -> bool {
+    let artifact_task_id = preview.get("taskId").and_then(Value::as_str);
+    if let Some(task_id) = task_id {
+        return artifact_task_id.is_some_and(|candidate| candidate == task_id);
+    }
+    if let Some(plan_id) = plan_id {
+        let Some(task_id) = artifact_task_id else {
+            return false;
+        };
+        return state
+            .task_handles
+            .values()
+            .map(CurrentPreview::current_preview)
+            .find(|task| preview_id(task).is_some_and(|candidate| candidate == task_id))
+            .and_then(|task| task.get("planId").and_then(Value::as_str))
+            .is_some_and(|candidate| candidate == plan_id);
+    }
+    true
+}
+
+fn overlay_collection_by_id(base: Vec<Value>, overlays: Vec<Value>) -> Vec<Value> {
+    let mut entries = base;
+    for overlay in overlays {
+        let Some(id) = preview_id(&overlay).map(str::to_string) else {
+            continue;
+        };
+        if let Some(existing) = entries
+            .iter_mut()
+            .find(|entry| preview_id(entry).is_some_and(|candidate| candidate == id))
+        {
+            *existing = merge_preview_overlay(existing.clone(), &overlay);
+        } else {
+            entries.push(overlay);
+        }
+    }
+    entries
+}
+
+fn merge_preview_overlay(base: Value, overlay: &Value) -> Value {
+    let Some(base_object) = base.as_object() else {
+        return overlay.clone();
+    };
+    let Some(overlay_object) = overlay.as_object() else {
+        return base;
+    };
+    let mut merged = base_object.clone();
+    for (key, value) in overlay_object {
+        merged.insert(key.clone(), value.clone());
+    }
+    Value::Object(merged)
+}
+
+fn preview_id(value: &Value) -> Option<&str> {
+    value.get("id").and_then(Value::as_str)
 }
 
 fn region_lineage(
@@ -1506,6 +1773,48 @@ fn lower_coordination_op(
                 "task": task_ref_value(state, task_handle_id, "task.dependsOn")?,
                 "dependsOn": task_ref_value(state, depends_on_handle_id, "task.dependsOn")?,
                 "kind": kind,
+            }
+        }),
+        CoordinationWriteOp::TaskHandoff {
+            task_handle_id,
+            summary,
+            to_agent,
+        } => json!({
+            "action": "task_handoff",
+            "input": {
+                "task": task_ref_value(state, task_handle_id, "task.handoff")?,
+                "summary": summary,
+                "toAgent": to_agent,
+            }
+        }),
+        CoordinationWriteOp::TaskAcceptHandoff {
+            task_handle_id,
+            agent,
+        } => json!({
+            "action": "task_handoff_accept",
+            "input": {
+                "task": task_ref_value(state, task_handle_id, "task.acceptHandoff")?,
+                "agent": agent,
+            }
+        }),
+        CoordinationWriteOp::TaskResume {
+            task_handle_id,
+            agent,
+        } => json!({
+            "action": "task_resume",
+            "input": {
+                "task": task_ref_value(state, task_handle_id, "task.resume")?,
+                "agent": agent,
+            }
+        }),
+        CoordinationWriteOp::TaskReclaim {
+            task_handle_id,
+            agent,
+        } => json!({
+            "action": "task_reclaim",
+            "input": {
+                "task": task_ref_value(state, task_handle_id, "task.reclaim")?,
+                "agent": agent,
             }
         }),
     })
@@ -2140,8 +2449,8 @@ try {
             effect.metadata.method_path == "task.handoff"
                 && matches!(
                     effect.payload,
-                    StructuredWriteOperationKind::Direct(
-                        StructuredDirectWriteOp::TaskHandoff { .. }
+                    StructuredWriteOperationKind::Coordination(
+                        CoordinationWriteOp::TaskHandoff { .. }
                     )
                 )
         }));

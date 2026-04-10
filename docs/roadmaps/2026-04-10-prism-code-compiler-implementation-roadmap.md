@@ -220,12 +220,21 @@ Current phase note:
   `intentMetadata` is accepted by `prism-query` transactions, carried through the protocol-state
   contract, and stamped onto the newly emitted coordination events as durable
   `transactionIntent` metadata.
-- Phase 3 is now at the explicit review gate. The current implementation appears faithful to the
-  compiler design for structured transactional lowering of today's write semantics, but it must be
-  reviewed honestly against the compiler architecture before Phase 4 begins.
+- The staged transactional read-view gap is now materially improved on the live runtime path:
+  `prism.plan(...)`, `prism.task(...)`, `prism.children(...)`, `prism.claims(...)`, and
+  `prism.artifacts(...)` can now reflect staged write state from the current `prism_code`
+  invocation before final commit, and this behavior is covered by a dedicated MCP regression.
+- Phase 3 has been honestly reviewed against the compiler architecture design and remains reopened.
+- The current implementation still violates the design in two material ways:
+  - mixed direct and coordination writes do not honor the “one invocation = one transaction”
+    rule because the runtime commits multiple durable side effects while walking effect order
+  - structured regions are preserved as metadata, but the durable lowering path is still
+    flattened into ad hoc action lists rather than being governed by compiler-owned control
+    structure
+- Phase 3 may not advance to Phase 4 until those gaps are closed and the phase is reviewed again.
 - Targeted MCP regressions now cover dry-run, the existing native coordination builder flow,
-  mixed coordination/direct writes in one invocation, and claim/review follow-up flows on the new
-  lowering path.
+  mixed coordination/direct writes in one invocation, claim/review follow-up flows on the new
+  lowering path, and staged read-after-write behavior before finalize.
 - The next work must first make Phases 1-3 fully faithful to the compiler architecture design
   before Phase 4 may begin.
 

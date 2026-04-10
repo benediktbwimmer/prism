@@ -785,6 +785,105 @@ return { plan, task, claim, artifact };
 }
 
 #[tokio::test]
+async fn mcp_server_reads_staged_prism_code_state_before_finalize() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const anchor = {
+  type: "node",
+  crateName: "demo",
+  path: "demo::main",
+  kind: "function",
+};
+await prism.work.declare({
+  title: "Exercise staged prism_code reads",
+});
+const plan = await prism.coordination.createPlan({
+  title: "Staged prism_code read plan",
+  goal: "Expose staged read overlays before finalize",
+});
+const task = await plan.addTask({
+  title: "Stage the task",
+  anchors: [anchor],
+});
+const claim = await prism.claim.acquire({
+  anchors: [anchor],
+  capability: "Edit",
+  coordinationTaskId: task,
+});
+const artifact = await prism.artifact.propose({
+  taskId: task,
+  diffRef: "patch:staged",
+});
+return {
+  stagedPlan: prism.plan(plan.id),
+  stagedTask: prism.task(task.id),
+  stagedChildren: prism.children(plan.id),
+  stagedClaims: prism.claims([anchor]),
+  stagedArtifacts: prism.artifacts(task.id),
+  claim,
+  artifact,
+};
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let envelope = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(envelope["result"]["stagedPlan"]["title"], "Staged prism_code read plan");
+    assert_eq!(envelope["result"]["stagedPlan"]["provisional"], true);
+    assert_eq!(envelope["result"]["stagedTask"]["title"], "Stage the task");
+    assert_eq!(envelope["result"]["stagedTask"]["provisional"], true);
+    assert_eq!(
+        envelope["result"]["stagedChildren"]["children"]
+            .as_array()
+            .expect("children should be an array")
+            .len(),
+        1
+    );
+    assert_eq!(
+        envelope["result"]["stagedClaims"]
+            .as_array()
+            .expect("claims should be an array")
+            .len(),
+        1
+    );
+    assert_eq!(
+        envelope["result"]["stagedArtifacts"]
+            .as_array()
+            .expect("artifacts should be an array")
+            .len(),
+        1
+    );
+    assert_eq!(envelope["result"]["claim"]["status"], "Active");
+    assert_eq!(envelope["result"]["artifact"]["status"], "Proposed");
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_extends_existing_plan_via_native_prism_code_coordination_builders() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);

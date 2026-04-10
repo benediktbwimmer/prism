@@ -5118,6 +5118,38 @@ impl QueryHost {
                                     base_revision: prism.workspace_revision(),
                                 })
                             }
+                            CoordinationTransactionMutationPayload::TaskHandoff(payload) => {
+                                Ok(CoordinationTransactionMutation::TaskHandoff {
+                                    task: coordination_task_ref(&payload.task)?,
+                                    to_agent: payload.to_agent.map(AgentId::new),
+                                    summary: payload.summary,
+                                    base_revision: prism.workspace_revision(),
+                                })
+                            }
+                            CoordinationTransactionMutationPayload::TaskHandoffAccept(payload) => {
+                                Ok(CoordinationTransactionMutation::TaskHandoffAccept {
+                                    task: coordination_task_ref(&payload.task)?,
+                                    agent: payload.agent.map(AgentId::new),
+                                    worktree_id: execution.worktree_id.clone(),
+                                    branch_ref: execution.branch_ref.clone(),
+                                })
+                            }
+                            CoordinationTransactionMutationPayload::TaskResume(payload) => {
+                                Ok(CoordinationTransactionMutation::TaskResume {
+                                    task: coordination_task_ref(&payload.task)?,
+                                    agent: payload.agent.map(AgentId::new),
+                                    worktree_id: execution.worktree_id.clone(),
+                                    branch_ref: execution.branch_ref.clone(),
+                                })
+                            }
+                            CoordinationTransactionMutationPayload::TaskReclaim(payload) => {
+                                Ok(CoordinationTransactionMutation::TaskReclaim {
+                                    task: coordination_task_ref(&payload.task)?,
+                                    agent: payload.agent.map(AgentId::new),
+                                    worktree_id: execution.worktree_id.clone(),
+                                    branch_ref: execution.branch_ref.clone(),
+                                })
+                            }
                         })
                         .collect::<Result<Vec<_>>>()?,
                     intent_metadata: payload.intent_metadata,

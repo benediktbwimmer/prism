@@ -1289,11 +1289,28 @@ impl QueryExecution {
                 "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
                 "plans" => {
                     let args: PlansQueryArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(self.plans(args)?)?)
+                    let plans = serde_json::to_value(self.plans(args)?)?;
+                    let plans = match (self.code_mutation.as_ref(), plans) {
+                        (Some(code_mutation), Value::Array(entries)) => {
+                            Value::Array(code_mutation.overlay_plan_list(entries))
+                        }
+                        (_, value) => value,
+                    };
+                    Ok(plans)
                 }
                 "plan" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     let plan_id = PlanId::new(args.plan_id);
+                    let host_plan = match crate::spec_surface::linked_plan_view(&self.host, &plan_id)
+                    {
+                        Ok(plan) => Some(serde_json::to_value(plan)?),
+                        Err(_) => None,
+                    };
+                    if let Some(code_mutation) = self.code_mutation.as_ref() {
+                        if let Some(plan) = code_mutation.overlay_plan_read(&plan_id.0, host_plan) {
+                            return Ok(plan);
+                        }
+                    }
                     let plan = crate::spec_surface::linked_plan_view(&self.host, &plan_id)?;
                     Ok(serde_json::to_value(plan)?)
                 }
@@ -1309,9 +1326,24 @@ impl QueryExecution {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     let plan_id = PlanId::new(args.plan_id);
                     let children = self.prism.plan_children_v2(&plan_id);
-                    Ok(serde_json::to_value(Some(plan_children_v2_view(
+                    let children_view = serde_json::to_value(Some(plan_children_v2_view(
                         &plan_id, children,
-                    )))?)
+                    )))?;
+                    let children_view = match (self.code_mutation.as_ref(), children_view) {
+                        (Some(code_mutation), Value::Object(mut object)) => {
+                            if let Some(Value::Array(entries)) = object.remove("children") {
+                                object.insert(
+                                    "children".to_string(),
+                                    Value::Array(
+                                        code_mutation.overlay_plan_children(&plan_id.0, entries),
+                                    ),
+                                );
+                            }
+                            Value::Object(object)
+                        }
+                        (_, value) => value,
+                    };
+                    Ok(children_view)
                 }
                 "dependencies" => {
                     let args: NodeRefArgs = serde_json::from_value(args)?;
@@ -1348,18 +1380,44 @@ impl QueryExecution {
                 )?),
                 "task" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    let task_id = CoordinationTaskId::new(args.task_id);
+                    let host_task = match crate::spec_surface::linked_coordination_task_view(
+                        &self.host,
+                        &task_id,
+                    ) {
+                        Ok(task) => Some(serde_json::to_value(task)?),
+                        Err(_) => None,
+                    };
+                    if let Some(code_mutation) = self.code_mutation.as_ref() {
+                        if let Some(task) = code_mutation.overlay_task_read(&task_id.0, host_task) {
+                            return Ok(task);
+                        }
+                    }
                     let task = crate::spec_surface::linked_coordination_task_view(
                         &self.host,
-                        &CoordinationTaskId::new(args.task_id),
+                        &task_id,
                     )?;
                     Ok(serde_json::to_value(task)?)
                 }
                 "graphActionableTasks" => Ok(serde_json::to_value(
-                    self.prism
-                        .graph_actionable_tasks_v2()
-                        .into_iter()
-                        .map(coordination_task_v2_view)
-                        .collect::<Vec<_>>(),
+                    match self.code_mutation.as_ref() {
+                        Some(code_mutation) => Value::Array(code_mutation.overlay_task_list(
+                            self.prism
+                                .graph_actionable_tasks_v2()
+                                .into_iter()
+                                .map(coordination_task_v2_view)
+                                .map(|view| serde_json::to_value(view).expect("task view"))
+                                .collect::<Vec<_>>(),
+                        )),
+                        None => Value::Array(
+                            self.prism
+                                .graph_actionable_tasks_v2()
+                                .into_iter()
+                                .map(coordination_task_v2_view)
+                                .map(|view| serde_json::to_value(view).expect("task view"))
+                                .collect::<Vec<_>>(),
+                        ),
+                    }
                 )?),
                 "actionableTasks" => {
                     let args: ActionableTasksArgs = serde_json::from_value(args)?;
@@ -1377,12 +1435,17 @@ impl QueryExecution {
                     } else {
                         self.prism.graph_actionable_tasks_v2()
                     };
-                    Ok(serde_json::to_value(
-                        tasks
-                            .into_iter()
-                            .map(coordination_task_v2_view)
-                            .collect::<Vec<_>>(),
-                    )?)
+                    let tasks = tasks
+                        .into_iter()
+                        .map(coordination_task_v2_view)
+                        .map(serde_json::to_value)
+                        .collect::<serde_json::Result<Vec<_>>>()?;
+                    Ok(match self.code_mutation.as_ref() {
+                        Some(code_mutation) => {
+                            serde_json::to_value(code_mutation.overlay_task_list(tasks))?
+                        }
+                        None => serde_json::to_value(tasks)?,
+                    })
                 }
                 "readyTasks" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
@@ -1394,30 +1457,45 @@ impl QueryExecution {
                     } else {
                         self.prism.ready_tasks_v2(&plan_id)
                     };
-                    Ok(serde_json::to_value(
-                        ready_tasks
-                            .into_iter()
-                            .map(coordination_task_v2_view)
-                            .collect::<Vec<_>>(),
-                    )?)
+                    let ready_tasks = ready_tasks
+                        .into_iter()
+                        .map(coordination_task_v2_view)
+                        .map(serde_json::to_value)
+                        .collect::<serde_json::Result<Vec<_>>>()?;
+                    Ok(match self.code_mutation.as_ref() {
+                        Some(code_mutation) => serde_json::to_value(
+                            code_mutation.overlay_plan_children(&plan_id.0, ready_tasks),
+                        )?,
+                        None => serde_json::to_value(ready_tasks)?,
+                    })
                 }
                 "claims" => {
                     let args: AnchorListArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .claims(
-                                &convert_anchors(
-                                    &self.prism,
-                                    self.host.workspace_session_ref(),
-                                    self.workspace_root(),
-                                    args.anchors,
-                                )?,
-                                current_timestamp(),
-                            )
-                            .into_iter()
-                            .map(claim_view)
-                            .collect::<Vec<_>>(),
-                    )?)
+                    let claim_anchors = serde_json::to_value(args.anchors.clone())?
+                        .as_array()
+                        .cloned()
+                        .unwrap_or_default();
+                    let claims = self
+                        .prism
+                        .claims(
+                            &convert_anchors(
+                                &self.prism,
+                                self.host.workspace_session_ref(),
+                                self.workspace_root(),
+                                args.anchors,
+                            )?,
+                            current_timestamp(),
+                        )
+                        .into_iter()
+                        .map(claim_view)
+                        .map(serde_json::to_value)
+                        .collect::<serde_json::Result<Vec<_>>>()?;
+                    Ok(match self.code_mutation.as_ref() {
+                        Some(code_mutation) => serde_json::to_value(
+                            code_mutation.overlay_claim_list(&claim_anchors, claims),
+                        )?,
+                        None => serde_json::to_value(claims)?,
+                    })
                 }
                 "conflicts" => {
                     let args: AnchorListArgs = serde_json::from_value(args)?;
@@ -1511,28 +1589,49 @@ impl QueryExecution {
                 }
                 "pendingReviews" => {
                     let args: PendingReviewsArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .pending_reviews(
-                                args.plan_id
-                                    .as_ref()
-                                    .map(|plan_id| PlanId::new(plan_id.clone()))
-                                    .as_ref(),
-                            )
-                            .into_iter()
-                            .map(artifact_view)
-                            .collect::<Vec<_>>(),
-                    )?)
+                    let artifacts = self
+                        .prism
+                        .pending_reviews(
+                            args.plan_id
+                                .as_ref()
+                                .map(|plan_id| PlanId::new(plan_id.clone()))
+                                .as_ref(),
+                        )
+                        .into_iter()
+                        .map(artifact_view)
+                        .map(serde_json::to_value)
+                        .collect::<serde_json::Result<Vec<_>>>()?;
+                    Ok(match self.code_mutation.as_ref() {
+                        Some(code_mutation) => serde_json::to_value(
+                            code_mutation.overlay_artifact_list(
+                                None,
+                                args.plan_id.as_deref(),
+                                artifacts,
+                            ),
+                        )?,
+                        None => serde_json::to_value(artifacts)?,
+                    })
                 }
                 "artifacts" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .artifacts(&CoordinationTaskId::new(args.task_id))
-                            .into_iter()
-                            .map(artifact_view)
-                            .collect::<Vec<_>>(),
-                    )?)
+                    let task_id = args.task_id;
+                    let artifacts = self
+                        .prism
+                        .artifacts(&CoordinationTaskId::new(task_id.clone()))
+                        .into_iter()
+                        .map(artifact_view)
+                        .map(serde_json::to_value)
+                        .collect::<serde_json::Result<Vec<_>>>()?;
+                    Ok(match self.code_mutation.as_ref() {
+                        Some(code_mutation) => serde_json::to_value(
+                            code_mutation.overlay_artifact_list(
+                                Some(task_id.as_str()),
+                                None,
+                                artifacts,
+                            ),
+                        )?,
+                        None => serde_json::to_value(artifacts)?,
+                    })
                 }
                 "policyViolations" => {
                     let args: PolicyViolationQueryArgs = serde_json::from_value(args)?;
