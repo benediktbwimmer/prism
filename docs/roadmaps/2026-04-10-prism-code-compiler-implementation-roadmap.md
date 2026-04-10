@@ -92,7 +92,7 @@ Current phase checklist:
 
 - [x] Phase 0: freeze roadmap, architecture, and review process
 - [x] Phase 1: build the compiler substrate and surface registry foundations
-- [ ] Phase 2: implement PRISM Program IR and effect classification
+- [x] Phase 2: implement PRISM Program IR and effect classification
 - [ ] Phase 3: implement structured transactional lowering for current write semantics
 - [ ] Phase 4: cut runtime `prism_code` execution onto the compiler path
 - [ ] Phase 5: hard-remove mutation-era product paths and finalize the SDK surface
@@ -103,12 +103,12 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 1 review gate: review compiler substrate and surface registry foundations before Phase 2
+- Phase 2 review gate: review PRISM Program IR and effect classification before Phase 3
 
 Current phase note:
 
 - Phase 0 is complete.
-- Phase 1 is complete and awaiting explicit user review before Phase 2 begins.
+- Phase 1 is complete.
 - The first Phase 1 slice establishes a compiler-owned
   `prism-js` surface registry and uses that registry to drive the runtime prelude and
   typechecked method surface for current compiler-owned SDK entry points.
@@ -119,6 +119,18 @@ Current phase note:
 - The final Phase 1 slice moves TypeScript program preparation, typechecking, and transpilation
   under the compiler module boundary so runtime entry points no longer hand-wire those frontend
   steps directly.
+- Phase 2 is complete.
+- Phase 2 adds a concrete `PRISM Program IR` implementation under
+  `crates/prism-mcp/src/prism_code_compiler/program_ir.rs`, with explicit region, binding,
+  capture, and effect-site structures that preserve source spans and binding provenance.
+- Phase 2 also adds compiler-owned semantic analysis under
+  `crates/prism-mcp/src/prism_code_compiler/analysis.rs`, classifying hosted inputs,
+  coordination reads, authoritative writes, reusable artifact emission, and external execution
+  intent across functions, callbacks, branches, loops, short-circuiting, exception regions,
+  competition semantics, and reduction semantics.
+- The live `prism_code` runtime path now runs semantic analysis before transpilation and records a
+  dedicated `typescript.*.semanticAnalysis` phase, so Program IR generation is exercised on the
+  real runtime path rather than only through unit tests.
 
 ## 5. Ordering thesis
 

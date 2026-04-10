@@ -36,20 +36,20 @@ use crate::{
     coordination_plan_v2_view, coordination_task_v2_view, current_timestamp, diff_for,
     diff_for_from_events, drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol,
     entrypoints_for, focused_block_for_symbol, invalid_query_argument_error, is_query_parse_error,
-    lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks,
-    missing_return_hint, next_reads, node_ref_view, owner_symbol_views_for_query,
-    owner_symbol_views_for_target, owner_views_for_target, parse_event_actor,
-    parse_memory_event_action, parse_memory_kind, parse_memory_scope, parse_node_kind,
-    parse_outcome_kind, parse_outcome_result, parse_plan_scope, parse_plan_status,
-    plan_children_v2_view, plan_summary_view, policy_violation_record_view,
-    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
-    query_feature_disabled_error, query_method_specs, rank_search_results,
-    read_context_view_cached, recent_change_context_view_cached, recent_patches,
-    recent_patches_from_events, relations_view, resolve_concepts_for_session, result_decode_error,
-    runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
-    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_evidence_status_view, task_intent_view, task_review_status_view, task_risk_view,
-    task_validation_recipe_view, tool_catalog_views_with_features, tool_schema_view_with_features,
+    lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint,
+    next_reads, node_ref_view, owner_symbol_views_for_query, owner_symbol_views_for_target,
+    owner_views_for_target, parse_event_actor, parse_memory_event_action, parse_memory_kind,
+    parse_memory_scope, parse_node_kind, parse_outcome_kind, parse_outcome_result,
+    parse_plan_scope, parse_plan_status, plan_children_v2_view, plan_summary_view,
+    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
+    promoted_validation_checks, query_diagnostic, query_feature_disabled_error, query_method_specs,
+    rank_search_results, read_context_view_cached, recent_change_context_view_cached,
+    recent_patches, recent_patches_from_events, relations_view, resolve_concepts_for_session,
+    result_decode_error, runtime_or_serialization_error, scored_memory_view, search_queries,
+    source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view, symbol_for,
+    symbol_view, symbol_views_for_ids, task_evidence_status_view, task_intent_view,
+    task_review_status_view, task_risk_view, task_validation_recipe_view,
+    tool_catalog_views_with_features, tool_schema_view_with_features,
     validate_tool_input_value_with_features, validation_context_view_cached,
     validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
     weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
@@ -804,36 +804,52 @@ impl QueryHost {
             true,
             None,
         );
+        let analysis_started = Instant::now();
+        let analyzed = crate::prism_code_compiler::analyze_prepared_typescript_program(&prepared)?;
+        query_run.record_phase(
+            &format!("typescript.{}.semanticAnalysis", mode.code()),
+            &json!({
+                "mode": mode.code(),
+                "sourceSpecifier": prepared.root_source().specifier(),
+                "regions": analyzed.ir.regions.len(),
+                "bindings": analyzed.ir.bindings.len(),
+                "captures": analyzed.ir.captures.len(),
+                "effects": analyzed.ir.effects.len(),
+            }),
+            analysis_started.elapsed(),
+            true,
+            None,
+        );
         let transpile_started = Instant::now();
         let transpiled =
             match crate::prism_code_compiler::transpile_prepared_typescript_program(&prepared) {
-            Ok(transpiled) => {
-                query_run.record_phase(
-                    &format!("typescript.{}.transpile", mode.code()),
-                    &json!({
-                        "mode": mode.code(),
-                        "sourceSpecifier": prepared.root_source().specifier(),
-                    }),
-                    transpile_started.elapsed(),
-                    true,
-                    None,
-                );
-                transpiled
-            }
-            Err(error) => {
-                query_run.record_phase(
-                    &format!("typescript.{}.transpile", mode.code()),
-                    &json!({
-                        "mode": mode.code(),
-                        "sourceSpecifier": prepared.root_source().specifier(),
-                    }),
-                    transpile_started.elapsed(),
-                    false,
-                    Some(error.to_string()),
-                );
-                return Err(error);
-            }
-        };
+                Ok(transpiled) => {
+                    query_run.record_phase(
+                        &format!("typescript.{}.transpile", mode.code()),
+                        &json!({
+                            "mode": mode.code(),
+                            "sourceSpecifier": prepared.root_source().specifier(),
+                        }),
+                        transpile_started.elapsed(),
+                        true,
+                        None,
+                    );
+                    transpiled
+                }
+                Err(error) => {
+                    query_run.record_phase(
+                        &format!("typescript.{}.transpile", mode.code()),
+                        &json!({
+                            "mode": mode.code(),
+                            "sourceSpecifier": prepared.root_source().specifier(),
+                        }),
+                        transpile_started.elapsed(),
+                        false,
+                        Some(error.to_string()),
+                    );
+                    return Err(error);
+                }
+            };
         let execution = QueryExecution::new_with_surface(
             self.clone(),
             Arc::clone(&session),

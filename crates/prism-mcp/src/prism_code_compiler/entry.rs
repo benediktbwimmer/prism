@@ -116,14 +116,13 @@ mod tests {
             QueryLanguage::Ts,
             false,
         );
-        let prepared = prepare_typescript_program(
-            &input,
-            None,
-            PrismTypescriptProgramMode::StatementBody,
-        )
-        .expect("inline program should prepare");
+        let prepared =
+            prepare_typescript_program(&input, None, PrismTypescriptProgramMode::StatementBody)
+                .expect("inline program should prepare");
         assert!(prepared.wrapped_source().contains(USER_SNIPPET_MARKER));
-        assert!(prepared.wrapped_source().contains("return prism.runtimeStatus();"));
+        assert!(prepared
+            .wrapped_source()
+            .contains("return prism.runtimeStatus();"));
         assert!(prepared.user_snippet_first_line() > 0);
     }
 
@@ -154,7 +153,9 @@ mod tests {
             prepared.root_source().specifier(),
             "file:///prism/code/plans/deploy.ts"
         );
-        assert!(prepared.wrapped_source().contains("export default async function deploy()"));
+        assert!(prepared
+            .wrapped_source()
+            .contains("export default async function deploy()"));
 
         fs::remove_dir_all(&root).expect("temporary test directory should remove");
     }

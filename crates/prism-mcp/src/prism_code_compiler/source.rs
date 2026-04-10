@@ -73,9 +73,8 @@ pub(crate) fn load_compiler_sources(
             },
         }),
         PrismCodeEntryPoint::RepoModule(module) => {
-            let workspace_root = workspace_root.context(
-                "repo-authored prism_code modules require a workspace root",
-            )?;
+            let workspace_root = workspace_root
+                .context("repo-authored prism_code modules require a workspace root")?;
             let repo_relative = normalize_repo_module_path(&module.module_path)?;
             let full_path = workspace_root.join(PRISM_CODE_ROOT).join(&repo_relative);
             let source_text = fs::read_to_string(&full_path).with_context(|| {
@@ -220,13 +219,10 @@ mod tests {
             Some("default".to_string()),
             QueryLanguage::Ts,
         );
-        let bundle = load_compiler_sources(&input, Some(&root))
-            .expect("repo module source should load");
+        let bundle =
+            load_compiler_sources(&input, Some(&root)).expect("repo module source should load");
         assert_eq!(bundle.root().origin(), PrismCodeSourceOrigin::RepoModule);
-        assert_eq!(
-            bundle.root().display_path(),
-            ".prism/code/plans/deploy.ts"
-        );
+        assert_eq!(bundle.root().display_path(), ".prism/code/plans/deploy.ts");
         assert_eq!(
             bundle.root().specifier(),
             "file:///prism/code/plans/deploy.ts"
@@ -237,11 +233,9 @@ mod tests {
 
     #[test]
     fn repo_module_import_resolution_supports_relative_and_runtime_imports() {
-        let resolved = resolve_repo_module_import(
-            Path::new("plans/deploy.ts"),
-            "../libraries/shared",
-        )
-        .expect("relative import should resolve");
+        let resolved =
+            resolve_repo_module_import(Path::new("plans/deploy.ts"), "../libraries/shared")
+                .expect("relative import should resolve");
         assert_eq!(
             resolved,
             PrismCodeResolvedImport::RepoModule(PathBuf::from("libraries/shared.ts"))
