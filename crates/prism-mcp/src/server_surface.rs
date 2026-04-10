@@ -428,7 +428,7 @@ impl PrismMcpServer {
                         "provisional": true,
                     }));
                 }
-                let authenticated = self.authenticate_mutation(
+                let _authenticated = self.authenticate_mutation(
                     credential,
                     bridge_execution,
                     MutationCapabilityRequirement::AnyAuthenticated,
@@ -437,11 +437,8 @@ impl PrismMcpServer {
                     "prism_code.declare_work",
                     MutationRefreshPolicy::None,
                     || {
-                        self.host.declare_work_without_refresh_authenticated(
-                            self.session.as_ref(),
-                            args.clone(),
-                            authenticated.authenticated_principal(),
-                        )
+                        self.host
+                            .declare_work_for_prism_code_authenticated(self.session.as_ref(), args.clone())
                     },
                     |result| {
                         MutationOutcomeMeta::task(

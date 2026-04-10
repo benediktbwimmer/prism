@@ -2801,6 +2801,7 @@ pub(crate) struct CoordinationTransactionPayload {
     #[serde(default)]
     pub(crate) mutations: Vec<CoordinationTransactionMutationPayload>,
     pub(crate) intent_metadata: Option<Value>,
+    pub(crate) structured_transaction: Option<Value>,
     pub(crate) optimistic_preconditions: Option<Value>,
 }
 

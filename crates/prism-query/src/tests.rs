@@ -4916,6 +4916,120 @@ fn coordination_transaction_persists_intent_metadata_on_committed_events() {
 }
 
 #[test]
+fn coordination_transaction_persists_structured_transaction_on_committed_events() {
+    let prism = Prism::new(Graph::new());
+    let structured_transaction = json!({
+        "rootRegionId": 0,
+        "regions": [{
+            "regionId": 0,
+            "parentRegionId": null,
+            "control": "Sequence",
+            "members": [{ "kind": "effect", "id": 0 }]
+        }],
+        "effects": [{
+            "id": 0,
+            "metadata": {
+                "methodPath": "prism.coordination.createPlan",
+                "regionId": 0,
+                "regionLineage": [0]
+            },
+            "payload": {
+                "action": "plan_create",
+                "input": {
+                    "clientPlanId": "plan",
+                    "title": "Plan",
+                    "goal": "Persist structure"
+                }
+            }
+        }],
+        "effectOrder": [0]
+    });
+    let transaction = prism
+        .execute_coordination_transaction(
+            EventMeta {
+                id: EventId::new("coord:tx:structured-transaction"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::PlanCreate {
+                    client_plan_id: Some("plan".to_string()),
+                    title: "Plan".to_string(),
+                    goal: "Persist structure".to_string(),
+                    status: None,
+                    policy: None,
+                    scheduling: None,
+                    spec_refs: Vec::new(),
+                }],
+                structured_transaction: Some(structured_transaction.clone()),
+                ..CoordinationTransactionInput::default()
+            },
+        )
+        .expect("transaction with structured transaction should commit");
+
+    assert_eq!(
+        transaction.structured_transaction.as_ref(),
+        Some(&structured_transaction)
+    );
+    assert_eq!(
+        transaction.protocol_state().structured_transaction.as_ref(),
+        Some(&structured_transaction)
+    );
+
+    let snapshot = prism.legacy_coordination_snapshot();
+    let event = snapshot
+        .events
+        .last()
+        .expect("committed transaction should emit an event");
+    assert_eq!(
+        event.metadata.get("transactionStructure"),
+        Some(&structured_transaction)
+    );
+}
+
+#[test]
+fn coordination_transaction_rejects_non_object_structured_transaction() {
+    let prism = Prism::new(Graph::new());
+    let error = prism
+        .execute_coordination_transaction(
+            EventMeta {
+                id: EventId::new("coord:tx:invalid-structured-transaction"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::PlanCreate {
+                    client_plan_id: Some("plan".to_string()),
+                    title: "Plan".to_string(),
+                    goal: "Reject structure".to_string(),
+                    status: None,
+                    policy: None,
+                    scheduling: None,
+                    spec_refs: Vec::new(),
+                }],
+                structured_transaction: Some(json!(["not", "an", "object"])),
+                ..CoordinationTransactionInput::default()
+            },
+        )
+        .expect_err("non-object structured transaction should reject");
+
+    let CoordinationTransactionError::Rejected(rejection) = error else {
+        panic!("expected rejection");
+    };
+    assert_eq!(rejection.reason_code, "invalid_structured_transaction");
+    assert_eq!(
+        rejection.stage,
+        CoordinationTransactionValidationStage::InputShape
+    );
+}
+
+#[test]
 fn coordination_transaction_rejects_non_object_intent_metadata() {
     let prism = Prism::new(Graph::new());
     let error = prism

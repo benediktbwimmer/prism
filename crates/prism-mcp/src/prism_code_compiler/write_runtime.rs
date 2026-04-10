@@ -7,6 +7,7 @@ use serde_json::{json, Map, Value};
 use super::analysis::AnalyzedPrismProgram;
 use super::program_ir::{PrismProgramEffectKind, PrismProgramRegionId};
 use super::transaction_plan::{StructuredTransactionEffectMetadata, StructuredTransactionPlan};
+use crate::PrismDeclareWorkArgs;
 
 pub(crate) type DirectWriteExecutor =
     Arc<dyn Fn(PrismCodeDirectWrite) -> Result<Value> + Send + Sync>;
@@ -270,6 +271,13 @@ impl PrismCodeWriteRuntimeFactory {
 impl PrismCodeWriteRuntime {
     pub(crate) fn declare_work(&self, input: Value) -> Result<Value> {
         let input = Value::Object(expect_object(input, "prism.work.declare")?);
+        let args: PrismDeclareWorkArgs = serde_json::from_value(input.clone())
+            .map_err(|error| anyhow!("`prism.work.declare` arguments invalid: {error}"))?;
+        if args.title.trim().is_empty() {
+            return Err(anyhow!(
+                "`prism.work.declare` requires a non-empty `title`"
+            ));
+        }
         let mut state = self.state.lock().expect("code mutation lock poisoned");
         let handle_id = format!("work-handle:{}", state.next_work_handle);
         state.next_work_handle += 1;
@@ -1007,17 +1015,15 @@ impl PrismCodeWriteRuntime {
         if batch.is_empty() {
             return Ok(());
         }
-        let mutations = batch
-            .iter()
-            .map(|effect| lower_coordination_op(state, &effect.operation))
-            .collect::<Result<Vec<_>>>()?;
         if self.dry_run {
             return Ok(());
         }
         let intent_metadata = coordination_intent_metadata(&self.analyzed, batch);
+        let structured_transaction =
+            coordination_structured_transaction_payload(&self.analyzed, state, batch)?;
         let commit = (self.coordination_executor)(json!({
-            "mutations": mutations,
             "intentMetadata": intent_metadata,
+            "structuredTransaction": structured_transaction,
         }))?;
         reject_coordination_commit_if_needed(&commit)?;
         apply_coordination_commit(state, &commit);
@@ -1554,6 +1560,95 @@ fn coordination_intent_metadata(
             "regions": regions,
         }
     })
+}
+
+fn coordination_structured_transaction_payload(
+    analyzed: &AnalyzedPrismProgram,
+    state: &PrismCodeWriteState,
+    batch: &[PendingCoordinationEffect],
+) -> Result<Value> {
+    let mut region_ids = std::collections::BTreeSet::new();
+    for effect in batch {
+        for region_id in &effect.metadata.region_lineage {
+            region_ids.insert(*region_id);
+        }
+    }
+    let root_region_id = batch
+        .first()
+        .and_then(|effect| effect.metadata.region_lineage.first().copied())
+        .unwrap_or(analyzed.ir.root_region_id);
+    let effects = batch
+        .iter()
+        .enumerate()
+        .map(|(index, effect)| {
+            Ok(json!({
+                "id": index,
+                "metadata": {
+                    "methodPath": effect.metadata.method_path,
+                    "effectId": effect.metadata.effect_id,
+                    "regionId": effect.metadata.region_id,
+                    "regionLineage": effect.metadata.region_lineage,
+                    "span": effect.metadata.span,
+                },
+                "payload": lower_coordination_op(state, &effect.operation)?,
+            }))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let effect_ids_by_region = batch
+        .iter()
+        .enumerate()
+        .fold(
+            std::collections::BTreeMap::<PrismProgramRegionId, Vec<usize>>::new(),
+            |mut acc, (effect_id, effect)| {
+                acc.entry(effect.metadata.region_id).or_default().push(effect_id);
+                acc
+            },
+        );
+    let regions = region_ids
+        .iter()
+        .map(|region_id| {
+            let region = &analyzed.ir.regions[*region_id];
+            let child_region_ids = region
+                .child_regions
+                .iter()
+                .copied()
+                .filter(|child_id| region_ids.contains(child_id))
+                .collect::<Vec<_>>();
+            let effect_ids = effect_ids_by_region
+                .get(region_id)
+                .cloned()
+                .unwrap_or_default();
+            let mut members = Vec::new();
+            for child_region_id in &child_region_ids {
+                members.push(json!({
+                    "kind": "region",
+                    "id": child_region_id,
+                }));
+            }
+            for effect_id in &effect_ids {
+                members.push(json!({
+                    "kind": "effect",
+                    "id": effect_id,
+                }));
+            }
+            json!({
+                "regionId": region.id,
+                "parentRegionId": region.parent.filter(|parent| region_ids.contains(parent)),
+                "control": region.control,
+                "span": region.span,
+                "exitModes": region.exit_modes,
+                "childRegionIds": child_region_ids,
+                "effectIds": effect_ids,
+                "members": members,
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "rootRegionId": root_region_id,
+        "regions": regions,
+        "effects": effects,
+        "effectOrder": (0..batch.len()).collect::<Vec<_>>(),
+    }))
 }
 
 fn lower_coordination_op(

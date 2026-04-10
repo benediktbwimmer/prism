@@ -79,10 +79,7 @@ use crate::{
     ContractStatusInput, ContractTargetInput, ContractValidationInput,
     CoordinationDependencyKindInput, CoordinationMutationKindInput, CoordinationMutationResult,
     CoordinationPlanRefPayload, CoordinationTaskRefPayload,
-    CoordinationTransactionArtifactProposePayload, CoordinationTransactionArtifactRefPayload,
-    CoordinationTransactionArtifactReviewPayload, CoordinationTransactionArtifactSupersedePayload,
-    CoordinationTransactionClaimAcquirePayload, CoordinationTransactionClaimRefPayload,
-    CoordinationTransactionClaimReleasePayload, CoordinationTransactionClaimRenewPayload,
+    CoordinationTransactionArtifactRefPayload, CoordinationTransactionClaimRefPayload,
     CoordinationTransactionMutationPayload, CoordinationTransactionPayload,
     CoordinationTransactionTaskUpdatePayload, CuratorJobView,
     CuratorProposalCreatedResources, CuratorProposalDecision, CuratorProposalDecisionResult,
@@ -1134,6 +1131,46 @@ fn coordination_dependency_kind(
     }
 }
 
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StructuredCoordinationTransactionPayload {
+    effects: Vec<StructuredCoordinationTransactionEffectPayload>,
+    effect_order: Vec<usize>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StructuredCoordinationTransactionEffectPayload {
+    id: usize,
+    payload: CoordinationTransactionMutationPayload,
+}
+
+fn coordination_transaction_mutation_payloads(
+    payload: &CoordinationTransactionPayload,
+) -> Result<Vec<CoordinationTransactionMutationPayload>> {
+    let Some(structured_transaction) = payload.structured_transaction.clone() else {
+        return Ok(payload.mutations.clone());
+    };
+    let structured: StructuredCoordinationTransactionPayload =
+        serde_json::from_value(structured_transaction)?;
+    let effects_by_id = structured
+        .effects
+        .into_iter()
+        .map(|effect| (effect.id, effect.payload))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    structured
+        .effect_order
+        .into_iter()
+        .map(|effect_id| {
+            effects_by_id.get(&effect_id).cloned().ok_or_else(|| {
+                anyhow!(
+                    "structured coordination transaction referenced unknown effect id `{effect_id}`"
+                )
+            })
+        })
+        .collect()
+}
+
 fn coordination_policy_patch(
     payload: Option<crate::CoordinationPolicyPayload>,
 ) -> Option<CoordinationTransactionPolicyPatch> {
@@ -2015,6 +2052,111 @@ fn convert_workflow_status_for_task(
 }
 
 impl QueryHost {
+    pub(crate) fn declare_work_for_prism_code_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismDeclareWorkArgs,
+    ) -> Result<WorkDeclarationResult> {
+        let title = args.title.trim();
+        if title.is_empty() {
+            return Err(anyhow!("work title cannot be empty"));
+        }
+
+        let prism = self.current_prism();
+        let inherited_parent_work = match (args.parent_work_id.as_deref(), args.kind.as_ref()) {
+            (Some(parent_work_id), _) => session
+                .current_work_state()
+                .filter(|work| work.id.0 == parent_work_id),
+            (None, Some(WorkDeclarationKindInput::Delegated)) => session.current_work_state(),
+            _ => None,
+        };
+        let parent_work_id = args.parent_work_id.clone().or_else(|| {
+            inherited_parent_work
+                .as_ref()
+                .map(|work| work.id.0.to_string())
+        });
+        let coordination_task_id = args.coordination_task_id.clone().or_else(|| {
+            inherited_parent_work
+                .as_ref()
+                .and_then(|work| work.coordination_task_id.clone())
+        });
+        let coordination_task = coordination_task_id.as_ref().and_then(|task_id| {
+            prism.coordination_task_v2_by_coordination_id(&CoordinationTaskId::new(task_id.clone()))
+        });
+        let resolved_plan = if let Some(plan_id) = args.plan_id.as_ref() {
+            prism.coordination_plan_v2(&PlanId::new(plan_id.clone()))
+        } else {
+            coordination_task
+                .as_ref()
+                .and_then(|task| prism.coordination_plan_v2(&task.task.parent_plan_id))
+        };
+        let plan_id = resolved_plan
+            .as_ref()
+            .map(|plan| plan.plan.id.0.to_string())
+            .or_else(|| args.plan_id.clone())
+            .or_else(|| {
+                inherited_parent_work
+                    .as_ref()
+                    .and_then(|work| work.plan_id.clone())
+            });
+        let plan_title = resolved_plan
+            .as_ref()
+            .map(coordination_plan_title)
+            .or_else(|| {
+                inherited_parent_work
+                    .as_ref()
+                    .and_then(|work| work.plan_title.clone())
+            });
+        let kind = match args.kind {
+            Some(WorkDeclarationKindInput::AdHoc) => WorkContextKind::AdHoc,
+            Some(WorkDeclarationKindInput::Coordination) => WorkContextKind::Coordination,
+            Some(WorkDeclarationKindInput::Delegated) => WorkContextKind::Delegated,
+            None if coordination_task_id.is_some() => WorkContextKind::Coordination,
+            None if parent_work_id.is_some() => WorkContextKind::Delegated,
+            None => WorkContextKind::AdHoc,
+        };
+        let summary = args.summary.clone();
+        let work_id = session.declare_work(
+            title,
+            kind,
+            summary.clone(),
+            parent_work_id.clone().map(TaskId::new),
+            coordination_task_id.clone(),
+            plan_id.clone(),
+            plan_title.clone(),
+        );
+        if let Some(coordination_task) = coordination_task {
+            session.set_current_task(
+                TaskId::new(coordination_task.task.id.0.to_string()),
+                Some(coordination_task.task.title.clone()),
+                Vec::new(),
+                Some(coordination_task.task.id.0.to_string()),
+            );
+        } else if let Some(coordination_task_id) = coordination_task_id.clone() {
+            session.set_current_task(
+                TaskId::new(coordination_task_id.clone()),
+                None,
+                Vec::new(),
+                Some(coordination_task_id),
+            );
+        } else {
+            session.clear_current_task();
+        }
+        self.sync_workspace_active_work_context(session);
+
+        Ok(WorkDeclarationResult {
+            work_id: work_id.0.to_string(),
+            kind,
+            title: title.to_string(),
+            summary,
+            parent_work_id,
+            coordination_task_id,
+            plan_id,
+            plan_title,
+            session: self.session_view_without_refresh(session),
+        })
+    }
+
     pub(crate) fn declare_work_without_refresh_authenticated(
         &self,
         session: &SessionState,
@@ -5119,9 +5261,9 @@ impl QueryHost {
         match args.kind {
             CoordinationMutationKindInput::CoordinationTransaction => {
                 let payload: CoordinationTransactionPayload = serde_json::from_value(args.payload)?;
+                let mutation_payloads = coordination_transaction_mutation_payloads(&payload)?;
                 let input = CoordinationTransactionInput {
-                    mutations: payload
-                        .mutations
+                    mutations: mutation_payloads
                         .into_iter()
                         .map(|mutation| match mutation {
                             CoordinationTransactionMutationPayload::PlanCreate(payload) => {
@@ -5346,6 +5488,7 @@ impl QueryHost {
                         })
                         .collect::<Result<Vec<_>>>()?,
                     intent_metadata: payload.intent_metadata,
+                    structured_transaction: payload.structured_transaction,
                     optimistic_preconditions: payload.optimistic_preconditions,
                 };
                 let result = prism.execute_coordination_transaction(meta, input)?;

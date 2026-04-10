@@ -884,6 +884,66 @@ return {
 }
 
 #[tokio::test]
+async fn mcp_server_discards_declared_work_when_mixed_prism_code_write_fails() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let server_handle = server.clone();
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+await prism.work.declare({
+  title: "Should not leak declared work across failed prism_code invocation",
+});
+const task = await prism.coordination.openTask("coord-task:missing");
+await task.handoff({
+  summary: "This should fail because the task does not exist",
+});
+return { ok: true };
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = response_json(client.receive().await.unwrap());
+    assert_eq!(response["error"]["code"], -32603);
+
+    let session_view = server_handle
+        .host
+        .session_resource_value(server_handle.session.as_ref())
+        .expect("session resource should load after failed prism_code");
+    assert!(
+        session_view.current_work.is_none(),
+        "failed mixed prism_code invocation should not leak declared work into session state"
+    );
+    assert!(
+        session_view.current_task.is_none(),
+        "failed mixed prism_code invocation should not leak current task state"
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_extends_existing_plan_via_native_prism_code_coordination_builders() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);

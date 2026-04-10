@@ -257,6 +257,7 @@ impl CoordinationTransactionMutation {
 pub struct CoordinationTransactionInput {
     pub mutations: Vec<CoordinationTransactionMutation>,
     pub intent_metadata: Option<Value>,
+    pub structured_transaction: Option<Value>,
     pub optimistic_preconditions: Option<Value>,
 }
 
@@ -361,6 +362,7 @@ impl CoordinationTransactionError {
                 commit: None,
                 authority_version: None,
                 intent_metadata: None,
+                structured_transaction: None,
                 rejection: Some(CoordinationTransactionProtocolRejection {
                     stage: rejection.stage.tag().to_string(),
                     category: rejection.category.tag().to_string(),
@@ -377,6 +379,7 @@ impl CoordinationTransactionError {
                 commit: None,
                 authority_version: None,
                 intent_metadata: None,
+                structured_transaction: None,
                 rejection: None,
                 indeterminate: Some(CoordinationTransactionProtocolIndeterminate {
                     reason_code: reason_code.to_string(),
@@ -477,6 +480,8 @@ pub struct CoordinationTransactionProtocolState {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub intent_metadata: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub structured_transaction: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rejection: Option<CoordinationTransactionProtocolRejection>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub indeterminate: Option<CoordinationTransactionProtocolIndeterminate>,
@@ -488,6 +493,7 @@ pub struct CoordinationTransactionResult {
     pub commit: CoordinationTransactionCommitMetadata,
     pub authority_version: CoordinationTransactionAuthorityVersion,
     pub intent_metadata: Option<Value>,
+    pub structured_transaction: Option<Value>,
     pub plan_ids_by_client_id: BTreeMap<String, PlanId>,
     pub task_ids_by_client_id: BTreeMap<String, CoordinationTaskId>,
     pub claim_ids_by_client_id: BTreeMap<String, ClaimId>,
@@ -537,6 +543,7 @@ impl CoordinationTransactionResult {
             commit: Some(self.commit.protocol_state()),
             authority_version: Some(self.authority_version.protocol_state()),
             intent_metadata: self.intent_metadata.clone(),
+            structured_transaction: self.structured_transaction.clone(),
             rejection: None,
             indeterminate: None,
         }
@@ -644,6 +651,16 @@ fn validate_transaction_input_shape(
                 CoordinationTransactionRejectionCategory::InvalidInput,
                 "invalid_intent_metadata",
                 "coordination_transaction intentMetadata must be an object when provided",
+            ));
+        }
+    }
+    if let Some(structured_transaction) = input.structured_transaction.as_ref() {
+        if !structured_transaction.is_object() {
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::InputShape,
+                CoordinationTransactionRejectionCategory::InvalidInput,
+                "invalid_structured_transaction",
+                "coordination_transaction structuredTransaction must be an object when provided",
             ));
         }
     }
@@ -1280,6 +1297,7 @@ fn apply_coordination_transaction(
     let CoordinationTransactionInput {
         mutations,
         intent_metadata,
+        structured_transaction,
         optimistic_preconditions: _,
     } = input;
     let before_event_len = coordination_runtime.snapshot().events.len();
@@ -1918,6 +1936,13 @@ fn apply_coordination_transaction(
             intent_metadata.clone(),
         );
     }
+    if let Some(structured_transaction) = structured_transaction.as_ref() {
+        coordination_runtime.annotate_recent_events_with_metadata(
+            before_event_len,
+            "transactionStructure",
+            structured_transaction.clone(),
+        );
+    }
 
     let committed_events = coordination_runtime.snapshot().events;
     let committed_event_ids = committed_events
@@ -1945,6 +1970,7 @@ fn apply_coordination_transaction(
             committed_at: committed_events.last().map(|event| event.meta.ts),
         },
         intent_metadata,
+        structured_transaction,
         plan_ids_by_client_id,
         task_ids_by_client_id,
         claim_ids_by_client_id,

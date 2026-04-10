@@ -227,18 +227,20 @@ Current phase note:
 - Claims and artifacts now lower through the same coordination transaction boundary as plans and
   tasks instead of going through the separate direct-write executor path; claim renew/release and
   artifact propose/review/supersede follow-up flows are covered on the live MCP path.
-- Phase 3 has been honestly reviewed against the compiler architecture design and remains reopened.
-- The current implementation still violates the design in two material ways:
-  - mixed invocations that still include non-coordination direct writes, especially
-    `prism.work.declare(...)`, do not yet honor the “one invocation = one transaction” rule
-    because the runtime can still commit multiple durable side effects while walking effect order
-  - structured regions are preserved as metadata, but the durable lowering path is still
-    flattened into ad hoc action lists rather than being governed by compiler-owned control
-    structure
-- Phase 3 may not advance to Phase 4 until those gaps are closed and the phase is reviewed again.
+- `prism.work.declare(...)` on the `prism_code` path now uses a compiler-owned session/work-context
+  effect instead of the older durable host mutation path, and a dedicated MCP regression now proves
+  that failed mixed invocations do not leak declared work into session state.
+- The coordination boundary now accepts `structuredTransaction` payloads from the compiler-owned
+  write runtime, derives executable transaction mutations from structured effect order instead of a
+  flat action list on the wire, and stamps the durable structure onto committed events as
+  `transactionStructure`.
+- The previously identified Phase 3 design gaps are now closed, but the phase remains at the
+  explicit review gate and may not advance to Phase 4 until it is reviewed again against the
+  compiler architecture design.
 - Targeted MCP regressions now cover dry-run, the existing native coordination builder flow,
   mixed coordination/direct writes in one invocation, claim/review follow-up flows on the new
-  lowering path, and staged read-after-write behavior before finalize.
+  lowering path, staged read-after-write behavior before finalize, and rollback of declared work
+  when a later mixed write fails.
 - The next work must first make Phases 1-3 fully faithful to the compiler architecture design
   before Phase 4 may begin.
 
