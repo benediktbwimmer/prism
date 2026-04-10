@@ -91,7 +91,7 @@ This roadmap is complete only when all of the following are true.
 Current phase checklist:
 
 - [x] Phase 0: freeze roadmap, architecture, and review process
-- [ ] Phase 1: build the compiler substrate and surface registry foundations
+- [x] Phase 1: build the compiler substrate and surface registry foundations
 - [ ] Phase 2: implement PRISM Program IR and effect classification
 - [ ] Phase 3: implement structured transactional lowering for current write semantics
 - [ ] Phase 4: cut runtime `prism_code` execution onto the compiler path
@@ -103,18 +103,22 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 1: build the compiler substrate and surface registry foundations
+- Phase 1 review gate: review compiler substrate and surface registry foundations before Phase 2
 
 Current phase note:
 
 - Phase 0 is complete.
-- Phase 1 is in progress. The first implementation slice establishes a compiler-owned
+- Phase 1 is complete and awaiting explicit user review before Phase 2 begins.
+- The first Phase 1 slice establishes a compiler-owned
   `prism-js` surface registry and uses that registry to drive the runtime prelude and
   typechecked method surface for current compiler-owned SDK entry points.
-- The current Phase 1 slice also establishes a dedicated `prism_code_compiler` module family in
+- Phase 1 also establishes a dedicated `prism_code_compiler` module family in
   `prism-mcp`, a typed compiler-input envelope that classifies all four execution products, and a
   shared source-loading foundation for inline snippets and repo-authored modules under
   `.prism/code/**`.
+- The final Phase 1 slice moves TypeScript program preparation, typechecking, and transpilation
+  under the compiler module boundary so runtime entry points no longer hand-wire those frontend
+  steps directly.
 
 ## 5. Ordering thesis
 

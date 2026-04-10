@@ -24,7 +24,6 @@ use crate::file_queries::{
     DEFAULT_FILE_READ_MAX_CHARS,
 };
 use crate::peer_runtime_router::execute_remote_prism_query_with_provider;
-use crate::query_typecheck::StaticCheckMode;
 use crate::runtime_views::{connection_info, runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
 use crate::{
@@ -37,12 +36,12 @@ use crate::{
     coordination_plan_v2_view, coordination_task_v2_view, current_timestamp, diff_for,
     diff_for_from_events, drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol,
     entrypoints_for, focused_block_for_symbol, invalid_query_argument_error, is_query_parse_error,
-    js_runtime, lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks,
+    lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks,
     missing_return_hint, next_reads, node_ref_view, owner_symbol_views_for_query,
     owner_symbol_views_for_target, owner_views_for_target, parse_event_actor,
     parse_memory_event_action, parse_memory_kind, parse_memory_scope, parse_node_kind,
     parse_outcome_kind, parse_outcome_result, parse_plan_scope, parse_plan_status,
-    parse_typescript_error, plan_children_v2_view, plan_summary_view, policy_violation_record_view,
+    plan_children_v2_view, plan_summary_view, policy_violation_record_view,
     promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
     query_feature_disabled_error, query_method_specs, rank_search_results,
     read_context_view_cached, recent_change_context_view_cached, recent_patches,
@@ -66,37 +65,10 @@ use crate::{
     SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs,
     ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
     DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
-    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
 };
 
-#[derive(Debug, Clone, Copy)]
-enum TsSnippetMode {
-    StatementBody,
-    ImplicitExpression,
-}
-
-impl TsSnippetMode {
-    fn code(self) -> &'static str {
-        match self {
-            TsSnippetMode::StatementBody => "statement_body",
-            TsSnippetMode::ImplicitExpression => "implicit_expression",
-        }
-    }
-
-    fn static_check_mode(self) -> StaticCheckMode {
-        match self {
-            TsSnippetMode::StatementBody => StaticCheckMode::StatementBody,
-            TsSnippetMode::ImplicitExpression => StaticCheckMode::ImplicitExpression,
-        }
-    }
-}
-
-struct PreparedTypescriptQuery {
-    source: String,
-    specifier: String,
-    user_snippet_first_line: usize,
-}
+type TsSnippetMode = crate::prism_code_compiler::PrismTypescriptProgramMode;
 
 struct TypescriptAttempt {
     execution: QueryExecution,
@@ -642,7 +614,7 @@ impl QueryHost {
             );
             let mut statement_attempt = match self.execute_typescript_attempt(
                 Arc::clone(&session),
-                root_source,
+                &compiler_input,
                 TsSnippetMode::StatementBody,
                 query_run.clone(),
                 surface_name,
@@ -655,7 +627,7 @@ impl QueryHost {
                     }
                     match self.execute_typescript_attempt(
                         Arc::clone(&session),
-                        root_source,
+                        &compiler_input,
                         TsSnippetMode::ImplicitExpression,
                         query_run.clone(),
                         surface_name,
@@ -682,7 +654,7 @@ impl QueryHost {
             {
                 if let Ok(expression_attempt) = self.execute_typescript_attempt(
                     Arc::clone(&session),
-                    root_source,
+                    &compiler_input,
                     TsSnippetMode::ImplicitExpression,
                     query_run.clone(),
                     surface_name,
@@ -784,36 +756,37 @@ impl QueryHost {
     fn execute_typescript_attempt(
         &self,
         session: Arc<SessionState>,
-        root_source: &crate::prism_code_compiler::PrismCodeSourceUnit,
+        compiler_input: &crate::prism_code_compiler::PrismCodeCompilerInput,
         mode: TsSnippetMode,
         query_run: QueryRun,
         surface_name: &'static str,
         code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
     ) -> Result<TypescriptAttempt> {
         let prepared_started = Instant::now();
-        let prepared =
-            prepare_typescript_query(root_source.source_text(), mode, root_source.specifier());
+        let prepared = crate::prism_code_compiler::prepare_typescript_program(
+            compiler_input,
+            self.workspace_root(),
+            mode,
+        )?;
         query_run.record_phase(
             &format!("typescript.{}.prepare", mode.code()),
             &json!({
                 "mode": mode.code(),
-                "sourceSpecifier": root_source.specifier(),
+                "sourceSpecifier": prepared.root_source().specifier(),
             }),
             prepared_started.elapsed(),
             true,
             None,
         );
         let typecheck_started = Instant::now();
-        if let Err(error) = crate::query_typecheck::typecheck_query_with_specifier(
-            root_source.source_text(),
-            mode.static_check_mode(),
-            root_source.specifier(),
-        ) {
+        if let Err(error) =
+            crate::prism_code_compiler::typecheck_prepared_typescript_program(&prepared)
+        {
             query_run.record_phase(
                 &format!("typescript.{}.typecheck", mode.code()),
                 &json!({
                     "mode": mode.code(),
-                    "sourceSpecifier": root_source.specifier(),
+                    "sourceSpecifier": prepared.root_source().specifier(),
                 }),
                 typecheck_started.elapsed(),
                 false,
@@ -825,23 +798,21 @@ impl QueryHost {
             &format!("typescript.{}.typecheck", mode.code()),
             &json!({
                 "mode": mode.code(),
-                "sourceSpecifier": root_source.specifier(),
+                "sourceSpecifier": prepared.root_source().specifier(),
             }),
             typecheck_started.elapsed(),
             true,
             None,
         );
         let transpile_started = Instant::now();
-        let transpiled = match js_runtime::transpile_typescript_with_specifier(
-            &prepared.source,
-            &prepared.specifier,
-        ) {
+        let transpiled =
+            match crate::prism_code_compiler::transpile_prepared_typescript_program(&prepared) {
             Ok(transpiled) => {
                 query_run.record_phase(
                     &format!("typescript.{}.transpile", mode.code()),
                     &json!({
                         "mode": mode.code(),
-                        "sourceSpecifier": root_source.specifier(),
+                        "sourceSpecifier": prepared.root_source().specifier(),
                     }),
                     transpile_started.elapsed(),
                     true,
@@ -850,17 +821,11 @@ impl QueryHost {
                 transpiled
             }
             Err(error) => {
-                let error = parse_typescript_error(
-                    error,
-                    root_source.source_text(),
-                    prepared.user_snippet_first_line,
-                    mode.code(),
-                );
                 query_run.record_phase(
                     &format!("typescript.{}.transpile", mode.code()),
                     &json!({
                         "mode": mode.code(),
-                        "sourceSpecifier": root_source.specifier(),
+                        "sourceSpecifier": prepared.root_source().specifier(),
                     }),
                     transpile_started.elapsed(),
                     false,
@@ -883,8 +848,8 @@ impl QueryHost {
             Err(error) => {
                 let error = runtime_or_serialization_error(
                     error,
-                    root_source.source_text(),
-                    prepared.user_snippet_first_line,
+                    prepared.root_source().source_text(),
+                    prepared.user_snippet_first_line(),
                     mode.code(),
                 );
                 execution.query_run().record_phase(
@@ -940,8 +905,8 @@ impl QueryHost {
         let raw_result = worker_reply.result.map_err(|error| {
             runtime_or_serialization_error(
                 error,
-                root_source.source_text(),
-                prepared.user_snippet_first_line,
+                prepared.root_source().source_text(),
+                prepared.user_snippet_first_line(),
                 mode.code(),
             )
         })?;
@@ -998,36 +963,6 @@ impl QueryHost {
             result,
             output_cap_hit,
         })
-    }
-}
-
-fn prepare_typescript_query(
-    code: &str,
-    mode: TsSnippetMode,
-    specifier: &str,
-) -> PreparedTypescriptQuery {
-    let user_body = match mode {
-        TsSnippetMode::StatementBody => code.to_string(),
-        TsSnippetMode::ImplicitExpression => format!("return (\n{}\n);", code),
-    };
-    let source = format!(
-        "(async function() {{\n  const __prismLocationRegex = /(?:file:\\/\\/\\/prism\\/query\\.ts|eval_script):(?<line>\\d+):(?<column>\\d+)/;\n  const __prismParseLocation = (value) => {{\n    const __prismMatch = typeof value === \"string\" ? value.match(__prismLocationRegex) : null;\n    if (!__prismMatch || !__prismMatch.groups) {{\n      return null;\n    }}\n    return {{\n      line: Number(__prismMatch.groups.line),\n      column: Number(__prismMatch.groups.column),\n    }};\n  }};\n  const __prismFormatError = (error) => {{\n    const __prismMessage = error && typeof error === \"object\" && \"message\" in error && error.message\n      ? String(error.message)\n      : String(error);\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : null;\n    return __prismStack && __prismStack.includes(__prismMessage)\n      ? __prismStack\n      : __prismStack\n        ? `${{__prismMessage}}\\n${{__prismStack}}`\n        : __prismMessage;\n  }};\n  const __prismUserLocation = (error, baseLine) => {{\n    if (typeof baseLine !== \"number\") {{\n      return null;\n    }}\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : \"\";\n    const __prismLines = __prismStack.split(\"\\n\");\n    const __prismFrame = __prismLines.find((line) => line.includes(\"__prismUserQuery\"))\n      || __prismLines.find((line) => line.includes(\"eval_script:\"));\n    const __prismLocation = __prismParseLocation(__prismFrame);\n    if (!__prismLocation) {{\n      return null;\n    }}\n    return {{\n      line: Math.max(1, __prismLocation.line - baseLine + 1),\n      column: __prismLocation.column,\n    }};\n  }};\n  const __prismThrowTaggedError = (marker, error, userLocation = null) => {{\n    const __prismFormatted = __prismFormatError(error);\n    const __prismHeadline = __prismFormatted.split(\"\\n\")[0] || String(error);\n    const __prismUserLocationLine = userLocation\n      ? `\\n{} ${{userLocation.line}}:${{userLocation.column}}`\n      : \"\";\n    const __prismWrapped = new Error(`${{marker}}\\n${{__prismHeadline}}${{__prismUserLocationLine}}`);\n    __prismWrapped.stack = `${{userLocation ? `{} ${{userLocation.line}}:${{userLocation.column}}\\n` : \"\"}}${{__prismFormatted}}`;\n    throw __prismWrapped;\n  }};\n  let __prismUserSnippetBaseLine = null;\n  const __prismUserQuery = async () => {{\n    const __prismBaseLocation = __prismParseLocation(new Error().stack || \"\");\n    __prismUserSnippetBaseLine = __prismBaseLocation ? __prismBaseLocation.line + 1 : null;\n{}\n{}\n  }};\n  let __prismResult;\n  try {{\n    __prismResult = await __prismUserQuery();\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error, __prismUserLocation(error, __prismUserSnippetBaseLine));\n  }}\n  try {{\n    __prismResult = __prismHost(\"__finalizeCode\", {{ result: __prismResult }});\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error);\n  }}\n}})();\n",
-        USER_SNIPPET_LOCATION_MARKER,
-        USER_SNIPPET_LOCATION_MARKER,
-        USER_SNIPPET_MARKER,
-        user_body,
-        QUERY_RUNTIME_ERROR_MARKER,
-        QUERY_SERIALIZATION_ERROR_MARKER,
-    );
-    let user_snippet_first_line = source
-        .lines()
-        .position(|line| line.trim() == USER_SNIPPET_MARKER)
-        .map(|index| index + 2)
-        .unwrap_or(1);
-    PreparedTypescriptQuery {
-        source,
-        specifier: specifier.to_string(),
-        user_snippet_first_line,
     }
 }
 
