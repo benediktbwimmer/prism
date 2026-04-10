@@ -71,6 +71,7 @@ pub use crate::types::{
 };
 pub use coordination_transaction::{
     CoordinationDependencyKind, CoordinationTransactionAuthorityVersion,
+    CoordinationTransactionArtifactRef, CoordinationTransactionClaimRef,
     CoordinationTransactionCommitMetadata, CoordinationTransactionError,
     CoordinationTransactionGitExecutionPolicyPatch, CoordinationTransactionInput,
     CoordinationTransactionMutation, CoordinationTransactionOutcome,

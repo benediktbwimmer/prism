@@ -35,6 +35,7 @@ use prism_query::{
     ContractEventPatch, ContractGuarantee, ContractGuaranteeStrength, ContractKind, ContractPacket,
     ContractStability, ContractStatus, ContractTarget, ContractValidation,
     CoordinationDependencyKind, CoordinationPlanV2, CoordinationTaskV2,
+    CoordinationTransactionArtifactRef, CoordinationTransactionClaimRef,
     CoordinationTransactionError, CoordinationTransactionGitExecutionPolicyPatch,
     CoordinationTransactionInput, CoordinationTransactionMutation, CoordinationTransactionPlanRef,
     CoordinationTransactionPlanSchedulingPatch, CoordinationTransactionPolicyPatch,
@@ -77,8 +78,13 @@ use crate::{
     ContractMutationOperationInput, ContractMutationResult, ContractStabilityInput,
     ContractStatusInput, ContractTargetInput, ContractValidationInput,
     CoordinationDependencyKindInput, CoordinationMutationKindInput, CoordinationMutationResult,
-    CoordinationPlanRefPayload, CoordinationTaskRefPayload, CoordinationTransactionMutationPayload,
-    CoordinationTransactionPayload, CoordinationTransactionTaskUpdatePayload, CuratorJobView,
+    CoordinationPlanRefPayload, CoordinationTaskRefPayload,
+    CoordinationTransactionArtifactProposePayload, CoordinationTransactionArtifactRefPayload,
+    CoordinationTransactionArtifactReviewPayload, CoordinationTransactionArtifactSupersedePayload,
+    CoordinationTransactionClaimAcquirePayload, CoordinationTransactionClaimRefPayload,
+    CoordinationTransactionClaimReleasePayload, CoordinationTransactionClaimRenewPayload,
+    CoordinationTransactionMutationPayload, CoordinationTransactionPayload,
+    CoordinationTransactionTaskUpdatePayload, CuratorJobView,
     CuratorProposalCreatedResources, CuratorProposalDecision, CuratorProposalDecisionResult,
     EdgeMutationResult, EventMutationResult, HandoffAcceptPayload, HeartbeatLeaseMutationResult,
     MemoryMutationActionInput, MemoryMutationResult, MemoryRetirePayload, MemoryStorePayload,
@@ -1076,6 +1082,44 @@ fn coordination_task_ref(
     }
 }
 
+fn coordination_claim_ref(
+    payload: &CoordinationTransactionClaimRefPayload,
+) -> Result<CoordinationTransactionClaimRef> {
+    match (&payload.claim_id, &payload.client_claim_id) {
+        (Some(claim_id), None) => Ok(CoordinationTransactionClaimRef::Id(ClaimId::new(
+            claim_id.clone(),
+        ))),
+        (None, Some(client_claim_id)) => Ok(CoordinationTransactionClaimRef::ClientId(
+            client_claim_id.clone(),
+        )),
+        (Some(_), Some(_)) => Err(anyhow!(
+            "coordination transaction claim refs must provide exactly one of `claimId` or `clientClaimId`"
+        )),
+        (None, None) => Err(anyhow!(
+            "coordination transaction claim refs must provide `claimId` or `clientClaimId`"
+        )),
+    }
+}
+
+fn coordination_artifact_ref(
+    payload: &CoordinationTransactionArtifactRefPayload,
+) -> Result<CoordinationTransactionArtifactRef> {
+    match (&payload.artifact_id, &payload.client_artifact_id) {
+        (Some(artifact_id), None) => Ok(CoordinationTransactionArtifactRef::Id(
+            ArtifactId::new(artifact_id.clone()),
+        )),
+        (None, Some(client_artifact_id)) => Ok(CoordinationTransactionArtifactRef::ClientId(
+            client_artifact_id.clone(),
+        )),
+        (Some(_), Some(_)) => Err(anyhow!(
+            "coordination transaction artifact refs must provide exactly one of `artifactId` or `clientArtifactId`"
+        )),
+        (None, None) => Err(anyhow!(
+            "coordination transaction artifact refs must provide `artifactId` or `clientArtifactId`"
+        )),
+    }
+}
+
 fn coordination_dependency_kind(
     kind: Option<CoordinationDependencyKindInput>,
 ) -> CoordinationDependencyKind {
@@ -1319,6 +1363,16 @@ fn coordination_transaction_state(
         .iter()
         .map(|task_id| current_coordination_task_state(prism, task_id))
         .collect::<Result<Vec<_>>>()?;
+    let claims = result
+        .touched_claim_ids
+        .iter()
+        .map(|claim_id| current_coordination_claim_state(prism, claim_id))
+        .collect::<Result<Vec<_>>>()?;
+    let artifacts = result
+        .touched_artifact_ids
+        .iter()
+        .map(|artifact_id| current_coordination_artifact_state(prism, artifact_id))
+        .collect::<Result<Vec<_>>>()?;
     let primary_plan_id = result
         .touched_plan_ids
         .last()
@@ -1327,6 +1381,14 @@ fn coordination_transaction_state(
         .touched_task_ids
         .last()
         .map(|task_id| task_id.0.clone());
+    let primary_claim_id = result
+        .touched_claim_ids
+        .last()
+        .map(|claim_id| claim_id.0.clone());
+    let primary_artifact_id = result
+        .touched_artifact_ids
+        .last()
+        .map(|artifact_id| artifact_id.0.clone());
     let Value::Object(ref mut object) = state else {
         return Ok(state);
     };
@@ -1335,6 +1397,8 @@ fn coordination_transaction_state(
         primary_task_id
             .clone()
             .or_else(|| primary_plan_id.clone())
+            .or_else(|| primary_claim_id.clone())
+            .or_else(|| primary_artifact_id.clone())
             .map(|id| Value::String(id.to_string()))
             .unwrap_or(Value::Null),
     );
@@ -1351,6 +1415,18 @@ fn coordination_transaction_state(
             .unwrap_or(Value::Null),
     );
     object.insert(
+        "claimId".to_string(),
+        primary_claim_id
+            .map(|id| Value::String(id.to_string()))
+            .unwrap_or(Value::Null),
+    );
+    object.insert(
+        "artifactId".to_string(),
+        primary_artifact_id
+            .map(|id| Value::String(id.to_string()))
+            .unwrap_or(Value::Null),
+    );
+    object.insert(
         "planIdsByClientId".to_string(),
         serde_json::to_value(&result.plan_ids_by_client_id)?,
     );
@@ -1358,8 +1434,18 @@ fn coordination_transaction_state(
         "taskIdsByClientId".to_string(),
         serde_json::to_value(&result.task_ids_by_client_id)?,
     );
+    object.insert(
+        "claimIdsByClientId".to_string(),
+        serde_json::to_value(&result.claim_ids_by_client_id)?,
+    );
+    object.insert(
+        "artifactIdsByClientId".to_string(),
+        serde_json::to_value(&result.artifact_ids_by_client_id)?,
+    );
     object.insert("plans".to_string(), Value::Array(plans));
     object.insert("tasks".to_string(), Value::Array(tasks));
+    object.insert("claims".to_string(), Value::Array(claims));
+    object.insert("artifacts".to_string(), Value::Array(artifacts));
     attach_coordination_authority_stamp(&mut state, workspace_root, authority_store_provider);
     Ok(state)
 }
@@ -1401,6 +1487,20 @@ fn with_title_cased_plan_status(state: &mut Value) {
 fn current_coordination_task_state(prism: &Prism, task_id: &CoordinationTaskId) -> Result<Value> {
     let task = current_coordination_task_view(prism, task_id)?;
     Ok(serde_json::to_value(coordination_task_v2_view(task))?)
+}
+
+fn current_coordination_claim_state(prism: &Prism, claim_id: &ClaimId) -> Result<Value> {
+    let claim = prism
+        .coordination_claim(claim_id)
+        .ok_or_else(|| anyhow!("unknown claim `{}`", claim_id.0))?;
+    Ok(serde_json::to_value(claim_view(claim))?)
+}
+
+fn current_coordination_artifact_state(prism: &Prism, artifact_id: &ArtifactId) -> Result<Value> {
+    let artifact = prism
+        .coordination_artifact_unscoped(artifact_id)
+        .ok_or_else(|| anyhow!("unknown artifact `{}`", artifact_id.0))?;
+    Ok(serde_json::to_value(artifact_view(artifact))?)
 }
 
 fn attach_coordination_transaction_metadata(
@@ -5116,6 +5216,99 @@ impl QueryHost {
                                     depends_on: coordination_task_ref(&payload.depends_on)?,
                                     kind: coordination_dependency_kind(payload.kind),
                                     base_revision: prism.workspace_revision(),
+                                })
+                            }
+                            CoordinationTransactionMutationPayload::ClaimAcquire(payload) => {
+                                Ok(CoordinationTransactionMutation::ClaimAcquire {
+                                    client_claim_id: payload.client_claim_id,
+                                    task: payload
+                                        .task
+                                        .as_ref()
+                                        .map(coordination_task_ref)
+                                        .transpose()?,
+                                    anchors: convert_anchors(
+                                        prism,
+                                        self.workspace_session_ref(),
+                                        workspace_root,
+                                        payload.anchors,
+                                    )?,
+                                    capability: convert_capability(payload.capability),
+                                    mode: payload.mode.map(convert_claim_mode),
+                                    ttl_seconds: payload.ttl_seconds,
+                                    agent: payload
+                                        .agent
+                                        .map(AgentId::new)
+                                        .or_else(|| execution.assignee.clone())
+                                        .or_else(|| session.current_agent()),
+                                    session: session.session_id(),
+                                    worktree_id: execution.worktree_id.clone(),
+                                    branch_ref: execution.branch_ref.clone(),
+                                    base_revision: prism.workspace_revision(),
+                                    current_revision: prism.workspace_revision(),
+                                })
+                            }
+                            CoordinationTransactionMutationPayload::ClaimRenew(payload) => {
+                                Ok(CoordinationTransactionMutation::ClaimRenew {
+                                    claim: coordination_claim_ref(&payload.claim)?,
+                                    session: session.session_id(),
+                                    ttl_seconds: payload.ttl_seconds,
+                                })
+                            }
+                            CoordinationTransactionMutationPayload::ClaimRelease(payload) => {
+                                Ok(CoordinationTransactionMutation::ClaimRelease {
+                                    claim: coordination_claim_ref(&payload.claim)?,
+                                    session: session.session_id(),
+                                })
+                            }
+                            CoordinationTransactionMutationPayload::ArtifactPropose(payload) => {
+                                Ok(CoordinationTransactionMutation::ArtifactPropose {
+                                    client_artifact_id: payload.client_artifact_id,
+                                    task: coordination_task_ref(&payload.task)?,
+                                    artifact_requirement_id: payload.artifact_requirement_id,
+                                    anchors: payload
+                                        .anchors
+                                        .map(|anchors| {
+                                            convert_anchors(
+                                                prism,
+                                                self.workspace_session_ref(),
+                                                workspace_root,
+                                                anchors,
+                                            )
+                                        })
+                                        .transpose()?,
+                                    diff_ref: payload.diff_ref,
+                                    evidence: payload
+                                        .evidence
+                                        .unwrap_or_default()
+                                        .into_iter()
+                                        .map(EventId::new)
+                                        .collect(),
+                                    required_validations: payload
+                                        .required_validations
+                                        .unwrap_or_default(),
+                                    validated_checks: payload.validated_checks.unwrap_or_default(),
+                                    risk_score: payload.risk_score,
+                                    base_revision: prism.workspace_revision(),
+                                    current_revision: prism.workspace_revision(),
+                                })
+                            }
+                            CoordinationTransactionMutationPayload::ArtifactSupersede(payload) => {
+                                Ok(CoordinationTransactionMutation::ArtifactSupersede {
+                                    artifact: coordination_artifact_ref(&payload.artifact)?,
+                                })
+                            }
+                            CoordinationTransactionMutationPayload::ArtifactReview(payload) => {
+                                Ok(CoordinationTransactionMutation::ArtifactReview {
+                                    artifact: coordination_artifact_ref(&payload.artifact)?,
+                                    review_requirement_id: payload.review_requirement_id,
+                                    verdict: convert_review_verdict(payload.verdict),
+                                    summary: payload.summary,
+                                    required_validations: payload
+                                        .required_validations
+                                        .unwrap_or_default(),
+                                    validated_checks: payload.validated_checks.unwrap_or_default(),
+                                    risk_score: payload.risk_score,
+                                    current_revision: prism.workspace_revision(),
                                 })
                             }
                             CoordinationTransactionMutationPayload::TaskHandoff(payload) => {

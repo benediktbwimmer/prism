@@ -582,6 +582,10 @@ impl CoordinationRuntimeState {
         claims
     }
 
+    pub fn claim(&self, claim_id: &ClaimId) -> Option<WorkClaim> {
+        self.state.claims.get(claim_id).cloned()
+    }
+
     pub fn artifacts(&self, task_id: &prism_ir::CoordinationTaskId) -> Vec<Artifact> {
         self.artifacts_in_scope(task_id, None)
     }

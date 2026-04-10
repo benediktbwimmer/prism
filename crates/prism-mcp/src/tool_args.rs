@@ -2783,6 +2783,12 @@ pub(crate) enum CoordinationTransactionMutationPayload {
     TaskCreate(CoordinationTransactionTaskCreatePayload),
     TaskUpdate(CoordinationTransactionTaskUpdatePayload),
     DependencyCreate(CoordinationTransactionDependencyCreatePayload),
+    ClaimAcquire(CoordinationTransactionClaimAcquirePayload),
+    ClaimRenew(CoordinationTransactionClaimRenewPayload),
+    ClaimRelease(CoordinationTransactionClaimReleasePayload),
+    ArtifactPropose(CoordinationTransactionArtifactProposePayload),
+    ArtifactSupersede(CoordinationTransactionArtifactSupersedePayload),
+    ArtifactReview(CoordinationTransactionArtifactReviewPayload),
     TaskHandoff(CoordinationTransactionTaskHandoffPayload),
     TaskHandoffAccept(CoordinationTransactionTaskHandoffAcceptPayload),
     TaskResume(CoordinationTransactionTaskResumePayload),
@@ -2866,6 +2872,78 @@ pub(crate) struct CoordinationTransactionTaskUpdatePayload {
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
     pub(crate) artifact_requirements: Option<Vec<prism_coordination::ArtifactRequirement>>,
     pub(crate) review_requirements: Option<Vec<prism_coordination::ReviewRequirement>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionClaimRefPayload {
+    pub(crate) claim_id: Option<String>,
+    pub(crate) client_claim_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionArtifactRefPayload {
+    pub(crate) artifact_id: Option<String>,
+    pub(crate) client_artifact_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionClaimAcquirePayload {
+    pub(crate) client_claim_id: Option<String>,
+    pub(crate) anchors: Vec<AnchorRefInput>,
+    pub(crate) capability: CapabilityInput,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) mode: Option<ClaimModeInput>,
+    pub(crate) ttl_seconds: Option<u64>,
+    pub(crate) agent: Option<String>,
+    pub(crate) task: Option<CoordinationTaskRefPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionClaimRenewPayload {
+    pub(crate) claim: CoordinationTransactionClaimRefPayload,
+    pub(crate) ttl_seconds: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionClaimReleasePayload {
+    pub(crate) claim: CoordinationTransactionClaimRefPayload,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionArtifactProposePayload {
+    pub(crate) client_artifact_id: Option<String>,
+    pub(crate) task: CoordinationTaskRefPayload,
+    pub(crate) artifact_requirement_id: Option<String>,
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) diff_ref: Option<String>,
+    pub(crate) evidence: Option<Vec<String>>,
+    pub(crate) required_validations: Option<Vec<String>>,
+    pub(crate) validated_checks: Option<Vec<String>>,
+    pub(crate) risk_score: Option<f32>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionArtifactSupersedePayload {
+    pub(crate) artifact: CoordinationTransactionArtifactRefPayload,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionArtifactReviewPayload {
+    pub(crate) artifact: CoordinationTransactionArtifactRefPayload,
+    pub(crate) review_requirement_id: Option<String>,
+    pub(crate) verdict: ReviewVerdictInput,
+    pub(crate) summary: String,
+    pub(crate) required_validations: Option<Vec<String>>,
+    pub(crate) validated_checks: Option<Vec<String>>,
+    pub(crate) risk_score: Option<f32>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

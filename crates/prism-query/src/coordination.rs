@@ -3,8 +3,8 @@ use prism_coordination::{
     TaskBlocker, TaskExecutorCaller, WorkClaim,
 };
 use prism_ir::{
-    AnchorRef, ArtifactId, Capability, ClaimMode, CoordinationTaskId, NodeRef, PlanId, ReviewId,
-    SessionId, TaskId, Timestamp, WorkspaceRevision,
+    AnchorRef, ArtifactId, Capability, ClaimId, ClaimMode, CoordinationTaskId, NodeRef, PlanId,
+    ReviewId, SessionId, TaskId, Timestamp, WorkspaceRevision,
 };
 
 use crate::common::{anchor_sort_key, sort_node_ids};
@@ -109,6 +109,10 @@ impl Prism {
         })
     }
 
+    pub fn coordination_artifact_unscoped(&self, artifact_id: &ArtifactId) -> Option<Artifact> {
+        self.with_coordination_runtime(|runtime| runtime.artifact(artifact_id))
+    }
+
     pub fn coordination_review(&self, review_id: &ReviewId) -> Option<ArtifactReview> {
         let worktree_id = self.coordination_worktree_scope();
         self.with_coordination_runtime(|runtime| {
@@ -161,6 +165,10 @@ impl Prism {
     pub fn coordination_tasks(&self) -> Vec<CoordinationTask> {
         let worktree_id = self.coordination_worktree_scope();
         self.with_coordination_runtime(|runtime| runtime.tasks_in_scope(worktree_id.as_deref()))
+    }
+
+    pub fn coordination_claim(&self, claim_id: &ClaimId) -> Option<WorkClaim> {
+        self.with_coordination_runtime(|runtime| runtime.claim(claim_id))
     }
 
     pub fn coordination_claims(&self) -> Vec<WorkClaim> {

@@ -17,26 +17,6 @@ pub(crate) enum PrismCodeDirectWrite {
     DeclareWork {
         input: Value,
     },
-    ClaimAcquire {
-        input: Value,
-    },
-    ClaimRenew {
-        claim_id: String,
-        ttl_seconds: Option<u64>,
-    },
-    ClaimRelease {
-        claim_id: String,
-    },
-    ArtifactPropose {
-        input: Value,
-    },
-    ArtifactSupersede {
-        artifact_id: String,
-    },
-    ArtifactReview {
-        artifact_id: String,
-        input: Value,
-    },
     TaskHandoff {
         task_id: String,
         summary: String,
@@ -125,6 +105,45 @@ enum CoordinationWriteOp {
         depends_on_handle_id: String,
         kind: String,
     },
+    ClaimAcquire {
+        client_claim_id: String,
+        task_handle_id: Option<String>,
+        anchors: Value,
+        capability: Value,
+        mode: Option<Value>,
+        ttl_seconds: Option<u64>,
+        agent: Option<String>,
+    },
+    ClaimRenew {
+        claim_handle_id: String,
+        ttl_seconds: Option<u64>,
+    },
+    ClaimRelease {
+        claim_handle_id: String,
+    },
+    ArtifactPropose {
+        client_artifact_id: String,
+        task_handle_id: String,
+        artifact_requirement_id: Option<String>,
+        anchors: Option<Value>,
+        diff_ref: Option<String>,
+        evidence: Option<Value>,
+        required_validations: Option<Value>,
+        validated_checks: Option<Value>,
+        risk_score: Option<f64>,
+    },
+    ArtifactSupersede {
+        artifact_handle_id: String,
+    },
+    ArtifactReview {
+        artifact_handle_id: String,
+        review_requirement_id: Option<String>,
+        verdict: Value,
+        summary: String,
+        required_validations: Option<Value>,
+        validated_checks: Option<Value>,
+        risk_score: Option<f64>,
+    },
     TaskHandoff {
         task_handle_id: String,
         summary: String,
@@ -148,30 +167,6 @@ enum CoordinationWriteOp {
 enum StructuredDirectWriteOp {
     DeclareWork {
         handle_id: String,
-        input: Value,
-    },
-    ClaimAcquire {
-        handle_id: String,
-        input: Value,
-        task_handle_id: Option<String>,
-    },
-    ClaimRenew {
-        claim_handle_id: String,
-        ttl_seconds: Option<u64>,
-    },
-    ClaimRelease {
-        claim_handle_id: String,
-    },
-    ArtifactPropose {
-        handle_id: String,
-        input: Value,
-        task_handle_id: Option<String>,
-    },
-    ArtifactSupersede {
-        artifact_handle_id: String,
-    },
-    ArtifactReview {
-        artifact_handle_id: String,
         input: Value,
     },
 }
@@ -207,6 +202,7 @@ enum TaskHandleState {
 }
 
 struct DeferredHandleState {
+    client_id: Option<String>,
     current: Value,
 }
 
@@ -218,6 +214,8 @@ struct PrismCodeWriteState {
     next_work_handle: usize,
     next_client_plan: usize,
     next_client_task: usize,
+    next_client_claim: usize,
+    next_client_artifact: usize,
     transaction_plan: StructuredTransactionPlan<StructuredWriteOperationKind>,
     plan_handles: BTreeMap<String, PlanHandleState>,
     task_handles: BTreeMap<String, TaskHandleState>,
@@ -285,6 +283,7 @@ impl PrismCodeWriteRuntime {
         state.work_handles.insert(
             handle_id.clone(),
             DeferredHandleState {
+                client_id: None,
                 current: preview.clone(),
             },
         );
@@ -313,6 +312,8 @@ impl PrismCodeWriteRuntime {
         let mut state = self.state.lock().expect("code mutation lock poisoned");
         let handle_id = format!("claim-handle:{}", state.next_claim_handle);
         state.next_claim_handle += 1;
+        let client_claim_id = format!("claim_{}", state.next_client_claim);
+        state.next_client_claim += 1;
         let coordination_task_id = task_handle_id
             .as_ref()
             .and_then(|handle_id| state.task_handles.get(handle_id))
@@ -336,16 +337,24 @@ impl PrismCodeWriteRuntime {
         state.claim_handles.insert(
             handle_id.clone(),
             DeferredHandleState {
+                client_id: Some(client_claim_id.clone()),
                 current: preview.clone(),
             },
         );
         self.record_write_effect(
             &mut state,
             "prism.claim.acquire",
-            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ClaimAcquire {
-                handle_id: handle_id.clone(),
-                input: Value::Object(input),
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::ClaimAcquire {
+                client_claim_id,
                 task_handle_id,
+                anchors: input
+                    .get("anchors")
+                    .cloned()
+                    .unwrap_or(Value::Array(Vec::new())),
+                capability: input.get("capability").cloned().unwrap_or(Value::Null),
+                mode: input.get("mode").cloned(),
+                ttl_seconds: input.get("ttlSeconds").and_then(Value::as_u64),
+                agent: optional_string(&input, "agent"),
             }),
         )?;
         Ok(generic_handle_with_preview(
@@ -362,7 +371,7 @@ impl PrismCodeWriteRuntime {
         self.record_write_effect(
             &mut state,
             "prism.claim.renew",
-            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ClaimRenew {
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::ClaimRenew {
                 claim_handle_id: claim_handle_id.clone(),
                 ttl_seconds: input.get("ttlSeconds").and_then(Value::as_u64),
             }),
@@ -385,7 +394,7 @@ impl PrismCodeWriteRuntime {
         self.record_write_effect(
             &mut state,
             "prism.claim.release",
-            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ClaimRelease {
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::ClaimRelease {
                 claim_handle_id: claim_handle_id.clone(),
             }),
         )?;
@@ -414,13 +423,16 @@ impl PrismCodeWriteRuntime {
             .get("taskId")
             .cloned()
             .map(|task| self.ensure_task_handle_from_value(task, "prism.artifact.propose", false))
-            .transpose()?;
+            .transpose()?
+            .ok_or_else(|| anyhow!("`prism.artifact.propose` requires `taskId`"))?;
         let mut state = self.state.lock().expect("code mutation lock poisoned");
         let handle_id = format!("artifact-handle:{}", state.next_artifact_handle);
         state.next_artifact_handle += 1;
-        let task_id = task_handle_id
-            .as_ref()
-            .and_then(|handle_id| state.task_handles.get(handle_id))
+        let client_artifact_id = format!("artifact_{}", state.next_client_artifact);
+        state.next_client_artifact += 1;
+        let task_id = state
+            .task_handles
+            .get(&task_handle_id)
             .map(CurrentPreview::current_preview)
             .and_then(preview_id)
             .map(|id| Value::String(id.to_string()))
@@ -435,16 +447,23 @@ impl PrismCodeWriteRuntime {
         state.artifact_handles.insert(
             handle_id.clone(),
             DeferredHandleState {
+                client_id: Some(client_artifact_id.clone()),
                 current: preview.clone(),
             },
         );
         self.record_write_effect(
             &mut state,
             "prism.artifact.propose",
-            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ArtifactPropose {
-                handle_id: handle_id.clone(),
-                input: Value::Object(input),
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::ArtifactPropose {
+                client_artifact_id,
                 task_handle_id,
+                artifact_requirement_id: optional_string(&input, "artifactRequirementId"),
+                anchors: input.get("anchors").cloned(),
+                diff_ref: optional_string(&input, "diffRef"),
+                evidence: input.get("evidence").cloned(),
+                required_validations: input.get("requiredValidations").cloned(),
+                validated_checks: input.get("validatedChecks").cloned(),
+                risk_score: input.get("riskScore").and_then(Value::as_f64),
             }),
         )?;
         Ok(generic_handle_with_preview(
@@ -461,7 +480,7 @@ impl PrismCodeWriteRuntime {
         self.record_write_effect(
             &mut state,
             "prism.artifact.supersede",
-            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ArtifactSupersede {
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::ArtifactSupersede {
                 artifact_handle_id: artifact_handle_id.clone(),
             }),
         )?;
@@ -485,7 +504,7 @@ impl PrismCodeWriteRuntime {
     }
 
     pub(crate) fn artifact_review(&self, artifact: Value, input: Value) -> Result<Value> {
-        let input = Value::Object(expect_object(input, "prism.artifact.review")?);
+        let input = expect_object(input, "prism.artifact.review")?;
         let preview_input = input.clone();
         let artifact_handle_id =
             self.ensure_artifact_handle_from_value(artifact, "prism.artifact.review")?;
@@ -493,9 +512,14 @@ impl PrismCodeWriteRuntime {
         self.record_write_effect(
             &mut state,
             "prism.artifact.review",
-            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ArtifactReview {
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::ArtifactReview {
                 artifact_handle_id: artifact_handle_id.clone(),
-                input,
+                review_requirement_id: optional_string(&preview_input, "reviewRequirementId"),
+                verdict: preview_input.get("verdict").cloned().unwrap_or(Value::Null),
+                summary: required_string(&preview_input, "summary", "prism.artifact.review")?,
+                required_validations: preview_input.get("requiredValidations").cloned(),
+                validated_checks: preview_input.get("validatedChecks").cloned(),
+                risk_score: preview_input.get("riskScore").and_then(Value::as_f64),
             }),
         )?;
         if let Some(preview) = state
@@ -1014,113 +1038,13 @@ impl PrismCodeWriteRuntime {
                     (self.direct_write_executor)(PrismCodeDirectWrite::DeclareWork { input })?;
                 state
                     .work_handles
-                    .insert(handle_id, DeferredHandleState { current: result });
-            }
-            StructuredDirectWriteOp::ClaimAcquire {
-                handle_id,
-                input,
-                task_handle_id,
-            } => {
-                let mut input = expect_object(input, "prism.claim.acquire")?;
-                if let Some(task_handle_id) = task_handle_id {
-                    input.insert(
-                        "coordinationTaskId".to_string(),
-                        Value::String(resolve_task_id_for_direct(
-                            state,
-                            &task_handle_id,
-                            "prism.claim.acquire",
-                        )?),
+                    .insert(
+                        handle_id,
+                        DeferredHandleState {
+                            client_id: None,
+                            current: result,
+                        },
                     );
-                }
-                let result = (self.direct_write_executor)(PrismCodeDirectWrite::ClaimAcquire {
-                    input: Value::Object(input),
-                })?;
-                state
-                    .claim_handles
-                    .insert(handle_id, DeferredHandleState { current: result });
-            }
-            StructuredDirectWriteOp::ClaimRenew {
-                claim_handle_id,
-                ttl_seconds,
-            } => {
-                let claim_id = resolve_direct_handle_id(
-                    state.claim_handles.get(&claim_handle_id),
-                    "prism.claim.renew",
-                    "claim",
-                )?;
-                let result = (self.direct_write_executor)(PrismCodeDirectWrite::ClaimRenew {
-                    claim_id,
-                    ttl_seconds,
-                })?;
-                state
-                    .claim_handles
-                    .insert(claim_handle_id, DeferredHandleState { current: result });
-            }
-            StructuredDirectWriteOp::ClaimRelease { claim_handle_id } => {
-                let claim_id = resolve_direct_handle_id(
-                    state.claim_handles.get(&claim_handle_id),
-                    "prism.claim.release",
-                    "claim",
-                )?;
-                let result =
-                    (self.direct_write_executor)(PrismCodeDirectWrite::ClaimRelease { claim_id })?;
-                state
-                    .claim_handles
-                    .insert(claim_handle_id, DeferredHandleState { current: result });
-            }
-            StructuredDirectWriteOp::ArtifactPropose {
-                handle_id,
-                input,
-                task_handle_id,
-            } => {
-                let mut input = expect_object(input, "prism.artifact.propose")?;
-                if let Some(task_handle_id) = task_handle_id {
-                    input.insert(
-                        "taskId".to_string(),
-                        Value::String(resolve_task_id_for_direct(
-                            state,
-                            &task_handle_id,
-                            "prism.artifact.propose",
-                        )?),
-                    );
-                }
-                let result = (self.direct_write_executor)(PrismCodeDirectWrite::ArtifactPropose {
-                    input: Value::Object(input),
-                })?;
-                state
-                    .artifact_handles
-                    .insert(handle_id, DeferredHandleState { current: result });
-            }
-            StructuredDirectWriteOp::ArtifactSupersede { artifact_handle_id } => {
-                let artifact_id = resolve_direct_handle_id(
-                    state.artifact_handles.get(&artifact_handle_id),
-                    "prism.artifact.supersede",
-                    "artifact",
-                )?;
-                let result =
-                    (self.direct_write_executor)(PrismCodeDirectWrite::ArtifactSupersede {
-                        artifact_id,
-                    })?;
-                state
-                    .artifact_handles
-                    .insert(artifact_handle_id, DeferredHandleState { current: result });
-            }
-            StructuredDirectWriteOp::ArtifactReview {
-                artifact_handle_id,
-                input,
-            } => {
-                let artifact_id = resolve_direct_handle_id(
-                    state.artifact_handles.get(&artifact_handle_id),
-                    "prism.artifact.review",
-                    "artifact",
-                )?;
-                let result = (self.direct_write_executor)(PrismCodeDirectWrite::ArtifactReview {
-                    artifact_id,
-                    input,
-                })?;
-                state
-                    .artifact_handles
-                    .insert(artifact_handle_id, DeferredHandleState { current: result });
             }
         }
         Ok(())
@@ -1150,7 +1074,13 @@ impl PrismCodeWriteRuntime {
         });
         state
             .claim_handles
-            .insert(handle_id.clone(), DeferredHandleState { current: preview });
+            .insert(
+                handle_id.clone(),
+                DeferredHandleState {
+                    client_id: None,
+                    current: preview,
+                },
+            );
         Ok(handle_id)
     }
 
@@ -1168,7 +1098,13 @@ impl PrismCodeWriteRuntime {
         });
         state
             .artifact_handles
-            .insert(handle_id.clone(), DeferredHandleState { current: preview });
+            .insert(
+                handle_id.clone(),
+                DeferredHandleState {
+                    client_id: None,
+                    current: preview,
+                },
+            );
         Ok(handle_id)
     }
 
@@ -1266,6 +1202,8 @@ impl PrismCodeWriteState {
             next_work_handle: 0,
             next_client_plan: 0,
             next_client_task: 0,
+            next_client_claim: 0,
+            next_client_artifact: 0,
             transaction_plan: StructuredTransactionPlan::new(&analyzed.ir),
             plan_handles: BTreeMap::new(),
             task_handles: BTreeMap::new(),
@@ -1775,6 +1713,143 @@ fn lower_coordination_op(
                 "kind": kind,
             }
         }),
+        CoordinationWriteOp::ClaimAcquire {
+            client_claim_id,
+            task_handle_id,
+            anchors,
+            capability,
+            mode,
+            ttl_seconds,
+            agent,
+        } => {
+            let mut input = Map::new();
+            input.insert(
+                "clientClaimId".to_string(),
+                Value::String(client_claim_id.clone()),
+            );
+            if let Some(task_handle_id) = task_handle_id {
+                input.insert("task".to_string(), task_ref_value(state, task_handle_id, "prism.claim.acquire")?);
+            }
+            input.insert("anchors".to_string(), anchors.clone());
+            input.insert("capability".to_string(), capability.clone());
+            insert_value_if_present(&mut input, "mode", mode.clone());
+            if let Some(ttl_seconds) = ttl_seconds {
+                input.insert("ttlSeconds".to_string(), Value::from(*ttl_seconds));
+            }
+            if let Some(agent) = agent {
+                input.insert("agent".to_string(), Value::String(agent.clone()));
+            }
+            json!({
+                "action": "claim_acquire",
+                "input": input,
+            })
+        }
+        CoordinationWriteOp::ClaimRenew {
+            claim_handle_id,
+            ttl_seconds,
+        } => {
+            let mut input = Map::new();
+            input.insert(
+                "claim".to_string(),
+                claim_ref_value(state, claim_handle_id, "prism.claim.renew")?,
+            );
+            if let Some(ttl_seconds) = ttl_seconds {
+                input.insert("ttlSeconds".to_string(), Value::from(*ttl_seconds));
+            }
+            json!({
+                "action": "claim_renew",
+                "input": input,
+            })
+        }
+        CoordinationWriteOp::ClaimRelease { claim_handle_id } => json!({
+            "action": "claim_release",
+            "input": {
+                "claim": claim_ref_value(state, claim_handle_id, "prism.claim.release")?,
+            }
+        }),
+        CoordinationWriteOp::ArtifactPropose {
+            client_artifact_id,
+            task_handle_id,
+            artifact_requirement_id,
+            anchors,
+            diff_ref,
+            evidence,
+            required_validations,
+            validated_checks,
+            risk_score,
+        } => {
+            let mut input = Map::new();
+            input.insert(
+                "clientArtifactId".to_string(),
+                Value::String(client_artifact_id.clone()),
+            );
+            input.insert(
+                "task".to_string(),
+                task_ref_value(state, task_handle_id, "prism.artifact.propose")?,
+            );
+            insert_string_if_present(
+                &mut input,
+                "artifactRequirementId",
+                artifact_requirement_id.clone(),
+            );
+            insert_value_if_present(&mut input, "anchors", anchors.clone());
+            insert_string_if_present(&mut input, "diffRef", diff_ref.clone());
+            insert_value_if_present(&mut input, "evidence", evidence.clone());
+            insert_value_if_present(
+                &mut input,
+                "requiredValidations",
+                required_validations.clone(),
+            );
+            insert_value_if_present(&mut input, "validatedChecks", validated_checks.clone());
+            if let Some(risk_score) = risk_score {
+                input.insert("riskScore".to_string(), Value::from(*risk_score));
+            }
+            json!({
+                "action": "artifact_propose",
+                "input": input,
+            })
+        }
+        CoordinationWriteOp::ArtifactSupersede { artifact_handle_id } => json!({
+            "action": "artifact_supersede",
+            "input": {
+                "artifact": artifact_ref_value(state, artifact_handle_id, "prism.artifact.supersede")?,
+            }
+        }),
+        CoordinationWriteOp::ArtifactReview {
+            artifact_handle_id,
+            review_requirement_id,
+            verdict,
+            summary,
+            required_validations,
+            validated_checks,
+            risk_score,
+        } => {
+            let mut input = Map::new();
+            input.insert(
+                "artifact".to_string(),
+                artifact_ref_value(state, artifact_handle_id, "prism.artifact.review")?,
+            );
+            insert_string_if_present(
+                &mut input,
+                "reviewRequirementId",
+                review_requirement_id.clone(),
+            );
+            input.insert("verdict".to_string(), verdict.clone());
+            input.insert("summary".to_string(), Value::String(summary.clone()));
+            insert_value_if_present(
+                &mut input,
+                "requiredValidations",
+                required_validations.clone(),
+            );
+            insert_value_if_present(&mut input, "validatedChecks", validated_checks.clone());
+            if let Some(risk_score) = risk_score {
+                input.insert("riskScore".to_string(), Value::from(*risk_score));
+            }
+            json!({
+                "action": "artifact_review",
+                "input": input,
+            })
+        }
         CoordinationWriteOp::TaskHandoff {
             task_handle_id,
             summary,
@@ -1877,6 +1952,58 @@ fn apply_coordination_commit(state: &mut PrismCodeWriteState, commit: &Value) {
             }
         }
     }
+    for claim_state in state.claim_handles.values_mut() {
+        if let Some(claim_id) = claim_state
+            .client_id
+            .as_ref()
+            .and_then(|client_id| {
+                commit
+                    .get("claimIdsByClientId")
+                    .and_then(|mapping| mapping.get(client_id.as_str()))
+                    .and_then(Value::as_str)
+            })
+            .map(str::to_string)
+        {
+            claim_state.client_id = None;
+            if let Some(view) = committed_claim_view(commit, &claim_id) {
+                claim_state.current = view;
+            } else {
+                claim_state.current = json!({ "id": claim_id });
+            }
+            continue;
+        }
+        if let Some(claim_id) = preview_id(&claim_state.current) {
+            if let Some(view) = committed_claim_view(commit, claim_id) {
+                claim_state.current = view;
+            }
+        }
+    }
+    for artifact_state in state.artifact_handles.values_mut() {
+        if let Some(artifact_id) = artifact_state
+            .client_id
+            .as_ref()
+            .and_then(|client_id| {
+                commit
+                    .get("artifactIdsByClientId")
+                    .and_then(|mapping| mapping.get(client_id.as_str()))
+                    .and_then(Value::as_str)
+            })
+            .map(str::to_string)
+        {
+            artifact_state.client_id = None;
+            if let Some(view) = committed_artifact_view(commit, &artifact_id) {
+                artifact_state.current = view;
+            } else {
+                artifact_state.current = json!({ "id": artifact_id });
+            }
+            continue;
+        }
+        if let Some(artifact_id) = preview_id(&artifact_state.current) {
+            if let Some(view) = committed_artifact_view(commit, artifact_id) {
+                artifact_state.current = view;
+            }
+        }
+    }
 }
 
 fn reject_coordination_commit_if_needed(commit: &Value) -> Result<()> {
@@ -1922,6 +2049,35 @@ fn committed_task_view(commit: &Value, task_id: &str) -> Option<Value> {
                 task.get("id")
                     .and_then(Value::as_str)
                     .is_some_and(|id| id == task_id)
+            })
+        })
+        .cloned()
+}
+
+fn committed_claim_view(commit: &Value, claim_id: &str) -> Option<Value> {
+    commit
+        .get("claims")
+        .and_then(Value::as_array)
+        .and_then(|claims| {
+            claims.iter().find(|claim| {
+                claim.get("id")
+                    .and_then(Value::as_str)
+                    .is_some_and(|id| id == claim_id)
+            })
+        })
+        .cloned()
+}
+
+fn committed_artifact_view(commit: &Value, artifact_id: &str) -> Option<Value> {
+    commit
+        .get("artifacts")
+        .and_then(Value::as_array)
+        .and_then(|artifacts| {
+            artifacts.iter().find(|artifact| {
+                artifact
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .is_some_and(|id| id == artifact_id)
             })
         })
         .cloned()
@@ -2105,36 +2261,36 @@ fn task_ref_value(state: &PrismCodeWriteState, handle_id: &str, method: &str) ->
     }
 }
 
-fn resolve_task_id_for_direct(
-    state: &PrismCodeWriteState,
-    handle_id: &str,
-    method: &str,
-) -> Result<String> {
-    match state.task_handles.get(handle_id) {
-        Some(TaskHandleState::Created {
-            committed_task_id: Some(task_id),
+fn claim_ref_value(state: &PrismCodeWriteState, handle_id: &str, method: &str) -> Result<Value> {
+    match state.claim_handles.get(handle_id) {
+        Some(DeferredHandleState {
+            client_id: Some(client_id),
             ..
-        }) => Ok(task_id.clone()),
-        Some(TaskHandleState::Existing { task_id, .. }) => Ok(task_id.clone()),
-        Some(TaskHandleState::Created { .. }) => Err(anyhow!(
-            "`{method}` requires a committed task handle; flush coordination writes first"
-        )),
-        None => Err(anyhow!("unknown task handle `{handle_id}`")),
+        }) => Ok(json!({ "clientClaimId": client_id })),
+        Some(DeferredHandleState { current, .. }) => preview_id(current)
+            .map(|claim_id| json!({ "claimId": claim_id }))
+            .ok_or_else(|| anyhow!("`{method}` requires a resolved claim id")),
+        None => Err(anyhow!("unknown claim handle `{handle_id}` for `{method}`")),
     }
 }
 
-fn resolve_direct_handle_id(
-    handle: Option<&DeferredHandleState>,
+fn artifact_ref_value(
+    state: &PrismCodeWriteState,
+    handle_id: &str,
     method: &str,
-    kind: &str,
-) -> Result<String> {
-    handle
-        .and_then(|state| state.current.get("id"))
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .ok_or_else(|| anyhow!("`{method}` requires a resolved {kind} id"))
+) -> Result<Value> {
+    match state.artifact_handles.get(handle_id) {
+        Some(DeferredHandleState {
+            client_id: Some(client_id),
+            ..
+        }) => Ok(json!({ "clientArtifactId": client_id })),
+        Some(DeferredHandleState { current, .. }) => preview_id(current)
+            .map(|artifact_id| json!({ "artifactId": artifact_id }))
+            .ok_or_else(|| anyhow!("`{method}` requires a resolved artifact id")),
+        None => Err(anyhow!(
+            "unknown artifact handle `{handle_id}` for `{method}`"
+        )),
+    }
 }
 
 fn insert_value_if_present(target: &mut Map<String, Value>, key: &str, value: Option<Value>) {

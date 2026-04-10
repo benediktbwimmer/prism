@@ -206,10 +206,10 @@ Current phase note:
 - Phase 3 replaces the old `prism_code_builder` runtime path with a compiler-owned
   write-runtime and lowering layer under
   `crates/prism-mcp/src/prism_code_compiler/write_runtime.rs`.
-- Current write-capable `prism_code` now stages structured coordination and direct-write
-  operations in one lowering plan, flushes coordination batches through compiler-owned lowering,
-  and resolves handles from the lowered results instead of accumulating eager mutation payloads in
-  the old staged builder.
+- Current write-capable `prism_code` now stages compiler-owned structured writes in one lowering
+  plan, flushes coordination-backed writes through compiler-owned lowering, and resolves handles
+  from the lowered results instead of accumulating eager mutation payloads in the old staged
+  builder.
 - The current write runtime now preserves region lineage and effect order in a dedicated
   `StructuredTransactionPlan`, and same-invocation coordination and mixed direct-write flows are
   again validated on the live MCP path.
@@ -224,10 +224,14 @@ Current phase note:
   `prism.plan(...)`, `prism.task(...)`, `prism.children(...)`, `prism.claims(...)`, and
   `prism.artifacts(...)` can now reflect staged write state from the current `prism_code`
   invocation before final commit, and this behavior is covered by a dedicated MCP regression.
+- Claims and artifacts now lower through the same coordination transaction boundary as plans and
+  tasks instead of going through the separate direct-write executor path; claim renew/release and
+  artifact propose/review/supersede follow-up flows are covered on the live MCP path.
 - Phase 3 has been honestly reviewed against the compiler architecture design and remains reopened.
 - The current implementation still violates the design in two material ways:
-  - mixed direct and coordination writes do not honor the “one invocation = one transaction”
-    rule because the runtime commits multiple durable side effects while walking effect order
+  - mixed invocations that still include non-coordination direct writes, especially
+    `prism.work.declare(...)`, do not yet honor the “one invocation = one transaction” rule
+    because the runtime can still commit multiple durable side effects while walking effect order
   - structured regions are preserved as metadata, but the durable lowering path is still
     flattened into ad hoc action lists rather than being governed by compiler-owned control
     structure

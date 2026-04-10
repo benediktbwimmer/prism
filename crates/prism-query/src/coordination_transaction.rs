@@ -3,13 +3,15 @@ use std::fmt;
 
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    AcceptanceCriterion, CoordinationPolicy, CoordinationRuntimeState, CoordinationSnapshot,
-    CoordinationSpecRef, CoordinationTaskSpecRef, PlanCreateInput, PlanScheduling, PlanUpdateInput,
+    AcceptanceCriterion, ArtifactProposeInput, ArtifactReviewInput, ArtifactSupersedeInput,
+    CoordinationPolicy, CoordinationRuntimeState, CoordinationSnapshot, CoordinationSpecRef,
+    CoordinationTaskSpecRef, PlanCreateInput, PlanScheduling, PlanUpdateInput,
     TaskCompletionContext, TaskCreateInput, TaskGitExecution, TaskUpdateInput,
 };
 use prism_ir::{
-    AgentId, AnchorRef, CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus, EventId,
-    EventMeta, PlanBinding, PlanId, PlanStatus, SessionId, ValidationRef, WorkspaceRevision,
+    AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationEventKind, CoordinationTaskId,
+    CoordinationTaskStatus, EventId, EventMeta, PlanBinding, PlanId, PlanStatus, ReviewId,
+    ReviewVerdict, SessionId, ValidationRef, WorkspaceRevision,
 };
 use serde::Serialize;
 use serde_json::Value;
@@ -25,6 +27,18 @@ pub enum CoordinationTransactionPlanRef {
 #[derive(Debug, Clone)]
 pub enum CoordinationTransactionTaskRef {
     Id(CoordinationTaskId),
+    ClientId(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum CoordinationTransactionClaimRef {
+    Id(ClaimId),
+    ClientId(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum CoordinationTransactionArtifactRef {
+    Id(ArtifactId),
     ClientId(String),
 }
 
@@ -141,6 +155,55 @@ pub enum CoordinationTransactionMutation {
         kind: CoordinationDependencyKind,
         base_revision: WorkspaceRevision,
     },
+    ClaimAcquire {
+        client_claim_id: Option<String>,
+        task: Option<CoordinationTransactionTaskRef>,
+        anchors: Vec<AnchorRef>,
+        capability: prism_ir::Capability,
+        mode: Option<prism_ir::ClaimMode>,
+        ttl_seconds: Option<u64>,
+        agent: Option<AgentId>,
+        session: SessionId,
+        worktree_id: Option<String>,
+        branch_ref: Option<String>,
+        base_revision: WorkspaceRevision,
+        current_revision: WorkspaceRevision,
+    },
+    ClaimRenew {
+        claim: CoordinationTransactionClaimRef,
+        session: SessionId,
+        ttl_seconds: Option<u64>,
+    },
+    ClaimRelease {
+        claim: CoordinationTransactionClaimRef,
+        session: SessionId,
+    },
+    ArtifactPropose {
+        client_artifact_id: Option<String>,
+        task: CoordinationTransactionTaskRef,
+        artifact_requirement_id: Option<String>,
+        anchors: Option<Vec<AnchorRef>>,
+        diff_ref: Option<String>,
+        evidence: Vec<EventId>,
+        required_validations: Vec<String>,
+        validated_checks: Vec<String>,
+        risk_score: Option<f32>,
+        base_revision: WorkspaceRevision,
+        current_revision: WorkspaceRevision,
+    },
+    ArtifactSupersede {
+        artifact: CoordinationTransactionArtifactRef,
+    },
+    ArtifactReview {
+        artifact: CoordinationTransactionArtifactRef,
+        review_requirement_id: Option<String>,
+        verdict: ReviewVerdict,
+        summary: String,
+        required_validations: Vec<String>,
+        validated_checks: Vec<String>,
+        risk_score: Option<f32>,
+        current_revision: WorkspaceRevision,
+    },
     TaskHandoff {
         task: CoordinationTransactionTaskRef,
         to_agent: Option<AgentId>,
@@ -176,6 +239,12 @@ impl CoordinationTransactionMutation {
             Self::TaskCreate { .. } => "task_create",
             Self::TaskUpdate { .. } => "task_update",
             Self::DependencyCreate { .. } => "dependency_create",
+            Self::ClaimAcquire { .. } => "claim_acquire",
+            Self::ClaimRenew { .. } => "claim_renew",
+            Self::ClaimRelease { .. } => "claim_release",
+            Self::ArtifactPropose { .. } => "artifact_propose",
+            Self::ArtifactSupersede { .. } => "artifact_supersede",
+            Self::ArtifactReview { .. } => "artifact_review",
             Self::TaskHandoff { .. } => "task_handoff",
             Self::TaskHandoffAccept { .. } => "task_handoff_accept",
             Self::TaskResume { .. } => "task_resume",
@@ -421,8 +490,13 @@ pub struct CoordinationTransactionResult {
     pub intent_metadata: Option<Value>,
     pub plan_ids_by_client_id: BTreeMap<String, PlanId>,
     pub task_ids_by_client_id: BTreeMap<String, CoordinationTaskId>,
+    pub claim_ids_by_client_id: BTreeMap<String, ClaimId>,
+    pub artifact_ids_by_client_id: BTreeMap<String, ArtifactId>,
     pub touched_plan_ids: Vec<PlanId>,
     pub touched_task_ids: Vec<CoordinationTaskId>,
+    pub touched_claim_ids: Vec<ClaimId>,
+    pub touched_artifact_ids: Vec<ArtifactId>,
+    pub touched_review_ids: Vec<ReviewId>,
 }
 
 impl CoordinationTransactionCommitMetadata {
@@ -576,6 +650,8 @@ fn validate_transaction_input_shape(
 
     let mut seen_plan_client_ids = BTreeSet::new();
     let mut seen_task_client_ids = BTreeSet::new();
+    let mut seen_claim_client_ids = BTreeSet::new();
+    let mut seen_artifact_client_ids = BTreeSet::new();
     for mutation in &input.mutations {
         match mutation {
             CoordinationTransactionMutation::PlanCreate {
@@ -604,6 +680,36 @@ fn validate_transaction_input_shape(
                         "duplicate_task_client_id",
                         format!(
                             "coordination transaction task client id `{client_task_id}` was used more than once"
+                        ),
+                    ));
+                }
+            }
+            CoordinationTransactionMutation::ClaimAcquire {
+                client_claim_id: Some(client_claim_id),
+                ..
+            } => {
+                if !seen_claim_client_ids.insert(client_claim_id.clone()) {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "duplicate_claim_client_id",
+                        format!(
+                            "coordination transaction claim client id `{client_claim_id}` was used more than once"
+                        ),
+                    ));
+                }
+            }
+            CoordinationTransactionMutation::ArtifactPropose {
+                client_artifact_id: Some(client_artifact_id),
+                ..
+            } => {
+                if !seen_artifact_client_ids.insert(client_artifact_id.clone()) {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "duplicate_artifact_client_id",
+                        format!(
+                            "coordination transaction artifact client id `{client_artifact_id}` was used more than once"
                         ),
                     ));
                 }
@@ -734,6 +840,8 @@ fn validate_transaction_identity(
 ) -> std::result::Result<(), CoordinationTransactionError> {
     let mut declared_plan_client_ids = BTreeSet::new();
     let mut declared_task_client_ids = BTreeSet::new();
+    let mut declared_claim_client_ids = BTreeSet::new();
+    let mut declared_artifact_client_ids = BTreeSet::new();
     for mutation in &input.mutations {
         match mutation {
             CoordinationTransactionMutation::PlanCreate {
@@ -748,12 +856,26 @@ fn validate_transaction_identity(
             } => {
                 declared_task_client_ids.insert(client_task_id.clone());
             }
+            CoordinationTransactionMutation::ClaimAcquire {
+                client_claim_id: Some(client_claim_id),
+                ..
+            } => {
+                declared_claim_client_ids.insert(client_claim_id.clone());
+            }
+            CoordinationTransactionMutation::ArtifactPropose {
+                client_artifact_id: Some(client_artifact_id),
+                ..
+            } => {
+                declared_artifact_client_ids.insert(client_artifact_id.clone());
+            }
             _ => {}
         }
     }
 
     let mut seen_plan_client_ids = BTreeSet::new();
     let mut seen_task_client_ids = BTreeSet::new();
+    let mut seen_claim_client_ids = BTreeSet::new();
+    let mut seen_artifact_client_ids = BTreeSet::new();
     for mutation in &input.mutations {
         match mutation {
             CoordinationTransactionMutation::PlanCreate { client_plan_id, .. } => {
@@ -828,6 +950,56 @@ fn validate_transaction_identity(
                     depends_on,
                     &seen_task_client_ids,
                     &declared_task_client_ids,
+                )?;
+            }
+            CoordinationTransactionMutation::ClaimAcquire {
+                client_claim_id,
+                task,
+                ..
+            } => {
+                if let Some(task) = task {
+                    validate_task_ref(
+                        coordination_runtime,
+                        task,
+                        &seen_task_client_ids,
+                        &declared_task_client_ids,
+                    )?;
+                }
+                if let Some(client_claim_id) = client_claim_id {
+                    seen_claim_client_ids.insert(client_claim_id.clone());
+                }
+            }
+            CoordinationTransactionMutation::ClaimRenew { claim, .. }
+            | CoordinationTransactionMutation::ClaimRelease { claim, .. } => {
+                validate_claim_ref(
+                    coordination_runtime,
+                    claim,
+                    &seen_claim_client_ids,
+                    &declared_claim_client_ids,
+                )?;
+            }
+            CoordinationTransactionMutation::ArtifactPropose {
+                client_artifact_id,
+                task,
+                ..
+            } => {
+                validate_task_ref(
+                    coordination_runtime,
+                    task,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+                if let Some(client_artifact_id) = client_artifact_id {
+                    seen_artifact_client_ids.insert(client_artifact_id.clone());
+                }
+            }
+            CoordinationTransactionMutation::ArtifactSupersede { artifact }
+            | CoordinationTransactionMutation::ArtifactReview { artifact, .. } => {
+                validate_artifact_ref(
+                    coordination_runtime,
+                    artifact,
+                    &seen_artifact_client_ids,
+                    &declared_artifact_client_ids,
                 )?;
             }
             CoordinationTransactionMutation::TaskHandoff { task, .. }
@@ -1008,6 +1180,98 @@ fn validate_task_refs(
     Ok(())
 }
 
+fn validate_claim_ref(
+    coordination_runtime: &CoordinationRuntimeState,
+    claim: &CoordinationTransactionClaimRef,
+    seen_claim_client_ids: &BTreeSet<String>,
+    declared_claim_client_ids: &BTreeSet<String>,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    match claim {
+        CoordinationTransactionClaimRef::Id(claim_id) => {
+            if coordination_runtime
+                .claims_in_scope(None)
+                .into_iter()
+                .all(|claim| claim.id != *claim_id)
+            {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::ObjectIdentity,
+                    CoordinationTransactionRejectionCategory::NotFound,
+                    "unknown_claim",
+                    format!("unknown claim `{}`", claim_id.0),
+                ));
+            }
+            Ok(())
+        }
+        CoordinationTransactionClaimRef::ClientId(client_id) => {
+            if seen_claim_client_ids.contains(client_id) {
+                return Ok(());
+            }
+            let reason_code = if declared_claim_client_ids.contains(client_id) {
+                "forward_claim_client_reference"
+            } else {
+                "unknown_claim_client_id"
+            };
+            let message = if declared_claim_client_ids.contains(client_id) {
+                format!(
+                    "coordination transaction claim client id `{client_id}` was referenced before it was created"
+                )
+            } else {
+                format!("unknown coordination transaction claim client id `{client_id}`")
+            };
+            Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::ObjectIdentity,
+                CoordinationTransactionRejectionCategory::NotFound,
+                reason_code,
+                message,
+            ))
+        }
+    }
+}
+
+fn validate_artifact_ref(
+    coordination_runtime: &CoordinationRuntimeState,
+    artifact: &CoordinationTransactionArtifactRef,
+    seen_artifact_client_ids: &BTreeSet<String>,
+    declared_artifact_client_ids: &BTreeSet<String>,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    match artifact {
+        CoordinationTransactionArtifactRef::Id(artifact_id) => {
+            if coordination_runtime.artifact(artifact_id).is_none() {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::ObjectIdentity,
+                    CoordinationTransactionRejectionCategory::NotFound,
+                    "unknown_artifact",
+                    format!("unknown artifact `{}`", artifact_id.0),
+                ));
+            }
+            Ok(())
+        }
+        CoordinationTransactionArtifactRef::ClientId(client_id) => {
+            if seen_artifact_client_ids.contains(client_id) {
+                return Ok(());
+            }
+            let reason_code = if declared_artifact_client_ids.contains(client_id) {
+                "forward_artifact_client_reference"
+            } else {
+                "unknown_artifact_client_id"
+            };
+            let message = if declared_artifact_client_ids.contains(client_id) {
+                format!(
+                    "coordination transaction artifact client id `{client_id}` was referenced before it was created"
+                )
+            } else {
+                format!("unknown coordination transaction artifact client id `{client_id}`")
+            };
+            Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::ObjectIdentity,
+                CoordinationTransactionRejectionCategory::NotFound,
+                reason_code,
+                message,
+            ))
+        }
+    }
+}
+
 fn apply_coordination_transaction(
     coordination_runtime: &mut CoordinationRuntimeState,
     meta: EventMeta,
@@ -1021,12 +1285,22 @@ fn apply_coordination_transaction(
     let before_event_len = coordination_runtime.snapshot().events.len();
     let mut seen_plan_client_ids = BTreeSet::new();
     let mut seen_task_client_ids = BTreeSet::new();
+    let mut seen_claim_client_ids = BTreeSet::new();
+    let mut seen_artifact_client_ids = BTreeSet::new();
     let mut plan_ids_by_client_id = BTreeMap::new();
     let mut task_ids_by_client_id = BTreeMap::new();
+    let mut claim_ids_by_client_id = BTreeMap::new();
+    let mut artifact_ids_by_client_id = BTreeMap::new();
     let mut touched_plan_ids = Vec::new();
     let mut touched_task_ids = Vec::new();
+    let mut touched_claim_ids = Vec::new();
+    let mut touched_artifact_ids = Vec::new();
+    let mut touched_review_ids = Vec::new();
     let mut touched_plan_seen = BTreeSet::new();
     let mut touched_task_seen = BTreeSet::new();
+    let mut touched_claim_seen = BTreeSet::new();
+    let mut touched_artifact_seen = BTreeSet::new();
+    let mut touched_review_seen = BTreeSet::new();
 
     for (index, mutation) in mutations.into_iter().enumerate() {
         let step_meta = transaction_meta(&meta, index, mutation.action_tag());
@@ -1359,6 +1633,188 @@ fn apply_coordination_transaction(
                 )?;
                 touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
             }
+            CoordinationTransactionMutation::ClaimAcquire {
+                client_claim_id,
+                task,
+                anchors,
+                capability,
+                mode,
+                ttl_seconds,
+                agent,
+                session,
+                worktree_id,
+                branch_ref,
+                base_revision,
+                current_revision,
+            } => {
+                if let Some(client_claim_id) = client_claim_id.as_deref() {
+                    ensure_unique_client_id(
+                        &mut seen_claim_client_ids,
+                        client_claim_id,
+                        "coordination transaction claim",
+                    )?;
+                }
+                let (claim_id, _conflicts, claim) = coordination_runtime.acquire_claim(
+                    step_meta,
+                    session,
+                    prism_coordination::ClaimAcquireInput {
+                        task_id: task
+                            .as_ref()
+                            .map(|task| resolve_task_ref(&task_ids_by_client_id, task))
+                            .transpose()?,
+                        anchors,
+                        capability,
+                        mode,
+                        ttl_seconds,
+                        base_revision,
+                        current_revision,
+                        agent,
+                        worktree_id,
+                        branch_ref,
+                    },
+                )?;
+                if let Some(client_claim_id) = client_claim_id {
+                    if let Some(claim_id) = claim_id.as_ref() {
+                        claim_ids_by_client_id.insert(client_claim_id, claim_id.clone());
+                    }
+                }
+                if let Some(claim_id) = claim_id {
+                    touch_claim(
+                        &mut touched_claim_ids,
+                        &mut touched_claim_seen,
+                        claim_id.clone(),
+                    );
+                }
+                if let Some(task_id) = claim.and_then(|claim| claim.task) {
+                    touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+                }
+            }
+            CoordinationTransactionMutation::ClaimRenew {
+                claim,
+                session,
+                ttl_seconds,
+            } => {
+                let claim_id = resolve_claim_ref(&claim_ids_by_client_id, &claim)?;
+                let renewed = coordination_runtime.renew_claim(
+                    step_meta,
+                    &session,
+                    &claim_id,
+                    ttl_seconds,
+                    "coordination_transaction",
+                )?;
+                touch_claim(&mut touched_claim_ids, &mut touched_claim_seen, claim_id);
+                if let Some(task_id) = renewed.task {
+                    touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+                }
+            }
+            CoordinationTransactionMutation::ClaimRelease { claim, session } => {
+                let claim_id = resolve_claim_ref(&claim_ids_by_client_id, &claim)?;
+                let released = coordination_runtime.release_claim(
+                    step_meta,
+                    &session,
+                    &claim_id,
+                )?;
+                touch_claim(&mut touched_claim_ids, &mut touched_claim_seen, claim_id);
+                if let Some(task_id) = released.task {
+                    touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+                }
+            }
+            CoordinationTransactionMutation::ArtifactPropose {
+                client_artifact_id,
+                task,
+                artifact_requirement_id,
+                anchors,
+                diff_ref,
+                evidence,
+                required_validations,
+                validated_checks,
+                risk_score,
+                base_revision,
+                current_revision,
+            } => {
+                if let Some(client_artifact_id) = client_artifact_id.as_deref() {
+                    ensure_unique_client_id(
+                        &mut seen_artifact_client_ids,
+                        client_artifact_id,
+                        "coordination transaction artifact",
+                    )?;
+                }
+                let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
+                let task_record = coordination_runtime
+                    .task(&task_id)
+                    .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
+                let (artifact_id, artifact) = coordination_runtime.propose_artifact(
+                    step_meta,
+                    ArtifactProposeInput {
+                        task_id: task_id.clone(),
+                        artifact_requirement_id,
+                        anchors: anchors.unwrap_or_else(|| task_record.anchors.clone()),
+                        diff_ref,
+                        evidence,
+                        base_revision,
+                        current_revision,
+                        required_validations,
+                        validated_checks,
+                        risk_score,
+                        worktree_id: task_record.worktree_id.clone(),
+                        branch_ref: task_record.branch_ref.clone(),
+                    },
+                )?;
+                if let Some(client_artifact_id) = client_artifact_id {
+                    artifact_ids_by_client_id.insert(client_artifact_id, artifact_id.clone());
+                }
+                touch_artifact(
+                    &mut touched_artifact_ids,
+                    &mut touched_artifact_seen,
+                    artifact_id,
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, artifact.task.clone());
+            }
+            CoordinationTransactionMutation::ArtifactSupersede { artifact } => {
+                let artifact_id = resolve_artifact_ref(&artifact_ids_by_client_id, &artifact)?;
+                let artifact = coordination_runtime.supersede_artifact(
+                    step_meta,
+                    ArtifactSupersedeInput { artifact_id: artifact_id.clone() },
+                )?;
+                touch_artifact(
+                    &mut touched_artifact_ids,
+                    &mut touched_artifact_seen,
+                    artifact_id,
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, artifact.task);
+            }
+            CoordinationTransactionMutation::ArtifactReview {
+                artifact,
+                review_requirement_id,
+                verdict,
+                summary,
+                required_validations,
+                validated_checks,
+                risk_score,
+                current_revision,
+            } => {
+                let artifact_id = resolve_artifact_ref(&artifact_ids_by_client_id, &artifact)?;
+                let (review_id, _review, artifact) = coordination_runtime.review_artifact(
+                    step_meta,
+                    ArtifactReviewInput {
+                        artifact_id: artifact_id.clone(),
+                        review_requirement_id,
+                        verdict,
+                        summary,
+                        required_validations,
+                        validated_checks,
+                        risk_score,
+                    },
+                    current_revision,
+                )?;
+                touch_review(&mut touched_review_ids, &mut touched_review_seen, review_id);
+                touch_artifact(
+                    &mut touched_artifact_ids,
+                    &mut touched_artifact_seen,
+                    artifact_id,
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, artifact.task);
+            }
             CoordinationTransactionMutation::TaskHandoff {
                 task,
                 to_agent,
@@ -1491,8 +1947,13 @@ fn apply_coordination_transaction(
         intent_metadata,
         plan_ids_by_client_id,
         task_ids_by_client_id,
+        claim_ids_by_client_id,
+        artifact_ids_by_client_id,
         touched_plan_ids,
         touched_task_ids,
+        touched_claim_ids,
+        touched_artifact_ids,
+        touched_review_ids,
     })
 }
 
@@ -1557,6 +2018,36 @@ fn resolve_task_refs(
         .collect()
 }
 
+fn resolve_claim_ref(
+    claim_ids_by_client_id: &BTreeMap<String, ClaimId>,
+    claim: &CoordinationTransactionClaimRef,
+) -> Result<ClaimId> {
+    match claim {
+        CoordinationTransactionClaimRef::Id(claim_id) => Ok(claim_id.clone()),
+        CoordinationTransactionClaimRef::ClientId(client_id) => claim_ids_by_client_id
+            .get(client_id)
+            .cloned()
+            .ok_or_else(|| {
+                anyhow!("unknown coordination transaction claim client id `{client_id}`")
+            }),
+    }
+}
+
+fn resolve_artifact_ref(
+    artifact_ids_by_client_id: &BTreeMap<String, ArtifactId>,
+    artifact: &CoordinationTransactionArtifactRef,
+) -> Result<ArtifactId> {
+    match artifact {
+        CoordinationTransactionArtifactRef::Id(artifact_id) => Ok(artifact_id.clone()),
+        CoordinationTransactionArtifactRef::ClientId(client_id) => artifact_ids_by_client_id
+            .get(client_id)
+            .cloned()
+            .ok_or_else(|| {
+                anyhow!("unknown coordination transaction artifact client id `{client_id}`")
+            }),
+    }
+}
+
 fn touch_plan(
     touched_plan_ids: &mut Vec<PlanId>,
     touched_plan_seen: &mut BTreeSet<String>,
@@ -1574,6 +2065,36 @@ fn touch_task(
 ) {
     if touched_task_seen.insert(task_id.0.to_string()) {
         touched_task_ids.push(task_id);
+    }
+}
+
+fn touch_claim(
+    touched_claim_ids: &mut Vec<ClaimId>,
+    touched_claim_seen: &mut BTreeSet<String>,
+    claim_id: ClaimId,
+) {
+    if touched_claim_seen.insert(claim_id.0.to_string()) {
+        touched_claim_ids.push(claim_id);
+    }
+}
+
+fn touch_artifact(
+    touched_artifact_ids: &mut Vec<ArtifactId>,
+    touched_artifact_seen: &mut BTreeSet<String>,
+    artifact_id: ArtifactId,
+) {
+    if touched_artifact_seen.insert(artifact_id.0.to_string()) {
+        touched_artifact_ids.push(artifact_id);
+    }
+}
+
+fn touch_review(
+    touched_review_ids: &mut Vec<ReviewId>,
+    touched_review_seen: &mut BTreeSet<String>,
+    review_id: ReviewId,
+) {
+    if touched_review_seen.insert(review_id.0.to_string()) {
+        touched_review_ids.push(review_id);
     }
 }
 
