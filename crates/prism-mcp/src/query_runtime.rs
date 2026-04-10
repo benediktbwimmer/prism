@@ -2,7 +2,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use prism_coordination::TaskExecutorCaller;
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId};
 use prism_js::{
@@ -16,17 +16,30 @@ use prism_js::{
 };
 use prism_memory::{MemoryEventQuery, MemoryModule, OutcomeKind, OutcomeRecallQuery, RecallQuery};
 use prism_query::{ConceptDecodeLens, EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::coordination_executor::current_executor_caller;
 use crate::file_queries::{
-    file_around, file_read, DEFAULT_FILE_AROUND_CONTEXT_LINES, DEFAULT_FILE_AROUND_MAX_CHARS,
-    DEFAULT_FILE_READ_MAX_CHARS,
+    DEFAULT_FILE_AROUND_CONTEXT_LINES, DEFAULT_FILE_AROUND_MAX_CHARS, DEFAULT_FILE_READ_MAX_CHARS,
+    file_around, file_read,
 };
 use crate::peer_runtime_router::execute_remote_prism_query_with_provider;
 use crate::runtime_views::{connection_info, runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
 use crate::{
+    AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, ConceptHandleArgs,
+    ConceptQueryArgs, ConceptVerbosity, ContractQueryArgs, ContractsQueryArgs,
+    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, CuratorProposalsArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs,
+    EditSliceArgs, FileAroundArgs, FileReadArgs, INSIGHT_LIMIT, ImplementationTargetArgs,
+    LimitArgs, McpLogArgs, McpTraceArgs, MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs,
+    NodeIdInput, OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs, PlansQueryArgs,
+    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
+    RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs,
+    SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs, SourceExcerptArgs,
+    SpecIdArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode,
+    TaskTargetArgs, ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
     ambiguity::is_broad_identifier_query, ambiguity_diagnostic_data, apply_module_filter,
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
     changed_files, changed_symbols, changed_symbols_from_events, claim_view, co_change_view,
@@ -52,20 +65,7 @@ use crate::{
     tool_catalog_views_with_features, tool_schema_view_with_features,
     validate_tool_input_value_with_features, validation_context_view_cached,
     validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
-    weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
-    ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs, ConceptVerbosity, ContractQueryArgs,
-    ContractsQueryArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
-    CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
-    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, McpLogArgs, McpTraceArgs,
-    MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
-    PendingReviewsArgs, PlanTargetArgs, PlansQueryArgs, PolicyViolationQueryArgs, QueryHost,
-    QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs,
-    RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache,
-    SessionState, SimulateClaimArgs, SourceExcerptArgs, SpecIdArgs, SymbolQueryArgs,
-    SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs,
-    ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
-    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    weak_search_match_reason, where_used,
 };
 
 type TsSnippetMode = crate::prism_code_compiler::PrismTypescriptProgramMode;
@@ -351,7 +351,7 @@ impl QueryHost {
         code: &str,
         language: QueryLanguage,
         surface_name: &'static str,
-        code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
+        code_mutation: Option<crate::prism_code_compiler::PrismCodeWriteRuntimeFactory>,
     ) -> Result<QueryEnvelope> {
         let compiler_input = crate::prism_code_compiler::PrismCodeCompilerInput::inline(
             surface_name,
@@ -366,7 +366,7 @@ impl QueryHost {
         &self,
         session: Arc<SessionState>,
         compiler_input: crate::prism_code_compiler::PrismCodeCompilerInput,
-        code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
+        code_mutation: Option<crate::prism_code_compiler::PrismCodeWriteRuntimeFactory>,
     ) -> Result<QueryEnvelope> {
         let surface_name = compiler_input.surface_name();
         match compiler_input.language() {
@@ -555,7 +555,7 @@ impl QueryHost {
         session: Arc<SessionState>,
         compiler_input: crate::prism_code_compiler::PrismCodeCompilerInput,
         surface_name: &'static str,
-        code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
+        code_mutation: Option<crate::prism_code_compiler::PrismCodeWriteRuntimeFactory>,
     ) -> Result<QueryEnvelope> {
         let source_bundle = crate::prism_code_compiler::load_compiler_sources(
             &compiler_input,
@@ -760,7 +760,7 @@ impl QueryHost {
         mode: TsSnippetMode,
         query_run: QueryRun,
         surface_name: &'static str,
-        code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
+        code_mutation: Option<crate::prism_code_compiler::PrismCodeWriteRuntimeFactory>,
     ) -> Result<TypescriptAttempt> {
         let prepared_started = Instant::now();
         let prepared = crate::prism_code_compiler::prepare_typescript_program(
@@ -856,7 +856,7 @@ impl QueryHost {
             self.current_prism(),
             query_run,
             surface_name,
-            code_mutation,
+            code_mutation.map(|factory| factory.instantiate(analyzed.clone())),
         );
         let worker_roundtrip_started = Instant::now();
         let worker_reply = match self.worker_pool.execute(transpiled, execution.clone()) {
@@ -989,7 +989,7 @@ pub(crate) struct QueryExecution {
     prism: Arc<Prism>,
     query_run: QueryRun,
     surface_name: &'static str,
-    code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
+    code_mutation: Option<crate::prism_code_compiler::PrismCodeWriteRuntime>,
     diagnostics: Arc<Mutex<Vec<QueryDiagnostic>>>,
     semantic_context_cache: Arc<Mutex<SemanticContextCache>>,
 }
@@ -1010,7 +1010,7 @@ impl QueryExecution {
         prism: Arc<Prism>,
         query_run: QueryRun,
         surface_name: &'static str,
-        code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
+        code_mutation: Option<crate::prism_code_compiler::PrismCodeWriteRuntime>,
     ) -> Self {
         Self {
             host,
@@ -4002,7 +4002,7 @@ return prism.file(__prismFileAroundArgs.path).around({
                 .next()
                 .map(|resolution| resolution.packet),
                 (None, None) => {
-                    return Err(anyhow!("decodeConcept requires either `handle` or `query`"))
+                    return Err(anyhow!("decodeConcept requires either `handle` or `query`"));
                 }
             };
         let Some(packet) = packet else {

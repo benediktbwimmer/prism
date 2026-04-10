@@ -1,19 +1,19 @@
 use rmcp::transport::{IntoTransport, Transport};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::*;
 use crate::tests_support::{
     call_tool_request, demo_node, first_tool_content_json, initialize_client,
-    initialized_notification, mutation_credential_json, prism_code_write_arguments,
-    prism_code_read_arguments, read_resource_request, register_test_agent_worktree,
+    initialized_notification, mutation_credential_json, prism_code_read_arguments,
+    prism_code_write_arguments, read_resource_request, register_test_agent_worktree,
     register_test_human_worktree, response_json, server_with_node, temp_workspace,
     workspace_session_with_owner_credential,
 };
 use prism_coordination::TaskCreateInput;
 use prism_core::{
+    BootstrapOwnerInput, MintPrincipalRequest, PrismRuntimeMode, WorkspaceSessionOptions,
     default_workspace_shared_runtime, index_workspace_session,
-    index_workspace_session_with_options, BootstrapOwnerInput, MintPrincipalRequest,
-    PrismRuntimeMode, WorkspaceSessionOptions,
+    index_workspace_session_with_options,
 };
 use prism_ir::{
     CoordinationTaskId, CoordinationTaskStatus, CredentialCapability, CredentialId, EventActor,
@@ -384,10 +384,12 @@ async fn mcp_server_surfaces_structured_prism_code_parse_errors_through_read_sur
     assert_eq!(response["error"]["data"]["code"], "query_parse_failed");
     assert_eq!(response["error"]["data"]["line"], 1);
     assert_eq!(response["error"]["data"]["column"], 16);
-    assert!(response["error"]["data"]["nextAction"]
-        .as_str()
-        .unwrap_or_default()
-        .contains("single expression such as `({ ... })`"));
+    assert!(
+        response["error"]["data"]["nextAction"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("single expression such as `({ ... })`")
+    );
 
     running.cancel().await.unwrap();
 }
@@ -465,10 +467,12 @@ async fn mcp_server_surfaces_structured_prism_code_error_categories() {
     assert_eq!(response["error"]["data"]["code"], "query_parse_failed");
     assert_eq!(response["error"]["data"]["line"], 1);
     assert_eq!(response["error"]["data"]["column"], 16);
-    assert!(response["error"]["data"]["nextAction"]
-        .as_str()
-        .unwrap_or_default()
-        .contains("single expression such as `({ ... })`"));
+    assert!(
+        response["error"]["data"]["nextAction"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("single expression such as `({ ... })`")
+    );
 
     running.cancel().await.unwrap();
 }
@@ -512,10 +516,12 @@ return {
         .unwrap();
 
     let response = first_tool_content_json(client.receive().await.unwrap());
-    assert!(response["result"]["workId"]
-        .as_str()
-        .expect("workId should be a string")
-        .starts_with("work:"));
+    assert!(
+        response["result"]["workId"]
+            .as_str()
+            .expect("workId should be a string")
+            .starts_with("work:")
+    );
 
     running.cancel().await.unwrap();
 }
@@ -544,13 +550,32 @@ async fn mcp_server_dry_runs_prism_code_mutations() {
                 "credential": mutation_credential_json(&credential),
                 "dryRun": true,
                 "code": r#"
-const result = await prism.coordination.createPlan({
+const plan = await prism.coordination.createPlan({
   title: "Dry run plan",
   goal: "Validate dry-run compiler path",
 });
+const task = await plan.addTask({
+  title: "Dry run task",
+});
+const claim = await prism.claim.acquire({
+  anchors: [{
+    type: "node",
+    crateName: "demo",
+    path: "demo::main",
+    kind: "function",
+  }],
+  capability: "Edit",
+  coordinationTaskId: task,
+});
+const artifact = await prism.artifact.propose({
+  taskId: task,
+  diffRef: "patch:dry-run",
+});
 return {
-  id: result.id ?? null,
-  provisional: result.provisional ?? null,
+  plan,
+  task,
+  claim,
+  artifact,
 };
 "#
             })
@@ -562,8 +587,14 @@ return {
         .unwrap();
 
     let response = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(response["result"]["id"], "plan_0");
-    assert_eq!(response["result"]["provisional"], true);
+    assert_eq!(response["result"]["plan"]["id"], "plan_0");
+    assert_eq!(response["result"]["plan"]["provisional"], true);
+    assert_eq!(response["result"]["task"]["id"], "task_0");
+    assert_eq!(response["result"]["task"]["provisional"], true);
+    assert_eq!(response["result"]["claim"]["id"], "claim_0");
+    assert_eq!(response["result"]["claim"]["provisional"], true);
+    assert_eq!(response["result"]["artifact"]["id"], "artifact_0");
+    assert_eq!(response["result"]["artifact"]["provisional"], true);
 
     running.cancel().await.unwrap();
 }
@@ -655,6 +686,106 @@ return { plan, baseline, compare };
         response["result"]["compare"]["parentPlanId"],
         response["result"]["plan"]["id"]
     );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_executes_mixed_prism_code_writes_in_one_invocation() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+return prism.work.declare({
+  title: "Exercise mixed prism_code writes",
+});
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let declared = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(
+        declared["result"]["title"],
+        "Exercise mixed prism_code writes"
+    );
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const plan = await prism.coordination.createPlan({
+  title: "Mixed prism_code write plan",
+  goal: "Compile coordination and direct writes through one lowering path",
+});
+const task = await plan.addTask({
+  title: "Ship the change",
+  anchors: [{
+    type: "node",
+    crateName: "demo",
+    path: "demo::main",
+    kind: "function",
+  }],
+});
+const claim = await prism.claim.acquire({
+  anchors: [{
+    type: "node",
+    crateName: "demo",
+    path: "demo::main",
+    kind: "function",
+  }],
+  capability: "Edit",
+  coordinationTaskId: task,
+});
+const artifact = await prism.artifact.propose({
+  taskId: task,
+  diffRef: "patch:mixed",
+});
+await task.handoff({
+  summary: "Needs review",
+  toAgent: "reviewer",
+});
+return { plan, task, claim, artifact };
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let envelope = first_tool_content_json(client.receive().await.unwrap());
+    assert!(envelope["result"]["plan"]["id"].as_str().is_some());
+    assert_eq!(envelope["result"]["plan"]["provisional"], Value::Null);
+    assert!(envelope["result"]["task"]["id"].as_str().is_some());
+    assert_eq!(envelope["result"]["task"]["provisional"], Value::Null);
+    assert!(envelope["result"]["claim"]["id"].as_str().is_some());
+    assert_eq!(envelope["result"]["claim"]["status"], "Active");
+    assert!(envelope["result"]["artifact"]["id"].as_str().is_some());
+    assert_eq!(envelope["result"]["artifact"]["status"], "Proposed");
 
     running.cancel().await.unwrap();
 }
@@ -783,8 +914,8 @@ return {{ plan, followup }};
 }
 
 #[tokio::test]
-async fn mcp_server_updates_and_completes_existing_tasks_via_native_prism_code_coordination_builders(
-) {
+async fn mcp_server_updates_and_completes_existing_tasks_via_native_prism_code_coordination_builders()
+ {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);
     let server = PrismMcpServer::with_session(session);
@@ -1001,8 +1132,8 @@ return task.handoff({{
 }
 
 #[tokio::test]
-async fn mcp_server_updates_and_archives_existing_plans_via_native_prism_code_coordination_builders(
-) {
+async fn mcp_server_updates_and_archives_existing_plans_via_native_prism_code_coordination_builders()
+ {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);
     let server = PrismMcpServer::with_session(session);
@@ -1669,9 +1800,11 @@ return {{
     assert_eq!(envelope["result"]["ready"][0]["id"], task_id);
     assert_eq!(envelope["result"]["claims"].as_array().unwrap().len(), 0);
     assert_eq!(envelope["result"]["artifacts"].as_array().unwrap().len(), 1);
-    assert!(envelope["result"]["taskBlastRadius"]["lineages"]
-        .as_array()
-        .is_some());
+    assert!(
+        envelope["result"]["taskBlastRadius"]["lineages"]
+            .as_array()
+            .is_some()
+    );
     assert_eq!(
         envelope["result"]["taskValidationRecipe"]["taskId"],
         task_id
@@ -2569,11 +2702,13 @@ async fn mcp_server_supports_mcp_only_self_described_workflows() {
         client.receive().await.unwrap(),
     )))
     .unwrap();
-    assert!(tools["value"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|tool| tool["name"] == "prism_mutate"));
+    assert!(
+        tools["value"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|tool| tool["name"] == "prism_mutate")
+    );
 
     for (id, uri) in [
         (
@@ -3134,9 +3269,11 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
         response["error"]["data"]["attemptedPrincipal"]["principalId"],
         Value::String(second_worker.principal.principal_id.0.to_string())
     );
-    assert!(response["error"]["data"]["currentOwner"]["sessionId"]
-        .as_str()
-        .is_some_and(|value| value.starts_with("session:")));
+    assert!(
+        response["error"]["data"]["currentOwner"]["sessionId"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("session:"))
+    );
 
     running.cancel().await.unwrap();
 }
@@ -3620,9 +3757,11 @@ async fn mcp_server_accepts_relative_file_anchor_paths_in_coordination_only_mode
 
     assert_eq!(bootstrap["action"], "coordination");
     assert!(bootstrap["result"]["state"]["id"].as_str().is_some());
-    assert!(bootstrap["result"]["state"]["taskIdsByClientId"]["t0"]
-        .as_str()
-        .is_some());
+    assert!(
+        bootstrap["result"]["state"]["taskIdsByClientId"]["t0"]
+            .as_str()
+            .is_some()
+    );
 
     running.cancel().await.unwrap();
 }

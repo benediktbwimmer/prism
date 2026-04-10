@@ -1,35 +1,35 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
 use prism_coordination::{
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshotV2,
 };
 use prism_core::{
-    configured_coordination_authority_store_provider, default_workspace_shared_runtime,
-    hydrate_workspace_session_with_options, resolve_coordination_authority_store_provider,
     ActiveWorkContextBinding, CoordinationAuthorityBackendConfig,
     CoordinationAuthorityStoreProvider, PrismPaths, PrismRuntimeMode, SharedRuntimeBackend,
-    WorkspaceSession, WorkspaceSessionOptions,
+    WorkspaceSession, WorkspaceSessionOptions, configured_coordination_authority_store_provider,
+    default_workspace_shared_runtime, hydrate_workspace_session_with_options,
+    resolve_coordination_authority_store_provider,
 };
 use prism_ir::{EventId, TaskId};
-use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
+use prism_js::{API_REFERENCE_URI, CuratorJobView, api_reference_markdown};
 use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, SessionMemory};
 use prism_query::{Prism, QueryLimits};
 use rmcp::{
+    ServiceExt,
     handler::server::router::tool::ToolRouter,
     service::{RoleServer, RunningService, ServerInitializeError},
-    transport::{stdio, IntoTransport},
-    ServiceExt,
+    transport::{IntoTransport, stdio},
 };
 use std::env;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 #[cfg(test)]
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
-use tracing::{debug, info, Level};
+use tracing::{Level, debug, info};
 
 mod ambiguity;
 mod bridge_auth;
@@ -66,7 +66,6 @@ mod mutation_trace;
 mod peer_runtime_router;
 mod plan_surface;
 mod prism_code_compiler;
-mod prism_code_builder;
 mod process_lifecycle;
 mod proxy_server;
 mod query_errors;
@@ -160,7 +159,7 @@ use query_log::*;
 use query_runtime::*;
 use query_types::*;
 use read_broker::{
-    current_coordination_surface_for_workspace, CurrentCoordinationSurface, WorkspaceReadBroker,
+    CurrentCoordinationSurface, WorkspaceReadBroker, current_coordination_surface_for_workspace,
 };
 use request_envelope::*;
 use resource_schemas::*;
@@ -204,16 +203,13 @@ const SCHEMAS_URI: &str = "prism://schemas";
 const TOOL_SCHEMAS_URI: &str = "prism://tool-schemas";
 const ENTRYPOINTS_RESOURCE_TEMPLATE_URI: &str = "prism://entrypoints?limit={limit}&cursor={cursor}";
 const SYMBOL_RESOURCE_TEMPLATE_URI: &str = "prism://symbol/{crateName}/{kind}/{path}";
-const SEARCH_RESOURCE_TEMPLATE_URI: &str =
-    "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}";
+const SEARCH_RESOURCE_TEMPLATE_URI: &str = "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}";
 const LINEAGE_RESOURCE_TEMPLATE_URI: &str =
     "prism://lineage/{lineageId}?limit={limit}&cursor={cursor}";
 const PLAN_RESOURCE_TEMPLATE_URI: &str = "prism://plan/{planId}";
 const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}?limit={limit}&cursor={cursor}";
-const PLANS_RESOURCE_TEMPLATE_URI: &str =
-    "prism://plans?status={status}&scope={scope}&contains={contains}&sort={sort}&limit={limit}&cursor={cursor}";
-const CONTRACTS_RESOURCE_TEMPLATE_URI: &str =
-    "prism://contracts?contains={contains}&status={status}&scope={scope}&kind={kind}&limit={limit}&cursor={cursor}";
+const PLANS_RESOURCE_TEMPLATE_URI: &str = "prism://plans?status={status}&scope={scope}&contains={contains}&sort={sort}&limit={limit}&cursor={cursor}";
+const CONTRACTS_RESOURCE_TEMPLATE_URI: &str = "prism://contracts?contains={contains}&status={status}&scope={scope}&kind={kind}&limit={limit}&cursor={cursor}";
 const EVENT_RESOURCE_TEMPLATE_URI: &str = "prism://event/{eventId}";
 const MEMORY_RESOURCE_TEMPLATE_URI: &str = "prism://memory/{memoryId}";
 const EDGE_RESOURCE_TEMPLATE_URI: &str = "prism://edge/{edgeId}";
@@ -411,9 +407,14 @@ impl PrismMcpCli {
                 CoordinationAuthorityBackendConfig::Sqlite { db_path }
             }
             CoordinationAuthorityBackendArg::Postgres => {
-                let connection_url = self.coordination_authority_postgres_url.clone().ok_or_else(
-                    || anyhow!("--coordination-authority-postgres-url is required for postgres backend"),
-                )?;
+                let connection_url = self
+                    .coordination_authority_postgres_url
+                    .clone()
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "--coordination-authority-postgres-url is required for postgres backend"
+                        )
+                    })?;
                 CoordinationAuthorityBackendConfig::Postgres { connection_url }
             }
         }))

@@ -63,8 +63,7 @@ const ARTIFACT_REVIEW_KEYS: &[&str] = &[
     "riskScore",
     "risk_score",
 ];
-const COORDINATION_CREATE_PLAN_KEYS: &[&str] =
-    &["title", "goal", "status", "policy", "scheduling"];
+const COORDINATION_CREATE_PLAN_KEYS: &[&str] = &["title", "goal", "status", "policy", "scheduling"];
 const PLAN_UPDATE_KEYS: &[&str] = &["title", "goal", "status", "policy", "scheduling"];
 const PLAN_ADD_TASK_KEYS: &[&str] = &[
     "title",
@@ -366,4 +365,12 @@ pub fn prism_compiler_method_spec(path: &str) -> Option<&'static PrismCompilerMe
     prism_compiler_method_specs()
         .iter()
         .find(|spec| spec.api.path == path)
+}
+
+pub fn prism_compiler_method_spec_by_host_operation(
+    host_operation: &str,
+) -> Option<&'static PrismCompilerMethodSpec> {
+    prism_compiler_method_specs()
+        .iter()
+        .find(|spec| spec.host_operation == Some(host_operation))
 }

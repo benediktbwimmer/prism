@@ -93,7 +93,7 @@ Current phase checklist:
 - [x] Phase 0: freeze roadmap, architecture, and review process
 - [x] Phase 1: build the compiler substrate and surface registry foundations
 - [x] Phase 2: implement PRISM Program IR and effect classification
-- [ ] Phase 3: implement structured transactional lowering for current write semantics
+- [x] Phase 3: implement structured transactional lowering for current write semantics
 - [ ] Phase 4: cut runtime `prism_code` execution onto the compiler path
 - [ ] Phase 5: hard-remove mutation-era product paths and finalize the SDK surface
 - [ ] Phase 6: build the fixture corpus and language-feature coverage harness
@@ -103,7 +103,7 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 2 review gate: review PRISM Program IR and effect classification before Phase 3
+- Phase 3 review gate: review compiler-owned structured lowering before Phase 4
 
 Current phase note:
 
@@ -131,6 +131,18 @@ Current phase note:
 - The live `prism_code` runtime path now runs semantic analysis before transpilation and records a
   dedicated `typescript.*.semanticAnalysis` phase, so Program IR generation is exercised on the
   real runtime path rather than only through unit tests.
+- Phase 3 is complete.
+- Phase 3 replaces the old `prism_code_builder` runtime path with a compiler-owned
+  write-runtime and lowering layer under
+  `crates/prism-mcp/src/prism_code_compiler/write_runtime.rs`.
+- Current write-capable `prism_code` now stages structured coordination and direct-write
+  operations in one lowering plan, flushes coordination batches through compiler-owned lowering,
+  and resolves handles from the lowered results instead of accumulating eager mutation payloads in
+  the old staged builder.
+- `dryRun` now exercises that same lowering path and skips only the final write execution step.
+- Targeted MCP regressions now cover dry-run, the existing native coordination builder flow,
+  mixed coordination/direct writes in one invocation, and claim/review follow-up flows on the new
+  lowering path.
 
 ## 5. Ordering thesis
 

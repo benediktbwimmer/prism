@@ -8,13 +8,14 @@ use prism_js::{
     AgentOpenResultView, AgentWorksetResultView, QueryPhaseView,
 };
 use rmcp::{
+    ErrorData as McpError, RoleServer, ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
     service::RequestContext,
-    tool, tool_router, ErrorData as McpError, RoleServer, ServerHandler,
+    tool, tool_router,
 };
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -373,12 +374,12 @@ impl PrismMcpServer {
         credential: Option<PrismMutationCredentialArgs>,
         bridge_execution: Option<PrismMutationBridgeExecutionArgs>,
         dry_run: bool,
-    ) -> crate::prism_code_builder::PrismCodeExecutionContext {
+    ) -> crate::prism_code_compiler::PrismCodeWriteRuntimeFactory {
         let direct_write_server = self.clone_with_shared_session();
         let coordination_server = self.clone_with_shared_session();
         let direct_write_credential = credential.clone();
         let direct_write_bridge_execution = bridge_execution.clone();
-        crate::prism_code_builder::PrismCodeExecutionContext::new(
+        crate::prism_code_compiler::PrismCodeWriteRuntimeFactory::new(
             Arc::new(move |operation| {
                 direct_write_server
                     .execute_prism_code_direct_write(
@@ -394,7 +395,7 @@ impl PrismMcpServer {
                     "kind": "coordination_transaction",
                     "payload": payload,
                 }))
-                    .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
                 coordination_server
                     .execute_prism_code_coordination(
                         args,
@@ -410,13 +411,13 @@ impl PrismMcpServer {
 
     fn execute_prism_code_direct_write(
         &self,
-        operation: crate::prism_code_builder::PrismCodeDirectWrite,
+        operation: crate::prism_code_compiler::PrismCodeDirectWrite,
         credential: Option<&PrismMutationCredentialArgs>,
         bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
         dry_run: bool,
     ) -> Result<Value, McpError> {
         match operation {
-            crate::prism_code_builder::PrismCodeDirectWrite::DeclareWork { input } => {
+            crate::prism_code_compiler::PrismCodeDirectWrite::DeclareWork { input } => {
                 let args = serde_json::from_value::<PrismDeclareWorkArgs>(input)
                     .map_err(|error| McpError::invalid_params(error.to_string(), None))?;
                 if dry_run {
@@ -453,7 +454,7 @@ impl PrismMcpServer {
                 )?;
                 serde_json::to_value(result).map_err(|error| map_query_error(error.into()))
             }
-            crate::prism_code_builder::PrismCodeDirectWrite::ClaimAcquire { input } => {
+            crate::prism_code_compiler::PrismCodeDirectWrite::ClaimAcquire { input } => {
                 let args = serde_json::from_value::<PrismClaimArgs>(json!({
                     "action": "acquire",
                     "payload": input,
@@ -468,7 +469,7 @@ impl PrismMcpServer {
                 }
                 self.execute_prism_code_claim(args, credential, bridge_execution)
             }
-            crate::prism_code_builder::PrismCodeDirectWrite::ClaimRenew {
+            crate::prism_code_compiler::PrismCodeDirectWrite::ClaimRenew {
                 claim_id,
                 ttl_seconds,
             } => {
@@ -489,7 +490,7 @@ impl PrismMcpServer {
                 }
                 self.execute_prism_code_claim(args, credential, bridge_execution)
             }
-            crate::prism_code_builder::PrismCodeDirectWrite::ClaimRelease { claim_id } => {
+            crate::prism_code_compiler::PrismCodeDirectWrite::ClaimRelease { claim_id } => {
                 let args = serde_json::from_value::<PrismClaimArgs>(json!({
                     "action": "release",
                     "payload": {
@@ -506,7 +507,7 @@ impl PrismMcpServer {
                 }
                 self.execute_prism_code_claim(args, credential, bridge_execution)
             }
-            crate::prism_code_builder::PrismCodeDirectWrite::ArtifactPropose { input } => {
+            crate::prism_code_compiler::PrismCodeDirectWrite::ArtifactPropose { input } => {
                 let args = serde_json::from_value::<PrismArtifactArgs>(json!({
                     "action": "propose",
                     "payload": input,
@@ -521,7 +522,7 @@ impl PrismMcpServer {
                 }
                 self.execute_prism_code_artifact(args, credential, bridge_execution)
             }
-            crate::prism_code_builder::PrismCodeDirectWrite::ArtifactSupersede { artifact_id } => {
+            crate::prism_code_compiler::PrismCodeDirectWrite::ArtifactSupersede { artifact_id } => {
                 let args = serde_json::from_value::<PrismArtifactArgs>(json!({
                     "action": "supersede",
                     "payload": {
@@ -538,7 +539,7 @@ impl PrismMcpServer {
                 }
                 self.execute_prism_code_artifact(args, credential, bridge_execution)
             }
-            crate::prism_code_builder::PrismCodeDirectWrite::ArtifactReview {
+            crate::prism_code_compiler::PrismCodeDirectWrite::ArtifactReview {
                 artifact_id,
                 input,
             } => {
@@ -564,43 +565,42 @@ impl PrismMcpServer {
                 }
                 self.execute_prism_code_artifact(args, credential, bridge_execution)
             }
-            crate::prism_code_builder::PrismCodeDirectWrite::TaskHandoff {
+            crate::prism_code_compiler::PrismCodeDirectWrite::TaskHandoff {
                 task_id,
                 summary,
                 to_agent,
-            } => {
-                self.execute_prism_code_coordination(
-                    serde_json::from_value(json!({
-                        "kind": "handoff",
-                        "payload": {
-                            "taskId": task_id,
-                            "toAgent": to_agent,
-                            "summary": summary,
-                        }
-                    }))
-                    .map_err(|error| McpError::invalid_params(error.to_string(), None))?,
-                    credential,
-                    bridge_execution,
-                    dry_run,
-                )
-            }
-            crate::prism_code_builder::PrismCodeDirectWrite::TaskAcceptHandoff { task_id, agent } => {
-                self.execute_prism_code_coordination(
-                    serde_json::from_value(json!({
-                        "kind": "handoff_accept",
-                        "payload": {
-                            "taskId": task_id,
-                            "agent": agent,
-                        }
-                    }))
-                    .map_err(|error| McpError::invalid_params(error.to_string(), None))?,
-                    credential,
-                    bridge_execution,
-                    dry_run,
-                )
-            }
-            crate::prism_code_builder::PrismCodeDirectWrite::TaskResume { task_id, agent } => {
-                self.execute_prism_code_coordination(
+            } => self.execute_prism_code_coordination(
+                serde_json::from_value(json!({
+                    "kind": "handoff",
+                    "payload": {
+                        "taskId": task_id,
+                        "toAgent": to_agent,
+                        "summary": summary,
+                    }
+                }))
+                .map_err(|error| McpError::invalid_params(error.to_string(), None))?,
+                credential,
+                bridge_execution,
+                dry_run,
+            ),
+            crate::prism_code_compiler::PrismCodeDirectWrite::TaskAcceptHandoff {
+                task_id,
+                agent,
+            } => self.execute_prism_code_coordination(
+                serde_json::from_value(json!({
+                    "kind": "handoff_accept",
+                    "payload": {
+                        "taskId": task_id,
+                        "agent": agent,
+                    }
+                }))
+                .map_err(|error| McpError::invalid_params(error.to_string(), None))?,
+                credential,
+                bridge_execution,
+                dry_run,
+            ),
+            crate::prism_code_compiler::PrismCodeDirectWrite::TaskResume { task_id, agent } => self
+                .execute_prism_code_coordination(
                     serde_json::from_value(json!({
                         "kind": "resume",
                         "payload": {
@@ -612,9 +612,8 @@ impl PrismMcpServer {
                     credential,
                     bridge_execution,
                     dry_run,
-                )
-            }
-            crate::prism_code_builder::PrismCodeDirectWrite::TaskReclaim { task_id, agent } => {
+                ),
+            crate::prism_code_compiler::PrismCodeDirectWrite::TaskReclaim { task_id, agent } => {
                 self.execute_prism_code_coordination(
                     serde_json::from_value(json!({
                         "kind": "reclaim",
@@ -715,11 +714,7 @@ impl PrismMcpServer {
         dry_run: bool,
     ) -> Result<Value, McpError> {
         if dry_run {
-            let task_id = args
-                .payload
-                .get("taskId")
-                .cloned()
-                .unwrap_or(Value::Null);
+            let task_id = args.payload.get("taskId").cloned().unwrap_or(Value::Null);
             return Ok(json!({
                 "id": task_id,
                 "dryRun": true,
@@ -764,7 +759,9 @@ impl PrismMcpServer {
                     authenticated.authenticated_principal(),
                 )
             },
-            |result| MutationOutcomeMeta::coordination(result.event_ids.clone(), result.violations.len()),
+            |result| {
+                MutationOutcomeMeta::coordination(result.event_ids.clone(), result.violations.len())
+            },
         )?;
         Ok(result.state)
     }
@@ -2717,9 +2714,11 @@ impl ServerHandler for PrismMcpServer {
     ) -> Result<ListResourcesResult, McpError> {
         let started_at = current_timestamp();
         let started = Instant::now();
-        let mut resources = vec![instructions_resource_link()
-            .with_title("PRISM Instruction Sets")
-            .no_annotation()];
+        let mut resources = vec![
+            instructions_resource_link()
+                .with_title("PRISM Instruction Sets")
+                .no_annotation(),
+        ];
         resources.extend(
             instruction_set_resource_links(self.host.features.runtime_mode())
                 .into_iter()
