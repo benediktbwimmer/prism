@@ -1052,7 +1052,17 @@ function __prismCoordinationPlanHandle(raw) {
         "plan.addTask",
         input,
         "input",
-        ["title", "status", "dependsOn", "depends_on"]
+        [
+          "title",
+          "status",
+          "dependsOn",
+          "depends_on",
+          "assignee",
+          "anchors",
+          "acceptance",
+          "artifactRequirements",
+          "reviewRequirements",
+        ]
       );
       return __prismCoordinationTaskHandle(
         __prismHost("__coordinationPlanAddTask", {

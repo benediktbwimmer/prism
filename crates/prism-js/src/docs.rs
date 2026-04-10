@@ -2666,6 +2666,9 @@ The current native builder slice is intentionally narrow:
 - `plan.update(...)`
 - `plan.archive()`
 - `plan.addTask(...)`
+  - supports the core task authoring fields already available in the native task create path:
+    `title`, `status`, `dependsOn`, `assignee`, `anchors`, `acceptance`,
+    `artifactRequirements`, and `reviewRequirements`
 - `task.dependsOn(...)`
 - `task.update(...)`
 - `task.complete(...)`
@@ -2698,7 +2701,19 @@ await plan.update({
   title: "Investigate the latest regression",
   goal: "Verify the latest regression and archive the stale plan",
 });
-const investigate = await plan.addTask({ title: "Investigate the latest regression" });
+const investigate = await plan.addTask({
+  title: "Investigate the latest regression",
+  anchors: [{
+    type: "node",
+    crateName: "demo",
+    path: "demo::main",
+    kind: "function",
+  }],
+  artifactRequirements: [{
+    clientArtifactRequirementId: "patch",
+    kind: "code_change",
+  }],
+});
 return investigate;
 ```
 

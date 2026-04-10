@@ -92,6 +92,8 @@ Status note (2026-04-10):
 - landed: `plan.update(...)`
 - landed: `plan.archive()`
 - landed: `plan.addTask(...)`
+  - now supports richer native task authoring fields including `assignee`, `anchors`,
+    `acceptance`, `artifactRequirements`, and `reviewRequirements`
 - landed: `task.dependsOn(...)`
 
 ### Slice 3: Native extension and update slices

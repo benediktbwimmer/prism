@@ -230,15 +230,24 @@ impl PrismCodeExecutionContext {
         staged.next_task_handle += 1;
         let client_task_id = format!("task_{}", staged.next_client_task);
         staged.next_client_task += 1;
+        let mut task_input = Map::new();
+        task_input.insert("clientTaskId".to_string(), Value::String(client_task_id.clone()));
+        task_input.insert("plan".to_string(), plan_ref);
+        task_input.insert("title".to_string(), Value::String(title));
+        if let Some(status) = status.clone() {
+            task_input.insert("status".to_string(), Value::String(status));
+        }
+        if !depends_on.is_empty() {
+            task_input.insert("dependsOn".to_string(), Value::Array(depends_on));
+        }
+        insert_object_field_if_present(&mut task_input, &input, "assignee");
+        insert_object_field_if_present(&mut task_input, &input, "anchors");
+        insert_object_field_if_present(&mut task_input, &input, "acceptance");
+        insert_object_field_if_present(&mut task_input, &input, "artifactRequirements");
+        insert_object_field_if_present(&mut task_input, &input, "reviewRequirements");
         staged.mutations.push(json!({
             "action": "task_create",
-            "input": {
-                "clientTaskId": client_task_id,
-                "plan": plan_ref,
-                "title": title,
-                "status": status,
-                "dependsOn": depends_on,
-            }
+            "input": task_input,
         }));
         let preview = json!({
             "id": client_task_id,
@@ -603,6 +612,12 @@ fn optional_string_patch(
         _ => Err(anyhow!(
             "`{method}` expects `{key}` to be a string or null when provided"
         )),
+    }
+}
+
+fn insert_object_field_if_present(target: &mut Map<String, Value>, source: &Map<String, Value>, key: &str) {
+    if let Some(value) = source.get(key) {
+        target.insert(key.to_string(), value.clone());
     }
 }
 
