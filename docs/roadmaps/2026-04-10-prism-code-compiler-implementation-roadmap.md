@@ -183,6 +183,18 @@ Current phase note:
 - Class helper semantics now survive across local declarations, class expressions, imported
   classes, re-exported classes, namespace-imported classes, instance construction through `new`,
   and both static and instance method invocation.
+- Phase 2 semantic analysis now gives `Promise.resolve` and `Promise.reject` explicit intrinsic
+  async outcome semantics instead of treating them as undifferentiated ordinary calls.
+- Private class methods and private fields are now preserved in semantic analysis and invocation
+  resolution where the underlying frontend exposes them, including `this.#method()` and
+  `this.#field` access inside class helpers.
+- The semantic layer now explicitly rejects forbidden ambient constructs promised by the design,
+  including raw `Date.now()`, raw `Math.random()`, `eval`, `Function`, and dynamic import calls.
+- The final reopened safety pass closes the remaining restricted-feature gaps from the compiler
+  design: raw `new Date()`, `with`, ambient UUID generators, uncontrolled runtime filesystem /
+  network / process modules, uncontrolled network fetches, `Proxy`, reflection-driven object
+  semantics mutation, monkey-patching the `prism` SDK, mutation of ambient globals, and
+  unbounded effectful recursion are now rejected with explicit semantic diagnostics.
 - Multi-module Program IR merging now preserves export metadata, invocation metadata,
   instance-class bindings, and class-method metadata instead of dropping those structures during
   the merge step.

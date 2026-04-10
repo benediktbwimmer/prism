@@ -8,8 +8,8 @@ use deno_ast::swc::ast::{
     CondExpr, Constructor, Decl, DoWhileStmt, Expr, ExprOrSpread, FnDecl, FnExpr, ForHead,
     ForInStmt, ForOfStmt, ForStmt, Function, Ident, IfStmt, ImportDecl, ImportSpecifier,
     KeyValuePatProp, MemberExpr, MemberProp, MethodProp, ModuleDecl, ModuleExportName, NewExpr,
-    ObjectPatProp, OptCall, OptChainBase, Param, Pat, Prop, PropOrSpread, Stmt, SwitchStmt,
-    VarDeclKind, VarDeclarator, WhileStmt,
+    ObjectPatProp, OptCall, OptChainBase, Param, Pat, PrivateMethod, PrivateProp, Prop,
+    PropOrSpread, Stmt, SwitchStmt, VarDeclKind, VarDeclarator, WhileStmt,
 };
 use deno_ast::swc::common::Spanned;
 use deno_ast::swc::common::{BytePos, Span};
@@ -23,11 +23,11 @@ use super::{
         PrismProgramBindingId, PrismProgramBindingKind, PrismProgramBranchKind,
         PrismProgramCallbackBoundaryKind, PrismProgramCompetitionKind,
         PrismProgramCompetitionSemantics, PrismProgramEffectKind, PrismProgramExitMode,
-        PrismProgramFunctionBoundaryKind, PrismProgramHandleKind, PrismProgramInvocationKind,
-        PrismProgramIr, PrismProgramLoopKind, PrismProgramOperationKind, PrismProgramParallelKind,
-        PrismProgramReductionKind, PrismProgramRegionControl, PrismProgramRegionId,
-        PrismProgramRegionKind, PrismProgramSequenceKind, PrismProgramShortCircuitKind,
-        PrismProgramSourceSpan,
+        PrismProgramFunctionBoundaryKind, PrismProgramHandleKind, PrismProgramInvocationId,
+        PrismProgramInvocationKind, PrismProgramIr, PrismProgramLoopKind,
+        PrismProgramOperationKind, PrismProgramParallelKind, PrismProgramReductionKind,
+        PrismProgramRegionControl, PrismProgramRegionId, PrismProgramRegionKind,
+        PrismProgramSequenceKind, PrismProgramShortCircuitKind, PrismProgramSourceSpan,
     },
     resolve_repo_module_import, PreparedTypescriptProgram, PrismCodeResolvedImport,
 };
@@ -87,6 +87,7 @@ struct ProgramAnalyzer<'a> {
     import_binding_targets: HashMap<PrismProgramBindingId, ImportedBindingTarget>,
     this_context_stack: Vec<Option<ThisContext>>,
     pending_label: Option<String>,
+    errors: Vec<String>,
 }
 
 impl<'a> ProgramAnalyzer<'a> {
@@ -118,10 +119,11 @@ impl<'a> ProgramAnalyzer<'a> {
             import_binding_targets: HashMap::new(),
             this_context_stack: vec![None],
             pending_label: None,
+            errors: Vec::new(),
         }
     }
 
-    fn analyze_program_ref(mut self, program: ProgramRef<'_>) -> PrismProgramIr {
+    fn analyze_program_ref(mut self, program: ProgramRef<'_>) -> Result<PrismProgramIr> {
         let root_span = self.ir.regions[0].span.clone();
         self.with_sequence_region(
             root_span,
@@ -144,7 +146,11 @@ impl<'a> ProgramAnalyzer<'a> {
                 }
             },
         );
-        self.ir
+        if self.errors.is_empty() {
+            Ok(self.ir)
+        } else {
+            Err(anyhow!(self.errors.join("\n")))
+        }
     }
 
     fn current_region(&self) -> PrismProgramRegionId {
@@ -159,6 +165,19 @@ impl<'a> ProgramAnalyzer<'a> {
             .function_region_stack
             .last()
             .expect("function region stack should not be empty")
+    }
+
+    fn reject_construct(&mut self, span: Span, message: impl Into<String>) {
+        let span = source_span(self.parsed, span);
+        self.errors.push(format!(
+            "{}:{}:{}-{}:{}: {}",
+            span.specifier,
+            span.start_line,
+            span.start_column,
+            span.end_line,
+            span.end_column,
+            message.into()
+        ));
     }
 
     fn push_scope(&mut self) {
@@ -529,7 +548,12 @@ impl<'a> ProgramAnalyzer<'a> {
             if path.starts_with("prism.")
                 || matches!(
                     path,
-                    "Promise.all" | "Promise.allSettled" | "Promise.any" | "Promise.race"
+                    "Promise.all"
+                        | "Promise.allSettled"
+                        | "Promise.any"
+                        | "Promise.race"
+                        | "Promise.resolve"
+                        | "Promise.reject"
                 )
                 || path.starts_with("plan.")
                 || path.starts_with("task.")
@@ -1049,9 +1073,18 @@ impl<'a> ProgramAnalyzer<'a> {
     }
 
     fn analyze_import(&mut self, import: &ImportDecl) {
+        let raw_specifier = import.src.value.to_atom_lossy().to_string();
+        if let Some(reason) = forbidden_runtime_module_reason(&raw_specifier) {
+            self.reject_construct(import.span, reason);
+        }
         let resolved_import = self.repo_module_path.as_deref().and_then(|module_path| {
             resolve_repo_module_import(module_path, &import.src.value.to_atom_lossy()).ok()
         });
+        if let Some(PrismCodeResolvedImport::RuntimeModule(specifier)) = resolved_import.as_ref() {
+            if let Some(reason) = forbidden_runtime_module_reason(specifier) {
+                self.reject_construct(import.span, reason);
+            }
+        }
         for specifier in &import.specifiers {
             let (binding_id, import_name, is_namespace) = match specifier {
                 ImportSpecifier::Default(default) => (
@@ -1153,8 +1186,10 @@ impl<'a> ProgramAnalyzer<'a> {
                 self.pending_label = previous;
             }
             Stmt::With(with_stmt) => {
-                self.analyze_expr(&with_stmt.obj);
-                self.analyze_stmt(&with_stmt.body);
+                self.reject_construct(
+                    with_stmt.span,
+                    "`with` is not allowed because it destroys analyzability",
+                );
             }
             _ => {}
         }
@@ -1300,7 +1335,45 @@ impl<'a> ProgramAnalyzer<'a> {
                         );
                     }
                 }
+                ClassMember::PrivateMethod(PrivateMethod {
+                    key,
+                    function,
+                    is_static,
+                    ..
+                }) => {
+                    let name = Some(format!("#{}", key.name));
+                    let region_id = self.with_function_boundary_in_context(
+                        function.span,
+                        PrismProgramFunctionBoundaryKind::ClassMethod,
+                        name.clone(),
+                        Some(ThisContext {
+                            class_binding_id,
+                            is_static: *is_static,
+                        }),
+                        PrismProgramSequenceKind::FunctionBody,
+                        |this| {
+                            for param in &function.params {
+                                this.bind_param(param);
+                            }
+                            if let Some(body) = &function.body {
+                                this.analyze_block_contents(body);
+                            }
+                        },
+                    );
+                    self.ir.add_class_method(
+                        class_binding_id,
+                        self.parsed.specifier().to_string(),
+                        format!("#{}", key.name),
+                        *is_static,
+                        region_id,
+                    );
+                }
                 ClassMember::ClassProp(ClassProp {
+                    value: Some(value), ..
+                }) => {
+                    self.analyze_expr(value);
+                }
+                ClassMember::PrivateProp(PrivateProp {
                     value: Some(value), ..
                 }) => {
                     self.analyze_expr(value);
@@ -1877,7 +1950,10 @@ impl<'a> ProgramAnalyzer<'a> {
             Expr::Member(member) => self.analyze_member(member),
             Expr::Paren(paren) => self.analyze_expr(&paren.expr),
             Expr::Unary(unary) => self.analyze_expr(&unary.arg),
-            Expr::Update(update) => self.analyze_expr(&update.arg),
+            Expr::Update(update) => {
+                self.reject_forbidden_write_expr(update.span, &update.arg);
+                self.analyze_expr(&update.arg);
+            }
             Expr::Seq(seq) => {
                 for expr in &seq.exprs {
                     self.analyze_expr(expr);
@@ -1950,6 +2026,9 @@ impl<'a> ProgramAnalyzer<'a> {
         match left {
             deno_ast::swc::ast::AssignTarget::Simple(simple) => match simple {
                 deno_ast::swc::ast::SimpleAssignTarget::Ident(ident) => {
+                    if let Some(path) = ident_path(self, &ident.id) {
+                        self.reject_forbidden_write_target_path(ident.id.span, &path);
+                    }
                     if let Some((binding_id, _)) = self.resolve_binding(&ident.id.sym.to_string()) {
                         self.ir.add_operation(
                             self.current_region(),
@@ -1962,6 +2041,9 @@ impl<'a> ProgramAnalyzer<'a> {
                     }
                 }
                 deno_ast::swc::ast::SimpleAssignTarget::Member(member) => {
+                    if let Some(path) = member_expr_path(self, member) {
+                        self.reject_forbidden_write_target_path(member.span, &path);
+                    }
                     self.analyze_member(member)
                 }
                 deno_ast::swc::ast::SimpleAssignTarget::Paren(paren) => {
@@ -1969,7 +2051,12 @@ impl<'a> ProgramAnalyzer<'a> {
                 }
                 deno_ast::swc::ast::SimpleAssignTarget::OptChain(chain) => match &*chain.base {
                     OptChainBase::Call(call) => self.analyze_opt_call(call),
-                    OptChainBase::Member(member) => self.analyze_member(member),
+                    OptChainBase::Member(member) => {
+                        if let Some(path) = member_expr_path(self, member) {
+                            self.reject_forbidden_write_target_path(member.span, &path);
+                        }
+                        self.analyze_member(member)
+                    }
                 },
                 _ => {}
             },
@@ -2047,6 +2134,24 @@ impl<'a> ProgramAnalyzer<'a> {
     }
 
     fn analyze_new_expr(&mut self, new_expr: &NewExpr) {
+        if matches!(&*new_expr.callee, Expr::Ident(ident) if ident.sym.as_ref() == "Date") {
+            self.reject_construct(
+                new_expr.span,
+                "ambient nondeterminism via new Date() is not allowed; use prism.time.* instead",
+            );
+        }
+        if matches!(&*new_expr.callee, Expr::Ident(ident) if ident.sym.as_ref() == "Proxy") {
+            self.reject_construct(
+                new_expr.span,
+                "Proxy is not allowed because it destroys analyzability",
+            );
+        }
+        if matches!(&*new_expr.callee, Expr::Ident(ident) if ident.sym.as_ref() == "Function") {
+            self.reject_construct(
+                new_expr.span,
+                "dynamic code execution via Function constructor is not allowed",
+            );
+        }
         let (callee_binding_id, import_specifier, import_name) =
             match self.resolve_constructor_target(&new_expr.callee) {
                 Some(ClassTarget::Local {
@@ -2091,8 +2196,33 @@ impl<'a> ProgramAnalyzer<'a> {
         let call_path = call_path_from_callee(self, &call.callee);
         let callee_expr = match &call.callee {
             Callee::Expr(expr) => Some(&**expr),
-            Callee::Super(_) | Callee::Import(_) => None,
+            Callee::Super(_) => None,
+            Callee::Import(_) => {
+                self.reject_construct(call.span, "dynamic import targets are not allowed");
+                None
+            }
         };
+        if let Some(path) = call_path.as_deref() {
+            self.reject_forbidden_call_path(call.span, path);
+            if path == "Object.assign" {
+                if let Some(first_arg) = call.args.first() {
+                    self.reject_forbidden_write_expr(call.span, &first_arg.expr);
+                }
+            }
+        } else if matches!(&call.callee, Callee::Expr(expr) if matches!(&**expr, Expr::Ident(ident) if matches!(ident.sym.as_ref(), "eval" | "Function")))
+        {
+            let label = match &call.callee {
+                Callee::Expr(expr) => match &**expr {
+                    Expr::Ident(ident) if ident.sym.as_ref() == "eval" => "eval",
+                    _ => "Function",
+                },
+                _ => unreachable!(),
+            };
+            self.reject_construct(
+                call.span,
+                format!("dynamic code execution via {label} is not allowed"),
+            );
+        }
         if let Some(control) = call_path
             .as_deref()
             .and_then(|path| program_region_control_for_call(call, path))
@@ -2116,10 +2246,104 @@ impl<'a> ProgramAnalyzer<'a> {
 
     fn analyze_opt_call(&mut self, call: &OptCall) {
         let call_path = call_path_from_expr(self, &call.callee);
+        if let Some(path) = call_path.as_deref() {
+            self.reject_forbidden_call_path(call.span, path);
+        } else if matches!(&*call.callee, Expr::Ident(ident) if matches!(ident.sym.as_ref(), "eval" | "Function"))
+        {
+            let label = match &*call.callee {
+                Expr::Ident(ident) if ident.sym.as_ref() == "eval" => "eval",
+                _ => "Function",
+            };
+            self.reject_construct(
+                call.span,
+                format!("dynamic code execution via {label} is not allowed"),
+            );
+        }
         self.record_call_effect(call.span, &call.callee, call_path.clone());
         self.analyze_expr(&call.callee);
         for arg in &call.args {
             self.analyze_call_arg(arg, call_path.as_deref(), None);
+        }
+    }
+
+    fn reject_forbidden_call_path(&mut self, span: Span, path: &str) {
+        match path {
+            "fetch" | "globalThis.fetch" | "window.fetch" => self.reject_construct(
+                span,
+                "uncontrolled network fetch is not allowed; use explicit PRISM-hosted capabilities instead",
+            ),
+            "Date.now" => self.reject_construct(
+                span,
+                "ambient nondeterminism via Date.now() is not allowed; use prism.time.* instead",
+            ),
+            "Math.random" => self.reject_construct(
+                span,
+                "ambient nondeterminism via Math.random() is not allowed; use prism.random.* instead",
+            ),
+            "crypto.randomUUID" | "globalThis.crypto.randomUUID" | "window.crypto.randomUUID" => {
+                self.reject_construct(
+                    span,
+                    "ambient UUID generation is not allowed; use prism.random.uuid() instead",
+                )
+            }
+            path if path.starts_with("Deno.") => self.reject_construct(
+                span,
+                "uncontrolled Deno runtime access is not allowed on the authored-code surface",
+            ),
+            path if path.starts_with("Bun.") => self.reject_construct(
+                span,
+                "uncontrolled Bun runtime access is not allowed on the authored-code surface",
+            ),
+            path if path.starts_with("process.") => self.reject_construct(
+                span,
+                "ambient process access is not allowed on the authored-code surface",
+            ),
+            "Reflect.defineProperty"
+            | "Reflect.set"
+            | "Reflect.setPrototypeOf"
+            | "Reflect.deleteProperty"
+            | "Object.defineProperty"
+            | "Object.defineProperties"
+            | "Object.setPrototypeOf" => self.reject_construct(
+                span,
+                "reflection-driven object semantics mutation is not allowed on the authored-code surface",
+            ),
+            "eval" => self.reject_construct(
+                span,
+                "dynamic code execution via eval is not allowed",
+            ),
+            "Function" => self.reject_construct(
+                span,
+                "dynamic code execution via Function constructor is not allowed",
+            ),
+            _ => {}
+        }
+    }
+
+    fn reject_forbidden_write_target_path(&mut self, span: Span, path: &str) {
+        if path == "prism" || path.starts_with("prism.") {
+            self.reject_construct(
+                span,
+                "monkey-patching the PRISM SDK is not allowed on the authored-code surface",
+            );
+            return;
+        }
+        if matches!(path, "globalThis" | "window" | "global")
+            || path.starts_with("globalThis.")
+            || path.starts_with("window.")
+            || path.starts_with("global.")
+            || path.starts_with("process.env.")
+        {
+            self.reject_construct(
+                span,
+                "mutation of ambient globals is not allowed on the authored-code surface",
+            );
+        }
+    }
+
+    fn reject_forbidden_write_expr(&mut self, span: Span, expr: &Expr) {
+        if let Some(path) = call_path_from_expr(self, expr) {
+            self.reject_forbidden_write_target_path(span, &path);
         }
     }
 
@@ -2345,7 +2569,7 @@ fn member_expr_path(analyzer: &ProgramAnalyzer<'_>, member: &MemberExpr) -> Opti
     let object_path = call_path_from_expr(analyzer, &member.obj)?;
     let property = match &member.prop {
         MemberProp::Ident(ident) => ident.sym.to_string(),
-        MemberProp::PrivateName(private) => private.name.to_string(),
+        MemberProp::PrivateName(private) => format!("#{}", private.name),
         MemberProp::Computed(computed) => match &*computed.expr {
             Expr::Lit(deno_ast::swc::ast::Lit::Str(value)) => {
                 value.value.to_atom_lossy().to_string()
@@ -2358,7 +2582,26 @@ fn member_expr_path(analyzer: &ProgramAnalyzer<'_>, member: &MemberExpr) -> Opti
 
 fn ident_path(analyzer: &ProgramAnalyzer<'_>, ident: &Ident) -> Option<String> {
     let name = ident.sym.to_string();
-    if name == "prism" || name == "Promise" {
+    if matches!(
+        name.as_str(),
+        "prism"
+            | "Promise"
+            | "Date"
+            | "Math"
+            | "Object"
+            | "Reflect"
+            | "Proxy"
+            | "crypto"
+            | "eval"
+            | "Function"
+            | "fetch"
+            | "Deno"
+            | "Bun"
+            | "process"
+            | "globalThis"
+            | "window"
+            | "global"
+    ) {
         return Some(name);
     }
     let (binding_id, _) = analyzer.resolve_binding(&name)?;
@@ -2572,7 +2815,7 @@ fn class_member_name(key: &deno_ast::swc::ast::PropName) -> Option<String> {
 fn member_prop_name(prop: &MemberProp) -> Option<String> {
     match prop {
         MemberProp::Ident(ident) => Some(ident.sym.to_string()),
-        MemberProp::PrivateName(private) => Some(private.name.to_string()),
+        MemberProp::PrivateName(private) => Some(format!("#{}", private.name)),
         MemberProp::Computed(computed) => match &*computed.expr {
             Expr::Lit(deno_ast::swc::ast::Lit::Str(value)) => {
                 Some(value.value.to_atom_lossy().to_string())
@@ -2598,6 +2841,38 @@ fn source_span(parsed: &ParsedSource, span: Span) -> PrismProgramSourceSpan {
     }
 }
 
+fn forbidden_runtime_module_reason(specifier: &str) -> Option<&'static str> {
+    let exact_match = matches!(
+        specifier,
+        "fs" | "fs/promises"
+            | "node:fs"
+            | "node:fs/promises"
+            | "crypto"
+            | "node:crypto"
+            | "uuid"
+            | "child_process"
+            | "node:child_process"
+            | "http"
+            | "node:http"
+            | "https"
+            | "node:https"
+            | "net"
+            | "node:net"
+            | "tls"
+            | "node:tls"
+            | "dgram"
+            | "node:dgram"
+            | "process"
+            | "node:process"
+    );
+    if exact_match {
+        return Some(
+            "uncontrolled runtime modules for filesystem, network, process, or ambient randomness access are not allowed on the authored-code surface",
+        );
+    }
+    None
+}
+
 pub(crate) fn analyze_prepared_typescript_program(
     prepared: &PreparedTypescriptProgram,
 ) -> Result<AnalyzedPrismProgram> {
@@ -2617,7 +2892,7 @@ pub(crate) fn analyze_prepared_typescript_program(
             source.display_path(),
             source.repo_module_path().map(PathBuf::from),
         );
-        module_irs.push(analyzer.analyze_program_ref(parsed.program_ref()));
+        module_irs.push(analyzer.analyze_program_ref(parsed.program_ref())?);
     }
 
     let mut ir = if module_irs.len() == 1 {
@@ -2627,14 +2902,16 @@ pub(crate) fn analyze_prepared_typescript_program(
     } else {
         merge_module_irs(prepared.root_source().specifier(), module_irs)
     };
-    finalize_program_ir(&mut ir);
+    finalize_program_ir(&mut ir)?;
 
     Ok(AnalyzedPrismProgram { ir })
 }
 
-fn finalize_program_ir(ir: &mut PrismProgramIr) {
+fn finalize_program_ir(ir: &mut PrismProgramIr) -> Result<()> {
     resolve_invocation_targets(ir);
     populate_invocation_summaries(ir);
+    reject_unbounded_effectful_recursion(ir)?;
+    Ok(())
 }
 
 fn resolve_invocation_targets(ir: &mut PrismProgramIr) {
@@ -2874,6 +3151,12 @@ fn populate_invocation_summaries(ir: &mut PrismProgramIr) {
         let target_region_id = ir.invocations[invocation_id].target_region_id;
         let mut effect_kinds = Vec::new();
         let mut exit_modes = Vec::new();
+        if let Some(method_path) = ir.invocations[invocation_id].method_path.as_deref() {
+            let (intrinsic_effects, intrinsic_exit_modes) =
+                intrinsic_invocation_summary(method_path);
+            effect_kinds.extend(intrinsic_effects);
+            exit_modes.extend(intrinsic_exit_modes);
+        }
         if let Some(target_region_id) = target_region_id {
             let summary =
                 summarize_callable_region(ir, target_region_id, &mut cache, &mut HashSet::new());
@@ -2912,6 +3195,113 @@ fn populate_invocation_summaries(ir: &mut PrismProgramIr) {
             ir.add_effect(region_id, kind, span, method_path);
         }
     }
+}
+
+fn intrinsic_invocation_summary(
+    method_path: &str,
+) -> (Vec<PrismProgramEffectKind>, Vec<PrismProgramExitMode>) {
+    match method_path {
+        "Promise.resolve" => (Vec::new(), vec![PrismProgramExitMode::Normal]),
+        "Promise.reject" => (Vec::new(), vec![PrismProgramExitMode::Throw]),
+        _ => (Vec::new(), Vec::new()),
+    }
+}
+
+fn reject_unbounded_effectful_recursion(ir: &PrismProgramIr) -> Result<()> {
+    let mut visited = HashSet::new();
+    let mut active = Vec::new();
+    for region_id in 0..ir.regions.len() {
+        if ir.regions[region_id].kind != PrismProgramRegionKind::FunctionBoundary {
+            continue;
+        }
+        detect_effectful_recursive_cycle(ir, region_id, &mut visited, &mut active)?;
+    }
+    Ok(())
+}
+
+fn detect_effectful_recursive_cycle(
+    ir: &PrismProgramIr,
+    region_id: PrismProgramRegionId,
+    visited: &mut HashSet<PrismProgramRegionId>,
+    active: &mut Vec<PrismProgramRegionId>,
+) -> Result<()> {
+    if active.contains(&region_id) {
+        return Ok(());
+    }
+    if !visited.insert(region_id) {
+        return Ok(());
+    }
+    active.push(region_id);
+    let mut invocation_ids = Vec::new();
+    collect_callable_invocations(ir, region_id, &mut invocation_ids);
+    for invocation_id in invocation_ids {
+        let invocation = &ir.invocations[invocation_id];
+        let Some(target_region_id) = invocation.target_region_id else {
+            continue;
+        };
+        if let Some(cycle_start) = active
+            .iter()
+            .position(|candidate| *candidate == target_region_id)
+        {
+            let cycle_regions = &active[cycle_start..];
+            if recursion_cycle_is_effectful(ir, cycle_regions) {
+                return Err(anyhow!(
+                    "{}:{}:{}: effectful recursion is unbounded and not allowed on the authored-code surface",
+                    invocation.span.specifier,
+                    invocation.span.start_line,
+                    invocation.span.start_column
+                ));
+            }
+            continue;
+        }
+        detect_effectful_recursive_cycle(ir, target_region_id, visited, active)?;
+    }
+    active.pop();
+    Ok(())
+}
+
+fn collect_callable_invocations(
+    ir: &PrismProgramIr,
+    region_id: PrismProgramRegionId,
+    out: &mut Vec<PrismProgramInvocationId>,
+) {
+    let region = &ir.regions[region_id];
+    out.extend(region.invocations.iter().copied());
+    for child_region_id in &region.child_regions {
+        let child = &ir.regions[*child_region_id];
+        if child.kind == PrismProgramRegionKind::FunctionBoundary {
+            continue;
+        }
+        collect_callable_invocations(ir, *child_region_id, out);
+    }
+}
+
+fn recursion_cycle_is_effectful(
+    ir: &PrismProgramIr,
+    cycle_regions: &[PrismProgramRegionId],
+) -> bool {
+    cycle_regions
+        .iter()
+        .any(|region_id| callable_region_has_effects(ir, *region_id))
+}
+
+fn callable_region_has_effects(ir: &PrismProgramIr, region_id: PrismProgramRegionId) -> bool {
+    let region = &ir.regions[region_id];
+    if !region_direct_effects(ir, region_id).is_empty()
+        || region.invocations.iter().any(|invocation_id| {
+            ir.invocations[*invocation_id]
+                .visible_effect_kinds
+                .iter()
+                .any(|kind| *kind != PrismProgramEffectKind::PureCompute)
+        })
+    {
+        return true;
+    }
+    region.child_regions.iter().any(|child_region_id| {
+        let child = &ir.regions[*child_region_id];
+        child.kind != PrismProgramRegionKind::FunctionBoundary
+            && callable_region_has_effects(ir, *child_region_id)
+    })
 }
 
 fn summarize_callable_region(
@@ -3182,6 +3572,16 @@ mod tests {
             prepare_typescript_program(&input, None, PrismTypescriptProgramMode::StatementBody)
                 .expect("program should prepare");
         analyze_prepared_typescript_program(&prepared).expect("program should analyze")
+    }
+
+    fn analyze_error(code: &str) -> String {
+        let input = PrismCodeCompilerInput::inline("prism_code", code, QueryLanguage::Ts, true);
+        let prepared =
+            prepare_typescript_program(&input, None, PrismTypescriptProgramMode::StatementBody)
+                .expect("program should prepare");
+        analyze_prepared_typescript_program(&prepared)
+            .expect_err("program should fail semantic analysis")
+            .to_string()
     }
 
     fn analyze_repo_module(
@@ -3892,5 +4292,201 @@ export class Helper {
         }));
 
         fs::remove_dir_all(&root).expect("temporary test directory should remove");
+    }
+
+    #[test]
+    fn analysis_tracks_private_class_methods_and_fields() {
+        let analyzed = analyze(
+            r#"
+class Helper {
+  #seed = prism.time.now();
+
+  #run(taskId) {
+    return prism.coordination.openTask(taskId);
+  }
+
+  async call(taskId) {
+    const task = await this.#run(taskId);
+    return this.#seed && task;
+  }
+
+  static #boot() {
+    return prism.fs.readText("Cargo.toml");
+  }
+
+  static start() {
+    return this.#boot();
+  }
+}
+
+const helper = new Helper();
+await helper.call("task-1");
+await Helper.start();
+"#,
+        );
+        assert!(analyzed
+            .ir
+            .class_methods
+            .iter()
+            .any(|method| { method.method_name == "#run" && !method.is_static }));
+        assert!(analyzed
+            .ir
+            .class_methods
+            .iter()
+            .any(|method| { method.method_name == "#boot" && method.is_static }));
+        assert!(analyzed.ir.invocations.iter().any(|invocation| {
+            invocation.kind == PrismProgramInvocationKind::LocalMethod
+                && invocation.namespace_member.as_deref() == Some("#run")
+                && invocation.class_method_is_static == Some(false)
+                && invocation.target_region_id.is_some()
+                && invocation
+                    .visible_effect_kinds
+                    .contains(&PrismProgramEffectKind::CoordinationRead)
+        }));
+        assert!(analyzed.ir.invocations.iter().any(|invocation| {
+            invocation.kind == PrismProgramInvocationKind::LocalMethod
+                && invocation.namespace_member.as_deref() == Some("#boot")
+                && invocation.class_method_is_static == Some(true)
+                && invocation.target_region_id.is_some()
+                && invocation
+                    .visible_effect_kinds
+                    .contains(&PrismProgramEffectKind::HostedDeterministicInput)
+        }));
+    }
+
+    #[test]
+    fn analysis_tracks_promise_resolve_and_reject_semantics() {
+        let analyzed = analyze(
+            r#"
+await Promise.resolve("ok");
+await Promise.reject(new Error("boom"));
+"#,
+        );
+        assert!(analyzed.ir.invocations.iter().any(|invocation| {
+            invocation.method_path.as_deref() == Some("Promise.resolve")
+                && invocation.possible_exit_modes == vec![PrismProgramExitMode::Normal]
+        }));
+        assert!(analyzed.ir.invocations.iter().any(|invocation| {
+            invocation.method_path.as_deref() == Some("Promise.reject")
+                && invocation
+                    .possible_exit_modes
+                    .contains(&PrismProgramExitMode::Throw)
+        }));
+    }
+
+    #[test]
+    fn analysis_rejects_ambient_nondeterminism_and_dynamic_code() {
+        let date_now = analyze_error("Date.now();");
+        assert!(date_now.contains("Date.now() is not allowed"));
+
+        let math_random = analyze_error("Math.random();");
+        assert!(math_random.contains("Math.random() is not allowed"));
+
+        let eval_error = analyze_error("eval('1 + 1');");
+        assert!(eval_error.contains("eval is not allowed"));
+
+        let function_error = analyze_error("new Function('return 1');");
+        assert!(function_error.contains("Function constructor is not allowed"));
+    }
+
+    #[test]
+    fn analysis_rejects_dynamic_import_calls() {
+        let error = analyze_error("await import('./helper');");
+        assert!(error.contains("dynamic import targets are not allowed"));
+    }
+
+    #[test]
+    fn analysis_rejects_new_date_and_with() {
+        let new_date = analyze_error("new Date();");
+        assert!(new_date.contains("new Date() is not allowed"));
+
+        let with_error = analyze_error(
+            r#"
+with (obj) {
+  task.complete({ summary: "done" });
+}
+"#,
+        );
+        assert!(with_error.contains("`with` is not allowed"));
+    }
+
+    #[test]
+    fn analysis_rejects_uncontrolled_network_and_runtime_modules() {
+        let fetch_error = analyze_error("await fetch('https://example.com');");
+        assert!(fetch_error.contains("network fetch is not allowed"));
+
+        let deno_error = analyze_error("await Deno.readTextFile('secret.txt');");
+        assert!(deno_error.contains("Deno runtime access is not allowed"));
+
+        let import_error = analyze_error("import { readFile } from 'node:fs/promises';");
+        assert!(import_error.contains(
+            "runtime modules for filesystem, network, process, or ambient randomness access are not allowed"
+        ));
+    }
+
+    #[test]
+    fn analysis_rejects_ambient_uuid_and_meta_object_tricks() {
+        let uuid_error = analyze_error("crypto.randomUUID();");
+        assert!(uuid_error.contains("ambient UUID generation is not allowed"));
+
+        let uuid_import_error = analyze_error("import { v4 } from 'uuid';");
+        assert!(uuid_import_error.contains(
+            "runtime modules for filesystem, network, process, or ambient randomness access are not allowed"
+        ));
+
+        let proxy_error = analyze_error("new Proxy({}, {});");
+        assert!(proxy_error.contains("Proxy is not allowed"));
+
+        let reflect_error = analyze_error("Reflect.defineProperty(obj, 'x', { value: 1 });");
+        assert!(
+            reflect_error.contains("reflection-driven object semantics mutation is not allowed")
+        );
+    }
+
+    #[test]
+    fn analysis_rejects_sdk_and_ambient_global_mutation() {
+        let sdk_assign_error = analyze_error("prism.coordination = {};");
+        assert!(sdk_assign_error.contains("monkey-patching the PRISM SDK is not allowed"));
+
+        let sdk_assign_call_error = analyze_error("Object.assign(prism, { coordination: {} });");
+        assert!(sdk_assign_call_error.contains("monkey-patching the PRISM SDK is not allowed"));
+
+        let global_assign_error = analyze_error("globalThis.runtimeFlag = true;");
+        assert!(global_assign_error.contains("mutation of ambient globals is not allowed"));
+
+        let global_update_error = analyze_error("window.counter++;");
+        assert!(global_update_error.contains("mutation of ambient globals is not allowed"));
+    }
+
+    #[test]
+    fn analysis_rejects_unbounded_effectful_recursion_but_allows_pure_recursion() {
+        let recursion_error = analyze_error(
+            r#"
+async function expand(taskId) {
+  await prism.coordination.openTask(taskId);
+  return expand(taskId);
+}
+
+await expand("task-1");
+"#,
+        );
+        assert!(recursion_error.contains("effectful recursion is unbounded"));
+
+        let analyzed = analyze(
+            r#"
+function fib(n) {
+  if (n <= 1) {
+    return n;
+  }
+  return fib(n - 1) + fib(n - 2);
+}
+
+fib(5);
+"#,
+        );
+        assert!(analyzed.ir.invocations.iter().any(|invocation| {
+            invocation.kind == PrismProgramInvocationKind::LocalFunction
+                && invocation.method_path.as_deref() == Some("fib")
+        }));
     }
 }
