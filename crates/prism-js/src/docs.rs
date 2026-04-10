@@ -2671,6 +2671,9 @@ The current native builder slice is intentionally narrow:
     `artifactRequirements`, and `reviewRequirements`
 - `task.dependsOn(...)`
 - `task.update(...)`
+  - now supports richer native task update fields including `assignee`, `priority`,
+    `dependsOn`, `anchors`, `acceptance`, `validationRefs`, `tags`,
+    `artifactRequirements`, and `reviewRequirements`
 - `task.complete(...)`
 
 These helpers stage one coordination transaction during the `prism_code` invocation and commit it
@@ -2724,6 +2727,8 @@ const task = await prism.coordination.openTask("task:123");
 await task.update({
   title: "Investigate the latest regression thoroughly",
   summary: "Re-check the refresh path after the runtime cutover.",
+  priority: 5,
+  tags: ["native-builder"],
 });
 await task.complete();
 return task;

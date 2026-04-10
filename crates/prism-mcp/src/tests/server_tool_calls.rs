@@ -1176,6 +1176,157 @@ return { plan, task };
 }
 
 #[tokio::test]
+async fn mcp_server_updates_native_prism_code_tasks_with_richer_task_fields() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const declared = await prism.mutate({
+  action: "declare_work",
+  input: {
+    title: "Exercise rich native prism_code task updates",
+  },
+});
+return {
+  declaredAction: declared.action,
+};
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let declared = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared["result"]["declaredAction"], "declare_work");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const plan = await prism.coordination.createPlan({
+  title: "Rich task update plan",
+  goal: "Exercise native task update fields",
+});
+const prerequisite = await plan.addTask({ title: "Capture baseline" });
+const task = await plan.addTask({ title: "Investigate runtime behavior" });
+return { plan, prerequisite, task };
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let created = first_tool_content_json(client.receive().await.unwrap());
+    let prerequisite_id = created["result"]["prerequisite"]["id"]
+        .as_str()
+        .expect("prerequisite id should be a string")
+        .to_string();
+    let task_id = created["result"]["task"]["id"]
+        .as_str()
+        .expect("task id should be a string")
+        .to_string();
+
+    client
+        .send(call_tool_request(
+            4,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": format!(
+                    r#"
+const prerequisite = await prism.coordination.openTask("{prerequisite_id}");
+const task = await prism.coordination.openTask("{task_id}");
+await task.update({{
+  assignee: "agent-9",
+  priority: 7,
+  summary: "Inspect the richer native builder update path.",
+  tags: ["runtime", "native-builder"],
+  validationRefs: [{{ id: "lint" }}],
+  anchors: [{{
+    type: "node",
+    crateName: "demo",
+    path: "demo::main",
+    kind: "function",
+  }}],
+  artifactRequirements: [{{
+    clientArtifactRequirementId: "evidence",
+    kind: "note",
+  }}],
+  reviewRequirements: [{{
+    clientReviewRequirementId: "check",
+    artifactRequirementRef: "evidence",
+    allowedReviewerClasses: ["human"],
+  }}],
+  dependsOn: [prerequisite],
+}});
+return {{ task }};
+"#
+                ),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let updated = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(updated["result"]["task"]["id"], task_id);
+    assert_eq!(updated["result"]["task"]["assignee"], "agent-9");
+    assert_eq!(updated["result"]["task"]["priority"], 7);
+    assert_eq!(
+        updated["result"]["task"]["summary"],
+        "Inspect the richer native builder update path."
+    );
+    assert_eq!(
+        updated["result"]["task"]["tags"],
+        json!(["native-builder", "runtime"])
+    );
+    assert_eq!(
+        updated["result"]["task"]["validationRefs"],
+        json!([{ "id": "lint" }])
+    );
+    assert_eq!(updated["result"]["task"]["anchors"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        updated["result"]["task"]["artifactRequirements"][0]["clientArtifactRequirementId"],
+        "evidence"
+    );
+    assert_eq!(
+        updated["result"]["task"]["reviewRequirements"][0]["artifactRequirementRef"],
+        "evidence"
+    );
+    assert_eq!(updated["result"]["task"]["dependencies"].as_array().unwrap().len(), 1);
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);

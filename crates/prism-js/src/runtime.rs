@@ -987,7 +987,21 @@ function __prismCoordinationTaskHandle(raw) {
         "task.update",
         input,
         "input",
-        ["title", "status", "summary"]
+        [
+          "title",
+          "status",
+          "summary",
+          "assignee",
+          "priority",
+          "dependsOn",
+          "depends_on",
+          "anchors",
+          "acceptance",
+          "validationRefs",
+          "tags",
+          "artifactRequirements",
+          "reviewRequirements",
+        ]
       );
       return __prismCoordinationTaskHandle(
         __prismHost("__coordinationTaskUpdate", {

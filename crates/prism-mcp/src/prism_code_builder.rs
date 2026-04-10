@@ -275,19 +275,60 @@ impl PrismCodeExecutionContext {
         let status = optional_string(&input, "status");
         let title = optional_string(&input, "title");
         let summary = optional_string_patch(&input, "summary", "task.update")?;
-        if status.is_none() && title.is_none() && summary.is_none() {
+        let assignee = optional_string_patch(&input, "assignee", "task.update")?;
+        let priority = optional_u8_patch(&input, "priority", "task.update")?;
+        let depends_on = input
+            .get("dependsOn")
+            .or_else(|| input.get("depends_on"))
+            .map(|value| staged.task_ref_list(value, "task.update"))
+            .transpose()?;
+        let has_object_field = |key: &str| input.contains_key(key);
+        if status.is_none()
+            && title.is_none()
+            && summary.is_none()
+            && assignee.is_none()
+            && priority.is_none()
+            && depends_on.is_none()
+            && !has_object_field("anchors")
+            && !has_object_field("acceptance")
+            && !has_object_field("validationRefs")
+            && !has_object_field("tags")
+            && !has_object_field("artifactRequirements")
+            && !has_object_field("reviewRequirements")
+        {
             return Err(anyhow!(
-                "`task.update` requires at least one of `status`, `title`, or `summary`"
+                "`task.update` requires at least one supported field"
             ));
         }
+        let mut task_input = Map::new();
+        task_input.insert("task".to_string(), task);
+        if let Some(status) = status {
+            task_input.insert("status".to_string(), Value::String(status));
+        }
+        if let Some(title) = title {
+            task_input.insert("title".to_string(), Value::String(title));
+        }
+        if let Some(summary) = summary {
+            task_input.insert("summary".to_string(), summary);
+        }
+        if let Some(assignee) = assignee {
+            task_input.insert("assignee".to_string(), assignee);
+        }
+        if let Some(priority) = priority {
+            task_input.insert("priority".to_string(), priority);
+        }
+        if let Some(depends_on) = depends_on {
+            task_input.insert("dependsOn".to_string(), Value::Array(depends_on));
+        }
+        insert_object_field_if_present(&mut task_input, &input, "anchors");
+        insert_object_field_if_present(&mut task_input, &input, "acceptance");
+        insert_object_field_if_present(&mut task_input, &input, "validationRefs");
+        insert_object_field_if_present(&mut task_input, &input, "tags");
+        insert_object_field_if_present(&mut task_input, &input, "artifactRequirements");
+        insert_object_field_if_present(&mut task_input, &input, "reviewRequirements");
         staged.mutations.push(json!({
             "action": "task_update",
-            "input": {
-                "task": task,
-                "status": status,
-                "title": title,
-                "summary": summary,
-            }
+            "input": task_input,
         }));
         Ok(task_handle(&handle_id))
     }
@@ -615,7 +656,34 @@ fn optional_string_patch(
     }
 }
 
-fn insert_object_field_if_present(target: &mut Map<String, Value>, source: &Map<String, Value>, key: &str) {
+fn optional_u8_patch(object: &Map<String, Value>, key: &str, method: &str) -> Result<Option<Value>> {
+    let Some(value) = object.get(key) else {
+        return Ok(None);
+    };
+    match value {
+        Value::Null => Ok(Some(json!({ "op": "clear" }))),
+        Value::Number(number) => {
+            let Some(value) = number.as_u64() else {
+                return Err(anyhow!(
+                    "`{method}` expects `{key}` to be a non-negative integer or null when provided"
+                ));
+            };
+            let value = u8::try_from(value).map_err(|_| {
+                anyhow!("`{method}` expects `{key}` to fit in the 0..=255 range")
+            })?;
+            Ok(Some(Value::Number(value.into())))
+        }
+        _ => Err(anyhow!(
+            "`{method}` expects `{key}` to be a non-negative integer or null when provided"
+        )),
+    }
+}
+
+fn insert_object_field_if_present(
+    target: &mut Map<String, Value>,
+    source: &Map<String, Value>,
+    key: &str,
+) {
     if let Some(value) = source.get(key) {
         target.insert(key.to_string(), value.clone());
     }

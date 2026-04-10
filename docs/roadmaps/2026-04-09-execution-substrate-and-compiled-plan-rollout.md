@@ -483,6 +483,8 @@ Current progress:
   acceptance criteria, and artifact/review requirements
 - landed: first native plan lifecycle methods through plan update and plan archive
 - landed: first native lifecycle methods through task reopen, task update, and task completion
+- landed: richer native task update fields through `task.update(...)`, including assignee,
+  priority, validation refs, dependency rewiring, and artifact/review requirements
 - remaining: extend the same builder/compiler core until normal coordination authoring no longer
   needs the legacy `prism.mutate(...)` escape hatch
 

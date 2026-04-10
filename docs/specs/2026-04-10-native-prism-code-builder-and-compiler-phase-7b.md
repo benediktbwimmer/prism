@@ -114,6 +114,8 @@ Status note (2026-04-10):
 - landed: live-plan extension through `prism.coordination.openPlan(...)`
 - landed: task reopen/update/complete through `prism.coordination.openTask(...)`,
   `task.update(...)`, and `task.complete(...)`
+- landed: richer native task update fields through `task.update(...)`, including assignee,
+  priority, validation refs, dependency rewiring, and artifact/review requirements
 - remaining: broaden native lifecycle coverage so normal coordination work no longer needs the
   legacy `prism.mutate(...)` escape hatch at all
 
