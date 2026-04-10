@@ -110,7 +110,7 @@ This roadmap is complete only when all of the following are true.
 Current phase checklist:
 
 - [x] Phase 0: freeze roadmap, architecture, and review process
-- [ ] Phase 1: build the compiler substrate and surface registry foundations
+- [x] Phase 1: build the compiler substrate and surface registry foundations
 - [ ] Phase 2: implement PRISM Program IR and effect classification
 - [ ] Phase 3: implement structured transactional lowering for current write semantics
 - [ ] Phase 4: cut runtime `prism_code` execution onto the compiler path
@@ -122,8 +122,9 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 2 review gate: richer PRISM Program IR and semantic analysis are ready for explicit review
-  before any Phase 3 rework resumes
+- Phase 2 review gate: Program IR and semantic analysis now appear faithful to the compiler
+  architecture design after the reopened fidelity pass, but Phase 2 must be reviewed together with
+  the user before it can be claimed complete or Phase 3 may resume
 
 Current phase note:
 
@@ -169,6 +170,28 @@ Current phase note:
 - The live `prism_code` runtime path still runs semantic analysis before transpilation and records
   a dedicated `typescript.*.semanticAnalysis` phase, so the richer Program IR is exercised on the
   real runtime path rather than only through isolated unit tests.
+- The reopened Phase 2 fidelity pass closes the gaps that previously kept the phase open.
+- Imported helper functions are now analyzed across `.prism/code/**` module boundaries, including
+  exported const arrow helpers and re-export chains, and callsites surface callee effects through
+  explicit invocation summaries.
+- Program IR now carries a first-class invocation model with explicit invocation kinds, target
+  regions, visible effect kinds, possible exit modes, module/export metadata, and class-method
+  metadata rather than only coarse effect-site tagging.
+- The analyzer now preserves `for await...of`, labeled `break` and `continue`, richer competition
+  semantics for `Promise.race` and `Promise.any`, and reduction metadata that preserves
+  accumulator/element binding identity, initial-value presence, and iteration-order semantics.
+- Class helper semantics now survive across local declarations, class expressions, imported
+  classes, re-exported classes, namespace-imported classes, instance construction through `new`,
+  and both static and instance method invocation.
+- Multi-module Program IR merging now preserves export metadata, invocation metadata,
+  instance-class bindings, and class-method metadata instead of dropping those structures during
+  the merge step.
+- The current targeted validation bar for this Phase 2 boundary is:
+  - `cargo test -p prism-mcp prism_code_compiler -- --nocapture`
+  - `cargo test -p prism-mcp mcp_server_executes_native_prism_code_coordination_builders -- --nocapture`
+  - `cargo test -p prism-mcp mcp_server_executes_mixed_prism_code_writes_in_one_invocation -- --nocapture`
+- Phase 2 now appears faithful to the compiler design, but it remains at the explicit review gate
+  until the user confirms that assessment.
 - Phase 3 is not yet complete because the current write runtime still lowers through explicit
   host-operation-oriented methods and op enums rather than the design's promised structured
   compiler lowering semantics.
