@@ -254,6 +254,26 @@ pub(crate) fn mutation_credential_json(credential: &MutationCredentialFixture) -
     })
 }
 
+pub(crate) fn prism_code_read_arguments(code: impl Into<String>) -> serde_json::Map<String, Value> {
+    serde_json::Map::from_iter([(String::from("code"), json!(code.into()))])
+}
+
+pub(crate) fn prism_code_mutation_arguments(
+    mutation: Value,
+    credential: &MutationCredentialFixture,
+) -> serde_json::Map<String, Value> {
+    serde_json::Map::from_iter([
+        (
+            String::from("code"),
+            json!(format!(
+                "return prism.mutate({});",
+                serde_json::to_string(&mutation).expect("mutation payload should serialize"),
+            )),
+        ),
+        (String::from("credential"), mutation_credential_json(credential)),
+    ])
+}
+
 pub(crate) fn host_with_session_internal_and_limits(
     workspace: WorkspaceSession,
     limits: QueryLimits,

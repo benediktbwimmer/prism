@@ -35,7 +35,7 @@ pub(crate) fn map_query_error(error: anyhow::Error) -> McpError {
     }
     if let Some(json_error) = error.downcast_ref::<serde_json::Error>() {
         return McpError::invalid_params(
-            "prism_query arguments invalid",
+            "prism_code arguments invalid",
             Some(json!({
                 "code": "query_invalid_argument",
                 "category": "invalid_argument",
@@ -45,31 +45,12 @@ pub(crate) fn map_query_error(error: anyhow::Error) -> McpError {
         );
     }
     McpError::internal_error(
-        "prism query failed",
+        "prism code failed",
         Some(json!({
             "code": "query_execution_failed",
             "error": error.to_string(),
         })),
     )
-}
-
-fn rewrite_tool_name_in_json(value: &mut serde_json::Value, from: &str, to: &str) {
-    match value {
-        serde_json::Value::String(text) => {
-            *text = text.replace(from, to);
-        }
-        serde_json::Value::Array(items) => {
-            for item in items {
-                rewrite_tool_name_in_json(item, from, to);
-            }
-        }
-        serde_json::Value::Object(map) => {
-            for value in map.values_mut() {
-                rewrite_tool_name_in_json(value, from, to);
-            }
-        }
-        _ => {}
-    }
 }
 
 pub(crate) fn map_code_error(error: anyhow::Error) -> McpError {
@@ -87,17 +68,13 @@ pub(crate) fn map_code_error(error: anyhow::Error) -> McpError {
         );
     }
     if let Some(query_error) = error.downcast_ref::<QueryExecutionError>() {
-        let mut data = query_error.data().clone();
-        rewrite_tool_name_in_json(&mut data, "prism_query", "prism_code");
-        let message = query_error.to_string().replace("prism_query", "prism_code");
-        let summary = query_error.summary().replace("prism_query", "prism_code");
         if matches!(
             query_error.code(),
             Some("query_feature_disabled" | "query_invalid_argument")
         ) {
-            return McpError::invalid_params(message, Some(data));
+            return McpError::invalid_params(query_error.to_string(), Some(query_error.data().clone()));
         }
-        return McpError::internal_error(summary, Some(data));
+        return McpError::internal_error(query_error.summary(), Some(query_error.data().clone()));
     }
     if let Some(json_error) = error.downcast_ref::<serde_json::Error>() {
         return McpError::invalid_params(

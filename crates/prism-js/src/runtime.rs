@@ -106,8 +106,8 @@ function __prismValidateRecordShape(methodPath, value, argumentName, allowedKeys
   }
   if (typeof value !== "object" || Array.isArray(value)) {
     __prismThrowQueryUserError(
-      "prism_query arguments invalid",
-      `prism_query arguments invalid for \`${methodPath}\`: \`${argumentName}\` must be an object when provided.\nHint: Pass a plain object with the documented keys, or omit \`${argumentName}\` entirely.`,
+      "prism_code arguments invalid",
+      `prism_code arguments invalid for \`${methodPath}\`: \`${argumentName}\` must be an object when provided.\nHint: Pass a plain object with the documented keys, or omit \`${argumentName}\` entirely.`,
       {
         code: "query_invalid_argument",
         category: "invalid_argument",
@@ -137,8 +137,8 @@ function __prismValidateRecordShape(methodPath, value, argumentName, allowedKeys
       ? `Use the documented key spelling instead (${suggestionSummary}) and retry.`
       : `Use only documented keys for \`${methodPath}\` and retry.`;
   __prismThrowQueryUserError(
-    "prism_query arguments invalid",
-    `prism_query arguments invalid for \`${methodPath}\`: unknown ${unknownKeys.length === 1 ? "key" : "keys"} ${unknownSummary} in \`${argumentName}\`.\nHint: ${hint} Check \`prism://api-reference\` for the exact shape.`,
+    "prism_code arguments invalid",
+    `prism_code arguments invalid for \`${methodPath}\`: unknown ${unknownKeys.length === 1 ? "key" : "keys"} ${unknownSummary} in \`${argumentName}\`.\nHint: ${hint} Check \`prism://api-reference\` for the exact shape.`,
     {
       code: "query_invalid_argument",
       category: "invalid_argument",
@@ -304,7 +304,7 @@ function __prismNormalizePath(path) {
 function __prismNormalizeRuntimeId(runtimeId) {
   if (typeof runtimeId !== "string" || runtimeId.trim() === "") {
     __prismThrowQueryUserError(
-      "prism_query remote runtime target invalid",
+      "prism_code remote runtime target invalid",
       "runtimeId must be a non-empty string.\nHint: Pass a runtime id published in shared coordination, for example `prism.from(\"runtime-abc\")`.",
       {
         code: "remote_runtime_id_required",

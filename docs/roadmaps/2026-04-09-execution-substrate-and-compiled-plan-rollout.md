@@ -431,7 +431,7 @@ Current progress:
 
 - Slice 1 is landed: `prism_code` is the canonical read transport across MCP docs, schemas, resources, and API reference.
 - Slice 2 is landed in minimum form: authenticated `prism_code` now supports `prism.mutate(...)` plus `dryRun` lowering through the shared JS/TS surface.
-- Slice 3 remains before Phase 7 can close: remove the remaining public emphasis on `prism_query` / `prism_mutate` and finish migrating recipes/tests to `prism_code`.
+- Slice 3 is in progress: the public MCP transport is now `prism_code`-only, but the remaining MCP schema/resource/test surface still needs to finish migrating off `prism_query` / `prism_mutate` before Phase 7 can close.
 
 ### Phase 8: Implement the shared execution substrate core
 

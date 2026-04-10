@@ -5,12 +5,12 @@ use super::*;
 use crate::tests_support::{
     call_tool_request, first_tool_content_json, host_with_session_internal,
     host_with_shared_session_and_features, host_with_shared_session_internal, initialize_client,
-    initialized_notification, mutation_credential_json, retry_on_runtime_sync_busy,
-    shared_workspace_session, temp_workspace, test_session,
+    initialized_notification, prism_code_mutation_arguments, prism_code_read_arguments,
+    retry_on_runtime_sync_busy, shared_workspace_session, temp_workspace, test_session,
     workspace_session_with_owner_credential,
 };
 #[tokio::test]
-async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
+async fn mcp_server_reports_review_queues_and_blockers_via_prism_code() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);
     let server = PrismMcpServer::with_session(session);
@@ -28,53 +28,47 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
     client
         .send(call_tool_request(
             2,
-            "prism_mutate",
-            json!({
+            "prism_code",
+            prism_code_mutation_arguments(json!({
                 "action": "declare_work",
-                "credential": mutation_credential_json(&credential),
                 "input": {
                     "title": "Review coordination blockers"
                 }
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            }), &credential),
         ))
         .await
         .unwrap();
     let declared_work = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(declared_work["action"], "declare_work");
+    assert_eq!(declared_work["result"]["action"], "declare_work");
 
     client
         .send(call_tool_request(
             3,
-            "prism_mutate",
-            json!({
+            "prism_code",
+            prism_code_mutation_arguments(json!({
                 "action": "coordination",
-                "credential": mutation_credential_json(&credential),
                 "input": {
                     "kind": "plan_create",
                     "payload": { "title": "Review-gated change", "goal": "Review-gated change",
                         "policy": { "requireReviewForCompletion": true }
                     }
                 }
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            }), &credential),
         ))
         .await
         .unwrap();
     let plan = first_tool_content_json(client.receive().await.unwrap());
-    let plan_id = plan["result"]["state"]["id"].as_str().unwrap().to_string();
+    let plan_id = plan["result"]["result"]["state"]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     client
         .send(call_tool_request(
             4,
-            "prism_mutate",
-            json!({
+            "prism_code",
+            prism_code_mutation_arguments(json!({
                 "action": "coordination",
-                "credential": mutation_credential_json(&credential),
                 "input": {
                     "kind": "task_create",
                     "payload": {
@@ -88,23 +82,22 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
                         }]
                     }
                 }
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            }), &credential),
         ))
         .await
         .unwrap();
     let task = first_tool_content_json(client.receive().await.unwrap());
-    let task_id = task["result"]["state"]["id"].as_str().unwrap().to_string();
+    let task_id = task["result"]["result"]["state"]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     client
         .send(call_tool_request(
             5,
-            "prism_mutate",
-            json!({
+            "prism_code",
+            prism_code_mutation_arguments(json!({
                 "action": "artifact",
-                "credential": mutation_credential_json(&credential),
                 "input": {
                     "action": "propose",
                     "payload": {
@@ -112,35 +105,26 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
                         "diffRef": "patch:review-gated"
                     }
                 }
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            }), &credential),
         ))
         .await
         .unwrap();
     let artifact = first_tool_content_json(client.receive().await.unwrap());
-    assert!(artifact["result"]["artifactId"].as_str().is_some());
+    assert!(artifact["result"]["result"]["artifactId"].as_str().is_some());
 
     client
         .send(call_tool_request(
             6,
-            "prism_query",
-            json!({
-                "code": format!(
-                    r#"
+            "prism_code",
+            prism_code_read_arguments(format!(
+                r#"
 return {{
   blockers: prism.blockers("{task_id}"),
   taskEvidenceStatus: prism.taskEvidenceStatus("{task_id}"),
   pendingReviews: prism.pendingReviews("{plan_id}"),
 }};
 "#
-                ),
-                "language": "ts",
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            )),
         ))
         .await
         .unwrap();

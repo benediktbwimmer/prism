@@ -47,9 +47,7 @@ Compact-tool note:
 
 The MCP transport surface currently includes:
 
-- `prism_code` as the canonical programmable surface in the current cutover slice
-- `prism_query` as the legacy read transport while the cutover completes
-- `prism_mutate` as the underlying coarse mutation transport while `prism_code` lowering expands
+- `prism_code` as the canonical programmable surface
 - `prism://session` as the read-only view of current work, task focus, and workspace context
 
 ## Mental model
@@ -2055,20 +2053,17 @@ return prism.searchText("read context", {
 });
 ```
 
-### 5b. Inspect tool payload requirements without leaving `prism_code`
+### 5b. Inspect the canonical programmable tool contract without leaving `prism_code`
 
 ```ts
-const mutate = prism.tool("prism_mutate");
-return mutate?.actions.find((action) => action.action === "validation_feedback");
+return prism.tool("prism_code");
 ```
 
-### 5c. Validate a tool payload before you call the tool
+### 5c. Validate `prism_code` transport input before you call the tool
 
 ```ts
-return prism.validateToolInput("prism_mutate", {
-  action: "coordination",
-  kind: "task_create",
-  payload: { title: "Missing plan id" },
+return prism.validateToolInput("prism_code", {
+  code: "return prism.entrypoints().slice(0, 3);",
 });
 ```
 
@@ -2639,7 +2634,7 @@ likely validations, and 1 to 2 `nextReads`.
 
 - Target direction: a compact staged default agent ABI built around `prism_locate`, `prism_open`,
   `prism_gather`, `prism_workset`, `prism_expand`, `prism_task_brief`, and `prism_concept`, with
-  `prism_code` as the canonical programmable surface and `prism_query` remaining only as a legacy read transport during the cutover.
+  `prism_code` as the canonical programmable surface.
 - Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, focused local block retrieval, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
 - Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
 - Available now: consistent eager bundle helpers through `prism.symbolBundle(...)`, `prism.searchBundle(...)`, `prism.textSearchBundle(...)`, and `prism.targetBundle(...)` with stable `summary`, `diagnostics`, and `suggestedReads` fields. These remain useful, but they are no longer the intended long-term default first hop for agent work.

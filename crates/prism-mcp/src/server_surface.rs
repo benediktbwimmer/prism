@@ -340,10 +340,10 @@ impl PrismMcpServer {
         &self,
         args: PrismMutationArgs,
     ) -> Result<PrismMutationResult, McpError> {
-        let response = self.prism_mutate(Parameters(args))?;
+        let response = self.execute_prism_mutation_internal(args)?;
         let structured = response.structured_content.ok_or_else(|| {
             McpError::internal_error(
-                "prism_mutate did not return structured content",
+                "prism_code mutation lowering did not return structured content",
                 Some(json!({
                     "code": "mutation_missing_structured_content",
                 })),
@@ -351,7 +351,7 @@ impl PrismMcpServer {
         })?;
         serde_json::from_value::<PrismMutationResult>(structured).map_err(|error| {
             McpError::internal_error(
-                "failed to decode structured prism_mutate result",
+                "failed to decode structured prism_code mutation result",
                 Some(json!({
                     "code": "mutation_result_decode_failed",
                     "error": error.to_string(),
@@ -381,7 +381,7 @@ impl PrismMcpServer {
                 .cloned()
                 .ok_or_else(|| {
                     anyhow::anyhow!(
-                        "prism.mutate expects an object shaped like prism_mutate input with `action` and `input` fields"
+                        "prism.mutate expects an object with `action` and `input` fields"
                     )
                 })?;
 
@@ -489,7 +489,7 @@ impl PrismMcpServer {
         let workspace_started = Instant::now();
         let workspace = self.host.workspace_session().ok_or_else(|| {
             McpError::internal_error(
-                "prism_mutate requires a workspace-backed session",
+                "prism_code mutations require a workspace-backed session",
                 Some(json!({
                     "code": "mutation_auth_workspace_required",
                     "nextAction": "Run the mutation against a workspace-backed PRISM MCP session so the server can verify principal credentials.",
@@ -660,7 +660,7 @@ impl PrismMcpServer {
     ) -> Result<(), McpError> {
         let workspace = self.host.workspace_session().ok_or_else(|| {
             McpError::internal_error(
-                "prism_mutate requires a workspace-backed session",
+                "prism_code mutations require a workspace-backed session",
                 Some(json!({
                     "code": "mutation_auth_workspace_required",
                     "nextAction": "Run the mutation against a workspace-backed PRISM MCP session so the server can verify the attached worktree execution lane.",
@@ -733,7 +733,7 @@ impl PrismMcpServer {
             Some(json!({
                 "code": "mutation_declared_work_required",
                 "action": action_name,
-                "nextAction": "Call `prism_mutate` with `action: \"declare_work\"` to declare intent before retrying this mutation, or provide an explicit taskId/claimId when the action supports it.",
+                "nextAction": "Call `prism_code` with `prism.mutate({ action: \"declare_work\", input: ... })` to declare intent before retrying this mutation, or provide an explicit taskId/claimId when the action supports it.",
             })),
         ))
     }
@@ -1352,16 +1352,9 @@ impl PrismMcpServer {
         structured_tool_result(envelope)
     }
 
-    #[tool(
-        name = "prism_query",
-        description = "Execute a read-only TypeScript query against the live PRISM runtime. Read the capabilities and schema resources for the currently available API surface.",
-        annotations(title = "Programmable PRISM Query", read_only_hint = true),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<QueryEnvelopeSchema>()
-            .unwrap()
-    )]
-    fn prism_query(
+    fn execute_prism_query_internal(
         &self,
-        Parameters(args): Parameters<PrismQueryArgs>,
+        args: PrismQueryArgs,
     ) -> Result<CallToolResult, McpError> {
         if args.code.trim().is_empty() {
             return Err(McpError::invalid_params(
@@ -1378,20 +1371,9 @@ impl PrismMcpServer {
         structured_tool_result(envelope)
     }
 
-    #[tool(
-        description = "Execute a coarse PRISM mutation. Use the tagged action union for outcomes, memory, validation feedback, inferred edges, coordination, claims, artifacts, and curator decisions.",
-        annotations(
-            title = "Mutate PRISM State",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<PrismMutationResult>()
-            .unwrap()
-    )]
-    fn prism_mutate(
+    fn execute_prism_mutation_internal(
         &self,
-        Parameters(args): Parameters<PrismMutationArgs>,
+        args: PrismMutationArgs,
     ) -> Result<CallToolResult, McpError> {
         let PrismMutationArgs {
             credential,
@@ -1401,7 +1383,7 @@ impl PrismMcpServer {
         let action = mutation.action_tag();
         if !self.host.features.prism_mutate_action_visible(action) {
             return Err(McpError::invalid_params(
-                "prism_mutate action is unavailable in the active runtime mode",
+                "prism_code mutation action is unavailable in the active runtime mode",
                 Some(json!({
                     "action": action,
                     "runtimeMode": self.host.features.runtime_mode_label(),

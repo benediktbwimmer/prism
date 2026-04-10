@@ -61,9 +61,9 @@ pub(crate) fn invalid_query_argument_error(
                 .to_string()
         });
     QueryExecutionError {
-        summary: "prism_query arguments invalid",
+        summary: "prism_code arguments invalid",
         message: format!(
-            "prism_query arguments invalid for `{operation}`: {detail}\nHint: {next_action}"
+            "prism_code arguments invalid for `{operation}`: {detail}\nHint: {next_action}"
         ),
         data: json!({
             "code": "query_invalid_argument",
@@ -91,7 +91,7 @@ pub(crate) fn query_feature_disabled_error(operation: &str, group: &str) -> anyh
         ),
     };
     QueryExecutionError {
-        summary: "prism_query feature disabled",
+        summary: "prism_code feature disabled",
         message: format!("{message}\nHint: {next_action}"),
         data: json!({
             "code": "query_feature_disabled",
@@ -113,12 +113,12 @@ fn decode_marshaled_query_error(body: &str) -> Option<QueryExecutionError> {
         .ok()?;
     let data = payload.get("data")?.clone();
     let summary = match data.get("code")?.as_str()? {
-        "query_invalid_argument" => "prism_query arguments invalid",
-        "query_feature_disabled" => "prism_query feature disabled",
-        "remote_runtime_id_required" => "prism_query remote runtime target invalid",
-        "remote_runtime_target_incomplete" => "prism_query remote runtime target incomplete",
+        "query_invalid_argument" => "prism_code arguments invalid",
+        "query_feature_disabled" => "prism_code feature disabled",
+        "remote_runtime_id_required" => "prism_code remote runtime target invalid",
+        "remote_runtime_target_incomplete" => "prism_code remote runtime target incomplete",
         code if code.starts_with("remote_runtime_") || code.starts_with("peer_runtime_") => {
-            "prism_query remote runtime failed"
+            "prism_code remote runtime failed"
         }
         _ => return None,
     };
@@ -138,7 +138,7 @@ pub(crate) fn remote_runtime_query_error(
     let detail = detail.into();
     let next_action = next_action.into();
     QueryExecutionError {
-        summary: "prism_query remote runtime failed",
+        summary: "prism_code remote runtime failed",
         message: format!("{detail}\nHint: {next_action}"),
         data: json!({
             "code": code,
@@ -184,7 +184,7 @@ pub(crate) fn runtime_or_serialization_error(
         if let Some(body) = payload.strip_prefix(QUERY_SERIALIZATION_ERROR_MARKER) {
             return build_runtime_error(
                 "query_result_not_serializable",
-                "prism_query result is not JSON-serializable",
+                "prism_code result is not JSON-serializable",
                 body.trim_start(),
                 code,
                 user_snippet_first_line,
@@ -198,7 +198,7 @@ pub(crate) fn runtime_or_serialization_error(
         if let Some(body) = payload.strip_prefix(QUERY_RUNTIME_ERROR_MARKER) {
             return build_runtime_error(
                 "query_runtime_failed",
-                "prism_query runtime failed",
+                "prism_code runtime failed",
                 body.trim_start(),
                 code,
                 user_snippet_first_line,
@@ -211,7 +211,7 @@ pub(crate) fn runtime_or_serialization_error(
         }
         return build_runtime_error(
             "query_runtime_failed",
-            "prism_query runtime failed",
+            "prism_code runtime failed",
             payload.trim_start(),
             code,
             user_snippet_first_line,
@@ -227,9 +227,9 @@ pub(crate) fn runtime_or_serialization_error(
 
 pub(crate) fn result_decode_error(error: anyhow::Error, raw_result: &str) -> anyhow::Error {
     QueryExecutionError {
-        summary: "prism_query returned malformed result JSON",
+        summary: "prism_code returned malformed result JSON",
         message: format!(
-            "prism_query returned malformed result JSON: {error}\nHint: This usually indicates a PRISM query wrapper bug rather than a user-snippet problem."
+            "prism_code returned malformed result JSON: {error}\nHint: This usually indicates a PRISM wrapper bug rather than a user-snippet problem."
         ),
         data: json!({
             "code": "query_result_decode_failed",
@@ -276,9 +276,9 @@ pub(crate) fn static_typecheck_error(
     }
     attach_location(&mut data, &SnippetLocation { line, column });
     QueryExecutionError {
-        summary: "prism_query typecheck failed",
+        summary: "prism_code typecheck failed",
         message: format!(
-            "prism_query typecheck failed while interpreting the snippet as {attempted_label} at user snippet line {line}, column {column}: {detail}\nHint: {next_action}"
+            "prism_code typecheck failed while interpreting the snippet as {attempted_label} at user snippet line {line}, column {column}: {detail}\nHint: {next_action}"
         ),
         data,
     }
@@ -315,7 +315,7 @@ pub(crate) fn combined_parse_typescript_error(
         })
         .unwrap_or_default();
     let message = format!(
-        "prism_query parse failed{line_hint}: PRISM tried both supported query interpretations and neither parsed.\nStatement-body mode: {statement_summary}\nImplicit-expression mode: {expression_summary}\nHint: Use either a statement-style snippet with an explicit `return ...`, or a single expression such as `({{ ... }})`."
+        "prism_code parse failed{line_hint}: PRISM tried both supported query interpretations and neither parsed.\nStatement-body mode: {statement_summary}\nImplicit-expression mode: {expression_summary}\nHint: Use either a statement-style snippet with an explicit `return ...`, or a single expression such as `({{ ... }})`."
     );
     let mut data = json!({
         "code": "query_parse_failed",
@@ -332,7 +332,7 @@ pub(crate) fn combined_parse_typescript_error(
         attach_location(&mut data, &location);
     }
     QueryExecutionError {
-        summary: "prism_query parse failed",
+        summary: "prism_code parse failed",
         message,
         data,
     }
@@ -359,7 +359,7 @@ fn build_transpile_error(
         })
         .unwrap_or_default();
     let message = format!(
-        "prism_query parse failed while interpreting the snippet as {attempted_label}{line_hint}: {}\nHint: Fix the TypeScript syntax near the reported line and retry. Valid query shapes include `const value = ...; return {{ ... }};` or a single expression like `({{ ... }})`.",
+        "prism_code parse failed while interpreting the snippet as {attempted_label}{line_hint}: {}\nHint: Fix the TypeScript syntax near the reported line and retry. Valid query shapes include `const value = ...; return {{ ... }};` or a single expression like `({{ ... }})`.",
         first_detail_line(detail),
     );
     let next_action = if location.is_some() {
@@ -381,7 +381,7 @@ fn build_transpile_error(
         attach_location(&mut data, &location);
     }
     QueryExecutionError {
-        summary: "prism_query parse failed",
+        summary: "prism_code parse failed",
         message,
         data,
     }

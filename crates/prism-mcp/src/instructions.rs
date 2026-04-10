@@ -342,7 +342,7 @@ fn append_coordination_mode_note(mut markdown: String, features: &PrismMcpFeatur
 }
 
 fn coordination_only_index_markdown(features: &PrismMcpFeatures) -> String {
-    let tools = ["prism_code", "prism_query", "prism_mutate", "prism_task_brief"]
+    let tools = ["prism_code", "prism_task_brief"]
         .into_iter()
         .filter(|tool| features.is_tool_enabled(tool))
         .map(|tool| format!("`{tool}`"))

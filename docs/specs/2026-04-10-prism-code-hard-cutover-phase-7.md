@@ -50,7 +50,7 @@ Current progress:
 
 - Slice 1 is landed: `prism_code` is the canonical programmable read transport and the public docs/resources teach it first.
 - Slice 2 is landed in its minimum form: authenticated `prism_code` now supports `prism.mutate(...)` plus `dryRun` lowering through the canonical JS/TS surface.
-- Slice 3 remains: retire the remaining split public transport emphasis and finish moving recipes/docs/tests off the legacy `prism_query` / `prism_mutate` framing.
+- Slice 3 is in progress: the public MCP transport no longer exposes `prism_query` or `prism_mutate`, and public error/docs guidance now speaks `prism_code`; remaining work is migrating the broader MCP resource/test surface off the legacy tool names.
 
 ### Slice 1: Canonical read-side `prism_code` transport
 
@@ -85,7 +85,8 @@ Success condition:
 Deliver:
 
 - remove legacy docs and resource emphasis on `prism_query` / `prism_mutate`
-- migrate remaining public-facing recipes and tests to `prism_code`
+- remove `prism_query` / `prism_mutate` from the public MCP tool catalog
+- migrate remaining public-facing recipes, schema resources, and tests to `prism_code`
 - keep any residual internals clearly marked as implementation detail only
 
 Success condition:

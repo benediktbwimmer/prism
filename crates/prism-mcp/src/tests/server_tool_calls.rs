@@ -4,9 +4,10 @@ use serde_json::{json, Value};
 use super::*;
 use crate::tests_support::{
     call_tool_request, demo_node, first_tool_content_json, initialize_client,
-    initialized_notification, mutation_credential_json, read_resource_request,
-    register_test_agent_worktree, register_test_human_worktree, response_json, server_with_node,
-    temp_workspace, workspace_session_with_owner_credential,
+    initialized_notification, mutation_credential_json, prism_code_mutation_arguments,
+    prism_code_read_arguments, read_resource_request, register_test_agent_worktree,
+    register_test_human_worktree, response_json, server_with_node, temp_workspace,
+    workspace_session_with_owner_credential,
 };
 use prism_coordination::TaskCreateInput;
 use prism_core::{
@@ -44,13 +45,9 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
     client
         .send(call_tool_request(
             2,
-            "prism_mutate",
-            json!({
+            "prism_code",
+            prism_code_mutation_arguments(json!({
                 "action": "validation_feedback",
-                "credential": {
-                    "credentialId": "credential:test",
-                    "principalToken": "prism_ptok_test"
-                },
                 "input": {
                     "anchors": [],
                     "prismSaid": "bad",
@@ -58,10 +55,11 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
                     "category": "projection",
                     "verdict": "helpful"
                 }
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            }), &crate::tests_support::MutationCredentialFixture {
+                credential_id: "credential:test".to_string(),
+                principal_id: "principal:test".to_string(),
+                principal_token: "prism_ptok_test".to_string(),
+            }),
         ))
         .await
         .unwrap();
@@ -71,15 +69,12 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
     let message = response["error"]["message"].as_str().unwrap_or_default();
     assert!(message.contains("failed to deserialize parameters:"));
     assert!(
-        message.contains("prism_mutate action `validation_feedback`"),
+        message.contains("validation_feedback"),
         "{message}"
     );
     assert!(message.contains("context"), "{message}");
     assert!(message.contains("required fields:"), "{message}");
-    assert!(message.contains("prism.validateToolInput(\"prism_mutate\", <input>)"));
-    assert!(message.contains("prism://schema/tool/prism_mutate/action/validation_feedback"));
-    assert!(message.contains("Minimal valid example:"));
-    assert!(message.contains("\"action\":\"validation_feedback\""));
+    assert!(message.contains("prism.mutate"), "{message}");
 
     running.cancel().await.unwrap();
 }
@@ -95,7 +90,7 @@ pub fn main() {
 }
 
 #[tokio::test]
-async fn mcp_server_rejects_prism_mutate_without_credential() {
+async fn mcp_server_rejects_prism_code_mutation_without_credential() {
     let server = server_with_node(demo_node());
     let (server_transport, client_transport) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move { server.serve(server_transport).await });
@@ -111,16 +106,9 @@ async fn mcp_server_rejects_prism_mutate_without_credential() {
     client
         .send(call_tool_request(
             2,
-            "prism_mutate",
+            "prism_code",
             json!({
-                "action": "validation_feedback",
-                "input": {
-                    "context": "Dogfooding auth envelope validation.",
-                    "prismSaid": "Mutation should accept ambient session state.",
-                    "actuallyTrue": "Mutation should reject calls without an explicit credential envelope.",
-                    "category": "coordination",
-                    "verdict": "wrong"
-                }
+                "code": "return prism.mutate({ action: \"validation_feedback\", input: { context: \"Dogfooding auth envelope validation.\", prismSaid: \"Mutation should accept ambient session state.\", actuallyTrue: \"Mutation should reject calls without an explicit credential envelope.\", category: \"coordination\", verdict: \"wrong\" } });"
             })
             .as_object()
             .unwrap()
@@ -194,23 +182,18 @@ async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
     client
         .send(call_tool_request(
             2,
-            "prism_query",
-            json!({
-                "code": "return { ok: true };"
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            "prism_code",
+            prism_code_read_arguments("return { ok: true };"),
         ))
         .await
         .unwrap();
     let _ = first_tool_content_json(client.receive().await.unwrap());
 
     let records = server_handle.host.mcp_call_log_store.records();
-    let prism_query = records
+    let prism_code = records
         .iter()
-        .find(|record| record.entry.call_type == "tool" && record.entry.name == "prism_query")
-        .expect("prism_query tool record should exist");
+        .find(|record| record.entry.call_type == "tool" && record.entry.name == "prism_code")
+        .expect("prism_code tool record should exist");
     let surfaced_entries = server_handle.host.mcp_call_entries(crate::McpLogArgs {
         limit: Some(20),
         since: None,
@@ -234,7 +217,7 @@ async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
         .count();
     assert_eq!(delegated_request_wrappers, 0);
 
-    let operations = prism_query
+    let operations = prism_code
         .phases
         .iter()
         .map(|phase| phase.operation.as_str())
@@ -243,20 +226,20 @@ async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
     assert!(operations.contains(&"mcp.routeRequest"));
     assert!(operations.contains(&"mcp.executeHandler"));
     assert!(operations.contains(&"mcp.encodeResponse"));
-    let receive_started_at = prism_query
+    let receive_started_at = prism_code
         .phases
         .iter()
         .find(|phase| phase.operation == "mcp.receiveRequest")
         .map(|phase| phase.started_at)
         .expect("mcp.receiveRequest phase should exist");
-    assert_eq!(prism_query.entry.started_at, receive_started_at);
+    assert_eq!(prism_code.entry.started_at, receive_started_at);
     assert_eq!(
-        prism_query.request_payload.as_ref(),
+        prism_code.request_payload.as_ref(),
         Some(&json!({
             "code": "return { ok: true };"
         }))
     );
-    let query_operations = prism_query
+    let query_operations = prism_code
         .phases
         .iter()
         .map(|phase| phase.operation.as_str())
@@ -382,7 +365,7 @@ fn prism_mutate_coordination_rejects_missing_typed_payload_fields() {
 }
 
 #[tokio::test]
-async fn mcp_server_surfaces_structured_prism_query_error_categories() {
+async fn mcp_server_surfaces_structured_prism_code_parse_errors_through_read_surface() {
     let server = server_with_node(demo_node());
     let (server_transport, client_transport) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move { server.serve(server_transport).await });
@@ -398,20 +381,15 @@ async fn mcp_server_surfaces_structured_prism_query_error_categories() {
     client
         .send(call_tool_request(
             2,
-            "prism_query",
-            json!({
-                "code": "const broken = ;\nreturn broken;"
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            "prism_code",
+            prism_code_read_arguments("const broken = ;\nreturn broken;"),
         ))
         .await
         .unwrap();
 
     let response = response_json(client.receive().await.unwrap());
     assert_eq!(response["error"]["code"], -32603);
-    assert_eq!(response["error"]["message"], "prism_query parse failed");
+    assert_eq!(response["error"]["message"], "prism_code parse failed");
     assert_eq!(response["error"]["data"]["code"], "query_parse_failed");
     assert_eq!(response["error"]["data"]["line"], 1);
     assert_eq!(response["error"]["data"]["column"], 16);
@@ -441,19 +419,16 @@ async fn mcp_server_executes_prism_code_reads() {
         .send(call_tool_request(
             2,
             "prism_code",
-            json!({
-                "code": "return { ok: true, toolName: prism.tool(\"prism_mutate\")?.toolName ?? null, toolCount: prism.tools().length };"
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            prism_code_read_arguments(
+                "return { ok: true, toolName: prism.tool(\"prism_code\")?.toolName ?? null, toolCount: prism.tools().length };",
+            ),
         ))
         .await
         .unwrap();
 
     let response = first_tool_content_json(client.receive().await.unwrap());
     assert_eq!(response["result"]["ok"], true);
-    assert_eq!(response["result"]["toolName"], "prism_mutate");
+    assert_eq!(response["result"]["toolName"], "prism_code");
     assert!(response["result"]["toolCount"]
         .as_u64()
         .expect("toolCount should be numeric")
