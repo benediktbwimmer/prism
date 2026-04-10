@@ -4,6 +4,10 @@ Status: in progress
 Audience: prism-js, prism-mcp, prism-core, prism-cli, compiler, runtime, and coordination maintainers  
 Scope: build the real `prism_code` compiler for all currently supported PRISM semantics, hard-cut the runtime onto that compiler, remove the old mutation API entirely, and expose one proper SDK that mirrors the compiler-owned `prism_code` surface
 
+Normative architecture reference:
+
+- `docs/designs/2026-04-10-prism-code-compiler-architecture.md`
+
 ---
 
 ## 1. Summary

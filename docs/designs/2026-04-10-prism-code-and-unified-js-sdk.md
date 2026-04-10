@@ -8,6 +8,10 @@ Scope: the canonical `prism_code` surface, the unified JS/TS SDK, deterministic 
 
 ## 1. Summary
 
+Detailed compiler architecture and language coverage live in:
+
+- `docs/designs/2026-04-10-prism-code-compiler-architecture.md`
+
 PRISM should hard-cut to one canonical programmable surface:
 
 - `prism_code`
