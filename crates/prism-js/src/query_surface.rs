@@ -331,6 +331,7 @@ pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
         method!("prism.tools", "tools(): ToolCatalogEntryView[];", PrismSurfaceTypeRef::ArrayOfNamed("ToolCatalogEntryView")),
         method!("prism.tool", "tool(name: string): ToolSchemaView | null;", PrismSurfaceTypeRef::NullableNamed("ToolSchemaView")),
         method!("prism.validateToolInput", "validateToolInput(name: string, input: unknown): ToolInputValidationView;", PrismSurfaceTypeRef::Named("ToolInputValidationView")),
+        method!("prism.work.declare", "declare(input: { title: string; kind?: string; summary?: string; parentWorkId?: string; coordinationTaskId?: string; planId?: string }): unknown;", PrismSurfaceTypeRef::Unknown),
         method!("prism.coordination.createPlan", "createPlan(input: { title: string; goal?: string; status?: \"draft\" | \"active\" | \"blocked\" | \"completed\" | \"abandoned\" | \"archived\" }): unknown;", PrismSurfaceTypeRef::Unknown),
         method!("prism.coordination.openPlan", "openPlan(planId: string): unknown;", PrismSurfaceTypeRef::Unknown),
         method!("prism.coordination.openTask", "openTask(taskId: string): unknown;", PrismSurfaceTypeRef::Unknown),

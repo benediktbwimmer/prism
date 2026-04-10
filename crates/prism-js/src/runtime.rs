@@ -1024,6 +1024,62 @@ function __prismCoordinationTaskHandle(raw) {
         })
       );
     },
+    handoff(input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "task.handoff",
+        input,
+        "input",
+        ["summary", "toAgent", "to_agent"]
+      );
+      return __prismCoordinationTaskHandle(
+        __prismHost("__coordinationTaskHandoff", {
+          task: raw,
+          input: normalized,
+        })
+      );
+    },
+    acceptHandoff(input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "task.acceptHandoff",
+        input,
+        "input",
+        ["agent"]
+      );
+      return __prismCoordinationTaskHandle(
+        __prismHost("__coordinationTaskAcceptHandoff", {
+          task: raw,
+          input: normalized,
+        })
+      );
+    },
+    resume(input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "task.resume",
+        input,
+        "input",
+        ["agent"]
+      );
+      return __prismCoordinationTaskHandle(
+        __prismHost("__coordinationTaskResume", {
+          task: raw,
+          input: normalized,
+        })
+      );
+    },
+    reclaim(input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "task.reclaim",
+        input,
+        "input",
+        ["agent"]
+      );
+      return __prismCoordinationTaskHandle(
+        __prismHost("__coordinationTaskReclaim", {
+          task: raw,
+          input: normalized,
+        })
+      );
+    },
     dependsOn(dependsOn, options = {}) {
       return __prismHost("__coordinationTaskDependsOn", {
         task: raw,
@@ -1246,6 +1302,27 @@ const __prismBase = Object.freeze({
   validateToolInput(name, input) {
     return __prismHost("validateToolInput", { name, input });
   },
+  work: Object.freeze({
+    declare(input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "prism.work.declare",
+        input,
+        "input",
+        [
+          "title",
+          "kind",
+          "summary",
+          "parentWorkId",
+          "parent_work_id",
+          "coordinationTaskId",
+          "coordination_task_id",
+          "planId",
+          "plan_id",
+        ]
+      );
+      return __prismHost("__declareWork", { input: normalized });
+    },
+  }),
   coordination: Object.freeze({
     createPlan(input = {}) {
       const normalized = __prismValidateRecordShape(

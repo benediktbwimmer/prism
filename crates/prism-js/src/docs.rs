@@ -2653,13 +2653,14 @@ likely validations, and 1 to 2 `nextReads`.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()`, flat proposal inspection through `prism.curator.proposals()`, and job detail through `prism.curator.job()`.
 - Available now: a canonical capabilities resource at `prism://capabilities` plus tool input schema resources through `prism://tool-schemas` and `prism://schema/tool/{toolName}` for direct MCP introspection.
 - Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, claim simulation, and workflow helpers for inbox/task/claim preview.
-- Available now: a first native coordination authoring slice through `prism.coordination.createPlan(...)`, `prism.coordination.openPlan(...)`, `prism.coordination.openTask(...)`, `plan.update(...)`, `plan.archive()`, `plan.addTask(...)`, `task.dependsOn(...)`, `task.update(...)`, and `task.complete(...)`, committed automatically at the end of one `prism_code` invocation.
+- Available now: a first native coordination authoring slice through `prism.work.declare(...)`, `prism.coordination.createPlan(...)`, `prism.coordination.openPlan(...)`, `prism.coordination.openTask(...)`, `plan.update(...)`, `plan.archive()`, `plan.addTask(...)`, `task.dependsOn(...)`, `task.update(...)`, `task.complete(...)`, and native task lifecycle helpers like `task.handoff(...)`, `task.acceptHandoff(...)`, `task.resume(...)`, and `task.reclaim(...)`.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
 
 ## Native coordination builders
 
 The current native builder slice is intentionally narrow:
 
+- `prism.work.declare(...)`
 - `prism.coordination.createPlan(...)`
 - `prism.coordination.openPlan(planId)`
 - `prism.coordination.openTask(taskId)`
@@ -2675,9 +2676,26 @@ The current native builder slice is intentionally narrow:
     `dependsOn`, `anchors`, `acceptance`, `validationRefs`, `tags`,
     `artifactRequirements`, and `reviewRequirements`
 - `task.complete(...)`
+- `task.handoff(...)`
+- `task.acceptHandoff(...)`
+- `task.resume(...)`
+- `task.reclaim(...)`
 
-These helpers stage one coordination transaction during the `prism_code` invocation and commit it
-at the end of the call.
+`prism.work.declare(...)` is a native direct write. The coordination builder helpers stage one
+coordination transaction during the `prism_code` invocation and commit it at the end of the call.
+The direct task lifecycle helpers execute native coordination mutations without exposing
+`prism.mutate(...)`, but they are still one write operation per invocation today.
+
+### Declare work without `prism.mutate(...)`
+
+```ts
+const work = await prism.work.declare({
+  title: "Investigate native prism_code lifecycle coverage",
+  summary: "Bind declared work before coordination updates.",
+});
+
+return work;
+```
 
 ### Create a new plan with two tasks and one dependency
 
@@ -2762,7 +2780,7 @@ non-native paths with richer source-level builders:
   - action `curator_reject_proposal`
   - shorthand `{ action, ...fields }` is accepted in addition to the canonical `{ action, input: { ... } }`
 
-Read current work, task focus, and workspace context through `prism://session`. Authoritative mutations do not create work implicitly: call `declare_work` first unless the mutation is intentionally using an explicit `taskId` or `claimId`.
+Read current work, task focus, and workspace context through `prism://session`. Authoritative mutations do not create work implicitly: call `prism.work.declare(...)` first unless the mutation is intentionally using an explicit `taskId` or `claimId`.
 
 Patch observation is automatic. PRISM records file changes from `ObservedChangeSet` without requiring an explicit MCP call, and publishes durable change checkpoints automatically at mutation boundaries, work transitions, disconnect, or explicit `checkpoint` requests.
 "#;

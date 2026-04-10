@@ -118,6 +118,12 @@ struct CodeMutationArgs {
 }
 
 #[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeDeclareWorkArgs {
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
 struct FinalizeCodeArgs {
     result: Value,
 }
@@ -178,6 +184,34 @@ struct NativeTaskUpdateArgs {
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct NativeTaskCompleteArgs {
+    task: Value,
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeTaskHandoffArgs {
+    task: Value,
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeTaskAcceptHandoffArgs {
+    task: Value,
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeTaskResumeArgs {
+    task: Value,
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeTaskReclaimArgs {
     task: Value,
     input: Value,
 }
@@ -1747,6 +1781,10 @@ impl QueryExecution {
                     let args: CodeMutationArgs = serde_json::from_value(args)?;
                     Ok(self.execute_code_mutation(args.input)?)
                 }
+                "__declareWork" => {
+                    let args: NativeDeclareWorkArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_declare_work(args.input)?)
+                }
                 "__finalizeCode" => {
                     let args: FinalizeCodeArgs = serde_json::from_value(args)?;
                     Ok(self.finalize_code_result(args.result)?)
@@ -1790,6 +1828,22 @@ impl QueryExecution {
                 "__coordinationTaskComplete" => {
                     let args: NativeTaskCompleteArgs = serde_json::from_value(args)?;
                     Ok(self.execute_native_task_complete(args.task, args.input)?)
+                }
+                "__coordinationTaskHandoff" => {
+                    let args: NativeTaskHandoffArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_task_handoff(args.task, args.input)?)
+                }
+                "__coordinationTaskAcceptHandoff" => {
+                    let args: NativeTaskAcceptHandoffArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_task_accept_handoff(args.task, args.input)?)
+                }
+                "__coordinationTaskResume" => {
+                    let args: NativeTaskResumeArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_task_resume(args.task, args.input)?)
+                }
+                "__coordinationTaskReclaim" => {
+                    let args: NativeTaskReclaimArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_task_reclaim(args.task, args.input)?)
                 }
                 "excerpt" => {
                     let args: SourceExcerptArgs = serde_json::from_value(args)?;
@@ -2135,6 +2189,15 @@ return prism.file(__prismFileAroundArgs.path).around({
         code_mutation.execute_legacy_mutation(input)
     }
 
+    fn execute_native_declare_work(&self, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native work declaration requires an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.declare_work(input)
+    }
+
     fn finalize_code_result(&self, result: Value) -> Result<Value> {
         let Some(code_mutation) = self.code_mutation.as_ref() else {
             return Ok(result);
@@ -2226,6 +2289,42 @@ return prism.file(__prismFileAroundArgs.path).around({
             ));
         };
         code_mutation.task_complete(task, input)
+    }
+
+    fn execute_native_task_handoff(&self, task: Value, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.task_handoff(task, input)
+    }
+
+    fn execute_native_task_accept_handoff(&self, task: Value, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.task_accept_handoff(task, input)
+    }
+
+    fn execute_native_task_resume(&self, task: Value, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.task_resume(task, input)
+    }
+
+    fn execute_native_task_reclaim(&self, task: Value, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.task_reclaim(task, input)
     }
 
     pub(crate) fn best_symbol(&self, query: &str) -> Result<Option<SymbolView>> {

@@ -477,6 +477,8 @@ Exit criteria:
 Current progress:
 
 - landed: native staged coordination transaction context inside `prism_code`
+- landed: native `prism.work.declare(...)` so declared work no longer needs a public
+  `prism.mutate(...)` call
 - landed: native plan creation, plan reopen, task creation, and dependency wiring through builder
   handles
 - landed: richer native task authoring fields through `plan.addTask(...)`, including anchors,
@@ -485,6 +487,8 @@ Current progress:
 - landed: first native lifecycle methods through task reopen, task update, and task completion
 - landed: richer native task update fields through `task.update(...)`, including assignee,
   priority, validation refs, dependency rewiring, and artifact/review requirements
+- landed: first direct native task lifecycle helpers through `task.handoff(...)`,
+  `task.acceptHandoff(...)`, `task.resume(...)`, and `task.reclaim(...)`
 - remaining: extend the same builder/compiler core until normal coordination authoring no longer
   needs the legacy `prism.mutate(...)` escape hatch
 

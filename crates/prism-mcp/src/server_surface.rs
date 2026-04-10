@@ -776,7 +776,7 @@ impl PrismMcpServer {
             Some(json!({
                 "code": "mutation_declared_work_required",
                 "action": action_name,
-                "nextAction": "Call `prism_code` with `prism.mutate({ action: \"declare_work\", input: ... })` to declare intent before retrying this mutation, or provide an explicit taskId/claimId when the action supports it.",
+                "nextAction": "Call `prism_code` with `prism.work.declare({ title: ... })` to declare intent before retrying this mutation, or provide an explicit taskId/claimId when the action supports it.",
             })),
         ))
     }

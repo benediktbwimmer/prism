@@ -69,6 +69,8 @@ Status note (2026-04-10):
 - landed: one per-invocation staged coordination transaction context now commits or dry-runs at the
   end of the `prism_code` invocation
 - landed: internal handle identities stay inside the lowering layer
+- landed: native `prism.work.declare(...)` so declared-work bootstrap no longer needs a public
+  `prism.mutate(...)` call
 - remaining: broaden the native builder surface beyond the first coordination slices
 
 ### Slice 2: Native plan and task authoring handles
@@ -116,6 +118,8 @@ Status note (2026-04-10):
   `task.update(...)`, and `task.complete(...)`
 - landed: richer native task update fields through `task.update(...)`, including assignee,
   priority, validation refs, dependency rewiring, and artifact/review requirements
+- landed: first direct native task lifecycle helpers through `task.handoff(...)`,
+  `task.acceptHandoff(...)`, `task.resume(...)`, and `task.reclaim(...)`
 - remaining: broaden native lifecycle coverage so normal coordination work no longer needs the
   legacy `prism.mutate(...)` escape hatch at all
 

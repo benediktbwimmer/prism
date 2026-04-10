@@ -76,6 +76,68 @@ impl PrismCodeExecutionContext {
     }
 
     pub(crate) fn execute_legacy_mutation(&self, input: Value) -> Result<Value> {
+        self.execute_direct_mutation(input)
+    }
+
+    pub(crate) fn declare_work(&self, input: Value) -> Result<Value> {
+        self.execute_direct_mutation_result("declare_work", input)
+    }
+
+    pub(crate) fn task_handoff(&self, task: Value, input: Value) -> Result<Value> {
+        let input = expect_object(input, "task.handoff")?;
+        let task_id = self.existing_task_id_from_value(&task, "task.handoff")?;
+        let summary = required_string(&input, "summary", "task.handoff")?;
+        let to_agent = optional_string(&input, "toAgent").or_else(|| optional_string(&input, "to_agent"));
+        self.execute_direct_mutation_state("coordination", json!({
+            "kind": "handoff",
+            "payload": {
+                "taskId": task_id,
+                "toAgent": to_agent,
+                "summary": summary,
+            }
+        }))
+    }
+
+    pub(crate) fn task_accept_handoff(&self, task: Value, input: Value) -> Result<Value> {
+        let input = expect_object(input, "task.acceptHandoff")?;
+        let task_id = self.existing_task_id_from_value(&task, "task.acceptHandoff")?;
+        let agent = optional_string(&input, "agent");
+        self.execute_direct_mutation_state("coordination", json!({
+            "kind": "handoff_accept",
+            "payload": {
+                "taskId": task_id,
+                "agent": agent,
+            }
+        }))
+    }
+
+    pub(crate) fn task_resume(&self, task: Value, input: Value) -> Result<Value> {
+        let input = expect_object(input, "task.resume")?;
+        let task_id = self.existing_task_id_from_value(&task, "task.resume")?;
+        let agent = optional_string(&input, "agent");
+        self.execute_direct_mutation_state("coordination", json!({
+            "kind": "resume",
+            "payload": {
+                "taskId": task_id,
+                "agent": agent,
+            }
+        }))
+    }
+
+    pub(crate) fn task_reclaim(&self, task: Value, input: Value) -> Result<Value> {
+        let input = expect_object(input, "task.reclaim")?;
+        let task_id = self.existing_task_id_from_value(&task, "task.reclaim")?;
+        let agent = optional_string(&input, "agent");
+        self.execute_direct_mutation_state("coordination", json!({
+            "kind": "reclaim",
+            "payload": {
+                "taskId": task_id,
+                "agent": agent,
+            }
+        }))
+    }
+
+    fn execute_direct_mutation(&self, input: Value) -> Result<Value> {
         let mut state = self.state.lock().expect("code mutation lock poisoned");
         if state
             .staged_coordination
@@ -83,17 +145,30 @@ impl PrismCodeExecutionContext {
             .is_some_and(|staged| !staged.mutations.is_empty())
         {
             return Err(anyhow!(
-                "native coordination builders cannot be mixed with `prism.mutate(...)` in one prism_code invocation"
+                "native staged coordination builders cannot be mixed with direct write operations in one prism_code invocation"
             ));
         }
         if state.legacy_mutation_used {
             return Err(anyhow!(
-                "prism_code currently supports at most one `prism.mutate(...)` call per invocation"
+                "prism_code currently supports at most one direct write operation per invocation outside the staged coordination builder path"
             ));
         }
         state.legacy_mutation_used = true;
         drop(state);
         (self.legacy_executor)(input)
+    }
+
+    fn execute_direct_mutation_result(&self, action: &str, input: Value) -> Result<Value> {
+        let value = self.execute_direct_mutation(json!({
+            "action": action,
+            "input": input,
+        }))?;
+        Ok(value.get("result").cloned().unwrap_or(Value::Null))
+    }
+
+    fn execute_direct_mutation_state(&self, action: &str, input: Value) -> Result<Value> {
+        let result = self.execute_direct_mutation_result(action, input)?;
+        Ok(result.get("state").cloned().unwrap_or(result))
     }
 
     pub(crate) fn create_plan(&self, input: Value) -> Result<Value> {
@@ -385,7 +460,7 @@ impl PrismCodeExecutionState {
     fn staged_coordination_mut(&mut self) -> Result<&mut StagedCoordinationTransaction> {
         if self.legacy_mutation_used {
             return Err(anyhow!(
-                "native coordination builders cannot be mixed with `prism.mutate(...)` in one prism_code invocation"
+                "native staged coordination builders cannot be mixed with direct write operations in one prism_code invocation"
             ));
         }
         Ok(self
@@ -442,6 +517,45 @@ impl StagedCoordinationTransaction {
             Some(TaskHandleState::Existing { task_id, .. }) => Ok(json!({ "taskId": task_id })),
             None => Err(anyhow!("unknown task handle `{handle_id}`")),
         }
+    }
+}
+
+impl PrismCodeExecutionContext {
+    fn existing_task_id_from_value(&self, value: &Value, method: &str) -> Result<String> {
+        let state = self.state.lock().expect("code mutation lock poisoned");
+        if let Some(task_id) = value.as_str() {
+            return Ok(non_empty_string(task_id.to_string(), method)?);
+        }
+        let Some(object) = value.as_object() else {
+            return Err(anyhow!(
+                "`{method}` expects an existing task handle, task view, or task id string"
+            ));
+        };
+        if let Some(handle_kind) = object.get(HANDLE_KIND_KEY).and_then(Value::as_str) {
+            if handle_kind != TASK_HANDLE_KIND {
+                return Err(anyhow!("`{method}` expects a task handle, not `{handle_kind}`"));
+            }
+            let handle_id = object
+                .get(HANDLE_ID_KEY)
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("`{method}` received a task handle without an internal id"))?;
+            let Some(staged) = state.staged_coordination.as_ref() else {
+                return Err(anyhow!("unknown task handle `{handle_id}`"));
+            };
+            return match staged.task_handles.get(handle_id) {
+                Some(TaskHandleState::Existing { task_id, .. }) => Ok(task_id.clone()),
+                Some(TaskHandleState::Created { .. }) => Err(anyhow!(
+                    "`{method}` requires an existing committed task handle; provisional task handles can only be used with staged native coordination builders"
+                )),
+                None => Err(anyhow!("unknown task handle `{handle_id}`")),
+            };
+        }
+        object
+            .get("id")
+            .and_then(Value::as_str)
+            .map(ToString::to_string)
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| anyhow!("`{method}` requires a task handle or a task object with a non-empty `id`"))
     }
 }
 

@@ -611,11 +611,8 @@ async fn mcp_server_executes_native_prism_code_coordination_builders() {
             json!({
                 "credential": mutation_credential_json(&credential),
                 "code": r#"
-return prism.mutate({
-  action: "declare_work",
-  input: {
-    title: "Exercise native prism_code coordination builders",
-  },
+return prism.work.declare({
+  title: "Exercise native prism_code coordination builders",
 });
 "#
             })
@@ -626,7 +623,7 @@ return prism.mutate({
         .await
         .unwrap();
     let declared = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(declared["result"]["action"], "declare_work");
+    assert_eq!(declared["result"]["title"], "Exercise native prism_code coordination builders");
 
     client
         .send(call_tool_request(
@@ -702,14 +699,11 @@ async fn mcp_server_extends_existing_plan_via_native_prism_code_coordination_bui
             json!({
                 "credential": mutation_credential_json(&credential),
                 "code": r#"
-const declared = await prism.mutate({
-  action: "declare_work",
-  input: {
-    title: "Exercise native prism_code plan extension",
-  },
+const declared = await prism.work.declare({
+  title: "Exercise native prism_code plan extension",
 });
 return {
-  declaredAction: declared.action,
+  declaredTitle: declared.title,
 };
 "#
             })
@@ -721,7 +715,10 @@ return {
         .unwrap();
 
     let declared = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(declared["result"]["declaredAction"], "declare_work");
+    assert_eq!(
+        declared["result"]["declaredTitle"],
+        "Exercise native prism_code plan extension"
+    );
 
     client
         .send(call_tool_request(
@@ -826,14 +823,11 @@ async fn mcp_server_updates_and_completes_existing_tasks_via_native_prism_code_c
             json!({
                 "credential": mutation_credential_json(&credential),
                 "code": r#"
-const declared = await prism.mutate({
-  action: "declare_work",
-  input: {
-    title: "Exercise native prism_code task lifecycle builders",
-  },
+const declared = await prism.work.declare({
+  title: "Exercise native prism_code task lifecycle builders",
 });
 return {
-  declaredAction: declared.action,
+  declaredTitle: declared.title,
 };
 "#
             })
@@ -845,7 +839,10 @@ return {
         .unwrap();
 
     let declared = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(declared["result"]["declaredAction"], "declare_work");
+    assert_eq!(
+        declared["result"]["declaredTitle"],
+        "Exercise native prism_code task lifecycle builders"
+    );
 
     client
         .send(call_tool_request(
@@ -916,6 +913,111 @@ return {{ task }};
 }
 
 #[tokio::test]
+async fn mcp_server_handoffs_existing_tasks_via_native_prism_code_coordination_builders() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const declared = await prism.work.declare({
+  title: "Exercise native prism_code handoff builders",
+});
+return { declaredTitle: declared.title };
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let declared = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(
+        declared["result"]["declaredTitle"],
+        "Exercise native prism_code handoff builders"
+    );
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const plan = await prism.coordination.createPlan({
+  title: "Task handoff builder plan",
+  goal: "Verify native handoff without prism.mutate",
+});
+const task = await plan.addTask({
+  title: "Hand off reviewable task",
+  assignee: "agent-a",
+});
+return { plan, task };
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let created = first_tool_content_json(client.receive().await.unwrap());
+    let task_id = created["result"]["task"]["id"]
+        .as_str()
+        .expect("task id should be a string")
+        .to_string();
+
+    client
+        .send(call_tool_request(
+            4,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": format!(
+                    r#"
+const task = await prism.coordination.openTask("{task_id}");
+return task.handoff({{
+  toAgent: "agent-b",
+  summary: "Hand off reviewable task to agent-b",
+}});
+"#
+                ),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let handed_off = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(handed_off["result"]["id"], task_id);
+    assert_eq!(handed_off["result"]["assignee"], "agent-a");
+    assert_eq!(handed_off["result"]["pendingHandoffTo"], "agent-b");
+    assert_eq!(handed_off["result"]["status"], "blocked");
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_updates_and_archives_existing_plans_via_native_prism_code_coordination_builders(
 ) {
     let root = temp_workspace();
@@ -939,14 +1041,11 @@ async fn mcp_server_updates_and_archives_existing_plans_via_native_prism_code_co
             json!({
                 "credential": mutation_credential_json(&credential),
                 "code": r#"
-const declared = await prism.mutate({
-  action: "declare_work",
-  input: {
-    title: "Exercise native prism_code plan lifecycle builders",
-  },
+const declared = await prism.work.declare({
+  title: "Exercise native prism_code plan lifecycle builders",
 });
 return {
-  declaredAction: declared.action,
+  declaredTitle: declared.title,
 };
 "#
             })
@@ -958,7 +1057,10 @@ return {
         .unwrap();
 
     let declared = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(declared["result"]["declaredAction"], "declare_work");
+    assert_eq!(
+        declared["result"]["declaredTitle"],
+        "Exercise native prism_code plan lifecycle builders"
+    );
 
     client
         .send(call_tool_request(
@@ -1074,14 +1176,11 @@ async fn mcp_server_creates_native_prism_code_tasks_with_anchors_and_requirement
             json!({
                 "credential": mutation_credential_json(&credential),
                 "code": r#"
-const declared = await prism.mutate({
-  action: "declare_work",
-  input: {
-    title: "Exercise rich native prism_code task authoring",
-  },
+const declared = await prism.work.declare({
+  title: "Exercise rich native prism_code task authoring",
 });
 return {
-  declaredAction: declared.action,
+  declaredTitle: declared.title,
 };
 "#
             })
@@ -1093,7 +1192,10 @@ return {
         .unwrap();
 
     let declared = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(declared["result"]["declaredAction"], "declare_work");
+    assert_eq!(
+        declared["result"]["declaredTitle"],
+        "Exercise rich native prism_code task authoring"
+    );
 
     client
         .send(call_tool_request(
@@ -1198,14 +1300,11 @@ async fn mcp_server_updates_native_prism_code_tasks_with_richer_task_fields() {
             json!({
                 "credential": mutation_credential_json(&credential),
                 "code": r#"
-const declared = await prism.mutate({
-  action: "declare_work",
-  input: {
-    title: "Exercise rich native prism_code task updates",
-  },
+const declared = await prism.work.declare({
+  title: "Exercise rich native prism_code task updates",
 });
 return {
-  declaredAction: declared.action,
+  declaredTitle: declared.title,
 };
 "#
             })
@@ -1217,7 +1316,10 @@ return {
         .unwrap();
 
     let declared = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(declared["result"]["declaredAction"], "declare_work");
+    assert_eq!(
+        declared["result"]["declaredTitle"],
+        "Exercise rich native prism_code task updates"
+    );
 
     client
         .send(call_tool_request(
