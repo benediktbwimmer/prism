@@ -147,7 +147,7 @@ impl BridgeAuthContext {
     }
 
     pub(crate) fn bridge_instructions_suffix(&self) -> &'static str {
-        "This stdio bridge can attach itself to the registered agent worktree for the current repository. Before the first authoritative `prism_mutate`, call `prism_bridge_adopt`. After adoption, bridged `prism_mutate` calls may omit `credential` because the bridge injects its attached worktree execution binding on your behalf."
+        "This stdio bridge can attach itself to the registered agent worktree for the current repository. Before the first authoritative `prism_code` mutation call, invoke `prism_bridge_adopt`. After adoption, bridged `prism_code` calls may omit `credential` because the bridge injects its attached worktree execution binding on your behalf."
     }
 
     pub(crate) fn bridge_auth_resource(&self) -> Resource {
@@ -175,7 +175,7 @@ impl BridgeAuthContext {
         tool.name = Cow::Borrowed(BRIDGE_ADOPT_TOOL_NAME);
         tool.title = Some("Attach Bridge Worktree".to_string());
         tool.description = Some(Cow::Borrowed(
-            "Attach this stdio bridge to the registered local agent worktree for authoritative mutations. After attachment, bridged `prism_mutate` calls may omit `credential`.",
+            "Attach this stdio bridge to the registered local agent worktree for authoritative mutations. After attachment, bridged `prism_code` calls may omit `credential`.",
         ));
         tool.input_schema = Arc::new(
             serde_json::from_str(BRIDGE_ADOPT_INPUT_SCHEMA)
@@ -285,7 +285,7 @@ impl BridgeAuthContext {
             agent_label: binding.agent_label().to_string(),
             worktree_mode: "agent".to_string(),
             next_action:
-                "Proceed with authoritative `prism_mutate` calls on this bridge without supplying `credential`."
+                "Proceed with authoritative `prism_code` calls on this bridge without supplying `credential`."
                     .to_string(),
         };
         Ok(CallToolResult::structured(
@@ -307,10 +307,10 @@ impl BridgeAuthContext {
             BridgeBindingState::Bound(binding) => binding,
             BridgeBindingState::Unbound => {
                 return Err(McpError::invalid_params(
-                    "bridged prism_mutate requires an attached local agent worktree when `credential` is omitted",
+                    "bridged prism_code requires an attached local agent worktree when `credential` is omitted",
                     Some(json!({
                         "code": "bridge_auth_required",
-                        "nextAction": "Call `prism_bridge_adopt` to attach this bridge to the registered local agent worktree before the first authoritative mutation.",
+                        "nextAction": "Call `prism_bridge_adopt` to attach this bridge to the registered local agent worktree before the first authoritative prism_code mutation.",
                         "bridgeAuthUri": BRIDGE_AUTH_URI,
                     })),
                 ));

@@ -6,11 +6,9 @@ use crate::{
     resource_link_view, resource_schema_catalog_entries, resource_shape_resource_uri,
     schema_resource_uri, schema_resource_view_link, search_resource_view_link_with_options,
     self_description_audit_resource_uri, session_resource_view_link,
-    tool_action_example_resource_uri, tool_action_recipe_resource_uri,
-    tool_action_schema_resource_uri, tool_action_shape_resource_uri, tool_example_resource_uri,
-    tool_schema_catalog_entries, tool_schema_resource_uri, tool_schemas_resource_view_link,
-    tool_shape_resource_uri, tool_variant_example_resource_uri, tool_variant_recipe_resource_uri,
-    tool_variant_schema_resource_uri, tool_variant_shape_resource_uri, vocab_entry_resource_uri,
+    tool_action_schema_resource_uri, tool_example_resource_uri, tool_schema_catalog_entries,
+    tool_schema_resource_uri, tool_schemas_resource_view_link, tool_shape_resource_uri,
+    tool_variant_schema_resource_uri, vocab_entry_resource_uri,
     workspace_revision_view, CapabilitiesBuildInfoView, CapabilitiesResourcePayload,
     FeatureFlagsView, PrismMcpFeatures, QueryHost, QueryMethodCapabilityView,
     ResourceCapabilityView, ResourceTemplateCapabilityView, RuntimeCapabilitiesView,
@@ -898,13 +896,7 @@ pub(crate) fn resource_template_capabilities(
     } else {
         "plan"
     };
-    let example_tool_name = if features.is_tool_enabled("prism_code") {
-        "prism_code"
-    } else if features.is_tool_enabled("prism_query") {
-        "prism_query"
-    } else {
-        "prism_mutate"
-    };
+    let example_tool_name = "prism_code";
     let mut templates = vec![
         ResourceTemplateCapabilityView {
             name: "PRISM Plans Page".to_string(),
@@ -948,73 +940,48 @@ pub(crate) fn resource_template_capabilities(
             name: "PRISM Tool Action Schema".to_string(),
             uri_template: TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/schema+json".to_string(),
-            description: "Read an exact JSON Schema for one tagged PRISM MCP tool action.".to_string(),
-            example_uri: Some(tool_action_schema_resource_uri(
-                "prism_mutate",
-                if features.tool_example_resources_visible() {
-                    "validation_feedback"
-                } else {
-                    "coordination"
-                },
-            )),
-            shape_uri: if features.tool_example_resources_visible() {
-                Some(tool_action_shape_resource_uri(
-                    "prism_mutate",
-                    "validation_feedback",
-                ))
-            } else {
-                None
-            },
+            description:
+                "Read an exact JSON Schema for one tagged implementation-detail mutation action."
+                    .to_string(),
+            example_uri: None,
+            shape_uri: None,
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Tool Variant Schema".to_string(),
             uri_template: TOOL_VARIANT_SCHEMA_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/schema+json".to_string(),
-            description: "Read an exact JSON Schema for one nested tool payload variant.".to_string(),
-            example_uri: Some(tool_variant_schema_resource_uri(
-                "prism_mutate",
-                "coordination",
-                "plan_bootstrap",
-            )),
-            shape_uri: if features.tool_example_resources_visible() {
-                Some(tool_variant_shape_resource_uri(
-                    "prism_mutate",
-                    "coordination",
-                    "plan_bootstrap",
-                ))
-            } else {
-                None
-            },
+            description:
+                "Read an exact JSON Schema for one nested implementation-detail mutation variant."
+                    .to_string(),
+            example_uri: None,
+            shape_uri: None,
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Tool Example".to_string(),
             uri_template: TOOL_EXAMPLE_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
             description: "Read compact example payloads for one PRISM MCP tool.".to_string(),
-            example_uri: Some(tool_example_resource_uri("prism_mutate")),
+            example_uri: Some(tool_example_resource_uri("prism_code")),
             shape_uri: Some(resource_shape_resource_uri("tool-example")),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Tool Action Example".to_string(),
             uri_template: TOOL_ACTION_EXAMPLE_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
-            description: "Read compact example payloads for one tagged PRISM MCP tool action.".to_string(),
-            example_uri: Some(tool_action_example_resource_uri(
-                "prism_mutate",
-                "coordination",
-            )),
+            description:
+                "Read compact example payloads for one tagged implementation-detail mutation action."
+                    .to_string(),
+            example_uri: None,
             shape_uri: Some(resource_shape_resource_uri("tool-example")),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Tool Variant Example".to_string(),
             uri_template: TOOL_VARIANT_EXAMPLE_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
-            description: "Read compact example payloads for one nested tool payload variant.".to_string(),
-            example_uri: Some(tool_variant_example_resource_uri(
-                "prism_mutate",
-                "coordination",
-                "plan_bootstrap",
-            )),
+            description:
+                "Read compact example payloads for one nested implementation-detail mutation variant."
+                    .to_string(),
+            example_uri: None,
             shape_uri: Some(resource_shape_resource_uri("tool-example")),
         },
         ResourceTemplateCapabilityView {
@@ -1022,30 +989,27 @@ pub(crate) fn resource_template_capabilities(
             uri_template: TOOL_SHAPE_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
             description: "Read a compact shape summary for one PRISM MCP tool.".to_string(),
-            example_uri: Some(tool_shape_resource_uri("prism_mutate")),
+            example_uri: Some(tool_shape_resource_uri("prism_code")),
             shape_uri: Some(resource_shape_resource_uri("tool-shape")),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Tool Action Shape".to_string(),
             uri_template: TOOL_ACTION_SHAPE_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
-            description: "Read a compact shape summary for one tagged PRISM MCP tool action.".to_string(),
-            example_uri: Some(tool_action_shape_resource_uri(
-                "prism_mutate",
-                "coordination",
-            )),
+            description:
+                "Read a compact shape summary for one tagged implementation-detail mutation action."
+                    .to_string(),
+            example_uri: None,
             shape_uri: Some(resource_shape_resource_uri("tool-shape")),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Tool Variant Shape".to_string(),
             uri_template: TOOL_VARIANT_SHAPE_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
-            description: "Read a compact shape summary for one nested tool payload variant.".to_string(),
-            example_uri: Some(tool_variant_shape_resource_uri(
-                "prism_mutate",
-                "coordination",
-                "plan_bootstrap",
-            )),
+            description:
+                "Read a compact shape summary for one nested implementation-detail mutation variant."
+                    .to_string(),
+            example_uri: None,
             shape_uri: Some(resource_shape_resource_uri("tool-shape")),
         },
         ResourceTemplateCapabilityView {
@@ -1084,23 +1048,20 @@ pub(crate) fn resource_template_capabilities(
             name: "PRISM Tool Action Recipe".to_string(),
             uri_template: TOOL_ACTION_RECIPE_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "text/markdown".to_string(),
-            description: "Read a short operator recipe for one tagged tool action.".to_string(),
-            example_uri: Some(tool_action_recipe_resource_uri(
-                "prism_mutate",
-                "validation_feedback",
-            )),
+            description:
+                "Read a short operator recipe for one tagged implementation-detail mutation action."
+                    .to_string(),
+            example_uri: None,
             shape_uri: None,
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Tool Variant Recipe".to_string(),
             uri_template: TOOL_VARIANT_RECIPE_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "text/markdown".to_string(),
-            description: "Read a short operator recipe for one nested tool payload variant.".to_string(),
-            example_uri: Some(tool_variant_recipe_resource_uri(
-                "prism_mutate",
-                "coordination",
-                "plan_bootstrap",
-            )),
+            description:
+                "Read a short operator recipe for one nested implementation-detail mutation variant."
+                    .to_string(),
+            example_uri: None,
             shape_uri: None,
         },
     ];

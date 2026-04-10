@@ -129,7 +129,7 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
         ToolSchemaCatalogEntry {
             tool_name: "prism_query".to_string(),
             schema_uri: tool_schema_resource_uri("prism_query"),
-            description: "Input schema for programmable read-only TypeScript PRISM queries."
+            description: "Input schema for the legacy programmable read-only TypeScript surface."
                 .to_string(),
             example_input: tool_input_example("prism_query").expect("tool example"),
             example_uri: Some(tool_example_resource_uri("prism_query")),
@@ -138,8 +138,8 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
         ToolSchemaCatalogEntry {
             tool_name: "prism_mutate".to_string(),
             schema_uri: tool_schema_resource_uri("prism_mutate"),
-            description: "Input schema for coarse PRISM state mutations and tagged action unions."
-                .to_string(),
+            description:
+                "Input schema for the internal tagged mutation-lowering transport.".to_string(),
             example_input: tool_input_example("prism_mutate").expect("tool example"),
             example_uri: Some(tool_example_resource_uri("prism_mutate")),
             shape_uri: Some(tool_shape_resource_uri("prism_mutate")),

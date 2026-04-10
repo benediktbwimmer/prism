@@ -235,10 +235,7 @@ impl PrismMcpFeatures {
 
     pub(crate) fn is_tool_enabled(&self, name: &str) -> bool {
         if self.runtime_mode == PrismRuntimeMode::CoordinationOnly {
-            return matches!(
-                name,
-                "prism_code" | "prism_query" | "prism_task_brief" | "prism_mutate"
-            );
+            return matches!(name, "prism_code" | "prism_task_brief");
         }
         match name {
             "prism_coordination" => self.coordination.workflow,

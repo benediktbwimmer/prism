@@ -182,7 +182,7 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 10);
+    assert_eq!(tool_names.len(), 8);
     assert!(tool_names.contains(&"prism_locate"));
     assert!(tool_names.contains(&"prism_gather"));
     assert!(tool_names.contains(&"prism_open"));
@@ -191,34 +191,27 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     assert!(tool_names.contains(&"prism_task_brief"));
     assert!(tool_names.contains(&"prism_concept"));
     assert!(tool_names.contains(&"prism_code"));
-    assert!(tool_names.contains(&"prism_query"));
-    assert!(tool_names.contains(&"prism_mutate"));
     assert!(!tool_names.contains(&"prism_session"));
     for tool in tools["result"]["tools"].as_array().unwrap() {
         assert_eq!(tool["inputSchema"]["type"], "object");
     }
-    let mutate_tool = tools["result"]["tools"]
+    let prism_code_tool = tools["result"]["tools"]
         .as_array()
         .unwrap()
         .iter()
-        .find(|tool| tool["name"] == "prism_mutate")
-        .expect("prism_mutate tool should exist");
-    let mutate_schema = mutate_tool["inputSchema"].to_string();
+        .find(|tool| tool["name"] == "prism_code")
+        .expect("prism_code tool should exist");
+    let prism_code_schema = prism_code_tool["inputSchema"].to_string();
     assert_eq!(
-        mutate_tool["inputSchema"]["required"],
-        json!(["action", "input", "credential"])
+        prism_code_tool["inputSchema"]["required"],
+        json!(["code"])
     );
-    assert!(mutate_tool["inputSchema"]["oneOf"].is_null());
-    assert!(mutate_tool["inputSchema"]["properties"]["action"]["enum"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|value| value == "coordination"));
     assert_eq!(
-        mutate_tool["inputSchema"]["properties"]["input"]["type"],
-        "object"
+        prism_code_tool["inputSchema"]["properties"]["code"]["type"],
+        "string"
     );
-    assert!(mutate_schema.contains("schema/tool/prism_mutate/action/{action}"));
+    assert!(prism_code_schema.contains("\"credential\""));
+    assert!(prism_code_schema.contains("\"dryRun\""));
 
     client.send(list_resources_request(3)).await.unwrap();
     let resources = response_json(client.receive().await.unwrap());
@@ -501,19 +494,18 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(
         tool_names,
-        std::collections::BTreeSet::from(["prism_code", "prism_mutate", "prism_query", "prism_task_brief"])
+        std::collections::BTreeSet::from(["prism_code", "prism_task_brief"])
     );
-    let mutate_tool_schema = tools["result"]["tools"]
+    let prism_code_tool_schema = tools["result"]["tools"]
         .as_array()
         .expect("tools/list should return an array")
         .iter()
-        .find(|tool| tool["name"] == "prism_mutate")
-        .expect("coordination-only mode should expose prism_mutate")["inputSchema"]
+        .find(|tool| tool["name"] == "prism_code")
+        .expect("coordination-only mode should expose prism_code")["inputSchema"]
         .to_string();
-    assert!(mutate_tool_schema.contains("\"coordination\""));
-    assert!(mutate_tool_schema.contains("\"declare_work\""));
-    assert!(!mutate_tool_schema.contains("validation_feedback"));
-    assert!(!mutate_tool_schema.contains("concept_relation"));
+    assert!(prism_code_tool_schema.contains("\"code\""));
+    assert!(prism_code_tool_schema.contains("\"credential\""));
+    assert!(prism_code_tool_schema.contains("\"bridgeExecution\""));
 
     client.send(list_resources_request(3)).await.unwrap();
     let resources = response_json(client.receive().await.unwrap());
@@ -575,7 +567,7 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
             .iter()
             .filter_map(|tool| tool["name"].as_str())
             .collect::<std::collections::BTreeSet<_>>(),
-        std::collections::BTreeSet::from(["prism_code", "prism_mutate", "prism_query", "prism_task_brief"])
+        std::collections::BTreeSet::from(["prism_code", "prism_task_brief"])
     );
     let related_resource_uris = capabilities_payload["relatedResources"]
         .as_array()
@@ -756,7 +748,7 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
             .iter()
             .filter_map(|tool| tool["toolName"].as_str())
             .collect::<std::collections::BTreeSet<_>>(),
-        std::collections::BTreeSet::from(["prism_code", "prism_mutate", "prism_query", "prism_task_brief"])
+        std::collections::BTreeSet::from(["prism_code", "prism_task_brief"])
     );
     assert!(tool_schemas_payload["tools"]
         .as_array()
@@ -770,31 +762,30 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .all(|tool| tool["shapeUri"].is_null()));
 
     client
-        .send(read_resource_request(17, "prism://schema/tool/prism_query"))
+        .send(read_resource_request(17, "prism://schema/tool/prism_code"))
         .await
         .unwrap();
-    let query_schema = response_json(client.receive().await.unwrap());
-    assert!(query_schema.get("error").is_none());
+    let prism_code_schema = response_json(client.receive().await.unwrap());
+    assert!(prism_code_schema.get("error").is_none());
 
     client
         .send(read_resource_request(
             18,
-            "prism://schema/tool/prism_mutate",
+            "prism://schema/tool/prism_code",
         ))
         .await
         .unwrap();
-    let mutate_schema = response_json(client.receive().await.unwrap());
-    let mutate_schema_payload = serde_json::from_str::<Value>(
-        mutate_schema["result"]["contents"][0]["text"]
+    let prism_code_schema_again = response_json(client.receive().await.unwrap());
+    let prism_code_schema_payload = serde_json::from_str::<Value>(
+        prism_code_schema_again["result"]["contents"][0]["text"]
             .as_str()
-            .expect("coordination-only mutate schema should be text"),
+            .expect("coordination-only prism_code schema should be text"),
     )
     .unwrap();
-    let mutate_schema_text = mutate_schema_payload.to_string();
-    assert!(mutate_schema_text.contains("\"coordination\""));
-    assert!(mutate_schema_text.contains("\"declare_work\""));
-    assert!(!mutate_schema_text.contains("validation_feedback"));
-    assert!(!mutate_schema_text.contains("concept_relation"));
+    let prism_code_schema_text = prism_code_schema_payload.to_string();
+    assert!(prism_code_schema_text.contains("\"code\""));
+    assert!(prism_code_schema_text.contains("\"credential\""));
+    assert!(prism_code_schema_text.contains("\"bridgeExecution\""));
 
     client
         .send(read_resource_request(
@@ -804,7 +795,7 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .await
         .unwrap();
     let coordination_action_schema = response_json(client.receive().await.unwrap());
-    assert!(coordination_action_schema.get("error").is_none());
+    assert!(coordination_action_schema.get("error").is_some());
 
     client
         .send(read_resource_request(20, "prism://vocab/claimAction"))
