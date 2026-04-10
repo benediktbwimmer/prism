@@ -1915,7 +1915,7 @@ type CuratorJobView = {
 
 ## MCP Resources
 
-Beyond `prism_query`, the MCP server exposes navigable `prism://...` resources.
+Beyond `prism_code`, the MCP server exposes navigable `prism://...` resources.
 
 - Static resources:
   - `prism://api-reference`

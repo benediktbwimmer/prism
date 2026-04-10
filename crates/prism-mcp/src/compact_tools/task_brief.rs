@@ -568,13 +568,13 @@ fn compact_task_brief_next_action(
         return match status {
             prism_ir::CoordinationTaskStatus::Completed => {
                 if next_reads.is_empty() {
-                    "Task is completed. Inspect recent outcomes or prism_query if you need follow-up context.".to_string()
+                    "Task is completed. Inspect recent outcomes or prism_code if you need follow-up context.".to_string()
                 } else {
                     "Task is completed. Inspect recent outcomes or open a nextRead only if you need follow-up context.".to_string()
                 }
             }
             prism_ir::CoordinationTaskStatus::Abandoned => {
-                "Task is abandoned. Inspect recent outcomes or prism_query if you need historical context.".to_string()
+                "Task is abandoned. Inspect recent outcomes or prism_code if you need historical context.".to_string()
             }
             _ => unreachable!("terminal task status must be completed or abandoned"),
         };
@@ -586,12 +586,12 @@ fn compact_task_brief_next_action(
         return "Refresh this task against the current workspace revision, then rerun prism_task_brief or prism.blockers(taskId).".to_string();
     }
     if !blockers.is_empty() {
-        return "Inspect the current task blockers before switching nodes; use prism.blockers(taskId) or prism_query for full coordination detail.".to_string();
+        return "Inspect the current task blockers before switching nodes; use prism.blockers(taskId) or prism_code for full coordination detail.".to_string();
     }
     if !next_reads.is_empty() {
-        return "Use prism_open on a nextRead to work this task, or prism_query for full coordination detail.".to_string();
+        return "Use prism_open on a nextRead to work this task, or prism_code for full coordination detail.".to_string();
     }
-    "Inspect recent outcomes, validations, or prism_query for full coordination detail.".to_string()
+    "Inspect recent outcomes, validations, or prism_code for full coordination detail.".to_string()
 }
 
 fn task_brief_status_is_terminal(status: prism_ir::CoordinationTaskStatus) -> bool {
@@ -799,7 +799,7 @@ mod tests {
             risk_hint: Some("This risk hint is intentionally verbose for budget trimming.".into()),
             truncated: false,
             next_action: Some(
-                "Use prism_open on a nextRead, or prism_query for full coordination detail."
+                "Use prism_open on a nextRead, or prism_code for full coordination detail."
                     .to_string(),
             ),
             suggested_actions: vec![suggested_open_action(

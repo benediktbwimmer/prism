@@ -394,19 +394,19 @@ pub(crate) fn query_method_specs() -> Vec<(
             "memoryRecall",
             "memory",
             None,
-            "Recall anchored session memory. In prism_query TypeScript, call `prism.memory.recall(...)`.",
+            "Recall anchored session memory. In prism_code TypeScript, call `prism.memory.recall(...)`.",
         ),
         (
             "memoryOutcomes",
             "memory",
             None,
-            "Query outcome history with filters. In prism_query TypeScript, call `prism.memory.outcomes(...)`.",
+            "Query outcome history with filters. In prism_code TypeScript, call `prism.memory.outcomes(...)`.",
         ),
         (
             "memoryEvents",
             "memory",
             None,
-            "Inspect raw memory event history with scope and provenance filters. In prism_query TypeScript, call `prism.memory.events(...)`.",
+            "Inspect raw memory event history with scope and provenance filters. In prism_code TypeScript, call `prism.memory.events(...)`.",
         ),
         (
             "curatorJobs",
@@ -570,7 +570,7 @@ pub(crate) fn query_method_specs() -> Vec<(
             "runtimeStatus",
             "internal",
             Some("internal_developer"),
-            "Inspect the MCP daemon status, health, process counts, and runtime file paths for this workspace. In `prism_query`, `prism.from(\"runtime-id\").runtime.status()` returns the peer-enriched equivalent for another runtime.",
+            "Inspect the MCP daemon status, health, process counts, and runtime file paths for this workspace. In `prism_code`, `prism.from(\"runtime-id\").runtime.status()` returns the peer-enriched equivalent for another runtime.",
         ),
         (
             "runtimeLogs",
