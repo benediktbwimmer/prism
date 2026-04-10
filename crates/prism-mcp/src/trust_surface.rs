@@ -312,6 +312,7 @@ pub(crate) fn coordination_authority_protocol_state(
             outcome: "Rejected".to_string(),
             commit: None,
             authority_version: None,
+            intent_metadata: None,
             rejection: Some(CoordinationTransactionProtocolRejection {
                 stage: "commit".to_string(),
                 category: "conflict".to_string(),
@@ -324,6 +325,7 @@ pub(crate) fn coordination_authority_protocol_state(
             outcome: "Rejected".to_string(),
             commit: None,
             authority_version: None,
+            intent_metadata: None,
             rejection: Some(CoordinationTransactionProtocolRejection {
                 stage: "commit".to_string(),
                 category: "domain_violation".to_string(),
@@ -337,6 +339,7 @@ pub(crate) fn coordination_authority_protocol_state(
                 outcome: "Indeterminate".to_string(),
                 commit: None,
                 authority_version: None,
+                intent_metadata: None,
                 rejection: None,
                 indeterminate: Some(CoordinationTransactionProtocolIndeterminate {
                     reason_code: authority_error.reason_code.to_string(),

@@ -4863,3 +4863,97 @@ fn coordination_transaction_rejects_stale_event_count_preconditions() {
     );
     assert_eq!(rejection.reason_code, "stale_event_count");
 }
+
+#[test]
+fn coordination_transaction_persists_intent_metadata_on_committed_events() {
+    let prism = Prism::new(Graph::new());
+    let intent_metadata = json!({
+        "compiler": {
+            "regionLineage": ["root", "sequence"]
+        }
+    });
+    let transaction = prism
+        .execute_coordination_transaction(
+            EventMeta {
+                id: EventId::new("coord:tx:intent-metadata"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::PlanCreate {
+                    client_plan_id: Some("plan".to_string()),
+                    title: "Plan".to_string(),
+                    goal: "Persist metadata".to_string(),
+                    status: None,
+                    policy: None,
+                    scheduling: None,
+                    spec_refs: Vec::new(),
+                }],
+                intent_metadata: Some(intent_metadata.clone()),
+                ..CoordinationTransactionInput::default()
+            },
+        )
+        .expect("transaction with intent metadata should commit");
+
+    assert_eq!(transaction.intent_metadata.as_ref(), Some(&intent_metadata));
+    assert_eq!(
+        transaction.protocol_state().intent_metadata.as_ref(),
+        Some(&intent_metadata)
+    );
+
+    let snapshot = prism.legacy_coordination_snapshot();
+    let event = snapshot
+        .events
+        .last()
+        .expect("committed transaction should emit an event");
+    assert_eq!(
+        event.metadata.get("transactionIntent"),
+        Some(&intent_metadata)
+    );
+}
+
+#[test]
+fn coordination_transaction_rejects_non_object_intent_metadata() {
+    let prism = Prism::new(Graph::new());
+    let error = prism
+        .execute_coordination_transaction(
+            EventMeta {
+                id: EventId::new("coord:tx:invalid-intent-metadata"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            CoordinationTransactionInput {
+                mutations: vec![CoordinationTransactionMutation::PlanCreate {
+                    client_plan_id: Some("plan".to_string()),
+                    title: "Plan".to_string(),
+                    goal: "Reject invalid metadata".to_string(),
+                    status: None,
+                    policy: None,
+                    scheduling: None,
+                    spec_refs: Vec::new(),
+                }],
+                intent_metadata: Some(json!(["not", "an", "object"])),
+                ..CoordinationTransactionInput::default()
+            },
+        )
+        .expect_err("non-object intent metadata should reject");
+
+    let CoordinationTransactionError::Rejected(rejection) = error else {
+        panic!("expected rejected transaction");
+    };
+    assert_eq!(
+        rejection.stage,
+        CoordinationTransactionValidationStage::InputShape
+    );
+    assert_eq!(
+        rejection.category,
+        CoordinationTransactionRejectionCategory::InvalidInput
+    );
+    assert_eq!(rejection.reason_code, "invalid_intent_metadata");
+}

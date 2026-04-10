@@ -216,10 +216,13 @@ Current phase note:
 - `dryRun` now exercises that same lowering path and skips only the final write execution step.
 - Coordination rejections from the transactional write path are now surfaced as `prism_code`
   invocation errors instead of silently leaving provisional handle previews unresolved.
-- Phase 3 is still not complete against the compiler design because the structured transaction
-  metadata produced by the compiler is not yet accepted by the durable coordination transaction
-  contract, so the runtime currently preserves that structure internally but cannot persist it
-  through the authority transaction boundary.
+- The Phase 3 durability gap at the coordination transaction boundary is now closed:
+  `intentMetadata` is accepted by `prism-query` transactions, carried through the protocol-state
+  contract, and stamped onto the newly emitted coordination events as durable
+  `transactionIntent` metadata.
+- Phase 3 is now at the explicit review gate. The current implementation appears faithful to the
+  compiler design for structured transactional lowering of today's write semantics, but it must be
+  reviewed honestly against the compiler architecture before Phase 4 begins.
 - Targeted MCP regressions now cover dry-run, the existing native coordination builder flow,
   mixed coordination/direct writes in one invocation, and claim/review follow-up flows on the new
   lowering path.

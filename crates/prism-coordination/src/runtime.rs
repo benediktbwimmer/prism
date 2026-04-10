@@ -619,6 +619,33 @@ impl CoordinationRuntimeState {
         self.state.events.clone()
     }
 
+    pub fn annotate_recent_events_with_metadata(
+        &mut self,
+        since_event_index: usize,
+        key: &str,
+        metadata: Value,
+    ) {
+        if metadata.is_null() {
+            return;
+        }
+        for event in self.state.events.iter_mut().skip(since_event_index) {
+            match &mut event.metadata {
+                Value::Object(object) => {
+                    object.insert(key.to_string(), metadata.clone());
+                }
+                Value::Null => {
+                    event.metadata = serde_json::json!({ key: metadata.clone() });
+                }
+                current => {
+                    event.metadata = serde_json::json!({
+                        "eventMetadata": current.clone(),
+                        key: metadata.clone(),
+                    });
+                }
+            }
+        }
+    }
+
     pub fn policy_violations(
         &self,
         plan_id: Option<&PlanId>,

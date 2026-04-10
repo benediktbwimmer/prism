@@ -886,9 +886,10 @@ impl PrismCodeWriteRuntime {
         if self.dry_run {
             return Ok(());
         }
-        let _intent_metadata = coordination_intent_metadata(&self.analyzed, batch);
+        let intent_metadata = coordination_intent_metadata(&self.analyzed, batch);
         let commit = (self.coordination_executor)(json!({
             "mutations": mutations,
+            "intentMetadata": intent_metadata,
         }))?;
         reject_coordination_commit_if_needed(&commit)?;
         apply_coordination_commit(state, &commit);
