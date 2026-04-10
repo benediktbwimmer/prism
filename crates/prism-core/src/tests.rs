@@ -7069,7 +7069,8 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
 }
 
 #[test]
-fn coordination_persistence_incremental_mutations_do_not_backfill_stored_read_models_on_sqlite_default() {
+fn coordination_persistence_incremental_mutations_do_not_backfill_stored_read_models_on_sqlite_default(
+) {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -11228,7 +11229,10 @@ fn coordination_only_runtime_bootstrap_skips_graph_and_knowledge_hydration() {
     assert!(prism.concept_relations_snapshot().is_empty());
     assert!(coordination_only.full_runtime_state().is_none());
     assert!(
-        Arc::ptr_eq(&coordination_only.store, &coordination_only.cold_query_store),
+        Arc::ptr_eq(
+            &coordination_only.store,
+            &coordination_only.cold_query_store
+        ),
         "coordination-only bootstrap should not reopen a redundant cold runtime reader"
     );
     assert!(

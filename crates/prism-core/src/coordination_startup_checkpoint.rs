@@ -25,11 +25,13 @@ where
 {
     let checkpoint = store.load_coordination_startup_checkpoint()?;
     let stream = store.load_coordination_event_stream()?;
-    let replayed = coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot);
+    let replayed =
+        coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot);
     Ok(match (checkpoint, replayed) {
-        (Some(checkpoint), Some(snapshot)) => {
-            Some(hydrated_plan_state_from_checkpoint(checkpoint, Some(snapshot))?)
-        }
+        (Some(checkpoint), Some(snapshot)) => Some(hydrated_plan_state_from_checkpoint(
+            checkpoint,
+            Some(snapshot),
+        )?),
         (Some(checkpoint), None) => Some(hydrated_plan_state_from_checkpoint(checkpoint, None)?),
         (None, Some(snapshot)) => Some(HydratedCoordinationPlanState {
             canonical_snapshot_v2: snapshot.to_canonical_snapshot_v2(),

@@ -29,12 +29,15 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_code() {
         .send(call_tool_request(
             2,
             "prism_code",
-            prism_code_mutation_arguments(json!({
-                "action": "declare_work",
-                "input": {
-                    "title": "Review coordination blockers"
-                }
-            }), &credential),
+            prism_code_mutation_arguments(
+                json!({
+                    "action": "declare_work",
+                    "input": {
+                        "title": "Review coordination blockers"
+                    }
+                }),
+                &credential,
+            ),
         ))
         .await
         .unwrap();
@@ -45,15 +48,18 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_code() {
         .send(call_tool_request(
             3,
             "prism_code",
-            prism_code_mutation_arguments(json!({
-                "action": "coordination",
-                "input": {
-                    "kind": "plan_create",
-                    "payload": { "title": "Review-gated change", "goal": "Review-gated change",
-                        "policy": { "requireReviewForCompletion": true }
+            prism_code_mutation_arguments(
+                json!({
+                    "action": "coordination",
+                    "input": {
+                        "kind": "plan_create",
+                        "payload": { "title": "Review-gated change", "goal": "Review-gated change",
+                            "policy": { "requireReviewForCompletion": true }
+                        }
                     }
-                }
-            }), &credential),
+                }),
+                &credential,
+            ),
         ))
         .await
         .unwrap();
@@ -67,22 +73,25 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_code() {
         .send(call_tool_request(
             4,
             "prism_code",
-            prism_code_mutation_arguments(json!({
-                "action": "coordination",
-                "input": {
-                    "kind": "task_create",
-                    "payload": {
-                        "planId": plan_id,
-                        "title": "Patch main",
-                        "anchors": [{
-                            "type": "node",
-                            "crateName": "demo",
-                            "path": "demo::main",
-                            "kind": "function"
-                        }]
+            prism_code_mutation_arguments(
+                json!({
+                    "action": "coordination",
+                    "input": {
+                        "kind": "task_create",
+                        "payload": {
+                            "planId": plan_id,
+                            "title": "Patch main",
+                            "anchors": [{
+                                "type": "node",
+                                "crateName": "demo",
+                                "path": "demo::main",
+                                "kind": "function"
+                            }]
+                        }
                     }
-                }
-            }), &credential),
+                }),
+                &credential,
+            ),
         ))
         .await
         .unwrap();
@@ -96,21 +105,26 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_code() {
         .send(call_tool_request(
             5,
             "prism_code",
-            prism_code_mutation_arguments(json!({
-                "action": "artifact",
-                "input": {
-                    "action": "propose",
-                    "payload": {
-                        "taskId": task_id,
-                        "diffRef": "patch:review-gated"
+            prism_code_mutation_arguments(
+                json!({
+                    "action": "artifact",
+                    "input": {
+                        "action": "propose",
+                        "payload": {
+                            "taskId": task_id,
+                            "diffRef": "patch:review-gated"
+                        }
                     }
-                }
-            }), &credential),
+                }),
+                &credential,
+            ),
         ))
         .await
         .unwrap();
     let artifact = first_tool_content_json(client.receive().await.unwrap());
-    assert!(artifact["result"]["result"]["artifactId"].as_str().is_some());
+    assert!(artifact["result"]["result"]["artifactId"]
+        .as_str()
+        .is_some());
 
     client
         .send(call_tool_request(

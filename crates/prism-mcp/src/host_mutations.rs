@@ -5,9 +5,8 @@ use prism_coordination::{
     canonical_authoritative_task_holder, canonical_current_task_holder, canonical_task_lease_state,
     same_holder, CanonicalTaskRecord, GitExecutionCompletionMode, GitExecutionStartMode,
     GitPreflightReport, GitPublishReport, HandoffAcceptInput, HandoffInput, LeaseHolder,
-    LeaseState,
-    PolicyViolation, TaskCompletionContext, TaskGitExecution, TaskReclaimInput, TaskResumeInput,
-    TaskUpdateInput,
+    LeaseState, PolicyViolation, TaskCompletionContext, TaskGitExecution, TaskReclaimInput,
+    TaskResumeInput, TaskUpdateInput,
 };
 use prism_core::{
     AdmissionBusyError, AuthenticatedPrincipal, CoordinationAuthorityMutationError,

@@ -193,18 +193,20 @@ where
                 root.join(db_path)
             };
             let mut authority_store = prism_store::SqliteStore::open(&resolved_db_path)?;
-            Ok(match authority_store.load_coordination_startup_checkpoint()? {
-                Some(checkpoint) => Some({
-                    let snapshot = checkpoint.snapshot;
-                    let canonical_snapshot_v2 = checkpoint.canonical_snapshot_v2;
-                    HydratedCoordinationPlanState {
-                        snapshot,
-                        canonical_snapshot_v2,
-                        runtime_descriptors: checkpoint.runtime_descriptors,
-                    }
-                }),
-                None => load_persisted_coordination_plan_state(store)?,
-            })
+            Ok(
+                match authority_store.load_coordination_startup_checkpoint()? {
+                    Some(checkpoint) => Some({
+                        let snapshot = checkpoint.snapshot;
+                        let canonical_snapshot_v2 = checkpoint.canonical_snapshot_v2;
+                        HydratedCoordinationPlanState {
+                            snapshot,
+                            canonical_snapshot_v2,
+                            runtime_descriptors: checkpoint.runtime_descriptors,
+                        }
+                    }),
+                    None => load_persisted_coordination_plan_state(store)?,
+                },
+            )
         }
         _ => Ok(SqliteCoordinationMaterializedStore::new(root)
             .read_plan_state()?

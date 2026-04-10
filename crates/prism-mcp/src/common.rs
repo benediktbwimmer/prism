@@ -72,7 +72,10 @@ pub(crate) fn map_code_error(error: anyhow::Error) -> McpError {
             query_error.code(),
             Some("query_feature_disabled" | "query_invalid_argument")
         ) {
-            return McpError::invalid_params(query_error.to_string(), Some(query_error.data().clone()));
+            return McpError::invalid_params(
+                query_error.to_string(),
+                Some(query_error.data().clone()),
+            );
         }
         return McpError::internal_error(query_error.summary(), Some(query_error.data().clone()));
     }

@@ -2,9 +2,7 @@
 use std::path::Path;
 
 #[cfg(test)]
-use crate::coordination_authority_store::{
-    configured_coordination_authority_store_provider,
-};
+use crate::coordination_authority_store::configured_coordination_authority_store_provider;
 #[cfg(test)]
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
@@ -92,8 +90,7 @@ pub(crate) fn load_eventual_coordination_snapshot_for_root(
     Ok(configured_coordination_authority_store_provider(root)?
         .open_snapshot(root)?
         .read_snapshot(CoordinationReadConsistency::Eventual)?
-        .value
-    )
+        .value)
 }
 
 #[cfg(test)]
@@ -109,15 +106,17 @@ pub(crate) fn load_eventual_coordination_snapshot_v2_for_root(
     Ok(configured_coordination_authority_store_provider(root)?
         .open_snapshot(root)?
         .read_snapshot_v2(CoordinationReadConsistency::Eventual)?
-        .value
-    )
+        .value)
 }
 
 #[cfg(test)]
 pub(crate) fn load_eventual_coordination_plan_state_for_root(
     root: &Path,
 ) -> Result<Option<HydratedCoordinationPlanState>> {
-    if let Some(value) = SqliteCoordinationMaterializedStore::new(root).read_plan_state()?.value {
+    if let Some(value) = SqliteCoordinationMaterializedStore::new(root)
+        .read_plan_state()?
+        .value
+    {
         return Ok(Some(HydratedCoordinationPlanState {
             snapshot: value.legacy_snapshot,
             canonical_snapshot_v2: value.canonical_snapshot_v2,

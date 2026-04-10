@@ -202,10 +202,7 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .find(|tool| tool["name"] == "prism_code")
         .expect("prism_code tool should exist");
     let prism_code_schema = prism_code_tool["inputSchema"].to_string();
-    assert_eq!(
-        prism_code_tool["inputSchema"]["required"],
-        json!(["code"])
-    );
+    assert_eq!(prism_code_tool["inputSchema"]["required"], json!(["code"]));
     assert_eq!(
         prism_code_tool["inputSchema"]["properties"]["code"]["type"],
         "string"
@@ -769,10 +766,7 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
     assert!(prism_code_schema.get("error").is_none());
 
     client
-        .send(read_resource_request(
-            18,
-            "prism://schema/tool/prism_code",
-        ))
+        .send(read_resource_request(18, "prism://schema/tool/prism_code"))
         .await
         .unwrap();
     let prism_code_schema_again = response_json(client.receive().await.unwrap());
@@ -933,10 +927,7 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
     assert!(schema_payload.to_string().contains("\"bridgeExecution\""));
 
     client
-        .send(read_resource_request(
-            5,
-            "prism://schema/tool/prism_mutate",
-        ))
+        .send(read_resource_request(5, "prism://schema/tool/prism_mutate"))
         .await
         .unwrap();
     let hidden_legacy_schema = response_json(client.receive().await.unwrap());
@@ -1604,10 +1595,16 @@ async fn self_description_surface_exposes_companions_templates_and_audit() {
     assert!(template_uris.contains(&"prism://shape/resource/{resourceKind}"));
     assert!(template_uris.contains(&"prism://capabilities/{section}"));
     assert!(template_uris.contains(&"prism://vocab/{key}"));
-    assert!(!template_uris.contains(&"prism://schema/tool/{toolName}/action/{action}/variant/{tag}"));
-    assert!(!template_uris.contains(&"prism://example/tool/{toolName}/action/{action}/variant/{tag}"));
+    assert!(
+        !template_uris.contains(&"prism://schema/tool/{toolName}/action/{action}/variant/{tag}")
+    );
+    assert!(
+        !template_uris.contains(&"prism://example/tool/{toolName}/action/{action}/variant/{tag}")
+    );
     assert!(!template_uris.contains(&"prism://shape/tool/{toolName}/action/{action}/variant/{tag}"));
-    assert!(!template_uris.contains(&"prism://recipe/tool/{toolName}/action/{action}/variant/{tag}"));
+    assert!(
+        !template_uris.contains(&"prism://recipe/tool/{toolName}/action/{action}/variant/{tag}")
+    );
 
     client
         .send(read_resource_request(71, "prism://shape/tool/prism_code"))

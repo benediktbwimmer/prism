@@ -2326,7 +2326,7 @@ fn coordination_update_routes_plain_ids_to_coordination_tasks() {
                 }),
                 task_id: None,
             },
-    )
+        )
         .unwrap();
     assert_eq!(updated.state["id"], task_id);
     assert_eq!(updated.state["status"], "active");
@@ -21411,8 +21411,7 @@ fn runtime_status_surfaces_published_generation_and_domain_freshness() {
         .iter()
         .any(|domain| { domain.domain == "cross_file_edges" && domain.freshness == "current" }));
     assert!(refreshed.domains.iter().any(|domain| {
-        domain.domain == "checkpoint"
-            && matches!(domain.freshness.as_str(), "pending" | "current")
+        domain.domain == "checkpoint" && matches!(domain.freshness.as_str(), "pending" | "current")
     }));
 }
 

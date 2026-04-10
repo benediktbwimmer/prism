@@ -270,7 +270,10 @@ pub(crate) fn prism_code_mutation_arguments(
                 serde_json::to_string(&mutation).expect("mutation payload should serialize"),
             )),
         ),
-        (String::from("credential"), mutation_credential_json(credential)),
+        (
+            String::from("credential"),
+            mutation_credential_json(credential),
+        ),
     ])
 }
 

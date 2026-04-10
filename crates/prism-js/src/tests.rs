@@ -225,9 +225,8 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism://tool-schemas"));
     assert!(docs.contains("prism://schema/tool/{toolName}"));
     assert!(docs.contains("prism://capabilities"));
-    assert!(docs.contains(
-        "Inspect the canonical programmable tool contract without leaving `prism_code`"
-    ));
+    assert!(docs
+        .contains("Inspect the canonical programmable tool contract without leaving `prism_code`"));
     assert!(docs.contains(
         "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}"
     ));

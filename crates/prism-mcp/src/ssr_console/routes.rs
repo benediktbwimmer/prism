@@ -1154,12 +1154,8 @@ fn plan_markdown_payload(host: &QueryHost, plan_id: &str) -> Result<Option<(Stri
     else {
         return Ok(None);
     };
-    let markdown = render_repo_published_plan_markdown(
-        &snapshot_v2,
-        &plan_id,
-        None,
-    )
-    .ok_or_else(|| anyhow!("plan markdown should be renderable for {}", plan_id.0))?;
+    let markdown = render_repo_published_plan_markdown(&snapshot_v2, &plan_id, None)
+        .ok_or_else(|| anyhow!("plan markdown should be renderable for {}", plan_id.0))?;
     Ok(Some((plan.title, markdown)))
 }
 

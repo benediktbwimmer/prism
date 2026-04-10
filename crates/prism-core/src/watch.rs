@@ -1521,7 +1521,9 @@ mod tests {
             &session.runtime_state,
             &session.store,
             &session.cold_query_store,
-            session.full_runtime_state().map(|full_runtime| &full_runtime.refresh_lock),
+            session
+                .full_runtime_state()
+                .map(|full_runtime| &full_runtime.refresh_lock),
             &session.loaded_workspace_revision,
             &session.coordination_runtime_revision,
             &CoordinationCurrentState {

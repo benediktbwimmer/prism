@@ -770,7 +770,8 @@ fn runtime_domain_views(
 
 fn checkpoint_materialization_pending(snapshot: &WorkspaceRuntimeQueueSnapshot) -> bool {
     snapshot.active.as_ref().is_some_and(|command| {
-        command.kind == prism_core::runtime_engine::WorkspaceRuntimeCommandKind::MaterializeCheckpoint
+        command.kind
+            == prism_core::runtime_engine::WorkspaceRuntimeCommandKind::MaterializeCheckpoint
     }) || snapshot.queued.iter().any(|entry| {
         entry.queue_class
             == prism_core::runtime_engine::WorkspaceRuntimeQueueClass::CheckpointMaterialization
