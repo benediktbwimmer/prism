@@ -1,12 +1,13 @@
 use anyhow::Result;
-use prism_coordination::{EventExecutionOwner, EventExecutionRecord, Plan};
+use prism_coordination::{EventExecutionOwner, Plan};
 use prism_core::{
-    CoordinationReadConsistency, EventExecutionOwnerExpectation,
-    EventExecutionRecordAuthorityQuery, EventExecutionTransitionKind,
-    EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
-    EventExecutionTransitionStatus,
+    CoordinationReadConsistency, EventExecutionTransitionStatus, SharedExecutionFamily,
+    SharedExecutionOwnerExpectation, SharedExecutionRecord, SharedExecutionRecordQuery,
+    SharedExecutionRunnerCategory, SharedExecutionRunnerRef, SharedExecutionSourceRef,
+    SharedExecutionStatus, SharedExecutionTargetRef, SharedExecutionTransitionKind,
+    SharedExecutionTransitionPreconditions, SharedExecutionTransitionRequest,
 };
-use prism_ir::{EventExecutionId, EventExecutionStatus, EventTriggerKind, NodeRef, Timestamp};
+use prism_ir::{EventExecutionId, EventTriggerKind, NodeRef, Timestamp};
 use serde_json::Value;
 
 use crate::workspace_event_engine::{service_event_execution_owner, WorkspaceEventEngine};
@@ -36,11 +37,11 @@ pub(crate) struct EventTriggerClaimLoopCandidate {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum EventTriggerClaimSkipReason {
     ExistingExecution {
-        status: EventExecutionStatus,
+        status: SharedExecutionStatus,
     },
     ActiveTargetExecution {
         event_execution_id: EventExecutionId,
-        status: EventExecutionStatus,
+        status: SharedExecutionStatus,
     },
 }
 
@@ -48,7 +49,7 @@ pub(crate) enum EventTriggerClaimSkipReason {
 pub(crate) enum EventTriggerClaimOutcome {
     Claimed {
         candidate: EventTriggerClaimLoopCandidate,
-        record: EventExecutionRecord,
+        record: SharedExecutionRecord,
     },
     Conflict {
         candidate: EventTriggerClaimLoopCandidate,
@@ -80,19 +81,19 @@ impl WorkspaceEventEngine {
         request: EventTriggerClaimLoopRequest,
     ) -> Result<EventTriggerClaimLoopResult> {
         let candidates = self.due_trigger_candidates(&request)?;
-        let existing_records =
-            self.read_event_execution_records(EventExecutionRecordAuthorityQuery {
-                consistency: CoordinationReadConsistency::Strong,
-                event_execution_id: None,
-                limit: None,
-            })?;
+        let existing_records = self.read_execution_records(SharedExecutionRecordQuery {
+            consistency: CoordinationReadConsistency::Strong,
+            family: Some(SharedExecutionFamily::EventJob),
+            execution_id: None,
+            limit: None,
+        })?;
         let owner = service_event_execution_owner(self.workspace_root());
         let mut outcomes = Vec::with_capacity(candidates.len());
 
         for candidate in candidates {
             if let Some(existing) = existing_records
                 .iter()
-                .find(|record| record.id == candidate.event_execution_id)
+                .find(|record| record.execution_id == candidate.event_execution_id.0)
             {
                 outcomes.push(EventTriggerClaimOutcome::Skipped {
                     candidate,
@@ -104,13 +105,20 @@ impl WorkspaceEventEngine {
             }
             if let Some(existing) = existing_records.iter().find(|record| {
                 event_execution_is_active(record)
-                    && record.trigger_kind == candidate.trigger_kind
-                    && record.trigger_target.as_ref() == Some(&candidate.trigger_target)
+                    && matches!(
+                        &record.source,
+                        SharedExecutionSourceRef::EventTrigger {
+                            trigger_kind,
+                            trigger_target,
+                            ..
+                        } if *trigger_kind == candidate.trigger_kind
+                            && trigger_target.as_ref() == Some(&candidate.trigger_target)
+                    )
             }) {
                 outcomes.push(EventTriggerClaimOutcome::Skipped {
                     candidate,
                     reason: EventTriggerClaimSkipReason::ActiveTargetExecution {
-                        event_execution_id: existing.id.clone(),
+                        event_execution_id: EventExecutionId::new(existing.execution_id.clone()),
                         status: existing.status,
                     },
                 });
@@ -118,18 +126,17 @@ impl WorkspaceEventEngine {
             }
 
             let record = candidate.claim_record(request.now, owner.clone());
-            let result =
-                self.apply_event_execution_transition(EventExecutionTransitionRequest {
-                    event_execution_id: candidate.event_execution_id.clone(),
-                    preconditions: EventExecutionTransitionPreconditions {
-                        require_missing: true,
-                        expected_status: None,
-                        expected_owner: EventExecutionOwnerExpectation::Any,
-                    },
-                    transition: EventExecutionTransitionKind::Claim {
-                        record: record.clone(),
-                    },
-                })?;
+            let result = self.apply_execution_transition(SharedExecutionTransitionRequest {
+                execution_id: candidate.event_execution_id.clone(),
+                preconditions: SharedExecutionTransitionPreconditions {
+                    require_missing: true,
+                    expected_status: None,
+                    expected_owner: SharedExecutionOwnerExpectation::Any,
+                },
+                transition: SharedExecutionTransitionKind::Claim {
+                    record: record.clone(),
+                },
+            })?;
 
             match result.status {
                 EventExecutionTransitionStatus::Applied => {
@@ -158,12 +165,7 @@ impl WorkspaceEventEngine {
         &self,
         request: &EventTriggerClaimLoopRequest,
     ) -> Result<Vec<EventTriggerClaimLoopCandidate>> {
-        let snapshot = self
-            .read_broker()
-            .workspace_session()
-            .load_coordination_plan_state()?
-            .map(|state| state.snapshot)
-            .unwrap_or_default();
+        let snapshot = self.read_authoritative_snapshot()?.unwrap_or_default();
         let mut candidates: Vec<_> = snapshot
             .plans
             .iter()
@@ -186,22 +188,38 @@ impl EventTriggerClaimLoopCandidate {
         &self,
         claimed_at: Timestamp,
         owner: EventExecutionOwner,
-    ) -> EventExecutionRecord {
-        EventExecutionRecord {
-            id: self.event_execution_id.clone(),
-            trigger_kind: self.trigger_kind,
-            trigger_target: Some(self.trigger_target.clone()),
-            hook_id: self.hook_id.clone(),
-            hook_version_digest: self.hook_version_digest.clone(),
-            authoritative_revision: self.authoritative_revision,
-            status: EventExecutionStatus::Claimed,
+    ) -> SharedExecutionRecord {
+        SharedExecutionRecord {
+            execution_id: self.event_execution_id.0.to_string(),
+            family: SharedExecutionFamily::EventJob,
+            source: SharedExecutionSourceRef::EventTrigger {
+                trigger_kind: self.trigger_kind,
+                trigger_target: Some(self.trigger_target.clone()),
+                hook_id: self.hook_id.clone(),
+                hook_version_digest: self.hook_version_digest.clone(),
+                authoritative_revision: self.authoritative_revision,
+            },
+            runner: SharedExecutionRunnerRef {
+                category: SharedExecutionRunnerCategory::EventRunner,
+                kind: self
+                    .hook_id
+                    .clone()
+                    .unwrap_or_else(|| "recurring_plan_tick".to_string()),
+            },
+            capability_class: None,
+            target: Some(SharedExecutionTargetRef::Service {
+                worktree_id: owner.worktree_id.clone(),
+                service_instance_id: owner.service_instance_id.clone(),
+            }),
+            status: SharedExecutionStatus::Claimed,
             owner: Some(owner),
             claimed_at,
             started_at: None,
             finished_at: None,
             expires_at: Some(claimed_at + self.claim_ttl_seconds),
             summary: Some("Recurring plan tick claimed".to_string()),
-            metadata: recurring_claim_metadata(self),
+            result: None,
+            details: recurring_claim_metadata(self),
         }
     }
 }
@@ -272,9 +290,9 @@ fn recurring_claim_metadata(candidate: &EventTriggerClaimLoopCandidate) -> Value
         }
     })
 }
-fn event_execution_is_active(record: &EventExecutionRecord) -> bool {
+fn event_execution_is_active(record: &SharedExecutionRecord) -> bool {
     matches!(
         record.status,
-        EventExecutionStatus::Claimed | EventExecutionStatus::Running
+        SharedExecutionStatus::Claimed | SharedExecutionStatus::Running
     )
 }

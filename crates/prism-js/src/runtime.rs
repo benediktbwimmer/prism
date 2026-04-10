@@ -1,14 +1,19 @@
 use std::sync::OnceLock;
 
-use crate::runtime_option_keys_js_object;
+use crate::surface_registry::{compiler_runtime_js_prelude, runtime_option_keys_js_object};
 
 pub fn runtime_prelude() -> &'static str {
     static PRELUDE: OnceLock<String> = OnceLock::new();
     PRELUDE.get_or_init(|| {
-        RUNTIME_PRELUDE_TEMPLATE.replace(
-            "__PRISM_OPTION_KEYS_OBJECT__",
-            runtime_option_keys_js_object(),
-        )
+        RUNTIME_PRELUDE_TEMPLATE
+            .replace(
+                "__PRISM_OPTION_KEYS_OBJECT__",
+                runtime_option_keys_js_object(),
+            )
+            .replace(
+                "__PRISM_COMPILER_RUNTIME_PRELUDE__",
+                compiler_runtime_js_prelude(),
+            )
     })
 }
 
@@ -106,8 +111,8 @@ function __prismValidateRecordShape(methodPath, value, argumentName, allowedKeys
   }
   if (typeof value !== "object" || Array.isArray(value)) {
     __prismThrowQueryUserError(
-      "prism_query arguments invalid",
-      `prism_query arguments invalid for \`${methodPath}\`: \`${argumentName}\` must be an object when provided.\nHint: Pass a plain object with the documented keys, or omit \`${argumentName}\` entirely.`,
+      "prism_code arguments invalid",
+      `prism_code arguments invalid for \`${methodPath}\`: \`${argumentName}\` must be an object when provided.\nHint: Pass a plain object with the documented keys, or omit \`${argumentName}\` entirely.`,
       {
         code: "query_invalid_argument",
         category: "invalid_argument",
@@ -137,8 +142,8 @@ function __prismValidateRecordShape(methodPath, value, argumentName, allowedKeys
       ? `Use the documented key spelling instead (${suggestionSummary}) and retry.`
       : `Use only documented keys for \`${methodPath}\` and retry.`;
   __prismThrowQueryUserError(
-    "prism_query arguments invalid",
-    `prism_query arguments invalid for \`${methodPath}\`: unknown ${unknownKeys.length === 1 ? "key" : "keys"} ${unknownSummary} in \`${argumentName}\`.\nHint: ${hint} Check \`prism://api-reference\` for the exact shape.`,
+    "prism_code arguments invalid",
+    `prism_code arguments invalid for \`${methodPath}\`: unknown ${unknownKeys.length === 1 ? "key" : "keys"} ${unknownSummary} in \`${argumentName}\`.\nHint: ${hint} Check \`prism://api-reference\` for the exact shape.`,
     {
       code: "query_invalid_argument",
       category: "invalid_argument",
@@ -304,7 +309,7 @@ function __prismNormalizePath(path) {
 function __prismNormalizeRuntimeId(runtimeId) {
   if (typeof runtimeId !== "string" || runtimeId.trim() === "") {
     __prismThrowQueryUserError(
-      "prism_query remote runtime target invalid",
+      "prism_code remote runtime target invalid",
       "runtimeId must be a non-empty string.\nHint: Pass a runtime id published in shared coordination, for example `prism.from(\"runtime-abc\")`.",
       {
         code: "remote_runtime_id_required",
@@ -946,6 +951,92 @@ function __prismLoadDynamicViews() {
   return __prismDynamicViews;
 }
 
+function __prismCoordinationHandleId(handle, methodPath, expectedKind) {
+  const actualKind = handle?.__prismCoordinationHandleKind;
+  if (actualKind !== expectedKind) {
+    __prismThrowQueryUserError(
+      "prism_code coordination handle invalid",
+      `${methodPath} expects a ${expectedKind} handle.\nHint: Use the object returned by prism.coordination for this call.`,
+      {
+        code: "coordination_handle_invalid",
+        category: "coordination_builder",
+        method: methodPath,
+        expectedKind,
+        actualKind: actualKind ?? null,
+      }
+    );
+  }
+  const handleId = handle?.__prismCoordinationHandleId;
+  if (typeof handleId !== "string" || handleId.length === 0) {
+    __prismThrowQueryUserError(
+      "prism_code coordination handle invalid",
+      `${methodPath} received a coordination handle without an internal id.`,
+      {
+        code: "coordination_handle_missing_id",
+        category: "coordination_builder",
+        method: methodPath,
+      }
+    );
+  }
+  return handleId;
+}
+
+function __prismRecordId(value, methodPath, label) {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+  if (
+    value != null &&
+    typeof value === "object" &&
+    typeof value.id === "string" &&
+    value.id.trim().length > 0
+  ) {
+    return value.id.trim();
+  }
+  __prismThrowQueryUserError(
+    "prism_code object reference invalid",
+    `${methodPath} requires ${label} to be a non-empty id string or an object with a non-empty id.`,
+    {
+      code: "record_id_required",
+      category: "coordination_builder",
+      method: methodPath,
+      label,
+    }
+  );
+}
+
+function __prismRequiredStringField(methodPath, input, key) {
+  const value = typeof input?.[key] === "string" ? input[key].trim() : "";
+  if (value.length > 0) {
+    return value;
+  }
+  __prismThrowQueryUserError(
+    "prism_code arguments invalid",
+    `prism_code arguments invalid for \`${methodPath}\`: \`${key}\` must be a non-empty string.\nHint: Provide \`${key}\` explicitly and retry.`,
+    {
+      code: "query_invalid_argument",
+      category: "invalid_argument",
+      method: methodPath,
+      field: key,
+      error: `\`${key}\` must be a non-empty string.`,
+      nextAction: `Provide \`${key}\` explicitly and retry.`,
+    }
+  );
+}
+
+function __prismTaskRef(value, methodPath, label) {
+  if (
+    value != null &&
+    typeof value === "object" &&
+    value.__prismCoordinationHandleKind === "task"
+  ) {
+    return value;
+  }
+  return __prismRecordId(value, methodPath, label);
+}
+
+__PRISM_COMPILER_RUNTIME_PRELUDE__
+
 const __prismBase = Object.freeze({
   from(runtimeId) {
     return __prismRemoteApi(runtimeId);
@@ -1101,6 +1192,7 @@ const __prismBase = Object.freeze({
   validateToolInput(name, input) {
     return __prismHost("validateToolInput", { name, input });
   },
+  ...__prismCompilerRootFamilies,
   entrypoints() {
     return __prismEnrichSymbols(__prismHost("entrypoints", {}));
   },
@@ -1168,7 +1260,9 @@ const __prismBase = Object.freeze({
     return __prismHost("readyTasks", { planId });
   },
   claims(target) {
-    return __prismHost("claims", { anchors: __prismNormalizeAnchors(target) });
+    return __prismHost("claims", { anchors: __prismNormalizeAnchors(target) }).map(
+      (raw) => __prismWrapCompilerHandle(raw, "claim")
+    );
   },
   conflicts(target) {
     return __prismHost("conflicts", { anchors: __prismNormalizeAnchors(target) });
@@ -1183,10 +1277,14 @@ const __prismBase = Object.freeze({
     return __prismHost("taskReviewStatus", { taskId });
   },
   pendingReviews(planId) {
-    return __prismHost("pendingReviews", planId == null ? {} : { planId });
+    return __prismHost("pendingReviews", planId == null ? {} : { planId }).map(
+      (raw) => __prismWrapCompilerHandle(raw, "artifact")
+    );
   },
   artifacts(taskId) {
-    return __prismHost("artifacts", { taskId });
+    return __prismHost("artifacts", { taskId }).map(
+      (raw) => __prismWrapCompilerHandle(raw, "artifact")
+    );
   },
   policyViolations(input = {}) {
     input = __prismValidateRecordShape(

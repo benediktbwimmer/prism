@@ -324,6 +324,8 @@ created: 2026-04-09\n\
                         integrated_depends_on: Vec::new(),
                         acceptance: Vec::new(),
                         spec_refs: Vec::new(),
+                        artifact_requirements: Vec::new(),
+                        review_requirements: Vec::new(),
                         base_revision: WorkspaceRevision::default(),
                     },
                     spec_ref: CoordinationTaskSpecRef {

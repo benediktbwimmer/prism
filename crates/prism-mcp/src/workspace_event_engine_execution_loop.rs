@@ -1,7 +1,9 @@
 use anyhow::Result;
-use prism_coordination::EventExecutionRecord;
-use prism_core::{CoordinationReadConsistency, EventExecutionRecordAuthorityQuery};
-use prism_ir::{EventExecutionId, EventExecutionStatus, Timestamp};
+use prism_core::{
+    CoordinationReadConsistency, SharedExecutionFamily, SharedExecutionRecord,
+    SharedExecutionRecordQuery, SharedExecutionStatus,
+};
+use prism_ir::{EventExecutionId, Timestamp};
 
 use crate::workspace_event_engine::{service_event_execution_owner, WorkspaceEventEngine};
 
@@ -19,7 +21,7 @@ pub(crate) enum EventTriggerExecutionAction {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct EventTriggerExecutionPassCandidate {
-    pub(crate) record: EventExecutionRecord,
+    pub(crate) record: SharedExecutionRecord,
     pub(crate) action: EventTriggerExecutionAction,
 }
 
@@ -27,7 +29,7 @@ pub(crate) struct EventTriggerExecutionPassCandidate {
 pub(crate) enum EventTriggerExecutionPassSkipReason {
     MissingOwner,
     OwnerMismatch,
-    NonClaimedStatus { status: EventExecutionStatus },
+    NonClaimedStatus { status: SharedExecutionStatus },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -51,16 +53,16 @@ impl WorkspaceEventEngine {
         request: EventTriggerExecutionPassRequest,
     ) -> Result<EventTriggerExecutionPassPlan> {
         let owner = service_event_execution_owner(self.workspace_root());
-        let mut records =
-            self.read_event_execution_records(EventExecutionRecordAuthorityQuery {
-                consistency: CoordinationReadConsistency::Strong,
-                event_execution_id: None,
-                limit: None,
-            })?;
+        let mut records = self.read_execution_records(SharedExecutionRecordQuery {
+            consistency: CoordinationReadConsistency::Strong,
+            family: Some(SharedExecutionFamily::EventJob),
+            execution_id: None,
+            limit: None,
+        })?;
         records.sort_by(|left, right| {
             left.claimed_at
                 .cmp(&right.claimed_at)
-                .then_with(|| left.id.cmp(&right.id))
+                .then_with(|| left.execution_id.cmp(&right.execution_id))
         });
 
         let mut outcomes = Vec::new();
@@ -68,21 +70,21 @@ impl WorkspaceEventEngine {
         for record in records {
             let Some(record_owner) = record.owner.as_ref() else {
                 outcomes.push(EventTriggerExecutionPassOutcome::Skipped {
-                    event_execution_id: record.id.clone(),
+                    event_execution_id: EventExecutionId::new(record.execution_id.clone()),
                     reason: EventTriggerExecutionPassSkipReason::MissingOwner,
                 });
                 continue;
             };
             if *record_owner != owner {
                 outcomes.push(EventTriggerExecutionPassOutcome::Skipped {
-                    event_execution_id: record.id.clone(),
+                    event_execution_id: EventExecutionId::new(record.execution_id.clone()),
                     reason: EventTriggerExecutionPassSkipReason::OwnerMismatch,
                 });
                 continue;
             }
-            if record.status != EventExecutionStatus::Claimed {
+            if record.status != SharedExecutionStatus::Claimed {
                 outcomes.push(EventTriggerExecutionPassOutcome::Skipped {
-                    event_execution_id: record.id.clone(),
+                    event_execution_id: EventExecutionId::new(record.execution_id.clone()),
                     reason: EventTriggerExecutionPassSkipReason::NonClaimedStatus {
                         status: record.status,
                     },

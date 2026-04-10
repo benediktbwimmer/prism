@@ -373,6 +373,20 @@ fn apply_task_patch(task: &mut CoordinationTask, metadata: &Value) {
             task.spec_refs = spec_refs;
         }
     }
+    if patch_is_set(metadata, "artifactRequirements") {
+        if let Some(artifact_requirements) =
+            metadata_path(metadata, &["patchValues", "artifactRequirements"])
+        {
+            task.artifact_requirements = artifact_requirements;
+        }
+    }
+    if patch_is_set(metadata, "reviewRequirements") {
+        if let Some(review_requirements) =
+            metadata_path(metadata, &["patchValues", "reviewRequirements"])
+        {
+            task.review_requirements = review_requirements;
+        }
+    }
     if task.bindings.anchors.is_empty() && !task.anchors.is_empty() {
         task.bindings.anchors = task.anchors.clone();
     }
@@ -424,6 +438,12 @@ fn merge_stored_task_metadata(task: &mut CoordinationTask, stored: CoordinationT
     }
     if !stored.spec_refs.is_empty() {
         task.spec_refs = stored.spec_refs;
+    }
+    if !stored.artifact_requirements.is_empty() {
+        task.artifact_requirements = stored.artifact_requirements;
+    }
+    if !stored.review_requirements.is_empty() {
+        task.review_requirements = stored.review_requirements;
     }
     if stored.git_execution != crate::TaskGitExecution::default() {
         task.git_execution = stored.git_execution;

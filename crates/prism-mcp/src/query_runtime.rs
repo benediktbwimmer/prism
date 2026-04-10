@@ -24,7 +24,6 @@ use crate::file_queries::{
     DEFAULT_FILE_READ_MAX_CHARS,
 };
 use crate::peer_runtime_router::execute_remote_prism_query_with_provider;
-use crate::query_typecheck::StaticCheckMode;
 use crate::runtime_views::{connection_info, runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
 use crate::{
@@ -37,20 +36,20 @@ use crate::{
     coordination_plan_v2_view, coordination_task_v2_view, current_timestamp, diff_for,
     diff_for_from_events, drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol,
     entrypoints_for, focused_block_for_symbol, invalid_query_argument_error, is_query_parse_error,
-    js_runtime, lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks,
-    missing_return_hint, next_reads, node_ref_view, owner_symbol_views_for_query,
-    owner_symbol_views_for_target, owner_views_for_target, parse_event_actor,
-    parse_memory_event_action, parse_memory_kind, parse_memory_scope, parse_node_kind,
-    parse_outcome_kind, parse_outcome_result, parse_plan_scope, parse_plan_status,
-    parse_typescript_error, plan_children_v2_view, plan_summary_view, policy_violation_record_view,
-    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
-    query_feature_disabled_error, query_method_specs, rank_search_results,
-    read_context_view_cached, recent_change_context_view_cached, recent_patches,
-    recent_patches_from_events, relations_view, resolve_concepts_for_session, result_decode_error,
-    runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
-    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_evidence_status_view, task_intent_view, task_review_status_view, task_risk_view,
-    task_validation_recipe_view, tool_catalog_views_with_features, tool_schema_view_with_features,
+    lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint,
+    next_reads, node_ref_view, owner_symbol_views_for_query, owner_symbol_views_for_target,
+    owner_views_for_target, parse_event_actor, parse_memory_event_action, parse_memory_kind,
+    parse_memory_scope, parse_node_kind, parse_outcome_kind, parse_outcome_result,
+    parse_plan_scope, parse_plan_status, plan_children_v2_view, plan_summary_view,
+    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
+    promoted_validation_checks, query_diagnostic, query_feature_disabled_error, query_method_specs,
+    rank_search_results, read_context_view_cached, recent_change_context_view_cached,
+    recent_patches, recent_patches_from_events, relations_view, resolve_concepts_for_session,
+    result_decode_error, runtime_or_serialization_error, scored_memory_view, search_queries,
+    source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view, symbol_for,
+    symbol_view, symbol_views_for_ids, task_evidence_status_view, task_intent_view,
+    task_review_status_view, task_risk_view, task_validation_recipe_view,
+    tool_catalog_views_with_features, tool_schema_view_with_features,
     validate_tool_input_value_with_features, validation_context_view_cached,
     validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
     weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
@@ -66,36 +65,10 @@ use crate::{
     SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs,
     ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
     DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
-    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
 };
 
-#[derive(Debug, Clone, Copy)]
-enum TsSnippetMode {
-    StatementBody,
-    ImplicitExpression,
-}
-
-impl TsSnippetMode {
-    fn code(self) -> &'static str {
-        match self {
-            TsSnippetMode::StatementBody => "statement_body",
-            TsSnippetMode::ImplicitExpression => "implicit_expression",
-        }
-    }
-
-    fn static_check_mode(self) -> StaticCheckMode {
-        match self {
-            TsSnippetMode::StatementBody => StaticCheckMode::StatementBody,
-            TsSnippetMode::ImplicitExpression => StaticCheckMode::ImplicitExpression,
-        }
-    }
-}
-
-struct PreparedTypescriptQuery {
-    source: String,
-    user_snippet_first_line: usize,
-}
+type TsSnippetMode = crate::prism_code_compiler::PrismTypescriptProgramMode;
 
 struct TypescriptAttempt {
     execution: QueryExecution,
@@ -110,6 +83,18 @@ struct RemoteQueryDispatchArgs {
     path: Vec<String>,
     #[serde(default)]
     args: Vec<Value>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeCompilerWriteArgs {
+    method_path: String,
+    payload: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct FinalizeCodeArgs {
+    result: Value,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -232,8 +217,37 @@ impl QueryHost {
         code: &str,
         language: QueryLanguage,
     ) -> Result<QueryEnvelope> {
-        match language {
-            QueryLanguage::Ts => self.execute_typescript(session, code),
+        self.execute_code(session, code, language, "prism_query", None)
+    }
+
+    pub(crate) fn execute_code(
+        &self,
+        session: Arc<SessionState>,
+        code: &str,
+        language: QueryLanguage,
+        surface_name: &'static str,
+        code_mutation: Option<crate::prism_code_compiler::PrismCodeWriteRuntimeFactory>,
+    ) -> Result<QueryEnvelope> {
+        let compiler_input = crate::prism_code_compiler::PrismCodeCompilerInput::inline(
+            surface_name,
+            code,
+            language,
+            code_mutation.is_some(),
+        );
+        self.execute_compiler_input(session, compiler_input, code_mutation)
+    }
+
+    pub(crate) fn execute_compiler_input(
+        &self,
+        session: Arc<SessionState>,
+        compiler_input: crate::prism_code_compiler::PrismCodeCompilerInput,
+        code_mutation: Option<crate::prism_code_compiler::PrismCodeWriteRuntimeFactory>,
+    ) -> Result<QueryEnvelope> {
+        let surface_name = compiler_input.surface_name();
+        match compiler_input.language() {
+            QueryLanguage::Ts => {
+                self.execute_typescript(session, compiler_input, surface_name, code_mutation)
+            }
         }
     }
 
@@ -411,14 +425,30 @@ impl QueryHost {
         }
     }
 
-    fn execute_typescript(&self, session: Arc<SessionState>, code: &str) -> Result<QueryEnvelope> {
+    fn execute_typescript(
+        &self,
+        session: Arc<SessionState>,
+        compiler_input: crate::prism_code_compiler::PrismCodeCompilerInput,
+        surface_name: &'static str,
+        code_mutation: Option<crate::prism_code_compiler::PrismCodeWriteRuntimeFactory>,
+    ) -> Result<QueryEnvelope> {
+        let source_bundle = crate::prism_code_compiler::load_compiler_sources(
+            &compiler_input,
+            self.workspace_root(),
+        )?;
+        let root_source = source_bundle.root();
+        let code = root_source.source_text();
         let query_run = self
-            .begin_query_run(session.as_ref(), "prism_query", "typescript", code)
+            .begin_query_run(session.as_ref(), surface_name, "typescript", code)
             .with_request_payload(json!({
                 "code": code,
                 "language": "ts",
+                "executionProduct": compiler_input.execution_product().code(),
+                "sourceOrigin": format!("{:?}", root_source.origin()),
+                "sourceSpecifier": root_source.specifier(),
+                "sourcePath": root_source.display_path(),
             }));
-        let phase_args = json!({ "tool": "prism_query", "queryKind": "typescript" });
+        let phase_args = json!({ "tool": surface_name, "queryKind": "typescript" });
         let mut execution = None;
         let execute_started = Instant::now();
         match (|| -> Result<(
@@ -459,9 +489,11 @@ impl QueryHost {
             );
             let mut statement_attempt = match self.execute_typescript_attempt(
                 Arc::clone(&session),
-                code,
+                &compiler_input,
                 TsSnippetMode::StatementBody,
                 query_run.clone(),
+                surface_name,
+                code_mutation.clone(),
             ) {
                 Ok(attempt) => attempt,
                 Err(statement_error) => {
@@ -470,9 +502,11 @@ impl QueryHost {
                     }
                     match self.execute_typescript_attempt(
                         Arc::clone(&session),
-                        code,
+                        &compiler_input,
                         TsSnippetMode::ImplicitExpression,
                         query_run.clone(),
+                        surface_name,
+                        code_mutation.clone(),
                     ) {
                         Ok(expression_attempt) => expression_attempt,
                         Err(expression_error) => {
@@ -495,9 +529,11 @@ impl QueryHost {
             {
                 if let Ok(expression_attempt) = self.execute_typescript_attempt(
                     Arc::clone(&session),
-                    code,
+                    &compiler_input,
                     TsSnippetMode::ImplicitExpression,
                     query_run.clone(),
+                    surface_name,
+                    code_mutation.clone(),
                 ) {
                     execution = Some(expression_attempt.execution.clone());
                     statement_attempt = expression_attempt;
@@ -595,25 +631,38 @@ impl QueryHost {
     fn execute_typescript_attempt(
         &self,
         session: Arc<SessionState>,
-        code: &str,
+        compiler_input: &crate::prism_code_compiler::PrismCodeCompilerInput,
         mode: TsSnippetMode,
         query_run: QueryRun,
+        surface_name: &'static str,
+        code_mutation: Option<crate::prism_code_compiler::PrismCodeWriteRuntimeFactory>,
     ) -> Result<TypescriptAttempt> {
         let prepared_started = Instant::now();
-        let prepared = prepare_typescript_query(code, mode);
+        let prepared = crate::prism_code_compiler::prepare_typescript_program(
+            compiler_input,
+            self.workspace_root(),
+            mode,
+        )?;
         query_run.record_phase(
             &format!("typescript.{}.prepare", mode.code()),
-            &json!({ "mode": mode.code() }),
+            &json!({
+                "mode": mode.code(),
+                "sourceSpecifier": prepared.root_source().specifier(),
+            }),
             prepared_started.elapsed(),
             true,
             None,
         );
         let typecheck_started = Instant::now();
-        if let Err(error) = crate::query_typecheck::typecheck_query(code, mode.static_check_mode())
+        if let Err(error) =
+            crate::prism_code_compiler::typecheck_prepared_typescript_program(&prepared)
         {
             query_run.record_phase(
                 &format!("typescript.{}.typecheck", mode.code()),
-                &json!({ "mode": mode.code() }),
+                &json!({
+                    "mode": mode.code(),
+                    "sourceSpecifier": prepared.root_source().specifier(),
+                }),
                 typecheck_started.elapsed(),
                 false,
                 Some(error.to_string()),
@@ -622,45 +671,67 @@ impl QueryHost {
         }
         query_run.record_phase(
             &format!("typescript.{}.typecheck", mode.code()),
-            &json!({ "mode": mode.code() }),
+            &json!({
+                "mode": mode.code(),
+                "sourceSpecifier": prepared.root_source().specifier(),
+            }),
             typecheck_started.elapsed(),
             true,
             None,
         );
+        let analysis_started = Instant::now();
+        let analyzed = crate::prism_code_compiler::analyze_prepared_typescript_program(&prepared)?;
+        query_run.record_phase(
+            &format!("typescript.{}.semanticAnalysis", mode.code()),
+            &json!({
+                "mode": mode.code(),
+                "sourceSpecifier": prepared.root_source().specifier(),
+                "regions": analyzed.ir.regions.len(),
+                "bindings": analyzed.ir.bindings.len(),
+                "captures": analyzed.ir.captures.len(),
+                "effects": analyzed.ir.effects.len(),
+            }),
+            analysis_started.elapsed(),
+            true,
+            None,
+        );
         let transpile_started = Instant::now();
-        let transpiled = match js_runtime::transpile_typescript(&prepared.source) {
-            Ok(transpiled) => {
-                query_run.record_phase(
-                    &format!("typescript.{}.transpile", mode.code()),
-                    &json!({ "mode": mode.code() }),
-                    transpile_started.elapsed(),
-                    true,
-                    None,
-                );
-                transpiled
-            }
-            Err(error) => {
-                let error = parse_typescript_error(
-                    error,
-                    code,
-                    prepared.user_snippet_first_line,
-                    mode.code(),
-                );
-                query_run.record_phase(
-                    &format!("typescript.{}.transpile", mode.code()),
-                    &json!({ "mode": mode.code() }),
-                    transpile_started.elapsed(),
-                    false,
-                    Some(error.to_string()),
-                );
-                return Err(error);
-            }
-        };
-        let execution = QueryExecution::new(
+        let transpiled =
+            match crate::prism_code_compiler::transpile_prepared_typescript_program(&prepared) {
+                Ok(transpiled) => {
+                    query_run.record_phase(
+                        &format!("typescript.{}.transpile", mode.code()),
+                        &json!({
+                            "mode": mode.code(),
+                            "sourceSpecifier": prepared.root_source().specifier(),
+                        }),
+                        transpile_started.elapsed(),
+                        true,
+                        None,
+                    );
+                    transpiled
+                }
+                Err(error) => {
+                    query_run.record_phase(
+                        &format!("typescript.{}.transpile", mode.code()),
+                        &json!({
+                            "mode": mode.code(),
+                            "sourceSpecifier": prepared.root_source().specifier(),
+                        }),
+                        transpile_started.elapsed(),
+                        false,
+                        Some(error.to_string()),
+                    );
+                    return Err(error);
+                }
+            };
+        let execution = QueryExecution::new_with_surface(
             self.clone(),
             Arc::clone(&session),
             self.current_prism(),
             query_run,
+            surface_name,
+            code_mutation.map(|factory| factory.instantiate(analyzed.clone())),
         );
         let worker_roundtrip_started = Instant::now();
         let worker_reply = match self.worker_pool.execute(transpiled, execution.clone()) {
@@ -668,8 +739,8 @@ impl QueryHost {
             Err(error) => {
                 let error = runtime_or_serialization_error(
                     error,
-                    code,
-                    prepared.user_snippet_first_line,
+                    prepared.root_source().source_text(),
+                    prepared.user_snippet_first_line(),
                     mode.code(),
                 );
                 execution.query_run().record_phase(
@@ -725,13 +796,13 @@ impl QueryHost {
         let raw_result = worker_reply.result.map_err(|error| {
             runtime_or_serialization_error(
                 error,
-                code,
-                prepared.user_snippet_first_line,
+                prepared.root_source().source_text(),
+                prepared.user_snippet_first_line(),
                 mode.code(),
             )
         })?;
         let decode_started = Instant::now();
-        let mut result = match serde_json::from_str(&raw_result) {
+        let decoded_result = match serde_json::from_str(&raw_result) {
             Ok(result) => {
                 execution.query_run().record_phase(
                     &format!("typescript.{}.decodeResult", mode.code()),
@@ -760,6 +831,7 @@ impl QueryHost {
                 return Err(error);
             }
         };
+        let mut result = execution.finalize_code_result(decoded_result)?;
         let mut output_cap_hit = false;
         let limits = session.limits();
         if raw_result.len() > limits.max_output_json_bytes {
@@ -785,37 +857,14 @@ impl QueryHost {
     }
 }
 
-fn prepare_typescript_query(code: &str, mode: TsSnippetMode) -> PreparedTypescriptQuery {
-    let user_body = match mode {
-        TsSnippetMode::StatementBody => code.to_string(),
-        TsSnippetMode::ImplicitExpression => format!("return (\n{}\n);", code),
-    };
-    let source = format!(
-        "(async function() {{\n  const __prismLocationRegex = /(?:file:\\/\\/\\/prism\\/query\\.ts|eval_script):(?<line>\\d+):(?<column>\\d+)/;\n  const __prismParseLocation = (value) => {{\n    const __prismMatch = typeof value === \"string\" ? value.match(__prismLocationRegex) : null;\n    if (!__prismMatch || !__prismMatch.groups) {{\n      return null;\n    }}\n    return {{\n      line: Number(__prismMatch.groups.line),\n      column: Number(__prismMatch.groups.column),\n    }};\n  }};\n  const __prismFormatError = (error) => {{\n    const __prismMessage = error && typeof error === \"object\" && \"message\" in error && error.message\n      ? String(error.message)\n      : String(error);\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : null;\n    return __prismStack && __prismStack.includes(__prismMessage)\n      ? __prismStack\n      : __prismStack\n        ? `${{__prismMessage}}\\n${{__prismStack}}`\n        : __prismMessage;\n  }};\n  const __prismUserLocation = (error, baseLine) => {{\n    if (typeof baseLine !== \"number\") {{\n      return null;\n    }}\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : \"\";\n    const __prismLines = __prismStack.split(\"\\n\");\n    const __prismFrame = __prismLines.find((line) => line.includes(\"__prismUserQuery\"))\n      || __prismLines.find((line) => line.includes(\"eval_script:\"));\n    const __prismLocation = __prismParseLocation(__prismFrame);\n    if (!__prismLocation) {{\n      return null;\n    }}\n    return {{\n      line: Math.max(1, __prismLocation.line - baseLine + 1),\n      column: __prismLocation.column,\n    }};\n  }};\n  const __prismThrowTaggedError = (marker, error, userLocation = null) => {{\n    const __prismFormatted = __prismFormatError(error);\n    const __prismHeadline = __prismFormatted.split(\"\\n\")[0] || String(error);\n    const __prismUserLocationLine = userLocation\n      ? `\\n{} ${{userLocation.line}}:${{userLocation.column}}`\n      : \"\";\n    const __prismWrapped = new Error(`${{marker}}\\n${{__prismHeadline}}${{__prismUserLocationLine}}`);\n    __prismWrapped.stack = `${{userLocation ? `{} ${{userLocation.line}}:${{userLocation.column}}\\n` : \"\"}}${{__prismFormatted}}`;\n    throw __prismWrapped;\n  }};\n  let __prismUserSnippetBaseLine = null;\n  const __prismUserQuery = async () => {{\n    const __prismBaseLocation = __prismParseLocation(new Error().stack || \"\");\n    __prismUserSnippetBaseLine = __prismBaseLocation ? __prismBaseLocation.line + 1 : null;\n{}\n{}\n  }};\n  let __prismResult;\n  try {{\n    __prismResult = await __prismUserQuery();\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error, __prismUserLocation(error, __prismUserSnippetBaseLine));\n  }}\n  try {{\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error);\n  }}\n}})();\n",
-        USER_SNIPPET_LOCATION_MARKER,
-        USER_SNIPPET_LOCATION_MARKER,
-        USER_SNIPPET_MARKER,
-        user_body,
-        QUERY_RUNTIME_ERROR_MARKER,
-        QUERY_SERIALIZATION_ERROR_MARKER,
-    );
-    let user_snippet_first_line = source
-        .lines()
-        .position(|line| line.trim() == USER_SNIPPET_MARKER)
-        .map(|index| index + 2)
-        .unwrap_or(1);
-    PreparedTypescriptQuery {
-        source,
-        user_snippet_first_line,
-    }
-}
-
 #[derive(Clone)]
 pub(crate) struct QueryExecution {
     host: QueryHost,
     session: Arc<SessionState>,
     prism: Arc<Prism>,
     query_run: QueryRun,
+    surface_name: &'static str,
+    code_mutation: Option<crate::prism_code_compiler::PrismCodeWriteRuntime>,
     diagnostics: Arc<Mutex<Vec<QueryDiagnostic>>>,
     semantic_context_cache: Arc<Mutex<SemanticContextCache>>,
 }
@@ -827,11 +876,24 @@ impl QueryExecution {
         prism: Arc<Prism>,
         query_run: QueryRun,
     ) -> Self {
+        Self::new_with_surface(host, session, prism, query_run, "prism_query", None)
+    }
+
+    pub(crate) fn new_with_surface(
+        host: QueryHost,
+        session: Arc<SessionState>,
+        prism: Arc<Prism>,
+        query_run: QueryRun,
+        surface_name: &'static str,
+        code_mutation: Option<crate::prism_code_compiler::PrismCodeWriteRuntime>,
+    ) -> Self {
         Self {
             host,
             session,
             prism,
             query_run,
+            surface_name,
+            code_mutation,
             diagnostics: Arc::new(Mutex::new(Vec::new())),
             semantic_context_cache: Arc::new(Mutex::new(SemanticContextCache::default())),
         }
@@ -908,11 +970,12 @@ impl QueryExecution {
                 if let Some(json_error) = error.downcast_ref::<serde_json::Error>() {
                     return json!({
                         "ok": false,
-                        "error": "prism_query arguments invalid",
+                        "error": format!("{} arguments invalid", self.surface_name),
                         "queryError": {
-                            "summary": "prism_query arguments invalid",
+                            "summary": format!("{} arguments invalid", self.surface_name),
                             "message": format!(
-                                "prism_query arguments invalid for `{}`: {}\nHint: Check the query method argument names, required fields, and value types, then retry.",
+                                "{} arguments invalid for `{}`: {}\nHint: Check the query method argument names, required fields, and value types, then retry.",
+                                self.surface_name,
                                 operation,
                                 json_error,
                             ),
@@ -1101,11 +1164,28 @@ impl QueryExecution {
                 "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
                 "plans" => {
                     let args: PlansQueryArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(self.plans(args)?)?)
+                    let plans = serde_json::to_value(self.plans(args)?)?;
+                    let plans = match (self.code_mutation.as_ref(), plans) {
+                        (Some(code_mutation), Value::Array(entries)) => {
+                            Value::Array(code_mutation.overlay_plan_list(entries))
+                        }
+                        (_, value) => value,
+                    };
+                    Ok(plans)
                 }
                 "plan" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     let plan_id = PlanId::new(args.plan_id);
+                    let host_plan = match crate::spec_surface::linked_plan_view(&self.host, &plan_id)
+                    {
+                        Ok(plan) => Some(serde_json::to_value(plan)?),
+                        Err(_) => None,
+                    };
+                    if let Some(code_mutation) = self.code_mutation.as_ref() {
+                        if let Some(plan) = code_mutation.overlay_plan_read(&plan_id.0, host_plan) {
+                            return Ok(plan);
+                        }
+                    }
                     let plan = crate::spec_surface::linked_plan_view(&self.host, &plan_id)?;
                     Ok(serde_json::to_value(plan)?)
                 }
@@ -1121,9 +1201,24 @@ impl QueryExecution {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     let plan_id = PlanId::new(args.plan_id);
                     let children = self.prism.plan_children_v2(&plan_id);
-                    Ok(serde_json::to_value(Some(plan_children_v2_view(
+                    let children_view = serde_json::to_value(Some(plan_children_v2_view(
                         &plan_id, children,
-                    )))?)
+                    )))?;
+                    let children_view = match (self.code_mutation.as_ref(), children_view) {
+                        (Some(code_mutation), Value::Object(mut object)) => {
+                            if let Some(Value::Array(entries)) = object.remove("children") {
+                                object.insert(
+                                    "children".to_string(),
+                                    Value::Array(
+                                        code_mutation.overlay_plan_children(&plan_id.0, entries),
+                                    ),
+                                );
+                            }
+                            Value::Object(object)
+                        }
+                        (_, value) => value,
+                    };
+                    Ok(children_view)
                 }
                 "dependencies" => {
                     let args: NodeRefArgs = serde_json::from_value(args)?;
@@ -1160,18 +1255,44 @@ impl QueryExecution {
                 )?),
                 "task" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    let task_id = CoordinationTaskId::new(args.task_id);
+                    let host_task = match crate::spec_surface::linked_coordination_task_view(
+                        &self.host,
+                        &task_id,
+                    ) {
+                        Ok(task) => Some(serde_json::to_value(task)?),
+                        Err(_) => None,
+                    };
+                    if let Some(code_mutation) = self.code_mutation.as_ref() {
+                        if let Some(task) = code_mutation.overlay_task_read(&task_id.0, host_task) {
+                            return Ok(task);
+                        }
+                    }
                     let task = crate::spec_surface::linked_coordination_task_view(
                         &self.host,
-                        &CoordinationTaskId::new(args.task_id),
+                        &task_id,
                     )?;
                     Ok(serde_json::to_value(task)?)
                 }
                 "graphActionableTasks" => Ok(serde_json::to_value(
-                    self.prism
-                        .graph_actionable_tasks_v2()
-                        .into_iter()
-                        .map(coordination_task_v2_view)
-                        .collect::<Vec<_>>(),
+                    match self.code_mutation.as_ref() {
+                        Some(code_mutation) => Value::Array(code_mutation.overlay_task_list(
+                            self.prism
+                                .graph_actionable_tasks_v2()
+                                .into_iter()
+                                .map(coordination_task_v2_view)
+                                .map(|view| serde_json::to_value(view).expect("task view"))
+                                .collect::<Vec<_>>(),
+                        )),
+                        None => Value::Array(
+                            self.prism
+                                .graph_actionable_tasks_v2()
+                                .into_iter()
+                                .map(coordination_task_v2_view)
+                                .map(|view| serde_json::to_value(view).expect("task view"))
+                                .collect::<Vec<_>>(),
+                        ),
+                    }
                 )?),
                 "actionableTasks" => {
                     let args: ActionableTasksArgs = serde_json::from_value(args)?;
@@ -1189,12 +1310,17 @@ impl QueryExecution {
                     } else {
                         self.prism.graph_actionable_tasks_v2()
                     };
-                    Ok(serde_json::to_value(
-                        tasks
-                            .into_iter()
-                            .map(coordination_task_v2_view)
-                            .collect::<Vec<_>>(),
-                    )?)
+                    let tasks = tasks
+                        .into_iter()
+                        .map(coordination_task_v2_view)
+                        .map(serde_json::to_value)
+                        .collect::<serde_json::Result<Vec<_>>>()?;
+                    Ok(match self.code_mutation.as_ref() {
+                        Some(code_mutation) => {
+                            serde_json::to_value(code_mutation.overlay_task_list(tasks))?
+                        }
+                        None => serde_json::to_value(tasks)?,
+                    })
                 }
                 "readyTasks" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
@@ -1206,30 +1332,45 @@ impl QueryExecution {
                     } else {
                         self.prism.ready_tasks_v2(&plan_id)
                     };
-                    Ok(serde_json::to_value(
-                        ready_tasks
-                            .into_iter()
-                            .map(coordination_task_v2_view)
-                            .collect::<Vec<_>>(),
-                    )?)
+                    let ready_tasks = ready_tasks
+                        .into_iter()
+                        .map(coordination_task_v2_view)
+                        .map(serde_json::to_value)
+                        .collect::<serde_json::Result<Vec<_>>>()?;
+                    Ok(match self.code_mutation.as_ref() {
+                        Some(code_mutation) => serde_json::to_value(
+                            code_mutation.overlay_plan_children(&plan_id.0, ready_tasks),
+                        )?,
+                        None => serde_json::to_value(ready_tasks)?,
+                    })
                 }
                 "claims" => {
                     let args: AnchorListArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .claims(
-                                &convert_anchors(
-                                    &self.prism,
-                                    self.host.workspace_session_ref(),
-                                    self.workspace_root(),
-                                    args.anchors,
-                                )?,
-                                current_timestamp(),
-                            )
-                            .into_iter()
-                            .map(claim_view)
-                            .collect::<Vec<_>>(),
-                    )?)
+                    let claim_anchors = serde_json::to_value(args.anchors.clone())?
+                        .as_array()
+                        .cloned()
+                        .unwrap_or_default();
+                    let claims = self
+                        .prism
+                        .claims(
+                            &convert_anchors(
+                                &self.prism,
+                                self.host.workspace_session_ref(),
+                                self.workspace_root(),
+                                args.anchors,
+                            )?,
+                            current_timestamp(),
+                        )
+                        .into_iter()
+                        .map(claim_view)
+                        .map(serde_json::to_value)
+                        .collect::<serde_json::Result<Vec<_>>>()?;
+                    Ok(match self.code_mutation.as_ref() {
+                        Some(code_mutation) => serde_json::to_value(
+                            code_mutation.overlay_claim_list(&claim_anchors, claims),
+                        )?,
+                        None => serde_json::to_value(claims)?,
+                    })
                 }
                 "conflicts" => {
                     let args: AnchorListArgs = serde_json::from_value(args)?;
@@ -1323,28 +1464,49 @@ impl QueryExecution {
                 }
                 "pendingReviews" => {
                     let args: PendingReviewsArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .pending_reviews(
-                                args.plan_id
-                                    .as_ref()
-                                    .map(|plan_id| PlanId::new(plan_id.clone()))
-                                    .as_ref(),
-                            )
-                            .into_iter()
-                            .map(artifact_view)
-                            .collect::<Vec<_>>(),
-                    )?)
+                    let artifacts = self
+                        .prism
+                        .pending_reviews(
+                            args.plan_id
+                                .as_ref()
+                                .map(|plan_id| PlanId::new(plan_id.clone()))
+                                .as_ref(),
+                        )
+                        .into_iter()
+                        .map(artifact_view)
+                        .map(serde_json::to_value)
+                        .collect::<serde_json::Result<Vec<_>>>()?;
+                    Ok(match self.code_mutation.as_ref() {
+                        Some(code_mutation) => serde_json::to_value(
+                            code_mutation.overlay_artifact_list(
+                                None,
+                                args.plan_id.as_deref(),
+                                artifacts,
+                            ),
+                        )?,
+                        None => serde_json::to_value(artifacts)?,
+                    })
                 }
                 "artifacts" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                    Ok(serde_json::to_value(
-                        self.prism
-                            .artifacts(&CoordinationTaskId::new(args.task_id))
-                            .into_iter()
-                            .map(artifact_view)
-                            .collect::<Vec<_>>(),
-                    )?)
+                    let task_id = args.task_id;
+                    let artifacts = self
+                        .prism
+                        .artifacts(&CoordinationTaskId::new(task_id.clone()))
+                        .into_iter()
+                        .map(artifact_view)
+                        .map(serde_json::to_value)
+                        .collect::<serde_json::Result<Vec<_>>>()?;
+                    Ok(match self.code_mutation.as_ref() {
+                        Some(code_mutation) => serde_json::to_value(
+                            code_mutation.overlay_artifact_list(
+                                Some(task_id.as_str()),
+                                None,
+                                artifacts,
+                            ),
+                        )?,
+                        None => serde_json::to_value(artifacts)?,
+                    })
                 }
                 "policyViolations" => {
                     let args: PolicyViolationQueryArgs = serde_json::from_value(args)?;
@@ -1626,6 +1788,14 @@ impl QueryExecution {
                     Ok(serde_json::to_value(
                         self.validate_tool_input(&args.name, args.input),
                     )?)
+                }
+                "__compilerWrite" => {
+                    let args: NativeCompilerWriteArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_compiler_write(args.method_path, args.payload)?)
+                }
+                "__finalizeCode" => {
+                    let args: FinalizeCodeArgs = serde_json::from_value(args)?;
+                    Ok(self.finalize_code_result(args.result)?)
                 }
                 "excerpt" => {
                     let args: SourceExcerptArgs = serde_json::from_value(args)?;
@@ -1960,6 +2130,22 @@ return prism.file(__prismFileAroundArgs.path).around({
             return Err(query_feature_disabled_error(operation, group));
         }
         Ok(())
+    }
+
+    fn execute_native_compiler_write(&self, method_path: String, payload: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "compiler writes require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.compiler_write(&method_path, payload)
+    }
+
+    fn finalize_code_result(&self, result: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Ok(result);
+        };
+        code_mutation.finalize_result(result)
     }
 
     pub(crate) fn best_symbol(&self, query: &str) -> Result<Option<SymbolView>> {
@@ -3534,7 +3720,7 @@ return prism.file(__prismFileAroundArgs.path).around({
                 .next()
                 .map(|resolution| resolution.packet),
                 (None, None) => {
-                    return Err(anyhow!("decodeConcept requires either `handle` or `query`"))
+                    return Err(anyhow!("decodeConcept requires either `handle` or `query`"));
                 }
             };
         let Some(packet) = packet else {

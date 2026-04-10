@@ -396,7 +396,7 @@ fn compact_expand_next_action(kind: AgentExpandKind, target: &SessionHandleTarge
             if is_text_fragment_target(target) {
                 "Use prism_locate for a semantic symbol, or prism_workset to reach one.".to_string()
             } else {
-                "Use prism_open for local source, or prism_query for full lineage detail."
+                "Use prism_open for local source, or prism_code for full lineage detail."
                     .to_string()
             }
         }
@@ -417,7 +417,7 @@ fn compact_expand_next_action(kind: AgentExpandKind, target: &SessionHandleTarge
             if is_text_fragment_target(target) {
                 "Use prism_locate for a semantic symbol, or prism_open on this slice.".to_string()
             } else {
-                "Use prism_open for local source, or prism_query for full diff history.".to_string()
+                "Use prism_open for local source, or prism_code for full diff history.".to_string()
             }
         }
         AgentExpandKind::Health => {
@@ -920,7 +920,7 @@ fn compact_lineage_value(
         "recentHistory": recent_history,
         "truncated": truncated,
         "nextAction": truncated.then_some(
-            "Use prism_query if you need the full lineage history or evidence details."
+            "Use prism_code if you need the full lineage history or evidence details."
         ),
     })
 }
@@ -984,7 +984,7 @@ fn compact_diff_value(diffs: &[prism_js::DiffHunkView], truncated: bool) -> Valu
         "recentDiffs": recent_diffs,
         "truncated": truncated,
         "nextAction": truncated.then_some(
-            "Use prism_query if you need the full patch history or rich diff hunks."
+            "Use prism_code if you need the full patch history or rich diff hunks."
         ),
     })
 }

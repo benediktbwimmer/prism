@@ -1,6 +1,6 @@
 # Coordination Artifact And Review Model Phase 1
 
-Status: in progress
+Status: complete
 Audience: coordination, query, MCP, UI, and workflow maintainers
 Scope: implement declared artifact and review requirements on tasks, requirement-linked artifact and review records, lineage-head selection, and completion/query surfaces that honor those declared requirements
 
@@ -28,13 +28,19 @@ It does not yet implement the shared execution substrate, Actions, or graph-wide
 
 Coarse checklist:
 
-- [ ] add native artifact requirement and review requirement types
-- [ ] thread requirement declarations through task create and update surfaces
-- [ ] require artifact proposals to target declared artifact requirements
-- [ ] require primitive reviews to target declared review requirements
-- [ ] add lineage-head and requirement-satisfaction helpers
-- [ ] update completion blockers and review queries to use declared requirements
-- [ ] surface the new model through MCP and JS view types
+- [x] add native artifact requirement and review requirement types
+- [x] thread requirement declarations through task create and update surfaces
+- [x] require artifact proposals to target declared artifact requirements
+- [x] require primitive reviews to target declared review requirements
+- [x] add lineage-head and requirement-satisfaction helpers
+- [x] update completion blockers and review queries to use declared requirements
+- [x] surface the new model through MCP and JS view types
+
+Progress note (2026-04-09):
+
+- coordination-core storage, mutation, replay, blocker, and pending-review semantics are implemented in `prism-coordination`
+- task updates reject requirement changes that would invalidate retained review requirements
+- query transaction inputs, shared coordination fixtures, MCP payloads/views, and JS-facing view types now expose the declared requirement model end to end
 
 ## 3. Non-goals
 
@@ -207,6 +213,10 @@ Add:
 - artifact and review requirement linkage fields
 - snapshot and replay support
 
+Status:
+
+- complete in `prism-coordination`
+
 ### Slice B: Mutation inputs
 
 Add:
@@ -214,6 +224,10 @@ Add:
 - task create and update payload support for declared requirements
 - artifact propose linkage to declared artifact requirement
 - artifact review linkage to declared review requirement
+
+Status:
+
+- complete in `prism-coordination`
 
 ### Slice C: Derivations and blockers
 
@@ -224,6 +238,10 @@ Add:
 - completion blocker updates
 - pending review query updates
 
+Status:
+
+- complete in `prism-coordination`
+
 ### Slice D: Public views
 
 Add:
@@ -232,15 +250,16 @@ Add:
 - JS-facing view types
 - task and artifact views that expose the declared requirement model
 
+Status:
+
+- complete
+
 ## 8. Validation
 
 Tier 1:
 
 - `cargo test -p prism-coordination`
-
-Tier 2:
-
-- `cargo test -p prism-mcp`
+- `cargo test -p prism-query -p prism-core -p prism-js -p prism-mcp`
 
 Targeted tests should cover at least:
 

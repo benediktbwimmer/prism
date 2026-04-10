@@ -797,12 +797,13 @@ fn prism_impact_and_after_edit_note_out_of_scope_boundaries_for_unresolved_paths
         )
         .expect("impact should succeed");
     assert_eq!(impact.result["subject"]["unresolvedPaths"][0], "www/app.js");
-    assert!(impact.result["notes"].as_array().is_some_and(|notes| notes
-        .iter()
-        .filter_map(|note| note.as_str())
-        .any(|note| note.contains("www/app.js")
-            && note.contains("outside the current indexed scope")
-            && note.contains("`www`"))));
+    assert!(impact.result["notes"].as_array().is_some_and(|notes| {
+        notes.iter().filter_map(|note| note.as_str()).any(|note| {
+            note.contains("www/app.js")
+                && note.contains("outside the current indexed scope")
+                && note.contains("`www`")
+        })
+    }));
 
     let after_edit = host
         .execute(
@@ -815,14 +816,13 @@ fn prism_impact_and_after_edit_note_out_of_scope_boundaries_for_unresolved_paths
         after_edit.result["subject"]["unresolvedPaths"][0],
         "www/app.js"
     );
-    assert!(after_edit.result["notes"]
-        .as_array()
-        .is_some_and(|notes| notes
-            .iter()
-            .filter_map(|note| note.as_str())
-            .any(|note| note.contains("www/app.js")
+    assert!(after_edit.result["notes"].as_array().is_some_and(|notes| {
+        notes.iter().filter_map(|note| note.as_str()).any(|note| {
+            note.contains("www/app.js")
                 && note.contains("outside the current indexed scope")
-                && note.contains("`www`"))));
+                && note.contains("`www`")
+        })
+    }));
 }
 
 #[test]
@@ -1053,9 +1053,11 @@ return {
         trace["requestPreview"].is_string() || trace["requestPreview"].is_object(),
         "request preview should stay serializable"
     );
-    assert!(trace["phases"].as_array().is_some_and(|phases| phases
-        .iter()
-        .any(|phase| phase["operation"] == "fileAround")));
+    assert!(trace["phases"].as_array().is_some_and(|phases| {
+        phases
+            .iter()
+            .any(|phase| phase["operation"] == "fileAround")
+    }));
 
     assert!(result.result["stats"]["totalCalls"]
         .as_u64()

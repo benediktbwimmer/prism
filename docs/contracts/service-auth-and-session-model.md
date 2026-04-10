@@ -27,6 +27,11 @@ This contract relies on:
 - [signing-and-verification.md](./signing-and-verification.md)
 - [provenance.md](./provenance.md)
 
+This contract also constrains the canonical programmable surface:
+
+- read-only `prism_code` execution may run without mutation authority
+- write-capable `prism_code` execution requires authenticated context
+
 ## 2. Core invariants
 
 The service auth model must preserve these rules:

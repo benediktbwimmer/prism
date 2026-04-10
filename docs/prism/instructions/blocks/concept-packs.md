@@ -12,5 +12,5 @@
 - Promote a concept candidate when real task work has resolved a broad or fuzzy term into a stable multi-artifact cluster that future agents would likely reuse.
 - Prefer concepts that match how future agents will naturally think and speak about the repo, such as `validation pipeline`, `runtime surface`, `session lifecycle`, `memory system`, `compact tools`, or `task continuity`.
 - Use the same `local -> session -> repo` promotion ladder for concepts.
-- Use `prism_mutate` with action `concept` and operation `promote`, `update`, or `retire` when the concept lifecycle matters.
+- Use `prism_code` and the concept SDK methods when the concept lifecycle matters, such as promote, update, or retire operations.
 - Do not let concepts silently rot. If a concept no longer matches the live subsystem, update or retire it.

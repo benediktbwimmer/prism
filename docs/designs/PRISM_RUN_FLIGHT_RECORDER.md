@@ -17,7 +17,7 @@ The wrapper must:
 - execute the command transparently
 - stream `stdout` and `stderr` to the invoking terminal in real time
 - record the command and its output into the local PRISM runtime SQLite store
-- preserve enough structure for later `prism_query` access and future peer runtime inspection
+- preserve enough structure for later `prism_code` access and future peer runtime inspection
 
 This is intentionally not OS-level process monitoring. It is a deterministic, explicit execution
 surface for agent-invoked shell work.
@@ -300,7 +300,7 @@ These numbers are operational defaults, not protocol constraints.
 
 ## Query surface
 
-The schema should be designed now for a future `prism_query` API.
+The schema should be designed now for a future `prism_code` API.
 
 ### Top-level namespace
 
@@ -547,7 +547,7 @@ access.
 
 ### V1.1
 
-- initial `prism_query` support:
+- initial `prism_code` support:
   - `recent`
   - `search`
   - `running`

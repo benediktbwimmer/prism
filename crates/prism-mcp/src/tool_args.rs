@@ -813,6 +813,30 @@ pub(crate) struct PrismQueryArgs {
     pub(crate) language: Option<QueryLanguage>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismCodeArgs {
+    #[schemars(
+        description = "JavaScript or TypeScript snippet evaluated with a global `prism` object."
+    )]
+    pub(crate) code: String,
+    #[schemars(description = "Code language. Only `ts` is currently supported.")]
+    pub(crate) language: Option<QueryLanguage>,
+    #[schemars(
+        description = "Optional authenticated principal envelope for write-capable prism_code calls."
+    )]
+    pub(crate) credential: Option<PrismMutationCredentialArgs>,
+    #[schemars(
+        description = "Optional attached bridge execution envelope for write-capable prism_code calls."
+    )]
+    pub(crate) bridge_execution: Option<PrismMutationBridgeExecutionArgs>,
+    #[serde(default)]
+    #[schemars(
+        description = "When true, validate and lower prism_code mutations without committing them."
+    )]
+    pub(crate) dry_run: bool,
+}
+
 #[derive(Debug, Clone, JsonSchema)]
 pub(crate) enum PrismLocateTaskIntentInput {
     Inspect,
@@ -1338,7 +1362,7 @@ pub(crate) struct NodeIdInput {
     pub(crate) kind: String,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, serde::Serialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum AnchorRefInput {
     Node {
@@ -1774,7 +1798,7 @@ pub(crate) struct PrismMutationCredentialArgs {
     pub(crate) principal_token: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismMutationBridgeExecutionArgs {
     #[serde(alias = "worktree_id")]
@@ -2751,22 +2775,11 @@ impl_vocab_deserialize!(
 );
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case", tag = "action", content = "input")]
-pub(crate) enum CoordinationTransactionMutationPayload {
-    PlanCreate(CoordinationTransactionPlanCreatePayload),
-    PlanUpdate(CoordinationTransactionPlanUpdatePayload),
-    PlanArchive(CoordinationTransactionPlanArchivePayload),
-    TaskCreate(CoordinationTransactionTaskCreatePayload),
-    TaskUpdate(CoordinationTransactionTaskUpdatePayload),
-    DependencyCreate(CoordinationTransactionDependencyCreatePayload),
-}
-
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub(crate) struct CoordinationTransactionPayload {
-    #[serde(default)]
-    pub(crate) mutations: Vec<CoordinationTransactionMutationPayload>,
     pub(crate) intent_metadata: Option<Value>,
+    pub(crate) structured_transaction: Option<Value>,
     pub(crate) optimistic_preconditions: Option<Value>,
 }
 
@@ -2813,6 +2826,10 @@ pub(crate) struct CoordinationTransactionTaskCreatePayload {
     #[serde(default)]
     pub(crate) integrated_depends_on: Vec<CoordinationTaskRefPayload>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+    #[serde(default)]
+    pub(crate) artifact_requirements: Vec<prism_coordination::ArtifactRequirement>,
+    #[serde(default)]
+    pub(crate) review_requirements: Vec<prism_coordination::ReviewRequirement>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -2832,6 +2849,109 @@ pub(crate) struct CoordinationTransactionTaskUpdatePayload {
     pub(crate) priority: Option<SparsePatchInput<u8>>,
     pub(crate) tags: Option<Vec<String>>,
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
+    pub(crate) artifact_requirements: Option<Vec<prism_coordination::ArtifactRequirement>>,
+    pub(crate) review_requirements: Option<Vec<prism_coordination::ReviewRequirement>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionClaimRefPayload {
+    pub(crate) claim_id: Option<String>,
+    pub(crate) client_claim_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionArtifactRefPayload {
+    pub(crate) artifact_id: Option<String>,
+    pub(crate) client_artifact_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionClaimAcquirePayload {
+    pub(crate) client_claim_id: Option<String>,
+    pub(crate) anchors: Vec<AnchorRefInput>,
+    pub(crate) capability: CapabilityInput,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) mode: Option<ClaimModeInput>,
+    pub(crate) ttl_seconds: Option<u64>,
+    pub(crate) agent: Option<String>,
+    pub(crate) task: Option<CoordinationTaskRefPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionClaimRenewPayload {
+    pub(crate) claim: CoordinationTransactionClaimRefPayload,
+    pub(crate) ttl_seconds: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionClaimReleasePayload {
+    pub(crate) claim: CoordinationTransactionClaimRefPayload,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionArtifactProposePayload {
+    pub(crate) client_artifact_id: Option<String>,
+    pub(crate) task: CoordinationTaskRefPayload,
+    pub(crate) artifact_requirement_id: Option<String>,
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) diff_ref: Option<String>,
+    pub(crate) evidence: Option<Vec<String>>,
+    pub(crate) required_validations: Option<Vec<String>>,
+    pub(crate) validated_checks: Option<Vec<String>>,
+    pub(crate) risk_score: Option<f32>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionArtifactSupersedePayload {
+    pub(crate) artifact: CoordinationTransactionArtifactRefPayload,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionArtifactReviewPayload {
+    pub(crate) artifact: CoordinationTransactionArtifactRefPayload,
+    pub(crate) review_requirement_id: Option<String>,
+    pub(crate) verdict: ReviewVerdictInput,
+    pub(crate) summary: String,
+    pub(crate) required_validations: Option<Vec<String>>,
+    pub(crate) validated_checks: Option<Vec<String>>,
+    pub(crate) risk_score: Option<f32>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionTaskHandoffPayload {
+    pub(crate) task: CoordinationTaskRefPayload,
+    pub(crate) to_agent: Option<String>,
+    pub(crate) summary: String,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionTaskHandoffAcceptPayload {
+    pub(crate) task: CoordinationTaskRefPayload,
+    pub(crate) agent: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionTaskResumePayload {
+    pub(crate) task: CoordinationTaskRefPayload,
+    pub(crate) agent: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationTransactionTaskReclaimPayload {
+    pub(crate) task: CoordinationTaskRefPayload,
+    pub(crate) agent: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -2958,6 +3078,10 @@ pub(crate) struct TaskCreatePayload {
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) depends_on: Option<Vec<String>>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+    #[serde(default)]
+    pub(crate) artifact_requirements: Vec<prism_coordination::ArtifactRequirement>,
+    #[serde(default)]
+    pub(crate) review_requirements: Vec<prism_coordination::ReviewRequirement>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -2979,6 +3103,8 @@ pub(crate) struct WorkflowUpdatePayload {
     pub(crate) tags: Option<Vec<String>>,
     #[serde(alias = "completionContext", alias = "completion_context")]
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
+    pub(crate) artifact_requirements: Option<Vec<prism_coordination::ArtifactRequirement>>,
+    pub(crate) review_requirements: Option<Vec<prism_coordination::ReviewRequirement>>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -3050,6 +3176,7 @@ pub(crate) struct ClaimReleasePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ArtifactProposePayload {
     pub(crate) task_id: String,
+    pub(crate) artifact_requirement_id: Option<String>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) diff_ref: Option<String>,
     pub(crate) evidence: Option<Vec<String>>,
@@ -3068,6 +3195,7 @@ pub(crate) struct ArtifactSupersedePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ArtifactReviewPayload {
     pub(crate) artifact_id: String,
+    pub(crate) review_requirement_id: Option<String>,
     pub(crate) verdict: ReviewVerdictInput,
     pub(crate) summary: String,
     pub(crate) required_validations: Option<Vec<String>>,

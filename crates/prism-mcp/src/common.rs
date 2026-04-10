@@ -35,7 +35,7 @@ pub(crate) fn map_query_error(error: anyhow::Error) -> McpError {
     }
     if let Some(json_error) = error.downcast_ref::<serde_json::Error>() {
         return McpError::invalid_params(
-            "prism_query arguments invalid",
+            "prism_code arguments invalid",
             Some(json!({
                 "code": "query_invalid_argument",
                 "category": "invalid_argument",
@@ -45,7 +45,53 @@ pub(crate) fn map_query_error(error: anyhow::Error) -> McpError {
         );
     }
     McpError::internal_error(
-        "prism query failed",
+        "prism code failed",
+        Some(json!({
+            "code": "query_execution_failed",
+            "error": error.to_string(),
+        })),
+    )
+}
+
+pub(crate) fn map_code_error(error: anyhow::Error) -> McpError {
+    if let Some(admission_error) = error.downcast_ref::<AdmissionBusyError>() {
+        return McpError::internal_error(
+            admission_error.to_string(),
+            Some(json!({
+                "code": admission_error.code(),
+                "category": "busy",
+                "operation": admission_error.operation(),
+                "resource": admission_error.resource(),
+                "retryable": true,
+                "nextAction": admission_error.next_action(),
+            })),
+        );
+    }
+    if let Some(query_error) = error.downcast_ref::<QueryExecutionError>() {
+        if matches!(
+            query_error.code(),
+            Some("query_feature_disabled" | "query_invalid_argument")
+        ) {
+            return McpError::invalid_params(
+                query_error.to_string(),
+                Some(query_error.data().clone()),
+            );
+        }
+        return McpError::internal_error(query_error.summary(), Some(query_error.data().clone()));
+    }
+    if let Some(json_error) = error.downcast_ref::<serde_json::Error>() {
+        return McpError::invalid_params(
+            "prism_code arguments invalid",
+            Some(json!({
+                "code": "query_invalid_argument",
+                "category": "invalid_argument",
+                "error": json_error.to_string(),
+                "nextAction": "Check the prism_code argument names, required fields, and value types, then retry.",
+            })),
+        );
+    }
+    McpError::internal_error(
+        "prism code failed",
         Some(json!({
             "code": "query_execution_failed",
             "error": error.to_string(),

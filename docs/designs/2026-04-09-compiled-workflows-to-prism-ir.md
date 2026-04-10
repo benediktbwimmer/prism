@@ -1,8 +1,8 @@
-# JS/TS-Authored Plans Compiled To PRISM IR
+# Repo-Authored PRISM Code Compiled To PRISM Execution IR
 
 Status: proposed design  
 Audience: coordination, service, runtime, query, MCP, CLI, UI, and extension maintainers  
-Scope: authoring Plans in JS or TS, compiling them into PRISM-native IR, and preserving a thin service with DB-backed authority
+Scope: authoring PRISM code in JS or TS, compiling it into PRISM Execution IR or transaction ops, and preserving a thin service with DB-backed authority
 
 ---
 
@@ -10,15 +10,14 @@ Scope: authoring Plans in JS or TS, compiling them into PRISM-native IR, and pre
 
 PRISM should move toward:
 
-- authoring Plans or plan definitions in JS or TS
-- compiling that authoring form into explicit PRISM-native IR
-- persisting, querying, rendering, and executing the compiled IR rather than executing authoring
-  code directly in the service
+- authoring PRISM code in JS or TS
+- compiling that authoring form into explicit PRISM Execution IR or explicit native transaction ops
+- persisting, querying, rendering, and executing native results rather than executing authored code directly in the service
 
 The core rule is:
 
-- Plans are authored as code
-- plans are executed as compiled IR
+- PRISM code is authored as JS/TS
+- plans and runtime state are executed as native compiled or lowered results
 
 This gives PRISM:
 
@@ -26,7 +25,7 @@ This gives PRISM:
 - explicit inspectable graph structure
 - deterministic execution semantics
 - strong provenance over compiled artifacts
-- compiled IR as the reviewable and operational truth
+- PRISM Execution IR as the reviewable and operational truth
 - lightweight service behavior
 - no arbitrary plan-authoring code running in the service hot path
 
@@ -42,7 +41,7 @@ PRISM already wants all of the following:
 - strong provenance and auditability
 - a thin service that does not become a user-code interpreter
 
-Compiled plan IR is a strong answer because it resolves the tension between:
+Compiled PRISM Execution IR is a strong answer because it resolves the tension between:
 
 - expressive authoring
 - explicit runtime inspectability
@@ -51,23 +50,23 @@ without forcing PRISM to execute arbitrary user plan-authoring code in the servi
 
 ## 3. Core stance
 
-### 3.1 Plans remain IR artifacts, not live guest code
+### 3.1 PRISM Execution IR remains runtime truth, not live guest code
 
-PRISM plans should remain explicit persisted IR artifacts.
+PRISM plans should remain explicit persisted PRISM Execution IR artifacts.
 
 They should not become opaque runtime code objects.
 
-### 3.2 Plan authoring can still be code-first
+### 3.2 PRISM authoring can still be code-first
 
-Humans and agents should eventually be able to author Plans in a higher-level form such as:
+Humans and agents should be able to author PRISM code in a higher-level form such as:
 
 - JS or TS plan-definition code
-- generated plan code
-- perhaps later a declarative DSL
+- JS or TS Action, validator, or helper code
+- generated PRISM code
 
 That authoring layer is flexible and ergonomic.
 
-### 3.3 The service should remain IR-driven
+### 3.3 The service should remain native-result-driven
 
 The PRISM Service should not:
 
@@ -75,20 +74,21 @@ The PRISM Service should not:
 - compile user-authored plan code in its hot path
 - become a generic guest-code runtime
 
-The service should consume compiled IR plus associated provenance.
+The service should consume compiled IR or lowered native mutation ops plus associated provenance.
 
 ## 4. Proposed architecture
 
 The long-term model should have three clear layers.
 
-### 4.1 Plan authoring layer
+### 4.1 Repo-authored PRISM code layer
 
 This is what humans or agents write.
 
 Examples:
 
-- reusable plan definitions
-- plan-definition code
+- reusable plan definitions under `.prism/code/plans/`
+- Action or validator source under `.prism/code/actions/` or `.prism/code/validators/`
+- shared helper modules under `.prism/code/libraries/`
 - generated plan source derived from specs or templates
 
 ### 4.2 Plan compiler
@@ -99,7 +99,7 @@ It should:
 
 - parse or evaluate the authoring form
 - validate it
-- compile it into explicit PRISM-native IR
+- compile it into explicit PRISM Execution IR
 - emit source provenance
 - emit compiler version and artifact hash
 
@@ -122,7 +122,7 @@ The long-term target should therefore be:
 
 - JS or TS plan-definition code as the authored source
 - Rust-hosted evaluation of that source against a plan-authoring SDK
-- Rust capture and lowering into explicit PRISM-native IR
+- Rust capture and lowering into explicit PRISM Execution IR
 
 This preserves the ergonomic “just write control flow” authoring model while keeping the compiled
 target explicit and service-safe.
@@ -130,15 +130,15 @@ target explicit and service-safe.
 The point is to keep the authoring surface highly expressive:
 
 - arbitrary control flow is the compact way to describe the DAG that should exist
-- the compiler then turns that authored control flow into explicit PRISM-native IR
+- the compiler then turns that authored control flow into explicit PRISM Execution IR
 
 ### 4.3 Compiler hosting model
 
 PRISM should support the same compiler core through multiple front doors.
 
-#### 4.3.1 CLI-first compile path
+#### 4.3.1 CLI-fronted compile path
 
-The first delivery path should be a local CLI compile command.
+The first delivery path should include a local CLI-fronted compile command over the shared compiler.
 
 That path is the simplest way to:
 
@@ -147,9 +147,9 @@ That path is the simplest way to:
 - generate and inspect compiled IR locally
 - integrate with agent-driven planning before distributed compilation exists
 
-#### 4.3.2 Runtime-hosted compile path later
+#### 4.3.2 Runtime-hosted compile path
 
-Later, runtimes may host the same compiler core as a capability.
+Runtimes should host the same compiler core as a capability.
 
 That will be useful for:
 
@@ -157,24 +157,22 @@ That will be useful for:
 - compile environments that need repo-local toolchains or context
 - team workflows where the service should ask a trusted runtime to compile authored definitions
 
-#### 4.3.3 Never the service hot path
+#### 4.3.3 Never long-lived guest code as service truth
 
-The service should not compile authored plan code in its hot path.
+The service should not treat authored JS/TS as the long-lived workflow truth.
 
-The service may later accept compiled artifacts or ask a trusted runtime or compile environment to
-produce them, but it should remain IR-driven rather than becoming the place where guest plan code
-is evaluated.
+The service may accept compiled artifacts, ask a trusted runtime to compile repo-authored code, or
+evaluate bounded `prism_code` requests through the controlled runtime stack, but it should remain
+native-result-driven rather than becoming a generic guest-code host.
 
 ### 4.4 Shared SDK family
 
 PRISM should not invent a separate state interaction API just because code is running inside plan
 authoring, an Action, a validation runner, or an event hook.
 
-Instead, PRISM should expose one shared SDK family that reuses the exact underlying capability
-surface already provided by:
+Instead, PRISM should expose one shared SDK family through:
 
-- `prism_query`
-- `prism_mutate`
+- `prism_code`
 
 That means the authored JS or TS environment should be built on the same native PRISM read and
 write capabilities, views, and mutation shapes that already power agent-facing interpreted code.
@@ -189,7 +187,7 @@ This SDK family should cover at least:
 The strongest form of this rule is:
 
 - the authoring and execution SDK should verbatim reuse the same logical capability contracts that
-  back `prism_query` and `prism_mutate`
+  back `prism_code`
 - PRISM should not invent a second equivalent of signals, workflow queries, or workflow-only state
   mutation channels
 - Actions, validation runners, and event hooks should read and write PRISM state through those same
@@ -207,12 +205,25 @@ learning a second PRISM-specific API.
 
 The resulting SDK family should therefore be understood as:
 
-- one native PRISM capability surface for reads and writes
+- one native PRISM capability surface for reads and writes through `prism_code`
 - a plan-authoring layer that adds graph-construction and compile-time helpers
 - runtime-execution layers for Actions, validation runners, and event hooks that mostly just import
   those same capabilities directly
 
-### 4.5 Executable PRISM IR
+The public authoring model should use ordinary code bindings rather than mutation-payload client
+ids.
+
+That means:
+
+- authored code refers to plans, tasks, actions, reviews, and intermediate values through local
+  variables and lexical bindings
+- the compiler may introduce temporary internal identifiers while lowering the authored program into
+  PRISM Execution IR or transaction ops
+- those internal identifiers must not leak into the user-facing programming model
+- source-mapped validation and runtime errors should point back to authored bindings and control
+  flow rather than internal lowering ids
+
+### 4.5 Executable PRISM Execution IR
 
 This is what the service and the query layers actually care about.
 
@@ -227,7 +238,7 @@ It should contain explicit PRISM-native structure such as:
 - execution metadata
 - provenance to the workflow source and compiled artifact
 
-The compiled IR is the default operational surface that PRISM should persist, review, render,
+PRISM Execution IR is the default operational surface that PRISM should persist, review, render,
 query, and execute.
 
 ## 5. Definition, compiled artifact, and instance

@@ -71,6 +71,9 @@ pub use crate::types::{
 };
 pub use coordination_transaction::{
     CoordinationDependencyKind, CoordinationTransactionAuthorityVersion,
+    CoordinationStructuredTransaction, CoordinationStructuredTransactionEffect,
+    CoordinationStructuredTransactionRegion, CoordinationStructuredTransactionRegionMember,
+    CoordinationTransactionArtifactRef, CoordinationTransactionClaimRef,
     CoordinationTransactionCommitMetadata, CoordinationTransactionError,
     CoordinationTransactionGitExecutionPolicyPatch, CoordinationTransactionInput,
     CoordinationTransactionMutation, CoordinationTransactionOutcome,
@@ -922,6 +925,8 @@ impl Prism {
                 tags: input.tags,
                 completion_context: input.completion_context,
                 spec_refs: input.spec_refs,
+                artifact_requirements: input.artifact_requirements,
+                review_requirements: input.review_requirements,
             },
         )?)
     }
@@ -973,15 +978,12 @@ impl Prism {
         let task_id = input.task_id.clone();
         let transaction = self.execute_coordination_transaction(
             meta,
-            CoordinationTransactionInput {
-                mutations: vec![CoordinationTransactionMutation::TaskHandoff {
-                    task: CoordinationTransactionTaskRef::Id(task_id.clone()),
-                    to_agent: input.to_agent,
-                    summary: input.summary,
-                    base_revision: input.base_revision,
-                }],
-                ..CoordinationTransactionInput::default()
-            },
+            CoordinationTransactionInput::sequence([CoordinationTransactionMutation::TaskHandoff {
+                task: CoordinationTransactionTaskRef::Id(task_id.clone()),
+                to_agent: input.to_agent,
+                summary: input.summary,
+                base_revision: input.base_revision,
+            }]),
         )?;
         Ok(NativeTaskMutationResult {
             task_id,
@@ -1011,15 +1013,12 @@ impl Prism {
         let task_id = input.task_id.clone();
         let transaction = self.execute_coordination_transaction(
             meta,
-            CoordinationTransactionInput {
-                mutations: vec![CoordinationTransactionMutation::TaskHandoffAccept {
-                    task: CoordinationTransactionTaskRef::Id(task_id.clone()),
-                    agent: input.agent,
-                    worktree_id: input.worktree_id,
-                    branch_ref: input.branch_ref,
-                }],
-                ..CoordinationTransactionInput::default()
-            },
+            CoordinationTransactionInput::sequence([CoordinationTransactionMutation::TaskHandoffAccept {
+                task: CoordinationTransactionTaskRef::Id(task_id.clone()),
+                agent: input.agent,
+                worktree_id: input.worktree_id,
+                branch_ref: input.branch_ref,
+            }]),
         )?;
         Ok(NativeTaskMutationResult {
             task_id,
@@ -1048,15 +1047,12 @@ impl Prism {
         let task_id = input.task_id.clone();
         let transaction = self.execute_coordination_transaction(
             meta,
-            CoordinationTransactionInput {
-                mutations: vec![CoordinationTransactionMutation::TaskResume {
-                    task: CoordinationTransactionTaskRef::Id(task_id.clone()),
-                    agent: input.agent,
-                    worktree_id: input.worktree_id,
-                    branch_ref: input.branch_ref,
-                }],
-                ..CoordinationTransactionInput::default()
-            },
+            CoordinationTransactionInput::sequence([CoordinationTransactionMutation::TaskResume {
+                task: CoordinationTransactionTaskRef::Id(task_id.clone()),
+                agent: input.agent,
+                worktree_id: input.worktree_id,
+                branch_ref: input.branch_ref,
+            }]),
         )?;
         Ok(NativeTaskMutationResult {
             task_id,
@@ -1085,15 +1081,12 @@ impl Prism {
         let task_id = input.task_id.clone();
         let transaction = self.execute_coordination_transaction(
             meta,
-            CoordinationTransactionInput {
-                mutations: vec![CoordinationTransactionMutation::TaskReclaim {
-                    task: CoordinationTransactionTaskRef::Id(task_id.clone()),
-                    agent: input.agent,
-                    worktree_id: input.worktree_id,
-                    branch_ref: input.branch_ref,
-                }],
-                ..CoordinationTransactionInput::default()
-            },
+            CoordinationTransactionInput::sequence([CoordinationTransactionMutation::TaskReclaim {
+                task: CoordinationTransactionTaskRef::Id(task_id.clone()),
+                agent: input.agent,
+                worktree_id: input.worktree_id,
+                branch_ref: input.branch_ref,
+            }]),
         )?;
         Ok(NativeTaskMutationResult {
             task_id,
@@ -1275,18 +1268,15 @@ impl Prism {
     ) -> Result<NativePlanMutationResult> {
         let transaction = self.execute_coordination_transaction(
             meta,
-            CoordinationTransactionInput {
-                mutations: vec![CoordinationTransactionMutation::PlanCreate {
-                    client_plan_id: Some("created_plan".to_string()),
-                    title,
-                    goal,
-                    status,
-                    policy,
-                    scheduling,
-                    spec_refs,
-                }],
-                ..CoordinationTransactionInput::default()
-            },
+            CoordinationTransactionInput::sequence([CoordinationTransactionMutation::PlanCreate {
+                client_plan_id: Some("created_plan".to_string()),
+                title,
+                goal,
+                status,
+                policy,
+                scheduling,
+                spec_refs,
+            }]),
         )?;
         let plan_id = transaction
             .plan_ids_by_client_id
@@ -1353,6 +1343,8 @@ impl Prism {
                 acceptance: task.acceptance.clone(),
                 base_revision: task.base_revision.clone(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             });
         }
         for task in tasks {
@@ -1383,10 +1375,7 @@ impl Prism {
         }
         let transaction = self.execute_coordination_transaction(
             meta,
-            CoordinationTransactionInput {
-                mutations,
-                ..CoordinationTransactionInput::default()
-            },
+            CoordinationTransactionInput::sequence(mutations),
         )?;
         Ok(NativePlanBootstrapTransactionResult {
             plan_id: transaction
@@ -1439,51 +1428,48 @@ impl Prism {
     ) -> Result<CoordinationTransactionResult> {
         Ok(self.execute_coordination_transaction(
             meta,
-            CoordinationTransactionInput {
-                mutations: vec![CoordinationTransactionMutation::PlanUpdate {
-                    plan: CoordinationTransactionPlanRef::Id(plan_id.clone()),
-                    title,
-                    goal,
-                    status,
-                    policy: policy.map(|policy| CoordinationTransactionPolicyPatch {
-                        default_claim_mode: Some(policy.default_claim_mode),
-                        max_parallel_editors_per_anchor: Some(
-                            policy.max_parallel_editors_per_anchor,
+            CoordinationTransactionInput::sequence([CoordinationTransactionMutation::PlanUpdate {
+                plan: CoordinationTransactionPlanRef::Id(plan_id.clone()),
+                title,
+                goal,
+                status,
+                policy: policy.map(|policy| CoordinationTransactionPolicyPatch {
+                    default_claim_mode: Some(policy.default_claim_mode),
+                    max_parallel_editors_per_anchor: Some(
+                        policy.max_parallel_editors_per_anchor,
+                    ),
+                    require_review_for_completion: Some(policy.require_review_for_completion),
+                    require_validation_for_completion: Some(
+                        policy.require_validation_for_completion,
+                    ),
+                    stale_after_graph_change: Some(policy.stale_after_graph_change),
+                    review_required_above_risk_score: policy.review_required_above_risk_score,
+                    lease_stale_after_seconds: Some(policy.lease_stale_after_seconds),
+                    lease_expires_after_seconds: Some(policy.lease_expires_after_seconds),
+                    lease_renewal_mode: Some(policy.lease_renewal_mode),
+                    git_execution: Some(CoordinationTransactionGitExecutionPolicyPatch {
+                        start_mode: Some(policy.git_execution.start_mode),
+                        completion_mode: Some(policy.git_execution.completion_mode),
+                        integration_mode: Some(policy.git_execution.integration_mode),
+                        target_ref: policy.git_execution.target_ref,
+                        target_branch: Some(policy.git_execution.target_branch),
+                        require_task_branch: Some(policy.git_execution.require_task_branch),
+                        max_commits_behind_target: Some(
+                            policy.git_execution.max_commits_behind_target,
                         ),
-                        require_review_for_completion: Some(policy.require_review_for_completion),
-                        require_validation_for_completion: Some(
-                            policy.require_validation_for_completion,
-                        ),
-                        stale_after_graph_change: Some(policy.stale_after_graph_change),
-                        review_required_above_risk_score: policy.review_required_above_risk_score,
-                        lease_stale_after_seconds: Some(policy.lease_stale_after_seconds),
-                        lease_expires_after_seconds: Some(policy.lease_expires_after_seconds),
-                        lease_renewal_mode: Some(policy.lease_renewal_mode),
-                        git_execution: Some(CoordinationTransactionGitExecutionPolicyPatch {
-                            start_mode: Some(policy.git_execution.start_mode),
-                            completion_mode: Some(policy.git_execution.completion_mode),
-                            integration_mode: Some(policy.git_execution.integration_mode),
-                            target_ref: policy.git_execution.target_ref,
-                            target_branch: Some(policy.git_execution.target_branch),
-                            require_task_branch: Some(policy.git_execution.require_task_branch),
-                            max_commits_behind_target: Some(
-                                policy.git_execution.max_commits_behind_target,
-                            ),
-                            max_fetch_age_seconds: policy.git_execution.max_fetch_age_seconds,
-                        }),
+                        max_fetch_age_seconds: policy.git_execution.max_fetch_age_seconds,
                     }),
-                    scheduling: scheduling.map(|scheduling| {
-                        CoordinationTransactionPlanSchedulingPatch {
-                            importance: Some(scheduling.importance),
-                            urgency: Some(scheduling.urgency),
-                            manual_boost: Some(scheduling.manual_boost),
-                            due_at: scheduling.due_at,
-                        }
-                    }),
-                    spec_refs: None,
-                }],
-                ..CoordinationTransactionInput::default()
-            },
+                }),
+                scheduling: scheduling.map(|scheduling| {
+                    CoordinationTransactionPlanSchedulingPatch {
+                        importance: Some(scheduling.importance),
+                        urgency: Some(scheduling.urgency),
+                        manual_boost: Some(scheduling.manual_boost),
+                        due_at: scheduling.due_at,
+                    }
+                }),
+                spec_refs: None,
+            }]),
         )?)
     }
 
@@ -1494,12 +1480,9 @@ impl Prism {
     ) -> Result<CoordinationTransactionResult> {
         Ok(self.execute_coordination_transaction(
             meta,
-            CoordinationTransactionInput {
-                mutations: vec![CoordinationTransactionMutation::PlanArchive {
-                    plan: CoordinationTransactionPlanRef::Id(plan_id.clone()),
-                }],
-                ..CoordinationTransactionInput::default()
-            },
+            CoordinationTransactionInput::sequence([CoordinationTransactionMutation::PlanArchive {
+                plan: CoordinationTransactionPlanRef::Id(plan_id.clone()),
+            }]),
         )?)
     }
 
@@ -1534,38 +1517,37 @@ impl Prism {
         }
         let transaction = self.execute_coordination_transaction(
             meta,
-            CoordinationTransactionInput {
-                mutations: vec![CoordinationTransactionMutation::TaskCreate {
-                    client_task_id: Some("created_task".to_string()),
-                    plan: CoordinationTransactionPlanRef::Id(input.plan_id),
-                    title: input.title,
-                    status: input.status,
-                    assignee: input.assignee,
-                    session: input.session,
-                    worktree_id: input.worktree_id,
-                    branch_ref: input.branch_ref,
-                    anchors: input.anchors,
-                    depends_on: input
-                        .depends_on
-                        .into_iter()
-                        .map(CoordinationTransactionTaskRef::Id)
-                        .collect(),
-                    coordination_depends_on: input
-                        .coordination_depends_on
-                        .into_iter()
-                        .map(CoordinationTransactionTaskRef::Id)
-                        .collect(),
-                    integrated_depends_on: input
-                        .integrated_depends_on
-                        .into_iter()
-                        .map(CoordinationTransactionTaskRef::Id)
-                        .collect(),
-                    acceptance: input.acceptance,
-                    base_revision: input.base_revision,
-                    spec_refs: input.spec_refs,
-                }],
-                ..CoordinationTransactionInput::default()
-            },
+            CoordinationTransactionInput::sequence([CoordinationTransactionMutation::TaskCreate {
+                client_task_id: Some("created_task".to_string()),
+                plan: CoordinationTransactionPlanRef::Id(input.plan_id),
+                title: input.title,
+                status: input.status,
+                assignee: input.assignee,
+                session: input.session,
+                worktree_id: input.worktree_id,
+                branch_ref: input.branch_ref,
+                anchors: input.anchors,
+                depends_on: input
+                    .depends_on
+                    .into_iter()
+                    .map(CoordinationTransactionTaskRef::Id)
+                    .collect(),
+                coordination_depends_on: input
+                    .coordination_depends_on
+                    .into_iter()
+                    .map(CoordinationTransactionTaskRef::Id)
+                    .collect(),
+                integrated_depends_on: input
+                    .integrated_depends_on
+                    .into_iter()
+                    .map(CoordinationTransactionTaskRef::Id)
+                    .collect(),
+                acceptance: input.acceptance,
+                base_revision: input.base_revision,
+                spec_refs: input.spec_refs,
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
+            }]),
         )?;
         let task_id = transaction
             .task_ids_by_client_id

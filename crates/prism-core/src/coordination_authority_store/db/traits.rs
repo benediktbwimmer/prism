@@ -1,29 +1,41 @@
 use anyhow::Result;
 use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
 
+use crate::coordination_authority_store::CoordinationReplaceCurrentStateRequest;
 use crate::coordination_authority_store::{
-    CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics, CoordinationCurrentState,
-    CoordinationDiagnosticsRequest, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
-    CoordinationReadEnvelope, CoordinationReadRequest, CoordinationTransactionRequest,
+    CoordinationAppendRequest, CoordinationAuthorityCoordinationSurface,
+    CoordinationAuthorityDiagnostics, CoordinationAuthorityStamp, CoordinationDiagnosticsRequest,
+    CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
     CoordinationTransactionResult, EventExecutionRecordAuthorityQuery,
     EventExecutionRecordWriteResult, EventExecutionTransitionRequest,
     EventExecutionTransitionResult, RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest,
     RuntimeDescriptorQuery,
 };
+use crate::coordination_reads::CoordinationReadConsistency;
+use prism_coordination::{CoordinationSnapshot, CoordinationSnapshotV2};
 
-pub(crate) trait CoordinationAuthorityDb: Send + Sync {
-    fn capabilities(&self) -> CoordinationAuthorityCapabilities;
-
-    fn read_current(
+pub(crate) trait CoordinationAuthorityStampReadDb: Send + Sync {
+    fn read_authority_stamp(
         &self,
-        request: CoordinationReadRequest,
-    ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>>;
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationAuthorityStamp>>;
+}
 
-    fn apply_transaction(
+pub(crate) trait CoordinationAuthorityCoordinationSurfaceReadDb: Send + Sync {
+    fn read_coordination_surface(
         &self,
-        request: CoordinationTransactionRequest,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationAuthorityCoordinationSurface>>;
+}
+
+pub(crate) trait CoordinationAuthorityMutationDb: Send + Sync {
+    fn append_events(
+        &self,
+        request: CoordinationAppendRequest,
     ) -> Result<CoordinationTransactionResult>;
+}
 
+pub(crate) trait CoordinationAuthorityRuntimeDb: Send + Sync {
     fn publish_runtime_descriptor(
         &self,
         request: RuntimeDescriptorPublishRequest,
@@ -38,7 +50,9 @@ pub(crate) trait CoordinationAuthorityDb: Send + Sync {
         &self,
         request: RuntimeDescriptorQuery,
     ) -> Result<CoordinationReadEnvelope<Vec<RuntimeDescriptor>>>;
+}
 
+pub(crate) trait CoordinationAuthorityEventExecutionDb: Send + Sync {
     fn read_event_execution_records(
         &self,
         request: EventExecutionRecordAuthorityQuery,
@@ -53,14 +67,35 @@ pub(crate) trait CoordinationAuthorityDb: Send + Sync {
         &self,
         request: EventExecutionTransitionRequest,
     ) -> Result<EventExecutionTransitionResult>;
+}
 
+pub(crate) trait CoordinationAuthorityHistoryDb: Send + Sync {
     fn read_history(
         &self,
         request: CoordinationHistoryRequest,
     ) -> Result<CoordinationHistoryEnvelope>;
+}
 
+pub(crate) trait CoordinationAuthorityDiagnosticsDb: Send + Sync {
     fn diagnostics(
         &self,
         request: CoordinationDiagnosticsRequest,
     ) -> Result<CoordinationAuthorityDiagnostics>;
+}
+
+pub(crate) trait CoordinationAuthoritySnapshotDb: Send + Sync {
+    fn read_snapshot(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshot>>;
+
+    fn read_snapshot_v2(
+        &self,
+        consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>>;
+
+    fn replace_current_state(
+        &self,
+        request: CoordinationReplaceCurrentStateRequest,
+    ) -> Result<CoordinationTransactionResult>;
 }

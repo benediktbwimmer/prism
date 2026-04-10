@@ -4,9 +4,9 @@ use axum::{http::StatusCode, Json};
 use prism_core::{
     configured_coordination_authority_store_provider, AuthenticatedPrincipal,
     CoordinationAuthorityMutationError, CoordinationAuthorityMutationStatus,
-    CoordinationAuthorityStoreProvider, CoordinationReadConsistency, CoordinationReadRequest,
-    CoordinationStateView, ProtectedStateStreamReport, SharedCoordinationRefDiagnostics,
-    WorktreeMode, WorktreeMutatorSlotError, WorktreeRegistrationRecord,
+    CoordinationAuthorityStoreProvider, CoordinationReadConsistency, ProtectedStateStreamReport,
+    SharedCoordinationRefDiagnostics, WorktreeMode, WorktreeMutatorSlotError,
+    WorktreeRegistrationRecord,
 };
 use prism_ir::EventId;
 use prism_js::{
@@ -312,6 +312,8 @@ pub(crate) fn coordination_authority_protocol_state(
             outcome: "Rejected".to_string(),
             commit: None,
             authority_version: None,
+            intent_metadata: None,
+            structured_transaction: None,
             rejection: Some(CoordinationTransactionProtocolRejection {
                 stage: "commit".to_string(),
                 category: "conflict".to_string(),
@@ -324,6 +326,8 @@ pub(crate) fn coordination_authority_protocol_state(
             outcome: "Rejected".to_string(),
             commit: None,
             authority_version: None,
+            intent_metadata: None,
+            structured_transaction: None,
             rejection: Some(CoordinationTransactionProtocolRejection {
                 stage: "commit".to_string(),
                 category: "domain_violation".to_string(),
@@ -337,6 +341,8 @@ pub(crate) fn coordination_authority_protocol_state(
                 outcome: "Indeterminate".to_string(),
                 commit: None,
                 authority_version: None,
+                intent_metadata: None,
+                structured_transaction: None,
                 rejection: None,
                 indeterminate: Some(CoordinationTransactionProtocolIndeterminate {
                     reason_code: authority_error.reason_code.to_string(),
@@ -455,14 +461,11 @@ fn coordination_transaction_authority_stamp_view(
     let provider = authority_store_provider
         .cloned()
         .or_else(|| configured_coordination_authority_store_provider(workspace_root).ok())?;
-    let store = provider.open(workspace_root).ok()?;
+    let store = provider.open_stamp_reads(workspace_root).ok()?;
     let authority = store
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Strong,
-            view: CoordinationStateView::Summary,
-        })
+        .read_authority_stamp(CoordinationReadConsistency::Strong)
         .ok()?
-        .authority?;
+        .value?;
     serde_json::to_value(AuthorityStampView {
         backend_kind: format!("{:?}", authority.backend_kind),
         logical_repo_id: authority.logical_repo_id,
@@ -588,12 +591,13 @@ mod tests {
 
     #[test]
     fn authority_indeterminate_maps_to_indeterminate_protocol_state() {
-        let state =
-            coordination_authority_protocol_state(&CoordinationAuthorityMutationError::indeterminate(
+        let state = coordination_authority_protocol_state(
+            &CoordinationAuthorityMutationError::indeterminate(
                 "shared_ref_transport_uncertain",
                 "shared coordination ref publish may have succeeded but the outcome could not be verified",
                 None,
-            ));
+            ),
+        );
 
         assert_eq!(state.outcome, "Indeterminate");
         assert!(state.rejection.is_none());

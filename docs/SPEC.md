@@ -1596,7 +1596,8 @@ Rules:
 ## 10.7 Read Model Through The Compact Agent ABI
 
 Coordination reads should primarily happen through a compact staged agent ABI, not through a
-growing list of bespoke one-off MCP tools and not through `prism_query` as the default first hop.
+growing list of bespoke one-off MCP tools and not through ad hoc `prism_code` as the default first
+hop.
 
 Target default read path:
 
@@ -1604,10 +1605,10 @@ Target default read path:
 2. `prism_open`
 3. `prism_workset`
 4. `prism_expand` when needed
-5. `prism_query` only when the compact surface cannot express the need
+5. ad hoc read-only `prism_code` only when the compact surface cannot express the need
 
-`prism_query` still matters. It remains the semantic IR and programmable escape hatch for reads
-that do not fit the compact path cleanly.
+`prism_code` still matters. It remains the programmable semantic escape hatch for reads that do not
+fit the compact path cleanly.
 
 The query surface should expose first-class coordination views such as:
 
@@ -1641,7 +1642,7 @@ That means:
 
 * the MCP server loads and retains the graph for the session
 * compact agent tools should handle the common `find -> open -> patch` path
-* `prism_query` remains available as the semantic IR and escape hatch
+* `prism_code` remains available as the programmable escape hatch
 * API discovery happens through MCP resources, not repeated system prompt text
 
 Session and work model:
@@ -1688,22 +1689,24 @@ Rules:
 * up to 2 `likely_tests`
 * one short `why`
 
-## 11.3 Semantic Escape Hatch
+## 11.3 Canonical Programmable Surface
 
 ```text
-prism_query { code: string, language?: "ts" } -> QueryResult
+prism_code { code: string, language?: "ts", dryRun?: boolean } -> PrismCodeResult
 ```
 
 Rules:
 
 * v1 is TypeScript-first
 * `language` may default to `"ts"` in v1
-* the query executes with a pre-bound `prism` object over structure, lineage, memory, and coordination state
+* the code executes with a pre-bound `prism` object over structure, lineage, memory, coordination state, and controlled write capabilities
 * the final value returned by the snippet must be JSON-serializable
 * execution happens against the already-loaded in-memory graph for the active MCP session
-* `prism_query` is read-only
-* `prism_query` is not the default first-hop agent interface
-* mutations such as memory writes, outcome logging, inference persistence, plan updates, and claim acquisition are handled through explicit MCP mutation tools, not through the query runtime
+* one `prism_code` call is one transaction boundary in v1
+* read-only `prism_code` execution is allowed without mutation auth
+* write-capable `prism_code` execution requires authenticated context and declared work
+* `dryRun` executes validation and lowering without committing
+* `prism_code` is not the default first-hop agent interface when the compact surface can answer the question more cheaply
 
 Repo semantic codec:
 
@@ -1712,7 +1715,7 @@ Repo semantic codec:
 * the codec stays lightweight and inspectable rather than trying to model a giant ontology
 * decoding a concept packet reuses ordinary Prism context such as symbols, validations, recent failures, patches, and memory recall
 * repo-promoted concept packets are published as tracked snapshot shards under `.prism/state/concepts/**`, chained by `.prism/state/manifest.json`, and then hydrated into the live concept layer during workspace load and refresh
-* explicit mutations promote and update concept packets through `prism_mutate` instead of hiding concept curation inside ad hoc memory writes
+* explicit writes promote and update concept packets through `prism_code` instead of hiding concept curation inside ad hoc memory writes
 
 Expected query shape:
 
@@ -1727,8 +1730,15 @@ return { sym, cg, lineage };
 Structured output:
 
 ```ts
-interface QueryResult {
+interface PrismCodeResult {
   result: unknown;
+  committed?: boolean;
+  dryRun?: boolean;
+  transaction?: {
+    committedRevision?: number;
+    createdIds?: string[];
+    changedIds?: string[];
+  };
   diagnostics: QueryDiagnostic[];
 }
 
@@ -1747,8 +1757,8 @@ interface QueryDiagnostic {
 }
 ```
 
-The goal is that agents can repair and narrow queries from machine-readable diagnostics instead of
-guessing from free-form error text when they do need the escape hatch.
+The goal is that agents can repair and narrow reads or writes from machine-readable diagnostics
+instead of guessing from free-form error text when they do need the programmable escape hatch.
 
 ## 11.4 Discovery Resource
 
@@ -1789,18 +1799,19 @@ live Prism API
 Execution requirements:
 
 * the server owns the live `Prism` session state
-* the embedded runtime must not shell out for each query
+* the embedded runtime must not shell out for each execution
 * TypeScript should transpile to JavaScript before evaluation
 * runtime bindings must expose structured data, not formatted CLI text
-* query results must serialize back to JSON for MCP tool output
-* the query runtime should apply hard safety limits for breadth, depth, and output size
+* execution results must serialize back to JSON for MCP tool output
+* the runtime should apply hard safety limits for breadth, depth, output size, and write scope
 
 Security and determinism constraints:
 
-* the runtime should expose only PRISM query capabilities, not arbitrary filesystem or process access
+* the runtime should expose only PRISM capabilities and controlled host inputs, not arbitrary filesystem or process access
 * host-call boundaries should be explicit and auditable
-* query errors must return structured diagnostics
-* broad or expensive queries should fail or truncate deterministically instead of degrading silently
+* errors must return structured diagnostics
+* broad or expensive reads should fail or truncate deterministically instead of degrading silently
+* ambient nondeterminism should be disallowed; time, randomness, and filesystem access must come through explicit controlled `prism.*` helpers
 
 Default v1 safety limits:
 
@@ -1811,11 +1822,11 @@ Default v1 safety limits:
 
 ## 11.6 Binding Layer (prism-js)
 
-`prism-js` is the language-facing facade over `prism-query`.
+`prism-js` is the language-facing facade over `prism_code`.
 
 Responsibilities:
 
-* define the `prism` object surface for JS/TS queries
+* define the `prism` object surface for JS/TS code
 * provide the runtime shim loaded into the embedded engine
 * publish the API reference resource text
 * keep the JS-visible contract stable even as Rust internals evolve
@@ -1824,7 +1835,7 @@ Responsibilities:
 Agent-surface direction:
 
 * the compact staged ABI is the default product surface
-* `prism-js` still exposes the richer semantic/query surface for the escape hatch and internal IR
+* `prism-js` still exposes the richer semantic/code surface for the escape hatch and internal IR
 * high-frequency agent flows should migrate to compact tool calls instead of teaching every agent to
   compose JS snippets for first-hop discovery
 
@@ -2061,9 +2072,9 @@ Rules:
 
 * the JS API should prefer plain data plus a small set of ergonomic methods
 * methods should compose naturally inside one snippet
-* the JS contract should reflect `prism-query`, not the CLI
+* the JS contract should reflect `prism_code`, not the CLI
 * TypeScript is for composition; Prism is where semantic meaning should live
-* high-value semantic operations should graduate into first-class `prism-query` methods instead of being reimplemented ad hoc in snippets
+* high-value semantic operations should graduate into first-class `prism_code` methods instead of being reimplemented ad hoc in snippets
 
 Examples of good semantic methods to expose over time:
 
@@ -2090,59 +2101,46 @@ The API reference should ship with concrete copy-pastable recipes such as:
 
 Agents learn these surfaces best from examples. Recipes are not auxiliary documentation; they are part of the product surface.
 
-## 11.8 Mutation Tools
+## 11.8 Write Model
 
-The MCP server exposes one coarse mutation tool alongside the read-only `prism_query`:
+The MCP server exposes one programmable write surface:
 
 ```text
-prism_mutate { action: "declare_work", input: { title: string, kind?: "ad_hoc" | "coordination" | "delegated", summary?: string, parent_work_id?: string, coordination_task_id?: string, plan_id?: string } } -> WorkDeclarationResult
-prism_mutate { action: "checkpoint", input: { summary?: string, task_id?: string } } -> CheckpointMutationResult
-prism_mutate { action: "outcome", input: { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], work_id?: string } } -> EventMutationResult
-prism_mutate { action: "memory", input: { action: "store", payload: { anchors: AnchorRef[], kind: MemoryKind, scope?: MemoryScope, content: string, trust?: float, source?: MemorySource, metadata?: object, promoted_from?: MemoryId[], supersedes?: MemoryId[] }, work_id?: string } } -> MemoryMutationResult
-prism_mutate { action: "infer_edge", input: { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, work_id?: string } } -> EdgeMutationResult
-prism_mutate { action: "session_repair", input: { operation: "clear_current_task" } } -> SessionRepairMutationResult
-prism_mutate { action: "coordination", input: { kind: "plan_bootstrap" | "plan_create" | "plan_update" | "plan_archive" | "task_create" | "update" | "handoff" | "resume" | "reclaim" | "handoff_accept", payload: object, work_id?: string } } -> CoordinationMutationResult
-prism_mutate { action: "claim", input: { action: "acquire" | "renew" | "release", payload: object, work_id?: string } } -> ClaimMutationResult
-prism_mutate { action: "artifact", input: { action: "propose" | "supersede" | "review", payload: object, work_id?: string } } -> ArtifactMutationResult
-prism_mutate { action: "test_ran" | "failure_observed" | "fix_validated", input: { ... } } -> EventMutationResult
-prism_mutate { action: "curator_promote_edge" | "curator_promote_memory" | "curator_reject_proposal", input: { ... } } -> CuratorProposalDecisionResult
+prism_code { code: string, language?: "ts", dryRun?: boolean } -> PrismCodeResult
 ```
 
-These fill in `EventMeta` automatically from authenticated mutation context plus the active task/session convenience state. The lower the friction, the more reliably agents will record outcomes.
+These executions fill in `EventMeta` automatically from authenticated mutation context plus the
+active task/session convenience state when policy allows it. The lower the friction, the more
+reliably agents will record outcomes.
 
-Patch observation is not exposed as a mutation tool. PRISM detects file changes automatically via `ObservedChangeSet`, accumulates them while work attribution is unambiguous, and publishes durable checkpoints at mutation boundaries, work transitions, disconnect, or explicit `checkpoint` requests. Only outcomes that require semantic interpretation belong in the MCP mutation surface.
+Patch observation is not exposed as a separate mutation tool. PRISM detects file changes
+automatically via `ObservedChangeSet`, accumulates them while work attribution is unambiguous, and
+publishes durable checkpoints at mutation boundaries, work transitions, disconnect, or explicit
+requests made through `prism_code`.
 
 Rules:
 
-* mutation tools are separate from `prism_query` to keep the semantic escape hatch pure and predictable
-* all mutations produce structured confirmation and the resulting authoritative state for the mutated object
-* authoritative mutations must fail if no declared work context is active and no explicit `work_id`
-  is supplied
-* `declare_work` is the only authoritative mutation allowed to run without an existing active work
+* `prism_code` is the canonical public programmable surface for both reads and writes
+* one `prism_code` invocation is one transaction boundary in v1
+* write-capable `prism_code` produces structured confirmation and authoritative commit metadata when it commits
+* authoritative writes must fail if no declared work context is active and no explicit work context is supplied
+* work declaration is still the only authoritative write allowed without an existing active work context
 * outcome events inherit the session's active `WorkId` automatically when available
-* explicit `work_id` arguments override the active session work without changing the session default
+* explicit work arguments override the active session work without changing the session default
 * inferred edges default to `SessionOnly` scope unless explicitly promoted
-* the MCP surface exposes one coarse mutation tool plus read-only context resources such as `prism://session`
-* `prism_mutate` owns shared plan, task, handoff, claim, artifact, outcome, memory, inference, curator decision, and narrow session-repair changes via tagged actions
-* coordination actions inside `prism_mutate` must attribute mutations to the acting principal and
-  current or explicit `WorkId`
-* coordination mutations must validate policy, dependency state, and base revision before they commit
 * the compact staged ABI is the default read surface for plans, claims, blockers, conflicts, artifacts, and review queues
-* `prism_query` remains available when the compact surface cannot express the needed read
 * the MCP server must support a `--no-coordination` mode where coordination is disabled end to end
 * when coordination is entirely disabled for a workspace session, coordination state should not be loaded or persisted for that session
-* coordination feature flags should gate both mutation tools and coordination read helpers so the advertised MCP surface matches what the server actually allows
+* coordination feature flags should gate both `prism_code` capabilities and compact helpers so the advertised MCP surface matches what the server actually allows
 * workflow, claim, and artifact capabilities should be independently enableable for gradual rollout
-* `prism://instructions` should teach agents the strict bootstrap order: adopt identity, read as
-  needed, declare work or bind to an existing coordination task, then mutate
-* repo-published mutation history may include runtime correlation ids for diagnostics, but the event
-  must remain semantically understandable from `.prism` alone without a runtime database
+* `prism://instructions` should teach agents the strict bootstrap order: adopt identity, read as needed, declare work or bind to an existing coordination task, then write
+* repo-published mutation history may include runtime correlation ids for diagnostics, but the event must remain semantically understandable from `.prism` alone without a runtime database
 
 ## 11.9 Convenience Query Tools
 
 Optional convenience tools may exist later for high-frequency lookups:
 
-But they are secondary to the compact staged ABI, and the programmable `prism_query` tool remains
+But they are secondary to the compact staged ABI, and the programmable `prism_code` tool remains
 the escape hatch rather than the preferred first-hop interface.
 
 ---
@@ -2210,13 +2208,13 @@ Recommended sequence:
 2. make `prism-store` emit `ObservedChangeSet`
 3. implement deterministic lineage resolution in `prism-history`
 4. add structured `OutcomeEvent` logging in `prism-memory`
-5. expose `lineage_of`, `related_failures`, `blast_radius`, and `resume_work` in `prism-query`
-6. land `prism-js` as the stable JS/TS binding contract over `prism-query`
-7. add `prism-mcp` with `prism_query` and `prism://api-reference`
+5. expose `lineage_of`, `related_failures`, `blast_radius`, and `resume_work` in the programmable JS/TS surface
+6. land `prism-js` as the stable JS/TS binding contract over `prism_code`
+7. add `prism-mcp` with `prism_code` and `prism://api-reference`
 8. add the compact staged agent ABI over that semantic core
 9. land coordination identities, plan, task, claim, and artifact event types, and `WorkspaceRevision`
-10. expose coordination reads and claim simulation through the compact ABI plus `prism-query` and `prism-js`
-11. add coarse mutation actions under `prism_mutate` for coordination, claims, and artifacts
+10. expose coordination reads and claim simulation through the compact ABI plus `prism_code` and `prism-js`
+11. move coordination, claims, artifacts, and related writes onto `prism_code`
 12. add derived projections such as co-change, hotspot, validation recipes, and drift detection
 
 ---

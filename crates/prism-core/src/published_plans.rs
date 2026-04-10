@@ -10,20 +10,24 @@ use prism_coordination::{
     CoordinationDerivations, CoordinationSnapshot, CoordinationSnapshotV2, RuntimeDescriptor,
 };
 use prism_ir::{DerivedPlanStatus, NodeRef, NodeRefKind, PlanId, PlanStatus};
+use prism_store::SqliteStore;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::coordination_authority_store::{
-    configured_coordination_authority_store_provider, CoordinationDerivedStateMode,
-    CoordinationReadRequest, CoordinationStateView, CoordinationTransactionBase,
-    CoordinationTransactionRequest, CoordinationTransactionStatus,
+    configured_coordination_authority_store_provider, CoordinationCurrentState,
+    CoordinationReplaceCurrentStateRequest, CoordinationTransactionBase,
+    CoordinationTransactionStatus,
 };
 use crate::coordination_reads::CoordinationReadConsistency;
+use crate::coordination_startup_checkpoint::load_persisted_coordination_plan_state;
 use crate::tracked_snapshot::{
     remove_obsolete_legacy_tracked_authority_artifacts, tracked_snapshot_authority_active,
     TrackedSnapshotPublishContext,
 };
-use crate::util::{repo_active_plans_dir, repo_archived_plans_dir, repo_plan_index_path};
+use crate::util::{
+    cache_path, repo_active_plans_dir, repo_archived_plans_dir, repo_plan_index_path,
+};
 
 fn observe_published_plan_step<T, E, O, F, A>(
     observe_phase: &mut O,
@@ -73,7 +77,7 @@ pub(crate) struct PublishedPlanIndexEntry {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct HydratedCoordinationPlanState {
+pub struct HydratedCoordinationPlanState {
     pub(crate) snapshot: CoordinationSnapshot,
     pub(crate) canonical_snapshot_v2: CoordinationSnapshotV2,
     pub(crate) runtime_descriptors: Vec<RuntimeDescriptor>,
@@ -132,7 +136,8 @@ pub(crate) fn sync_repo_published_plan_state_observed<O>(
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
-    let authority_store = configured_coordination_authority_store_provider(root)?.open(root)?;
+    let authority_store =
+        configured_coordination_authority_store_provider(root)?.open_snapshot(root)?;
     observe_phase(
         "mutation.coordination.publishedPlans.writeLogs",
         Duration::ZERO,
@@ -176,21 +181,30 @@ where
                 "status": format!("{:?}", result.status),
             })
         },
-        || match authority_store.apply_transaction(CoordinationTransactionRequest {
-            base: CoordinationTransactionBase::LatestStrong,
-            session_id: None,
-            snapshot: snapshot.clone(),
-            canonical_snapshot_v2: canonical_snapshot_v2.clone(),
-            appended_events: Vec::new(),
-            derived_state_mode: CoordinationDerivedStateMode::Inline,
-        })? {
-            result if matches!(result.status, CoordinationTransactionStatus::Committed) => {
-                Ok(result)
+        || {
+            let runtime_store =
+                configured_coordination_authority_store_provider(root)?.open_runtime(root)?;
+            match authority_store.replace_current_state(CoordinationReplaceCurrentStateRequest {
+                base: CoordinationTransactionBase::LatestStrong,
+                state: CoordinationCurrentState {
+                    snapshot: snapshot.clone(),
+                    canonical_snapshot_v2: canonical_snapshot_v2.clone(),
+                    runtime_descriptors: runtime_store
+                        .list_runtime_descriptors(crate::RuntimeDescriptorQuery {
+                            consistency: CoordinationReadConsistency::Strong,
+                        })?
+                        .value
+                        .unwrap_or_default(),
+                },
+            })? {
+                result if matches!(result.status, CoordinationTransactionStatus::Committed) => {
+                    Ok(result)
+                }
+                result => Err(anyhow::anyhow!(
+                    "coordination authority transaction did not commit successfully: {:?}",
+                    result.status
+                )),
             }
-            result => Err(anyhow::anyhow!(
-                "coordination authority transaction did not commit successfully: {:?}",
-                result.status
-            )),
         },
     )?;
     observe_published_plan_step(
@@ -209,44 +223,66 @@ where
 pub(crate) fn load_authoritative_coordination_snapshot(
     root: &Path,
 ) -> Result<Option<CoordinationSnapshot>> {
-    let store = configured_coordination_authority_store_provider(root)?.open(root)?;
+    let store = configured_coordination_authority_store_provider(root)?.open_snapshot(root)?;
     Ok(store
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Strong,
-            view: CoordinationStateView::Snapshot,
-        })?
-        .value
-        .map(|state| state.snapshot))
+        .read_snapshot(CoordinationReadConsistency::Strong)?
+        .value)
 }
 
 pub(crate) fn load_authoritative_coordination_snapshot_v2(
     root: &Path,
 ) -> Result<Option<CoordinationSnapshotV2>> {
-    let store = configured_coordination_authority_store_provider(root)?.open(root)?;
+    let store = configured_coordination_authority_store_provider(root)?.open_snapshot(root)?;
     Ok(store
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Strong,
-            view: CoordinationStateView::SnapshotV2,
-        })?
+        .read_snapshot_v2(CoordinationReadConsistency::Strong)?
+        .value)
+}
+
+pub(crate) fn load_authoritative_coordination_current_state_with_consistency(
+    root: &Path,
+    consistency: CoordinationReadConsistency,
+) -> Result<Option<CoordinationCurrentState>> {
+    let provider = configured_coordination_authority_store_provider(root)?;
+    let snapshot_store = provider.open_snapshot(root)?;
+    let snapshot = snapshot_store.read_snapshot(consistency)?.value;
+    let Some(snapshot) = snapshot else {
+        let mut store = SqliteStore::open(cache_path(root)?)?;
+        return Ok(
+            load_persisted_coordination_plan_state(&mut store)?.map(|state| {
+                CoordinationCurrentState {
+                    snapshot: state.snapshot,
+                    canonical_snapshot_v2: state.canonical_snapshot_v2,
+                    runtime_descriptors: state.runtime_descriptors,
+                }
+            }),
+        );
+    };
+    let canonical_snapshot_v2 = snapshot_store
+        .read_snapshot_v2(consistency)?
         .value
-        .map(|state| state.canonical_snapshot_v2))
+        .unwrap_or_else(|| snapshot.to_canonical_snapshot_v2());
+    let runtime_descriptors = provider
+        .open_runtime(root)?
+        .list_runtime_descriptors(crate::RuntimeDescriptorQuery { consistency })?
+        .value
+        .unwrap_or_default();
+    Ok(Some(CoordinationCurrentState {
+        snapshot,
+        canonical_snapshot_v2,
+        runtime_descriptors,
+    }))
 }
 
 pub(crate) fn load_authoritative_coordination_plan_state(
     root: &Path,
 ) -> Result<Option<HydratedCoordinationPlanState>> {
-    let store = configured_coordination_authority_store_provider(root)?.open(root)?;
-    Ok(store
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Strong,
-            view: CoordinationStateView::PlanState,
-        })?
-        .value
-        .map(|state| HydratedCoordinationPlanState {
-            canonical_snapshot_v2: state.canonical_snapshot_v2,
-            snapshot: state.snapshot,
-            runtime_descriptors: state.runtime_descriptors,
-        }))
+    Ok(
+        load_authoritative_coordination_current_state_with_consistency(
+            root,
+            CoordinationReadConsistency::Strong,
+        )?
+        .map(Into::into),
+    )
 }
 
 pub(crate) fn merge_shared_coordination_into_snapshot(

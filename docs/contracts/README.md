@@ -39,6 +39,7 @@ Foundational ADRs that active contracts currently depend on:
 - [../adrs/2026-04-08-service-owned-coordination-materialization.md](../adrs/2026-04-08-service-owned-coordination-materialization.md)
 - [../adrs/2026-04-08-db-backed-coordination-authority-first.md](../adrs/2026-04-08-db-backed-coordination-authority-first.md)
 - [../adrs/2026-04-09-first-class-prism-service-and-db-read-path.md](../adrs/2026-04-09-first-class-prism-service-and-db-read-path.md)
+- [../adrs/2026-04-10-prism-code-canonical-surface.md](../adrs/2026-04-10-prism-code-canonical-surface.md)
 
 ## Current contract set
 

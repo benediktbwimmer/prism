@@ -8,12 +8,8 @@ use crate::{
     protected_state_resource_uri_with_options, resource_example_resource_uri,
     resource_shape_resource_uri, schema_resource_uri, self_description_audit_resource_uri,
     session_resource_uri, symbol_resource_uri_from_node_id, task_resource_uri,
-    tool_action_example_resource_uri, tool_action_recipe_resource_uri,
-    tool_action_schema_resource_uri, tool_action_shape_resource_uri, tool_example_resource_uri,
-    tool_schema_resource_uri, tool_shape_resource_uri, tool_variant_example_resource_uri,
-    tool_variant_recipe_resource_uri, tool_variant_schema_resource_uri,
-    tool_variant_shape_resource_uri, vocab_entry_resource_uri, vocab_resource_uri,
-    API_REFERENCE_URI,
+    tool_example_resource_uri, tool_schema_resource_uri, tool_shape_resource_uri,
+    vocab_entry_resource_uri, vocab_resource_uri, API_REFERENCE_URI,
 };
 use prism_ir::{EdgeKind, NodeId};
 
@@ -57,8 +53,8 @@ pub(crate) fn resource_example_uri(resource_kind: &str) -> Option<String> {
         "event" => Some(event_resource_uri("event:demo-main")),
         "memory" => Some(memory_resource_uri("memory:demo-main")),
         "edge" => Some(edge_resource_uri("edge:demo-main-calls-helper")),
-        "tool-example" => Some(tool_example_resource_uri("prism_mutate")),
-        "tool-shape" => Some(tool_shape_resource_uri("prism_mutate")),
+        "tool-example" => Some(tool_example_resource_uri("prism_code")),
+        "tool-shape" => Some(tool_shape_resource_uri("prism_code")),
         "resource-example" => Some(resource_example_resource_uri("search")),
         "resource-shape" => Some(resource_shape_resource_uri("search")),
         "capabilities-section" => Some(capabilities_section_resource_uri("tools")),
@@ -105,20 +101,16 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
             "lens": "validation",
             "verbosity": "summary",
         })),
-        "prism_query" => Some(json!({
+        "prism_code" => Some(json!({
             "code": "const peer = prism.from(\"runtime-demo\"); return { status: peer.runtime.status(), excerpt: peer.file(\"README.md\").read({ maxChars: 160 }) };",
             "language": "ts",
         })),
-        "prism_mutate" => prism_mutate_action_example("validation_feedback"),
         _ => None,
     }
 }
 
 pub(crate) fn tool_input_examples(tool_name: &str) -> Option<Vec<Value>> {
-    match tool_name {
-        "prism_mutate" => Some(prism_mutate_examples()),
-        _ => tool_input_example(tool_name).map(|example| vec![example]),
-    }
+    tool_input_example(tool_name).map(|example| vec![example])
 }
 
 pub(crate) fn tool_action_example(tool_name: &str, action: &str) -> Option<Value> {
@@ -126,564 +118,11 @@ pub(crate) fn tool_action_example(tool_name: &str, action: &str) -> Option<Value
 }
 
 pub(crate) fn tool_action_examples(tool_name: &str, action: &str) -> Vec<Value> {
-    match tool_name {
-        "prism_mutate" => prism_mutate_examples()
-            .into_iter()
-            .filter(|example| example.get("action").and_then(Value::as_str) == Some(action))
-            .collect(),
-        _ => tool_input_examples(tool_name)
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|example| example.get("action").and_then(Value::as_str) == Some(action))
-            .collect(),
-    }
-}
-
-fn prism_mutate_examples() -> Vec<Value> {
-    let mut examples = [
-        "validation_feedback",
-        "declare_work",
-        "checkpoint",
-        "session_repair",
-        "outcome",
-        "memory",
-        "concept",
-        "contract",
-        "concept_relation",
-        "infer_edge",
-        "heartbeat_lease",
-        "coordination",
-        "claim",
-        "artifact",
-        "test_ran",
-        "failure_observed",
-        "fix_validated",
-        "curator_apply_proposal",
-        "curator_promote_edge",
-        "curator_promote_concept",
-        "curator_promote_memory",
-        "curator_reject_proposal",
-    ]
-    .into_iter()
-    .filter_map(prism_mutate_action_example)
-    .collect::<Vec<_>>();
-    examples.extend(extra_prism_mutate_examples());
-    examples.into_iter().map(with_mutation_credential).collect()
-}
-
-fn prism_mutate_action_example(action: &str) -> Option<Value> {
-    match action {
-        "validation_feedback" => Some(json!({
-            "action": "validation_feedback",
-            "input": {
-                "context": "Search for `session` while curating concept packs.",
-                "prismSaid": "Search result ordering was helpful.",
-                "actuallyTrue": "The top result matched the active session-state owner quickly.",
-                "category": "projection",
-                "verdict": "helpful",
-                "correctedManually": false
-            }
-        })),
-        "declare_work" => Some(json!({
-            "action": "declare_work",
-            "input": {
-                "title": "Curate principal identity concepts",
-                "kind": "ad_hoc",
-                "summary": "Bootstrap durable work attribution before later mutations.",
-                "parentWorkId": "work:parent-demo",
-                "planId": "plan:demo-main"
-            }
-        })),
-        "checkpoint" => Some(json!({
-            "action": "checkpoint",
-            "input": {
-                "summary": "Checkpoint the current implementation milestone.",
-                "taskId": "work:demo-main"
-            }
-        })),
-        "session_repair" => Some(json!({
-            "action": "session_repair",
-            "input": {
-                "operation": "clear_current_task"
-            }
-        })),
-        "outcome" => Some(json!({
-            "action": "outcome",
-            "input": {
-                "kind": "plan_created",
-                "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
-                "summary": "Outlined the validation follow-up plan.",
-                "result": "success",
-                "taskId": "task:demo-main"
-            }
-        })),
-        "memory" => Some(json!({
-            "action": "memory",
-            "input": {
-                "action": "store",
-                "payload": {
-                    "kind": "episodic",
-                    "scope": "session",
-                    "content": "Concept handles need concept-aware compact follow-through.",
-                    "anchors": [sample_node_anchor(
-                        "prism_mcp",
-                        "prism_mcp::compact_tools::concept::QueryHost::compact_concept",
-                        "method"
-                    )],
-                    "trust": 0.82,
-                    "metadata": {
-                        "provenance": {
-                            "kind": "manual_memory",
-                            "origin": "schema_example"
-                        }
-                    }
-                }
-            }
-        })),
-        "concept" => Some(json!({
-            "action": "concept",
-            "input": {
-                "operation": "promote",
-                "canonicalName": "validation_pipeline",
-                "summary": "Checks, likely tests, and recent failures behind a change.",
-                "coreMembers": [
-                    sample_node_id_input("demo", "demo::validation_recipe", "function"),
-                    sample_node_id_input("demo", "demo::runtime_status", "function")
-                ],
-                "aliases": ["validation", "checks"],
-                "evidence": ["Promoted from repeated validation worksets."]
-            }
-        })),
-        "contract" => Some(json!({
-            "action": "contract",
-            "input": {
-                "operation": "promote",
-                "name": "runtime status surface",
-                "summary": "The runtime status entry point remains available for internal diagnostics consumers.",
-                "kind": "interface",
-                "subject": {
-                    "anchors": [sample_node_anchor("demo", "demo::runtime_status", "function")]
-                },
-                "guarantees": [{
-                    "statement": "Internal diagnostics callers can query runtime status without reconstructing daemon state.",
-                    "strength": "hard",
-                    "evidenceRefs": ["runtime-status-tests"]
-                }],
-                "consumers": [{
-                    "conceptHandles": ["concept://runtime_surface"]
-                }],
-                "validations": [{
-                    "id": "cargo test -p prism-mcp runtime_status",
-                    "summary": "Covers the runtime status surface."
-                }],
-                "evidence": ["Promoted from repeated runtime-inspection work."],
-                "scope": "session"
-            }
-        })),
-        "concept_relation" => Some(json!({
-            "action": "concept_relation",
-            "input": {
-                "operation": "upsert",
-                "sourceHandle": "concept://validation_pipeline",
-                "targetHandle": "concept://runtime_surface",
-                "kind": "often_used_with",
-                "confidence": 0.82,
-                "scope": "session",
-                "evidence": ["Validation work usually routes through the runtime surface."],
-                "taskId": "task:demo-main"
-            }
-        })),
-        "curator_promote_concept" => Some(json!({
-            "action": "curator_promote_concept",
-            "input": {
-                "jobId": "curator-job:demo",
-                "proposalIndex": 0,
-                "scope": "session",
-                "note": "Accept the hotspot concept proposal after review.",
-                "taskId": "task:demo-main"
-            }
-        })),
-        "infer_edge" => Some(json!({
-            "action": "infer_edge",
-            "input": {
-                "source": sample_node_id_input("demo", "demo::validation_recipe", "function"),
-                "target": sample_node_id_input("demo", "demo::runtime_status", "function"),
-                "kind": "related_to",
-                "confidence": 0.74,
-                "scope": "persisted",
-                "evidence": ["Observed together in repeated validation worksets."],
-                "taskId": "task:demo-main"
-            }
-        })),
-        "heartbeat_lease" => Some(json!({
-            "action": "heartbeat_lease",
-            "input": {
-                "taskId": "coord-task:1"
-            }
-        })),
-        "coordination" => Some(json!({
-            "action": "coordination",
-            "input": {
-                "kind": "task_create",
-                "payload": {
-                    "planId": "plan:demo-main",
-                    "title": "Validate compact mutate examples",
-                    "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
-                    "acceptance": [{
-                        "label": "Schema examples cover every mutate action"
-                    }]
-                },
-                "taskId": "task:demo-main"
-            }
-        })),
-        "claim" => Some(json!({
-            "action": "claim",
-            "input": {
-                "action": "acquire",
-                "payload": {
-                    "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
-                    "capability": "edit",
-                    "mode": "soft_exclusive",
-                    "ttlSeconds": 1800,
-                    "coordinationTaskId": "coord-task:1"
-                },
-                "taskId": "task:demo-main"
-            }
-        })),
-        "artifact" => Some(json!({
-            "action": "artifact",
-            "input": {
-                "action": "propose",
-                "payload": {
-                    "taskId": "coord-task:1",
-                    "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
-                    "diffRef": "patch:demo-validation",
-                    "requiredValidations": ["cargo test -p prism-mcp"],
-                    "riskScore": 0.35
-                },
-                "taskId": "task:demo-main"
-            }
-        })),
-        "test_ran" => Some(json!({
-            "action": "test_ran",
-            "input": {
-                "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
-                "test": "cargo test -p prism-mcp prism_mutate_schema_surfaces_action_specific_examples",
-                "passed": true,
-                "command": ["cargo", "test", "-p", "prism-mcp", "prism_mutate_schema_surfaces_action_specific_examples"],
-                "taskId": "task:demo-main"
-            }
-        })),
-        "failure_observed" => Some(json!({
-            "action": "failure_observed",
-            "input": {
-                "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
-                "summary": "Schema example was missing the mutate action payload shape.",
-                "trace": "trace:schema-example-missing-payload-shape",
-                "taskId": "task:demo-main"
-            }
-        })),
-        "fix_validated" => Some(json!({
-            "action": "fix_validated",
-            "input": {
-                "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
-                "summary": "Mutation schema now exposes concrete payload shapes and examples.",
-                "command": ["cargo", "test", "-p", "prism-mcp", "prism_mutate_schema_surfaces_action_specific_examples"],
-                "taskId": "task:demo-main"
-            }
-        })),
-        "curator_apply_proposal" => Some(json!({
-            "action": "curator_apply_proposal",
-            "input": {
-                "jobId": "curator:1",
-                "proposalIndex": 0,
-                "note": "Apply the reviewed proposal.",
-                "options": {
-                    "conceptScope": "repo",
-                    "memoryTrust": 0.86,
-                    "edgeScope": "persisted"
-                },
-                "taskId": "task:demo-main"
-            }
-        })),
-        "curator_promote_edge" => Some(json!({
-            "action": "curator_promote_edge",
-            "input": {
-                "jobId": "curator:1",
-                "proposalIndex": 0,
-                "scope": "persisted",
-                "note": "Promote the inferred validation edge.",
-                "taskId": "task:demo-main"
-            }
-        })),
-        "curator_promote_memory" => Some(json!({
-            "action": "curator_promote_memory",
-            "input": {
-                "jobId": "curator:1",
-                "proposalIndex": 1,
-                "trust": 0.86,
-                "note": "Promote the repeated validation lesson.",
-                "taskId": "task:demo-main"
-            }
-        })),
-        "curator_reject_proposal" => Some(json!({
-            "action": "curator_reject_proposal",
-            "input": {
-                "jobId": "curator:1",
-                "proposalIndex": 2,
-                "reason": "The proposed memory was still too task-specific.",
-                "taskId": "task:demo-main"
-            }
-        })),
-        _ => None,
-    }
-}
-
-fn extra_prism_mutate_examples() -> Vec<Value> {
-    vec![
-        json!({
-            "action": "memory",
-            "input": {
-                "action": "retire",
-                "payload": {
-                    "memoryId": "memory:demo-main",
-                    "retirementReason": "Superseded by a newer validated routing rule."
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "coordination_transaction",
-                "payload": {
-                    "mutations": [{
-                        "action": "plan_create",
-                        "input": {
-                            "clientPlanId": "plan_root",
-                            "title": "Investigate refresh path latency",
-                            "goal": "Investigate refresh path latency"
-                        }
-                    }, {
-                        "action": "task_create",
-                        "input": {
-                            "clientTaskId": "t0",
-                            "plan": {
-                                "clientPlanId": "plan_root"
-                            },
-                            "title": "Capture baseline timings"
-                        }
-                    }, {
-                        "action": "task_create",
-                        "input": {
-                            "clientTaskId": "t1",
-                            "plan": {
-                                "clientPlanId": "plan_root"
-                            },
-                            "title": "Compare the slow phases"
-                        }
-                    }, {
-                        "action": "dependency_create",
-                        "input": {
-                            "task": {
-                                "clientTaskId": "t1"
-                            },
-                            "dependsOn": {
-                                "clientTaskId": "t0"
-                            }
-                        }
-                    }, {
-                        "action": "task_update",
-                        "input": {
-                            "task": {
-                                "taskId": "coord-task:1"
-                            },
-                            "status": "in_progress",
-                            "title": "Compare the slow phases under tracing"
-                        }
-                    }]
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "plan_bootstrap",
-                "payload": {
-                    "plan": {
-                        "title": "Investigate refresh path latency",
-                        "goal": "Investigate refresh path latency"
-                    },
-                    "tasks": [{
-                        "clientId": "t0",
-                        "title": "Capture baseline timings"
-                    }, {
-                        "clientId": "t1",
-                        "title": "Compare the slow phases",
-                        "dependsOn": ["t0"]
-                    }]
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "plan_create",
-                "payload": {
-                    "title": "Investigate refresh path latency",
-                    "goal": "Investigate refresh path latency",
-                    "status": "active",
-                    "policy": {
-                        "defaultClaimMode": "soft_exclusive",
-                        "staleAfterGraphChange": false
-                    }
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "plan_archive",
-                "payload": {
-                    "planId": "plan:demo-main"
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "update",
-                "payload": {
-                    "id": "coord-task:1",
-                    "status": "in_progress",
-                    "title": "Validate compact mutate examples"
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "plan_update",
-                "payload": {
-                    "planId": "plan:demo-main",
-                    "title": "Investigate refresh path latency deeply",
-                    "scheduling": {
-                        "importance": 80,
-                        "urgency": 70
-                    }
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "handoff",
-                "payload": {
-                    "taskId": "coord-task:1",
-                    "toAgent": "agent:reviewer",
-                    "summary": "Hand off the reviewable artifact workflow."
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "resume",
-                "payload": {
-                    "taskId": "coord-task:1",
-                    "agent": "agent:demo"
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "reclaim",
-                "payload": {
-                    "taskId": "coord-task:1",
-                    "agent": "agent:demo"
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "coordination",
-            "input": {
-                "kind": "handoff_accept",
-                "payload": {
-                    "taskId": "coord-task:1",
-                    "agent": "agent:reviewer"
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "claim",
-            "input": {
-                "action": "renew",
-                "payload": {
-                    "claimId": "claim:demo-main",
-                    "ttlSeconds": 1800
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "claim",
-            "input": {
-                "action": "release",
-                "payload": {
-                    "claimId": "claim:demo-main"
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "artifact",
-            "input": {
-                "action": "supersede",
-                "payload": {
-                    "artifactId": "artifact:demo-main"
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-        json!({
-            "action": "artifact",
-            "input": {
-                "action": "review",
-                "payload": {
-                    "artifactId": "artifact:demo-main",
-                    "verdict": "approved",
-                    "summary": "Refresh hot path change looks safe.",
-                    "validatedChecks": ["cargo test -p prism-mcp"]
-                },
-                "taskId": "task:demo-main"
-            }
-        }),
-    ]
-}
-
-fn with_mutation_credential(mut example: Value) -> Value {
-    let Some(object) = example.as_object_mut() else {
-        return example;
-    };
-    object.insert(
-        "credential".to_string(),
-        json!({
-            "credentialId": "credential:demo-main",
-            "principalToken": "prism_ptok_demo_main_example"
-        }),
-    );
-    example
+    tool_input_examples(tool_name)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|example| example.get("action").and_then(Value::as_str) == Some(action))
+        .collect()
 }
 
 fn sample_node_anchor(crate_name: &str, path: &str, kind: &str) -> Value {
@@ -736,34 +175,18 @@ pub(crate) fn resource_payload_example(resource_kind: &str) -> Option<Value> {
 
 fn tool_example_payload_example() -> Value {
     json!({
-        "uri": tool_variant_example_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+        "uri": tool_example_resource_uri("prism_code"),
         "schemaUri": schema_resource_uri("tool-example"),
-        "toolName": "prism_mutate",
-        "action": "coordination",
-        "variant": "coordination_transaction",
-        "discriminator": "kind",
-        "targetSchemaUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
-        "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
-        "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+        "toolName": "prism_code",
+        "targetSchemaUri": tool_schema_resource_uri("prism_code"),
+        "shapeUri": tool_shape_resource_uri("prism_code"),
         "example": {
-            "mutations": [{
-                "action": "plan_create",
-                "input": {
-                    "clientPlanId": "plan_root",
-                    "title": "Improve self-description",
-                    "goal": "Make PRISM MCP self-describing under truncation"
-                }
-            }]
+            "code": "return prism.plans().limit(5).map(plan => ({ id: plan.id, status: plan.status }));",
+            "language": "ts"
         },
         "examples": [{
-            "mutations": [{
-                "action": "plan_create",
-                "input": {
-                    "clientPlanId": "plan_root",
-                    "title": "Improve self-description",
-                    "goal": "Make PRISM MCP self-describing under truncation"
-                }
-            }]
+            "code": "return prism.plans().limit(5).map(plan => ({ id: plan.id, status: plan.status }));",
+            "language": "ts"
         }],
         "relatedResources": sample_related_resources(),
     })
@@ -771,50 +194,37 @@ fn tool_example_payload_example() -> Value {
 
 fn tool_shape_payload_example() -> Value {
     json!({
-        "uri": tool_action_shape_resource_uri("prism_mutate", "coordination"),
+        "uri": tool_shape_resource_uri("prism_code"),
         "schemaUri": schema_resource_uri("tool-shape"),
-        "toolName": "prism_mutate",
-        "toolSchemaUri": tool_action_schema_resource_uri("prism_mutate", "coordination"),
-        "exampleUri": tool_action_example_resource_uri("prism_mutate", "coordination"),
-        "description": "Compact shape summary for `prism_mutate` action `coordination`",
-        "requiredFields": ["payload"],
-        "optionalFields": ["taskId", "planId", "kind"],
+        "toolName": "prism_code",
+        "toolSchemaUri": tool_schema_resource_uri("prism_code"),
+        "exampleUri": tool_example_resource_uri("prism_code"),
+        "description": "Compact shape summary for the canonical programmable PRISM code surface.",
+        "requiredFields": ["code"],
+        "optionalFields": ["language", "dryRun", "credential", "bridgeExecution"],
         "fields": [{
-            "name": "payload",
+            "name": "code",
             "required": true,
-            "description": "Tagged coordination payload",
-            "types": ["object"],
+            "description": "JavaScript or TypeScript source evaluated against the live PRISM runtime.",
+            "types": ["string"],
             "enumValues": [],
             "nestedFields": []
         }],
         "actions": [{
-            "action": "coordination",
-            "schemaUri": tool_action_schema_resource_uri("prism_mutate", "coordination"),
-            "exampleUri": tool_action_example_resource_uri("prism_mutate", "coordination"),
-            "shapeUri": tool_action_shape_resource_uri("prism_mutate", "coordination"),
-            "recipeUri": tool_action_recipe_resource_uri("prism_mutate", "coordination"),
-            "description": "Exact input schema for `prism_mutate` action `coordination`.",
-            "requiredFields": ["payload"],
-            "optionalFields": ["taskId", "planId", "kind"],
+            "action": "default",
+            "schemaUri": tool_schema_resource_uri("prism_code"),
+            "exampleUri": tool_example_resource_uri("prism_code"),
+            "shapeUri": tool_shape_resource_uri("prism_code"),
+            "description": "Exact input shape for the canonical programmable PRISM code surface.",
+            "requiredFields": ["code"],
+            "optionalFields": ["language", "dryRun", "credential", "bridgeExecution"],
             "fields": [{
-                "name": "payload",
+                "name": "code",
                 "required": true,
-                "description": "Tagged coordination payload",
-                "types": ["object"],
+                "description": "JavaScript or TypeScript source evaluated against the live PRISM runtime.",
+                "types": ["string"],
                 "enumValues": [],
                 "nestedFields": []
-            }],
-            "payloadDiscriminator": "kind",
-            "variants": [{
-                "tag": "coordination_transaction",
-                "discriminator": "kind",
-                "schemaUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
-                "exampleUri": tool_variant_example_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
-                "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
-                "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
-                "requiredFields": ["mutations"],
-                "optionalFields": ["intentMetadata", "optimisticPreconditions"],
-                "fields": []
             }]
         }],
         "relatedResources": sample_related_resources(),
@@ -861,11 +271,11 @@ fn capabilities_section_payload_example() -> Value {
         "schemaUri": schema_resource_uri("capabilities-section"),
         "section": "tools",
         "value": [{
-            "name": "prism_mutate",
-            "description": "Input schema for coarse PRISM state mutations and tagged action unions.",
-            "schemaUri": tool_schema_resource_uri("prism_mutate"),
-            "exampleUri": tool_example_resource_uri("prism_mutate"),
-            "shapeUri": tool_shape_resource_uri("prism_mutate")
+            "name": "prism_code",
+            "description": "Input schema for the canonical programmable PRISM code surface.",
+            "schemaUri": tool_schema_resource_uri("prism_code"),
+            "exampleUri": tool_example_resource_uri("prism_code"),
+            "shapeUri": tool_shape_resource_uri("prism_code")
         }],
         "relatedResources": sample_related_resources(),
     })
@@ -879,7 +289,7 @@ fn vocab_entry_payload_example() -> Value {
         "vocabulary": {
             "key": "coordinationMutationKind",
             "title": "Coordination Mutation Kinds",
-            "description": "Nested kind values accepted by prism_mutate action coordination.",
+            "description": "Coordination mutation kinds accepted by the native PRISM coordination surface.",
             "values": [{
                 "value": "coordination_transaction",
                 "aliases": ["transaction"],
@@ -903,18 +313,18 @@ fn self_description_audit_payload_example() -> Value {
         "oversizeEntries": 0,
         "missingCompanionEntries": 0,
         "entries": [{
-            "surfaceKind": "tool_variant",
-            "name": "prism_mutate.coordination.coordination_transaction",
-            "fullUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
-            "schemaUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
-            "exampleUri": tool_variant_example_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
-            "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
-            "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "coordination_transaction"),
+            "surfaceKind": "tool",
+            "name": "prism_code",
+            "fullUri": tool_schema_resource_uri("prism_code"),
+            "schemaUri": tool_schema_resource_uri("prism_code"),
+            "exampleUri": tool_example_resource_uri("prism_code"),
+            "shapeUri": tool_shape_resource_uri("prism_code"),
+            "recipeUri": null,
             "fullBytes": 4096,
             "schemaBytes": 4096,
             "exampleBytes": 1024,
-            "shapeBytes": 2048,
-            "recipeBytes": 512,
+            "shapeBytes": 1024,
+            "recipeBytes": null,
             "exampleValid": true,
             "exampleValidationIssueCodes": [],
             "sourceFreeOperable": true,
@@ -954,7 +364,7 @@ fn session_payload_example() -> Value {
             "principalId": "principal:codex-c",
             "credentialId": "credential:codex-c",
             "error": null,
-            "nextAction": "Proceed with authoritative `prism_mutate` calls without supplying `credential` on this bridge."
+            "nextAction": "Proceed with authenticated `prism_code` calls without supplying `credential` on this bridge."
         },
         "limits": sample_limits(),
         "features": sample_features(),
@@ -1006,7 +416,7 @@ fn vocab_payload_example() -> Value {
         }, {
             "key": "coordinationMutationKind",
             "title": "Coordination Mutation Kinds",
-            "description": "Nested kind values accepted by prism_mutate action coordination.",
+            "description": "Coordination mutation kinds accepted by the native PRISM coordination surface.",
             "values": [{
                 "value": "coordination_transaction",
                 "aliases": ["transaction"],
@@ -1096,10 +506,15 @@ fn capabilities_payload_example() -> Value {
             "schemaUri": tool_schema_resource_uri("prism_locate"),
             "exampleInput": tool_input_example("prism_locate"),
         }, {
-            "name": "prism_query",
-            "description": "Input schema for programmable read-only TypeScript PRISM queries.",
-            "schemaUri": tool_schema_resource_uri("prism_query"),
-            "exampleInput": tool_input_example("prism_query"),
+            "name": "prism_code",
+            "description": "Input schema for the canonical programmable PRISM code surface.",
+            "schemaUri": tool_schema_resource_uri("prism_code"),
+            "exampleInput": tool_input_example("prism_code"),
+        }, {
+            "name": "prism_task_brief",
+            "description": "Input schema for the compact coordination task brief tool.",
+            "schemaUri": tool_schema_resource_uri("prism_task_brief"),
+            "exampleInput": tool_input_example("prism_task_brief"),
         }],
         "relatedResources": sample_related_resources(),
     })
@@ -1569,15 +984,15 @@ fn tool_schema_catalog_payload_example() -> Value {
             "description": "Input schema for resolving a broad repo concept into a compact concept packet.",
             "exampleInput": tool_input_example("prism_concept"),
         }, {
-            "toolName": "prism_query",
-            "schemaUri": tool_schema_resource_uri("prism_query"),
-            "description": "Input schema for programmable read-only TypeScript PRISM queries.",
-            "exampleInput": tool_input_example("prism_query"),
+            "toolName": "prism_code",
+            "schemaUri": tool_schema_resource_uri("prism_code"),
+            "description": "Input schema for the canonical programmable PRISM code surface.",
+            "exampleInput": tool_input_example("prism_code"),
         }, {
-            "toolName": "prism_mutate",
-            "schemaUri": tool_schema_resource_uri("prism_mutate"),
-            "description": "Input schema for coarse PRISM state mutations and tagged action unions.",
-            "exampleInput": tool_input_example("prism_mutate"),
+            "toolName": "prism_task_brief",
+            "schemaUri": tool_schema_resource_uri("prism_task_brief"),
+            "description": "Input schema for the compact coordination task brief tool.",
+            "exampleInput": tool_input_example("prism_task_brief"),
         }],
         "relatedResources": sample_related_resources(),
     })

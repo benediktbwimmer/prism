@@ -1082,6 +1082,8 @@ pub(crate) fn artifact_review_view(
     ArtifactReviewView {
         id: value.id.0.to_string(),
         artifact_id: value.artifact.0.to_string(),
+        review_requirement_id: value.review_requirement_id,
+        reviewer_class: value.reviewer_class,
         verdict: value.verdict,
         summary: value.summary,
         ts: value.meta.ts,
@@ -1430,6 +1432,8 @@ pub(crate) fn coordination_task_v2_view(value: CoordinationTaskV2) -> Coordinati
         branch_ref: value.task.branch_ref,
         anchors: value.task.anchors,
         bindings: plan_binding_view(value.task.bindings),
+        artifact_requirements: value.task.artifact_requirements,
+        review_requirements: value.task.review_requirements,
         validation_refs: value
             .task
             .validation_refs
@@ -1674,6 +1678,7 @@ pub(crate) fn artifact_view(value: prism_coordination::Artifact) -> ArtifactView
     ArtifactView {
         id: value.id.0.to_string(),
         task_id: value.task.0.to_string(),
+        artifact_requirement_id: value.artifact_requirement_id,
         status: value.status,
         anchors: value.anchors,
         base_revision: workspace_revision_view(value.base_revision),

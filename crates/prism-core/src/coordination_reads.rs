@@ -2,10 +2,7 @@
 use std::path::Path;
 
 #[cfg(test)]
-use crate::coordination_authority_store::{
-    configured_coordination_authority_store_provider, CoordinationReadRequest,
-    CoordinationStateView,
-};
+use crate::coordination_authority_store::configured_coordination_authority_store_provider;
 #[cfg(test)]
 use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
@@ -91,13 +88,9 @@ pub(crate) fn load_eventual_coordination_snapshot_for_root(
         return Ok(Some(snapshot));
     }
     Ok(configured_coordination_authority_store_provider(root)?
-        .open(root)?
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Eventual,
-            view: CoordinationStateView::PlanState,
-        })?
-        .value
-        .map(|state| state.snapshot))
+        .open_snapshot(root)?
+        .read_snapshot(CoordinationReadConsistency::Eventual)?
+        .value)
 }
 
 #[cfg(test)]
@@ -111,33 +104,30 @@ pub(crate) fn load_eventual_coordination_snapshot_v2_for_root(
         return Ok(Some(snapshot_v2));
     }
     Ok(configured_coordination_authority_store_provider(root)?
-        .open(root)?
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Eventual,
-            view: CoordinationStateView::PlanState,
-        })?
-        .value
-        .map(|state| state.canonical_snapshot_v2))
+        .open_snapshot(root)?
+        .read_snapshot_v2(CoordinationReadConsistency::Eventual)?
+        .value)
 }
 
 #[cfg(test)]
 pub(crate) fn load_eventual_coordination_plan_state_for_root(
     root: &Path,
 ) -> Result<Option<HydratedCoordinationPlanState>> {
-    if let Some(value) = SqliteCoordinationMaterializedStore::new(root).read_plan_state()?.value {
+    if let Some(value) = SqliteCoordinationMaterializedStore::new(root)
+        .read_plan_state()?
+        .value
+    {
         return Ok(Some(HydratedCoordinationPlanState {
             snapshot: value.legacy_snapshot,
             canonical_snapshot_v2: value.canonical_snapshot_v2,
             runtime_descriptors: value.runtime_descriptors,
         }));
     }
-    Ok(configured_coordination_authority_store_provider(root)?
-        .open(root)?
-        .read_current(CoordinationReadRequest {
-            consistency: CoordinationReadConsistency::Eventual,
-            view: CoordinationStateView::PlanState,
-        })?
-        .value
+    Ok(
+        crate::published_plans::load_authoritative_coordination_current_state_with_consistency(
+            root,
+            CoordinationReadConsistency::Eventual,
+        )?
         .map(|state| {
             let snapshot = repo_semantic_coordination_snapshot(state.snapshot);
             HydratedCoordinationPlanState {
@@ -145,5 +135,6 @@ pub(crate) fn load_eventual_coordination_plan_state_for_root(
                 snapshot,
                 runtime_descriptors: state.runtime_descriptors,
             }
-        }))
+        }),
+    )
 }

@@ -17,7 +17,7 @@ This means adding graph-wide support for:
 - typed outputs
 - explicit bindings between nodes
 - plan-level parameterization
-- reusable plan definitions or templates
+- reusable repo-authored plan definitions under `.prism/code/plans/`
 - continue-as-new with carried state
 
 This is not only about parameterizing Plans. It is about letting multiple coordination objects consume
@@ -246,9 +246,9 @@ This should remain explicit rather than magical.
 Continue-as-new should be understood as part of the intended v1 native Plan model, not only as a
 future extension.
 
-## 9. Reusable workflow definitions
+## 9. Reusable repo-authored plan definitions
 
-Once graph-wide dataflow exists, reusable plan definitions become natural.
+Once graph-wide dataflow exists, reusable repo-authored plan definitions become natural.
 
 Examples:
 
@@ -258,7 +258,8 @@ Examples:
 - hotfix template
 - review and validation template
 
-These should remain explicit structured definitions, not arbitrary plan code.
+These should remain explicit native definitions after compilation, even when the authored source is
+ordinary JS/TS under `.prism/code/plans/`.
 
 ## 10. Guardrails
 

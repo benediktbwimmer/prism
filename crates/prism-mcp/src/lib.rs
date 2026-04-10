@@ -65,6 +65,7 @@ mod mutation_provenance;
 mod mutation_trace;
 mod peer_runtime_router;
 mod plan_surface;
+mod prism_code_compiler;
 mod process_lifecycle;
 mod proxy_server;
 mod query_errors;
@@ -202,23 +203,22 @@ const SCHEMAS_URI: &str = "prism://schemas";
 const TOOL_SCHEMAS_URI: &str = "prism://tool-schemas";
 const ENTRYPOINTS_RESOURCE_TEMPLATE_URI: &str = "prism://entrypoints?limit={limit}&cursor={cursor}";
 const SYMBOL_RESOURCE_TEMPLATE_URI: &str = "prism://symbol/{crateName}/{kind}/{path}";
-const SEARCH_RESOURCE_TEMPLATE_URI: &str =
-    "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}";
+const SEARCH_RESOURCE_TEMPLATE_URI: &str = "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}";
 const LINEAGE_RESOURCE_TEMPLATE_URI: &str =
     "prism://lineage/{lineageId}?limit={limit}&cursor={cursor}";
 const PLAN_RESOURCE_TEMPLATE_URI: &str = "prism://plan/{planId}";
 const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}?limit={limit}&cursor={cursor}";
-const PLANS_RESOURCE_TEMPLATE_URI: &str =
-    "prism://plans?status={status}&scope={scope}&contains={contains}&sort={sort}&limit={limit}&cursor={cursor}";
-const CONTRACTS_RESOURCE_TEMPLATE_URI: &str =
-    "prism://contracts?contains={contains}&status={status}&scope={scope}&kind={kind}&limit={limit}&cursor={cursor}";
+const PLANS_RESOURCE_TEMPLATE_URI: &str = "prism://plans?status={status}&scope={scope}&contains={contains}&sort={sort}&limit={limit}&cursor={cursor}";
+const CONTRACTS_RESOURCE_TEMPLATE_URI: &str = "prism://contracts?contains={contains}&status={status}&scope={scope}&kind={kind}&limit={limit}&cursor={cursor}";
 const EVENT_RESOURCE_TEMPLATE_URI: &str = "prism://event/{eventId}";
 const MEMORY_RESOURCE_TEMPLATE_URI: &str = "prism://memory/{memoryId}";
 const EDGE_RESOURCE_TEMPLATE_URI: &str = "prism://edge/{edgeId}";
 const SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/{resourceKind}";
 const TOOL_SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/tool/{toolName}";
+#[cfg(test)]
 const TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI: &str =
     "prism://schema/tool/{toolName}/action/{action}";
+#[cfg(test)]
 const TOOL_VARIANT_SCHEMA_RESOURCE_TEMPLATE_URI: &str =
     "prism://schema/tool/{toolName}/action/{action}/variant/{tag}";
 const TOOL_EXAMPLE_RESOURCE_TEMPLATE_URI: &str = "prism://example/tool/{toolName}";
@@ -332,7 +332,6 @@ pub enum PrismRuntimeModeArg {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 #[value(rename_all = "snake_case")]
 pub enum CoordinationAuthorityBackendArg {
-    GitSharedRefs,
     Sqlite,
     Postgres,
 }
@@ -397,9 +396,6 @@ impl PrismMcpCli {
             return Ok(None);
         };
         Ok(Some(match backend {
-            CoordinationAuthorityBackendArg::GitSharedRefs => {
-                CoordinationAuthorityBackendConfig::GitSharedRefs
-            }
             CoordinationAuthorityBackendArg::Sqlite => {
                 let db_path = match &self.coordination_authority_sqlite_db {
                     Some(path) if path.is_absolute() => path.clone(),
@@ -411,9 +407,14 @@ impl PrismMcpCli {
                 CoordinationAuthorityBackendConfig::Sqlite { db_path }
             }
             CoordinationAuthorityBackendArg::Postgres => {
-                let connection_url = self.coordination_authority_postgres_url.clone().ok_or_else(
-                    || anyhow!("--coordination-authority-postgres-url is required for postgres backend"),
-                )?;
+                let connection_url = self
+                    .coordination_authority_postgres_url
+                    .clone()
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "--coordination-authority-postgres-url is required for postgres backend"
+                        )
+                    })?;
                 CoordinationAuthorityBackendConfig::Postgres { connection_url }
             }
         }))

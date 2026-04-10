@@ -3,39 +3,53 @@ use std::fmt;
 
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    AcceptanceCriterion, CoordinationPolicy, CoordinationRuntimeState, CoordinationSnapshot,
-    CoordinationSpecRef, CoordinationTaskSpecRef, PlanCreateInput, PlanScheduling, PlanUpdateInput,
+    AcceptanceCriterion, ArtifactProposeInput, ArtifactReviewInput, ArtifactSupersedeInput,
+    CoordinationPolicy, CoordinationRuntimeState, CoordinationSnapshot, CoordinationSpecRef,
+    CoordinationTaskSpecRef, PlanCreateInput, PlanScheduling, PlanUpdateInput,
     TaskCompletionContext, TaskCreateInput, TaskGitExecution, TaskUpdateInput,
 };
 use prism_ir::{
-    AgentId, AnchorRef, CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus, EventId,
-    EventMeta, PlanBinding, PlanId, PlanStatus, SessionId, ValidationRef, WorkspaceRevision,
+    AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationEventKind, CoordinationTaskId,
+    CoordinationTaskStatus, EventId, EventMeta, PlanBinding, PlanId, PlanStatus, ReviewId,
+    ReviewVerdict, SessionId, ValidationRef, WorkspaceRevision,
 };
 use serde::Serialize;
 use serde_json::Value;
 
 use crate::Prism;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum CoordinationTransactionPlanRef {
     Id(PlanId),
     ClientId(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum CoordinationTransactionTaskRef {
     Id(CoordinationTaskId),
     ClientId(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize)]
+pub enum CoordinationTransactionClaimRef {
+    Id(ClaimId),
+    ClientId(String),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum CoordinationTransactionArtifactRef {
+    Id(ArtifactId),
+    ClientId(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum CoordinationDependencyKind {
     DependsOn,
     CoordinationDependsOn,
     IntegratedDependsOn,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct CoordinationTransactionGitExecutionPolicyPatch {
     pub start_mode: Option<prism_coordination::GitExecutionStartMode>,
     pub completion_mode: Option<prism_coordination::GitExecutionCompletionMode>,
@@ -47,7 +61,7 @@ pub struct CoordinationTransactionGitExecutionPolicyPatch {
     pub max_fetch_age_seconds: Option<u64>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct CoordinationTransactionPolicyPatch {
     pub default_claim_mode: Option<prism_ir::ClaimMode>,
     pub max_parallel_editors_per_anchor: Option<u16>,
@@ -61,7 +75,7 @@ pub struct CoordinationTransactionPolicyPatch {
     pub git_execution: Option<CoordinationTransactionGitExecutionPolicyPatch>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct CoordinationTransactionPlanSchedulingPatch {
     pub importance: Option<u8>,
     pub urgency: Option<u8>,
@@ -108,6 +122,8 @@ pub enum CoordinationTransactionMutation {
         acceptance: Vec<AcceptanceCriterion>,
         base_revision: WorkspaceRevision,
         spec_refs: Vec<CoordinationTaskSpecRef>,
+        artifact_requirements: Vec<prism_coordination::ArtifactRequirement>,
+        review_requirements: Vec<prism_coordination::ReviewRequirement>,
     },
     TaskUpdate {
         task: CoordinationTransactionTaskRef,
@@ -130,12 +146,63 @@ pub enum CoordinationTransactionMutation {
         tags: Option<Vec<String>>,
         completion_context: Option<TaskCompletionContext>,
         spec_refs: Option<Vec<CoordinationTaskSpecRef>>,
+        artifact_requirements: Option<Vec<prism_coordination::ArtifactRequirement>>,
+        review_requirements: Option<Vec<prism_coordination::ReviewRequirement>>,
     },
     DependencyCreate {
         task: CoordinationTransactionTaskRef,
         depends_on: CoordinationTransactionTaskRef,
         kind: CoordinationDependencyKind,
         base_revision: WorkspaceRevision,
+    },
+    ClaimAcquire {
+        client_claim_id: Option<String>,
+        task: Option<CoordinationTransactionTaskRef>,
+        anchors: Vec<AnchorRef>,
+        capability: prism_ir::Capability,
+        mode: Option<prism_ir::ClaimMode>,
+        ttl_seconds: Option<u64>,
+        agent: Option<AgentId>,
+        session: SessionId,
+        worktree_id: Option<String>,
+        branch_ref: Option<String>,
+        base_revision: WorkspaceRevision,
+        current_revision: WorkspaceRevision,
+    },
+    ClaimRenew {
+        claim: CoordinationTransactionClaimRef,
+        session: SessionId,
+        ttl_seconds: Option<u64>,
+    },
+    ClaimRelease {
+        claim: CoordinationTransactionClaimRef,
+        session: SessionId,
+    },
+    ArtifactPropose {
+        client_artifact_id: Option<String>,
+        task: CoordinationTransactionTaskRef,
+        artifact_requirement_id: Option<String>,
+        anchors: Option<Vec<AnchorRef>>,
+        diff_ref: Option<String>,
+        evidence: Vec<EventId>,
+        required_validations: Vec<String>,
+        validated_checks: Vec<String>,
+        risk_score: Option<f32>,
+        base_revision: WorkspaceRevision,
+        current_revision: WorkspaceRevision,
+    },
+    ArtifactSupersede {
+        artifact: CoordinationTransactionArtifactRef,
+    },
+    ArtifactReview {
+        artifact: CoordinationTransactionArtifactRef,
+        review_requirement_id: Option<String>,
+        verdict: ReviewVerdict,
+        summary: String,
+        required_validations: Vec<String>,
+        validated_checks: Vec<String>,
+        risk_score: Option<f32>,
+        current_revision: WorkspaceRevision,
     },
     TaskHandoff {
         task: CoordinationTransactionTaskRef,
@@ -172,6 +239,12 @@ impl CoordinationTransactionMutation {
             Self::TaskCreate { .. } => "task_create",
             Self::TaskUpdate { .. } => "task_update",
             Self::DependencyCreate { .. } => "dependency_create",
+            Self::ClaimAcquire { .. } => "claim_acquire",
+            Self::ClaimRenew { .. } => "claim_renew",
+            Self::ClaimRelease { .. } => "claim_release",
+            Self::ArtifactPropose { .. } => "artifact_propose",
+            Self::ArtifactSupersede { .. } => "artifact_supersede",
+            Self::ArtifactReview { .. } => "artifact_review",
             Self::TaskHandoff { .. } => "task_handoff",
             Self::TaskHandoffAccept { .. } => "task_handoff_accept",
             Self::TaskResume { .. } => "task_resume",
@@ -182,9 +255,109 @@ impl CoordinationTransactionMutation {
 
 #[derive(Debug, Clone, Default)]
 pub struct CoordinationTransactionInput {
-    pub mutations: Vec<CoordinationTransactionMutation>,
     pub intent_metadata: Option<Value>,
+    pub structured_transaction: Option<Value>,
+    pub structured_execution: Option<CoordinationStructuredTransaction>,
     pub optimistic_preconditions: Option<Value>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CoordinationStructuredTransaction {
+    pub root_region_id: usize,
+    pub regions: Vec<CoordinationStructuredTransactionRegion>,
+    pub effects: Vec<CoordinationStructuredTransactionEffect>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CoordinationStructuredTransactionRegion {
+    pub region_id: usize,
+    pub parent_region_id: Option<usize>,
+    pub control: Value,
+    pub span: Value,
+    pub exit_modes: Vec<Value>,
+    pub child_region_ids: Vec<usize>,
+    pub effect_ids: Vec<usize>,
+    pub members: Vec<CoordinationStructuredTransactionRegionMember>,
+}
+
+#[derive(Debug, Clone)]
+pub enum CoordinationStructuredTransactionRegionMember {
+    Region { id: usize },
+    Effect { id: usize },
+}
+
+#[derive(Debug, Clone)]
+pub struct CoordinationStructuredTransactionEffect {
+    pub id: usize,
+    pub method_path: String,
+    pub effect_id: Option<usize>,
+    pub region_id: usize,
+    pub region_lineage: Vec<usize>,
+    pub span: Option<Value>,
+    pub mutation: CoordinationTransactionMutation,
+}
+
+impl CoordinationTransactionInput {
+    pub fn from_structured_execution(
+        structured_execution: CoordinationStructuredTransaction,
+    ) -> Self {
+        Self {
+            structured_execution: Some(structured_execution),
+            ..Self::default()
+        }
+    }
+
+    pub fn sequence(
+        mutations: impl IntoIterator<Item = CoordinationTransactionMutation>,
+    ) -> Self {
+        Self::from_structured_execution(CoordinationStructuredTransaction::sequence(mutations))
+    }
+}
+
+impl CoordinationStructuredTransaction {
+    pub fn sequence(
+        mutations: impl IntoIterator<Item = CoordinationTransactionMutation>,
+    ) -> Self {
+        let effects = mutations
+            .into_iter()
+            .enumerate()
+            .map(|(id, mutation)| CoordinationStructuredTransactionEffect {
+                id,
+                method_path: format!("prism.coordination.synthetic.{}", mutation.action_tag()),
+                effect_id: Some(id),
+                region_id: 0,
+                region_lineage: vec![0],
+                span: None,
+                mutation,
+            })
+            .collect::<Vec<_>>();
+        let effect_ids = effects.iter().map(|effect| effect.id).collect::<Vec<_>>();
+        let members = effect_ids
+            .iter()
+            .map(|id| CoordinationStructuredTransactionRegionMember::Effect { id: *id })
+            .collect::<Vec<_>>();
+        Self {
+            root_region_id: 0,
+            regions: vec![CoordinationStructuredTransactionRegion {
+                region_id: 0,
+                parent_region_id: None,
+                control: Value::String("Sequence".to_string()),
+                span: Value::Object(serde_json::Map::from_iter([
+                    ("kind".to_string(), Value::String("synthetic".to_string())),
+                    ("regionId".to_string(), Value::from(0_u64)),
+                ])),
+                exit_modes: vec![
+                    Value::String("Continue".to_string()),
+                    Value::String("Return".to_string()),
+                    Value::String("Throw".to_string()),
+                ],
+                child_region_ids: Vec::new(),
+                effect_ids,
+                members,
+            }],
+            effects,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -287,6 +460,8 @@ impl CoordinationTransactionError {
                 outcome: "Rejected".to_string(),
                 commit: None,
                 authority_version: None,
+                intent_metadata: None,
+                structured_transaction: None,
                 rejection: Some(CoordinationTransactionProtocolRejection {
                     stage: rejection.stage.tag().to_string(),
                     category: rejection.category.tag().to_string(),
@@ -302,6 +477,8 @@ impl CoordinationTransactionError {
                 outcome: "Indeterminate".to_string(),
                 commit: None,
                 authority_version: None,
+                intent_metadata: None,
+                structured_transaction: None,
                 rejection: None,
                 indeterminate: Some(CoordinationTransactionProtocolIndeterminate {
                     reason_code: reason_code.to_string(),
@@ -400,6 +577,10 @@ pub struct CoordinationTransactionProtocolState {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authority_version: Option<CoordinationTransactionProtocolAuthorityVersion>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub intent_metadata: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub structured_transaction: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rejection: Option<CoordinationTransactionProtocolRejection>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub indeterminate: Option<CoordinationTransactionProtocolIndeterminate>,
@@ -410,10 +591,17 @@ pub struct CoordinationTransactionResult {
     pub outcome: CoordinationTransactionOutcome,
     pub commit: CoordinationTransactionCommitMetadata,
     pub authority_version: CoordinationTransactionAuthorityVersion,
+    pub intent_metadata: Option<Value>,
+    pub structured_transaction: Option<Value>,
     pub plan_ids_by_client_id: BTreeMap<String, PlanId>,
     pub task_ids_by_client_id: BTreeMap<String, CoordinationTaskId>,
+    pub claim_ids_by_client_id: BTreeMap<String, ClaimId>,
+    pub artifact_ids_by_client_id: BTreeMap<String, ArtifactId>,
     pub touched_plan_ids: Vec<PlanId>,
     pub touched_task_ids: Vec<CoordinationTaskId>,
+    pub touched_claim_ids: Vec<ClaimId>,
+    pub touched_artifact_ids: Vec<ArtifactId>,
+    pub touched_review_ids: Vec<ReviewId>,
 }
 
 impl CoordinationTransactionCommitMetadata {
@@ -453,6 +641,8 @@ impl CoordinationTransactionResult {
             outcome: self.outcome.tag().to_string(),
             commit: Some(self.commit.protocol_state()),
             authority_version: Some(self.authority_version.protocol_state()),
+            intent_metadata: self.intent_metadata.clone(),
+            structured_transaction: self.structured_transaction.clone(),
             rejection: None,
             indeterminate: None,
         }
@@ -482,13 +672,7 @@ impl Prism {
         meta: EventMeta,
         mutation: CoordinationTransactionMutation,
     ) -> std::result::Result<CoordinationTransactionResult, CoordinationTransactionError> {
-        self.execute_coordination_transaction(
-            meta,
-            CoordinationTransactionInput {
-                mutations: vec![mutation],
-                ..CoordinationTransactionInput::default()
-            },
-        )
+        self.execute_coordination_transaction(meta, CoordinationTransactionInput::sequence([mutation]))
     }
 
     pub(crate) fn coordination_transaction<T, F>(
@@ -545,26 +729,44 @@ impl Prism {
 fn validate_transaction_input_shape(
     input: &CoordinationTransactionInput,
 ) -> std::result::Result<(), CoordinationTransactionError> {
-    if input.mutations.is_empty() {
+    if input.structured_execution.is_none() {
         return Err(CoordinationTransactionError::rejected(
             CoordinationTransactionValidationStage::InputShape,
             CoordinationTransactionRejectionCategory::InvalidInput,
-            "empty_transaction",
-            "coordination_transaction requires at least one staged mutation",
+            "missing_structured_transaction",
+            "coordination_transaction requires structured execution effects",
         ));
     }
-    if input.intent_metadata.is_some() {
-        return Err(CoordinationTransactionError::rejected(
-            CoordinationTransactionValidationStage::InputShape,
-            CoordinationTransactionRejectionCategory::Unsupported,
-            "unsupported_intent_metadata",
-            "coordination_transaction intentMetadata is not supported yet",
-        ));
+    if let Some(intent_metadata) = input.intent_metadata.as_ref() {
+        if !intent_metadata.is_object() {
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::InputShape,
+                CoordinationTransactionRejectionCategory::InvalidInput,
+                "invalid_intent_metadata",
+                "coordination_transaction intentMetadata must be an object when provided",
+            ));
+        }
+    }
+    if let Some(structured_transaction) = input.structured_transaction.as_ref() {
+        if !structured_transaction.is_object() {
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::InputShape,
+                CoordinationTransactionRejectionCategory::InvalidInput,
+                "invalid_structured_transaction",
+                "coordination_transaction structuredTransaction must be an object when provided",
+            ));
+        }
+    }
+    if let Some(structured_transaction) = input.structured_execution.as_ref() {
+        validate_structured_transaction_input(structured_transaction)?;
     }
 
     let mut seen_plan_client_ids = BTreeSet::new();
     let mut seen_task_client_ids = BTreeSet::new();
-    for mutation in &input.mutations {
+    let mut seen_claim_client_ids = BTreeSet::new();
+    let mut seen_artifact_client_ids = BTreeSet::new();
+    let mut validate_mutation_client_ids =
+        |mutation: &CoordinationTransactionMutation| -> std::result::Result<(), CoordinationTransactionError> {
         match mutation {
             CoordinationTransactionMutation::PlanCreate {
                 client_plan_id: Some(client_plan_id),
@@ -596,11 +798,394 @@ fn validate_transaction_input_shape(
                     ));
                 }
             }
+            CoordinationTransactionMutation::ClaimAcquire {
+                client_claim_id: Some(client_claim_id),
+                ..
+            } => {
+                if !seen_claim_client_ids.insert(client_claim_id.clone()) {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "duplicate_claim_client_id",
+                        format!(
+                            "coordination transaction claim client id `{client_claim_id}` was used more than once"
+                        ),
+                    ));
+                }
+            }
+            CoordinationTransactionMutation::ArtifactPropose {
+                client_artifact_id: Some(client_artifact_id),
+                ..
+            } => {
+                if !seen_artifact_client_ids.insert(client_artifact_id.clone()) {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "duplicate_artifact_client_id",
+                        format!(
+                            "coordination transaction artifact client id `{client_artifact_id}` was used more than once"
+                        ),
+                    ));
+                }
+            }
             _ => {}
         }
+        Ok(())
+    };
+    for mutation in transaction_input_mutations(input) {
+        validate_mutation_client_ids(mutation)?;
+    }
+    Ok(())
+}
+
+fn validate_structured_transaction_input(
+    structured_transaction: &CoordinationStructuredTransaction,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    if structured_transaction.regions.is_empty() {
+        return Err(CoordinationTransactionError::rejected(
+            CoordinationTransactionValidationStage::InputShape,
+            CoordinationTransactionRejectionCategory::InvalidInput,
+            "empty_structured_transaction_regions",
+            "coordination_transaction structuredTransaction must contain at least one region",
+        ));
+    }
+    let region_ids = structured_transaction
+        .regions
+        .iter()
+        .map(|region| region.region_id)
+        .collect::<BTreeSet<_>>();
+    if !region_ids.contains(&structured_transaction.root_region_id) {
+        return Err(CoordinationTransactionError::rejected(
+            CoordinationTransactionValidationStage::InputShape,
+            CoordinationTransactionRejectionCategory::InvalidInput,
+            "missing_structured_root_region",
+            "coordination_transaction structuredTransaction rootRegionId must reference an emitted region",
+        ));
+    }
+    let effect_ids = structured_transaction
+        .effects
+        .iter()
+        .map(|effect| effect.id)
+        .collect::<BTreeSet<_>>();
+    if effect_ids.is_empty() {
+        return Err(CoordinationTransactionError::rejected(
+            CoordinationTransactionValidationStage::InputShape,
+            CoordinationTransactionRejectionCategory::InvalidInput,
+            "empty_structured_transaction_effects",
+            "coordination_transaction structuredTransaction must contain at least one effect",
+        ));
+    }
+    for region in &structured_transaction.regions {
+        if let Some(parent_region_id) = region.parent_region_id {
+            if !region_ids.contains(&parent_region_id) {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::InputShape,
+                    CoordinationTransactionRejectionCategory::InvalidInput,
+                    "unknown_structured_parent_region",
+                    format!(
+                        "coordination_transaction structuredTransaction referenced unknown parent region `{parent_region_id}`"
+                    ),
+                ));
+            }
+        }
+        if region.control.is_null() {
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::InputShape,
+                CoordinationTransactionRejectionCategory::InvalidInput,
+                "missing_structured_region_control",
+                format!(
+                    "coordination_transaction structuredTransaction region `{}` is missing control metadata",
+                    region.region_id
+                ),
+            ));
+        }
+        if region.span.is_null() {
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::InputShape,
+                CoordinationTransactionRejectionCategory::InvalidInput,
+                "missing_structured_region_span",
+                format!(
+                    "coordination_transaction structuredTransaction region `{}` is missing source span metadata",
+                    region.region_id
+                ),
+            ));
+        }
+        for child_region_id in &region.child_region_ids {
+            if !region_ids.contains(child_region_id) {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::InputShape,
+                    CoordinationTransactionRejectionCategory::InvalidInput,
+                    "unknown_structured_child_region",
+                    format!(
+                        "coordination_transaction structuredTransaction referenced unknown child region `{child_region_id}`"
+                    ),
+                ));
+            }
+        }
+        for effect_id in &region.effect_ids {
+            if !effect_ids.contains(effect_id) {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::InputShape,
+                    CoordinationTransactionRejectionCategory::InvalidInput,
+                    "unknown_structured_effect_id",
+                    format!(
+                        "coordination_transaction structuredTransaction referenced unknown effect id `{effect_id}`"
+                    ),
+                ));
+            }
+        }
+        for member in &region.members {
+            match member {
+                CoordinationStructuredTransactionRegionMember::Region { id }
+                    if !region_ids.contains(id) =>
+                {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "unknown_structured_region_member",
+                        format!(
+                            "coordination_transaction structuredTransaction referenced unknown region member `{id}`"
+                        ),
+                    ));
+                }
+                CoordinationStructuredTransactionRegionMember::Effect { id }
+                    if !effect_ids.contains(id) =>
+                {
+                    return Err(CoordinationTransactionError::rejected(
+                        CoordinationTransactionValidationStage::InputShape,
+                        CoordinationTransactionRejectionCategory::InvalidInput,
+                        "unknown_structured_effect_member",
+                        format!(
+                            "coordination_transaction structuredTransaction referenced unknown effect member `{id}`"
+                        ),
+                    ));
+                }
+                _ => {}
+            }
+        }
+    }
+    for effect in &structured_transaction.effects {
+        if effect.method_path.trim().is_empty() {
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::InputShape,
+                CoordinationTransactionRejectionCategory::InvalidInput,
+                "missing_structured_effect_method_path",
+                format!(
+                    "coordination_transaction structuredTransaction effect `{}` is missing methodPath metadata",
+                    effect.id
+                ),
+            ));
+        }
+        if !region_ids.contains(&effect.region_id) {
+            return Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::InputShape,
+                CoordinationTransactionRejectionCategory::InvalidInput,
+                "unknown_structured_effect_region",
+                format!(
+                    "coordination_transaction structuredTransaction effect `{}` referenced unknown region `{}`",
+                    effect.id, effect.region_id
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn walk_structured_transaction_effects<E>(
+    structured_transaction: &CoordinationStructuredTransaction,
+    mut visit_effect: impl FnMut(&CoordinationStructuredTransactionEffect) -> std::result::Result<(), E>,
+) -> std::result::Result<(), E>
+where
+    E: From<CoordinationTransactionError>,
+{
+    let regions_by_id = structured_transaction
+        .regions
+        .iter()
+        .map(|region| (region.region_id, region))
+        .collect::<BTreeMap<_, _>>();
+    let effects_by_id = structured_transaction
+        .effects
+        .iter()
+        .map(|effect| (effect.id, effect))
+        .collect::<BTreeMap<_, _>>();
+
+    fn walk_region<E>(
+        region_id: usize,
+        regions_by_id: &BTreeMap<usize, &CoordinationStructuredTransactionRegion>,
+        effects_by_id: &BTreeMap<usize, &CoordinationStructuredTransactionEffect>,
+        visit_effect: &mut impl FnMut(
+            &CoordinationStructuredTransactionEffect,
+        ) -> std::result::Result<(), E>,
+    ) -> std::result::Result<(), E>
+    where
+        E: From<CoordinationTransactionError>,
+    {
+        let region = regions_by_id.get(&region_id).copied().ok_or_else(|| {
+            CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::InputShape,
+                CoordinationTransactionRejectionCategory::InvalidInput,
+                "unknown_structured_region",
+                format!(
+                    "coordination_transaction structuredTransaction referenced unknown region `{region_id}`"
+                ),
+            )
+        })?;
+        for member in &region.members {
+            match member {
+                CoordinationStructuredTransactionRegionMember::Region { id } => {
+                    walk_region(*id, regions_by_id, effects_by_id, visit_effect)?;
+                }
+                CoordinationStructuredTransactionRegionMember::Effect { id } => {
+                    let effect = effects_by_id.get(id).copied().ok_or_else(|| {
+                        CoordinationTransactionError::rejected(
+                            CoordinationTransactionValidationStage::InputShape,
+                            CoordinationTransactionRejectionCategory::InvalidInput,
+                            "unknown_structured_effect",
+                            format!(
+                                "coordination_transaction structuredTransaction referenced unknown effect `{id}`"
+                            ),
+                        )
+                    })?;
+                    visit_effect(effect)?;
+                }
+            }
+        }
+        Ok(())
     }
 
-    Ok(())
+    walk_region(
+        structured_transaction.root_region_id,
+        &regions_by_id,
+        &effects_by_id,
+        &mut visit_effect,
+    )
+}
+
+fn structured_transaction_value(
+    structured_execution: &CoordinationStructuredTransaction,
+) -> Value {
+    Value::Object(serde_json::Map::from_iter([
+        (
+            "rootRegionId".to_string(),
+            Value::from(structured_execution.root_region_id as u64),
+        ),
+        (
+            "regions".to_string(),
+            Value::Array(
+                structured_execution
+                    .regions
+                    .iter()
+                    .map(|region| {
+                        Value::Object(serde_json::Map::from_iter([
+                            ("regionId".to_string(), Value::from(region.region_id as u64)),
+                            (
+                                "parentRegionId".to_string(),
+                                region
+                                    .parent_region_id
+                                    .map(|id| Value::from(id as u64))
+                                    .unwrap_or(Value::Null),
+                            ),
+                            ("control".to_string(), region.control.clone()),
+                            ("span".to_string(), region.span.clone()),
+                            ("exitModes".to_string(), Value::Array(region.exit_modes.clone())),
+                            (
+                                "childRegionIds".to_string(),
+                                Value::Array(
+                                    region
+                                        .child_region_ids
+                                        .iter()
+                                        .map(|id| Value::from(*id as u64))
+                                        .collect(),
+                                ),
+                            ),
+                            (
+                                "effectIds".to_string(),
+                                Value::Array(
+                                    region
+                                        .effect_ids
+                                        .iter()
+                                        .map(|id| Value::from(*id as u64))
+                                        .collect(),
+                                ),
+                            ),
+                            (
+                                "members".to_string(),
+                                Value::Array(
+                                    region
+                                        .members
+                                        .iter()
+                                        .map(|member| match member {
+                                            CoordinationStructuredTransactionRegionMember::Region { id } => {
+                                                Value::Object(serde_json::Map::from_iter([
+                                                    ("kind".to_string(), Value::String("region".to_string())),
+                                                    ("id".to_string(), Value::from(*id as u64)),
+                                                ]))
+                                            }
+                                            CoordinationStructuredTransactionRegionMember::Effect { id } => {
+                                                Value::Object(serde_json::Map::from_iter([
+                                                    ("kind".to_string(), Value::String("effect".to_string())),
+                                                    ("id".to_string(), Value::from(*id as u64)),
+                                                ]))
+                                            }
+                                        })
+                                        .collect(),
+                                ),
+                            ),
+                        ]))
+                    })
+                    .collect(),
+            ),
+        ),
+        (
+            "effects".to_string(),
+            Value::Array(
+                structured_execution
+                    .effects
+                    .iter()
+                    .map(|effect| {
+                        Value::Object(serde_json::Map::from_iter([
+                            ("id".to_string(), Value::from(effect.id as u64)),
+                            (
+                                "metadata".to_string(),
+                                Value::Object(serde_json::Map::from_iter([
+                                    (
+                                        "methodPath".to_string(),
+                                        Value::String(effect.method_path.clone()),
+                                    ),
+                                    (
+                                        "effectId".to_string(),
+                                        effect
+                                            .effect_id
+                                            .map(|id| Value::from(id as u64))
+                                            .unwrap_or(Value::Null),
+                                    ),
+                                    ("regionId".to_string(), Value::from(effect.region_id as u64)),
+                                    (
+                                        "regionLineage".to_string(),
+                                        Value::Array(
+                                            effect
+                                                .region_lineage
+                                                .iter()
+                                                .map(|id| Value::from(*id as u64))
+                                                .collect(),
+                                        ),
+                                    ),
+                                    (
+                                        "span".to_string(),
+                                        effect.span.clone().unwrap_or(Value::Null),
+                                    ),
+                                ])),
+                            ),
+                            (
+                                "kind".to_string(),
+                                Value::String(effect.mutation.action_tag().to_string()),
+                            ),
+                        ]))
+                    })
+                    .collect(),
+            ),
+        ),
+    ]))
 }
 
 fn parse_optimistic_preconditions(
@@ -716,13 +1301,30 @@ fn validate_transaction_authorization(
     Ok(())
 }
 
+fn transaction_input_mutations<'a>(
+    input: &'a CoordinationTransactionInput,
+) -> impl Iterator<Item = &'a CoordinationTransactionMutation> {
+    input
+        .structured_execution
+        .as_ref()
+        .into_iter()
+        .flat_map(|structured_execution| {
+            structured_execution
+                .effects
+                .iter()
+                .map(|effect| &effect.mutation)
+        })
+}
+
 fn validate_transaction_identity(
     coordination_runtime: &CoordinationRuntimeState,
     input: &CoordinationTransactionInput,
 ) -> std::result::Result<(), CoordinationTransactionError> {
     let mut declared_plan_client_ids = BTreeSet::new();
     let mut declared_task_client_ids = BTreeSet::new();
-    for mutation in &input.mutations {
+    let mut declared_claim_client_ids = BTreeSet::new();
+    let mut declared_artifact_client_ids = BTreeSet::new();
+    for mutation in transaction_input_mutations(input) {
         match mutation {
             CoordinationTransactionMutation::PlanCreate {
                 client_plan_id: Some(client_plan_id),
@@ -736,13 +1338,27 @@ fn validate_transaction_identity(
             } => {
                 declared_task_client_ids.insert(client_task_id.clone());
             }
+            CoordinationTransactionMutation::ClaimAcquire {
+                client_claim_id: Some(client_claim_id),
+                ..
+            } => {
+                declared_claim_client_ids.insert(client_claim_id.clone());
+            }
+            CoordinationTransactionMutation::ArtifactPropose {
+                client_artifact_id: Some(client_artifact_id),
+                ..
+            } => {
+                declared_artifact_client_ids.insert(client_artifact_id.clone());
+            }
             _ => {}
         }
     }
 
     let mut seen_plan_client_ids = BTreeSet::new();
     let mut seen_task_client_ids = BTreeSet::new();
-    for mutation in &input.mutations {
+    let mut seen_claim_client_ids = BTreeSet::new();
+    let mut seen_artifact_client_ids = BTreeSet::new();
+    for mutation in transaction_input_mutations(input) {
         match mutation {
             CoordinationTransactionMutation::PlanCreate { client_plan_id, .. } => {
                 if let Some(client_plan_id) = client_plan_id {
@@ -816,6 +1432,56 @@ fn validate_transaction_identity(
                     depends_on,
                     &seen_task_client_ids,
                     &declared_task_client_ids,
+                )?;
+            }
+            CoordinationTransactionMutation::ClaimAcquire {
+                client_claim_id,
+                task,
+                ..
+            } => {
+                if let Some(task) = task {
+                    validate_task_ref(
+                        coordination_runtime,
+                        task,
+                        &seen_task_client_ids,
+                        &declared_task_client_ids,
+                    )?;
+                }
+                if let Some(client_claim_id) = client_claim_id {
+                    seen_claim_client_ids.insert(client_claim_id.clone());
+                }
+            }
+            CoordinationTransactionMutation::ClaimRenew { claim, .. }
+            | CoordinationTransactionMutation::ClaimRelease { claim, .. } => {
+                validate_claim_ref(
+                    coordination_runtime,
+                    claim,
+                    &seen_claim_client_ids,
+                    &declared_claim_client_ids,
+                )?;
+            }
+            CoordinationTransactionMutation::ArtifactPropose {
+                client_artifact_id,
+                task,
+                ..
+            } => {
+                validate_task_ref(
+                    coordination_runtime,
+                    task,
+                    &seen_task_client_ids,
+                    &declared_task_client_ids,
+                )?;
+                if let Some(client_artifact_id) = client_artifact_id {
+                    seen_artifact_client_ids.insert(client_artifact_id.clone());
+                }
+            }
+            CoordinationTransactionMutation::ArtifactSupersede { artifact }
+            | CoordinationTransactionMutation::ArtifactReview { artifact, .. } => {
+                validate_artifact_ref(
+                    coordination_runtime,
+                    artifact,
+                    &seen_artifact_client_ids,
+                    &declared_artifact_client_ids,
                 )?;
             }
             CoordinationTransactionMutation::TaskHandoff { task, .. }
@@ -996,22 +1662,131 @@ fn validate_task_refs(
     Ok(())
 }
 
+fn validate_claim_ref(
+    coordination_runtime: &CoordinationRuntimeState,
+    claim: &CoordinationTransactionClaimRef,
+    seen_claim_client_ids: &BTreeSet<String>,
+    declared_claim_client_ids: &BTreeSet<String>,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    match claim {
+        CoordinationTransactionClaimRef::Id(claim_id) => {
+            if coordination_runtime
+                .claims_in_scope(None)
+                .into_iter()
+                .all(|claim| claim.id != *claim_id)
+            {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::ObjectIdentity,
+                    CoordinationTransactionRejectionCategory::NotFound,
+                    "unknown_claim",
+                    format!("unknown claim `{}`", claim_id.0),
+                ));
+            }
+            Ok(())
+        }
+        CoordinationTransactionClaimRef::ClientId(client_id) => {
+            if seen_claim_client_ids.contains(client_id) {
+                return Ok(());
+            }
+            let reason_code = if declared_claim_client_ids.contains(client_id) {
+                "forward_claim_client_reference"
+            } else {
+                "unknown_claim_client_id"
+            };
+            let message = if declared_claim_client_ids.contains(client_id) {
+                format!(
+                    "coordination transaction claim client id `{client_id}` was referenced before it was created"
+                )
+            } else {
+                format!("unknown coordination transaction claim client id `{client_id}`")
+            };
+            Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::ObjectIdentity,
+                CoordinationTransactionRejectionCategory::NotFound,
+                reason_code,
+                message,
+            ))
+        }
+    }
+}
+
+fn validate_artifact_ref(
+    coordination_runtime: &CoordinationRuntimeState,
+    artifact: &CoordinationTransactionArtifactRef,
+    seen_artifact_client_ids: &BTreeSet<String>,
+    declared_artifact_client_ids: &BTreeSet<String>,
+) -> std::result::Result<(), CoordinationTransactionError> {
+    match artifact {
+        CoordinationTransactionArtifactRef::Id(artifact_id) => {
+            if coordination_runtime.artifact(artifact_id).is_none() {
+                return Err(CoordinationTransactionError::rejected(
+                    CoordinationTransactionValidationStage::ObjectIdentity,
+                    CoordinationTransactionRejectionCategory::NotFound,
+                    "unknown_artifact",
+                    format!("unknown artifact `{}`", artifact_id.0),
+                ));
+            }
+            Ok(())
+        }
+        CoordinationTransactionArtifactRef::ClientId(client_id) => {
+            if seen_artifact_client_ids.contains(client_id) {
+                return Ok(());
+            }
+            let reason_code = if declared_artifact_client_ids.contains(client_id) {
+                "forward_artifact_client_reference"
+            } else {
+                "unknown_artifact_client_id"
+            };
+            let message = if declared_artifact_client_ids.contains(client_id) {
+                format!(
+                    "coordination transaction artifact client id `{client_id}` was referenced before it was created"
+                )
+            } else {
+                format!("unknown coordination transaction artifact client id `{client_id}`")
+            };
+            Err(CoordinationTransactionError::rejected(
+                CoordinationTransactionValidationStage::ObjectIdentity,
+                CoordinationTransactionRejectionCategory::NotFound,
+                reason_code,
+                message,
+            ))
+        }
+    }
+}
+
 fn apply_coordination_transaction(
     coordination_runtime: &mut CoordinationRuntimeState,
     meta: EventMeta,
     input: CoordinationTransactionInput,
 ) -> Result<CoordinationTransactionResult> {
+    let CoordinationTransactionInput {
+        intent_metadata,
+        structured_transaction,
+        structured_execution,
+        optimistic_preconditions: _,
+    } = input;
+    let structured_execution = structured_execution.expect("validated structured execution");
     let before_event_len = coordination_runtime.snapshot().events.len();
     let mut seen_plan_client_ids = BTreeSet::new();
     let mut seen_task_client_ids = BTreeSet::new();
+    let mut seen_claim_client_ids = BTreeSet::new();
+    let mut seen_artifact_client_ids = BTreeSet::new();
     let mut plan_ids_by_client_id = BTreeMap::new();
     let mut task_ids_by_client_id = BTreeMap::new();
+    let mut claim_ids_by_client_id = BTreeMap::new();
+    let mut artifact_ids_by_client_id = BTreeMap::new();
     let mut touched_plan_ids = Vec::new();
     let mut touched_task_ids = Vec::new();
+    let mut touched_claim_ids = Vec::new();
+    let mut touched_artifact_ids = Vec::new();
+    let mut touched_review_ids = Vec::new();
     let mut touched_plan_seen = BTreeSet::new();
     let mut touched_task_seen = BTreeSet::new();
-
-    for (index, mutation) in input.mutations.into_iter().enumerate() {
+    let mut touched_claim_seen = BTreeSet::new();
+    let mut touched_artifact_seen = BTreeSet::new();
+    let mut touched_review_seen = BTreeSet::new();
+    let mut apply_mutation =
+        |index: usize, mutation: CoordinationTransactionMutation| -> Result<()> {
         let step_meta = transaction_meta(&meta, index, mutation.action_tag());
         match mutation {
             CoordinationTransactionMutation::PlanCreate {
@@ -1146,6 +1921,8 @@ fn apply_coordination_transaction(
                 acceptance,
                 base_revision,
                 spec_refs,
+                artifact_requirements,
+                review_requirements,
             } => {
                 if let Some(client_task_id) = client_task_id.as_deref() {
                     ensure_unique_client_id(
@@ -1182,6 +1959,8 @@ fn apply_coordination_transaction(
                         acceptance,
                         base_revision: base_revision.clone(),
                         spec_refs,
+                        artifact_requirements,
+                        review_requirements,
                     },
                 )?;
                 if let Some(client_task_id) = client_task_id {
@@ -1219,6 +1998,8 @@ fn apply_coordination_transaction(
                 tags,
                 completion_context,
                 spec_refs,
+                artifact_requirements,
+                review_requirements,
             } => {
                 let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
                 let existing_task = coordination_runtime
@@ -1251,6 +2032,8 @@ fn apply_coordination_transaction(
                     tags,
                     completion_context,
                     spec_refs,
+                    artifact_requirements,
+                    review_requirements,
                 };
                 if is_authoritative_git_execution_only_update(&update_input) {
                     coordination_runtime.update_task_authoritative_only(
@@ -1326,11 +2109,195 @@ fn apply_coordination_transaction(
                         tags: None,
                         completion_context: None,
                         spec_refs: None,
+                        artifact_requirements: None,
+                        review_requirements: None,
                     },
                     base_revision,
                     meta.ts,
                 )?;
                 touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+            }
+            CoordinationTransactionMutation::ClaimAcquire {
+                client_claim_id,
+                task,
+                anchors,
+                capability,
+                mode,
+                ttl_seconds,
+                agent,
+                session,
+                worktree_id,
+                branch_ref,
+                base_revision,
+                current_revision,
+            } => {
+                if let Some(client_claim_id) = client_claim_id.as_deref() {
+                    ensure_unique_client_id(
+                        &mut seen_claim_client_ids,
+                        client_claim_id,
+                        "coordination transaction claim",
+                    )?;
+                }
+                let (claim_id, _conflicts, claim) = coordination_runtime.acquire_claim(
+                    step_meta,
+                    session,
+                    prism_coordination::ClaimAcquireInput {
+                        task_id: task
+                            .as_ref()
+                            .map(|task| resolve_task_ref(&task_ids_by_client_id, task))
+                            .transpose()?,
+                        anchors,
+                        capability,
+                        mode,
+                        ttl_seconds,
+                        base_revision,
+                        current_revision,
+                        agent,
+                        worktree_id,
+                        branch_ref,
+                    },
+                )?;
+                if let Some(client_claim_id) = client_claim_id {
+                    if let Some(claim_id) = claim_id.as_ref() {
+                        claim_ids_by_client_id.insert(client_claim_id, claim_id.clone());
+                    }
+                }
+                if let Some(claim_id) = claim_id {
+                    touch_claim(
+                        &mut touched_claim_ids,
+                        &mut touched_claim_seen,
+                        claim_id.clone(),
+                    );
+                }
+                if let Some(task_id) = claim.and_then(|claim| claim.task) {
+                    touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+                }
+            }
+            CoordinationTransactionMutation::ClaimRenew {
+                claim,
+                session,
+                ttl_seconds,
+            } => {
+                let claim_id = resolve_claim_ref(&claim_ids_by_client_id, &claim)?;
+                let renewed = coordination_runtime.renew_claim(
+                    step_meta,
+                    &session,
+                    &claim_id,
+                    ttl_seconds,
+                    "coordination_transaction",
+                )?;
+                touch_claim(&mut touched_claim_ids, &mut touched_claim_seen, claim_id);
+                if let Some(task_id) = renewed.task {
+                    touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+                }
+            }
+            CoordinationTransactionMutation::ClaimRelease { claim, session } => {
+                let claim_id = resolve_claim_ref(&claim_ids_by_client_id, &claim)?;
+                let released = coordination_runtime.release_claim(
+                    step_meta,
+                    &session,
+                    &claim_id,
+                )?;
+                touch_claim(&mut touched_claim_ids, &mut touched_claim_seen, claim_id);
+                if let Some(task_id) = released.task {
+                    touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
+                }
+            }
+            CoordinationTransactionMutation::ArtifactPropose {
+                client_artifact_id,
+                task,
+                artifact_requirement_id,
+                anchors,
+                diff_ref,
+                evidence,
+                required_validations,
+                validated_checks,
+                risk_score,
+                base_revision,
+                current_revision,
+            } => {
+                if let Some(client_artifact_id) = client_artifact_id.as_deref() {
+                    ensure_unique_client_id(
+                        &mut seen_artifact_client_ids,
+                        client_artifact_id,
+                        "coordination transaction artifact",
+                    )?;
+                }
+                let task_id = resolve_task_ref(&task_ids_by_client_id, &task)?;
+                let task_record = coordination_runtime
+                    .task(&task_id)
+                    .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
+                let (artifact_id, artifact) = coordination_runtime.propose_artifact(
+                    step_meta,
+                    ArtifactProposeInput {
+                        task_id: task_id.clone(),
+                        artifact_requirement_id,
+                        anchors: anchors.unwrap_or_else(|| task_record.anchors.clone()),
+                        diff_ref,
+                        evidence,
+                        base_revision,
+                        current_revision,
+                        required_validations,
+                        validated_checks,
+                        risk_score,
+                        worktree_id: task_record.worktree_id.clone(),
+                        branch_ref: task_record.branch_ref.clone(),
+                    },
+                )?;
+                if let Some(client_artifact_id) = client_artifact_id {
+                    artifact_ids_by_client_id.insert(client_artifact_id, artifact_id.clone());
+                }
+                touch_artifact(
+                    &mut touched_artifact_ids,
+                    &mut touched_artifact_seen,
+                    artifact_id,
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, artifact.task.clone());
+            }
+            CoordinationTransactionMutation::ArtifactSupersede { artifact } => {
+                let artifact_id = resolve_artifact_ref(&artifact_ids_by_client_id, &artifact)?;
+                let artifact = coordination_runtime.supersede_artifact(
+                    step_meta,
+                    ArtifactSupersedeInput { artifact_id: artifact_id.clone() },
+                )?;
+                touch_artifact(
+                    &mut touched_artifact_ids,
+                    &mut touched_artifact_seen,
+                    artifact_id,
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, artifact.task);
+            }
+            CoordinationTransactionMutation::ArtifactReview {
+                artifact,
+                review_requirement_id,
+                verdict,
+                summary,
+                required_validations,
+                validated_checks,
+                risk_score,
+                current_revision,
+            } => {
+                let artifact_id = resolve_artifact_ref(&artifact_ids_by_client_id, &artifact)?;
+                let (review_id, _review, artifact) = coordination_runtime.review_artifact(
+                    step_meta,
+                    ArtifactReviewInput {
+                        artifact_id: artifact_id.clone(),
+                        review_requirement_id,
+                        verdict,
+                        summary,
+                        required_validations,
+                        validated_checks,
+                        risk_score,
+                    },
+                    current_revision,
+                )?;
+                touch_review(&mut touched_review_ids, &mut touched_review_seen, review_id);
+                touch_artifact(
+                    &mut touched_artifact_ids,
+                    &mut touched_artifact_seen,
+                    artifact_id,
+                );
+                touch_task(&mut touched_task_ids, &mut touched_task_seen, artifact.task);
             }
             CoordinationTransactionMutation::TaskHandoff {
                 task,
@@ -1426,7 +2393,30 @@ fn apply_coordination_transaction(
                 touch_task(&mut touched_task_ids, &mut touched_task_seen, task_id);
             }
         }
+        Ok(())
+    };
+
+    let mut effect_index = 0usize;
+    walk_structured_transaction_effects(&structured_execution, |effect| -> Result<()> {
+        let index = effect_index;
+        effect_index += 1;
+        apply_mutation(index, effect.mutation.clone())
+    })?;
+
+    if let Some(intent_metadata) = intent_metadata.as_ref() {
+        coordination_runtime.annotate_recent_events_with_metadata(
+            before_event_len,
+            "transactionIntent",
+            intent_metadata.clone(),
+        );
     }
+    let structured_transaction =
+        structured_transaction.unwrap_or_else(|| structured_transaction_value(&structured_execution));
+    coordination_runtime.annotate_recent_events_with_metadata(
+        before_event_len,
+        "transactionStructure",
+        structured_transaction.clone(),
+    );
 
     let committed_events = coordination_runtime.snapshot().events;
     let committed_event_ids = committed_events
@@ -1453,10 +2443,17 @@ fn apply_coordination_transaction(
             last_event_id: committed_events.last().map(|event| event.meta.id.clone()),
             committed_at: committed_events.last().map(|event| event.meta.ts),
         },
+        intent_metadata,
+        structured_transaction: Some(structured_transaction),
         plan_ids_by_client_id,
         task_ids_by_client_id,
+        claim_ids_by_client_id,
+        artifact_ids_by_client_id,
         touched_plan_ids,
         touched_task_ids,
+        touched_claim_ids,
+        touched_artifact_ids,
+        touched_review_ids,
     })
 }
 
@@ -1521,6 +2518,36 @@ fn resolve_task_refs(
         .collect()
 }
 
+fn resolve_claim_ref(
+    claim_ids_by_client_id: &BTreeMap<String, ClaimId>,
+    claim: &CoordinationTransactionClaimRef,
+) -> Result<ClaimId> {
+    match claim {
+        CoordinationTransactionClaimRef::Id(claim_id) => Ok(claim_id.clone()),
+        CoordinationTransactionClaimRef::ClientId(client_id) => claim_ids_by_client_id
+            .get(client_id)
+            .cloned()
+            .ok_or_else(|| {
+                anyhow!("unknown coordination transaction claim client id `{client_id}`")
+            }),
+    }
+}
+
+fn resolve_artifact_ref(
+    artifact_ids_by_client_id: &BTreeMap<String, ArtifactId>,
+    artifact: &CoordinationTransactionArtifactRef,
+) -> Result<ArtifactId> {
+    match artifact {
+        CoordinationTransactionArtifactRef::Id(artifact_id) => Ok(artifact_id.clone()),
+        CoordinationTransactionArtifactRef::ClientId(client_id) => artifact_ids_by_client_id
+            .get(client_id)
+            .cloned()
+            .ok_or_else(|| {
+                anyhow!("unknown coordination transaction artifact client id `{client_id}`")
+            }),
+    }
+}
+
 fn touch_plan(
     touched_plan_ids: &mut Vec<PlanId>,
     touched_plan_seen: &mut BTreeSet<String>,
@@ -1538,6 +2565,36 @@ fn touch_task(
 ) {
     if touched_task_seen.insert(task_id.0.to_string()) {
         touched_task_ids.push(task_id);
+    }
+}
+
+fn touch_claim(
+    touched_claim_ids: &mut Vec<ClaimId>,
+    touched_claim_seen: &mut BTreeSet<String>,
+    claim_id: ClaimId,
+) {
+    if touched_claim_seen.insert(claim_id.0.to_string()) {
+        touched_claim_ids.push(claim_id);
+    }
+}
+
+fn touch_artifact(
+    touched_artifact_ids: &mut Vec<ArtifactId>,
+    touched_artifact_seen: &mut BTreeSet<String>,
+    artifact_id: ArtifactId,
+) {
+    if touched_artifact_seen.insert(artifact_id.0.to_string()) {
+        touched_artifact_ids.push(artifact_id);
+    }
+}
+
+fn touch_review(
+    touched_review_ids: &mut Vec<ReviewId>,
+    touched_review_seen: &mut BTreeSet<String>,
+    review_id: ReviewId,
+) {
+    if touched_review_seen.insert(review_id.0.to_string()) {
+        touched_review_ids.push(review_id);
     }
 }
 

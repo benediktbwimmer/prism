@@ -169,7 +169,7 @@ In the target model, normal PRISM read tools such as:
 - `prism_open`
 - `prism_workset`
 - `prism_expand`
-- `prism_query`
+- `prism_code`
 - typed query views
 
 should accept an optional `runtime_id` target argument.
@@ -238,9 +238,9 @@ knowledge and branch-published intent.
 One configured coordination authority backend becomes the authoritative cross-branch coordination
 plane for a coordination root.
 
-DB-backed authority is the current release path. Git shared refs remain the repo-native federated
-backend explored by this document, and both backend families should satisfy the same authority
-contract.
+DB-backed authority is the release path. The federated runtime ideas in this document should be
+read as peer inspection and descriptor discovery layered on top of the SQL authority contract, not
+as a return to shared-ref authority backends.
 
 ### 5.3 Local runtime authority
 
@@ -408,7 +408,7 @@ Illustrative candidates:
 - `prism_open`
 - `prism_workset`
 - `prism_expand`
-- `prism_query`
+- `prism_code`
 - typed query views such as `impact(...)`, `afterEdit(...)`, or `validationPlan(...)`
 
 The goal is simplicity and power:
@@ -417,15 +417,15 @@ The goal is simplicity and power:
 - one optional `runtime_id`
 - no split between "normal reads" and "peer reads"
 
-For `prism_query`, the preferred query surface should be chainable runtime targeting instead of an
+For `prism_code`, the preferred programmable read surface should be chainable runtime targeting instead of an
 extra top-level peer API.
 
 Illustrative shape:
 
 ```ts
-const local = prism.concepts({ anchor: "auth" });
-const peerA = prism.from("runtime-abc").memories({ topic: "auth" });
-const peerB = prism.from("runtime-xyz").drafts({ path: "src/auth/" });
+const local = await prism.concepts({ anchor: "auth" });
+const peerA = await prism.from("runtime-abc").memories({ topic: "auth" });
+const peerB = await prism.from("runtime-xyz").drafts({ path: "src/auth/" });
 
 return { local, peerA, peerB };
 ```

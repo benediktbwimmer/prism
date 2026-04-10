@@ -1,19 +1,32 @@
 use std::path::Path;
 
 use anyhow::{anyhow, Result};
-use prism_coordination::{EventExecutionRecord, RuntimeDescriptor};
+use prism_coordination::{
+    CoordinationSnapshot, CoordinationSnapshotV2, EventExecutionRecord, RuntimeDescriptor,
+};
 
 use super::store::DbCoordinationAuthorityStore;
-use super::traits::CoordinationAuthorityDb;
+use super::traits::{
+    CoordinationAuthorityCoordinationSurfaceReadDb, CoordinationAuthorityDiagnosticsDb,
+    CoordinationAuthorityEventExecutionDb, CoordinationAuthorityHistoryDb,
+    CoordinationAuthorityMutationDb, CoordinationAuthorityRuntimeDb,
+    CoordinationAuthoritySnapshotDb, CoordinationAuthorityStampReadDb,
+};
+use crate::coordination_authority_store::CoordinationAuthorityDiagnostics;
 use crate::coordination_authority_store::{
-    CoordinationAuthorityCapabilities, CoordinationAuthorityDiagnostics,
-    CoordinationAuthorityStore, CoordinationCurrentState, CoordinationDiagnosticsRequest,
+    CoordinationAppendRequest, CoordinationAuthorityCoordinationSurface,
+    CoordinationAuthorityCoordinationSurfaceReadPort, CoordinationAuthorityDiagnosticsStore,
+    CoordinationAuthorityEventExecutionStore, CoordinationAuthorityHistoryStore,
+    CoordinationAuthorityMutationStore, CoordinationAuthorityRuntimeStore,
+    CoordinationAuthoritySnapshotStore, CoordinationAuthorityStamp,
+    CoordinationAuthorityStampReadPort, CoordinationDiagnosticsRequest,
     CoordinationHistoryEnvelope, CoordinationHistoryRequest, CoordinationReadEnvelope,
-    CoordinationReadRequest, CoordinationTransactionRequest, CoordinationTransactionResult,
+    CoordinationReplaceCurrentStateRequest, CoordinationTransactionResult,
     EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
     EventExecutionTransitionRequest, EventExecutionTransitionResult, RuntimeDescriptorClearRequest,
     RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
 };
+use crate::coordination_reads::CoordinationReadConsistency;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PostgresCoordinationAuthorityDb {
@@ -35,32 +48,34 @@ impl PostgresCoordinationAuthorityDb {
     }
 }
 
-impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
-    fn capabilities(&self) -> CoordinationAuthorityCapabilities {
-        CoordinationAuthorityCapabilities {
-            supports_eventual_reads: false,
-            supports_transactions: false,
-            supports_runtime_descriptors: false,
-            supports_event_execution_records: false,
-            supports_retained_history: false,
-            supports_diagnostics: false,
-        }
-    }
-
-    fn read_current(
+impl CoordinationAuthorityStampReadDb for PostgresCoordinationAuthorityDb {
+    fn read_authority_stamp(
         &self,
-        _request: CoordinationReadRequest,
-    ) -> Result<CoordinationReadEnvelope<CoordinationCurrentState>> {
+        _consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationAuthorityStamp>> {
         Err(self.not_implemented())
     }
+}
 
-    fn apply_transaction(
+impl CoordinationAuthorityCoordinationSurfaceReadDb for PostgresCoordinationAuthorityDb {
+    fn read_coordination_surface(
         &self,
-        _request: CoordinationTransactionRequest,
+        _consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationAuthorityCoordinationSurface>> {
+        Err(self.not_implemented())
+    }
+}
+
+impl CoordinationAuthorityMutationDb for PostgresCoordinationAuthorityDb {
+    fn append_events(
+        &self,
+        _request: CoordinationAppendRequest,
     ) -> Result<CoordinationTransactionResult> {
         Err(self.not_implemented())
     }
+}
 
+impl CoordinationAuthorityRuntimeDb for PostgresCoordinationAuthorityDb {
     fn publish_runtime_descriptor(
         &self,
         _request: RuntimeDescriptorPublishRequest,
@@ -81,7 +96,9 @@ impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
     ) -> Result<CoordinationReadEnvelope<Vec<RuntimeDescriptor>>> {
         Err(self.not_implemented())
     }
+}
 
+impl CoordinationAuthorityEventExecutionDb for PostgresCoordinationAuthorityDb {
     fn read_event_execution_records(
         &self,
         _request: EventExecutionRecordAuthorityQuery,
@@ -102,14 +119,18 @@ impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
     ) -> Result<EventExecutionTransitionResult> {
         Err(self.not_implemented())
     }
+}
 
+impl CoordinationAuthorityHistoryDb for PostgresCoordinationAuthorityDb {
     fn read_history(
         &self,
         _request: CoordinationHistoryRequest,
     ) -> Result<CoordinationHistoryEnvelope> {
         Err(self.not_implemented())
     }
+}
 
+impl CoordinationAuthorityDiagnosticsDb for PostgresCoordinationAuthorityDb {
     fn diagnostics(
         &self,
         _request: CoordinationDiagnosticsRequest,
@@ -118,10 +139,89 @@ impl CoordinationAuthorityDb for PostgresCoordinationAuthorityDb {
     }
 }
 
-pub(crate) fn open_postgres_coordination_authority_store(
+impl CoordinationAuthoritySnapshotDb for PostgresCoordinationAuthorityDb {
+    fn read_snapshot(
+        &self,
+        _consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshot>> {
+        Err(self.not_implemented())
+    }
+
+    fn read_snapshot_v2(
+        &self,
+        _consistency: CoordinationReadConsistency,
+    ) -> Result<CoordinationReadEnvelope<CoordinationSnapshotV2>> {
+        Err(self.not_implemented())
+    }
+
+    fn replace_current_state(
+        &self,
+        _request: CoordinationReplaceCurrentStateRequest,
+    ) -> Result<CoordinationTransactionResult> {
+        Err(self.not_implemented())
+    }
+}
+
+pub(crate) fn open_postgres_coordination_authority_stamp_read_port(
     root: &Path,
     connection_url: &str,
-) -> Result<Box<dyn CoordinationAuthorityStore>> {
+) -> Result<Box<dyn CoordinationAuthorityStampReadPort>> {
+    let db = PostgresCoordinationAuthorityDb::open(root, connection_url)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_postgres_coordination_authority_coordination_surface_read_port(
+    root: &Path,
+    connection_url: &str,
+) -> Result<Box<dyn CoordinationAuthorityCoordinationSurfaceReadPort>> {
+    let db = PostgresCoordinationAuthorityDb::open(root, connection_url)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_postgres_coordination_authority_mutation_store(
+    root: &Path,
+    connection_url: &str,
+) -> Result<Box<dyn CoordinationAuthorityMutationStore>> {
+    let db = PostgresCoordinationAuthorityDb::open(root, connection_url)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_postgres_coordination_authority_runtime_store(
+    root: &Path,
+    connection_url: &str,
+) -> Result<Box<dyn CoordinationAuthorityRuntimeStore>> {
+    let db = PostgresCoordinationAuthorityDb::open(root, connection_url)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_postgres_coordination_authority_event_execution_store(
+    root: &Path,
+    connection_url: &str,
+) -> Result<Box<dyn CoordinationAuthorityEventExecutionStore>> {
+    let db = PostgresCoordinationAuthorityDb::open(root, connection_url)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_postgres_coordination_authority_history_store(
+    root: &Path,
+    connection_url: &str,
+) -> Result<Box<dyn CoordinationAuthorityHistoryStore>> {
+    let db = PostgresCoordinationAuthorityDb::open(root, connection_url)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_postgres_coordination_authority_diagnostics_store(
+    root: &Path,
+    connection_url: &str,
+) -> Result<Box<dyn CoordinationAuthorityDiagnosticsStore>> {
+    let db = PostgresCoordinationAuthorityDb::open(root, connection_url)?;
+    Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
+}
+
+pub(crate) fn open_postgres_coordination_authority_snapshot_store(
+    root: &Path,
+    connection_url: &str,
+) -> Result<Box<dyn CoordinationAuthoritySnapshotStore>> {
     let db = PostgresCoordinationAuthorityDb::open(root, connection_url)?;
     Ok(Box::new(DbCoordinationAuthorityStore::new(db)))
 }

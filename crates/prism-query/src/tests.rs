@@ -175,6 +175,8 @@ fn coordination_snapshot_preserves_task_lease_fields() {
                 priority: None,
                 tags: Vec::new(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 metadata: serde_json::Value::Null,
                 git_execution: TaskGitExecution::default(),
             }],
@@ -268,6 +270,8 @@ fn coordination_snapshot_v2_projects_legacy_snapshot_into_canonical_records() {
                 priority: None,
                 tags: Vec::new(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 metadata: serde_json::json!({"estimatedMinutes": 12}),
                 git_execution: TaskGitExecution::default(),
             }],
@@ -358,6 +362,8 @@ fn plan_activity_falls_back_to_ids_and_embedded_timestamps_when_events_are_compa
                 priority: None,
                 tags: Vec::new(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 metadata: serde_json::Value::Null,
                 git_execution: TaskGitExecution::default(),
             }],
@@ -444,6 +450,8 @@ fn effective_task_lease_state_joins_runtime_descriptors() {
                 priority: None,
                 tags: Vec::new(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
                 metadata: serde_json::Value::Null,
                 git_execution: TaskGitExecution::default(),
             }],
@@ -569,6 +577,8 @@ fn authoritative_only_task_publish_intent_does_not_auto_complete_plan() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -620,6 +630,8 @@ fn authoritative_only_task_publish_intent_does_not_auto_complete_plan() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
             },
             WorkspaceRevision::default(),
             3,
@@ -692,6 +704,8 @@ fn authoritative_only_final_publication_auto_completes_plan() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -745,6 +759,8 @@ fn authoritative_only_final_publication_auto_completes_plan() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
             },
             WorkspaceRevision::default(),
             3,
@@ -809,6 +825,8 @@ fn authoritative_only_final_publication_bypasses_expired_same_holder_lease() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -862,6 +880,8 @@ fn authoritative_only_final_publication_bypasses_expired_same_holder_lease() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
             },
             WorkspaceRevision::default(),
             10_000,
@@ -926,6 +946,8 @@ fn authoritative_only_target_integration_auto_completes_plan() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -961,6 +983,8 @@ fn authoritative_only_target_integration_auto_completes_plan() {
         priority: None,
         tags: Vec::new(),
         spec_refs: Vec::new(),
+        artifact_requirements: Vec::new(),
+        review_requirements: Vec::new(),
         metadata: serde_json::Value::Null,
         git_execution: TaskGitExecution {
             status: prism_ir::GitExecutionStatus::CoordinationPublished,
@@ -1023,6 +1047,8 @@ fn authoritative_only_target_integration_auto_completes_plan() {
                 tags: None,
                 completion_context: None,
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
             },
             WorkspaceRevision::default(),
             3,
@@ -2041,6 +2067,8 @@ fn coordination_queries_expand_into_neighboring_symbols() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2207,6 +2235,8 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2253,6 +2283,7 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
     runtime_snapshot.artifacts.push(Artifact {
         id: prism_ir::ArtifactId::new("artifact:runtime"),
         task: task_id.clone(),
+        artifact_requirement_id: "__legacy_task_artifact__".into(),
         worktree_id: None,
         branch_ref: None,
         anchors: vec![AnchorRef::Node(alpha.clone())],
@@ -2459,6 +2490,8 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2467,6 +2500,7 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
     runtime_snapshot.artifacts.push(Artifact {
         id: prism_ir::ArtifactId::new("artifact:a"),
         task: task_id.clone(),
+        artifact_requirement_id: "__legacy_task_artifact__".into(),
         worktree_id: Some("worktree:a".into()),
         branch_ref: Some("refs/heads/a".into()),
         anchors: vec![AnchorRef::Node(alpha.clone())],
@@ -2482,6 +2516,7 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
     runtime_snapshot.artifacts.push(Artifact {
         id: prism_ir::ArtifactId::new("artifact:b"),
         task: task_id.clone(),
+        artifact_requirement_id: "__legacy_task_artifact__".into(),
         worktree_id: Some("worktree:b".into()),
         branch_ref: Some("refs/heads/b".into()),
         anchors: vec![AnchorRef::Node(alpha.clone())],
@@ -2499,6 +2534,8 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
         .push(prism_coordination::ArtifactReview {
             id: review_id.clone(),
             artifact: prism_ir::ArtifactId::new("artifact:a"),
+            review_requirement_id: "__legacy_artifact_review__".into(),
+            reviewer_class: None,
             verdict: prism_ir::ReviewVerdict::Approved,
             meta: EventMeta {
                 id: EventId::new("coord:review:artifact-scope"),
@@ -2598,6 +2635,8 @@ fn task_evidence_status_aggregates_artifacts_reviews_and_blockers() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2607,6 +2646,7 @@ fn task_evidence_status_aggregates_artifacts_reviews_and_blockers() {
     snapshot.artifacts.push(Artifact {
         id: artifact_id.clone(),
         task: task_id.clone(),
+        artifact_requirement_id: "__legacy_task_artifact__".into(),
         worktree_id: None,
         branch_ref: None,
         anchors: Vec::new(),
@@ -2622,6 +2662,8 @@ fn task_evidence_status_aggregates_artifacts_reviews_and_blockers() {
     snapshot.reviews.push(prism_coordination::ArtifactReview {
         id: review_id.clone(),
         artifact: artifact_id.clone(),
+        review_requirement_id: "__legacy_artifact_review__".into(),
+        reviewer_class: None,
         verdict: prism_ir::ReviewVerdict::ChangesRequested,
         summary: "needs changes".into(),
         meta: EventMeta {
@@ -2727,6 +2769,8 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -2894,6 +2938,8 @@ fn spec_sync_create_helpers_attach_typed_spec_refs() {
                     acceptance: Vec::new(),
                     base_revision: WorkspaceRevision::default(),
                     spec_refs: Vec::new(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                 },
                 spec_ref: CoordinationTaskSpecRef {
                     spec_id: "spec:alpha".into(),
@@ -3035,6 +3081,8 @@ created: 2026-04-09\n\
                     acceptance: Vec::new(),
                     base_revision: WorkspaceRevision::default(),
                     spec_refs: Vec::new(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                 },
                 spec_ref: CoordinationTaskSpecRef {
                     spec_id: "spec:alpha".into(),
@@ -3167,6 +3215,8 @@ fn ready_tasks_for_executor_filters_by_executor_policy() {
                     priority: None,
                     tags: Vec::new(),
                     spec_refs: Vec::new(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                     metadata: json!({
                         "executor": {
                             "executorClass": "worktree_executor",
@@ -3206,6 +3256,8 @@ fn ready_tasks_for_executor_filters_by_executor_policy() {
                     priority: None,
                     tags: Vec::new(),
                     spec_refs: Vec::new(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                     metadata: json!({
                         "executor": {
                             "executorClass": "worktree_executor",
@@ -3354,6 +3406,8 @@ fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3445,6 +3499,8 @@ fn plans_cache_invalidates_when_workspace_revision_changes() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3534,6 +3590,8 @@ fn persisted_coordination_snapshot_updates_task_backed_plan_nodes() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3588,6 +3646,8 @@ fn persisted_coordination_snapshot_updates_task_backed_plan_nodes() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
             },
             WorkspaceRevision::default(),
             3,
@@ -3900,6 +3960,8 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -3915,6 +3977,7 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
             },
             ArtifactProposeInput {
                 task_id: task_id.clone(),
+                artifact_requirement_id: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 diff_ref: Some("patch:1".into()),
                 evidence: Vec::new(),
@@ -4112,6 +4175,8 @@ fn coordination_only_artifact_risk_uses_artifact_fields_without_cognition() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -4127,6 +4192,7 @@ fn coordination_only_artifact_risk_uses_artifact_fields_without_cognition() {
             },
             ArtifactProposeInput {
                 task_id: task_id.clone(),
+                artifact_requirement_id: None,
                 anchors: Vec::new(),
                 diff_ref: Some("patch:artifact-risk".into()),
                 evidence: Vec::new(),
@@ -4270,6 +4336,8 @@ fn exposes_intent_links_and_task_intent() {
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -4472,6 +4540,8 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                     git_commit: None,
                 },
                 spec_refs: Vec::new(),
+                artifact_requirements: Vec::new(),
+                review_requirements: Vec::new(),
             },
         )
         .unwrap();
@@ -4510,6 +4580,8 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                 tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
                 spec_refs: None,
+                artifact_requirements: None,
+                review_requirements: None,
             },
             WorkspaceRevision {
                 graph_version: 1,
@@ -4565,7 +4637,7 @@ fn coordination_transaction_rejects_empty_transaction_with_stable_reason() {
         rejection.category,
         CoordinationTransactionRejectionCategory::InvalidInput
     );
-    assert_eq!(rejection.reason_code, "empty_transaction");
+    assert_eq!(rejection.reason_code, "missing_structured_transaction");
 }
 
 #[test]
@@ -4581,56 +4653,57 @@ fn coordination_transaction_rejects_forward_task_client_refs_before_domain_stage
                 causation: None,
                 execution_context: None,
             },
-            CoordinationTransactionInput {
-                mutations: vec![
-                    CoordinationTransactionMutation::PlanCreate {
-                        client_plan_id: Some("plan".to_string()),
-                        title: "Plan".to_string(),
-                        goal: "Create tasks".to_string(),
-                        status: None,
-                        policy: None,
-                        scheduling: None,
-                        spec_refs: Vec::new(),
-                    },
-                    CoordinationTransactionMutation::TaskCreate {
-                        client_task_id: Some("first".to_string()),
-                        plan: CoordinationTransactionPlanRef::ClientId("plan".to_string()),
-                        title: "First".to_string(),
-                        status: None,
-                        assignee: None,
-                        session: None,
-                        worktree_id: None,
-                        branch_ref: None,
-                        anchors: Vec::new(),
-                        depends_on: vec![super::CoordinationTransactionTaskRef::ClientId(
-                            "later".to_string(),
-                        )],
-                        coordination_depends_on: Vec::new(),
-                        integrated_depends_on: Vec::new(),
-                        acceptance: Vec::new(),
-                        base_revision: WorkspaceRevision::default(),
-                        spec_refs: Vec::new(),
-                    },
-                    CoordinationTransactionMutation::TaskCreate {
-                        client_task_id: Some("later".to_string()),
-                        plan: CoordinationTransactionPlanRef::ClientId("plan".to_string()),
-                        title: "Later".to_string(),
-                        status: None,
-                        assignee: None,
-                        session: None,
-                        worktree_id: None,
-                        branch_ref: None,
-                        anchors: Vec::new(),
-                        depends_on: Vec::new(),
-                        coordination_depends_on: Vec::new(),
-                        integrated_depends_on: Vec::new(),
-                        acceptance: Vec::new(),
-                        base_revision: WorkspaceRevision::default(),
-                        spec_refs: Vec::new(),
-                    },
-                ],
-                ..CoordinationTransactionInput::default()
-            },
+            CoordinationTransactionInput::sequence([
+                CoordinationTransactionMutation::PlanCreate {
+                    client_plan_id: Some("plan".to_string()),
+                    title: "Plan".to_string(),
+                    goal: "Create tasks".to_string(),
+                    status: None,
+                    policy: None,
+                    scheduling: None,
+                    spec_refs: Vec::new(),
+                },
+                CoordinationTransactionMutation::TaskCreate {
+                    client_task_id: Some("first".to_string()),
+                    plan: CoordinationTransactionPlanRef::ClientId("plan".to_string()),
+                    title: "First".to_string(),
+                    status: None,
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: vec![super::CoordinationTransactionTaskRef::ClientId(
+                        "later".to_string(),
+                    )],
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision::default(),
+                    spec_refs: Vec::new(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
+                },
+                CoordinationTransactionMutation::TaskCreate {
+                    client_task_id: Some("later".to_string()),
+                    plan: CoordinationTransactionPlanRef::ClientId("plan".to_string()),
+                    title: "Later".to_string(),
+                    status: None,
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision::default(),
+                    spec_refs: Vec::new(),
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
+                },
+            ]),
         )
         .expect_err("forward client references should reject before domain mutation");
 
@@ -4661,18 +4734,15 @@ fn coordination_transaction_rejects_stale_revision_preconditions() {
                 causation: None,
                 execution_context: None,
             },
-            CoordinationTransactionInput {
-                mutations: vec![CoordinationTransactionMutation::PlanCreate {
-                    client_plan_id: Some("plan".to_string()),
-                    title: "Seed".to_string(),
-                    goal: "Seed".to_string(),
-                    status: None,
-                    policy: None,
-                    scheduling: None,
-                    spec_refs: Vec::new(),
-                }],
-                ..CoordinationTransactionInput::default()
-            },
+            CoordinationTransactionInput::sequence([CoordinationTransactionMutation::PlanCreate {
+                client_plan_id: Some("plan".to_string()),
+                title: "Seed".to_string(),
+                goal: "Seed".to_string(),
+                status: None,
+                policy: None,
+                scheduling: None,
+                spec_refs: Vec::new(),
+            }]),
         )
         .expect("seed transaction should commit");
 
@@ -4687,7 +4757,10 @@ fn coordination_transaction_rejects_stale_revision_preconditions() {
                 execution_context: None,
             },
             CoordinationTransactionInput {
-                mutations: vec![CoordinationTransactionMutation::PlanCreate {
+                optimistic_preconditions: Some(json!({
+                    "expectedRevision": 0
+                })),
+                ..CoordinationTransactionInput::sequence([CoordinationTransactionMutation::PlanCreate {
                     client_plan_id: Some("next".to_string()),
                     title: "Next".to_string(),
                     goal: "Next".to_string(),
@@ -4695,11 +4768,7 @@ fn coordination_transaction_rejects_stale_revision_preconditions() {
                     policy: None,
                     scheduling: None,
                     spec_refs: Vec::new(),
-                }],
-                optimistic_preconditions: Some(json!({
-                    "expectedRevision": 0
-                })),
-                ..CoordinationTransactionInput::default()
+                }])
             },
         )
         .expect_err("stale revision should reject as a conflict");
@@ -4731,18 +4800,15 @@ fn coordination_transaction_rejects_stale_event_count_preconditions() {
                 causation: None,
                 execution_context: None,
             },
-            CoordinationTransactionInput {
-                mutations: vec![CoordinationTransactionMutation::PlanCreate {
-                    client_plan_id: Some("plan".to_string()),
-                    title: "Seed".to_string(),
-                    goal: "Seed".to_string(),
-                    status: None,
-                    policy: None,
-                    scheduling: None,
-                    spec_refs: Vec::new(),
-                }],
-                ..CoordinationTransactionInput::default()
-            },
+            CoordinationTransactionInput::sequence([CoordinationTransactionMutation::PlanCreate {
+                client_plan_id: Some("plan".to_string()),
+                title: "Seed".to_string(),
+                goal: "Seed".to_string(),
+                status: None,
+                policy: None,
+                scheduling: None,
+                spec_refs: Vec::new(),
+            }]),
         )
         .expect("seed transaction should commit");
 
@@ -4757,7 +4823,10 @@ fn coordination_transaction_rejects_stale_event_count_preconditions() {
                 execution_context: None,
             },
             CoordinationTransactionInput {
-                mutations: vec![CoordinationTransactionMutation::PlanCreate {
+                optimistic_preconditions: Some(json!({
+                    "expectedEventCount": 0
+                })),
+                ..CoordinationTransactionInput::sequence([CoordinationTransactionMutation::PlanCreate {
                     client_plan_id: Some("next".to_string()),
                     title: "Next".to_string(),
                     goal: "Next".to_string(),
@@ -4765,11 +4834,7 @@ fn coordination_transaction_rejects_stale_event_count_preconditions() {
                     policy: None,
                     scheduling: None,
                     spec_refs: Vec::new(),
-                }],
-                optimistic_preconditions: Some(json!({
-                    "expectedEventCount": 0
-                })),
-                ..CoordinationTransactionInput::default()
+                }])
             },
         )
         .expect_err("stale event count should reject as a conflict");
@@ -4786,4 +4851,208 @@ fn coordination_transaction_rejects_stale_event_count_preconditions() {
         CoordinationTransactionRejectionCategory::Conflict
     );
     assert_eq!(rejection.reason_code, "stale_event_count");
+}
+
+#[test]
+fn coordination_transaction_persists_intent_metadata_on_committed_events() {
+    let prism = Prism::new(Graph::new());
+    let intent_metadata = json!({
+        "compiler": {
+            "regionLineage": ["root", "sequence"]
+        }
+    });
+    let transaction = prism
+        .execute_coordination_transaction(
+            EventMeta {
+                id: EventId::new("coord:tx:intent-metadata"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            CoordinationTransactionInput {
+                intent_metadata: Some(intent_metadata.clone()),
+                ..CoordinationTransactionInput::sequence([CoordinationTransactionMutation::PlanCreate {
+                    client_plan_id: Some("plan".to_string()),
+                    title: "Plan".to_string(),
+                    goal: "Persist metadata".to_string(),
+                    status: None,
+                    policy: None,
+                    scheduling: None,
+                    spec_refs: Vec::new(),
+                }])
+            },
+        )
+        .expect("transaction with intent metadata should commit");
+
+    assert_eq!(transaction.intent_metadata.as_ref(), Some(&intent_metadata));
+    assert_eq!(
+        transaction.protocol_state().intent_metadata.as_ref(),
+        Some(&intent_metadata)
+    );
+
+    let snapshot = prism.legacy_coordination_snapshot();
+    let event = snapshot
+        .events
+        .last()
+        .expect("committed transaction should emit an event");
+    assert_eq!(
+        event.metadata.get("transactionIntent"),
+        Some(&intent_metadata)
+    );
+}
+
+#[test]
+fn coordination_transaction_persists_structured_transaction_on_committed_events() {
+    let prism = Prism::new(Graph::new());
+    let structured_transaction = json!({
+        "rootRegionId": 0,
+        "regions": [{
+            "regionId": 0,
+            "parentRegionId": null,
+            "control": "Sequence",
+            "members": [{ "kind": "effect", "id": 0 }]
+        }],
+        "effects": [{
+            "id": 0,
+            "metadata": {
+                "methodPath": "prism.coordination.createPlan",
+                "regionId": 0,
+                "regionLineage": [0]
+            },
+            "payload": {
+                "action": "plan_create",
+                "input": {
+                    "clientPlanId": "plan",
+                    "title": "Plan",
+                    "goal": "Persist structure"
+                }
+            }
+        }],
+        "effectOrder": [0]
+    });
+    let transaction = prism
+        .execute_coordination_transaction(
+            EventMeta {
+                id: EventId::new("coord:tx:structured-transaction"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            CoordinationTransactionInput {
+                structured_transaction: Some(structured_transaction.clone()),
+                ..CoordinationTransactionInput::sequence([CoordinationTransactionMutation::PlanCreate {
+                    client_plan_id: Some("plan".to_string()),
+                    title: "Plan".to_string(),
+                    goal: "Persist structure".to_string(),
+                    status: None,
+                    policy: None,
+                    scheduling: None,
+                    spec_refs: Vec::new(),
+                }])
+            },
+        )
+        .expect("transaction with structured transaction should commit");
+
+    assert_eq!(
+        transaction.structured_transaction.as_ref(),
+        Some(&structured_transaction)
+    );
+    assert_eq!(
+        transaction.protocol_state().structured_transaction.as_ref(),
+        Some(&structured_transaction)
+    );
+
+    let snapshot = prism.legacy_coordination_snapshot();
+    let event = snapshot
+        .events
+        .last()
+        .expect("committed transaction should emit an event");
+    assert_eq!(
+        event.metadata.get("transactionStructure"),
+        Some(&structured_transaction)
+    );
+}
+
+#[test]
+fn coordination_transaction_rejects_non_object_structured_transaction() {
+    let prism = Prism::new(Graph::new());
+    let error = prism
+        .execute_coordination_transaction(
+            EventMeta {
+                id: EventId::new("coord:tx:invalid-structured-transaction"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            CoordinationTransactionInput {
+                structured_transaction: Some(json!(["not", "an", "object"])),
+                ..CoordinationTransactionInput::sequence([CoordinationTransactionMutation::PlanCreate {
+                    client_plan_id: Some("plan".to_string()),
+                    title: "Plan".to_string(),
+                    goal: "Reject structure".to_string(),
+                    status: None,
+                    policy: None,
+                    scheduling: None,
+                    spec_refs: Vec::new(),
+                }])
+            },
+        )
+        .expect_err("non-object structured transaction should reject");
+
+    let CoordinationTransactionError::Rejected(rejection) = error else {
+        panic!("expected rejection");
+    };
+    assert_eq!(rejection.reason_code, "invalid_structured_transaction");
+    assert_eq!(
+        rejection.stage,
+        CoordinationTransactionValidationStage::InputShape
+    );
+}
+
+#[test]
+fn coordination_transaction_rejects_non_object_intent_metadata() {
+    let prism = Prism::new(Graph::new());
+    let error = prism
+        .execute_coordination_transaction(
+            EventMeta {
+                id: EventId::new("coord:tx:invalid-intent-metadata"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            CoordinationTransactionInput {
+                intent_metadata: Some(json!(["not", "an", "object"])),
+                ..CoordinationTransactionInput::sequence([CoordinationTransactionMutation::PlanCreate {
+                    client_plan_id: Some("plan".to_string()),
+                    title: "Plan".to_string(),
+                    goal: "Reject invalid metadata".to_string(),
+                    status: None,
+                    policy: None,
+                    scheduling: None,
+                    spec_refs: Vec::new(),
+                }])
+            },
+        )
+        .expect_err("non-object intent metadata should reject");
+
+    let CoordinationTransactionError::Rejected(rejection) = error else {
+        panic!("expected rejected transaction");
+    };
+    assert_eq!(
+        rejection.stage,
+        CoordinationTransactionValidationStage::InputShape
+    );
+    assert_eq!(
+        rejection.category,
+        CoordinationTransactionRejectionCategory::InvalidInput
+    );
+    assert_eq!(rejection.reason_code, "invalid_intent_metadata");
 }

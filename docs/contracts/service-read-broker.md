@@ -29,6 +29,8 @@ The read broker owns:
 - attaching consistency, freshness, and verification metadata to responses
 - serving coordination reads to runtimes that do not own coordination materialization themselves
 
+The canonical programmable caller for brokered reads is `prism_code`.
+
 ## 3. Non-goals
 
 The read broker does not own:

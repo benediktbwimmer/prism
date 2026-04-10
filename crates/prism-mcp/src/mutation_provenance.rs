@@ -55,13 +55,7 @@ impl MutationProvenance {
                 }
                 if let Some(workspace) = workspace {
                     if let Some(slot) = workspace.current_worktree_mutator_slot() {
-                        return Self::worktree_executor(
-                            workspace,
-                            session,
-                            prism,
-                            &slot,
-                            None,
-                        );
+                        return Self::worktree_executor(workspace, session, prism, &slot, None);
                     }
                 }
                 Self::fallback(workspace, session, prism)

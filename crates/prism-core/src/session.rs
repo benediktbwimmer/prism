@@ -46,8 +46,7 @@ const MUTATION_REFRESH_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 
 use crate::admission::AdmissionBusyError;
 use crate::checkpoint_materializer::{
-    persist_coordination_materialization, CheckpointMaterializerHandle,
-    CoordinationMaterialization,
+    persist_coordination_materialization, CheckpointMaterializerHandle, CoordinationMaterialization,
 };
 use crate::concept_events::append_repo_concept_event;
 use crate::concept_relation_events::append_repo_concept_relation_event;
@@ -55,7 +54,7 @@ use crate::contract_events::append_repo_contract_event;
 use crate::coordination_authority_store::{
     configured_coordination_authority_store_provider,
     coordination_materialization_enabled_by_default, CoordinationAuthorityBackendKind,
-    CoordinationAuthorityStamp, CoordinationReadRequest, CoordinationStateView,
+    CoordinationAuthorityStamp,
 };
 use crate::coordination_authority_sync::{
     apply_service_backed_coordination_current_state, sync_coordination_authority_update,
@@ -64,8 +63,7 @@ use crate::coordination_materialized_store::{
     CoordinationMaterializedStore, SqliteCoordinationMaterializedStore,
 };
 use crate::coordination_persistence::{
-    coordination_event_delta, CoordinationDerivedPersistenceMode,
-    CoordinationPersistenceBackend,
+    coordination_event_delta, CoordinationDerivedPersistenceMode, CoordinationPersistenceBackend,
 };
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadResult};
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
@@ -1217,7 +1215,11 @@ impl WorkspaceSession {
         requests: &[WorkspaceRuntimePathRequest],
     ) -> Vec<PathBuf> {
         self.full_runtime_state()
-            .map(|full_runtime| full_runtime.refresh_state.scoped_dirty_paths_for_requests(requests))
+            .map(|full_runtime| {
+                full_runtime
+                    .refresh_state
+                    .scoped_dirty_paths_for_requests(requests)
+            })
             .unwrap_or_else(|| {
                 let _ = requests;
                 Vec::new()
@@ -1723,10 +1725,10 @@ impl WorkspaceSession {
             .expect("workspace refresh state unavailable in coordination-only mode")
             .refresh_state
             .record_runtime_refresh_observation(
-            path,
-            duration_ms,
-            self.loaded_workspace_revision(),
-        );
+                path,
+                duration_ms,
+                self.loaded_workspace_revision(),
+            );
     }
 
     pub fn record_runtime_refresh_observation_with_work(
@@ -2287,8 +2289,9 @@ impl WorkspaceSession {
         Ok(self
             .read_coordination_current_state_from_authority()?
             .map(|state| {
-                let mut model =
-                    prism_coordination::coordination_queue_read_model_from_snapshot(&state.snapshot);
+                let mut model = prism_coordination::coordination_queue_read_model_from_snapshot(
+                    &state.snapshot,
+                );
                 if let Some(revision) = authoritative_revision {
                     model.revision = revision;
                 }
@@ -2436,14 +2439,10 @@ impl WorkspaceSession {
         &self,
         consistency: CoordinationReadConsistency,
     ) -> Result<Option<crate::CoordinationCurrentState>> {
-        let provider = configured_coordination_authority_store_provider(&self.root)?;
-        Ok(provider
-            .open(&self.root)?
-            .read_current(CoordinationReadRequest {
-                consistency,
-                view: CoordinationStateView::PlanState,
-            })?
-            .value)
+        crate::published_plans::load_authoritative_coordination_current_state_with_consistency(
+            &self.root,
+            consistency,
+        )
     }
 
     fn read_coordination_current_state_from_authority(
@@ -2457,12 +2456,9 @@ impl WorkspaceSession {
     fn read_coordination_authority_stamp(&self) -> Result<Option<CoordinationAuthorityStamp>> {
         let provider = configured_coordination_authority_store_provider(&self.root)?;
         Ok(provider
-            .open(&self.root)?
-            .read_current(CoordinationReadRequest {
-                consistency: CoordinationReadConsistency::Eventual,
-                view: CoordinationStateView::PlanState,
-            })?
-            .authority)
+            .open_stamp_reads(&self.root)?
+            .read_authority_stamp(CoordinationReadConsistency::Eventual)?
+            .value)
     }
 
     fn stale_coordination_read_fallback<T, E>(
@@ -2491,7 +2487,8 @@ impl WorkspaceSession {
             &self.runtime_state,
             &self.store,
             &self.cold_query_store,
-            self.full_runtime_state().map(|full_runtime| &full_runtime.refresh_lock),
+            self.full_runtime_state()
+                .map(|full_runtime| &full_runtime.refresh_lock),
             &self.loaded_workspace_revision,
             &self.coordination_runtime_revision,
             self.coordination_enabled,
@@ -3268,9 +3265,11 @@ impl WorkspaceSession {
             return Ok(());
         }
 
-        let Some(current_state) = self.read_coordination_current_state_from_authority_with_consistency(
-            CoordinationReadConsistency::Strong,
-        )? else {
+        let Some(current_state) = self
+            .read_coordination_current_state_from_authority_with_consistency(
+                CoordinationReadConsistency::Strong,
+            )?
+        else {
             return Ok(());
         };
         let mut store = self.store.lock().expect("workspace store lock poisoned");
@@ -3432,7 +3431,11 @@ impl WorkspaceSession {
             &full_runtime.fs_snapshot,
             full_runtime.checkpoint_materializer.clone(),
             self.coordination_enabled,
-            full_runtime.curator.as_ref().map(CuratorHandleRef::from).as_ref(),
+            full_runtime
+                .curator
+                .as_ref()
+                .map(CuratorHandleRef::from)
+                .as_ref(),
             &full_runtime.observed_change_tracker,
             &self.worktree_principal_binding,
             trigger,
@@ -3450,7 +3453,6 @@ fn authority_revision_from_stamp(authority: &CoordinationAuthorityStamp) -> Opti
         CoordinationAuthorityBackendKind::Postgres => {
             parse_authority_revision_token(&authority.snapshot_id, "postgres-revision:")
         }
-        CoordinationAuthorityBackendKind::GitSharedRefs => None,
     }
 }
 
@@ -3579,7 +3581,8 @@ impl Drop for WorkspaceSession {
             }
         }
         if let Some(principal_registry) = principal_registry.as_ref() {
-            if !principal_registry.principals.is_empty() || !principal_registry.credentials.is_empty()
+            if !principal_registry.principals.is_empty()
+                || !principal_registry.credentials.is_empty()
             {
                 let persist_result =
                     prism_store::MaterializationStore::save_principal_registry_snapshot(

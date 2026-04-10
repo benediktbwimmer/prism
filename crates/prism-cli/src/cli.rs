@@ -196,7 +196,6 @@ pub enum PrismRuntimeModeArg {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 #[value(rename_all = "snake_case")]
 pub enum CoordinationAuthorityBackendArg {
-    GitSharedRefs,
     Sqlite,
     Postgres,
 }

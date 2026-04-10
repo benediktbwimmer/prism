@@ -372,7 +372,7 @@ Contracts should be visible through normal PRISM read flows, not only through ra
 Useful read surfaces include:
 
 * `prism_concept(..., lens="contracts")`
-* `prism_query` helpers such as `prism.contract(id)` and `prism.contractsFor(target)`
+* `prism_code` helpers such as `prism.contract(id)` and `prism.contractsFor(target)`
 * compact integrations in `impact`, `afterEdit`, `workset`, and review-oriented views
 * resource surfaces such as `prism://contracts` and `prism://schema/contracts`
 
@@ -388,7 +388,7 @@ The first read experience should make it easy to answer:
 
 Contracts should be created and maintained through explicit mutations, not opaque side effects.
 
-The first implementation can extend `prism_mutate` with a `contract` action and operations such as:
+The first implementation should expose explicit `prism_code` contract operations such as:
 
 * `promote`
 * `update`
@@ -480,7 +480,7 @@ Do not deliver yet:
 Deliver:
 
 * contract resources
-* query helpers
+* `prism_code` query helpers
 * concept and target lookups for contracts
 
 Success condition:
@@ -491,7 +491,7 @@ Success condition:
 
 Deliver:
 
-* explicit `prism_mutate` contract operations
+* explicit `prism_code` contract operations
 * evidence and validation attachment
 * lifecycle/status transitions
 
@@ -533,7 +533,7 @@ Open questions that should be resolved during implementation:
 4. What is the minimum evidence threshold for promoting a contract to `repo` scope?
 5. When should a contract split into multiple contracts instead of accreting clauses?
 6. How should contracts interact with lineage drift when symbols move or split?
-7. Which contract surfaces deserve compact tools, and which should stay under `prism_query` first?
+7. Which contract surfaces deserve compact tools, and which should stay under `prism_code` first?
 8. When should contract health move from a compact derived view into stronger review or policy gates?
 
 ## 16. Success Criteria

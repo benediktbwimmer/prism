@@ -35,7 +35,7 @@ Repo `.prism` is for published repo truth only.
 That means the repo tree should contain exactly the PRISM artifacts that are safe
 to commit, review, clone, and inherit in a fresh checkout:
 
-- `.prism/plans/`
+- `.prism/code/`
 - `.prism/concepts/`
 - `.prism/contracts/`
 - `.prism/memory/`
@@ -82,6 +82,12 @@ The repo tree stays intentionally small:
 ```text
 <repo>/
   .prism/
+    code/
+      plans/
+      actions/
+      runners/
+      validators/
+      libraries/
     concepts/
       events.jsonl
       relations.jsonl
@@ -362,7 +368,7 @@ published repo knowledge.
 
 | Current path | Target path | Scope | Why |
 | --- | --- | --- | --- |
-| `<repo>/.prism/plans/**` | unchanged | repo | published repo truth |
+| `<repo>/.prism/code/**` | unchanged | repo | repo-authored PRISM source |
 | `<repo>/.prism/concepts/**` | unchanged | repo | published repo truth |
 | `<repo>/.prism/contracts/**` | unchanged | repo | published repo truth |
 | `<repo>/.prism/memory/**` | unchanged | repo | published repo truth |

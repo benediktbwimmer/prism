@@ -1,4 +1,4 @@
-use prism_coordination::BlockerKind;
+use prism_coordination::{ArtifactRequirement, BlockerKind, ReviewRequirement, ReviewerClass};
 use prism_ir::{
     AnchorRef, ArtifactStatus, BlockerCauseSource, Capability, ClaimMode, ClaimStatus,
     ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, DerivedPlanStatus, EdgeKind,
@@ -1587,6 +1587,8 @@ pub struct ArtifactRiskView {
 pub struct ArtifactReviewView {
     pub id: String,
     pub artifact_id: String,
+    pub review_requirement_id: String,
+    pub reviewer_class: Option<ReviewerClass>,
     pub verdict: ReviewVerdict,
     pub summary: String,
     pub ts: u64,
@@ -1741,6 +1743,8 @@ pub struct CoordinationTaskV2View {
     pub branch_ref: Option<String>,
     pub anchors: Vec<AnchorRef>,
     pub bindings: PlanBindingView,
+    pub artifact_requirements: Vec<ArtifactRequirement>,
+    pub review_requirements: Vec<ReviewRequirement>,
     pub validation_refs: Vec<ValidationRefView>,
     pub base_revision: WorkspaceRevisionView,
     pub priority: Option<u8>,
@@ -1995,6 +1999,7 @@ pub struct BlockerView {
 pub struct ArtifactView {
     pub id: String,
     pub task_id: String,
+    pub artifact_requirement_id: String,
     pub status: ArtifactStatus,
     pub anchors: Vec<AnchorRef>,
     pub base_revision: WorkspaceRevisionView,

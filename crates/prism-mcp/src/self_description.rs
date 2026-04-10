@@ -935,7 +935,15 @@ fn build_self_description_audit_payload(
     uri: &str,
 ) -> Result<SelfDescriptionAuditPayload, McpError> {
     let mut entries = Vec::new();
-    for tool in crate::tool_schema_catalog_entries() {
+    let visible_tool_names = capabilities
+        .tools
+        .iter()
+        .map(|tool| tool.name.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    for tool in crate::tool_schema_catalog_entries()
+        .into_iter()
+        .filter(|tool| visible_tool_names.contains(&tool.tool_name))
+    {
         let full_bytes = schema_uri_to_bytes(&tool.schema_uri);
         let example_validation = tool_example_validation(&tool.tool_name, None, None);
         let example_bytes = tool.example_uri.as_deref().and_then(compact_surface_bytes);

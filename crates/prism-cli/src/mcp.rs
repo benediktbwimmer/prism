@@ -17,8 +17,8 @@ use prism_core::{
     configured_coordination_authority_store_provider,
     coordination_authority_diagnostics_with_provider,
     coordination_materialization_enabled_by_default, publish_local_runtime_descriptor,
-    resolve_coordination_authority_store_provider, CoordinationAuthorityBackendConfig,
-    CoordinationAuthorityBackendDetails, PrismPaths, PrismRuntimeMode,
+    resolve_coordination_authority_store_provider, CoordinationAuthorityBackendConfig, PrismPaths,
+    PrismRuntimeMode,
 };
 
 use crate::cli::{CoordinationAuthorityBackendArg, McpCommand};
@@ -403,12 +403,11 @@ pub(crate) fn status_with_coordination_authority_override(
         Some(config) => resolve_coordination_authority_store_provider(root, Some(config))?,
         None => configured_coordination_authority_store_provider(root)?,
     };
-    let authority_diagnostics =
+    let _authority_diagnostics =
         coordination_authority_diagnostics_with_provider(root, &authority_store_provider)?;
     println!(
         "coordination_authority_backend: {}",
         match authority_store_provider.config() {
-            prism_core::CoordinationAuthorityBackendConfig::GitSharedRefs => "git_shared_refs",
             prism_core::CoordinationAuthorityBackendConfig::Sqlite { .. } => "sqlite",
             prism_core::CoordinationAuthorityBackendConfig::Postgres { .. } => "postgres",
         }
@@ -428,37 +427,6 @@ pub(crate) fn status_with_coordination_authority_override(
         }
     } else {
         println!("coordination_materialization_path: <disabled for db-backed authority>");
-    }
-    if let CoordinationAuthorityBackendDetails::GitSharedRefs(shared_coordination_ref) =
-        authority_diagnostics.backend_details
-    {
-        println!(
-            "coordination_authority: {}",
-            shared_coordination_ref.ref_name
-        );
-        println!(
-            "coordination_authority_head: {}",
-            shared_coordination_ref
-                .head_commit
-                .as_deref()
-                .unwrap_or("<missing>")
-        );
-        println!(
-            "coordination_authority_history_depth: {}",
-            shared_coordination_ref.history_depth
-        );
-        println!(
-            "coordination_authority_snapshot_file_count: {}",
-            shared_coordination_ref.snapshot_file_count
-        );
-        println!(
-            "coordination_authority_compaction_status: {}",
-            shared_coordination_ref.compaction_status
-        );
-        println!(
-            "coordination_authority_needs_compaction: {}",
-            shared_coordination_ref.needs_compaction
-        );
     }
     if daemons.len() > 1 {
         println!("warning: multiple runtime processes are running for this workspace");
@@ -879,7 +847,6 @@ fn bridge_exec_args(
     if let Some(backend) = coordination_authority_backend {
         args.push(OsString::from("--coordination-authority-backend"));
         args.push(OsString::from(match backend {
-            CoordinationAuthorityBackendArg::GitSharedRefs => "git_shared_refs",
             CoordinationAuthorityBackendArg::Sqlite => "sqlite",
             CoordinationAuthorityBackendArg::Postgres => "postgres",
         }));
@@ -996,7 +963,6 @@ fn spawn_daemon(
         args.push("--coordination-authority-backend".to_string());
         args.push(
             match backend {
-                CoordinationAuthorityBackendArg::GitSharedRefs => "git_shared_refs",
                 CoordinationAuthorityBackendArg::Sqlite => "sqlite",
                 CoordinationAuthorityBackendArg::Postgres => "postgres",
             }

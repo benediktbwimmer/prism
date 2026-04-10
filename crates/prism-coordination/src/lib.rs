@@ -3,6 +3,7 @@ mod canonical_graph;
 mod canonical_graph_traversal;
 mod derived_status;
 mod event_replay;
+mod evidence;
 mod executor_routing;
 mod git_execution;
 mod helpers;
@@ -20,15 +21,15 @@ mod tests;
 
 pub use crate::state::CoordinationStore;
 pub use crate::types::{
-    AcceptanceCriterion, Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput,
-    ArtifactSupersedeInput, BlockerKind, ClaimAcquireInput, CoordinationConflict,
-    CoordinationEvent, CoordinationPolicy, CoordinationSnapshot, CoordinationSpecRef,
-    CoordinationTask, CoordinationTaskSpecRef, EventExecutionOwner, EventExecutionRecord,
-    HandoffAcceptInput, HandoffInput, LeaseHolder, Plan, PlanCreateInput, PlanScheduling,
-    PlanUpdateInput, PolicyViolation, PolicyViolationCode, PolicyViolationRecord,
-    RuntimeDescriptor, RuntimeDescriptorCapability, RuntimeDiscoveryMode, TaskBlocker,
-    TaskCompletionContext, TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput,
-    WorkClaim,
+    AcceptanceCriterion, Artifact, ArtifactEvidenceType, ArtifactProposeInput, ArtifactRequirement,
+    ArtifactRequirementKind, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
+    BlockerKind, ClaimAcquireInput, CoordinationConflict, CoordinationEvent, CoordinationPolicy,
+    CoordinationSnapshot, CoordinationSpecRef, CoordinationTask, CoordinationTaskSpecRef,
+    EventExecutionOwner, EventExecutionRecord, HandoffAcceptInput, HandoffInput, LeaseHolder, Plan,
+    PlanCreateInput, PlanScheduling, PlanUpdateInput, PolicyViolation, PolicyViolationCode,
+    PolicyViolationRecord, ReviewRequirement, ReviewerClass, RuntimeDescriptor,
+    RuntimeDescriptorCapability, RuntimeDiscoveryMode, TaskBlocker, TaskCompletionContext,
+    TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
 };
 pub use canonical_graph::{
     CanonicalPlanRecord, CanonicalTaskRecord, CoordinationDependencyRecord, CoordinationSnapshotV2,

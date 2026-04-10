@@ -16,7 +16,7 @@ fn api_reference_mentions_primary_tool() {
     ));
     assert!(docs.contains("prism_task_brief"));
     assert!(docs.contains("prism_concept"));
-    assert!(docs.contains("prism_query"));
+    assert!(docs.contains("prism_code"));
     assert!(docs.contains("\"kind\": \"impact\""));
     assert!(docs.contains("\"kind\": \"timeline\""));
     assert!(docs.contains("\"kind\": \"memory\""));
@@ -224,16 +224,20 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism://tool-schemas"));
     assert!(docs.contains("prism://schema/tool/{toolName}"));
     assert!(docs.contains("prism://capabilities"));
-    assert!(docs.contains("Inspect tool payload requirements without leaving `prism_query`"));
+    assert!(docs
+        .contains("Inspect the canonical programmable tool contract without leaving `prism_code`"));
     assert!(docs.contains(
         "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}"
     ));
     assert!(docs.contains("prism.curator.jobs"));
-    assert!(docs.contains("prism_mutate"));
+    assert!(docs.contains("prism_code"));
     assert!(!docs.contains("prism_session"));
-    assert!(docs.contains("curator_apply_proposal"));
-    assert!(docs.contains("curator_promote_edge"));
-    assert!(docs.contains("curator_promote_memory"));
+    assert!(docs.contains("prism.work.declare"));
+    assert!(docs.contains("prism.coordination.createPlan"));
+    assert!(docs.contains("prism.artifact.propose"));
+    assert!(docs.contains("claim: {"));
+    assert!(docs.contains("artifact: {"));
+    assert!(docs.contains("work: {"));
 }
 
 #[test]
@@ -306,6 +310,19 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("runtimeStatus()"));
     assert!(prelude.contains("runtimeLogs(options = {})"));
     assert!(prelude.contains("runtimeTimeline(options = {})"));
+    assert!(prelude.contains("const __prismCompilerMethodRegistry ="));
+    assert!(prelude.contains("const __prismCompilerHandleMethods ="));
+    assert!(prelude.contains("const __prismCompilerRootFamilies ="));
+    assert!(prelude.contains("function __prismCompilerInvoke(methodPath, receiver, args = [])"));
+    assert!(prelude.contains("function __prismWrapCompilerHandle(raw, handleKind)"));
+    assert!(prelude.contains("return __prismCompilerInvoke(\"prism.work.declare\", null, args);"));
+    assert!(prelude.contains("return __prismCompilerInvoke(\"prism.claim.acquire\", null, args);"));
+    assert!(
+        prelude.contains("return __prismCompilerInvoke(\"prism.artifact.propose\", null, args);")
+    );
+    assert!(prelude
+        .contains("return __prismCompilerInvoke(\"prism.coordination.createPlan\", null, args);"));
+    assert!(prelude.contains("__prismOptionKeys[spec.recordBundle]"));
     assert!(prelude.contains("runtime: Object.freeze({"));
     assert!(prelude.contains("connection: Object.freeze({"));
     assert!(prelude.contains("memoryRecall(options = {})"));

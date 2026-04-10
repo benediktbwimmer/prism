@@ -863,7 +863,7 @@ impl ProxyMcpServer {
                             DEFAULT_UPSTREAM_REQUEST_TIMEOUT.as_millis()
                         ),
                         None,
-                    ))
+                    ));
                 }
             }
         }
@@ -1129,7 +1129,7 @@ impl ServerHandler for ProxyMcpServer {
                 payload.message, payload.poll_after_ms
             ))]));
         }
-        let request = if request.name.as_ref() == "prism_mutate" {
+        let request = if request.name.as_ref() == "prism_code" {
             let mut request = request;
             request.arguments = self
                 .bridge_auth
@@ -1156,7 +1156,7 @@ impl ServerHandler for ProxyMcpServer {
         if let Ok(peer) = self.active_peer().await {
             let mut result = peer.list_tools(request).await.map_err(map_proxy_error)?;
             for tool in &mut result.tools {
-                if tool.name.as_ref() == "prism_mutate" {
+                if tool.name.as_ref() == "prism_code" {
                     *tool = self.bridge_auth.patch_mutation_tool(tool.clone());
                 }
             }
@@ -1172,7 +1172,7 @@ impl ServerHandler for ProxyMcpServer {
                 .unwrap_or_default();
             tools.sort_by(|left, right| left.name.cmp(&right.name));
             for tool in &mut tools {
-                if tool.name.as_ref() == "prism_mutate" {
+                if tool.name.as_ref() == "prism_code" {
                     *tool = self.bridge_auth.patch_mutation_tool(tool.clone());
                 }
             }
@@ -1194,7 +1194,7 @@ impl ServerHandler for ProxyMcpServer {
             .ok()
             .and_then(|cache| cache.get(name).cloned())
             .map(|tool| {
-                if name == "prism_mutate" {
+                if name == "prism_code" {
                     self.bridge_auth.patch_mutation_tool(tool)
                 } else {
                     tool
@@ -1308,9 +1308,6 @@ mod tests {
         );
         let mut tool_names = cache.keys().cloned().collect::<Vec<_>>();
         tool_names.sort();
-        assert_eq!(
-            tool_names,
-            vec!["prism_mutate", "prism_query", "prism_task_brief"]
-        );
+        assert_eq!(tool_names, vec!["prism_code", "prism_task_brief"]);
     }
 }

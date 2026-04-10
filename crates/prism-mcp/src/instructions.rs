@@ -116,18 +116,15 @@ const INSTRUCTION_SET_DEFINITIONS: &[InstructionSetDefinition] = &[
     InstructionSetDefinition {
         id: "execution",
         name: "PRISM Instructions: Execution",
-        description:
-            "Task execution guidance for actionable nodes, implementation, validation, and completion.",
-        use_when:
-            "Load when the prompt is about starting actionable task nodes, implementing concrete changes, or continuing claimed execution work.",
+        description: "Task execution guidance for actionable nodes, implementation, validation, and completion.",
+        use_when: "Load when the prompt is about starting actionable task nodes, implementing concrete changes, or continuing claimed execution work.",
         markdown: EXECUTION_MARKDOWN,
         block_markdowns: EXECUTION_BLOCKS,
     },
     InstructionSetDefinition {
         id: "planning",
         name: "PRISM Instructions: Planning",
-        description:
-            "Plan authoring guidance for decomposition, dependency shaping, and priority decisions.",
+        description: "Plan authoring guidance for decomposition, dependency shaping, and priority decisions.",
         use_when: "Load when the prompt is about creating, refining, or restructuring a PRISM plan.",
         markdown: PLANNING_MARKDOWN,
         block_markdowns: PLANNING_BLOCKS,
@@ -135,30 +132,24 @@ const INSTRUCTION_SET_DEFINITIONS: &[InstructionSetDefinition] = &[
     InstructionSetDefinition {
         id: "review",
         name: "PRISM Instructions: Review",
-        description:
-            "Review and validation guidance for findings, regressions, and readiness checks.",
-        use_when:
-            "Load when the prompt is about reviewing work, validating behavior, or identifying regressions and risks.",
+        description: "Review and validation guidance for findings, regressions, and readiness checks.",
+        use_when: "Load when the prompt is about reviewing work, validating behavior, or identifying regressions and risks.",
         markdown: REVIEW_MARKDOWN,
         block_markdowns: REVIEW_BLOCKS,
     },
     InstructionSetDefinition {
         id: "coordination",
         name: "PRISM Instructions: Coordination",
-        description:
-            "Coordination guidance for claims, handoffs, readiness, and multi-agent execution flow.",
-        use_when:
-            "Load when the prompt is about task availability, shared claims, handoffs, or repo-wide execution coordination.",
+        description: "Coordination guidance for claims, handoffs, readiness, and multi-agent execution flow.",
+        use_when: "Load when the prompt is about task availability, shared claims, handoffs, or repo-wide execution coordination.",
         markdown: COORDINATION_MARKDOWN,
         block_markdowns: COORDINATION_BLOCKS,
     },
     InstructionSetDefinition {
         id: "exploration",
         name: "PRISM Instructions: Exploration",
-        description:
-            "Exploration guidance for repo understanding, owner discovery, and bounded semantic orientation.",
-        use_when:
-            "Load when the prompt is about understanding an unfamiliar subsystem or building context before planning or execution.",
+        description: "Exploration guidance for repo understanding, owner discovery, and bounded semantic orientation.",
+        use_when: "Load when the prompt is about understanding an unfamiliar subsystem or building context before planning or execution.",
         markdown: EXPLORATION_MARKDOWN,
         block_markdowns: EXPLORATION_BLOCKS,
     },
@@ -325,7 +316,7 @@ fn append_coordination_mode_note(mut markdown: String, features: &PrismMcpFeatur
     let feature_summary = features.coordination_summary_lines().join("\n");
     if features.runtime_mode() == PrismRuntimeMode::CoordinationOnly {
         markdown.push_str(
-            "\n\nThis instruction set is running without cognition. Use `prism_query` only for the reduced coordination and operator surface, use `prism_mutate` only for the enabled coordination-related actions, and avoid graph-backed repo understanding or enrichment flows.",
+            "\n\nThis instruction set is running without cognition. Use `prism_code` for the reduced coordination and operator read/write surface, use the native `prism` SDK methods for authoritative changes, and avoid graph-backed repo understanding or enrichment flows.",
         );
         markdown.push_str("\n\nMode contract:\n");
         markdown.push_str(&feature_summary);
@@ -342,7 +333,7 @@ fn append_coordination_mode_note(mut markdown: String, features: &PrismMcpFeatur
 }
 
 fn coordination_only_index_markdown(features: &PrismMcpFeatures) -> String {
-    let tools = ["prism_query", "prism_mutate", "prism_task_brief"]
+    let tools = ["prism_code", "prism_task_brief"]
         .into_iter()
         .filter(|tool| features.is_tool_enabled(tool))
         .map(|tool| format!("`{tool}`"))

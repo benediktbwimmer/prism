@@ -9,6 +9,11 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::blockers::{completion_blockers, completion_policy_blockers};
+use crate::evidence::{
+    normalize_artifact_requirements, normalize_review_requirements,
+    resolve_artifact_requirement_id, resolve_review_requirement_id, review_requirement_for_task,
+    reviewer_class, reviewer_class_allowed,
+};
 use crate::executor_routing::{
     executor_mismatch_reasons, task_executor_policy, TaskExecutorCaller,
 };
@@ -53,6 +58,64 @@ fn lease_holder_details(holder: Option<&crate::types::LeaseHolder>) -> Value {
     holder
         .and_then(|holder| serde_json::to_value(holder).ok())
         .unwrap_or(Value::Null)
+}
+
+fn invalid_artifact_requirement_rejection(
+    state: &mut CoordinationState,
+    meta: &EventMeta,
+    summary: &str,
+    plan_id: PlanId,
+    task_id: CoordinationTaskId,
+    artifact_id: Option<prism_ir::ArtifactId>,
+    details: Value,
+) -> anyhow::Error {
+    rejection_error(
+        state,
+        meta,
+        summary,
+        Some(plan_id),
+        Some(task_id),
+        None,
+        artifact_id,
+        vec![policy_violation(
+            PolicyViolationCode::InvalidArtifactRequirement,
+            "artifact requirement validation failed",
+            None,
+            None,
+            None,
+            None,
+            details,
+        )],
+    )
+}
+
+fn invalid_review_requirement_rejection(
+    state: &mut CoordinationState,
+    meta: &EventMeta,
+    summary: &str,
+    plan_id: PlanId,
+    task_id: CoordinationTaskId,
+    artifact_id: Option<prism_ir::ArtifactId>,
+    details: Value,
+) -> anyhow::Error {
+    rejection_error(
+        state,
+        meta,
+        summary,
+        Some(plan_id),
+        Some(task_id),
+        None,
+        artifact_id,
+        vec![policy_violation(
+            PolicyViolationCode::InvalidReviewRequirement,
+            "review requirement validation failed",
+            None,
+            None,
+            None,
+            None,
+            details,
+        )],
+    )
 }
 
 fn reject_task_executor_mismatch(
@@ -972,11 +1035,29 @@ pub(crate) fn propose_artifact_mutation(
             violations,
         ));
     }
+    let artifact_requirement_id =
+        resolve_artifact_requirement_id(&task, input.artifact_requirement_id.as_deref()).map_err(
+            |error| {
+                invalid_artifact_requirement_rejection(
+                    state,
+                    &meta,
+                    "artifact proposal rejected",
+                    task.plan.clone(),
+                    task.id.clone(),
+                    None,
+                    json!({
+                        "error": error.to_string(),
+                        "artifactRequirementId": input.artifact_requirement_id,
+                    }),
+                )
+            },
+        )?;
     state.next_artifact += 1;
     let id = prism_ir::ArtifactId::new(new_prefixed_id("artifact"));
     let artifact = Artifact {
         id: id.clone(),
         task: input.task_id.clone(),
+        artifact_requirement_id,
         worktree_id: input.worktree_id,
         branch_ref: input.branch_ref,
         anchors: dedupe_anchors(input.anchors),
@@ -1127,6 +1208,62 @@ pub(crate) fn review_artifact_mutation(
             ));
         }
     }
+    let task = state
+        .tasks
+        .get(&artifact.task)
+        .cloned()
+        .ok_or_else(|| anyhow!("unknown coordination task `{}`", artifact.task.0))?;
+    let review_requirement_id = resolve_review_requirement_id(
+        &task,
+        &artifact.artifact_requirement_id,
+        input.review_requirement_id.as_deref(),
+    )
+    .map_err(|error| {
+        invalid_review_requirement_rejection(
+            state,
+            &meta,
+            "artifact review rejected",
+            task.plan.clone(),
+            task.id.clone(),
+            Some(artifact.id.clone()),
+            json!({
+                "error": error.to_string(),
+                "artifactRequirementId": artifact.artifact_requirement_id,
+                "reviewRequirementId": input.review_requirement_id,
+            }),
+        )
+    })?;
+    let reviewer_class = reviewer_class(&meta.actor);
+    if !reviewer_class_allowed(
+        review_requirement_for_task(&task, &review_requirement_id),
+        reviewer_class,
+    ) {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::ReviewerClassNotAllowed,
+            format!(
+                "reviewer class `{:?}` is not allowed for review requirement `{}`",
+                reviewer_class, review_requirement_id
+            ),
+            Some(task.plan.clone()),
+            Some(task.id.clone()),
+            None,
+            Some(artifact.id.clone()),
+            json!({
+                "reviewRequirementId": review_requirement_id,
+                "reviewerClass": reviewer_class,
+            }),
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "artifact review rejected",
+            Some(task.plan.clone()),
+            Some(task.id.clone()),
+            None,
+            Some(artifact.id.clone()),
+            violations,
+        ));
+    }
     if matches!(input.verdict, ReviewVerdict::Approved)
         && plan
             .as_ref()
@@ -1163,6 +1300,8 @@ pub(crate) fn review_artifact_mutation(
     let review = ArtifactReview {
         id: review_id.clone(),
         artifact: artifact.id.clone(),
+        review_requirement_id,
+        reviewer_class: Some(reviewer_class),
         verdict: input.verdict,
         summary: input.summary.clone(),
         meta: meta.clone(),
@@ -1608,6 +1747,32 @@ pub(crate) fn create_task_mutation(
             }
         }
     }
+    let artifact_requirements = normalize_artifact_requirements(input.artifact_requirements)
+        .map_err(|error| {
+            invalid_artifact_requirement_rejection(
+                state,
+                &meta,
+                "coordination task creation rejected",
+                input.plan_id.clone(),
+                CoordinationTaskId::new("coord-task:pending"),
+                None,
+                json!({ "error": error.to_string() }),
+            )
+        })?;
+    let review_requirements =
+        normalize_review_requirements(&artifact_requirements, input.review_requirements).map_err(
+            |error| {
+                invalid_review_requirement_rejection(
+                    state,
+                    &meta,
+                    "coordination task creation rejected",
+                    input.plan_id.clone(),
+                    CoordinationTaskId::new("coord-task:pending"),
+                    None,
+                    json!({ "error": error.to_string() }),
+                )
+            },
+        )?;
     state.next_task += 1;
     let id = CoordinationTaskId::new(new_prefixed_id("coord-task"));
     let anchors = dedupe_anchors(input.anchors);
@@ -1644,6 +1809,8 @@ pub(crate) fn create_task_mutation(
         priority: None,
         tags: Vec::new(),
         spec_refs: input.spec_refs,
+        artifact_requirements,
+        review_requirements,
         metadata: Value::Null,
         git_execution: crate::TaskGitExecution::default(),
     };
@@ -1705,6 +1872,8 @@ pub(crate) fn update_task_mutation_with_options(
     let update_priority = input.priority.is_some();
     let update_tags = input.tags.is_some();
     let update_spec_refs = input.spec_refs.is_some();
+    let update_artifact_requirements = input.artifact_requirements.is_some();
+    let update_review_requirements = input.review_requirements.is_some();
     let update_published_task_status = input.published_task_status.is_some();
     let git_execution_only_update = input.git_execution.is_some()
         && input.kind.is_none()
@@ -1726,6 +1895,8 @@ pub(crate) fn update_task_mutation_with_options(
         && input.is_abstract.is_none()
         && input.priority.is_none()
         && input.tags.is_none()
+        && input.artifact_requirements.is_none()
+        && input.review_requirements.is_none()
         && input.completion_context.is_none();
     let mut patch = serde_json::Map::new();
     if input.kind.is_some() {
@@ -1830,6 +2001,12 @@ pub(crate) fn update_task_mutation_with_options(
     if input.spec_refs.is_some() {
         push_patch_op(&mut patch, "specRefs", "set");
     }
+    if input.artifact_requirements.is_some() {
+        push_patch_op(&mut patch, "artifactRequirements", "set");
+    }
+    if input.review_requirements.is_some() {
+        push_patch_op(&mut patch, "reviewRequirements", "set");
+    }
     let completion_context = input.completion_context.clone();
     let next_dependencies = input.depends_on.clone().map(dedupe_ids);
     let next_coordination_dependencies = input.coordination_depends_on.clone().map(dedupe_ids);
@@ -1840,6 +2017,60 @@ pub(crate) fn update_task_mutation_with_options(
         .get(&input.task_id)
         .cloned()
         .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+    let next_artifact_requirements = input
+        .artifact_requirements
+        .clone()
+        .map(normalize_artifact_requirements)
+        .transpose()
+        .map_err(|error| {
+            invalid_artifact_requirement_rejection(
+                state,
+                &meta,
+                "coordination task update rejected",
+                previous.plan.clone(),
+                previous.id.clone(),
+                None,
+                json!({ "error": error.to_string() }),
+            )
+        })?;
+    let artifact_requirements = next_artifact_requirements
+        .as_ref()
+        .unwrap_or(&previous.artifact_requirements);
+    let next_review_requirements = match input.review_requirements.clone() {
+        Some(review_requirements) => Some(
+            normalize_review_requirements(artifact_requirements, review_requirements).map_err(
+                |error| {
+                    invalid_review_requirement_rejection(
+                        state,
+                        &meta,
+                        "coordination task update rejected",
+                        previous.plan.clone(),
+                        previous.id.clone(),
+                        None,
+                        json!({ "error": error.to_string() }),
+                    )
+                },
+            )?,
+        ),
+        None if next_artifact_requirements.is_some() => Some(
+            normalize_review_requirements(
+                artifact_requirements,
+                previous.review_requirements.clone(),
+            )
+            .map_err(|error| {
+                invalid_review_requirement_rejection(
+                    state,
+                    &meta,
+                    "coordination task update rejected",
+                    previous.plan.clone(),
+                    previous.id.clone(),
+                    None,
+                    json!({ "error": error.to_string() }),
+                )
+            })?,
+        ),
+        None => None,
+    };
     let Some(plan) = state.plans.get(&previous.plan).cloned() else {
         return Err(anyhow!("unknown plan `{}`", previous.plan.0));
     };
@@ -2017,6 +2248,8 @@ pub(crate) fn update_task_mutation_with_options(
             || input.kind.is_some()
             || input.priority.is_some()
             || input.tags.is_some()
+            || input.artifact_requirements.is_some()
+            || input.review_requirements.is_some()
             || input.assignee.is_some()
             || input.session.is_some())
             && !git_execution_only_update
@@ -2058,6 +2291,8 @@ pub(crate) fn update_task_mutation_with_options(
                 || input.kind.is_some()
                 || input.priority.is_some()
                 || input.tags.is_some()
+                || input.artifact_requirements.is_some()
+                || input.review_requirements.is_some()
                 || input.assignee.is_some()
                 || input.session.is_some()
                 || input.status.is_some())
@@ -2160,6 +2395,12 @@ pub(crate) fn update_task_mutation_with_options(
         }
         if let Some(spec_refs) = input.spec_refs {
             task.spec_refs = spec_refs;
+        }
+        if let Some(artifact_requirements) = next_artifact_requirements.clone() {
+            task.artifact_requirements = artifact_requirements;
+        }
+        if let Some(review_requirements) = next_review_requirements.clone() {
+            task.review_requirements = review_requirements;
         }
         if task.bindings.anchors.is_empty() && !task.anchors.is_empty() {
             task.bindings.anchors = task.anchors.clone();
@@ -2400,6 +2641,20 @@ pub(crate) fn update_task_mutation_with_options(
     }
     if update_spec_refs {
         insert_serialized(&mut patch_values, "specRefs", task.spec_refs.clone());
+    }
+    if update_artifact_requirements {
+        insert_serialized(
+            &mut patch_values,
+            "artifactRequirements",
+            task.artifact_requirements.clone(),
+        );
+    }
+    if update_review_requirements {
+        insert_serialized(
+            &mut patch_values,
+            "reviewRequirements",
+            task.review_requirements.clone(),
+        );
     }
     if previous.lease_holder != task.lease_holder {
         insert_serialized(&mut patch_values, "leaseHolder", task.lease_holder.clone());

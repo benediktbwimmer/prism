@@ -43,7 +43,6 @@ use crate::runtime_state::{
     process_is_live, read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord, RuntimeState,
 };
 use crate::serving_projection_models::runtime_projection_scopes;
-use crate::trust_surface::runtime_coordination_authority_view;
 use crate::workspace_diagnostics::WorkspaceDiagnosticsConfig;
 use crate::{QueryHost, RuntimeLogArgs, RuntimeTimelineArgs};
 
@@ -472,9 +471,6 @@ fn runtime_status_details_from_inputs(
     let coordination_authority_view = match cached_coordination_authority_view {
         Some(value) => value,
         None => match coordination_authority_diagnostics(inputs.root)?.backend_details {
-            CoordinationAuthorityBackendDetails::GitSharedRefs(value) => {
-                Some(runtime_coordination_authority_view(value))
-            }
             CoordinationAuthorityBackendDetails::Sqlite(_)
             | CoordinationAuthorityBackendDetails::Postgres(_)
             | CoordinationAuthorityBackendDetails::Unavailable => None,
@@ -774,7 +770,8 @@ fn runtime_domain_views(
 
 fn checkpoint_materialization_pending(snapshot: &WorkspaceRuntimeQueueSnapshot) -> bool {
     snapshot.active.as_ref().is_some_and(|command| {
-        command.kind == prism_core::runtime_engine::WorkspaceRuntimeCommandKind::MaterializeCheckpoint
+        command.kind
+            == prism_core::runtime_engine::WorkspaceRuntimeCommandKind::MaterializeCheckpoint
     }) || snapshot.queued.iter().any(|entry| {
         entry.queue_class
             == prism_core::runtime_engine::WorkspaceRuntimeQueueClass::CheckpointMaterialization

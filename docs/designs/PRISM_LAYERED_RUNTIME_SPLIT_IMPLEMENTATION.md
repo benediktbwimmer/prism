@@ -626,9 +626,9 @@ Coordination/query contract coverage:
 
 MCP surface coverage:
 
-- coordination-only query surface keeps coordination reads and rejects cognition reads:
+- coordination-only read surface keeps coordination reads and rejects cognition reads:
   `coordination_only_prism_query_keeps_coordination_reads_and_rejects_cognition_reads`
-- `prism_mutate` advertises only coordination-safe actions:
+- `prism_code` advertises only coordination-safe writes in coordination-only mode:
   `coordination_only_prism_query_filters_mutate_schema_and_validation`
 - reduced plan and artifact reads degrade deliberately:
   `coordination_only_prism_query_plan_graph_keeps_durable_bindings`

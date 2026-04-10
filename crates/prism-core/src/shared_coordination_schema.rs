@@ -145,6 +145,8 @@ mod tests {
             priority: None,
             tags: Vec::new(),
             spec_refs: Vec::new(),
+            artifact_requirements: Vec::new(),
+            review_requirements: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution::default(),
         }

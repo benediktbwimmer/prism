@@ -14,6 +14,7 @@ mod coordination_snapshot_sanitization;
 mod coordination_startup_checkpoint;
 mod curator;
 mod curator_support;
+mod execution_substrate;
 mod history_backend;
 mod indexer;
 mod indexer_support;
@@ -45,6 +46,7 @@ mod resolution;
 pub mod runtime_engine;
 mod session;
 mod session_bootstrap;
+#[allow(dead_code)]
 mod shared_coordination_ref;
 mod shared_coordination_schema;
 mod shared_runtime;
@@ -78,30 +80,45 @@ use session_bootstrap::{
 pub use admission::AdmissionBusyError;
 pub use coordination_authority_api::{
     coordination_authority_diagnostics, coordination_authority_diagnostics_with_provider,
-    git_shared_coordination_ref_diagnostics, git_shared_coordination_ref_diagnostics_with_provider,
     publish_local_runtime_descriptor, publish_local_runtime_descriptor_with_provider,
     sync_live_runtime_descriptor, sync_live_runtime_descriptor_with_provider,
 };
 pub use coordination_authority_store::{
     configured_coordination_authority_store_provider,
     coordination_materialization_enabled_by_default, coordination_materialization_enabled_for_root,
-    default_coordination_authority_store_provider, open_coordination_authority_store,
-    open_default_coordination_authority_store, resolve_coordination_authority_store_provider,
+    default_coordination_authority_store_provider,
+    open_coordination_authority_coordination_surface_read_port,
+    open_coordination_authority_diagnostics_store,
+    open_coordination_authority_event_execution_store, open_coordination_authority_history_store,
+    open_coordination_authority_mutation_store, open_coordination_authority_runtime_store,
+    open_coordination_authority_snapshot_store, open_coordination_authority_stamp_read_port,
+    open_default_coordination_authority_coordination_surface_read_port,
+    open_default_coordination_authority_diagnostics_store,
+    open_default_coordination_authority_event_execution_store,
+    open_default_coordination_authority_history_store,
+    open_default_coordination_authority_mutation_store,
+    open_default_coordination_authority_runtime_store,
+    open_default_coordination_authority_snapshot_store,
+    open_default_coordination_authority_stamp_read_port,
+    resolve_coordination_authority_store_provider, CoordinationAppendRequest,
     CoordinationAuthorityBackendConfig, CoordinationAuthorityBackendDetails,
-    CoordinationAuthorityBackendKind, CoordinationAuthorityCapabilities,
-    CoordinationAuthorityDiagnostics, CoordinationAuthorityProvenance, CoordinationAuthorityStamp,
-    CoordinationAuthorityStore, CoordinationAuthorityStoreProvider, CoordinationConflictInfo,
-    CoordinationCurrentState, CoordinationDerivedStateMode, CoordinationDiagnosticsRequest,
-    CoordinationHistoryEntry, CoordinationHistoryEnvelope, CoordinationHistoryRequest,
-    CoordinationReadEnvelope, CoordinationReadRequest, CoordinationStateView,
-    CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionRequest,
-    CoordinationTransactionResult, CoordinationTransactionStatus, EventExecutionOwnerExpectation,
+    CoordinationAuthorityBackendKind, CoordinationAuthorityCoordinationSurface,
+    CoordinationAuthorityCoordinationSurfaceReadPort, CoordinationAuthorityDiagnostics,
+    CoordinationAuthorityDiagnosticsStore, CoordinationAuthorityEventExecutionStore,
+    CoordinationAuthorityHistoryStore, CoordinationAuthorityMutationStore,
+    CoordinationAuthorityProvenance, CoordinationAuthorityRuntimeStore,
+    CoordinationAuthoritySnapshotStore, CoordinationAuthorityStamp,
+    CoordinationAuthorityStampReadPort, CoordinationAuthorityStoreProvider,
+    CoordinationCommitReceipt, CoordinationConflictInfo, CoordinationCurrentState,
+    CoordinationDiagnosticsRequest, CoordinationHistoryEntry, CoordinationHistoryEnvelope,
+    CoordinationHistoryRequest, CoordinationReadEnvelope, CoordinationReplaceCurrentStateRequest,
+    CoordinationTransactionBase, CoordinationTransactionDiagnostic, CoordinationTransactionResult,
+    CoordinationTransactionStatus, EventExecutionOwnerExpectation,
     EventExecutionRecordAuthorityQuery, EventExecutionRecordWriteResult,
     EventExecutionTransitionKind, EventExecutionTransitionPreconditions,
     EventExecutionTransitionRequest, EventExecutionTransitionResult,
-    EventExecutionTransitionStatus, GitSharedRefsCoordinationAuthorityStore,
-    PostgresCoordinationAuthorityBackendDetails, RuntimeDescriptorClearRequest,
-    RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
+    EventExecutionTransitionStatus, PostgresCoordinationAuthorityBackendDetails,
+    RuntimeDescriptorClearRequest, RuntimeDescriptorPublishRequest, RuntimeDescriptorQuery,
     SqliteCoordinationAuthorityBackendDetails, SqliteCoordinationAuthorityStore,
 };
 pub use coordination_materialized_store::{
@@ -117,6 +134,16 @@ pub use coordination_mutation_error::{
 };
 pub use coordination_reads::{
     CoordinationReadConsistency, CoordinationReadFreshness, CoordinationReadResult,
+};
+pub use execution_substrate::{
+    open_shared_execution_substrate_store, AuthorityBackedSharedExecutionSubstrateStore,
+    SharedExecutionCapabilityClassRef, SharedExecutionFamily, SharedExecutionOwnerExpectation,
+    SharedExecutionRecord, SharedExecutionRecordQuery, SharedExecutionRecordWriteResult,
+    SharedExecutionResultEnvelope, SharedExecutionRunnerCategory, SharedExecutionRunnerRef,
+    SharedExecutionSourceRef, SharedExecutionStatus, SharedExecutionSubstrateStore,
+    SharedExecutionTargetRef, SharedExecutionTransitionKind,
+    SharedExecutionTransitionPreconditions, SharedExecutionTransitionRequest,
+    SharedExecutionTransitionResult,
 };
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;

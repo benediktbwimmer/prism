@@ -488,7 +488,7 @@ The shared ref is not the source of truth for that level of detail.
 
 ---
 
-## 11. Proposed `prism_query` Surface
+## 11. Proposed `prism_code` Surface
 
 This feature should be usable without requiring callers to understand the raw shared-ref payloads.
 

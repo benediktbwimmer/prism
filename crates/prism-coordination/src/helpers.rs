@@ -129,6 +129,7 @@ pub(crate) fn policy_violation_from_blocker(
     let code = match blocker.kind {
         BlockerKind::Dependency => PolicyViolationCode::IncompletePlanTasks,
         BlockerKind::ClaimConflict => PolicyViolationCode::ClaimConflict,
+        BlockerKind::ArtifactRequired => PolicyViolationCode::ArtifactRequired,
         BlockerKind::ReviewRequired => PolicyViolationCode::ReviewRequired,
         BlockerKind::RiskReviewRequired => PolicyViolationCode::RiskReviewRequired,
         BlockerKind::ValidationRequired => PolicyViolationCode::ValidationRequired,

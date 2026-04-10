@@ -37,23 +37,22 @@ Target default agent path:
 - `why`, `nextAction`, and `suggestedActions` that let you continue without reconstructing context manually
 
 Use `prism_workset` after `prism_locate` and `prism_open` when you want the next bounded reads or validations before inventing a dedicated view.
-- `prism_query` only when the compact surface cannot express the need
+- `prism_code` only when the compact surface cannot express the need
 
 Compact-tool note:
 
 - the compact staged tools are available as top-level MCP tools
-- the rich semantic escape hatch is still `prism_query`
+- the rich semantic escape hatch is `prism_code`
 - this reference documents that rich query surface honestly so agents still have the escape hatch when they need it
 
 The MCP transport surface currently includes:
 
-- `prism_query` as the rich semantic read surface and escape hatch
-- `prism_mutate` for authoritative writes and narrow session repair mutations
+- `prism_code` as the canonical programmable surface
 - `prism://session` as the read-only view of current work, task focus, and workspace context
 
 ## Mental model
 
-Treat the current query surface as the rich semantic escape hatch, not the long-term default first
+Treat the current programmable surface as the rich semantic escape hatch, not the long-term default first
 hop.
 
 - TypeScript is for composition.
@@ -62,7 +61,8 @@ hop.
 - Ordinary multi-statement snippets are supported, including top-level `await`.
 - The returned value must be JSON-serializable.
 - `language` currently supports only `"ts"`.
-- `prism_query` is read-only in this implementation.
+- `prism_code` now exposes the canonical native write surface directly through the runtime-owned
+  compiler path
 
 Design principle for the future compact ABI:
 
@@ -85,7 +85,7 @@ interface QueryDiagnostic {
 
 Diagnostics are how the server tells you a query was ambiguous, truncated, or capped.
 
-Tool-level failures from `prism_query` now separate the main query failure classes:
+Tool-level failures from `prism_code` now separate the main query and mutation-lowering failure classes:
 
 - `query_parse_failed` for TypeScript parse/transpile errors
 - `query_typecheck_failed` for pre-execution PRISM API shape errors on the stable `prism.*` surface
@@ -1914,7 +1914,7 @@ type CuratorJobView = {
 
 ## MCP Resources
 
-Beyond `prism_query`, the MCP server exposes navigable `prism://...` resources.
+Beyond `prism_code`, the MCP server exposes navigable `prism://...` resources.
 
 - Static resources:
   - `prism://api-reference`
@@ -2054,20 +2054,17 @@ return prism.searchText("read context", {
 });
 ```
 
-### 5b. Inspect tool payload requirements without leaving `prism_query`
+### 5b. Inspect the canonical programmable tool contract without leaving `prism_code`
 
 ```ts
-const mutate = prism.tool("prism_mutate");
-return mutate?.actions.find((action) => action.action === "validation_feedback");
+return prism.tool("prism_code");
 ```
 
-### 5c. Validate a tool payload before you call the tool
+### 5c. Validate `prism_code` transport input before you call the tool
 
 ```ts
-return prism.validateToolInput("prism_mutate", {
-  action: "coordination",
-  kind: "task_create",
-  payload: { title: "Missing plan id" },
+return prism.validateToolInput("prism_code", {
+  code: "return prism.entrypoints().slice(0, 3);",
 });
 ```
 
@@ -2413,7 +2410,7 @@ return prism.memory.outcomes({
 });
 ```
 
-### 29. Inspect recent curator proposals through `prism_query`
+### 29. Inspect recent curator proposals through `prism_code`
 
 ```ts
 return prism.curator.jobs({ status: "completed", limit: 5 }).map((job) => ({
@@ -2638,11 +2635,11 @@ likely validations, and 1 to 2 `nextReads`.
 
 - Target direction: a compact staged default agent ABI built around `prism_locate`, `prism_open`,
   `prism_gather`, `prism_workset`, `prism_expand`, `prism_task_brief`, and `prism_concept`, with
-  `prism_query` retained as the semantic IR and escape hatch.
+  `prism_code` as the canonical programmable surface.
 - Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, focused local block retrieval, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
 - Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
 - Available now: consistent eager bundle helpers through `prism.symbolBundle(...)`, `prism.searchBundle(...)`, `prism.textSearchBundle(...)`, and `prism.targetBundle(...)` with stable `summary`, `diagnostics`, and `suggestedReads` fields. These remain useful, but they are no longer the intended long-term default first hop for agent work.
-- Available now: bounded workspace file reads through `prism.file(path).read(...)` and `prism.file(path).around(...)` for exact line-range and around-line inspection without leaving the PRISM query surface.
+- Available now: bounded workspace file reads through `prism.file(path).read(...)` and `prism.file(path).around(...)` for exact line-range and around-line inspection without leaving the PRISM programmable surface.
 - Available now: bounded workspace text search through `prism.searchText(...)` with regex support, path/glob filters, exact match locations, and capped snippets, plus `prism.textSearchBundle(...)` to collapse text matches, one raw file window, and nearby semantic context into one helper.
 - Available now: semantic recent-change inspection through `prism.changedFiles(...)`, `prism.changedSymbols(path, ...)`, `prism.recentPatches(...)`, `prism.diffFor(target, ...)`, and `prism.taskChanges(taskId, ...)` backed by recorded patch outcomes instead of raw diff dumps.
 - Available now: direct daemon connection discovery through `prism.connectionInfo()` plus workspace-backed runtime introspection through `prism.runtimeStatus()`, `prism.runtimeLogs(...)`, and `prism.runtimeTimeline(...)` for daemon health, recent structured log events, startup/refresh diagnosis, and bridge upstream-resolution / connect latency without defaulting to shell status checks.
@@ -2656,35 +2653,149 @@ likely validations, and 1 to 2 `nextReads`.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()`, flat proposal inspection through `prism.curator.proposals()`, and job detail through `prism.curator.job()`.
 - Available now: a canonical capabilities resource at `prism://capabilities` plus tool input schema resources through `prism://tool-schemas` and `prism://schema/tool/{toolName}` for direct MCP introspection.
 - Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, claim simulation, and workflow helpers for inbox/task/claim preview.
+- Available now: a first native coordination authoring slice through `prism.work.declare(...)`, `prism.claim.acquire(...)`, `prism.claim.renew(...)`, `prism.claim.release(...)`, `prism.artifact.propose(...)`, `prism.artifact.review(...)`, `prism.artifact.supersede(...)`, `prism.coordination.createPlan(...)`, `prism.coordination.openPlan(...)`, `prism.coordination.openTask(...)`, `plan.update(...)`, `plan.archive()`, `plan.addTask(...)`, `task.dependsOn(...)`, `task.update(...)`, `task.complete(...)`, and native task lifecycle helpers like `task.handoff(...)`, `task.acceptHandoff(...)`, `task.resume(...)`, and `task.reclaim(...)`.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
 
-## Mutation tool
+## Native coordination builders
 
-The query runtime is read-only. State changes happen through `prism_mutate`:
+The current native builder slice is intentionally narrow:
 
-- `prism_mutate`
-  - action `declare_work`
-  - action `checkpoint`
-  - action `outcome`
-  - action `memory`
-  - action `concept`
-  - action `concept_relation`
-  - action `session_repair`
-  - action `infer_edge`
-  - action `coordination`
-  - action `claim`
-  - action `artifact`
-  - action `test_ran`
-  - action `failure_observed`
-  - action `fix_validated`
-  - action `curator_apply_proposal`
-  - action `curator_promote_edge`
-  - action `curator_promote_concept`
-  - action `curator_promote_memory`
-  - action `curator_reject_proposal`
-  - shorthand `{ action, ...fields }` is accepted in addition to the canonical `{ action, input: { ... } }`
+- `prism.work.declare(...)`
+- `prism.claim.acquire(...)`
+- `prism.claim.renew(...)`
+- `prism.claim.release(...)`
+- `prism.artifact.propose(...)`
+- `prism.artifact.review(...)`
+- `prism.artifact.supersede(...)`
+- `prism.coordination.createPlan(...)`
+- `prism.coordination.openPlan(planId)`
+- `prism.coordination.openTask(taskId)`
+- `plan.update(...)`
+- `plan.archive()`
+- `plan.addTask(...)`
+  - supports the core task authoring fields already available in the native task create path:
+    `title`, `status`, `dependsOn`, `assignee`, `anchors`, `acceptance`,
+    `artifactRequirements`, and `reviewRequirements`
+- `task.dependsOn(...)`
+- `task.update(...)`
+  - now supports richer native task update fields including `assignee`, `priority`,
+    `dependsOn`, `anchors`, `acceptance`, `validationRefs`, `tags`,
+    `artifactRequirements`, and `reviewRequirements`
+- `task.complete(...)`
+- `task.handoff(...)`
+- `task.acceptHandoff(...)`
+- `task.resume(...)`
+- `task.reclaim(...)`
 
-Read current work, task focus, and workspace context through `prism://session`. Authoritative mutations do not create work implicitly: call `declare_work` first unless the mutation is intentionally using an explicit `taskId` or `claimId`.
+`prism.work.declare(...)` is a native compiler-managed write. The coordination, claim, artifact,
+and task lifecycle helpers all lower through the same structured `prism_code` write transaction
+during the invocation and commit once at the end of the call, without exposing a separate mutation
+API.
+
+### Declare work natively
+
+```ts
+const work = await prism.work.declare({
+  title: "Investigate native prism_code lifecycle coverage",
+  summary: "Bind declared work before coordination updates.",
+});
+
+return work;
+```
+
+### Acquire a claim and propose a reviewable artifact natively
+
+```ts
+const claim = await prism.claim.acquire({
+  anchors: [{
+    type: "node",
+    crateName: "demo",
+    path: "demo::main",
+    kind: "function",
+  }],
+  capability: "edit",
+  mode: "soft_exclusive",
+  coordinationTaskId: "task:123",
+});
+
+const artifact = await prism.artifact.propose({
+  taskId: "task:123",
+  diffRef: "patch:demo",
+});
+
+return { claim, artifact };
+```
+
+### Create a new plan with two tasks and one dependency
+
+```ts
+const plan = await prism.coordination.createPlan({
+  title: "Investigate refresh latency",
+  goal: "Understand the slow path before widening substrate work",
+});
+
+const baseline = await plan.addTask({ title: "Capture baseline timings" });
+const compare = await plan.addTask({
+  title: "Compare slow phases",
+  dependsOn: [baseline],
+});
+
+return { plan, baseline, compare };
+```
+
+### Extend an existing plan natively
+
+```ts
+const plan = await prism.coordination.openPlan("plan:123");
+await plan.update({
+  title: "Investigate the latest regression",
+  goal: "Verify the latest regression and archive the stale plan",
+});
+const investigate = await plan.addTask({
+  title: "Investigate the latest regression",
+  anchors: [{
+    type: "node",
+    crateName: "demo",
+    path: "demo::main",
+    kind: "function",
+  }],
+  artifactRequirements: [{
+    clientArtifactRequirementId: "patch",
+    kind: "code_change",
+  }],
+});
+return investigate;
+```
+
+### Update and complete an existing task natively
+
+```ts
+const task = await prism.coordination.openTask("task:123");
+await task.update({
+  title: "Investigate the latest regression thoroughly",
+  summary: "Re-check the refresh path after the runtime cutover.",
+  priority: 5,
+  tags: ["native-builder"],
+});
+await task.complete();
+return task;
+```
+
+## Mutation lowering
+
+Native `prism_code` writes now go through the runtime-owned compiler path directly.
+
+Public callers should use:
+
+- `prism.work.declare(...)`
+- `prism.claim.*`
+- `prism.artifact.*`
+- `prism.coordination.*`
+- returned plan and task handle methods
+
+No separate `prism.mutate(...)` surface is part of the intended `prism_code` model.
+
+Read current work, task focus, and workspace context through `prism://session`. Authoritative mutations do not create work implicitly: call `prism.work.declare(...)` first unless the mutation is intentionally using an explicit `taskId` or `claimId`.
 
 Patch observation is automatic. PRISM records file changes from `ObservedChangeSet` without requiring an explicit MCP call, and publishes durable change checkpoints automatically at mutation boundaries, work transitions, disconnect, or explicit `checkpoint` requests.
 "#;

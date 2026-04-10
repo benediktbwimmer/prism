@@ -146,6 +146,8 @@ mod tests {
                         covered_checklist_items: vec!["spec:a::checklist::item-1".into()],
                         covered_sections: Vec::new(),
                     }],
+                    artifact_requirements: Vec::new(),
+                    review_requirements: Vec::new(),
                     metadata: serde_json::Value::Null,
                     git_execution: prism_coordination::TaskGitExecution::default(),
                 }],

@@ -1,32 +1,19 @@
 use std::path::PathBuf;
 
 use prism_coordination::{
-    CoordinationEvent, CoordinationSnapshot, CoordinationSnapshotV2, EventExecutionOwner,
-    EventExecutionRecord, RuntimeDescriptor,
+    CoordinationEvent, CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    CoordinationSnapshotV2, EventExecutionOwner, EventExecutionRecord, RuntimeDescriptor,
 };
 use prism_ir::EventExecutionStatus;
 use prism_ir::{EventExecutionId, SessionId};
-use prism_store::CoordinationPersistResult;
 
 use crate::coordination_reads::{CoordinationReadConsistency, CoordinationReadFreshness};
 use crate::published_plans::HydratedCoordinationPlanState;
-use crate::shared_coordination_ref::SharedCoordinationRefDiagnostics;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CoordinationAuthorityBackendKind {
-    GitSharedRefs,
     Sqlite,
     Postgres,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CoordinationAuthorityCapabilities {
-    pub supports_eventual_reads: bool,
-    pub supports_transactions: bool,
-    pub supports_runtime_descriptors: bool,
-    pub supports_event_execution_records: bool,
-    pub supports_retained_history: bool,
-    pub supports_diagnostics: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -63,19 +50,25 @@ impl From<HydratedCoordinationPlanState> for CoordinationCurrentState {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CoordinationStateView {
-    Snapshot,
-    SnapshotV2,
-    PlanState,
-    RuntimeDescriptors,
-    Summary,
+impl From<CoordinationCurrentState> for HydratedCoordinationPlanState {
+    fn from(value: CoordinationCurrentState) -> Self {
+        Self {
+            snapshot: value.snapshot,
+            canonical_snapshot_v2: value.canonical_snapshot_v2,
+            runtime_descriptors: value.runtime_descriptors,
+        }
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CoordinationReadRequest {
-    pub consistency: CoordinationReadConsistency,
-    pub view: CoordinationStateView,
+#[derive(Debug, Clone, PartialEq)]
+pub struct CoordinationAuthorityCoordinationSurface {
+    pub canonical_snapshot_v2: CoordinationSnapshotV2,
+    pub read_model: CoordinationReadModel,
+    pub queue_read_model: CoordinationQueueReadModel,
+    pub tracked_snapshot_revision: Option<u64>,
+    pub startup_checkpoint_revision: Option<u64>,
+    pub read_model_revision: Option<u64>,
+    pub queue_read_model_revision: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -117,12 +110,6 @@ impl<T> CoordinationReadEnvelope<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CoordinationDerivedStateMode {
-    Inline,
-    Deferred,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CoordinationTransactionBase {
     LatestStrong,
@@ -131,13 +118,16 @@ pub enum CoordinationTransactionBase {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct CoordinationTransactionRequest {
+pub struct CoordinationAppendRequest {
     pub base: CoordinationTransactionBase,
     pub session_id: Option<SessionId>,
-    pub snapshot: CoordinationSnapshot,
-    pub canonical_snapshot_v2: CoordinationSnapshotV2,
     pub appended_events: Vec<CoordinationEvent>,
-    pub derived_state_mode: CoordinationDerivedStateMode,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CoordinationReplaceCurrentStateRequest {
+    pub base: CoordinationTransactionBase,
+    pub state: CoordinationCurrentState,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -159,13 +149,19 @@ pub struct CoordinationTransactionDiagnostic {
     pub message: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoordinationCommitReceipt {
+    pub revision: u64,
+    pub inserted_events: usize,
+    pub applied: bool,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoordinationTransactionResult {
     pub status: CoordinationTransactionStatus,
     pub committed: bool,
     pub authority: Option<CoordinationAuthorityStamp>,
-    pub snapshot: Option<CoordinationCurrentState>,
-    pub persisted: Option<CoordinationPersistResult>,
+    pub commit: Option<CoordinationCommitReceipt>,
     pub conflict: Option<CoordinationConflictInfo>,
     pub diagnostics: Vec<CoordinationTransactionDiagnostic>,
 }
@@ -311,19 +307,9 @@ pub struct PostgresCoordinationAuthorityBackendDetails {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CoordinationAuthorityBackendDetails {
-    GitSharedRefs(SharedCoordinationRefDiagnostics),
     Sqlite(SqliteCoordinationAuthorityBackendDetails),
     Postgres(PostgresCoordinationAuthorityBackendDetails),
     Unavailable,
-}
-
-impl CoordinationAuthorityBackendDetails {
-    pub fn as_git_shared_refs(&self) -> Option<&SharedCoordinationRefDiagnostics> {
-        match self {
-            Self::GitSharedRefs(value) => Some(value),
-            Self::Sqlite(_) | Self::Postgres(_) | Self::Unavailable => None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

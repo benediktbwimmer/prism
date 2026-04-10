@@ -830,6 +830,8 @@ pub(super) fn canonical_task_with_spec_refs(
         priority: None,
         tags: Vec::new(),
         spec_refs,
+        artifact_requirements: Vec::new(),
+        review_requirements: Vec::new(),
         metadata: serde_json::Value::Null,
         git_execution: prism_coordination::TaskGitExecution::default(),
     }

@@ -190,11 +190,15 @@ pub(crate) fn ambiguity_diagnostic_data(
 pub(crate) fn weak_search_match_reason(ambiguity: &SearchAmbiguityView) -> Option<&'static str> {
     let top = ambiguity.candidates.first()?;
     if top.bucket == "container" && top.score <= 0 {
-        Some("Top candidates are generic containers or support modules rather than strong implementation matches.")
+        Some(
+            "Top candidates are generic containers or support modules rather than strong implementation matches.",
+        )
     } else if top.bucket == "tests" {
         Some("Top candidates are test-only matches rather than likely implementation targets.")
     } else if top.score <= 0 {
-        Some("The strongest remaining candidate is still weak after ranking and likely needs more intent.")
+        Some(
+            "The strongest remaining candidate is still weak after ranking and likely needs more intent.",
+        )
     } else {
         None
     }

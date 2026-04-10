@@ -127,11 +127,9 @@ This means Actions share with validation and event jobs:
 - result envelopes
 - provenance
 
-Actions should also reuse the same underlying PRISM read and write capabilities already exposed
-through:
+Actions should also reuse the same underlying PRISM read and write capabilities exposed through:
 
-- `prism_query`
-- `prism_mutate`
+- `prism_code`
 
 That means an Action runner should not need a second workflow-specific state API. It should be able
 to query or mutate coordination state through the same native capability contracts, exposed through

@@ -340,10 +340,10 @@ impl PrismMcpServer {
         &self,
         args: PrismMutationArgs,
     ) -> Result<PrismMutationResult, McpError> {
-        let response = self.prism_mutate(Parameters(args))?;
+        let response = self.execute_prism_mutation_internal(args)?;
         let structured = response.structured_content.ok_or_else(|| {
             McpError::internal_error(
-                "prism_mutate did not return structured content",
+                "prism_code mutation lowering did not return structured content",
                 Some(json!({
                     "code": "mutation_missing_structured_content",
                 })),
@@ -351,13 +351,201 @@ impl PrismMcpServer {
         })?;
         serde_json::from_value::<PrismMutationResult>(structured).map_err(|error| {
             McpError::internal_error(
-                "failed to decode structured prism_mutate result",
+                "failed to decode structured prism_code mutation result",
                 Some(json!({
                     "code": "mutation_result_decode_failed",
                     "error": error.to_string(),
                 })),
             )
         })
+    }
+
+    fn clone_with_shared_session(&self) -> Self {
+        Self {
+            tool_router: self.tool_router.clone(),
+            host: Arc::clone(&self.host),
+            session: Arc::clone(&self.session),
+        }
+    }
+
+    fn prism_code_mutation_context(
+        &self,
+        credential: Option<PrismMutationCredentialArgs>,
+        bridge_execution: Option<PrismMutationBridgeExecutionArgs>,
+        dry_run: bool,
+    ) -> crate::prism_code_compiler::PrismCodeWriteRuntimeFactory {
+        let coordination_server = self.clone_with_shared_session();
+        crate::prism_code_compiler::PrismCodeWriteRuntimeFactory::new(
+            Arc::new(move |payload: Value| {
+                let args = serde_json::from_value::<PrismCoordinationArgs>(json!({
+                    "kind": "coordination_transaction",
+                    "payload": payload,
+                }))
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+                coordination_server
+                    .execute_prism_code_coordination(
+                        args,
+                        credential.as_ref(),
+                        bridge_execution.as_ref(),
+                        dry_run,
+                    )
+                    .map_err(|error| anyhow::anyhow!(error.to_string()))
+            }),
+            dry_run,
+        )
+    }
+
+    fn execute_prism_code_claim(
+        &self,
+        args: PrismClaimArgs,
+        credential: Option<&PrismMutationCredentialArgs>,
+        bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
+    ) -> Result<Value, McpError> {
+        self.host
+            .ensure_mutation_action_enabled("claim", "coordination claim mutations")
+            .map_err(map_query_error)?;
+        let authenticated = self.authenticate_mutation(
+            credential,
+            bridge_execution,
+            MutationCapabilityRequirement::MutateCoordination,
+        )?;
+        self.require_declared_work_context("claim", args.task_id.is_some())?;
+        let result = self.execute_logged_mutation(
+            "prism_code.claim",
+            MutationRefreshPolicy::None,
+            || {
+                self.host.store_claim_authenticated(
+                    self.session.as_ref(),
+                    args,
+                    authenticated.authenticated_principal(),
+                )
+            },
+            |result| {
+                let mut result_ids = result.event_ids.clone();
+                if let Some(claim_id) = &result.claim_id {
+                    result_ids.push(claim_id.clone());
+                }
+                MutationOutcomeMeta::coordination(result_ids, result.violations.len())
+            },
+        )?;
+        Ok(result.state)
+    }
+
+    fn execute_prism_code_artifact(
+        &self,
+        args: PrismArtifactArgs,
+        credential: Option<&PrismMutationCredentialArgs>,
+        bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
+    ) -> Result<Value, McpError> {
+        self.host
+            .ensure_mutation_action_enabled("artifact", "coordination artifact mutations")
+            .map_err(map_query_error)?;
+        let authenticated = self.authenticate_mutation(
+            credential,
+            bridge_execution,
+            MutationCapabilityRequirement::MutateCoordination,
+        )?;
+        self.require_declared_work_context("artifact", args.task_id.is_some())?;
+        let result = self.execute_logged_mutation(
+            "prism_code.artifact",
+            MutationRefreshPolicy::None,
+            || {
+                self.host.store_artifact_authenticated(
+                    self.session.as_ref(),
+                    args,
+                    authenticated.authenticated_principal(),
+                )
+            },
+            |result| {
+                let mut result_ids = result.event_ids.clone();
+                if let Some(artifact_id) = &result.artifact_id {
+                    result_ids.push(artifact_id.clone());
+                }
+                if let Some(review_id) = &result.review_id {
+                    result_ids.push(review_id.clone());
+                }
+                MutationOutcomeMeta::coordination(result_ids, result.violations.len())
+            },
+        )?;
+        Ok(result.state)
+    }
+
+    fn execute_prism_code_coordination(
+        &self,
+        args: PrismCoordinationArgs,
+        credential: Option<&PrismMutationCredentialArgs>,
+        bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
+        dry_run: bool,
+    ) -> Result<Value, McpError> {
+        if dry_run {
+            let task_id = args.payload.get("taskId").cloned().unwrap_or(Value::Null);
+            return Ok(json!({
+                "id": task_id,
+                "dryRun": true,
+                "provisional": true,
+            }));
+        }
+        self.host
+            .ensure_mutation_action_enabled("coordination", "coordination workflow mutations")
+            .map_err(map_query_error)?;
+        let run = self
+            .host
+            .begin_mutation_run(self.session.as_ref(), "prism_code.coordination");
+        let authenticated = match self.authenticate_mutation_with_run(
+            &run,
+            credential,
+            bridge_execution,
+            MutationCapabilityRequirement::MutateCoordination,
+        ) {
+            Ok(authenticated) => authenticated,
+            Err(error) => {
+                run.finish_error(error.to_string());
+                return Err(error);
+            }
+        };
+        let has_staged_declared_work =
+            Self::coordination_includes_staged_declared_work(&args.payload);
+        if let Err(error) = self.require_declared_work_context_with_run(
+            &run,
+            "coordination",
+            Self::coordination_has_explicit_work_subject(&args) || has_staged_declared_work,
+        ) {
+            run.finish_error(error.to_string());
+            return Err(error);
+        }
+        let result = self.execute_logged_mutation_with_existing_run(
+            run,
+            "prism_code.coordination",
+            MutationRefreshPolicy::None,
+            |run| {
+                self.host.store_coordination_traced_authenticated(
+                    self.session.as_ref(),
+                    args,
+                    run,
+                    authenticated.authenticated_principal(),
+                )
+            },
+            |result| {
+                MutationOutcomeMeta::coordination(result.event_ids.clone(), result.violations.len())
+            },
+        )?;
+        Ok(result.state)
+    }
+
+    fn coordination_includes_staged_declared_work(payload: &Value) -> bool {
+        payload
+            .get("structuredTransaction")
+            .and_then(Value::as_object)
+            .and_then(|transaction| transaction.get("effects"))
+            .and_then(Value::as_array)
+            .is_some_and(|effects| {
+                effects.iter().any(|effect| {
+                    effect
+                        .get("kind")
+                        .and_then(Value::as_str)
+                        == Some("declare_work")
+                })
+            })
     }
 
     pub(crate) fn transport_bind_tool_schema(mut tool: Tool, features: &PrismMcpFeatures) -> Tool {
@@ -418,7 +606,7 @@ impl PrismMcpServer {
         let workspace_started = Instant::now();
         let workspace = self.host.workspace_session().ok_or_else(|| {
             McpError::internal_error(
-                "prism_mutate requires a workspace-backed session",
+                "prism_code mutations require a workspace-backed session",
                 Some(json!({
                     "code": "mutation_auth_workspace_required",
                     "nextAction": "Run the mutation against a workspace-backed PRISM MCP session so the server can verify principal credentials.",
@@ -589,7 +777,7 @@ impl PrismMcpServer {
     ) -> Result<(), McpError> {
         let workspace = self.host.workspace_session().ok_or_else(|| {
             McpError::internal_error(
-                "prism_mutate requires a workspace-backed session",
+                "prism_code mutations require a workspace-backed session",
                 Some(json!({
                     "code": "mutation_auth_workspace_required",
                     "nextAction": "Run the mutation against a workspace-backed PRISM MCP session so the server can verify the attached worktree execution lane.",
@@ -662,7 +850,7 @@ impl PrismMcpServer {
             Some(json!({
                 "code": "mutation_declared_work_required",
                 "action": action_name,
-                "nextAction": "Call `prism_mutate` with `action: \"declare_work\"` to declare intent before retrying this mutation, or provide an explicit taskId/claimId when the action supports it.",
+                "nextAction": "Call `prism_code` with `prism.work.declare({ title: ... })` to declare intent before retrying this mutation, or provide an explicit taskId/claimId when the action supports it.",
             })),
         ))
     }
@@ -1229,15 +1417,57 @@ impl PrismMcpServer {
     }
 
     #[tool(
-        name = "prism_query",
-        description = "Execute a read-only TypeScript query against the live PRISM runtime. Read the capabilities and schema resources for the currently available API surface.",
-        annotations(title = "Programmable PRISM Query", read_only_hint = true),
+        name = "prism_code",
+        description = "Execute JavaScript or TypeScript against the live PRISM runtime. prism_code is the canonical programmable PRISM surface for reads and writes through the runtime-owned compiler path.",
+        annotations(
+            title = "Programmable PRISM Code",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        ),
         output_schema = rmcp::handler::server::tool::schema_for_output::<QueryEnvelopeSchema>()
             .unwrap()
     )]
-    fn prism_query(
+    fn prism_code(
         &self,
-        Parameters(args): Parameters<PrismQueryArgs>,
+        Parameters(args): Parameters<PrismCodeArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let PrismCodeArgs {
+            code,
+            language,
+            credential,
+            bridge_execution,
+            dry_run,
+        } = args;
+        if code.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "code cannot be empty",
+                Some(json!({ "field": "code" })),
+            ));
+        }
+
+        let language = language.unwrap_or(QueryLanguage::Ts);
+        let code_mutation = if credential.is_some() || bridge_execution.is_some() {
+            Some(self.prism_code_mutation_context(credential, bridge_execution, dry_run))
+        } else {
+            None
+        };
+        let envelope = self
+            .host
+            .execute_code(
+                Arc::clone(&self.session),
+                &code,
+                language,
+                "prism_code",
+                code_mutation,
+            )
+            .map_err(map_code_error)?;
+        structured_tool_result(envelope)
+    }
+
+    fn execute_prism_query_internal(
+        &self,
+        args: PrismQueryArgs,
     ) -> Result<CallToolResult, McpError> {
         if args.code.trim().is_empty() {
             return Err(McpError::invalid_params(
@@ -1254,20 +1484,9 @@ impl PrismMcpServer {
         structured_tool_result(envelope)
     }
 
-    #[tool(
-        description = "Execute a coarse PRISM mutation. Use the tagged action union for outcomes, memory, validation feedback, inferred edges, coordination, claims, artifacts, and curator decisions.",
-        annotations(
-            title = "Mutate PRISM State",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<PrismMutationResult>()
-            .unwrap()
-    )]
-    fn prism_mutate(
+    fn execute_prism_mutation_internal(
         &self,
-        Parameters(args): Parameters<PrismMutationArgs>,
+        args: PrismMutationArgs,
     ) -> Result<CallToolResult, McpError> {
         let PrismMutationArgs {
             credential,
@@ -1277,7 +1496,7 @@ impl PrismMcpServer {
         let action = mutation.action_tag();
         if !self.host.features.prism_mutate_action_visible(action) {
             return Err(McpError::invalid_params(
-                "prism_mutate action is unavailable in the active runtime mode",
+                "prism_code mutation action is unavailable in the active runtime mode",
                 Some(json!({
                     "action": action,
                     "runtimeMode": self.host.features.runtime_mode_label(),

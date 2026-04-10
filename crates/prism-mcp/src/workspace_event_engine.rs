@@ -3,10 +3,11 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use anyhow::Result;
-use prism_coordination::EventExecutionOwner;
+use prism_coordination::{CoordinationSnapshot, EventExecutionOwner};
 use prism_core::{
-    CoordinationAuthorityStoreProvider, EventExecutionRecordAuthorityQuery,
-    EventExecutionTransitionRequest, EventExecutionTransitionResult,
+    open_shared_execution_substrate_store, CoordinationAuthorityStoreProvider,
+    CoordinationReadConsistency, SharedExecutionRecord, SharedExecutionRecordQuery,
+    SharedExecutionTransitionRequest, SharedExecutionTransitionResult,
 };
 
 use crate::host_mutations::WorkspaceMutationBroker;
@@ -35,33 +36,37 @@ impl WorkspaceEventEngine {
         }
     }
 
-    pub(crate) fn read_event_execution_records(
+    pub(crate) fn read_execution_records(
         &self,
-        request: EventExecutionRecordAuthorityQuery,
-    ) -> Result<Vec<prism_coordination::EventExecutionRecord>> {
+        request: SharedExecutionRecordQuery,
+    ) -> Result<Vec<SharedExecutionRecord>> {
+        Ok(open_shared_execution_substrate_store(
+            &self.workspace_root,
+            &self.authority_store_provider,
+        )?
+        .read_execution_records(request)?
+        .value
+        .unwrap_or_default())
+    }
+
+    pub(crate) fn read_authoritative_snapshot(&self) -> Result<Option<CoordinationSnapshot>> {
         Ok(self
             .authority_store_provider
-            .open(&self.workspace_root)?
-            .read_event_execution_records(request)?
-            .value
-            .unwrap_or_default())
+            .open_snapshot(&self.workspace_root)?
+            .read_snapshot(CoordinationReadConsistency::Strong)?
+            .value)
     }
 
     pub(crate) fn workspace_root(&self) -> &std::path::Path {
         &self.workspace_root
     }
 
-    pub(crate) fn read_broker(&self) -> &WorkspaceReadBroker {
-        self._read_broker.as_ref()
-    }
-
-    pub(crate) fn apply_event_execution_transition(
+    pub(crate) fn apply_execution_transition(
         &self,
-        request: EventExecutionTransitionRequest,
-    ) -> Result<EventExecutionTransitionResult> {
-        self.authority_store_provider
-            .open(&self.workspace_root)?
-            .apply_event_execution_transition(request)
+        request: SharedExecutionTransitionRequest,
+    ) -> Result<SharedExecutionTransitionResult> {
+        open_shared_execution_substrate_store(&self.workspace_root, &self.authority_store_provider)?
+            .apply_execution_transition(request)
     }
 }
 
@@ -87,17 +92,17 @@ pub(crate) fn service_event_execution_owner(
 
 #[cfg(test)]
 mod tests {
-    use prism_coordination::{
-        CoordinationSnapshot, EventExecutionOwner, EventExecutionRecord, Plan,
-    };
+    use prism_coordination::{CoordinationSnapshot, EventExecutionOwner, Plan};
     use prism_core::{
-        EventExecutionOwnerExpectation, EventExecutionTransitionKind,
-        EventExecutionTransitionPreconditions, EventExecutionTransitionRequest,
-        EventExecutionTransitionStatus,
+        EventExecutionTransitionStatus, SharedExecutionFamily, SharedExecutionOwnerExpectation,
+        SharedExecutionRecord, SharedExecutionRecordQuery, SharedExecutionRunnerCategory,
+        SharedExecutionRunnerRef, SharedExecutionSourceRef, SharedExecutionStatus,
+        SharedExecutionTargetRef, SharedExecutionTransitionKind,
+        SharedExecutionTransitionPreconditions, SharedExecutionTransitionRequest,
     };
     use prism_ir::{
-        EventExecutionId, EventExecutionStatus, EventTriggerKind, PlanId, PlanStatus,
-        PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalKind, SessionId,
+        EventExecutionId, EventTriggerKind, PlanId, PlanStatus, PrincipalActor,
+        PrincipalAuthorityId, PrincipalId, PrincipalKind, SessionId,
     };
     use serde_json::json;
 
@@ -112,15 +117,27 @@ mod tests {
         EventTriggerExecutionPassRequest,
     };
 
-    fn event_execution_record(id: &str, claimed_at: u64) -> EventExecutionRecord {
-        EventExecutionRecord {
-            id: EventExecutionId::new(id),
-            trigger_kind: EventTriggerKind::RecurringPlanTick,
-            trigger_target: Some(prism_ir::NodeRef::plan(PlanId::new("plan:test"))),
-            hook_id: Some("hook:test".to_string()),
-            hook_version_digest: Some("sha256:test".to_string()),
-            authoritative_revision: Some(1),
-            status: EventExecutionStatus::Claimed,
+    fn event_execution_record(id: &str, claimed_at: u64) -> SharedExecutionRecord {
+        SharedExecutionRecord {
+            execution_id: id.to_string(),
+            family: SharedExecutionFamily::EventJob,
+            source: SharedExecutionSourceRef::EventTrigger {
+                trigger_kind: EventTriggerKind::RecurringPlanTick,
+                trigger_target: Some(prism_ir::NodeRef::plan(PlanId::new("plan:test"))),
+                hook_id: Some("hook:test".to_string()),
+                hook_version_digest: Some("sha256:test".to_string()),
+                authoritative_revision: Some(1),
+            },
+            runner: SharedExecutionRunnerRef {
+                category: SharedExecutionRunnerCategory::EventRunner,
+                kind: "hook:test".to_string(),
+            },
+            capability_class: None,
+            target: Some(SharedExecutionTargetRef::Service {
+                worktree_id: Some("worktree:test".to_string()),
+                service_instance_id: Some("service:test".to_string()),
+            }),
+            status: SharedExecutionStatus::Claimed,
             owner: Some(EventExecutionOwner {
                 principal: Some(PrincipalActor {
                     authority_id: PrincipalAuthorityId::new("authority:test"),
@@ -137,7 +154,8 @@ mod tests {
             finished_at: None,
             expires_at: Some(claimed_at + 30),
             summary: Some("tick".to_string()),
-            metadata: serde_json::json!({ "attempt": 1 }),
+            result: None,
+            details: serde_json::json!({ "attempt": 1 }),
         }
     }
 
@@ -153,13 +171,13 @@ mod tests {
         let record = event_execution_record("event-exec:mcp:1", 100);
 
         let claim = event_engine
-            .apply_event_execution_transition(EventExecutionTransitionRequest {
-                event_execution_id: record.id.clone(),
-                preconditions: EventExecutionTransitionPreconditions {
+            .apply_execution_transition(SharedExecutionTransitionRequest {
+                execution_id: EventExecutionId::new(record.execution_id.clone()),
+                preconditions: SharedExecutionTransitionPreconditions {
                     require_missing: true,
-                    ..EventExecutionTransitionPreconditions::default()
+                    ..SharedExecutionTransitionPreconditions::default()
                 },
-                transition: EventExecutionTransitionKind::Claim {
+                transition: SharedExecutionTransitionKind::Claim {
                     record: record.clone(),
                 },
             })
@@ -167,16 +185,16 @@ mod tests {
         assert_eq!(claim.status, EventExecutionTransitionStatus::Applied);
 
         let started = event_engine
-            .apply_event_execution_transition(EventExecutionTransitionRequest {
-                event_execution_id: record.id.clone(),
-                preconditions: EventExecutionTransitionPreconditions {
+            .apply_execution_transition(SharedExecutionTransitionRequest {
+                execution_id: EventExecutionId::new(record.execution_id.clone()),
+                preconditions: SharedExecutionTransitionPreconditions {
                     require_missing: false,
-                    expected_status: Some(EventExecutionStatus::Claimed),
-                    expected_owner: EventExecutionOwnerExpectation::Exact(
+                    expected_status: Some(SharedExecutionStatus::Claimed),
+                    expected_owner: SharedExecutionOwnerExpectation::Exact(
                         record.owner.clone().expect("event execution owner"),
                     ),
                 },
-                transition: EventExecutionTransitionKind::Start {
+                transition: SharedExecutionTransitionKind::Start {
                     started_at: 110,
                     summary: Some("running".to_string()),
                 },
@@ -185,14 +203,15 @@ mod tests {
         assert_eq!(started.status, EventExecutionTransitionStatus::Applied);
 
         let stored = event_engine
-            .read_event_execution_records(prism_core::EventExecutionRecordAuthorityQuery {
+            .read_execution_records(SharedExecutionRecordQuery {
                 consistency: prism_core::CoordinationReadConsistency::Strong,
-                event_execution_id: Some(record.id.clone()),
+                family: Some(SharedExecutionFamily::EventJob),
+                execution_id: Some(EventExecutionId::new(record.execution_id.clone())),
                 limit: None,
             })
             .expect("stored event execution record");
         assert_eq!(stored.len(), 1);
-        assert_eq!(stored[0].status, EventExecutionStatus::Running);
+        assert_eq!(stored[0].status, SharedExecutionStatus::Running);
         assert_eq!(stored[0].started_at, Some(110));
     }
 
@@ -232,23 +251,37 @@ mod tests {
         id: &str,
         claimed_at: u64,
         expires_at: Option<u64>,
-        status: EventExecutionStatus,
-    ) -> EventExecutionRecord {
-        EventExecutionRecord {
-            id: EventExecutionId::new(id),
-            trigger_kind: EventTriggerKind::RecurringPlanTick,
-            trigger_target: Some(prism_ir::NodeRef::plan(PlanId::new("plan:recurring"))),
-            hook_id: Some("hooks/recurring-plan".to_string()),
-            hook_version_digest: Some("sha256:recurring".to_string()),
-            authoritative_revision: Some(7),
+        status: SharedExecutionStatus,
+    ) -> SharedExecutionRecord {
+        let owner = super::service_event_execution_owner(root);
+        SharedExecutionRecord {
+            execution_id: id.to_string(),
+            family: SharedExecutionFamily::EventJob,
+            source: SharedExecutionSourceRef::EventTrigger {
+                trigger_kind: EventTriggerKind::RecurringPlanTick,
+                trigger_target: Some(prism_ir::NodeRef::plan(PlanId::new("plan:recurring"))),
+                hook_id: Some("hooks/recurring-plan".to_string()),
+                hook_version_digest: Some("sha256:recurring".to_string()),
+                authoritative_revision: Some(7),
+            },
+            runner: SharedExecutionRunnerRef {
+                category: SharedExecutionRunnerCategory::EventRunner,
+                kind: "hooks/recurring-plan".to_string(),
+            },
+            capability_class: None,
+            target: Some(SharedExecutionTargetRef::Service {
+                worktree_id: owner.worktree_id.clone(),
+                service_instance_id: owner.service_instance_id.clone(),
+            }),
             status,
-            owner: Some(super::service_event_execution_owner(root)),
+            owner: Some(owner),
             claimed_at,
             started_at: None,
             finished_at: None,
             expires_at,
             summary: Some("Recurring plan tick claimed".to_string()),
-            metadata: json!({
+            result: None,
+            details: json!({
                 "eventTrigger": {
                     "kind": "recurring_plan_tick",
                     "planId": "plan:recurring"
@@ -261,23 +294,23 @@ mod tests {
     fn workspace_event_engine_claims_due_recurring_plan_ticks_from_service_backed_state() {
         let root = temp_workspace();
         let session = index_workspace_session_with_shared_runtime(&root);
-        session
-            .mutate_coordination(|prism| {
-                let mut snapshot = CoordinationSnapshot::default();
-                snapshot
-                    .plans
-                    .push(recurring_plan("plan:recurring", 100, 7));
-                prism.replace_coordination_runtime(
-                    snapshot.clone(),
-                    snapshot.to_canonical_snapshot_v2(),
-                    Vec::new(),
-                );
-                Ok(())
+        let mut snapshot = CoordinationSnapshot::default();
+        snapshot
+            .plans
+            .push(recurring_plan("plan:recurring", 100, 7));
+        prism_core::configured_coordination_authority_store_provider(&root)
+            .expect("authority store provider")
+            .open_snapshot(&root)
+            .expect("authority store")
+            .replace_current_state(prism_core::CoordinationReplaceCurrentStateRequest {
+                base: prism_core::CoordinationTransactionBase::LatestStrong,
+                state: prism_core::CoordinationCurrentState {
+                    snapshot: snapshot.clone(),
+                    canonical_snapshot_v2: snapshot.to_canonical_snapshot_v2(),
+                    runtime_descriptors: Vec::new(),
+                },
             })
             .expect("coordination snapshot should persist");
-        session
-            .flush_materializations()
-            .expect("coordination materialization should flush");
         let host = host_with_session(session);
         let event_engine = host
             .workspace_event_engine()
@@ -296,41 +329,47 @@ mod tests {
             panic!("expected claimed outcome");
         };
         assert_eq!(candidate.plan_id, "plan:recurring");
-        assert_eq!(record.status, EventExecutionStatus::Claimed);
-        assert_eq!(record.authoritative_revision, Some(7));
-        assert_eq!(record.trigger_kind, EventTriggerKind::RecurringPlanTick);
+        assert_eq!(record.status, SharedExecutionStatus::Claimed);
+        let SharedExecutionSourceRef::EventTrigger {
+            authoritative_revision,
+            trigger_kind,
+            trigger_target,
+            ..
+        } = &record.source
+        else {
+            panic!("expected event-trigger source");
+        };
+        assert_eq!(*authoritative_revision, Some(7));
+        assert_eq!(*trigger_kind, EventTriggerKind::RecurringPlanTick);
         assert_eq!(
-            record
-                .trigger_target
-                .as_ref()
-                .map(|target| target.id.as_str()),
+            trigger_target.as_ref().map(|target| target.id.as_str()),
             Some("plan:recurring")
         );
         assert_eq!(record.expires_at, Some(145));
-        assert_eq!(record.metadata["eventTrigger"]["recurrencePolicy"], "daily");
+        assert_eq!(record.details["eventTrigger"]["recurrencePolicy"], "daily");
     }
 
     #[test]
     fn workspace_event_engine_skips_due_recurring_plan_ticks_with_existing_execution() {
         let root = temp_workspace();
         let session = index_workspace_session_with_shared_runtime(&root);
-        session
-            .mutate_coordination(|prism| {
-                let mut snapshot = CoordinationSnapshot::default();
-                snapshot
-                    .plans
-                    .push(recurring_plan("plan:recurring", 100, 7));
-                prism.replace_coordination_runtime(
-                    snapshot.clone(),
-                    snapshot.to_canonical_snapshot_v2(),
-                    Vec::new(),
-                );
-                Ok(())
+        let mut snapshot = CoordinationSnapshot::default();
+        snapshot
+            .plans
+            .push(recurring_plan("plan:recurring", 100, 7));
+        prism_core::configured_coordination_authority_store_provider(&root)
+            .expect("authority store provider")
+            .open_snapshot(&root)
+            .expect("authority store")
+            .replace_current_state(prism_core::CoordinationReplaceCurrentStateRequest {
+                base: prism_core::CoordinationTransactionBase::LatestStrong,
+                state: prism_core::CoordinationCurrentState {
+                    snapshot: snapshot.clone(),
+                    canonical_snapshot_v2: snapshot.to_canonical_snapshot_v2(),
+                    runtime_descriptors: Vec::new(),
+                },
             })
             .expect("coordination snapshot should persist");
-        session
-            .flush_materializations()
-            .expect("coordination materialization should flush");
         let host = host_with_session(session);
         let event_engine = host
             .workspace_event_engine()
@@ -363,7 +402,7 @@ mod tests {
         assert_eq!(
             reason,
             &EventTriggerClaimSkipReason::ExistingExecution {
-                status: EventExecutionStatus::Claimed,
+                status: SharedExecutionStatus::Claimed,
             }
         );
     }
@@ -382,17 +421,17 @@ mod tests {
             "event-exec:recurring-plan-tick:plan:recurring:7:100",
             100,
             Some(145),
-            EventExecutionStatus::Claimed,
+            SharedExecutionStatus::Claimed,
         );
 
         let claim = event_engine
-            .apply_event_execution_transition(EventExecutionTransitionRequest {
-                event_execution_id: record.id.clone(),
-                preconditions: EventExecutionTransitionPreconditions {
+            .apply_execution_transition(SharedExecutionTransitionRequest {
+                execution_id: EventExecutionId::new(record.execution_id.clone()),
+                preconditions: SharedExecutionTransitionPreconditions {
                     require_missing: true,
-                    ..EventExecutionTransitionPreconditions::default()
+                    ..SharedExecutionTransitionPreconditions::default()
                 },
-                transition: EventExecutionTransitionKind::Claim {
+                transition: SharedExecutionTransitionKind::Claim {
                     record: record.clone(),
                 },
             })
@@ -410,7 +449,7 @@ mod tests {
             panic!("expected execution candidate");
         };
         assert_eq!(candidate.action, EventTriggerExecutionAction::Start);
-        assert_eq!(candidate.record.id, record.id);
+        assert_eq!(candidate.record.execution_id, record.execution_id);
     }
 
     #[test]
@@ -427,17 +466,17 @@ mod tests {
             "event-exec:recurring-plan-tick:plan:recurring:7:100",
             100,
             Some(100),
-            EventExecutionStatus::Claimed,
+            SharedExecutionStatus::Claimed,
         );
 
         let claim = event_engine
-            .apply_event_execution_transition(EventExecutionTransitionRequest {
-                event_execution_id: record.id.clone(),
-                preconditions: EventExecutionTransitionPreconditions {
+            .apply_execution_transition(SharedExecutionTransitionRequest {
+                execution_id: EventExecutionId::new(record.execution_id.clone()),
+                preconditions: SharedExecutionTransitionPreconditions {
                     require_missing: true,
-                    ..EventExecutionTransitionPreconditions::default()
+                    ..SharedExecutionTransitionPreconditions::default()
                 },
-                transition: EventExecutionTransitionKind::Claim {
+                transition: SharedExecutionTransitionKind::Claim {
                     record: record.clone(),
                 },
             })
@@ -455,6 +494,6 @@ mod tests {
             panic!("expected execution candidate");
         };
         assert_eq!(candidate.action, EventTriggerExecutionAction::Expire);
-        assert_eq!(candidate.record.id, record.id);
+        assert_eq!(candidate.record.execution_id, record.execution_id);
     }
 }
