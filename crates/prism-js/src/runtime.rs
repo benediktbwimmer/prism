@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use crate::runtime_option_keys_js_object;
+use crate::surface_registry::runtime_option_keys_js_object;
 
 pub fn runtime_prelude() -> &'static str {
     static PRELUDE: OnceLock<String> = OnceLock::new();
@@ -1071,21 +1071,7 @@ function __prismCoordinationTaskHandle(raw) {
         "task.update",
         input,
         "input",
-        [
-          "title",
-          "status",
-          "summary",
-          "assignee",
-          "priority",
-          "dependsOn",
-          "depends_on",
-          "anchors",
-          "acceptance",
-          "validationRefs",
-          "tags",
-          "artifactRequirements",
-          "reviewRequirements",
-        ]
+        __prismOptionKeys.taskUpdate
       );
       return __prismCoordinationTaskHandle(
         __prismHost("__coordinationTaskUpdate", {
@@ -1099,7 +1085,7 @@ function __prismCoordinationTaskHandle(raw) {
         "task.complete",
         input,
         "input",
-        ["title", "summary"]
+        __prismOptionKeys.taskComplete
       );
       return __prismCoordinationTaskHandle(
         __prismHost("__coordinationTaskComplete", {
@@ -1113,7 +1099,7 @@ function __prismCoordinationTaskHandle(raw) {
         "task.handoff",
         input,
         "input",
-        ["summary", "toAgent", "to_agent"]
+        __prismOptionKeys.taskHandoff
       );
       return __prismCoordinationTaskHandle(
         __prismHost("__coordinationTaskHandoff", {
@@ -1127,7 +1113,7 @@ function __prismCoordinationTaskHandle(raw) {
         "task.acceptHandoff",
         input,
         "input",
-        ["agent"]
+        __prismOptionKeys.taskAcceptHandoff
       );
       return __prismCoordinationTaskHandle(
         __prismHost("__coordinationTaskAcceptHandoff", {
@@ -1141,7 +1127,7 @@ function __prismCoordinationTaskHandle(raw) {
         "task.resume",
         input,
         "input",
-        ["agent"]
+        __prismOptionKeys.taskResume
       );
       return __prismCoordinationTaskHandle(
         __prismHost("__coordinationTaskResume", {
@@ -1155,7 +1141,7 @@ function __prismCoordinationTaskHandle(raw) {
         "task.reclaim",
         input,
         "input",
-        ["agent"]
+        __prismOptionKeys.taskReclaim
       );
       return __prismCoordinationTaskHandle(
         __prismHost("__coordinationTaskReclaim", {
@@ -1185,7 +1171,7 @@ function __prismCoordinationPlanHandle(raw) {
         "plan.update",
         input,
         "input",
-        ["title", "goal", "status", "policy", "scheduling"]
+        __prismOptionKeys.planUpdate
       );
       return __prismCoordinationPlanHandle(
         __prismHost("__coordinationPlanUpdate", {
@@ -1206,17 +1192,7 @@ function __prismCoordinationPlanHandle(raw) {
         "plan.addTask",
         input,
         "input",
-        [
-          "title",
-          "status",
-          "dependsOn",
-          "depends_on",
-          "assignee",
-          "anchors",
-          "acceptance",
-          "artifactRequirements",
-          "reviewRequirements",
-        ]
+        __prismOptionKeys.planAddTask
       );
       return __prismCoordinationTaskHandle(
         __prismHost("__coordinationPlanAddTask", {
@@ -1392,17 +1368,7 @@ const __prismBase = Object.freeze({
         "prism.work.declare",
         input,
         "input",
-        [
-          "title",
-          "kind",
-          "summary",
-          "parentWorkId",
-          "parent_work_id",
-          "coordinationTaskId",
-          "coordination_task_id",
-          "planId",
-          "plan_id",
-        ]
+        __prismOptionKeys.workDeclare
       );
       __prismRequiredStringField("prism.work.declare", normalized, "title");
       return __prismHost("__declareWork", { input: normalized });
@@ -1414,16 +1380,7 @@ const __prismBase = Object.freeze({
         "prism.claim.acquire",
         input,
         "input",
-        [
-          "anchors",
-          "capability",
-          "mode",
-          "ttlSeconds",
-          "ttl_seconds",
-          "agent",
-          "coordinationTaskId",
-          "coordination_task_id",
-        ]
+        __prismOptionKeys.claimAcquire
       );
       const coordinationTaskId =
         normalized?.coordinationTaskId ?? normalized?.coordination_task_id;
@@ -1452,7 +1409,7 @@ const __prismBase = Object.freeze({
         "prism.claim.renew",
         input,
         "input",
-        ["ttlSeconds", "ttl_seconds"]
+        __prismOptionKeys.claimRenew
       );
       return __prismClaimHandle(
         __prismHost("__claimRenew", {
@@ -1477,22 +1434,7 @@ const __prismBase = Object.freeze({
         "prism.artifact.propose",
         input,
         "input",
-        [
-          "taskId",
-          "task_id",
-          "artifactRequirementId",
-          "artifact_requirement_id",
-          "anchors",
-          "diffRef",
-          "diff_ref",
-          "evidence",
-          "requiredValidations",
-          "required_validations",
-          "validatedChecks",
-          "validated_checks",
-          "riskScore",
-          "risk_score",
-        ]
+        __prismOptionKeys.artifactPropose
       );
       const taskId = normalized?.taskId ?? normalized?.task_id;
       return __prismArtifactHandle(
@@ -1525,18 +1467,7 @@ const __prismBase = Object.freeze({
         "prism.artifact.review",
         input,
         "input",
-        [
-          "reviewRequirementId",
-          "review_requirement_id",
-          "verdict",
-          "summary",
-          "requiredValidations",
-          "required_validations",
-          "validatedChecks",
-          "validated_checks",
-          "riskScore",
-          "risk_score",
-        ]
+        __prismOptionKeys.artifactReview
       );
       return __prismArtifactHandle(
         __prismHost("__artifactReview", {
@@ -1562,7 +1493,7 @@ const __prismBase = Object.freeze({
         "prism.coordination.createPlan",
         input,
         "input",
-        ["title", "goal", "status", "policy", "scheduling"]
+        __prismOptionKeys.coordinationCreatePlan
       );
       return __prismCoordinationPlanHandle(
         __prismHost("__coordinationCreatePlan", { input: normalized })

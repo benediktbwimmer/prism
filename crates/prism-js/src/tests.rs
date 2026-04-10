@@ -235,6 +235,9 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism.work.declare"));
     assert!(docs.contains("prism.coordination.createPlan"));
     assert!(docs.contains("prism.artifact.propose"));
+    assert!(docs.contains("claim: {"));
+    assert!(docs.contains("artifact: {"));
+    assert!(docs.contains("work: {"));
 }
 
 #[test]
@@ -307,6 +310,16 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("runtimeStatus()"));
     assert!(prelude.contains("runtimeLogs(options = {})"));
     assert!(prelude.contains("runtimeTimeline(options = {})"));
+    assert!(prelude.contains("__prismOptionKeys.workDeclare"));
+    assert!(prelude.contains("__prismOptionKeys.claimAcquire"));
+    assert!(prelude.contains("__prismOptionKeys.claimRenew"));
+    assert!(prelude.contains("__prismOptionKeys.artifactPropose"));
+    assert!(prelude.contains("__prismOptionKeys.artifactReview"));
+    assert!(prelude.contains("__prismOptionKeys.coordinationCreatePlan"));
+    assert!(prelude.contains("__prismOptionKeys.planAddTask"));
+    assert!(prelude.contains("__prismOptionKeys.planUpdate"));
+    assert!(prelude.contains("__prismOptionKeys.taskUpdate"));
+    assert!(prelude.contains("__prismOptionKeys.taskComplete"));
     assert!(prelude.contains("runtime: Object.freeze({"));
     assert!(prelude.contains("connection: Object.freeze({"));
     assert!(prelude.contains("memoryRecall(options = {})"));

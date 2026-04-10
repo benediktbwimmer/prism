@@ -90,7 +90,7 @@ This roadmap is complete only when all of the following are true.
 
 Current phase checklist:
 
-- [ ] Phase 0: freeze roadmap, architecture, and review process
+- [x] Phase 0: freeze roadmap, architecture, and review process
 - [ ] Phase 1: build the compiler substrate and surface registry foundations
 - [ ] Phase 2: implement PRISM Program IR and effect classification
 - [ ] Phase 3: implement structured transactional lowering for current write semantics
@@ -103,7 +103,14 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 0: freeze roadmap, architecture, and review process
+- Phase 1: build the compiler substrate and surface registry foundations
+
+Current phase note:
+
+- Phase 0 is complete.
+- Phase 1 is in progress. The first implementation slice establishes a compiler-owned
+  `prism-js` surface registry and uses that registry to drive the runtime prelude and
+  typechecked method surface for current compiler-owned SDK entry points.
 
 ## 5. Ordering thesis
 

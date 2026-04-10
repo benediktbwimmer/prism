@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
+use crate::compiler_surface::prism_compiler_method_specs;
 use prism_memory::TaskReplay;
 use schemars::schema_for;
 use serde_json::{Map, Value};
@@ -331,16 +332,6 @@ pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
         method!("prism.tools", "tools(): ToolCatalogEntryView[];", PrismSurfaceTypeRef::ArrayOfNamed("ToolCatalogEntryView")),
         method!("prism.tool", "tool(name: string): ToolSchemaView | null;", PrismSurfaceTypeRef::NullableNamed("ToolSchemaView")),
         method!("prism.validateToolInput", "validateToolInput(name: string, input: unknown): ToolInputValidationView;", PrismSurfaceTypeRef::Named("ToolInputValidationView")),
-        method!("prism.work.declare", "declare(input: { title: string; kind?: string; summary?: string; parentWorkId?: string; coordinationTaskId?: string; planId?: string }): unknown;", PrismSurfaceTypeRef::Unknown),
-        method!("prism.claim.acquire", "acquire(input: { anchors: AnchorRef[]; capability: string; mode?: string; ttlSeconds?: number; agent?: string; coordinationTaskId?: string }): ClaimView;", PrismSurfaceTypeRef::Named("ClaimView")),
-        method!("prism.claim.renew", "renew(claim: ClaimView | string, input?: { ttlSeconds?: number }): ClaimView;", PrismSurfaceTypeRef::Named("ClaimView")),
-        method!("prism.claim.release", "release(claim: ClaimView | string): ClaimView;", PrismSurfaceTypeRef::Named("ClaimView")),
-        method!("prism.artifact.propose", "propose(input: { taskId: string; artifactRequirementId?: string; anchors?: AnchorRef[]; diffRef?: string; evidence?: string[]; requiredValidations?: string[]; validatedChecks?: string[]; riskScore?: number }): ArtifactView;", PrismSurfaceTypeRef::Named("ArtifactView")),
-        method!("prism.artifact.supersede", "supersede(artifact: ArtifactView | string): ArtifactView;", PrismSurfaceTypeRef::Named("ArtifactView")),
-        method!("prism.artifact.review", "review(artifact: ArtifactView | string, input: { reviewRequirementId?: string; verdict: string; summary: string; requiredValidations?: string[]; validatedChecks?: string[]; riskScore?: number }): ArtifactView;", PrismSurfaceTypeRef::Named("ArtifactView")),
-        method!("prism.coordination.createPlan", "createPlan(input: { title: string; goal?: string; status?: \"draft\" | \"active\" | \"blocked\" | \"completed\" | \"abandoned\" | \"archived\" }): unknown;", PrismSurfaceTypeRef::Unknown),
-        method!("prism.coordination.openPlan", "openPlan(planId: string): unknown;", PrismSurfaceTypeRef::Unknown),
-        method!("prism.coordination.openTask", "openTask(taskId: string): unknown;", PrismSurfaceTypeRef::Unknown),
         method!("prism.entrypoints", "entrypoints(): SymbolView[];", PrismSurfaceTypeRef::ArrayOfNamed("SymbolView")),
         method!("prism.file", "file(path: string): FileView;", PrismSurfaceTypeRef::Unknown),
         helper!("prism.file(path).read", PrismSurfaceTypeRef::NullableNamed("SourceExcerptView"), PrismRecordArgBundle { bundle_name: "fileRead", arg_name: "options", arg_index: 0, allowed_keys: FILE_READ_KEYS }),
@@ -447,6 +438,7 @@ pub fn prism_api_paths() -> &'static [&'static str] {
             prism_api_method_specs()
                 .iter()
                 .map(|spec| spec.path)
+                .chain(prism_compiler_method_specs().iter().map(|spec| spec.api.path))
                 .collect()
         })
         .as_slice()
@@ -456,6 +448,11 @@ pub fn prism_record_arg_bundle(bundle_name: &str) -> Option<PrismRecordArgBundle
     prism_api_method_specs()
         .iter()
         .filter_map(|spec| spec.record_arg)
+        .chain(
+            prism_compiler_method_specs()
+                .iter()
+                .filter_map(|spec| spec.api.record_arg),
+        )
         .find(|bundle| bundle.bundle_name == bundle_name)
 }
 
@@ -463,6 +460,7 @@ pub fn prism_method_spec(path: &str) -> Option<&'static PrismApiMethodSpec> {
     prism_api_method_specs()
         .iter()
         .find(|spec| spec.path == path)
+        .or_else(|| prism_compiler_method_specs().iter().map(|spec| &spec.api).find(|spec| spec.path == path))
 }
 
 pub fn prism_api_declaration_block() -> &'static str {
@@ -473,6 +471,7 @@ pub fn prism_api_declaration_block() -> &'static str {
             let mut namespaced: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
             for spec in prism_api_method_specs()
                 .iter()
+                .chain(prism_compiler_method_specs().iter().map(|spec| &spec.api))
                 .filter(|spec| spec.declaration.is_some())
             {
                 let declaration = spec.declaration.unwrap();
@@ -481,7 +480,15 @@ pub fn prism_api_declaration_block() -> &'static str {
                 if segments.len() == 2
                     && matches!(
                         segments[0],
-                        "connection" | "runtime" | "memory" | "curator" | "coordination"
+                        "connection"
+                            | "runtime"
+                            | "memory"
+                            | "curator"
+                            | "coordination"
+                            | "work"
+                            | "claim"
+                            | "artifact"
+                            | "review"
                     )
                 {
                     namespaced.entry(segments[0]).or_default().push(declaration);
@@ -510,34 +517,6 @@ pub fn prism_api_declaration_block() -> &'static str {
             block
         })
         .as_str()
-}
-
-pub fn runtime_option_keys_js_object() -> &'static str {
-    static JS: OnceLock<String> = OnceLock::new();
-    JS.get_or_init(|| {
-        let mut seen = BTreeSet::new();
-        let mut entries = Vec::new();
-        for bundle in prism_api_method_specs()
-            .iter()
-            .filter_map(|spec| spec.record_arg)
-        {
-            if !seen.insert(bundle.bundle_name) {
-                continue;
-            }
-            let keys = bundle
-                .allowed_keys
-                .iter()
-                .map(|key| format!("\"{key}\""))
-                .collect::<Vec<_>>()
-                .join(", ");
-            entries.push(format!(
-                "  {}: Object.freeze([{}])",
-                bundle.bundle_name, keys
-            ));
-        }
-        format!("Object.freeze({{\n{}\n}})", entries.join(",\n"))
-    })
-    .as_str()
 }
 
 pub fn prism_surface_type_for_method(path: &str) -> Option<PrismSurfaceType> {
