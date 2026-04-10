@@ -65,6 +65,7 @@ mod mutation_provenance;
 mod mutation_trace;
 mod peer_runtime_router;
 mod plan_surface;
+mod prism_code_compiler;
 mod prism_code_builder;
 mod process_lifecycle;
 mod proxy_server;

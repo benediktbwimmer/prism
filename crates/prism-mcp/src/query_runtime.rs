@@ -94,6 +94,7 @@ impl TsSnippetMode {
 
 struct PreparedTypescriptQuery {
     source: String,
+    specifier: String,
     user_snippet_first_line: usize,
 }
 
@@ -380,9 +381,25 @@ impl QueryHost {
         surface_name: &'static str,
         code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
     ) -> Result<QueryEnvelope> {
-        match language {
+        let compiler_input = crate::prism_code_compiler::PrismCodeCompilerInput::inline(
+            surface_name,
+            code,
+            language,
+            code_mutation.is_some(),
+        );
+        self.execute_compiler_input(session, compiler_input, code_mutation)
+    }
+
+    pub(crate) fn execute_compiler_input(
+        &self,
+        session: Arc<SessionState>,
+        compiler_input: crate::prism_code_compiler::PrismCodeCompilerInput,
+        code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
+    ) -> Result<QueryEnvelope> {
+        let surface_name = compiler_input.surface_name();
+        match compiler_input.language() {
             QueryLanguage::Ts => {
-                self.execute_typescript(session, code, surface_name, code_mutation)
+                self.execute_typescript(session, compiler_input, surface_name, code_mutation)
             }
         }
     }
@@ -564,15 +581,25 @@ impl QueryHost {
     fn execute_typescript(
         &self,
         session: Arc<SessionState>,
-        code: &str,
+        compiler_input: crate::prism_code_compiler::PrismCodeCompilerInput,
         surface_name: &'static str,
         code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
     ) -> Result<QueryEnvelope> {
+        let source_bundle = crate::prism_code_compiler::load_compiler_sources(
+            &compiler_input,
+            self.workspace_root(),
+        )?;
+        let root_source = source_bundle.root();
+        let code = root_source.source_text();
         let query_run = self
             .begin_query_run(session.as_ref(), surface_name, "typescript", code)
             .with_request_payload(json!({
                 "code": code,
                 "language": "ts",
+                "executionProduct": compiler_input.execution_product().code(),
+                "sourceOrigin": format!("{:?}", root_source.origin()),
+                "sourceSpecifier": root_source.specifier(),
+                "sourcePath": root_source.display_path(),
             }));
         let phase_args = json!({ "tool": surface_name, "queryKind": "typescript" });
         let mut execution = None;
@@ -615,7 +642,7 @@ impl QueryHost {
             );
             let mut statement_attempt = match self.execute_typescript_attempt(
                 Arc::clone(&session),
-                code,
+                root_source,
                 TsSnippetMode::StatementBody,
                 query_run.clone(),
                 surface_name,
@@ -628,7 +655,7 @@ impl QueryHost {
                     }
                     match self.execute_typescript_attempt(
                         Arc::clone(&session),
-                        code,
+                        root_source,
                         TsSnippetMode::ImplicitExpression,
                         query_run.clone(),
                         surface_name,
@@ -655,7 +682,7 @@ impl QueryHost {
             {
                 if let Ok(expression_attempt) = self.execute_typescript_attempt(
                     Arc::clone(&session),
-                    code,
+                    root_source,
                     TsSnippetMode::ImplicitExpression,
                     query_run.clone(),
                     surface_name,
@@ -757,27 +784,37 @@ impl QueryHost {
     fn execute_typescript_attempt(
         &self,
         session: Arc<SessionState>,
-        code: &str,
+        root_source: &crate::prism_code_compiler::PrismCodeSourceUnit,
         mode: TsSnippetMode,
         query_run: QueryRun,
         surface_name: &'static str,
         code_mutation: Option<crate::prism_code_builder::PrismCodeExecutionContext>,
     ) -> Result<TypescriptAttempt> {
         let prepared_started = Instant::now();
-        let prepared = prepare_typescript_query(code, mode);
+        let prepared =
+            prepare_typescript_query(root_source.source_text(), mode, root_source.specifier());
         query_run.record_phase(
             &format!("typescript.{}.prepare", mode.code()),
-            &json!({ "mode": mode.code() }),
+            &json!({
+                "mode": mode.code(),
+                "sourceSpecifier": root_source.specifier(),
+            }),
             prepared_started.elapsed(),
             true,
             None,
         );
         let typecheck_started = Instant::now();
-        if let Err(error) = crate::query_typecheck::typecheck_query(code, mode.static_check_mode())
-        {
+        if let Err(error) = crate::query_typecheck::typecheck_query_with_specifier(
+            root_source.source_text(),
+            mode.static_check_mode(),
+            root_source.specifier(),
+        ) {
             query_run.record_phase(
                 &format!("typescript.{}.typecheck", mode.code()),
-                &json!({ "mode": mode.code() }),
+                &json!({
+                    "mode": mode.code(),
+                    "sourceSpecifier": root_source.specifier(),
+                }),
                 typecheck_started.elapsed(),
                 false,
                 Some(error.to_string()),
@@ -786,17 +823,26 @@ impl QueryHost {
         }
         query_run.record_phase(
             &format!("typescript.{}.typecheck", mode.code()),
-            &json!({ "mode": mode.code() }),
+            &json!({
+                "mode": mode.code(),
+                "sourceSpecifier": root_source.specifier(),
+            }),
             typecheck_started.elapsed(),
             true,
             None,
         );
         let transpile_started = Instant::now();
-        let transpiled = match js_runtime::transpile_typescript(&prepared.source) {
+        let transpiled = match js_runtime::transpile_typescript_with_specifier(
+            &prepared.source,
+            &prepared.specifier,
+        ) {
             Ok(transpiled) => {
                 query_run.record_phase(
                     &format!("typescript.{}.transpile", mode.code()),
-                    &json!({ "mode": mode.code() }),
+                    &json!({
+                        "mode": mode.code(),
+                        "sourceSpecifier": root_source.specifier(),
+                    }),
                     transpile_started.elapsed(),
                     true,
                     None,
@@ -806,13 +852,16 @@ impl QueryHost {
             Err(error) => {
                 let error = parse_typescript_error(
                     error,
-                    code,
+                    root_source.source_text(),
                     prepared.user_snippet_first_line,
                     mode.code(),
                 );
                 query_run.record_phase(
                     &format!("typescript.{}.transpile", mode.code()),
-                    &json!({ "mode": mode.code() }),
+                    &json!({
+                        "mode": mode.code(),
+                        "sourceSpecifier": root_source.specifier(),
+                    }),
                     transpile_started.elapsed(),
                     false,
                     Some(error.to_string()),
@@ -834,7 +883,7 @@ impl QueryHost {
             Err(error) => {
                 let error = runtime_or_serialization_error(
                     error,
-                    code,
+                    root_source.source_text(),
                     prepared.user_snippet_first_line,
                     mode.code(),
                 );
@@ -891,7 +940,7 @@ impl QueryHost {
         let raw_result = worker_reply.result.map_err(|error| {
             runtime_or_serialization_error(
                 error,
-                code,
+                root_source.source_text(),
                 prepared.user_snippet_first_line,
                 mode.code(),
             )
@@ -952,7 +1001,11 @@ impl QueryHost {
     }
 }
 
-fn prepare_typescript_query(code: &str, mode: TsSnippetMode) -> PreparedTypescriptQuery {
+fn prepare_typescript_query(
+    code: &str,
+    mode: TsSnippetMode,
+    specifier: &str,
+) -> PreparedTypescriptQuery {
     let user_body = match mode {
         TsSnippetMode::StatementBody => code.to_string(),
         TsSnippetMode::ImplicitExpression => format!("return (\n{}\n);", code),
@@ -973,6 +1026,7 @@ fn prepare_typescript_query(code: &str, mode: TsSnippetMode) -> PreparedTypescri
         .unwrap_or(1);
     PreparedTypescriptQuery {
         source,
+        specifier: specifier.to_string(),
         user_snippet_first_line,
     }
 }

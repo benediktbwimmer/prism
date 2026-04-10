@@ -111,6 +111,10 @@ Current phase note:
 - Phase 1 is in progress. The first implementation slice establishes a compiler-owned
   `prism-js` surface registry and uses that registry to drive the runtime prelude and
   typechecked method surface for current compiler-owned SDK entry points.
+- The current Phase 1 slice also establishes a dedicated `prism_code_compiler` module family in
+  `prism-mcp`, a typed compiler-input envelope that classifies all four execution products, and a
+  shared source-loading foundation for inline snippets and repo-authored modules under
+  `.prism/code/**`.
 
 ## 5. Ordering thesis
 

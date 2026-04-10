@@ -46,9 +46,17 @@ impl StaticCheckMode {
 }
 
 pub(crate) fn typecheck_query(code: &str, mode: StaticCheckMode) -> Result<()> {
+    typecheck_query_with_specifier(code, mode, "file:///prism/typecheck.ts")
+}
+
+pub(crate) fn typecheck_query_with_specifier(
+    code: &str,
+    mode: StaticCheckMode,
+    specifier: &str,
+) -> Result<()> {
     let wrapped = mode.wrapped_source(code);
     let parsed = match parse_program(ParseParams {
-        specifier: ModuleSpecifier::parse("file:///prism/typecheck.ts")?,
+        specifier: ModuleSpecifier::parse(specifier)?,
         text: wrapped.into(),
         media_type: MediaType::TypeScript,
         capture_tokens: false,

@@ -224,7 +224,14 @@ fn run_js_worker(worker_index: usize, rx: mpsc::Receiver<JsWorkerMessage>) -> Re
 }
 
 pub(crate) fn transpile_typescript(source: &str) -> Result<String> {
-    let specifier = ModuleSpecifier::parse("file:///prism/query.ts")?;
+    transpile_typescript_with_specifier(source, "file:///prism/query.ts")
+}
+
+pub(crate) fn transpile_typescript_with_specifier(
+    source: &str,
+    specifier: &str,
+) -> Result<String> {
+    let specifier = ModuleSpecifier::parse(specifier)?;
     let parsed = parse_program(ParseParams {
         specifier,
         text: source.into(),
