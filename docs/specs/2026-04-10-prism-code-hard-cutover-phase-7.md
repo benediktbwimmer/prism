@@ -46,6 +46,12 @@ can extend the same compiler rather than introducing a second one.
 
 Phase 7 should land in bounded slices, not one risky cutover.
 
+Current progress:
+
+- Slice 1 is landed: `prism_code` is the canonical programmable read transport and the public docs/resources teach it first.
+- Slice 2 is landed in its minimum form: authenticated `prism_code` now supports `prism.mutate(...)` plus `dryRun` lowering through the canonical JS/TS surface.
+- Slice 3 remains: retire the remaining split public transport emphasis and finish moving recipes/docs/tests off the legacy `prism_query` / `prism_mutate` framing.
+
 ### Slice 1: Canonical read-side `prism_code` transport
 
 Deliver:

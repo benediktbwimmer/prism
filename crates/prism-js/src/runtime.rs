@@ -1101,6 +1101,9 @@ const __prismBase = Object.freeze({
   validateToolInput(name, input) {
     return __prismHost("validateToolInput", { name, input });
   },
+  mutate(input) {
+    return __prismHost("mutate", { input });
+  },
   entrypoints() {
     return __prismEnrichSymbols(__prismHost("entrypoints", {}));
   },

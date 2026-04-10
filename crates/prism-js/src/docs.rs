@@ -47,9 +47,9 @@ Compact-tool note:
 
 The MCP transport surface currently includes:
 
-- `prism_code` as the canonical programmable read surface in the current cutover slice
+- `prism_code` as the canonical programmable surface in the current cutover slice
 - `prism_query` as the legacy read transport while the cutover completes
-- `prism_mutate` for authoritative writes and narrow session repair mutations
+- `prism_mutate` as the underlying coarse mutation transport while `prism_code` lowering expands
 - `prism://session` as the read-only view of current work, task focus, and workspace context
 
 ## Mental model
@@ -63,7 +63,7 @@ hop.
 - Ordinary multi-statement snippets are supported, including top-level `await`.
 - The returned value must be JSON-serializable.
 - `language` currently supports only `"ts"`.
-- `prism_code` is read-only in this implementation slice.
+- `prism_code` now supports the first write-capable lowering path through `prism.mutate(...)`.
 
 Design principle for the future compact ABI:
 
@@ -86,7 +86,7 @@ interface QueryDiagnostic {
 
 Diagnostics are how the server tells you a query was ambiguous, truncated, or capped.
 
-Tool-level failures from `prism_code` in this read-only slice now separate the main query failure classes:
+Tool-level failures from `prism_code` now separate the main query and mutation-lowering failure classes:
 
 - `query_parse_failed` for TypeScript parse/transpile errors
 - `query_typecheck_failed` for pre-execution PRISM API shape errors on the stable `prism.*` surface
@@ -2659,11 +2659,11 @@ likely validations, and 1 to 2 `nextReads`.
 - Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, claim simulation, and workflow helpers for inbox/task/claim preview.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
 
-## Mutation tool
+## Mutation lowering
 
-The current `prism_code` implementation slice is still read-only. State changes happen through `prism_mutate` until the write-capable lowering path is cut over:
+The current `prism_code` implementation slice supports authoritative writes through `prism.mutate(...)`. Under the hood, the first lowering path still routes through the coarse mutation transport while later phases replace it with richer source-level builders:
 
-- `prism_mutate`
+- `prism.mutate(...)`
   - action `declare_work`
   - action `checkpoint`
   - action `outcome`

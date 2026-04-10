@@ -103,6 +103,35 @@ struct TypescriptAttempt {
     output_cap_hit: bool,
 }
 
+type PrismCodeMutationExecutor = Arc<dyn Fn(Value) -> Result<Value> + Send + Sync>;
+
+#[derive(Clone)]
+pub(crate) struct PrismCodeMutationContext {
+    executor: PrismCodeMutationExecutor,
+    used: Arc<Mutex<bool>>,
+}
+
+impl PrismCodeMutationContext {
+    pub(crate) fn new(executor: PrismCodeMutationExecutor) -> Self {
+        Self {
+            executor,
+            used: Arc::new(Mutex::new(false)),
+        }
+    }
+
+    fn execute(&self, input: Value) -> Result<Value> {
+        let mut used = self.used.lock().expect("code mutation lock poisoned");
+        if *used {
+            return Err(anyhow!(
+                "prism_code currently supports at most one `prism.mutate(...)` call per invocation"
+            ));
+        }
+        *used = true;
+        drop(used);
+        (self.executor)(input)
+    }
+}
+
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RemoteQueryDispatchArgs {
@@ -110,6 +139,11 @@ struct RemoteQueryDispatchArgs {
     path: Vec<String>,
     #[serde(default)]
     args: Vec<Value>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct CodeMutationArgs {
+    input: Value,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -232,8 +266,21 @@ impl QueryHost {
         code: &str,
         language: QueryLanguage,
     ) -> Result<QueryEnvelope> {
+        self.execute_code(session, code, language, "prism_query", None)
+    }
+
+    pub(crate) fn execute_code(
+        &self,
+        session: Arc<SessionState>,
+        code: &str,
+        language: QueryLanguage,
+        surface_name: &'static str,
+        code_mutation: Option<PrismCodeMutationContext>,
+    ) -> Result<QueryEnvelope> {
         match language {
-            QueryLanguage::Ts => self.execute_typescript(session, code),
+            QueryLanguage::Ts => {
+                self.execute_typescript(session, code, surface_name, code_mutation)
+            }
         }
     }
 
@@ -411,14 +458,20 @@ impl QueryHost {
         }
     }
 
-    fn execute_typescript(&self, session: Arc<SessionState>, code: &str) -> Result<QueryEnvelope> {
+    fn execute_typescript(
+        &self,
+        session: Arc<SessionState>,
+        code: &str,
+        surface_name: &'static str,
+        code_mutation: Option<PrismCodeMutationContext>,
+    ) -> Result<QueryEnvelope> {
         let query_run = self
-            .begin_query_run(session.as_ref(), "prism_query", "typescript", code)
+            .begin_query_run(session.as_ref(), surface_name, "typescript", code)
             .with_request_payload(json!({
                 "code": code,
                 "language": "ts",
             }));
-        let phase_args = json!({ "tool": "prism_query", "queryKind": "typescript" });
+        let phase_args = json!({ "tool": surface_name, "queryKind": "typescript" });
         let mut execution = None;
         let execute_started = Instant::now();
         match (|| -> Result<(
@@ -462,6 +515,8 @@ impl QueryHost {
                 code,
                 TsSnippetMode::StatementBody,
                 query_run.clone(),
+                surface_name,
+                code_mutation.clone(),
             ) {
                 Ok(attempt) => attempt,
                 Err(statement_error) => {
@@ -473,6 +528,8 @@ impl QueryHost {
                         code,
                         TsSnippetMode::ImplicitExpression,
                         query_run.clone(),
+                        surface_name,
+                        code_mutation.clone(),
                     ) {
                         Ok(expression_attempt) => expression_attempt,
                         Err(expression_error) => {
@@ -498,6 +555,8 @@ impl QueryHost {
                     code,
                     TsSnippetMode::ImplicitExpression,
                     query_run.clone(),
+                    surface_name,
+                    code_mutation.clone(),
                 ) {
                     execution = Some(expression_attempt.execution.clone());
                     statement_attempt = expression_attempt;
@@ -598,6 +657,8 @@ impl QueryHost {
         code: &str,
         mode: TsSnippetMode,
         query_run: QueryRun,
+        surface_name: &'static str,
+        code_mutation: Option<PrismCodeMutationContext>,
     ) -> Result<TypescriptAttempt> {
         let prepared_started = Instant::now();
         let prepared = prepare_typescript_query(code, mode);
@@ -656,11 +717,13 @@ impl QueryHost {
                 return Err(error);
             }
         };
-        let execution = QueryExecution::new(
+        let execution = QueryExecution::new_with_surface(
             self.clone(),
             Arc::clone(&session),
             self.current_prism(),
             query_run,
+            surface_name,
+            code_mutation,
         );
         let worker_roundtrip_started = Instant::now();
         let worker_reply = match self.worker_pool.execute(transpiled, execution.clone()) {
@@ -816,6 +879,8 @@ pub(crate) struct QueryExecution {
     session: Arc<SessionState>,
     prism: Arc<Prism>,
     query_run: QueryRun,
+    surface_name: &'static str,
+    code_mutation: Option<PrismCodeMutationContext>,
     diagnostics: Arc<Mutex<Vec<QueryDiagnostic>>>,
     semantic_context_cache: Arc<Mutex<SemanticContextCache>>,
 }
@@ -827,11 +892,24 @@ impl QueryExecution {
         prism: Arc<Prism>,
         query_run: QueryRun,
     ) -> Self {
+        Self::new_with_surface(host, session, prism, query_run, "prism_query", None)
+    }
+
+    pub(crate) fn new_with_surface(
+        host: QueryHost,
+        session: Arc<SessionState>,
+        prism: Arc<Prism>,
+        query_run: QueryRun,
+        surface_name: &'static str,
+        code_mutation: Option<PrismCodeMutationContext>,
+    ) -> Self {
         Self {
             host,
             session,
             prism,
             query_run,
+            surface_name,
+            code_mutation,
             diagnostics: Arc::new(Mutex::new(Vec::new())),
             semantic_context_cache: Arc::new(Mutex::new(SemanticContextCache::default())),
         }
@@ -908,11 +986,12 @@ impl QueryExecution {
                 if let Some(json_error) = error.downcast_ref::<serde_json::Error>() {
                     return json!({
                         "ok": false,
-                        "error": "prism_query arguments invalid",
+                        "error": format!("{} arguments invalid", self.surface_name),
                         "queryError": {
-                            "summary": "prism_query arguments invalid",
+                            "summary": format!("{} arguments invalid", self.surface_name),
                             "message": format!(
-                                "prism_query arguments invalid for `{}`: {}\nHint: Check the query method argument names, required fields, and value types, then retry.",
+                                "{} arguments invalid for `{}`: {}\nHint: Check the query method argument names, required fields, and value types, then retry.",
+                                self.surface_name,
                                 operation,
                                 json_error,
                             ),
@@ -1627,6 +1706,10 @@ impl QueryExecution {
                         self.validate_tool_input(&args.name, args.input),
                     )?)
                 }
+                "mutate" => {
+                    let args: CodeMutationArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_code_mutation(args.input)?)
+                }
                 "excerpt" => {
                     let args: SourceExcerptArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(self.source_excerpt(args)?)?)
@@ -1960,6 +2043,15 @@ return prism.file(__prismFileAroundArgs.path).around({
             return Err(query_feature_disabled_error(operation, group));
         }
         Ok(())
+    }
+
+    fn execute_code_mutation(&self, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "prism.mutate requires an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.execute(input)
     }
 
     pub(crate) fn best_symbol(&self, query: &str) -> Result<Option<SymbolView>> {

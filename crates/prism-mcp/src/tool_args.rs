@@ -814,11 +814,19 @@ pub(crate) struct PrismQueryArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PrismCodeArgs {
     #[schemars(description = "JavaScript or TypeScript snippet evaluated with a global `prism` object.")]
     pub(crate) code: String,
     #[schemars(description = "Code language. Only `ts` is currently supported.")]
     pub(crate) language: Option<QueryLanguage>,
+    #[schemars(description = "Optional authenticated principal envelope for write-capable prism_code calls.")]
+    pub(crate) credential: Option<PrismMutationCredentialArgs>,
+    #[schemars(description = "Optional attached bridge execution envelope for write-capable prism_code calls.")]
+    pub(crate) bridge_execution: Option<PrismMutationBridgeExecutionArgs>,
+    #[serde(default)]
+    #[schemars(description = "When true, validate and lower prism_code mutations without committing them.")]
+    pub(crate) dry_run: bool,
 }
 
 #[derive(Debug, Clone, JsonSchema)]
@@ -1782,7 +1790,7 @@ pub(crate) struct PrismMutationCredentialArgs {
     pub(crate) principal_token: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismMutationBridgeExecutionArgs {
     #[serde(alias = "worktree_id")]

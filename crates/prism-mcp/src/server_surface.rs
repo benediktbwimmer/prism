@@ -360,6 +360,77 @@ impl PrismMcpServer {
         })
     }
 
+    fn clone_with_shared_session(&self) -> Self {
+        Self {
+            tool_router: self.tool_router.clone(),
+            host: Arc::clone(&self.host),
+            session: Arc::clone(&self.session),
+        }
+    }
+
+    fn prism_code_mutation_context(
+        &self,
+        credential: Option<PrismMutationCredentialArgs>,
+        bridge_execution: Option<PrismMutationBridgeExecutionArgs>,
+        dry_run: bool,
+    ) -> crate::query_runtime::PrismCodeMutationContext {
+        let server = self.clone_with_shared_session();
+        crate::query_runtime::PrismCodeMutationContext::new(Arc::new(move |input: Value| {
+            let mut full_input = input
+                .as_object()
+                .cloned()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "prism.mutate expects an object shaped like prism_mutate input with `action` and `input` fields"
+                    )
+                })?;
+
+            if let Some(credential) = credential.as_ref() {
+                full_input.insert(
+                    "credential".to_string(),
+                    json!({
+                        "credentialId": credential.credential_id,
+                        "principalToken": credential.principal_token,
+                    }),
+                );
+            }
+            if let Some(bridge_execution) = bridge_execution.as_ref() {
+                full_input.insert(
+                    "bridgeExecution".to_string(),
+                    json!({
+                        "worktreeId": bridge_execution.worktree_id,
+                        "agentLabel": bridge_execution.agent_label,
+                    }),
+                );
+            }
+
+            let full_input = Value::Object(full_input);
+            if dry_run {
+                let validation = validate_tool_input_value_with_features(
+                    "prism_mutate",
+                    full_input.clone(),
+                    &server.host.features,
+                );
+                let action = full_input
+                    .get("action")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown");
+                return Ok(json!({
+                    "action": action,
+                    "dryRun": true,
+                    "validation": validation,
+                }));
+            }
+
+            let args = serde_json::from_value::<PrismMutationArgs>(full_input)
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+            let result = server
+                .execute_prism_mutation_via_tool(args)
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+            serde_json::to_value(result).map_err(Into::into)
+        }))
+    }
+
     pub(crate) fn transport_bind_tool_schema(mut tool: Tool, features: &PrismMcpFeatures) -> Tool {
         if let Some(Value::Object(schema)) =
             tool_transport_input_schema_value_with_features(tool.name.as_ref(), features)
@@ -1230,8 +1301,13 @@ impl PrismMcpServer {
 
     #[tool(
         name = "prism_code",
-        description = "Execute JavaScript or TypeScript against the live PRISM runtime. In this cutover slice, prism_code is the canonical programmable read surface and remains read-only while the write-capable lowering path is migrated.",
-        annotations(title = "Programmable PRISM Code", read_only_hint = true),
+        description = "Execute JavaScript or TypeScript against the live PRISM runtime. prism_code is the canonical programmable PRISM surface for reads and the current write-capable lowering path.",
+        annotations(
+            title = "Programmable PRISM Code",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        ),
         output_schema = rmcp::handler::server::tool::schema_for_output::<QueryEnvelopeSchema>()
             .unwrap()
     )]
@@ -1239,17 +1315,39 @@ impl PrismMcpServer {
         &self,
         Parameters(args): Parameters<PrismCodeArgs>,
     ) -> Result<CallToolResult, McpError> {
-        if args.code.trim().is_empty() {
+        let PrismCodeArgs {
+            code,
+            language,
+            credential,
+            bridge_execution,
+            dry_run,
+        } = args;
+        if code.trim().is_empty() {
             return Err(McpError::invalid_params(
                 "code cannot be empty",
                 Some(json!({ "field": "code" })),
             ));
         }
 
-        let language = args.language.unwrap_or(QueryLanguage::Ts);
+        let language = language.unwrap_or(QueryLanguage::Ts);
+        let code_mutation = if credential.is_some() || bridge_execution.is_some() {
+            Some(self.prism_code_mutation_context(
+                credential,
+                bridge_execution,
+                dry_run,
+            ))
+        } else {
+            None
+        };
         let envelope = self
             .host
-            .execute(Arc::clone(&self.session), &args.code, language)
+            .execute_code(
+                Arc::clone(&self.session),
+                &code,
+                language,
+                "prism_code",
+                code_mutation,
+            )
             .map_err(map_code_error)?;
         structured_tool_result(envelope)
     }

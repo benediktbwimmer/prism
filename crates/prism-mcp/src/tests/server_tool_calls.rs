@@ -506,6 +506,112 @@ async fn mcp_server_surfaces_structured_prism_code_error_categories() {
 }
 
 #[tokio::test]
+async fn mcp_server_executes_prism_code_mutations_via_lowering() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const result = await prism.mutate({
+  action: "declare_work",
+  input: { title: "Coordinate prism_code write" },
+});
+return {
+  action: result.action,
+  workId: result.result?.workId ?? result.result?.work_id ?? null,
+};
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(response["result"]["action"], "declare_work");
+    assert!(response["result"]["workId"]
+        .as_str()
+        .expect("workId should be a string")
+        .starts_with("work:"));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_dry_runs_prism_code_mutations() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "dryRun": true,
+                "code": r#"
+const result = await prism.mutate({
+  action: "validation_feedback",
+  input: {
+    context: "Dry run from prism_code",
+    prismSaid: "wrong",
+    actuallyTrue: "right",
+    category: "coordination",
+    verdict: "wrong",
+  },
+});
+return {
+  action: result.action,
+  dryRun: result.dryRun,
+  valid: result.validation?.valid ?? null,
+};
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(response["result"]["action"], "validation_feedback");
+    assert_eq!(response["result"]["dryRun"], true);
+    assert_eq!(response["result"]["valid"], true);
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);

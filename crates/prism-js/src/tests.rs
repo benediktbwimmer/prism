@@ -97,6 +97,7 @@ fn api_reference_mentions_primary_tool() {
     ));
     assert!(docs.contains("tools(): ToolCatalogEntryView[];"));
     assert!(docs.contains("tool(name: string): ToolSchemaView | null;"));
+    assert!(docs.contains("mutate(input: unknown): unknown;"));
     assert!(docs.contains("file(path: string): FileView;"));
     assert!(docs.contains("mcpLog(options?: McpLogOptions): McpCallLogEntryView[];"));
     assert!(docs.contains("slowMcpCalls(options?: McpLogOptions): McpCallLogEntryView[];"));

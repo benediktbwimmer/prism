@@ -427,6 +427,12 @@ Exit criteria:
 - the minimum compiler exists and can express current read and write behavior
 - later phases can extend that compiler rather than introduce one for the first time
 
+Current progress:
+
+- Slice 1 is landed: `prism_code` is the canonical read transport across MCP docs, schemas, resources, and API reference.
+- Slice 2 is landed in minimum form: authenticated `prism_code` now supports `prism.mutate(...)` plus `dryRun` lowering through the shared JS/TS surface.
+- Slice 3 remains before Phase 7 can close: remove the remaining public emphasis on `prism_query` / `prism_mutate` and finish migrating recipes/tests to `prism_code`.
+
 ### Phase 8: Implement the shared execution substrate core
 
 Implement the common lower layer described in:
