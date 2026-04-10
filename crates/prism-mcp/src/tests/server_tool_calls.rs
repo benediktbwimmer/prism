@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use super::*;
 use crate::tests_support::{
     call_tool_request, demo_node, first_tool_content_json, initialize_client,
-    initialized_notification, mutation_credential_json, prism_code_mutation_arguments,
+    initialized_notification, mutation_credential_json, prism_code_write_arguments,
     prism_code_read_arguments, read_resource_request, register_test_agent_worktree,
     register_test_human_worktree, response_json, server_with_node, temp_workspace,
     workspace_session_with_owner_credential,
@@ -30,7 +30,9 @@ fn resource_text(response: serde_json::Value) -> String {
 
 #[tokio::test]
 async fn mcp_server_reports_actionable_tool_input_errors() {
-    let server = server_with_node(demo_node());
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
     let (server_transport, client_transport) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move { server.serve(server_transport).await });
     let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
@@ -46,22 +48,13 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
         .send(call_tool_request(
             2,
             "prism_code",
-            prism_code_mutation_arguments(
-                json!({
-                    "action": "validation_feedback",
-                    "input": {
-                        "anchors": [],
-                        "prismSaid": "bad",
-                        "actuallyTrue": "worse",
-                        "category": "projection",
-                        "verdict": "helpful"
-                    }
-                }),
-                &crate::tests_support::MutationCredentialFixture {
-                    credential_id: "credential:test".to_string(),
-                    principal_id: "principal:test".to_string(),
-                    principal_token: "prism_ptok_test".to_string(),
-                },
+            prism_code_write_arguments(
+                r#"
+return prism.work.declare({
+  summary: "Missing required title for validation coverage",
+});
+"#,
+                &credential,
             ),
         ))
         .await
@@ -70,11 +63,9 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
     let response = response_json(client.receive().await.unwrap());
     assert_eq!(response["error"]["code"], -32602);
     let message = response["error"]["message"].as_str().unwrap_or_default();
-    assert!(message.contains("failed to deserialize parameters:"));
-    assert!(message.contains("validation_feedback"), "{message}");
-    assert!(message.contains("context"), "{message}");
-    assert!(message.contains("required fields:"), "{message}");
-    assert!(message.contains("prism.mutate"), "{message}");
+    assert!(message.contains("arguments invalid"), "{message}");
+    assert!(message.contains("declare"), "{message}");
+    assert!(message.contains("title"), "{message}");
 
     running.cancel().await.unwrap();
 }
@@ -108,7 +99,7 @@ async fn mcp_server_rejects_prism_code_mutation_without_credential() {
             2,
             "prism_code",
             json!({
-                "code": "return prism.mutate({ action: \"validation_feedback\", input: { context: \"Dogfooding auth envelope validation.\", prismSaid: \"Mutation should accept ambient session state.\", actuallyTrue: \"Mutation should reject calls without an explicit credential envelope.\", category: \"coordination\", verdict: \"wrong\" } });"
+                "code": "return prism.work.declare({ title: \"Dogfooding auth envelope validation\" });"
             })
             .as_object()
             .unwrap()
@@ -118,9 +109,9 @@ async fn mcp_server_rejects_prism_code_mutation_without_credential() {
         .unwrap();
 
     let response = response_json(client.receive().await.unwrap());
-    assert_eq!(response["error"]["code"], -32602);
+    assert_eq!(response["error"]["code"], -32603);
     let message = response["error"]["message"].as_str().unwrap_or_default();
-    assert!(message.contains("credential"), "{message}");
+    assert!(message.contains("authenticated prism_code invocation"), "{message}");
 
     running.cancel().await.unwrap();
 }
@@ -505,13 +496,11 @@ async fn mcp_server_executes_prism_code_mutations_via_lowering() {
             json!({
                 "credential": mutation_credential_json(&credential),
                 "code": r#"
-const result = await prism.mutate({
-  action: "declare_work",
-  input: { title: "Coordinate prism_code write" },
+const result = await prism.work.declare({
+  title: "Coordinate prism_code write",
 });
 return {
-  action: result.action,
-  workId: result.result?.workId ?? result.result?.work_id ?? null,
+  workId: result.workId ?? result.work_id ?? null,
 };
 "#
             })
@@ -523,7 +512,6 @@ return {
         .unwrap();
 
     let response = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(response["result"]["action"], "declare_work");
     assert!(response["result"]["workId"]
         .as_str()
         .expect("workId should be a string")
@@ -556,20 +544,13 @@ async fn mcp_server_dry_runs_prism_code_mutations() {
                 "credential": mutation_credential_json(&credential),
                 "dryRun": true,
                 "code": r#"
-const result = await prism.mutate({
-  action: "validation_feedback",
-  input: {
-    context: "Dry run from prism_code",
-    prismSaid: "wrong",
-    actuallyTrue: "right",
-    category: "coordination",
-    verdict: "wrong",
-  },
+const result = await prism.coordination.createPlan({
+  title: "Dry run plan",
+  goal: "Validate dry-run compiler path",
 });
 return {
-  action: result.action,
-  dryRun: result.dryRun,
-  valid: result.validation?.valid ?? null,
+  id: result.id ?? null,
+  provisional: result.provisional ?? null,
 };
 "#
             })
@@ -581,9 +562,8 @@ return {
         .unwrap();
 
     let response = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(response["result"]["action"], "validation_feedback");
-    assert_eq!(response["result"]["dryRun"], true);
-    assert_eq!(response["result"]["valid"], true);
+    assert_eq!(response["result"]["id"], "plan_0");
+    assert_eq!(response["result"]["provisional"], true);
 
     running.cancel().await.unwrap();
 }

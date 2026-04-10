@@ -258,17 +258,14 @@ pub(crate) fn prism_code_read_arguments(code: impl Into<String>) -> serde_json::
     serde_json::Map::from_iter([(String::from("code"), json!(code.into()))])
 }
 
-pub(crate) fn prism_code_mutation_arguments(
-    mutation: Value,
+pub(crate) fn prism_code_write_arguments(
+    code: impl Into<String>,
     credential: &MutationCredentialFixture,
 ) -> serde_json::Map<String, Value> {
     serde_json::Map::from_iter([
         (
             String::from("code"),
-            json!(format!(
-                "return prism.mutate({});",
-                serde_json::to_string(&mutation).expect("mutation payload should serialize"),
-            )),
+            json!(code.into()),
         ),
         (
             String::from("credential"),

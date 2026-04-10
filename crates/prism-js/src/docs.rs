@@ -61,8 +61,8 @@ hop.
 - Ordinary multi-statement snippets are supported, including top-level `await`.
 - The returned value must be JSON-serializable.
 - `language` currently supports only `"ts"`.
-- `prism_code` now supports a native coordination builder slice for plan/task authoring, while
-  `prism.mutate(...)` remains available as a transitional legacy escape hatch.
+- `prism_code` now exposes the canonical native write surface directly through the runtime-owned
+  compiler path
 
 Design principle for the future compact ABI:
 
@@ -2690,9 +2690,10 @@ The current native builder slice is intentionally narrow:
 `prism.work.declare(...)` is a native direct write. The coordination builder helpers stage one
 coordination transaction during the `prism_code` invocation and commit it at the end of the call.
 The direct claim, artifact, and task lifecycle helpers execute native coordination mutations
-without exposing `prism.mutate(...)`, but they are still one write operation per invocation today.
+through the same `prism_code` write runtime without exposing a separate mutation API. They are
+still one write operation per invocation today.
 
-### Declare work without `prism.mutate(...)`
+### Declare work natively
 
 ```ts
 const work = await prism.work.declare({
@@ -2783,31 +2784,17 @@ return task;
 
 ## Mutation lowering
 
-`prism.mutate(...)` is still available as a transitional legacy escape hatch. Under the hood, it
-still routes through the coarse mutation transport while later phases replace the remaining
-non-native paths with richer source-level builders:
+Native `prism_code` writes now go through the runtime-owned compiler path directly.
 
-- `prism.mutate(...)`
-  - action `declare_work`
-  - action `checkpoint`
-  - action `outcome`
-  - action `memory`
-  - action `concept`
-  - action `concept_relation`
-  - action `session_repair`
-  - action `infer_edge`
-  - action `coordination`
-  - action `claim`
-  - action `artifact`
-  - action `test_ran`
-  - action `failure_observed`
-  - action `fix_validated`
-  - action `curator_apply_proposal`
-  - action `curator_promote_edge`
-  - action `curator_promote_concept`
-  - action `curator_promote_memory`
-  - action `curator_reject_proposal`
-  - shorthand `{ action, ...fields }` is accepted in addition to the canonical `{ action, input: { ... } }`
+Public callers should use:
+
+- `prism.work.declare(...)`
+- `prism.claim.*`
+- `prism.artifact.*`
+- `prism.coordination.*`
+- returned plan and task handle methods
+
+No separate `prism.mutate(...)` surface is part of the intended `prism_code` model.
 
 Read current work, task focus, and workspace context through `prism://session`. Authoritative mutations do not create work implicitly: call `prism.work.declare(...)` first unless the mutation is intentionally using an explicit `taskId` or `claimId`.
 

@@ -374,104 +374,399 @@ impl PrismMcpServer {
         bridge_execution: Option<PrismMutationBridgeExecutionArgs>,
         dry_run: bool,
     ) -> crate::prism_code_builder::PrismCodeExecutionContext {
-        let legacy_server = self.clone_with_shared_session();
+        let direct_write_server = self.clone_with_shared_session();
         let coordination_server = self.clone_with_shared_session();
-        let legacy_credential = credential.clone();
-        let legacy_bridge_execution = bridge_execution.clone();
+        let direct_write_credential = credential.clone();
+        let direct_write_bridge_execution = bridge_execution.clone();
         crate::prism_code_builder::PrismCodeExecutionContext::new(
-            Arc::new(move |input: Value| {
-                let mut full_input = input.as_object().cloned().ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "prism.mutate expects an object with `action` and `input` fields"
+            Arc::new(move |operation| {
+                direct_write_server
+                    .execute_prism_code_direct_write(
+                        operation,
+                        direct_write_credential.as_ref(),
+                        direct_write_bridge_execution.as_ref(),
+                        dry_run,
                     )
-                })?;
-
-                if let Some(credential) = legacy_credential.as_ref() {
-                    full_input.insert(
-                        "credential".to_string(),
-                        json!({
-                            "credentialId": credential.credential_id,
-                            "principalToken": credential.principal_token,
-                        }),
-                    );
-                }
-                if let Some(bridge_execution) = legacy_bridge_execution.as_ref() {
-                    full_input.insert(
-                        "bridgeExecution".to_string(),
-                        json!({
-                            "worktreeId": bridge_execution.worktree_id,
-                            "agentLabel": bridge_execution.agent_label,
-                        }),
-                    );
-                }
-
-                let full_input = Value::Object(full_input);
-                if dry_run {
-                    let validation = validate_tool_input_value_with_features(
-                        "prism_mutate",
-                        full_input.clone(),
-                        &legacy_server.host.features,
-                    );
-                    let action = full_input
-                        .get("action")
-                        .and_then(Value::as_str)
-                        .unwrap_or("unknown");
-                    return Ok(json!({
-                        "action": action,
-                        "dryRun": true,
-                        "validation": validation,
-                    }));
-                }
-
-                let args = serde_json::from_value::<PrismMutationArgs>(full_input)
-                    .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-                let result = legacy_server
-                    .execute_prism_mutation_via_tool(args)
-                    .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-                serde_json::to_value(result).map_err(Into::into)
+                    .map_err(|error| anyhow::anyhow!(error.to_string()))
             }),
             Arc::new(move |payload: Value| {
-                let mut full_input = json!({
-                    "action": "coordination",
-                    "input": {
-                        "kind": "coordination_transaction",
-                        "payload": payload,
-                    }
-                });
-                if let Some(credential) = credential.as_ref() {
-                    full_input["credential"] = json!({
-                        "credentialId": credential.credential_id,
-                        "principalToken": credential.principal_token,
-                    });
-                }
-                if let Some(bridge_execution) = bridge_execution.as_ref() {
-                    full_input["bridgeExecution"] = json!({
-                        "worktreeId": bridge_execution.worktree_id,
-                        "agentLabel": bridge_execution.agent_label,
-                    });
-                }
-                if dry_run {
-                    let validation = validate_tool_input_value_with_features(
-                        "prism_mutate",
-                        full_input,
-                        &coordination_server.host.features,
-                    );
-                    return Ok(PrismMutationResult {
-                        action: PrismMutationActionSchema::Coordination,
-                        result: json!({
-                            "dryRun": true,
-                            "validation": validation,
-                        }),
-                    });
-                }
-                let args = serde_json::from_value::<PrismMutationArgs>(full_input)
+                let args = serde_json::from_value::<PrismCoordinationArgs>(json!({
+                    "kind": "coordination_transaction",
+                    "payload": payload,
+                }))
                     .map_err(|error| anyhow::anyhow!(error.to_string()))?;
                 coordination_server
-                    .execute_prism_mutation_via_tool(args)
+                    .execute_prism_code_coordination(
+                        args,
+                        credential.as_ref(),
+                        bridge_execution.as_ref(),
+                        dry_run,
+                    )
                     .map_err(|error| anyhow::anyhow!(error.to_string()))
             }),
             dry_run,
         )
+    }
+
+    fn execute_prism_code_direct_write(
+        &self,
+        operation: crate::prism_code_builder::PrismCodeDirectWrite,
+        credential: Option<&PrismMutationCredentialArgs>,
+        bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
+        dry_run: bool,
+    ) -> Result<Value, McpError> {
+        match operation {
+            crate::prism_code_builder::PrismCodeDirectWrite::DeclareWork { input } => {
+                let args = serde_json::from_value::<PrismDeclareWorkArgs>(input)
+                    .map_err(|error| McpError::invalid_params(error.to_string(), None))?;
+                if dry_run {
+                    return Ok(json!({
+                        "workId": "dryrun:work",
+                        "title": args.title,
+                        "summary": args.summary,
+                        "dryRun": true,
+                        "provisional": true,
+                    }));
+                }
+                let authenticated = self.authenticate_mutation(
+                    credential,
+                    bridge_execution,
+                    MutationCapabilityRequirement::AnyAuthenticated,
+                )?;
+                let result = self.execute_logged_mutation(
+                    "prism_code.declare_work",
+                    MutationRefreshPolicy::None,
+                    || {
+                        self.host.declare_work_without_refresh_authenticated(
+                            self.session.as_ref(),
+                            args.clone(),
+                            authenticated.authenticated_principal(),
+                        )
+                    },
+                    |result| {
+                        MutationOutcomeMeta::task(
+                            Some(result.work_id.clone()),
+                            vec![result.work_id.clone()],
+                            0,
+                        )
+                    },
+                )?;
+                serde_json::to_value(result).map_err(|error| map_query_error(error.into()))
+            }
+            crate::prism_code_builder::PrismCodeDirectWrite::ClaimAcquire { input } => {
+                let args = serde_json::from_value::<PrismClaimArgs>(json!({
+                    "action": "acquire",
+                    "payload": input,
+                }))
+                .map_err(|error| McpError::invalid_params(error.to_string(), None))?;
+                if dry_run {
+                    return Ok(json!({
+                        "id": "dryrun:claim",
+                        "dryRun": true,
+                        "provisional": true,
+                    }));
+                }
+                self.execute_prism_code_claim(args, credential, bridge_execution)
+            }
+            crate::prism_code_builder::PrismCodeDirectWrite::ClaimRenew {
+                claim_id,
+                ttl_seconds,
+            } => {
+                let args = serde_json::from_value::<PrismClaimArgs>(json!({
+                    "action": "renew",
+                    "payload": {
+                        "claimId": claim_id,
+                        "ttlSeconds": ttl_seconds,
+                    }
+                }))
+                .map_err(|error| McpError::invalid_params(error.to_string(), None))?;
+                if dry_run {
+                    return Ok(json!({
+                        "id": args.payload.get("claimId").cloned().unwrap_or(Value::Null),
+                        "dryRun": true,
+                        "provisional": true,
+                    }));
+                }
+                self.execute_prism_code_claim(args, credential, bridge_execution)
+            }
+            crate::prism_code_builder::PrismCodeDirectWrite::ClaimRelease { claim_id } => {
+                let args = serde_json::from_value::<PrismClaimArgs>(json!({
+                    "action": "release",
+                    "payload": {
+                        "claimId": claim_id,
+                    }
+                }))
+                .map_err(|error| McpError::invalid_params(error.to_string(), None))?;
+                if dry_run {
+                    return Ok(json!({
+                        "id": args.payload.get("claimId").cloned().unwrap_or(Value::Null),
+                        "dryRun": true,
+                        "provisional": true,
+                    }));
+                }
+                self.execute_prism_code_claim(args, credential, bridge_execution)
+            }
+            crate::prism_code_builder::PrismCodeDirectWrite::ArtifactPropose { input } => {
+                let args = serde_json::from_value::<PrismArtifactArgs>(json!({
+                    "action": "propose",
+                    "payload": input,
+                }))
+                .map_err(|error| McpError::invalid_params(error.to_string(), None))?;
+                if dry_run {
+                    return Ok(json!({
+                        "id": "dryrun:artifact",
+                        "dryRun": true,
+                        "provisional": true,
+                    }));
+                }
+                self.execute_prism_code_artifact(args, credential, bridge_execution)
+            }
+            crate::prism_code_builder::PrismCodeDirectWrite::ArtifactSupersede { artifact_id } => {
+                let args = serde_json::from_value::<PrismArtifactArgs>(json!({
+                    "action": "supersede",
+                    "payload": {
+                        "artifactId": artifact_id,
+                    }
+                }))
+                .map_err(|error| McpError::invalid_params(error.to_string(), None))?;
+                if dry_run {
+                    return Ok(json!({
+                        "id": args.payload.get("artifactId").cloned().unwrap_or(Value::Null),
+                        "dryRun": true,
+                        "provisional": true,
+                    }));
+                }
+                self.execute_prism_code_artifact(args, credential, bridge_execution)
+            }
+            crate::prism_code_builder::PrismCodeDirectWrite::ArtifactReview {
+                artifact_id,
+                input,
+            } => {
+                let args = serde_json::from_value::<PrismArtifactArgs>(json!({
+                    "action": "review",
+                    "payload": {
+                        "artifactId": artifact_id,
+                        "reviewRequirementId": input.get("reviewRequirementId").cloned().unwrap_or(Value::Null),
+                        "verdict": input.get("verdict").cloned().unwrap_or(Value::Null),
+                        "summary": input.get("summary").cloned().unwrap_or(Value::Null),
+                        "requiredValidations": input.get("requiredValidations").cloned().unwrap_or(Value::Null),
+                        "validatedChecks": input.get("validatedChecks").cloned().unwrap_or(Value::Null),
+                        "riskScore": input.get("riskScore").cloned().unwrap_or(Value::Null),
+                    }
+                }))
+                .map_err(|error| McpError::invalid_params(error.to_string(), None))?;
+                if dry_run {
+                    return Ok(json!({
+                        "id": args.payload.get("artifactId").cloned().unwrap_or(Value::Null),
+                        "dryRun": true,
+                        "provisional": true,
+                    }));
+                }
+                self.execute_prism_code_artifact(args, credential, bridge_execution)
+            }
+            crate::prism_code_builder::PrismCodeDirectWrite::TaskHandoff {
+                task_id,
+                summary,
+                to_agent,
+            } => {
+                self.execute_prism_code_coordination(
+                    serde_json::from_value(json!({
+                        "kind": "handoff",
+                        "payload": {
+                            "taskId": task_id,
+                            "toAgent": to_agent,
+                            "summary": summary,
+                        }
+                    }))
+                    .map_err(|error| McpError::invalid_params(error.to_string(), None))?,
+                    credential,
+                    bridge_execution,
+                    dry_run,
+                )
+            }
+            crate::prism_code_builder::PrismCodeDirectWrite::TaskAcceptHandoff { task_id, agent } => {
+                self.execute_prism_code_coordination(
+                    serde_json::from_value(json!({
+                        "kind": "handoff_accept",
+                        "payload": {
+                            "taskId": task_id,
+                            "agent": agent,
+                        }
+                    }))
+                    .map_err(|error| McpError::invalid_params(error.to_string(), None))?,
+                    credential,
+                    bridge_execution,
+                    dry_run,
+                )
+            }
+            crate::prism_code_builder::PrismCodeDirectWrite::TaskResume { task_id, agent } => {
+                self.execute_prism_code_coordination(
+                    serde_json::from_value(json!({
+                        "kind": "resume",
+                        "payload": {
+                            "taskId": task_id,
+                            "agent": agent,
+                        }
+                    }))
+                    .map_err(|error| McpError::invalid_params(error.to_string(), None))?,
+                    credential,
+                    bridge_execution,
+                    dry_run,
+                )
+            }
+            crate::prism_code_builder::PrismCodeDirectWrite::TaskReclaim { task_id, agent } => {
+                self.execute_prism_code_coordination(
+                    serde_json::from_value(json!({
+                        "kind": "reclaim",
+                        "payload": {
+                            "taskId": task_id,
+                            "agent": agent,
+                        }
+                    }))
+                    .map_err(|error| McpError::invalid_params(error.to_string(), None))?,
+                    credential,
+                    bridge_execution,
+                    dry_run,
+                )
+            }
+        }
+    }
+
+    fn execute_prism_code_claim(
+        &self,
+        args: PrismClaimArgs,
+        credential: Option<&PrismMutationCredentialArgs>,
+        bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
+    ) -> Result<Value, McpError> {
+        self.host
+            .ensure_mutation_action_enabled("claim", "coordination claim mutations")
+            .map_err(map_query_error)?;
+        let authenticated = self.authenticate_mutation(
+            credential,
+            bridge_execution,
+            MutationCapabilityRequirement::MutateCoordination,
+        )?;
+        self.require_declared_work_context("claim", args.task_id.is_some())?;
+        let result = self.execute_logged_mutation(
+            "prism_code.claim",
+            MutationRefreshPolicy::None,
+            || {
+                self.host.store_claim_authenticated(
+                    self.session.as_ref(),
+                    args,
+                    authenticated.authenticated_principal(),
+                )
+            },
+            |result| {
+                let mut result_ids = result.event_ids.clone();
+                if let Some(claim_id) = &result.claim_id {
+                    result_ids.push(claim_id.clone());
+                }
+                MutationOutcomeMeta::coordination(result_ids, result.violations.len())
+            },
+        )?;
+        Ok(result.state)
+    }
+
+    fn execute_prism_code_artifact(
+        &self,
+        args: PrismArtifactArgs,
+        credential: Option<&PrismMutationCredentialArgs>,
+        bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
+    ) -> Result<Value, McpError> {
+        self.host
+            .ensure_mutation_action_enabled("artifact", "coordination artifact mutations")
+            .map_err(map_query_error)?;
+        let authenticated = self.authenticate_mutation(
+            credential,
+            bridge_execution,
+            MutationCapabilityRequirement::MutateCoordination,
+        )?;
+        self.require_declared_work_context("artifact", args.task_id.is_some())?;
+        let result = self.execute_logged_mutation(
+            "prism_code.artifact",
+            MutationRefreshPolicy::None,
+            || {
+                self.host.store_artifact_authenticated(
+                    self.session.as_ref(),
+                    args,
+                    authenticated.authenticated_principal(),
+                )
+            },
+            |result| {
+                let mut result_ids = result.event_ids.clone();
+                if let Some(artifact_id) = &result.artifact_id {
+                    result_ids.push(artifact_id.clone());
+                }
+                if let Some(review_id) = &result.review_id {
+                    result_ids.push(review_id.clone());
+                }
+                MutationOutcomeMeta::coordination(result_ids, result.violations.len())
+            },
+        )?;
+        Ok(result.state)
+    }
+
+    fn execute_prism_code_coordination(
+        &self,
+        args: PrismCoordinationArgs,
+        credential: Option<&PrismMutationCredentialArgs>,
+        bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
+        dry_run: bool,
+    ) -> Result<Value, McpError> {
+        if dry_run {
+            let task_id = args
+                .payload
+                .get("taskId")
+                .cloned()
+                .unwrap_or(Value::Null);
+            return Ok(json!({
+                "id": task_id,
+                "dryRun": true,
+                "provisional": true,
+            }));
+        }
+        self.host
+            .ensure_mutation_action_enabled("coordination", "coordination workflow mutations")
+            .map_err(map_query_error)?;
+        let run = self
+            .host
+            .begin_mutation_run(self.session.as_ref(), "prism_code.coordination");
+        let authenticated = match self.authenticate_mutation_with_run(
+            &run,
+            credential,
+            bridge_execution,
+            MutationCapabilityRequirement::MutateCoordination,
+        ) {
+            Ok(authenticated) => authenticated,
+            Err(error) => {
+                run.finish_error(error.to_string());
+                return Err(error);
+            }
+        };
+        if let Err(error) = self.require_declared_work_context_with_run(
+            &run,
+            "coordination",
+            Self::coordination_has_explicit_work_subject(&args),
+        ) {
+            run.finish_error(error.to_string());
+            return Err(error);
+        }
+        let result = self.execute_logged_mutation_with_existing_run(
+            run,
+            "prism_code.coordination",
+            MutationRefreshPolicy::None,
+            |run| {
+                self.host.store_coordination_traced_authenticated(
+                    self.session.as_ref(),
+                    args,
+                    run,
+                    authenticated.authenticated_principal(),
+                )
+            },
+            |result| MutationOutcomeMeta::coordination(result.event_ids.clone(), result.violations.len()),
+        )?;
+        Ok(result.state)
     }
 
     pub(crate) fn transport_bind_tool_schema(mut tool: Tool, features: &PrismMcpFeatures) -> Tool {
@@ -1344,7 +1639,7 @@ impl PrismMcpServer {
 
     #[tool(
         name = "prism_code",
-        description = "Execute JavaScript or TypeScript against the live PRISM runtime. prism_code is the canonical programmable PRISM surface for reads and the current write-capable lowering path.",
+        description = "Execute JavaScript or TypeScript against the live PRISM runtime. prism_code is the canonical programmable PRISM surface for reads and writes through the runtime-owned compiler path.",
         annotations(
             title = "Programmable PRISM Code",
             read_only_hint = false,

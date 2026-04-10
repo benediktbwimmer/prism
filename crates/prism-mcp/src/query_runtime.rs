@@ -113,11 +113,6 @@ struct RemoteQueryDispatchArgs {
 }
 
 #[derive(Debug, serde::Deserialize)]
-struct CodeMutationArgs {
-    input: Value,
-}
-
-#[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct NativeDeclareWorkArgs {
     input: Value,
@@ -1815,10 +1810,6 @@ impl QueryExecution {
                         self.validate_tool_input(&args.name, args.input),
                     )?)
                 }
-                "mutate" => {
-                    let args: CodeMutationArgs = serde_json::from_value(args)?;
-                    Ok(self.execute_code_mutation(args.input)?)
-                }
                 "__declareWork" => {
                     let args: NativeDeclareWorkArgs = serde_json::from_value(args)?;
                     Ok(self.execute_native_declare_work(args.input)?)
@@ -2240,15 +2231,6 @@ return prism.file(__prismFileAroundArgs.path).around({
             return Err(query_feature_disabled_error(operation, group));
         }
         Ok(())
-    }
-
-    fn execute_code_mutation(&self, input: Value) -> Result<Value> {
-        let Some(code_mutation) = self.code_mutation.as_ref() else {
-            return Err(anyhow!(
-                "prism.mutate requires an authenticated prism_code invocation"
-            ));
-        };
-        code_mutation.execute_legacy_mutation(input)
     }
 
     fn execute_native_declare_work(&self, input: Value) -> Result<Value> {

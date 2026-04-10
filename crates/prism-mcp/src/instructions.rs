@@ -325,7 +325,7 @@ fn append_coordination_mode_note(mut markdown: String, features: &PrismMcpFeatur
     let feature_summary = features.coordination_summary_lines().join("\n");
     if features.runtime_mode() == PrismRuntimeMode::CoordinationOnly {
         markdown.push_str(
-            "\n\nThis instruction set is running without cognition. Use `prism_code` for the reduced coordination and operator read/write surface, prefer `prism.mutate(...)` inside `prism_code` for authoritative changes, and avoid graph-backed repo understanding or enrichment flows.",
+            "\n\nThis instruction set is running without cognition. Use `prism_code` for the reduced coordination and operator read/write surface, use the native `prism` SDK methods for authoritative changes, and avoid graph-backed repo understanding or enrichment flows.",
         );
         markdown.push_str("\n\nMode contract:\n");
         markdown.push_str(&feature_summary);

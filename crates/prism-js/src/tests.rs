@@ -97,7 +97,6 @@ fn api_reference_mentions_primary_tool() {
     ));
     assert!(docs.contains("tools(): ToolCatalogEntryView[];"));
     assert!(docs.contains("tool(name: string): ToolSchemaView | null;"));
-    assert!(docs.contains("mutate(input: unknown): unknown;"));
     assert!(docs.contains("file(path: string): FileView;"));
     assert!(docs.contains("mcpLog(options?: McpLogOptions): McpCallLogEntryView[];"));
     assert!(docs.contains("slowMcpCalls(options?: McpLogOptions): McpCallLogEntryView[];"));
@@ -233,9 +232,9 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism.curator.jobs"));
     assert!(docs.contains("prism_code"));
     assert!(!docs.contains("prism_session"));
-    assert!(docs.contains("curator_apply_proposal"));
-    assert!(docs.contains("curator_promote_edge"));
-    assert!(docs.contains("curator_promote_memory"));
+    assert!(docs.contains("prism.work.declare"));
+    assert!(docs.contains("prism.coordination.createPlan"));
+    assert!(docs.contains("prism.artifact.propose"));
 }
 
 #[test]

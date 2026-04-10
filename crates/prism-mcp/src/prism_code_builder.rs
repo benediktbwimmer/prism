@@ -4,10 +4,29 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Result};
 use serde_json::{json, Map, Value};
 
-use crate::PrismMutationResult;
+pub(crate) enum PrismCodeDirectWrite {
+    DeclareWork { input: Value },
+    ClaimAcquire { input: Value },
+    ClaimRenew { claim_id: String, ttl_seconds: Option<u64> },
+    ClaimRelease { claim_id: String },
+    ArtifactPropose { input: Value },
+    ArtifactSupersede { artifact_id: String },
+    ArtifactReview {
+        artifact_id: String,
+        input: Value,
+    },
+    TaskHandoff {
+        task_id: String,
+        summary: String,
+        to_agent: Option<String>,
+    },
+    TaskAcceptHandoff { task_id: String, agent: Option<String> },
+    TaskResume { task_id: String, agent: Option<String> },
+    TaskReclaim { task_id: String, agent: Option<String> },
+}
 
-type LegacyMutationExecutor = Arc<dyn Fn(Value) -> Result<Value> + Send + Sync>;
-type CoordinationCommitExecutor = Arc<dyn Fn(Value) -> Result<PrismMutationResult> + Send + Sync>;
+type DirectWriteExecutor = Arc<dyn Fn(PrismCodeDirectWrite) -> Result<Value> + Send + Sync>;
+type CoordinationCommitExecutor = Arc<dyn Fn(Value) -> Result<Value> + Send + Sync>;
 
 const HANDLE_KIND_KEY: &str = "__prismCoordinationHandleKind";
 const HANDLE_ID_KEY: &str = "__prismCoordinationHandleId";
@@ -16,7 +35,7 @@ const TASK_HANDLE_KIND: &str = "task";
 
 #[derive(Clone)]
 pub(crate) struct PrismCodeExecutionContext {
-    legacy_executor: LegacyMutationExecutor,
+    direct_write_executor: DirectWriteExecutor,
     coordination_executor: CoordinationCommitExecutor,
     dry_run: bool,
     state: Arc<Mutex<PrismCodeExecutionState>>,
@@ -24,7 +43,7 @@ pub(crate) struct PrismCodeExecutionContext {
 
 #[derive(Default)]
 struct PrismCodeExecutionState {
-    legacy_mutation_used: bool,
+    direct_write_used: bool,
     staged_coordination: Option<StagedCoordinationTransaction>,
 }
 
@@ -63,24 +82,20 @@ enum TaskHandleState {
 
 impl PrismCodeExecutionContext {
     pub(crate) fn new(
-        legacy_executor: LegacyMutationExecutor,
+        direct_write_executor: DirectWriteExecutor,
         coordination_executor: CoordinationCommitExecutor,
         dry_run: bool,
     ) -> Self {
         Self {
-            legacy_executor,
+            direct_write_executor,
             coordination_executor,
             dry_run,
             state: Arc::new(Mutex::new(PrismCodeExecutionState::default())),
         }
     }
 
-    pub(crate) fn execute_legacy_mutation(&self, input: Value) -> Result<Value> {
-        self.execute_direct_mutation(input)
-    }
-
     pub(crate) fn declare_work(&self, input: Value) -> Result<Value> {
-        self.execute_direct_mutation_result("declare_work", input)
+        self.execute_direct_write(PrismCodeDirectWrite::DeclareWork { input })
     }
 
     pub(crate) fn claim_acquire(&self, input: Value) -> Result<Value> {
@@ -89,41 +104,23 @@ impl PrismCodeExecutionContext {
             let task_id = self.existing_task_id_from_value(&task, "prism.claim.acquire")?;
             input.insert("coordinationTaskId".to_string(), Value::String(task_id));
         }
-        self.execute_direct_mutation_state(
-            "claim",
-            json!({
-                "action": "acquire",
-                "payload": input,
-            }),
-        )
+        self.execute_direct_write(PrismCodeDirectWrite::ClaimAcquire {
+            input: Value::Object(input),
+        })
     }
 
     pub(crate) fn claim_renew(&self, claim: Value, input: Value) -> Result<Value> {
         let input = expect_object(input, "prism.claim.renew")?;
         let claim_id = self.existing_claim_id_from_value(&claim, "prism.claim.renew")?;
-        self.execute_direct_mutation_state(
-            "claim",
-            json!({
-                "action": "renew",
-                "payload": {
-                    "claimId": claim_id,
-                    "ttlSeconds": input.get("ttlSeconds").cloned().unwrap_or(Value::Null),
-                }
-            }),
-        )
+        self.execute_direct_write(PrismCodeDirectWrite::ClaimRenew {
+            claim_id,
+            ttl_seconds: input.get("ttlSeconds").and_then(Value::as_u64),
+        })
     }
 
     pub(crate) fn claim_release(&self, claim: Value) -> Result<Value> {
         let claim_id = self.existing_claim_id_from_value(&claim, "prism.claim.release")?;
-        self.execute_direct_mutation_state(
-            "claim",
-            json!({
-                "action": "release",
-                "payload": {
-                    "claimId": claim_id,
-                }
-            }),
-        )
+        self.execute_direct_write(PrismCodeDirectWrite::ClaimRelease { claim_id })
     }
 
     pub(crate) fn artifact_propose(&self, input: Value) -> Result<Value> {
@@ -132,48 +129,25 @@ impl PrismCodeExecutionContext {
             let task_id = self.existing_task_id_from_value(&task, "prism.artifact.propose")?;
             input.insert("taskId".to_string(), Value::String(task_id));
         }
-        self.execute_direct_mutation_state(
-            "artifact",
-            json!({
-                "action": "propose",
-                "payload": input,
-            }),
-        )
+        self.execute_direct_write(PrismCodeDirectWrite::ArtifactPropose {
+            input: Value::Object(input),
+        })
     }
 
     pub(crate) fn artifact_supersede(&self, artifact: Value) -> Result<Value> {
         let artifact_id =
             self.existing_artifact_id_from_value(&artifact, "prism.artifact.supersede")?;
-        self.execute_direct_mutation_state(
-            "artifact",
-            json!({
-                "action": "supersede",
-                "payload": {
-                    "artifactId": artifact_id,
-                }
-            }),
-        )
+        self.execute_direct_write(PrismCodeDirectWrite::ArtifactSupersede { artifact_id })
     }
 
     pub(crate) fn artifact_review(&self, artifact: Value, input: Value) -> Result<Value> {
         let input = expect_object(input, "prism.artifact.review")?;
         let artifact_id =
             self.existing_artifact_id_from_value(&artifact, "prism.artifact.review")?;
-        self.execute_direct_mutation_state(
-            "artifact",
-            json!({
-                "action": "review",
-                "payload": {
-                    "artifactId": artifact_id,
-                    "reviewRequirementId": input.get("reviewRequirementId").cloned().unwrap_or(Value::Null),
-                    "verdict": input.get("verdict").cloned().unwrap_or(Value::Null),
-                    "summary": input.get("summary").cloned().unwrap_or(Value::Null),
-                    "requiredValidations": input.get("requiredValidations").cloned().unwrap_or(Value::Null),
-                    "validatedChecks": input.get("validatedChecks").cloned().unwrap_or(Value::Null),
-                    "riskScore": input.get("riskScore").cloned().unwrap_or(Value::Null),
-                }
-            }),
-        )
+        self.execute_direct_write(PrismCodeDirectWrite::ArtifactReview {
+            artifact_id,
+            input: Value::Object(input),
+        })
     }
 
     pub(crate) fn task_handoff(&self, task: Value, input: Value) -> Result<Value> {
@@ -182,68 +156,35 @@ impl PrismCodeExecutionContext {
         let summary = required_string(&input, "summary", "task.handoff")?;
         let to_agent =
             optional_string(&input, "toAgent").or_else(|| optional_string(&input, "to_agent"));
-        self.execute_direct_mutation_state(
-            "coordination",
-            json!({
-                "kind": "handoff",
-                "payload": {
-                    "taskId": task_id,
-                    "toAgent": to_agent,
-                    "summary": summary,
-                }
-            }),
-        )
+        self.execute_direct_write(PrismCodeDirectWrite::TaskHandoff {
+            task_id,
+            summary,
+            to_agent,
+        })
     }
 
     pub(crate) fn task_accept_handoff(&self, task: Value, input: Value) -> Result<Value> {
         let input = expect_object(input, "task.acceptHandoff")?;
         let task_id = self.existing_task_id_from_value(&task, "task.acceptHandoff")?;
         let agent = optional_string(&input, "agent");
-        self.execute_direct_mutation_state(
-            "coordination",
-            json!({
-                "kind": "handoff_accept",
-                "payload": {
-                    "taskId": task_id,
-                    "agent": agent,
-                }
-            }),
-        )
+        self.execute_direct_write(PrismCodeDirectWrite::TaskAcceptHandoff { task_id, agent })
     }
 
     pub(crate) fn task_resume(&self, task: Value, input: Value) -> Result<Value> {
         let input = expect_object(input, "task.resume")?;
         let task_id = self.existing_task_id_from_value(&task, "task.resume")?;
         let agent = optional_string(&input, "agent");
-        self.execute_direct_mutation_state(
-            "coordination",
-            json!({
-                "kind": "resume",
-                "payload": {
-                    "taskId": task_id,
-                    "agent": agent,
-                }
-            }),
-        )
+        self.execute_direct_write(PrismCodeDirectWrite::TaskResume { task_id, agent })
     }
 
     pub(crate) fn task_reclaim(&self, task: Value, input: Value) -> Result<Value> {
         let input = expect_object(input, "task.reclaim")?;
         let task_id = self.existing_task_id_from_value(&task, "task.reclaim")?;
         let agent = optional_string(&input, "agent");
-        self.execute_direct_mutation_state(
-            "coordination",
-            json!({
-                "kind": "reclaim",
-                "payload": {
-                    "taskId": task_id,
-                    "agent": agent,
-                }
-            }),
-        )
+        self.execute_direct_write(PrismCodeDirectWrite::TaskReclaim { task_id, agent })
     }
 
-    fn execute_direct_mutation(&self, input: Value) -> Result<Value> {
+    fn execute_direct_write(&self, input: PrismCodeDirectWrite) -> Result<Value> {
         let mut state = self.state.lock().expect("code mutation lock poisoned");
         if state
             .staged_coordination
@@ -254,27 +195,14 @@ impl PrismCodeExecutionContext {
                 "native staged coordination builders cannot be mixed with direct write operations in one prism_code invocation"
             ));
         }
-        if state.legacy_mutation_used {
+        if state.direct_write_used {
             return Err(anyhow!(
                 "prism_code currently supports at most one direct write operation per invocation outside the staged coordination builder path"
             ));
         }
-        state.legacy_mutation_used = true;
+        state.direct_write_used = true;
         drop(state);
-        (self.legacy_executor)(input)
-    }
-
-    fn execute_direct_mutation_result(&self, action: &str, input: Value) -> Result<Value> {
-        let value = self.execute_direct_mutation(json!({
-            "action": action,
-            "input": input,
-        }))?;
-        Ok(value.get("result").cloned().unwrap_or(Value::Null))
-    }
-
-    fn execute_direct_mutation_state(&self, action: &str, input: Value) -> Result<Value> {
-        let result = self.execute_direct_mutation_result(action, input)?;
-        Ok(result.get("state").cloned().unwrap_or(result))
+        (self.direct_write_executor)(input)
     }
 
     pub(crate) fn create_plan(&self, input: Value) -> Result<Value> {
@@ -284,6 +212,8 @@ impl PrismCodeExecutionContext {
         let title = required_string(&input, "title", "prism.coordination.createPlan")?;
         let goal = optional_string(&input, "goal").unwrap_or_else(|| title.clone());
         let status = optional_string(&input, "status");
+        let policy = input.get("policy").cloned();
+        let scheduling = input.get("scheduling").cloned();
         let handle_id = format!("plan-handle:{}", staged.next_plan_handle);
         staged.next_plan_handle += 1;
         let client_plan_id = format!("plan_{}", staged.next_client_plan);
@@ -295,6 +225,8 @@ impl PrismCodeExecutionContext {
                 "title": title,
                 "goal": goal,
                 "status": status,
+                "policy": policy,
+                "scheduling": scheduling,
             }
         }));
         let preview = json!({
@@ -311,7 +243,14 @@ impl PrismCodeExecutionContext {
                 preview,
             },
         );
-        Ok(plan_handle(&handle_id))
+        Ok(plan_handle_with_preview(
+            &handle_id,
+            staged
+                .plan_handles
+                .get(&handle_id)
+                .and_then(plan_state_preview)
+                .expect("created plan preview should exist"),
+        ))
     }
 
     pub(crate) fn open_plan(&self, plan_id: String) -> Result<Value> {
@@ -330,7 +269,14 @@ impl PrismCodeExecutionContext {
                 plan_id,
             },
         );
-        Ok(plan_handle(&handle_id))
+        Ok(plan_handle_with_preview(
+            &handle_id,
+            staged
+                .plan_handles
+                .get(&handle_id)
+                .and_then(plan_state_preview)
+                .expect("existing plan preview should exist"),
+        ))
     }
 
     pub(crate) fn plan_update(&self, plan: Value, input: Value) -> Result<Value> {
@@ -343,9 +289,16 @@ impl PrismCodeExecutionContext {
         let title = optional_string(&input, "title");
         let goal = optional_string(&input, "goal");
         let status = optional_string(&input, "status");
-        if title.is_none() && goal.is_none() && status.is_none() {
+        let policy = input.get("policy").cloned();
+        let scheduling = input.get("scheduling").cloned();
+        if title.is_none()
+            && goal.is_none()
+            && status.is_none()
+            && policy.is_none()
+            && scheduling.is_none()
+        {
             return Err(anyhow!(
-                "`plan.update` requires at least one of `title`, `goal`, or `status`"
+                "`plan.update` requires at least one of `title`, `goal`, `status`, `policy`, or `scheduling`"
             ));
         }
         staged.mutations.push(json!({
@@ -355,9 +308,18 @@ impl PrismCodeExecutionContext {
                 "title": title,
                 "goal": goal,
                 "status": status,
+                "policy": policy,
+                "scheduling": scheduling,
             }
         }));
-        Ok(plan_handle(&handle_id))
+        Ok(plan_handle_with_preview(
+            &handle_id,
+            staged
+                .plan_handles
+                .get(&handle_id)
+                .and_then(plan_state_preview)
+                .expect("updated plan preview should exist"),
+        ))
     }
 
     pub(crate) fn plan_archive(&self, plan: Value) -> Result<Value> {
@@ -372,7 +334,14 @@ impl PrismCodeExecutionContext {
                 "plan": plan,
             }
         }));
-        Ok(plan_handle(&handle_id))
+        Ok(plan_handle_with_preview(
+            &handle_id,
+            staged
+                .plan_handles
+                .get(&handle_id)
+                .and_then(plan_state_preview)
+                .expect("archived plan preview should exist"),
+        ))
     }
 
     pub(crate) fn open_task(&self, task_id: String) -> Result<Value> {
@@ -391,7 +360,14 @@ impl PrismCodeExecutionContext {
                 task_id,
             },
         );
-        Ok(task_handle(&handle_id))
+        Ok(task_handle_with_preview(
+            &handle_id,
+            staged
+                .task_handles
+                .get(&handle_id)
+                .and_then(task_state_preview)
+                .expect("existing task preview should exist"),
+        ))
     }
 
     pub(crate) fn plan_add_task(&self, plan_handle_id: String, input: Value) -> Result<Value> {
@@ -446,7 +422,14 @@ impl PrismCodeExecutionContext {
                 preview,
             },
         );
-        Ok(task_handle(&handle_id))
+        Ok(task_handle_with_preview(
+            &handle_id,
+            staged
+                .task_handles
+                .get(&handle_id)
+                .and_then(task_state_preview)
+                .expect("created task preview should exist"),
+        ))
     }
 
     pub(crate) fn task_update(&self, task: Value, input: Value) -> Result<Value> {
@@ -514,7 +497,14 @@ impl PrismCodeExecutionContext {
             "action": "task_update",
             "input": task_input,
         }));
-        Ok(task_handle(&handle_id))
+        Ok(task_handle_with_preview(
+            &handle_id,
+            staged
+                .task_handles
+                .get(&handle_id)
+                .and_then(task_state_preview)
+                .expect("updated task preview should exist"),
+        ))
     }
 
     pub(crate) fn task_depends_on(
@@ -546,7 +536,7 @@ impl PrismCodeExecutionContext {
 
     pub(crate) fn finalize_result(&self, result: Value) -> Result<Value> {
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        if state.legacy_mutation_used {
+        if state.direct_write_used {
             return Ok(result);
         }
         let Some(staged) = state.staged_coordination.take() else {
@@ -567,7 +557,7 @@ impl PrismCodeExecutionContext {
 
 impl PrismCodeExecutionState {
     fn staged_coordination_mut(&mut self) -> Result<&mut StagedCoordinationTransaction> {
-        if self.legacy_mutation_used {
+        if self.direct_write_used {
             return Err(anyhow!(
                 "native staged coordination builders cannot be mixed with direct write operations in one prism_code invocation"
             ));
@@ -685,7 +675,7 @@ impl PrismCodeExecutionContext {
 fn resolve_handles(
     value: Value,
     staged: &StagedCoordinationTransaction,
-    commit: Option<&PrismMutationResult>,
+    commit: Option<&Value>,
 ) -> Value {
     match value {
         Value::Array(values) => Value::Array(
@@ -712,7 +702,7 @@ fn resolve_handles(
 fn resolve_handle_object(
     object: &Map<String, Value>,
     staged: &StagedCoordinationTransaction,
-    commit: Option<&PrismMutationResult>,
+    commit: Option<&Value>,
 ) -> Option<Value> {
     let handle_kind = object.get(HANDLE_KIND_KEY)?.as_str()?;
     let handle_id = object.get(HANDLE_ID_KEY)?.as_str()?;
@@ -726,7 +716,7 @@ fn resolve_handle_object(
 fn resolve_plan_handle(
     handle_id: &str,
     staged: &StagedCoordinationTransaction,
-    commit: Option<&PrismMutationResult>,
+    commit: Option<&Value>,
 ) -> Value {
     let Some(state) = staged.plan_handles.get(handle_id) else {
         return Value::Null;
@@ -734,9 +724,7 @@ fn resolve_plan_handle(
     if let Some(commit) = commit {
         let committed_plan_id = match state {
             PlanHandleState::Created { client_plan_id, .. } => commit
-                .result
-                .get("state")
-                .and_then(|state| state.get("planIdsByClientId"))
+                .get("planIdsByClientId")
                 .and_then(|mapping| mapping.get(client_plan_id))
                 .and_then(Value::as_str)
                 .map(str::to_string),
@@ -744,9 +732,7 @@ fn resolve_plan_handle(
         };
         if let Some(plan_id) = committed_plan_id {
             if let Some(view) = commit
-                .result
-                .get("state")
-                .and_then(|state| state.get("plans"))
+                .get("plans")
                 .and_then(Value::as_array)
                 .and_then(|plans| {
                     plans.iter().find(|plan| {
@@ -771,7 +757,7 @@ fn resolve_plan_handle(
 fn resolve_task_handle(
     handle_id: &str,
     staged: &StagedCoordinationTransaction,
-    commit: Option<&PrismMutationResult>,
+    commit: Option<&Value>,
 ) -> Value {
     let Some(state) = staged.task_handles.get(handle_id) else {
         return Value::Null;
@@ -779,9 +765,7 @@ fn resolve_task_handle(
     if let Some(commit) = commit {
         let committed_task_id = match state {
             TaskHandleState::Created { client_task_id, .. } => commit
-                .result
-                .get("state")
-                .and_then(|state| state.get("taskIdsByClientId"))
+                .get("taskIdsByClientId")
                 .and_then(|mapping| mapping.get(client_task_id))
                 .and_then(Value::as_str)
                 .map(str::to_string),
@@ -789,9 +773,7 @@ fn resolve_task_handle(
         };
         if let Some(task_id) = committed_task_id {
             if let Some(view) = commit
-                .result
-                .get("state")
-                .and_then(|state| state.get("tasks"))
+                .get("tasks")
                 .and_then(Value::as_array)
                 .and_then(|tasks| {
                     tasks.iter().find(|task| {
@@ -813,18 +795,41 @@ fn resolve_task_handle(
     }
 }
 
-fn plan_handle(handle_id: &str) -> Value {
-    json!({
-        HANDLE_KIND_KEY: PLAN_HANDLE_KIND,
-        HANDLE_ID_KEY: handle_id,
-    })
+fn plan_handle_with_preview(handle_id: &str, preview: &Value) -> Value {
+    merge_handle_with_preview(preview, PLAN_HANDLE_KIND, handle_id)
 }
 
-fn task_handle(handle_id: &str) -> Value {
-    json!({
-        HANDLE_KIND_KEY: TASK_HANDLE_KIND,
-        HANDLE_ID_KEY: handle_id,
-    })
+fn task_handle_with_preview(handle_id: &str, preview: &Value) -> Value {
+    merge_handle_with_preview(preview, TASK_HANDLE_KIND, handle_id)
+}
+
+fn merge_handle_with_preview(preview: &Value, handle_kind: &str, handle_id: &str) -> Value {
+    let mut object = preview.as_object().cloned().unwrap_or_default();
+    object.insert(
+        HANDLE_KIND_KEY.to_string(),
+        Value::String(handle_kind.to_string()),
+    );
+    object.insert(
+        HANDLE_ID_KEY.to_string(),
+        Value::String(handle_id.to_string()),
+    );
+    Value::Object(object)
+}
+
+fn plan_state_preview(state: &PlanHandleState) -> Option<&Value> {
+    match state {
+        PlanHandleState::Created { preview, .. } | PlanHandleState::Existing { preview, .. } => {
+            Some(preview)
+        }
+    }
+}
+
+fn task_state_preview(state: &TaskHandleState) -> Option<&Value> {
+    match state {
+        TaskHandleState::Created { preview, .. } | TaskHandleState::Existing { preview, .. } => {
+            Some(preview)
+        }
+    }
 }
 
 fn expect_object(value: Value, method: &str) -> Result<Map<String, Value>> {

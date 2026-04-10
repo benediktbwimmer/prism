@@ -1000,6 +1000,25 @@ function __prismRecordId(value, methodPath, label) {
   );
 }
 
+function __prismRequiredStringField(methodPath, input, key) {
+  const value = typeof input?.[key] === "string" ? input[key].trim() : "";
+  if (value.length > 0) {
+    return value;
+  }
+  __prismThrowQueryUserError(
+    "prism_code arguments invalid",
+    `prism_code arguments invalid for \`${methodPath}\`: \`${key}\` must be a non-empty string.\nHint: Provide \`${key}\` explicitly and retry.`,
+    {
+      code: "query_invalid_argument",
+      category: "invalid_argument",
+      method: methodPath,
+      field: key,
+      error: `\`${key}\` must be a non-empty string.`,
+      nextAction: `Provide \`${key}\` explicitly and retry.`,
+    }
+  );
+}
+
 function __prismTaskRef(value, methodPath, label) {
   if (
     value != null &&
@@ -1166,7 +1185,7 @@ function __prismCoordinationPlanHandle(raw) {
         "plan.update",
         input,
         "input",
-        ["title", "goal", "status"]
+        ["title", "goal", "status", "policy", "scheduling"]
       );
       return __prismCoordinationPlanHandle(
         __prismHost("__coordinationPlanUpdate", {
@@ -1385,6 +1404,7 @@ const __prismBase = Object.freeze({
           "plan_id",
         ]
       );
+      __prismRequiredStringField("prism.work.declare", normalized, "title");
       return __prismHost("__declareWork", { input: normalized });
     },
   }),
@@ -1542,7 +1562,7 @@ const __prismBase = Object.freeze({
         "prism.coordination.createPlan",
         input,
         "input",
-        ["title", "goal", "status"]
+        ["title", "goal", "status", "policy", "scheduling"]
       );
       return __prismCoordinationPlanHandle(
         __prismHost("__coordinationCreatePlan", { input: normalized })
@@ -1581,9 +1601,6 @@ const __prismBase = Object.freeze({
       );
     },
   }),
-  mutate(input) {
-    return __prismHost("mutate", { input });
-  },
   entrypoints() {
     return __prismEnrichSymbols(__prismHost("entrypoints", {}));
   },

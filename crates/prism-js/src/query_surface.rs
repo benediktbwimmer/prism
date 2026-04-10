@@ -341,7 +341,6 @@ pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
         method!("prism.coordination.createPlan", "createPlan(input: { title: string; goal?: string; status?: \"draft\" | \"active\" | \"blocked\" | \"completed\" | \"abandoned\" | \"archived\" }): unknown;", PrismSurfaceTypeRef::Unknown),
         method!("prism.coordination.openPlan", "openPlan(planId: string): unknown;", PrismSurfaceTypeRef::Unknown),
         method!("prism.coordination.openTask", "openTask(taskId: string): unknown;", PrismSurfaceTypeRef::Unknown),
-        method!("prism.mutate", "mutate(input: unknown): unknown;", PrismSurfaceTypeRef::Unknown),
         method!("prism.entrypoints", "entrypoints(): SymbolView[];", PrismSurfaceTypeRef::ArrayOfNamed("SymbolView")),
         method!("prism.file", "file(path: string): FileView;", PrismSurfaceTypeRef::Unknown),
         helper!("prism.file(path).read", PrismSurfaceTypeRef::NullableNamed("SourceExcerptView"), PrismRecordArgBundle { bundle_name: "fileRead", arg_name: "options", arg_index: 0, allowed_keys: FILE_READ_KEYS }),

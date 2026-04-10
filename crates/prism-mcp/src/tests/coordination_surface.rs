@@ -5,7 +5,7 @@ use super::*;
 use crate::tests_support::{
     call_tool_request, first_tool_content_json, host_with_session_internal,
     host_with_shared_session_and_features, host_with_shared_session_internal, initialize_client,
-    initialized_notification, prism_code_mutation_arguments, prism_code_read_arguments,
+    initialized_notification, prism_code_read_arguments, prism_code_write_arguments,
     retry_on_runtime_sync_busy, shared_workspace_session, temp_workspace, test_session,
     workspace_session_with_owner_credential,
 };
@@ -29,42 +29,38 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_code() {
         .send(call_tool_request(
             2,
             "prism_code",
-            prism_code_mutation_arguments(
-                json!({
-                    "action": "declare_work",
-                    "input": {
-                        "title": "Review coordination blockers"
-                    }
-                }),
+            prism_code_write_arguments(
+                r#"return prism.work.declare({ title: "Review coordination blockers" });"#,
                 &credential,
             ),
         ))
         .await
         .unwrap();
     let declared_work = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(declared_work["result"]["action"], "declare_work");
+    assert!(declared_work["result"]["workId"].as_str().is_some());
 
     client
         .send(call_tool_request(
             3,
             "prism_code",
-            prism_code_mutation_arguments(
-                json!({
-                    "action": "coordination",
-                    "input": {
-                        "kind": "plan_create",
-                        "payload": { "title": "Review-gated change", "goal": "Review-gated change",
-                            "policy": { "requireReviewForCompletion": true }
-                        }
-                    }
-                }),
+            prism_code_write_arguments(
+                r#"
+const plan = await prism.coordination.createPlan({
+  title: "Review-gated change",
+  goal: "Review-gated change",
+  policy: {
+    requireReviewForCompletion: true,
+  },
+});
+return { plan };
+"#,
                 &credential,
             ),
         ))
         .await
         .unwrap();
     let plan = first_tool_content_json(client.receive().await.unwrap());
-    let plan_id = plan["result"]["result"]["state"]["id"]
+    let plan_id = plan["result"]["plan"]["id"]
         .as_str()
         .unwrap()
         .to_string();
@@ -73,30 +69,29 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_code() {
         .send(call_tool_request(
             4,
             "prism_code",
-            prism_code_mutation_arguments(
-                json!({
-                    "action": "coordination",
-                    "input": {
-                        "kind": "task_create",
-                        "payload": {
-                            "planId": plan_id,
-                            "title": "Patch main",
-                            "anchors": [{
-                                "type": "node",
-                                "crateName": "demo",
-                                "path": "demo::main",
-                                "kind": "function"
-                            }]
-                        }
-                    }
-                }),
+            prism_code_write_arguments(
+                format!(
+                    r#"
+const plan = await prism.coordination.openPlan("{plan_id}");
+const task = await plan.addTask({{
+  title: "Patch main",
+  anchors: [{{
+    type: "node",
+    crateName: "demo",
+    path: "demo::main",
+    kind: "function",
+  }}],
+}});
+return {{ task }};
+"#
+                ),
                 &credential,
             ),
         ))
         .await
         .unwrap();
     let task = first_tool_content_json(client.receive().await.unwrap());
-    let task_id = task["result"]["result"]["state"]["id"]
+    let task_id = task["result"]["task"]["id"]
         .as_str()
         .unwrap()
         .to_string();
@@ -105,24 +100,23 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_code() {
         .send(call_tool_request(
             5,
             "prism_code",
-            prism_code_mutation_arguments(
-                json!({
-                    "action": "artifact",
-                    "input": {
-                        "action": "propose",
-                        "payload": {
-                            "taskId": task_id,
-                            "diffRef": "patch:review-gated"
-                        }
-                    }
-                }),
+            prism_code_write_arguments(
+                format!(
+                    r#"
+const artifact = await prism.artifact.propose({{
+  taskId: "{task_id}",
+  diffRef: "patch:review-gated",
+}});
+return {{ artifact }};
+"#
+                ),
                 &credential,
             ),
         ))
         .await
         .unwrap();
     let artifact = first_tool_content_json(client.receive().await.unwrap());
-    assert!(artifact["result"]["result"]["artifactId"]
+    assert!(artifact["result"]["artifact"]["id"]
         .as_str()
         .is_some());
 
