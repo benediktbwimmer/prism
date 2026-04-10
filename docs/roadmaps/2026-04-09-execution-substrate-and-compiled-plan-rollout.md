@@ -470,6 +470,7 @@ This phase should settle:
 Exit criteria:
 
 - plan and task authoring can happen natively through `prism_code`
+- claim and artifact/review lifecycle writes can happen natively through `prism_code`
 - dependency wiring uses object handles rather than public mutation payload stitching
 - later phases can extend the same native builder/compiler core rather than continue through the
   transitional bridge
@@ -489,6 +490,10 @@ Current progress:
   priority, validation refs, dependency rewiring, and artifact/review requirements
 - landed: first direct native task lifecycle helpers through `task.handoff(...)`,
   `task.acceptHandoff(...)`, `task.resume(...)`, and `task.reclaim(...)`
+- landed: native claim lifecycle helpers through `prism.claim.acquire(...)`,
+  `prism.claim.renew(...)`, and `prism.claim.release(...)`
+- landed: native artifact lifecycle helpers through `prism.artifact.propose(...)`,
+  `prism.artifact.review(...)`, and `prism.artifact.supersede(...)`
 - remaining: extend the same builder/compiler core until normal coordination authoring no longer
   needs the legacy `prism.mutate(...)` escape hatch
 

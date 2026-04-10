@@ -623,7 +623,10 @@ return prism.work.declare({
         .await
         .unwrap();
     let declared = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(declared["result"]["title"], "Exercise native prism_code coordination builders");
+    assert_eq!(
+        declared["result"]["title"],
+        "Exercise native prism_code coordination builders"
+    );
 
     client
         .send(call_tool_request(
@@ -1247,10 +1250,22 @@ return { plan, task };
         .unwrap();
 
     let created = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(created["result"]["plan"]["title"], "Rich task authoring plan");
-    assert_eq!(created["result"]["task"]["title"], "Prepare reviewable patch");
+    assert_eq!(
+        created["result"]["plan"]["title"],
+        "Rich task authoring plan"
+    );
+    assert_eq!(
+        created["result"]["task"]["title"],
+        "Prepare reviewable patch"
+    );
     assert_eq!(created["result"]["task"]["assignee"], "agent-7");
-    assert_eq!(created["result"]["task"]["anchors"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        created["result"]["task"]["anchors"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
     assert_eq!(
         created["result"]["task"]["artifactRequirements"]
             .as_array()
@@ -1414,7 +1429,13 @@ return {{ task }};
         updated["result"]["task"]["validationRefs"],
         json!([{ "id": "lint" }])
     );
-    assert_eq!(updated["result"]["task"]["anchors"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        updated["result"]["task"]["anchors"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
     assert_eq!(
         updated["result"]["task"]["artifactRequirements"][0]["clientArtifactRequirementId"],
         "evidence"
@@ -1423,13 +1444,19 @@ return {{ task }};
         updated["result"]["task"]["reviewRequirements"][0]["artifactRequirementRef"],
         "evidence"
     );
-    assert_eq!(updated["result"]["task"]["dependencies"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        updated["result"]["task"]["dependencies"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
 
     running.cancel().await.unwrap();
 }
 
 #[tokio::test]
-async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() {
+async fn mcp_server_executes_native_prism_code_claim_and_artifact_writes() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);
     let server = PrismMcpServer::with_session(session);
@@ -1448,13 +1475,14 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
     client
         .send(call_tool_request(
             2,
-            "prism_mutate",
+            "prism_code",
             json!({
-                "action": "declare_work",
                 "credential": mutation_credential_json(&credential),
-                "input": {
-                    "title": "Coordinate the main edit"
-                }
+                "code": r#"
+return prism.work.declare({
+  title: "Coordinate the main edit",
+});
+"#
             })
             .as_object()
             .unwrap()
@@ -1463,19 +1491,21 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .await
         .unwrap();
     let declared_work = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(declared_work["action"], "declare_work");
+    assert_eq!(declared_work["result"]["title"], "Coordinate the main edit");
 
     client
         .send(call_tool_request(
             3,
-            "prism_mutate",
+            "prism_code",
             json!({
-                "action": "coordination",
                 "credential": mutation_credential_json(&credential),
-                "input": {
-                    "kind": "plan_create",
-                    "payload": { "title": "Coordinate the main edit", "goal": "Coordinate the main edit" }
-                }
+                "code": r#"
+const plan = await prism.coordination.createPlan({
+  title: "Coordinate the main edit",
+  goal: "Coordinate the main edit",
+});
+return { plan };
+"#
             })
             .as_object()
             .unwrap()
@@ -1484,28 +1514,29 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .await
         .unwrap();
     let plan = first_tool_content_json(client.receive().await.unwrap());
-    let plan_id = plan["result"]["state"]["id"].as_str().unwrap().to_string();
+    let plan_id = plan["result"]["plan"]["id"].as_str().unwrap().to_string();
 
     client
         .send(call_tool_request(
             4,
-            "prism_mutate",
+            "prism_code",
             json!({
-                "action": "coordination",
                 "credential": mutation_credential_json(&credential),
-                "input": {
-                    "kind": "task_create",
-                    "payload": {
-                        "planId": plan_id,
-                        "title": "Edit main",
-                        "anchors": [{
-                            "type": "node",
-                            "crateName": "demo",
-                            "path": "demo::main",
-                            "kind": "function"
-                        }]
-                    }
-                }
+                "code": format!(
+                    r#"
+const plan = await prism.coordination.openPlan("{plan_id}");
+const task = await plan.addTask({{
+  title: "Edit main",
+  anchors: [{{
+    type: "node",
+    crateName: "demo",
+    path: "demo::main",
+    kind: "function",
+  }}],
+}});
+return {{ task }};
+"#
+                ),
             })
             .as_object()
             .unwrap()
@@ -1514,29 +1545,29 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .await
         .unwrap();
     let task = first_tool_content_json(client.receive().await.unwrap());
-    let task_id = task["result"]["state"]["id"].as_str().unwrap().to_string();
+    let task_id = task["result"]["task"]["id"].as_str().unwrap().to_string();
 
     client
         .send(call_tool_request(
             5,
-            "prism_mutate",
+            "prism_code",
             json!({
-                "action": "claim",
                 "credential": mutation_credential_json(&credential),
-                "input": {
-                    "action": "acquire",
-                    "payload": {
-                        "anchors": [{
-                            "type": "node",
-                            "crateName": "demo",
-                            "path": "demo::main",
-                            "kind": "function"
-                        }],
-                        "capability": "Edit",
-                        "mode": "SoftExclusive",
-                        "coordinationTaskId": task_id
-                    }
-                }
+                "code": format!(
+                    r#"
+return prism.claim.acquire({{
+  anchors: [{{
+    type: "node",
+    crateName: "demo",
+    path: "demo::main",
+    kind: "function",
+  }}],
+  capability: "Edit",
+  mode: "SoftExclusive",
+  coordinationTaskId: "{task_id}",
+}});
+"#
+                ),
             })
             .as_object()
             .unwrap()
@@ -1545,22 +1576,23 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .await
         .unwrap();
     let claim = first_tool_content_json(client.receive().await.unwrap());
-    assert!(claim["result"]["claimId"].as_str().is_some());
+    assert!(claim["result"]["id"].as_str().is_some());
 
     client
         .send(call_tool_request(
             6,
-            "prism_mutate",
+            "prism_code",
             json!({
-                "action": "artifact",
                 "credential": mutation_credential_json(&credential),
-                "input": {
-                    "action": "propose",
-                    "payload": {
-                        "taskId": task["result"]["state"]["id"].as_str().unwrap(),
-                        "diffRef": "patch:1"
-                    }
-                }
+                "code": format!(
+                    r#"
+const task = await prism.coordination.openTask("{task_id}");
+return prism.artifact.propose({{
+  taskId: task,
+  diffRef: "patch:1",
+}});
+"#
+                ),
             })
             .as_object()
             .unwrap()
@@ -1569,11 +1601,8 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .await
         .unwrap();
     let artifact = first_tool_content_json(client.receive().await.unwrap());
-    assert!(artifact["result"]["artifactId"].as_str().is_some());
-    let artifact_id = artifact["result"]["artifactId"]
-        .as_str()
-        .unwrap()
-        .to_string();
+    assert!(artifact["result"]["id"].as_str().is_some());
+    let artifact_id = artifact["result"]["id"].as_str().unwrap().to_string();
 
     server_handle
         .host
@@ -1583,20 +1612,21 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .expect("queued coordination materializations should flush before prism_query");
 
     let events = server_handle.host.current_prism().coordination_events();
-    for (response, expected_request_id) in
-        [(&plan, "3"), (&task, "4"), (&claim, "5"), (&artifact, "6")]
-    {
-        let event_ids = response["result"]["eventIds"]
-            .as_array()
-            .expect("mutation should report event ids");
-        let event_id = event_ids
-            .first()
-            .and_then(|value| value.as_str())
-            .expect("mutation should report the primary event id");
-        let event = events
-            .iter()
-            .find(|event| event.meta.id.0 == event_id)
-            .expect("persisted coordination event should exist");
+    let authenticated_events = events
+        .iter()
+        .rev()
+        .filter(|event| {
+            event
+                .meta
+                .execution_context
+                .as_ref()
+                .and_then(|context| context.credential_id.as_ref())
+                .is_some_and(|credential_id| credential_id.0 == credential.credential_id)
+        })
+        .take(4)
+        .collect::<Vec<_>>();
+    assert_eq!(authenticated_events.len(), 4);
+    for event in authenticated_events {
         let EventActor::Principal(principal) = &event.meta.actor else {
             panic!("expected principal actor, got {:?}", event.meta.actor);
         };
@@ -1607,7 +1637,6 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
             .execution_context
             .as_ref()
             .expect("authenticated mutation should record execution context");
-        assert_eq!(context.request_id.as_deref(), Some(expected_request_id));
         assert_eq!(
             context.credential_id.as_ref().map(|value| value.0.as_str()),
             Some(credential.credential_id.as_str())
@@ -1617,7 +1646,7 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
     client
         .send(call_tool_request(
             7,
-            "prism_query",
+            "prism_code",
             json!({
                 "code": format!(
                     r#"
@@ -1635,7 +1664,6 @@ return {{
 }};
 "#
                 ),
-                "language": "ts",
             })
             .as_object()
             .unwrap()
@@ -1671,8 +1699,224 @@ return {{
     assert!(envelope["result"]["taskRisk"]["riskScore"].is_number());
     assert_eq!(
         envelope["result"]["artifactRisk"]["artifactId"],
-        artifact["result"]["artifactId"]
+        artifact["result"]["id"]
     );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_executes_native_prism_code_claim_and_review_followups() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+return prism.work.declare({
+  title: "Exercise native prism_code claim and review followups",
+});
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let declared = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(
+        declared["result"]["title"],
+        "Exercise native prism_code claim and review followups"
+    );
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": r#"
+const plan = await prism.coordination.createPlan({
+  title: "Native claim and review followups",
+  goal: "Exercise claim renew/release and artifact review",
+});
+const task = await plan.addTask({
+  title: "Prepare reviewable patch",
+  anchors: [{
+    type: "node",
+    crateName: "demo",
+    path: "demo::main",
+    kind: "function",
+  }],
+});
+return { plan, task };
+"#
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let created = first_tool_content_json(client.receive().await.unwrap());
+    let task_id = created["result"]["task"]["id"]
+        .as_str()
+        .expect("task id should be a string")
+        .to_string();
+
+    client
+        .send(call_tool_request(
+            4,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": format!(
+                    r#"
+return prism.claim.acquire({{
+  anchors: [{{
+    type: "node",
+    crateName: "demo",
+    path: "demo::main",
+    kind: "function",
+  }}],
+  capability: "Edit",
+  coordinationTaskId: "{task_id}",
+}});
+"#
+                ),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let claim = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(claim["result"]["status"], "Active");
+
+    client
+        .send(call_tool_request(
+            5,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": format!(
+                    r#"
+const claim = {{
+  id: "{}",
+}};
+return prism.claim.renew(claim, {{
+  ttlSeconds: 120,
+}});
+"#,
+                    claim["result"]["id"].as_str().unwrap()
+                ),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let renewed = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(renewed["result"]["id"], claim["result"]["id"]);
+    assert_eq!(renewed["result"]["status"], "Active");
+
+    client
+        .send(call_tool_request(
+            6,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": format!(
+                    r#"
+const task = await prism.coordination.openTask("{task_id}");
+return prism.artifact.propose({{
+  taskId: task,
+  diffRef: "patch:review",
+}});
+"#
+                ),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let artifact = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(artifact["result"]["status"], "Proposed");
+
+    client
+        .send(call_tool_request(
+            7,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": format!(
+                    r#"
+const artifact = {{
+  id: "{}",
+}};
+return prism.artifact.review(artifact, {{
+  verdict: "approved",
+  summary: "Looks good",
+}});
+"#,
+                    artifact["result"]["id"].as_str().unwrap()
+                ),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let reviewed = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(reviewed["result"]["id"], artifact["result"]["id"]);
+    assert_eq!(reviewed["result"]["status"], "Approved");
+
+    client
+        .send(call_tool_request(
+            8,
+            "prism_code",
+            json!({
+                "credential": mutation_credential_json(&credential),
+                "code": format!(
+                    r#"
+const claim = {{
+  id: "{}",
+}};
+return prism.claim.release(claim);
+"#,
+                    claim["result"]["id"].as_str().unwrap()
+                ),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let released = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(released["result"]["id"], claim["result"]["id"]);
+    assert_eq!(released["result"]["status"], "Released");
 
     running.cancel().await.unwrap();
 }

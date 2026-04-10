@@ -28,7 +28,8 @@ The target is:
 - native builder objects and handles inside `prism_code`
 - lexical bindings instead of authored client ids
 - one-call staged lowering into native coordination transactions
-- source-level authoring for plan and task creation, updates, and graph extension
+- source-level authoring for plan and task creation, updates, graph extension, and direct claim /
+  artifact lifecycle writes
 
 ## 2. Required outcomes
 
@@ -120,6 +121,10 @@ Status note (2026-04-10):
   priority, validation refs, dependency rewiring, and artifact/review requirements
 - landed: first direct native task lifecycle helpers through `task.handoff(...)`,
   `task.acceptHandoff(...)`, `task.resume(...)`, and `task.reclaim(...)`
+- landed: native claim lifecycle helpers through `prism.claim.acquire(...)`,
+  `prism.claim.renew(...)`, and `prism.claim.release(...)`
+- landed: native artifact lifecycle helpers through `prism.artifact.propose(...)`,
+  `prism.artifact.review(...)`, and `prism.artifact.supersede(...)`
 - remaining: broaden native lifecycle coverage so normal coordination work no longer needs the
   legacy `prism.mutate(...)` escape hatch at all
 

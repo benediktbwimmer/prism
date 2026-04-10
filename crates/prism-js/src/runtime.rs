@@ -976,6 +976,71 @@ function __prismCoordinationHandleId(handle, methodPath, expectedKind) {
   return handleId;
 }
 
+function __prismRecordId(value, methodPath, label) {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+  if (
+    value != null &&
+    typeof value === "object" &&
+    typeof value.id === "string" &&
+    value.id.trim().length > 0
+  ) {
+    return value.id.trim();
+  }
+  __prismThrowQueryUserError(
+    "prism_code object reference invalid",
+    `${methodPath} requires ${label} to be a non-empty id string or an object with a non-empty id.`,
+    {
+      code: "record_id_required",
+      category: "coordination_builder",
+      method: methodPath,
+      label,
+    }
+  );
+}
+
+function __prismTaskRef(value, methodPath, label) {
+  if (
+    value != null &&
+    typeof value === "object" &&
+    value.__prismCoordinationHandleKind === "task"
+  ) {
+    return value;
+  }
+  return __prismRecordId(value, methodPath, label);
+}
+
+function __prismClaimHandle(raw) {
+  if (raw == null || typeof raw !== "object") {
+    return raw;
+  }
+  return {
+    ...raw,
+    renew(input = {}) {
+      return prism.claim.renew(raw, input);
+    },
+    release() {
+      return prism.claim.release(raw);
+    },
+  };
+}
+
+function __prismArtifactHandle(raw) {
+  if (raw == null || typeof raw !== "object") {
+    return raw;
+  }
+  return {
+    ...raw,
+    supersede() {
+      return prism.artifact.supersede(raw);
+    },
+    review(input = {}) {
+      return prism.artifact.review(raw, input);
+    },
+  };
+}
+
 function __prismCoordinationTaskHandle(raw) {
   if (raw == null || typeof raw !== "object") {
     return raw;
@@ -1323,6 +1388,154 @@ const __prismBase = Object.freeze({
       return __prismHost("__declareWork", { input: normalized });
     },
   }),
+  claim: Object.freeze({
+    acquire(input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "prism.claim.acquire",
+        input,
+        "input",
+        [
+          "anchors",
+          "capability",
+          "mode",
+          "ttlSeconds",
+          "ttl_seconds",
+          "agent",
+          "coordinationTaskId",
+          "coordination_task_id",
+        ]
+      );
+      const coordinationTaskId =
+        normalized?.coordinationTaskId ?? normalized?.coordination_task_id;
+      return __prismClaimHandle(
+        __prismHost("__claimAcquire", {
+          input: {
+            anchors: normalized?.anchors,
+            capability: normalized?.capability,
+            mode: normalized?.mode,
+            ttlSeconds: normalized?.ttlSeconds ?? normalized?.ttl_seconds,
+            agent: normalized?.agent,
+            coordinationTaskId:
+              coordinationTaskId == null
+                ? undefined
+                : __prismTaskRef(
+                    coordinationTaskId,
+                    "prism.claim.acquire",
+                    "`coordinationTaskId`"
+                  ),
+          },
+        })
+      );
+    },
+    renew(claim, input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "prism.claim.renew",
+        input,
+        "input",
+        ["ttlSeconds", "ttl_seconds"]
+      );
+      return __prismClaimHandle(
+        __prismHost("__claimRenew", {
+          claim,
+          input: {
+            ttlSeconds: normalized?.ttlSeconds ?? normalized?.ttl_seconds,
+          },
+        })
+      );
+    },
+    release(claim) {
+      return __prismClaimHandle(
+        __prismHost("__claimRelease", {
+          claim,
+        })
+      );
+    },
+  }),
+  artifact: Object.freeze({
+    propose(input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "prism.artifact.propose",
+        input,
+        "input",
+        [
+          "taskId",
+          "task_id",
+          "artifactRequirementId",
+          "artifact_requirement_id",
+          "anchors",
+          "diffRef",
+          "diff_ref",
+          "evidence",
+          "requiredValidations",
+          "required_validations",
+          "validatedChecks",
+          "validated_checks",
+          "riskScore",
+          "risk_score",
+        ]
+      );
+      const taskId = normalized?.taskId ?? normalized?.task_id;
+      return __prismArtifactHandle(
+        __prismHost("__artifactPropose", {
+          input: {
+            taskId: __prismTaskRef(taskId, "prism.artifact.propose", "`taskId`"),
+            artifactRequirementId:
+              normalized?.artifactRequirementId ?? normalized?.artifact_requirement_id,
+            anchors: normalized?.anchors,
+            diffRef: normalized?.diffRef ?? normalized?.diff_ref,
+            evidence: normalized?.evidence,
+            requiredValidations:
+              normalized?.requiredValidations ?? normalized?.required_validations,
+            validatedChecks:
+              normalized?.validatedChecks ?? normalized?.validated_checks,
+            riskScore: normalized?.riskScore ?? normalized?.risk_score,
+          },
+        })
+      );
+    },
+    supersede(artifact) {
+      return __prismArtifactHandle(
+        __prismHost("__artifactSupersede", {
+          artifact,
+        })
+      );
+    },
+    review(artifact, input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "prism.artifact.review",
+        input,
+        "input",
+        [
+          "reviewRequirementId",
+          "review_requirement_id",
+          "verdict",
+          "summary",
+          "requiredValidations",
+          "required_validations",
+          "validatedChecks",
+          "validated_checks",
+          "riskScore",
+          "risk_score",
+        ]
+      );
+      return __prismArtifactHandle(
+        __prismHost("__artifactReview", {
+          artifact,
+          input: {
+            reviewRequirementId:
+              normalized?.reviewRequirementId ?? normalized?.review_requirement_id,
+            verdict: normalized?.verdict,
+            summary: normalized?.summary,
+            requiredValidations:
+              normalized?.requiredValidations ?? normalized?.required_validations,
+            validatedChecks:
+              normalized?.validatedChecks ?? normalized?.validated_checks,
+            riskScore: normalized?.riskScore ?? normalized?.risk_score,
+          },
+        })
+      );
+    },
+  }),
   coordination: Object.freeze({
     createPlan(input = {}) {
       const normalized = __prismValidateRecordShape(
@@ -1438,7 +1651,9 @@ const __prismBase = Object.freeze({
     return __prismHost("readyTasks", { planId });
   },
   claims(target) {
-    return __prismHost("claims", { anchors: __prismNormalizeAnchors(target) });
+    return __prismHost("claims", { anchors: __prismNormalizeAnchors(target) }).map(
+      __prismClaimHandle
+    );
   },
   conflicts(target) {
     return __prismHost("conflicts", { anchors: __prismNormalizeAnchors(target) });
@@ -1453,10 +1668,12 @@ const __prismBase = Object.freeze({
     return __prismHost("taskReviewStatus", { taskId });
   },
   pendingReviews(planId) {
-    return __prismHost("pendingReviews", planId == null ? {} : { planId });
+    return __prismHost("pendingReviews", planId == null ? {} : { planId }).map(
+      __prismArtifactHandle
+    );
   },
   artifacts(taskId) {
-    return __prismHost("artifacts", { taskId });
+    return __prismHost("artifacts", { taskId }).map(__prismArtifactHandle);
   },
   policyViolations(input = {}) {
     input = __prismValidateRecordShape(

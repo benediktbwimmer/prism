@@ -124,6 +124,44 @@ struct NativeDeclareWorkArgs {
 }
 
 #[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeClaimAcquireArgs {
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeClaimRenewArgs {
+    claim: Value,
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeClaimReleaseArgs {
+    claim: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeArtifactProposeArgs {
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeArtifactSupersedeArgs {
+    artifact: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeArtifactReviewArgs {
+    artifact: Value,
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
 struct FinalizeCodeArgs {
     result: Value,
 }
@@ -1785,6 +1823,30 @@ impl QueryExecution {
                     let args: NativeDeclareWorkArgs = serde_json::from_value(args)?;
                     Ok(self.execute_native_declare_work(args.input)?)
                 }
+                "__claimAcquire" => {
+                    let args: NativeClaimAcquireArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_claim_acquire(args.input)?)
+                }
+                "__claimRenew" => {
+                    let args: NativeClaimRenewArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_claim_renew(args.claim, args.input)?)
+                }
+                "__claimRelease" => {
+                    let args: NativeClaimReleaseArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_claim_release(args.claim)?)
+                }
+                "__artifactPropose" => {
+                    let args: NativeArtifactProposeArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_artifact_propose(args.input)?)
+                }
+                "__artifactSupersede" => {
+                    let args: NativeArtifactSupersedeArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_artifact_supersede(args.artifact)?)
+                }
+                "__artifactReview" => {
+                    let args: NativeArtifactReviewArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_artifact_review(args.artifact, args.input)?)
+                }
                 "__finalizeCode" => {
                     let args: FinalizeCodeArgs = serde_json::from_value(args)?;
                     Ok(self.finalize_code_result(args.result)?)
@@ -2196,6 +2258,60 @@ return prism.file(__prismFileAroundArgs.path).around({
             ));
         };
         code_mutation.declare_work(input)
+    }
+
+    fn execute_native_claim_acquire(&self, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native claim writes require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.claim_acquire(input)
+    }
+
+    fn execute_native_claim_renew(&self, claim: Value, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native claim writes require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.claim_renew(claim, input)
+    }
+
+    fn execute_native_claim_release(&self, claim: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native claim writes require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.claim_release(claim)
+    }
+
+    fn execute_native_artifact_propose(&self, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native artifact writes require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.artifact_propose(input)
+    }
+
+    fn execute_native_artifact_supersede(&self, artifact: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native artifact writes require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.artifact_supersede(artifact)
+    }
+
+    fn execute_native_artifact_review(&self, artifact: Value, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native artifact writes require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.artifact_review(artifact, input)
     }
 
     fn finalize_code_result(&self, result: Value) -> Result<Value> {

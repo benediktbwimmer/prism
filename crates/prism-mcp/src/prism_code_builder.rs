@@ -83,58 +83,164 @@ impl PrismCodeExecutionContext {
         self.execute_direct_mutation_result("declare_work", input)
     }
 
+    pub(crate) fn claim_acquire(&self, input: Value) -> Result<Value> {
+        let mut input = expect_object(input, "prism.claim.acquire")?;
+        if let Some(task) = input.get("coordinationTaskId").cloned() {
+            let task_id = self.existing_task_id_from_value(&task, "prism.claim.acquire")?;
+            input.insert("coordinationTaskId".to_string(), Value::String(task_id));
+        }
+        self.execute_direct_mutation_state(
+            "claim",
+            json!({
+                "action": "acquire",
+                "payload": input,
+            }),
+        )
+    }
+
+    pub(crate) fn claim_renew(&self, claim: Value, input: Value) -> Result<Value> {
+        let input = expect_object(input, "prism.claim.renew")?;
+        let claim_id = self.existing_claim_id_from_value(&claim, "prism.claim.renew")?;
+        self.execute_direct_mutation_state(
+            "claim",
+            json!({
+                "action": "renew",
+                "payload": {
+                    "claimId": claim_id,
+                    "ttlSeconds": input.get("ttlSeconds").cloned().unwrap_or(Value::Null),
+                }
+            }),
+        )
+    }
+
+    pub(crate) fn claim_release(&self, claim: Value) -> Result<Value> {
+        let claim_id = self.existing_claim_id_from_value(&claim, "prism.claim.release")?;
+        self.execute_direct_mutation_state(
+            "claim",
+            json!({
+                "action": "release",
+                "payload": {
+                    "claimId": claim_id,
+                }
+            }),
+        )
+    }
+
+    pub(crate) fn artifact_propose(&self, input: Value) -> Result<Value> {
+        let mut input = expect_object(input, "prism.artifact.propose")?;
+        if let Some(task) = input.get("taskId").cloned() {
+            let task_id = self.existing_task_id_from_value(&task, "prism.artifact.propose")?;
+            input.insert("taskId".to_string(), Value::String(task_id));
+        }
+        self.execute_direct_mutation_state(
+            "artifact",
+            json!({
+                "action": "propose",
+                "payload": input,
+            }),
+        )
+    }
+
+    pub(crate) fn artifact_supersede(&self, artifact: Value) -> Result<Value> {
+        let artifact_id =
+            self.existing_artifact_id_from_value(&artifact, "prism.artifact.supersede")?;
+        self.execute_direct_mutation_state(
+            "artifact",
+            json!({
+                "action": "supersede",
+                "payload": {
+                    "artifactId": artifact_id,
+                }
+            }),
+        )
+    }
+
+    pub(crate) fn artifact_review(&self, artifact: Value, input: Value) -> Result<Value> {
+        let input = expect_object(input, "prism.artifact.review")?;
+        let artifact_id =
+            self.existing_artifact_id_from_value(&artifact, "prism.artifact.review")?;
+        self.execute_direct_mutation_state(
+            "artifact",
+            json!({
+                "action": "review",
+                "payload": {
+                    "artifactId": artifact_id,
+                    "reviewRequirementId": input.get("reviewRequirementId").cloned().unwrap_or(Value::Null),
+                    "verdict": input.get("verdict").cloned().unwrap_or(Value::Null),
+                    "summary": input.get("summary").cloned().unwrap_or(Value::Null),
+                    "requiredValidations": input.get("requiredValidations").cloned().unwrap_or(Value::Null),
+                    "validatedChecks": input.get("validatedChecks").cloned().unwrap_or(Value::Null),
+                    "riskScore": input.get("riskScore").cloned().unwrap_or(Value::Null),
+                }
+            }),
+        )
+    }
+
     pub(crate) fn task_handoff(&self, task: Value, input: Value) -> Result<Value> {
         let input = expect_object(input, "task.handoff")?;
         let task_id = self.existing_task_id_from_value(&task, "task.handoff")?;
         let summary = required_string(&input, "summary", "task.handoff")?;
-        let to_agent = optional_string(&input, "toAgent").or_else(|| optional_string(&input, "to_agent"));
-        self.execute_direct_mutation_state("coordination", json!({
-            "kind": "handoff",
-            "payload": {
-                "taskId": task_id,
-                "toAgent": to_agent,
-                "summary": summary,
-            }
-        }))
+        let to_agent =
+            optional_string(&input, "toAgent").or_else(|| optional_string(&input, "to_agent"));
+        self.execute_direct_mutation_state(
+            "coordination",
+            json!({
+                "kind": "handoff",
+                "payload": {
+                    "taskId": task_id,
+                    "toAgent": to_agent,
+                    "summary": summary,
+                }
+            }),
+        )
     }
 
     pub(crate) fn task_accept_handoff(&self, task: Value, input: Value) -> Result<Value> {
         let input = expect_object(input, "task.acceptHandoff")?;
         let task_id = self.existing_task_id_from_value(&task, "task.acceptHandoff")?;
         let agent = optional_string(&input, "agent");
-        self.execute_direct_mutation_state("coordination", json!({
-            "kind": "handoff_accept",
-            "payload": {
-                "taskId": task_id,
-                "agent": agent,
-            }
-        }))
+        self.execute_direct_mutation_state(
+            "coordination",
+            json!({
+                "kind": "handoff_accept",
+                "payload": {
+                    "taskId": task_id,
+                    "agent": agent,
+                }
+            }),
+        )
     }
 
     pub(crate) fn task_resume(&self, task: Value, input: Value) -> Result<Value> {
         let input = expect_object(input, "task.resume")?;
         let task_id = self.existing_task_id_from_value(&task, "task.resume")?;
         let agent = optional_string(&input, "agent");
-        self.execute_direct_mutation_state("coordination", json!({
-            "kind": "resume",
-            "payload": {
-                "taskId": task_id,
-                "agent": agent,
-            }
-        }))
+        self.execute_direct_mutation_state(
+            "coordination",
+            json!({
+                "kind": "resume",
+                "payload": {
+                    "taskId": task_id,
+                    "agent": agent,
+                }
+            }),
+        )
     }
 
     pub(crate) fn task_reclaim(&self, task: Value, input: Value) -> Result<Value> {
         let input = expect_object(input, "task.reclaim")?;
         let task_id = self.existing_task_id_from_value(&task, "task.reclaim")?;
         let agent = optional_string(&input, "agent");
-        self.execute_direct_mutation_state("coordination", json!({
-            "kind": "reclaim",
-            "payload": {
-                "taskId": task_id,
-                "agent": agent,
-            }
-        }))
+        self.execute_direct_mutation_state(
+            "coordination",
+            json!({
+                "kind": "reclaim",
+                "payload": {
+                    "taskId": task_id,
+                    "agent": agent,
+                }
+            }),
+        )
     }
 
     fn execute_direct_mutation(&self, input: Value) -> Result<Value> {
@@ -306,7 +412,10 @@ impl PrismCodeExecutionContext {
         let client_task_id = format!("task_{}", staged.next_client_task);
         staged.next_client_task += 1;
         let mut task_input = Map::new();
-        task_input.insert("clientTaskId".to_string(), Value::String(client_task_id.clone()));
+        task_input.insert(
+            "clientTaskId".to_string(),
+            Value::String(client_task_id.clone()),
+        );
         task_input.insert("plan".to_string(), plan_ref);
         task_input.insert("title".to_string(), Value::String(title));
         if let Some(status) = status.clone() {
@@ -521,6 +630,14 @@ impl StagedCoordinationTransaction {
 }
 
 impl PrismCodeExecutionContext {
+    fn existing_claim_id_from_value(&self, value: &Value, method: &str) -> Result<String> {
+        existing_object_id_from_value(value, method, "claim")
+    }
+
+    fn existing_artifact_id_from_value(&self, value: &Value, method: &str) -> Result<String> {
+        existing_object_id_from_value(value, method, "artifact")
+    }
+
     fn existing_task_id_from_value(&self, value: &Value, method: &str) -> Result<String> {
         let state = self.state.lock().expect("code mutation lock poisoned");
         if let Some(task_id) = value.as_str() {
@@ -533,12 +650,16 @@ impl PrismCodeExecutionContext {
         };
         if let Some(handle_kind) = object.get(HANDLE_KIND_KEY).and_then(Value::as_str) {
             if handle_kind != TASK_HANDLE_KIND {
-                return Err(anyhow!("`{method}` expects a task handle, not `{handle_kind}`"));
+                return Err(anyhow!(
+                    "`{method}` expects a task handle, not `{handle_kind}`"
+                ));
             }
             let handle_id = object
                 .get(HANDLE_ID_KEY)
                 .and_then(Value::as_str)
-                .ok_or_else(|| anyhow!("`{method}` received a task handle without an internal id"))?;
+                .ok_or_else(|| {
+                    anyhow!("`{method}` received a task handle without an internal id")
+                })?;
             let Some(staged) = state.staged_coordination.as_ref() else {
                 return Err(anyhow!("unknown task handle `{handle_id}`"));
             };
@@ -555,7 +676,9 @@ impl PrismCodeExecutionContext {
             .and_then(Value::as_str)
             .map(ToString::to_string)
             .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| anyhow!("`{method}` requires a task handle or a task object with a non-empty `id`"))
+            .ok_or_else(|| {
+                anyhow!("`{method}` requires a task handle or a task object with a non-empty `id`")
+            })
     }
 }
 
@@ -770,7 +893,11 @@ fn optional_string_patch(
     }
 }
 
-fn optional_u8_patch(object: &Map<String, Value>, key: &str, method: &str) -> Result<Option<Value>> {
+fn optional_u8_patch(
+    object: &Map<String, Value>,
+    key: &str,
+    method: &str,
+) -> Result<Option<Value>> {
     let Some(value) = object.get(key) else {
         return Ok(None);
     };
@@ -782,9 +909,8 @@ fn optional_u8_patch(object: &Map<String, Value>, key: &str, method: &str) -> Re
                     "`{method}` expects `{key}` to be a non-negative integer or null when provided"
                 ));
             };
-            let value = u8::try_from(value).map_err(|_| {
-                anyhow!("`{method}` expects `{key}` to fit in the 0..=255 range")
-            })?;
+            let value = u8::try_from(value)
+                .map_err(|_| anyhow!("`{method}` expects `{key}` to fit in the 0..=255 range"))?;
             Ok(Some(Value::Number(value.into())))
         }
         _ => Err(anyhow!(
@@ -822,7 +948,24 @@ fn task_handle_id_from_value(value: &Value, method: &str) -> Result<Option<Strin
 fn non_empty_string(value: String, method: &str) -> Result<String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
-        return Err(anyhow!("`{method}` requires a non-empty plan id"));
+        return Err(anyhow!("`{method}` requires a non-empty string"));
     }
     Ok(trimmed.to_string())
+}
+
+fn existing_object_id_from_value(value: &Value, method: &str, kind: &str) -> Result<String> {
+    if let Some(id) = value.as_str() {
+        return non_empty_string(id.to_string(), method);
+    }
+    let Some(object) = value.as_object() else {
+        return Err(anyhow!(
+            "`{method}` expects a {kind} object or {kind} id string"
+        ));
+    };
+    object
+        .get("id")
+        .and_then(Value::as_str)
+        .map(ToString::to_string)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| anyhow!("`{method}` requires a {kind} object with a non-empty `id`"))
 }
