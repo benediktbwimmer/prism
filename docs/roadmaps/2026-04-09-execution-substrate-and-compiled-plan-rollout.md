@@ -53,6 +53,7 @@ The ordering principle is:
 This roadmap depends on:
 
 - [../adrs/2026-04-10-prism-code-canonical-surface.md](../adrs/2026-04-10-prism-code-canonical-surface.md)
+- [./2026-04-10-prism-code-compiler-implementation-roadmap.md](./2026-04-10-prism-code-compiler-implementation-roadmap.md)
 - [../contracts/coordination-artifact-review-model.md](../contracts/coordination-artifact-review-model.md)
 - [../designs/2026-04-10-prism-code-and-unified-js-sdk.md](../designs/2026-04-10-prism-code-and-unified-js-sdk.md)
 - [../specs/2026-04-10-prism-code-hard-cutover-phase-7.md](../specs/2026-04-10-prism-code-hard-cutover-phase-7.md)
@@ -89,6 +90,11 @@ Current phase checklist:
 Current active phase:
 
 - Phase 7b: implement the full `prism_code` compiler cutover
+
+Compiler implementation tracking note:
+
+- the detailed end-to-end implementation of Phase 7b and later compiler integration now lives in [2026-04-10-prism-code-compiler-implementation-roadmap.md](./2026-04-10-prism-code-compiler-implementation-roadmap.md)
+- the compiler implementation should not grow additional phase-specific spec files; the controlling documents are now the compiler architecture design plus that dedicated roadmap
 
 Current implementation note (2026-04-10):
 
