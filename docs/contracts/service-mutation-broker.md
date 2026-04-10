@@ -29,6 +29,8 @@ The mutation broker owns:
 - acknowledgment and committed-result fanout
 - brokering coordination writes for runtimes that do not own coordination state directly
 
+The canonical programmable caller for brokered writes is `prism_code`.
+
 ## 3. Non-goals
 
 The mutation broker does not own:

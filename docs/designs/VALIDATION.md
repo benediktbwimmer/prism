@@ -149,7 +149,7 @@ This repository now keeps that material in an append-only JSONL log at `.prism/v
 Current write paths:
 
 - CLI: `prism feedback record --context ... --prism-said ... --actually-true ... --category projection --verdict wrong --symbol alpha`
-- MCP: `prism_mutate { action: "validation_feedback", input: { ... } }`
+- MCP or JS surface: `prism_code` calling `prism.validationFeedback.record({ ... })`
 
 The first replay and evaluation harness should ingest these real dogfooding entries instead of relying on imagined fixtures alone.
 
@@ -630,10 +630,10 @@ Metrics:
 - stale-revision detection rate
 - illegal transition rate
 
-### 8.7 PRISM MCP / Query Surface Validation
+### 8.7 PRISM MCP / Programmable Surface Validation
 
 Goal:
-- verify that the programmable query interface remains safe, stable, and repairable
+- verify that the programmable surface remains safe, stable, and repairable
 
 Validate:
 - diagnostics correctness
@@ -708,7 +708,7 @@ Simulate:
 - handoffs and blockers
 
 ### E. Query Fixtures
-Run representative compact-tool flows plus targeted `prism_query` escape-hatch snippets and verify:
+Run representative compact-tool flows plus targeted `prism_code` escape-hatch snippets and verify:
 - compact locate/open flows
 - handle stability and stale-handle recovery
 - results

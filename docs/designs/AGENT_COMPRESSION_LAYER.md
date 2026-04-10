@@ -8,7 +8,7 @@ interaction model.
 The architecture has two layers:
 
 - Semantic core / IR:
-  - `prism_query`
+  - `prism_code`
   - lineage, bundles, semantic ranking, graph-backed reasoning
 - Agent surface / default ABI:
   - compact, staged, handle-based MCP tools optimized for the next likely agent action
@@ -22,7 +22,7 @@ query-first UX.
 
 ## Why This Is Needed
 
-The current `prism_query`-first surface is semantically useful, but it encourages too many small
+The current query-first surface is semantically useful, but it encourages too many small
 exploratory turns for coding agents operating under real token budgets.
 
 The core semantic engine is still the advantage. The default agent ABI is the problem:
@@ -44,9 +44,9 @@ The default agent path becomes:
 3. `prism_open`
 4. `prism_workset`
 5. `prism_expand` only when needed
-6. `prism_query` only when the compact surface cannot express the task
+6. ad hoc read-only `prism_code` only when the compact surface cannot express the task
 
-`prism_query` remains the semantic IR and escape hatch.
+`prism_code` remains the semantic programmable escape hatch.
 
 ## Compact Primary Tools
 
@@ -195,7 +195,7 @@ Default result behavior:
 - empty results return an empty list or compact status, never ambiguous `null`
 - ambiguity returns a compact candidate set plus one narrowing hint
 - truncation returns `truncated: true` plus one `next_action`
-- rich detail is only available through `prism_expand` or `prism_query`
+- rich detail is only available through `prism_expand` or `prism_code`
 
 ## Ranking Is Core Milestone Work
 
@@ -218,7 +218,7 @@ Defaults:
 3. Add telemetry for payload bytes and dedicated-tool counts before changing prompts.
 4. Add `prism_workset` with a hard compactness budget.
 5. Switch benchmark prompts from query-first to compact-tool-first.
-6. Keep bundle helpers and `prism_query` in place, but stop recommending them as the default path.
+6. Keep the compact-tool path primary and make `prism_code` the explicit programmable fallback.
 
 ## Benchmark And Prompt Guidance
 
@@ -229,18 +229,18 @@ The benchmark and agent guidance should prefer:
 3. `prism_open`
 4. `prism_workset`
 5. `prism_expand` only when needed
-6. `prism_query` only as an explicit fallback
+6. `prism_code` only as an explicit fallback
 
 Guidance changes:
 - carry handles forward
 - avoid rediscovery by text when a handle already exists
-- stop recommending `prism_query` or bundle-first discovery as the default path
+- stop recommending `prism_code` or bundle-first discovery as the default path
 
 ## Telemetry And Success Criteria
 
 Track separately:
 - dedicated compact PRISM tool calls
-- `prism_query` calls
+- `prism_code` calls
 - shell read calls
 - repeated shell reads
 - returned PRISM payload size by tool type
@@ -249,7 +249,7 @@ Milestone success criteria:
 - lower prompt tokens than the current PRISM arm
 - lower completion tokens than the current PRISM arm
 - lower PRISM payload size per successful task
-- lower `prism_query` usage rate in the benchmark arm
+- lower `prism_code` usage rate in the benchmark arm
 
 ## Test Focus
 

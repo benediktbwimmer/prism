@@ -308,7 +308,7 @@ Health should be derived from several signals.
 * alias match confidence
 * ambiguity frequency
 * repeated concept misselection
-* fallback to raw search or `prism_query` when the concept should have sufficed
+* fallback to raw search or `prism_code` when the concept should have sufficed
 
 ### 9.4 Usage health
 

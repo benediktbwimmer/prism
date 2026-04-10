@@ -170,7 +170,7 @@ This is the clearest compact-surface latency hotspot.
 
 #### 2. coordination mutations can still stall behind `refresh_lock`
 
-Historical slow-call surfaces also show failed `prism_mutate` coordination requests that waited on
+Historical slow-call surfaces also show failed programmable write requests that waited on
 refresh admission for far too long:
 
 - about `189,726 ms`
@@ -404,7 +404,7 @@ Candidate work:
 
 Problem:
 
-- `prism_query` still transpiles TypeScript on each execution.
+- `prism_code` still transpiles TypeScript on each execution.
 
 Required outcome:
 
@@ -421,7 +421,7 @@ The milestone is complete when the following are all true on this repo or a repr
 similar size:
 
 - Idle `prism-mcp` daemon CPU remains below 2% for at least 5 minutes with no active queries.
-- Repeated identical `prism_query` calls on an unchanged workspace do not trigger indexing work.
+- Repeated identical `prism_code` calls on an unchanged workspace do not trigger indexing work.
 - A single-file change refresh is at least 5x cheaper than a cold full index.
 - Long-lived daemon RSS is reduced by at least 60% from the original baseline.
 - Bridge count and daemon connection count remain stable under normal Codex usage instead of

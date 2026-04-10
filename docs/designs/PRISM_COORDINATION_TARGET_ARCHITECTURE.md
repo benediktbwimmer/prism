@@ -364,7 +364,7 @@ That effective config should be:
 - attributable to an unlocked human credential
 - the authoritative source of repo-scoped service and coordination policy
 
-Branch-local config files may still exist as optional templates or proposals, but they must not
+Branch-local config files and repo-authored PRISM code may still exist as optional templates or proposals, but they must not
 become runtime authority automatically.
 
 ---
@@ -1020,8 +1020,8 @@ The intended flow is:
 - `prism config pull`
   - materialize the current effective repo config into a local draft file for inspection or editing
 
-Repo files may still contain human-friendly templates or examples, but the authoritative runtime
-config should live in shared refs only.
+Repo files may still contain human-friendly templates, examples, or repo-authored PRISM code under
+`.prism/code/**`, but the authoritative runtime config should live in shared refs only.
 
 ---
 

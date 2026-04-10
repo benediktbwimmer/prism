@@ -15,7 +15,7 @@ The product target is now:
 * a compact staged default ABI for agent work
 * a rich semantic core that still exists underneath it
 * first-hop success and payload size as explicit product goals
-* `prism_query` preserved as the semantic IR and escape hatch, not the default surface
+* `prism_code` preserved as the canonical programmable surface, not the default first hop
 
 The detailed target state lives in [AGENT_COMPRESSION_LAYER.md](./designs/AGENT_COMPRESSION_LAYER.md).
 
@@ -30,7 +30,7 @@ The live system is in a much better place than before:
 
 The main remaining pain points are:
 
-* the default `prism_query`-first interaction model is still too expensive in agent loops
+* the default programmable fallback is still too expensive in agent loops when callers jump to it too early
 * repeated target rediscovery and repeated option blobs waste prompt tokens
 * rich result payloads often return more than the next likely action needs
 * broad noun queries are better, but first-hop ranking still decides whether the compact path will
@@ -67,7 +67,7 @@ Needed improvements:
 
 Success condition:
 
-* common `find -> open` flows no longer require `prism_query` as the first step
+* common `find -> open` flows no longer require the programmable surface as the first step
 
 ## 2. Add Payload And Tool-Count Telemetry Before Prompt Migration
 
@@ -75,10 +75,10 @@ Before changing benchmark prompts, PRISM should measure the compression layer di
 
 Needed improvements:
 
-* track dedicated compact-tool calls separately from `prism_query`
+* track dedicated compact-tool calls separately from `prism_code`
 * track shell read calls and repeated shell reads
 * record returned payload bytes by tool type
-* make `prism_query` fallback usage visible in benchmark telemetry
+* make `prism_code` fallback usage visible in benchmark telemetry
 
 Success condition:
 
@@ -135,15 +135,15 @@ Needed improvements:
 * behavioral-owner evidence is merged before ranking
 * top-1 and top-3 quality become tracked quality targets
 
-## 6. Keep `prism_query` Rich, But Make It Secondary
+## 6. Keep `prism_code` Powerful, But Make It Secondary
 
-`prism_query` still matters, but its role changes.
+`prism_code` still matters, but its role changes.
 
 Needed improvements:
 
-* keep `prism_query` as the semantic IR and escape hatch
+* keep `prism_code` as the canonical programmable surface and escape hatch
 * stop teaching it as the default first hop in prompts, docs, and recipes
-* keep bundle/query helpers available temporarily without presenting them as the preferred path
+* keep compact tools and typed views ahead of `prism_code` in routine discovery loops
 
 Success condition:
 
@@ -187,7 +187,7 @@ This round is successful when the common workflow becomes:
 2. call `prism_open`
 3. optionally call `prism_workset`
 4. call `prism_expand` only if deeper context is still needed
-5. use `prism_query` only when the compact path cannot express the task
+5. use `prism_code` only when the compact path cannot express the task
 
 Short version:
 

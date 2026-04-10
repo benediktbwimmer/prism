@@ -172,11 +172,15 @@ Different mutation surfaces may exist temporarily, but they must all route into 
 
 Examples:
 
-- MCP mutation actions
+- `prism_code`
 - CLI mutation commands
 - future PRISM Service mutation broker
 
-Public surface convergence may happen later. The underlying protocol must already be one.
+The target public surface is already converged:
+
+- `prism_code` is the canonical programmable write surface
+
+The underlying protocol must remain one even when multiple transports front it.
 
 ## 12. Minimum implementation bar
 

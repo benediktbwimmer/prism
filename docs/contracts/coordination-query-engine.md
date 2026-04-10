@@ -47,6 +47,9 @@ The Coordination Query Engine is not:
 It evaluates coordination state. It does not decide how that state is fetched, persisted, or
 mutated.
 
+The canonical programmable public surface that reaches this engine is `prism_code`.
+Separate read-only public tools are not part of the target architecture.
+
 ## 3. Core invariants
 
 The engine must preserve these rules:

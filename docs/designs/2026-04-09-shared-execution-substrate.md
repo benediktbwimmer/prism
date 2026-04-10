@@ -232,10 +232,9 @@ The shared execution substrate should not introduce a second state interaction m
 work.
 
 Instead, runners and authored JS or TS execution code should reuse the same underlying native PRISM
-read and write capabilities that already back:
+read and write capabilities exposed through:
 
-- `prism_query`
-- `prism_mutate`
+- `prism_code`
 
 That means:
 
