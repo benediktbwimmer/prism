@@ -32,6 +32,21 @@ This roadmap is the trackable implementation plan for the architecture defined i
 
 These rules are part of this roadmap, not optional guidance.
 
+## REVIEW RULE: NO PHASE MAY BE CLAIMED FINISHED UNTIL IT IS CAREFULLY AND HONESTLY REVIEWED
+
+Every phase in this roadmap must be reviewed directly against
+[../designs/2026-04-10-prism-code-compiler-architecture.md](../designs/2026-04-10-prism-code-compiler-architecture.md)
+before it is allowed to count as complete.
+
+This review must be careful and honest, not optimistic.
+
+If the implementation is only directionally aligned, partially scaffolded, still builder-shaped, or
+still dependent on mutation-era or host-op-era semantics where the design requires compiler-owned
+semantics, the phase is not complete.
+
+When a review finds that a phase is not 100% faithful to the compiler design, that phase must be
+reopened and iterated until it is fully faithful before the roadmap may advance.
+
 ### 2.1 No separate implementation spec files
 
 This compiler implementation should not spawn a new series of phase-specific spec files.
@@ -52,8 +67,12 @@ phase.
 That means:
 
 - complete the current phase
+- review it carefully and honestly against the compiler architecture design
 - summarize what landed, what remains, and what changed in assumptions
+- identify every place where the implementation is not yet 100% faithful to the design
+- reopen the phase if any such gap exists
 - review that phase together with the user
+- iterate until the implementation is 100% faithful to the design
 - only then advance the roadmap status to the next phase
 
 There should be no silent rollover into the next compiler phase.
@@ -91,9 +110,9 @@ This roadmap is complete only when all of the following are true.
 Current phase checklist:
 
 - [x] Phase 0: freeze roadmap, architecture, and review process
-- [x] Phase 1: build the compiler substrate and surface registry foundations
-- [x] Phase 2: implement PRISM Program IR and effect classification
-- [x] Phase 3: implement structured transactional lowering for current write semantics
+- [ ] Phase 1: build the compiler substrate and surface registry foundations
+- [ ] Phase 2: implement PRISM Program IR and effect classification
+- [ ] Phase 3: implement structured transactional lowering for current write semantics
 - [ ] Phase 4: cut runtime `prism_code` execution onto the compiler path
 - [ ] Phase 5: hard-remove mutation-era product paths and finalize the SDK surface
 - [ ] Phase 6: build the fixture corpus and language-feature coverage harness
@@ -103,12 +122,18 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 3 review gate: review compiler-owned structured lowering before Phase 4
+- Reopened Phase 1-3 fidelity review and rework against the compiler architecture design
 
 Current phase note:
 
 - Phase 0 is complete.
-- Phase 1 is complete.
+- Phases 1-3 are reopened.
+- The current implementation contains useful compiler substrate work, but it was claimed complete
+  too early relative to the compiler architecture design.
+- Phase 1 is not yet complete because the current implementation does not yet make one compiler
+  surface registry actually own the runtime prelude and SDK surface end to end.
+- The existing Phase 1 substrate still leaves too much of the live runtime surface hand-authored
+  outside the compiler-owned registry.
 - The first Phase 1 slice establishes a compiler-owned
   `prism-js` surface registry and uses that registry to drive the runtime prelude and
   typechecked method surface for current compiler-owned SDK entry points.
@@ -119,7 +144,8 @@ Current phase note:
 - The final Phase 1 slice moves TypeScript program preparation, typechecking, and transpilation
   under the compiler module boundary so runtime entry points no longer hand-wire those frontend
   steps directly.
-- Phase 2 is complete.
+- Phase 2 is not yet complete because the current `PRISM Program IR` and semantic analysis are
+  still a partial scaffold relative to the design's required semantic richness and effect model.
 - Phase 2 adds a concrete `PRISM Program IR` implementation under
   `crates/prism-mcp/src/prism_code_compiler/program_ir.rs`, with explicit region, binding,
   capture, and effect-site structures that preserve source spans and binding provenance.
@@ -131,7 +157,9 @@ Current phase note:
 - The live `prism_code` runtime path now runs semantic analysis before transpilation and records a
   dedicated `typescript.*.semanticAnalysis` phase, so Program IR generation is exercised on the
   real runtime path rather than only through unit tests.
-- Phase 3 is complete.
+- Phase 3 is not yet complete because the current write runtime still lowers through explicit
+  host-operation-oriented methods and op enums rather than the design's promised structured
+  compiler lowering semantics.
 - Phase 3 replaces the old `prism_code_builder` runtime path with a compiler-owned
   write-runtime and lowering layer under
   `crates/prism-mcp/src/prism_code_compiler/write_runtime.rs`.
@@ -143,6 +171,8 @@ Current phase note:
 - Targeted MCP regressions now cover dry-run, the existing native coordination builder flow,
   mixed coordination/direct writes in one invocation, and claim/review follow-up flows on the new
   lowering path.
+- The next work must first make Phases 1-3 fully faithful to the compiler architecture design
+  before Phase 4 may begin.
 
 ## 5. Ordering thesis
 
@@ -182,6 +212,8 @@ These dependencies are strict.
 - Phase 8 before Phase 9
 
 User review is required between every dependency edge.
+No dependency edge may be crossed until the preceding phase is both reviewed and found 100%
+faithful to the compiler design.
 
 ## 7. Phases
 
