@@ -14,8 +14,9 @@ use crate::compact_followups::same_workspace_file;
 use crate::query_view_materialization::append_boundary_notes_for_paths;
 use crate::query_view_playbook::collect_repo_playbook;
 use crate::{
-    QueryExecution, SymbolTargetArgs, blast_radius_view, change_impact_view, changed_files,
-    contract_packet_view, invalid_query_argument_error, node_id_view, promoted_summary_texts,
+    blast_radius_view, change_impact_view, changed_files, contract_packet_view,
+    invalid_query_argument_error, node_id_view, promoted_summary_texts, QueryExecution,
+    SymbolTargetArgs,
 };
 
 const DOWNSTREAM_LIMIT: usize = 6;

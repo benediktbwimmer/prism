@@ -18,11 +18,11 @@ use super::suggested_actions::{
 use super::workset::budgeted_workset_result_with_followups;
 use super::*;
 use crate::{
-    ConceptPacketTruncationStats, ConceptVerbosity, concept_decode_lens_view,
-    concept_followthrough_targets, concept_packet_view, concept_relation_view,
-    concept_resolution_is_ambiguous, concept_verbosity_view, recent_patches,
+    concept_decode_lens_view, concept_followthrough_targets, concept_packet_view,
+    concept_relation_view, concept_resolution_is_ambiguous, concept_verbosity_view, recent_patches,
     resolve_concepts_for_task_context, scored_memory_view, symbol_views_for_ids_without_excerpt,
     truncate_concept_relations, truncate_vec_with_omitted, validation_recipe_view_with,
+    ConceptPacketTruncationStats, ConceptVerbosity,
 };
 
 const CONCEPT_PATCH_LIMIT: usize = 4;

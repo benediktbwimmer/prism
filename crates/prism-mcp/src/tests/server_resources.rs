@@ -2,7 +2,7 @@ use rmcp::{
     model::ProtocolVersion,
     transport::{IntoTransport, Transport},
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::*;
 use crate::tests_support::{
@@ -157,18 +157,14 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         initialize["result"]["protocolVersion"],
         ProtocolVersion::LATEST.as_str()
     );
-    assert!(
-        initialize["result"]["instructions"]
-            .as_str()
-            .expect("initialize should include instructions")
-            .contains("PRISM Instruction Sets")
-    );
-    assert!(
-        initialize["result"]["instructions"]
-            .as_str()
-            .expect("initialize should include instructions")
-            .contains("`prism://instructions/execution`")
-    );
+    assert!(initialize["result"]["instructions"]
+        .as_str()
+        .expect("initialize should include instructions")
+        .contains("PRISM Instruction Sets"));
+    assert!(initialize["result"]["instructions"]
+        .as_str()
+        .expect("initialize should include instructions")
+        .contains("`prism://instructions/execution`"));
     assert!(initialize["result"]["capabilities"]["tools"].is_object());
     assert!(initialize["result"]["capabilities"]["resources"].is_object());
 
@@ -221,48 +217,36 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         resources["result"]["resources"][0]["name"],
         "PRISM Instruction Sets"
     );
-    assert!(
-        resources["result"]["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == "prism://instructions/execution")
-    );
-    assert!(
-        resources["result"]["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == "prism://instructions/planning")
-    );
-    assert!(
-        resources["result"]["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == API_REFERENCE_URI)
-    );
-    assert!(
-        resources["result"]["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == CAPABILITIES_URI)
-    );
-    assert!(
-        resources["result"]["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == PROTECTED_STATE_URI)
-    );
-    assert!(
-        resources["result"]["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == "prism://self-description")
-    );
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://instructions/execution"));
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://instructions/planning"));
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == API_REFERENCE_URI));
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == CAPABILITIES_URI));
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == PROTECTED_STATE_URI));
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://self-description"));
 
     client
         .send(read_resource_request(4, INSTRUCTIONS_URI))
@@ -321,71 +305,53 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     )
     .unwrap();
     assert_eq!(capabilities_payload["build"]["serverName"], "prism-mcp");
-    assert!(
-        capabilities_payload["queryMethods"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|method| method["name"] == "readContext" && method["enabled"] == true)
-    );
-    assert!(
-        capabilities_payload["queryViews"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|view| view["name"] == "repoPlaybook" && view["enabled"] == true)
-    );
-    assert!(
-        !capabilities_payload["queryMethods"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|method| method["name"] == "runtimeStatus")
-    );
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "readContext" && method["enabled"] == true));
+    assert!(capabilities_payload["queryViews"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|view| view["name"] == "repoPlaybook" && view["enabled"] == true));
+    assert!(!capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "runtimeStatus"));
     assert_eq!(capabilities_payload["features"]["internalDeveloper"], false);
-    assert!(
-        capabilities_payload["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == INSTRUCTIONS_URI)
-    );
-    assert!(
-        capabilities_payload["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == "prism://instructions/coordination")
-    );
-    assert!(
-        capabilities_payload["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == SESSION_URI)
-    );
-    assert!(
-        capabilities_payload["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == PROTECTED_STATE_URI)
-    );
-    assert!(
-        capabilities_payload["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == VOCAB_URI)
-    );
-    assert!(
-        capabilities_payload["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == "prism://self-description"
-                && resource["shapeUri"] == "prism://shape/resource/self-description-audit")
-    );
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == INSTRUCTIONS_URI));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://instructions/coordination"));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == SESSION_URI));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == PROTECTED_STATE_URI));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == VOCAB_URI));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://self-description"
+            && resource["shapeUri"] == "prism://shape/resource/self-description-audit"));
 
     running.cancel().await.unwrap();
 }
@@ -586,12 +552,10 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .filter_map(|resource| resource["uri"].as_str())
         .collect::<std::collections::BTreeSet<_>>();
     assert!(!capability_resource_uris.contains(PROTECTED_STATE_URI));
-    assert!(
-        capabilities_payload["queryViews"]
-            .as_array()
-            .expect("query views should be an array")
-            .is_empty()
-    );
+    assert!(capabilities_payload["queryViews"]
+        .as_array()
+        .expect("query views should be an array")
+        .is_empty());
     assert_eq!(capabilities_payload["build"]["apiReferenceUri"], "");
     assert_eq!(
         capabilities_payload["tools"]
@@ -762,20 +726,16 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
             .collect::<std::collections::BTreeSet<_>>(),
         std::collections::BTreeSet::from(["prism_code", "prism_task_brief"])
     );
-    assert!(
-        tool_schemas_payload["tools"]
-            .as_array()
-            .expect("tool schemas should be an array")
-            .iter()
-            .all(|tool| tool["exampleUri"].is_null())
-    );
-    assert!(
-        tool_schemas_payload["tools"]
-            .as_array()
-            .expect("tool schemas should be an array")
-            .iter()
-            .all(|tool| tool["shapeUri"].is_null())
-    );
+    assert!(tool_schemas_payload["tools"]
+        .as_array()
+        .expect("tool schemas should be an array")
+        .iter()
+        .all(|tool| tool["exampleUri"].is_null()));
+    assert!(tool_schemas_payload["tools"]
+        .as_array()
+        .expect("tool schemas should be an array")
+        .iter()
+        .all(|tool| tool["shapeUri"].is_null()));
 
     client
         .send(read_resource_request(17, "prism://schema/tool/prism_code"))
@@ -887,13 +847,11 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
             .expect("vocab resource should be text"),
     )
     .unwrap();
-    assert!(
-        vocab_payload["vocabularies"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|entry| entry["key"] == "coordinationTaskStatus")
-    );
+    assert!(vocab_payload["vocabularies"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|entry| entry["key"] == "coordinationTaskStatus"));
 
     client
         .send(read_resource_request(3, TOOL_SCHEMAS_URI))
@@ -906,20 +864,16 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
             .expect("tool schema catalog should be text"),
     )
     .unwrap();
-    assert!(
-        catalog_payload["tools"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|entry| entry["toolName"] == "prism_code")
-    );
-    assert!(
-        catalog_payload["tools"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|entry| entry["toolName"] != "prism_mutate")
-    );
+    assert!(catalog_payload["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|entry| entry["toolName"] == "prism_code"));
+    assert!(catalog_payload["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|entry| entry["toolName"] != "prism_mutate"));
 
     client
         .send(read_resource_request(4, "prism://schema/tool/prism_code"))
@@ -942,13 +896,11 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
     );
     assert_eq!(schema_payload["$id"], "prism://schema/tool/prism_code");
     assert_eq!(schema_payload["type"], "object");
-    assert!(
-        schema_payload["required"]
-            .as_array()
-            .expect("required fields should exist")
-            .iter()
-            .any(|value| value == "code")
-    );
+    assert!(schema_payload["required"]
+        .as_array()
+        .expect("required fields should exist")
+        .iter()
+        .any(|value| value == "code"));
     assert!(schema_payload.to_string().contains("\"code\""));
     assert!(schema_payload.to_string().contains("\"credential\""));
     assert!(schema_payload.to_string().contains("\"bridgeExecution\""));
@@ -1015,13 +967,11 @@ async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
 
     client.send(list_resources_request(2)).await.unwrap();
     let resources = response_json(client.receive().await.unwrap());
-    assert!(
-        resources["result"]["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == SESSION_URI)
-    );
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == SESSION_URI));
 
     client
         .send(read_resource_request(3, SESSION_URI))
@@ -1065,19 +1015,15 @@ async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
     .unwrap();
     assert_eq!(payload["path"], "src/lib.rs");
     assert_eq!(payload["excerpt"]["startLine"], 1);
-    assert!(
-        payload["excerpt"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("pub fn alpha")
-    );
-    assert!(
-        payload["relatedResources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == "prism://schema/file")
-    );
+    assert!(payload["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("pub fn alpha"));
+    assert!(payload["relatedResources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://schema/file"));
 
     wait_until(
         "resource read traces to include resource refresh phases",
@@ -1239,13 +1185,11 @@ async fn mcp_server_reads_protected_state_resource_for_workspace_streams() {
         protected_state_payload["streams"][0]["diagnosticCode"],
         Value::Null
     );
-    assert!(
-        protected_state_payload["relatedResources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["uri"] == "prism://schema/protected-state")
-    );
+    assert!(protected_state_payload["relatedResources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://schema/protected-state"));
 
     client
         .send(read_resource_request(31, "prism://schema/protected-state"))
@@ -1315,13 +1259,11 @@ async fn mcp_server_lists_and_reads_plan_detail_resources() {
         .await
         .unwrap();
     let templates = response_json(client.receive().await.unwrap());
-    assert!(
-        templates["result"]["resourceTemplates"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|template| template["uriTemplate"] == "prism://plan/{planId}")
-    );
+    assert!(templates["result"]["resourceTemplates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|template| template["uriTemplate"] == "prism://plan/{planId}"));
 
     client
         .send(read_resource_request(3, &plan_resource_uri(&plan_id)))
@@ -1336,13 +1278,11 @@ async fn mcp_server_lists_and_reads_plan_detail_resources() {
     .unwrap();
     assert_eq!(payload["plan"]["id"], plan_id);
     assert_eq!(payload["summary"]["actionableNodes"], 1);
-    assert!(
-        payload["relatedResources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|link| link["uri"] == "prism://plans")
-    );
+    assert!(payload["relatedResources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|link| link["uri"] == "prism://plans"));
 
     client
         .send(read_resource_request(4, "prism://schema/plan"))
@@ -1406,34 +1346,26 @@ async fn mcp_server_internal_developer_mode_surfaces_runtime_and_query_history_q
     )
     .unwrap();
     assert_eq!(capabilities_payload["features"]["internalDeveloper"], true);
-    assert!(
-        capabilities_payload["queryMethods"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|method| method["name"] == "runtimeStatus")
-    );
-    assert!(
-        capabilities_payload["queryMethods"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|method| method["name"] == "mcpLog")
-    );
-    assert!(
-        capabilities_payload["queryMethods"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|method| method["name"] == "queryLog")
-    );
-    assert!(
-        capabilities_payload["queryMethods"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|method| method["name"] == "validationFeedback")
-    );
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "runtimeStatus"));
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "mcpLog"));
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "queryLog"));
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "validationFeedback"));
 
     running.cancel().await.unwrap();
 }
@@ -1502,97 +1434,77 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
             .expect("capabilities should be text"),
     )
     .unwrap();
-    assert!(
-        capabilities_payload["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["name"] == "PRISM Instruction Sets"
-                && resource["exampleUri"] == "prism://instructions")
-    );
-    assert!(
-        capabilities_payload["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(
-                |resource| resource["name"] == "PRISM Instructions: Execution"
-                    && resource["exampleUri"] == "prism://instructions/execution"
-            )
-    );
-    assert!(
-        capabilities_payload["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["name"] == "PRISM Session"
-                && resource["exampleUri"] == "prism://session"
-                && resource["shapeUri"] == "prism://shape/resource/session")
-    );
-    assert!(
-        capabilities_payload["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["name"] == "PRISM Protected State"
-                && resource["exampleUri"] == "prism://protected-state?stream=concepts%3Aevents")
-    );
-    assert!(
-        capabilities_payload["resources"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|resource| resource["name"] == "PRISM Vocabulary"
-                && resource["exampleUri"] == "prism://vocab")
-    );
-    assert!(
-        capabilities_payload["tools"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|tool| tool["name"] == "prism_locate"
-                && tool["exampleInput"]["query"] == "session"
-                && tool["exampleUri"] == "prism://example/tool/prism_locate"
-                && tool["shapeUri"] == "prism://shape/tool/prism_locate")
-    );
-    assert!(
-        capabilities_payload["tools"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|tool| tool["name"] == "prism_code"
-                && tool["exampleInput"]["language"] == "ts"
-                && tool["exampleUri"] == "prism://example/tool/prism_code"
-                && tool["shapeUri"] == "prism://shape/tool/prism_code")
-    );
-    assert!(
-        capabilities_payload["tools"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|tool| tool["name"] == "prism_task_brief"
-                && tool["exampleInput"]["taskId"] == "coord-task:1"
-                && tool["exampleUri"] == "prism://example/tool/prism_task_brief"
-                && tool["shapeUri"] == "prism://shape/tool/prism_task_brief")
-    );
-    assert!(
-        capabilities_payload["resourceTemplates"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|template| template["name"] == "PRISM Plan"
-                && template["exampleUri"] == "prism://plan/plan%3A1"
-                && template["shapeUri"] == "prism://shape/resource/plan")
-    );
-    assert!(
-        capabilities_payload["resourceTemplates"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|template| template["name"] == "PRISM Tool Schema"
-                && template["exampleUri"] == "prism://schema/tool/prism_code"
-                && template["shapeUri"] == "prism://shape/tool/prism_code")
-    );
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["name"] == "PRISM Instruction Sets"
+            && resource["exampleUri"] == "prism://instructions"));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(
+            |resource| resource["name"] == "PRISM Instructions: Execution"
+                && resource["exampleUri"] == "prism://instructions/execution"
+        ));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["name"] == "PRISM Session"
+            && resource["exampleUri"] == "prism://session"
+            && resource["shapeUri"] == "prism://shape/resource/session"));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["name"] == "PRISM Protected State"
+            && resource["exampleUri"] == "prism://protected-state?stream=concepts%3Aevents"));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["name"] == "PRISM Vocabulary"
+            && resource["exampleUri"] == "prism://vocab"));
+    assert!(capabilities_payload["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|tool| tool["name"] == "prism_locate"
+            && tool["exampleInput"]["query"] == "session"
+            && tool["exampleUri"] == "prism://example/tool/prism_locate"
+            && tool["shapeUri"] == "prism://shape/tool/prism_locate"));
+    assert!(capabilities_payload["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|tool| tool["name"] == "prism_code"
+            && tool["exampleInput"]["language"] == "ts"
+            && tool["exampleUri"] == "prism://example/tool/prism_code"
+            && tool["shapeUri"] == "prism://shape/tool/prism_code"));
+    assert!(capabilities_payload["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|tool| tool["name"] == "prism_task_brief"
+            && tool["exampleInput"]["taskId"] == "coord-task:1"
+            && tool["exampleUri"] == "prism://example/tool/prism_task_brief"
+            && tool["shapeUri"] == "prism://shape/tool/prism_task_brief"));
+    assert!(capabilities_payload["resourceTemplates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|template| template["name"] == "PRISM Plan"
+            && template["exampleUri"] == "prism://plan/plan%3A1"
+            && template["shapeUri"] == "prism://shape/resource/plan"));
+    assert!(capabilities_payload["resourceTemplates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|template| template["name"] == "PRISM Tool Schema"
+            && template["exampleUri"] == "prism://schema/tool/prism_code"
+            && template["shapeUri"] == "prism://shape/tool/prism_code"));
 
     let plan_entry = catalog_payload["schemas"]
         .as_array()
@@ -1668,9 +1580,7 @@ async fn self_description_surface_exposes_companions_templates_and_audit() {
     assert!(
         !template_uris.contains(&"prism://example/tool/{toolName}/action/{action}/variant/{tag}")
     );
-    assert!(
-        !template_uris.contains(&"prism://shape/tool/{toolName}/action/{action}/variant/{tag}")
-    );
+    assert!(!template_uris.contains(&"prism://shape/tool/{toolName}/action/{action}/variant/{tag}"));
     assert!(
         !template_uris.contains(&"prism://recipe/tool/{toolName}/action/{action}/variant/{tag}")
     );
@@ -1742,13 +1652,11 @@ async fn self_description_surface_exposes_companions_templates_and_audit() {
     )
     .unwrap();
     assert_eq!(capabilities_section_payload["section"], "tools");
-    assert!(
-        capabilities_section_payload["value"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|tool| tool["name"] == "prism_code")
-    );
+    assert!(capabilities_section_payload["value"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|tool| tool["name"] == "prism_code"));
 
     client
         .send(read_resource_request(
@@ -1818,16 +1726,14 @@ async fn self_description_surface_exposes_companions_templates_and_audit() {
         .iter()
         .find(|entry| entry["name"] == "prism_code")
         .expect("prism_code audit entry should exist");
-    assert!(
-        !bootstrap_entry["issues"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|issue| issue == "missing_example"
-                || issue == "missing_shape"
-                || issue == "example_oversize"
-                || issue == "shape_oversize")
-    );
+    assert!(!bootstrap_entry["issues"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|issue| issue == "missing_example"
+            || issue == "missing_shape"
+            || issue == "example_oversize"
+            || issue == "shape_oversize"));
     assert!(bootstrap_entry["exampleBytes"].as_u64().unwrap() < 12_288);
     assert!(bootstrap_entry["shapeBytes"].as_u64().unwrap() < 12_288);
     assert_eq!(bootstrap_entry["exampleValid"], Value::Bool(true));
@@ -1899,11 +1805,9 @@ fn self_description_audit_keeps_compact_discovery_surfaces_under_budget() {
     let entries = audit_payload["entries"]
         .as_array()
         .expect("audit entries should be an array");
-    assert!(
-        entries
-            .iter()
-            .any(|entry| entry["surfaceKind"] == "resource_template")
-    );
+    assert!(entries
+        .iter()
+        .any(|entry| entry["surfaceKind"] == "resource_template"));
 
     for entry in entries {
         for key in ["exampleUri", "shapeUri", "recipeUri"] {

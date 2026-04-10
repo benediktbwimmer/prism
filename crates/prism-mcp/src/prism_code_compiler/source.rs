@@ -1,10 +1,13 @@
+use std::collections::{HashSet, VecDeque};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{anyhow, bail, Context, Result};
+use deno_ast::swc::ast::{ModuleDecl, ModuleItem};
+use deno_ast::{parse_program, MediaType, ModuleSpecifier, ParseParams, ProgramRef};
 
-use super::PrismCodeCompilerInput;
 use super::input::PrismCodeEntryPoint;
+use super::PrismCodeCompilerInput;
 
 const PRISM_CODE_ROOT: &str = ".prism/code";
 const PRISM_VIRTUAL_INLINE_SPECIFIER: &str = "file:///prism/inline/prism_code.ts";
@@ -22,6 +25,7 @@ pub(crate) struct PrismCodeSourceUnit {
     specifier: String,
     display_path: String,
     source_text: String,
+    repo_module_path: Option<PathBuf>,
 }
 
 impl PrismCodeSourceUnit {
@@ -40,16 +44,25 @@ impl PrismCodeSourceUnit {
     pub(crate) fn source_text(&self) -> &str {
         &self.source_text
     }
+
+    pub(crate) fn repo_module_path(&self) -> Option<&Path> {
+        self.repo_module_path.as_deref()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PrismCodeSourceBundle {
     root: PrismCodeSourceUnit,
+    units: Vec<PrismCodeSourceUnit>,
 }
 
 impl PrismCodeSourceBundle {
     pub(crate) fn root(&self) -> &PrismCodeSourceUnit {
         &self.root
+    }
+
+    pub(crate) fn units(&self) -> &[PrismCodeSourceUnit] {
+        &self.units
     }
 }
 
@@ -70,27 +83,32 @@ pub(crate) fn load_compiler_sources(
                 specifier: PRISM_VIRTUAL_INLINE_SPECIFIER.to_string(),
                 display_path: "inline:prism_code.ts".to_string(),
                 source_text: code.clone(),
+                repo_module_path: None,
             },
+            units: vec![PrismCodeSourceUnit {
+                origin: PrismCodeSourceOrigin::InlineSnippet,
+                specifier: PRISM_VIRTUAL_INLINE_SPECIFIER.to_string(),
+                display_path: "inline:prism_code.ts".to_string(),
+                source_text: code.clone(),
+                repo_module_path: None,
+            }],
         }),
         PrismCodeEntryPoint::RepoModule(module) => {
             let workspace_root = workspace_root
                 .context("repo-authored prism_code modules require a workspace root")?;
             let repo_relative = normalize_repo_module_path(&module.module_path)?;
-            let full_path = workspace_root.join(PRISM_CODE_ROOT).join(&repo_relative);
-            let source_text = fs::read_to_string(&full_path).with_context(|| {
-                format!(
-                    "failed to read prism_code module `{}`",
-                    repo_relative.display()
-                )
-            })?;
-            Ok(PrismCodeSourceBundle {
-                root: PrismCodeSourceUnit {
-                    origin: PrismCodeSourceOrigin::RepoModule,
-                    specifier: repo_module_specifier(&repo_relative),
-                    display_path: format!("{}/{}", PRISM_CODE_ROOT, repo_relative.display()),
-                    source_text,
-                },
-            })
+            let units = load_repo_module_graph(workspace_root, &repo_relative)?;
+            let root = units
+                .iter()
+                .find(|unit| unit.repo_module_path.as_deref() == Some(repo_relative.as_path()))
+                .cloned()
+                .ok_or_else(|| {
+                    anyhow!(
+                        "failed to find root prism_code module `{}` in source bundle",
+                        repo_relative.display()
+                    )
+                })?;
+            Ok(PrismCodeSourceBundle { root, units })
         }
     }
 }
@@ -126,6 +144,95 @@ fn repo_module_specifier(path: &Path) -> String {
         PRISM_VIRTUAL_CODE_ROOT_SPECIFIER,
         path.to_string_lossy().replace('\\', "/")
     )
+}
+
+fn load_repo_module_graph(
+    workspace_root: &Path,
+    root_module_path: &Path,
+) -> Result<Vec<PrismCodeSourceUnit>> {
+    let mut queue = VecDeque::from([root_module_path.to_path_buf()]);
+    let mut seen = HashSet::new();
+    let mut units = Vec::new();
+
+    while let Some(repo_module_path) = queue.pop_front() {
+        if !seen.insert(repo_module_path.clone()) {
+            continue;
+        }
+        let full_path = workspace_root.join(PRISM_CODE_ROOT).join(&repo_module_path);
+        let source_text = fs::read_to_string(&full_path).with_context(|| {
+            format!(
+                "failed to read prism_code module `{}`",
+                repo_module_path.display()
+            )
+        })?;
+        let dependencies = collect_repo_module_dependencies(&repo_module_path, &source_text)?;
+        for dependency in dependencies {
+            if let PrismCodeResolvedImport::RepoModule(path) = dependency {
+                queue.push_back(path);
+            }
+        }
+        units.push(PrismCodeSourceUnit {
+            origin: PrismCodeSourceOrigin::RepoModule,
+            specifier: repo_module_specifier(&repo_module_path),
+            display_path: format!("{}/{}", PRISM_CODE_ROOT, repo_module_path.display()),
+            source_text,
+            repo_module_path: Some(repo_module_path),
+        });
+    }
+
+    units.sort_by(|left, right| left.display_path.cmp(&right.display_path));
+    if let Some(index) = units
+        .iter()
+        .position(|unit| unit.repo_module_path.as_deref() == Some(root_module_path))
+    {
+        units.swap(0, index);
+    }
+    Ok(units)
+}
+
+fn collect_repo_module_dependencies(
+    repo_module_path: &Path,
+    source_text: &str,
+) -> Result<Vec<PrismCodeResolvedImport>> {
+    let parsed = parse_program(ParseParams {
+        specifier: ModuleSpecifier::parse(&repo_module_specifier(repo_module_path))?,
+        text: source_text.into(),
+        media_type: MediaType::TypeScript,
+        capture_tokens: false,
+        maybe_syntax: None,
+        scope_analysis: false,
+    })
+    .map_err(|error| anyhow!(error.to_string()))?;
+
+    let mut dependencies = Vec::new();
+    if let ProgramRef::Module(module) = parsed.program_ref() {
+        for item in &module.body {
+            let Some(specifier) = module_item_import_specifier(item) else {
+                continue;
+            };
+            dependencies.push(resolve_repo_module_import(
+                repo_module_path,
+                specifier.as_str(),
+            )?);
+        }
+    }
+    Ok(dependencies)
+}
+
+fn module_item_import_specifier(item: &ModuleItem) -> Option<String> {
+    let decl = match item {
+        ModuleItem::ModuleDecl(decl) => decl,
+        ModuleItem::Stmt(_) => return None,
+    };
+    match decl {
+        ModuleDecl::Import(import) => Some(import.src.value.to_atom_lossy().to_string()),
+        ModuleDecl::ExportNamed(named) => named
+            .src
+            .as_ref()
+            .map(|src| src.value.to_atom_lossy().to_string()),
+        ModuleDecl::ExportAll(all) => Some(all.src.value.to_atom_lossy().to_string()),
+        _ => None,
+    }
 }
 
 fn normalize_repo_module_path(path: &Path) -> Result<PathBuf> {

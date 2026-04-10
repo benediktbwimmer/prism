@@ -7,7 +7,7 @@ use prism_js::{QueryDiagnostic, TaskJournalView, TaskLifecycleSummaryView};
 use prism_memory::{MemoryModule, OutcomeEvent, OutcomeKind, RecallQuery, TaskReplay};
 use prism_query::Prism;
 
-use crate::{SessionState, query_diagnostic, scored_memory_view, session_state::SessionTaskState};
+use crate::{query_diagnostic, scored_memory_view, session_state::SessionTaskState, SessionState};
 
 pub(crate) const DEFAULT_TASK_JOURNAL_EVENT_LIMIT: usize = 20;
 pub(crate) const DEFAULT_TASK_JOURNAL_MEMORY_LIMIT: usize = 8;

@@ -5,10 +5,10 @@ use std::sync::{Arc, Condvar, Mutex, OnceLock, RwLock, Weak};
 use std::time::Duration;
 
 use prism_agent::InferenceStore;
-use prism_core::WorkspaceSession;
 use prism_core::runtime_engine::{
     WorkspacePublishedGeneration, WorkspaceRuntimeContext, WorkspaceRuntimeEngine,
 };
+use prism_core::WorkspaceSession;
 use prism_memory::SessionMemory;
 
 use crate::diagnostics_state::DiagnosticsState;
@@ -16,7 +16,7 @@ use crate::mcp_call_log::McpCallLogStore;
 use crate::runtime_views::refresh_cached_runtime_status_for_config;
 use crate::workspace_diagnostics::{WorkspaceDiagnosticsConfig, WorkspaceDiagnosticsRuntime};
 use crate::workspace_runtime::{
-    WorkspaceRuntime, WorkspaceRuntimeConfig, hydrate_persisted_workspace_state,
+    hydrate_persisted_workspace_state, WorkspaceRuntime, WorkspaceRuntimeConfig,
 };
 
 static WORKSPACE_RUNTIME_SYNC_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<RwLock<()>>>>> =

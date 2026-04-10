@@ -10,8 +10,8 @@ use tracing::{debug, error};
 use crate::diagnostics_state::DiagnosticsState;
 use crate::mcp_call_log::McpCallLogStore;
 use crate::runtime_views::refresh_cached_runtime_status_for_config;
-use prism_core::WorkspaceSession;
 use prism_core::runtime_engine::WorkspaceRuntimeEngine;
+use prism_core::WorkspaceSession;
 
 const DIAGNOSTICS_REFRESH_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -39,26 +39,24 @@ impl WorkspaceDiagnosticsRuntime {
         let (wake_tx, wake_rx) = mpsc::sync_channel::<()>(1);
         let (stop_tx, stop_rx) = mpsc::channel::<()>();
         let handle = enabled.then(|| {
-            thread::spawn(move || {
-                loop {
-                    if stop_rx.try_recv().is_ok() {
-                        break;
-                    }
-                    match wake_rx.recv_timeout(DIAGNOSTICS_REFRESH_INTERVAL) {
-                        Ok(()) | Err(RecvTimeoutError::Timeout) => {}
-                        Err(RecvTimeoutError::Disconnected) => break,
-                    }
-                    if stop_rx.try_recv().is_ok() {
-                        break;
-                    }
-                    if let Err(error) = refresh_cached_runtime_status_for_config(&config) {
-                        error!(
-                            root = %config.workspace.root().display(),
-                            error = %error,
-                            error_chain = %crate::logging::format_error_chain(&error),
-                            "prism-mcp diagnostics refresh failed"
-                        );
-                    }
+            thread::spawn(move || loop {
+                if stop_rx.try_recv().is_ok() {
+                    break;
+                }
+                match wake_rx.recv_timeout(DIAGNOSTICS_REFRESH_INTERVAL) {
+                    Ok(()) | Err(RecvTimeoutError::Timeout) => {}
+                    Err(RecvTimeoutError::Disconnected) => break,
+                }
+                if stop_rx.try_recv().is_ok() {
+                    break;
+                }
+                if let Err(error) = refresh_cached_runtime_status_for_config(&config) {
+                    error!(
+                        root = %config.workspace.root().display(),
+                        error = %error,
+                        error_chain = %crate::logging::format_error_chain(&error),
+                        "prism-mcp diagnostics refresh failed"
+                    );
                 }
             })
         });

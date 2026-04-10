@@ -3,7 +3,7 @@ use std::path::Path;
 use anyhow::Result;
 
 use super::source::{PrismCodeSourceBundle, PrismCodeSourceUnit};
-use super::{PrismCodeCompilerInput, load_compiler_sources};
+use super::{load_compiler_sources, PrismCodeCompilerInput};
 use crate::{
     QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER,
     USER_SNIPPET_MARKER,
@@ -40,6 +40,10 @@ pub(crate) struct PreparedTypescriptProgram {
 }
 
 impl PreparedTypescriptProgram {
+    pub(crate) fn source_bundle(&self) -> &PrismCodeSourceBundle {
+        &self.source_bundle
+    }
+
     pub(crate) fn root_source(&self) -> &PrismCodeSourceUnit {
         self.source_bundle.root()
     }
@@ -120,11 +124,9 @@ mod tests {
             prepare_typescript_program(&input, None, PrismTypescriptProgramMode::StatementBody)
                 .expect("inline program should prepare");
         assert!(prepared.wrapped_source().contains(USER_SNIPPET_MARKER));
-        assert!(
-            prepared
-                .wrapped_source()
-                .contains("return prism.runtimeStatus();")
-        );
+        assert!(prepared
+            .wrapped_source()
+            .contains("return prism.runtimeStatus();"));
         assert!(prepared.user_snippet_first_line() > 0);
     }
 
@@ -155,11 +157,9 @@ mod tests {
             prepared.root_source().specifier(),
             "file:///prism/code/plans/deploy.ts"
         );
-        assert!(
-            prepared
-                .wrapped_source()
-                .contains("export default async function deploy()")
-        );
+        assert!(prepared
+            .wrapped_source()
+            .contains("export default async function deploy()"));
 
         fs::remove_dir_all(&root).expect("temporary test directory should remove");
     }

@@ -1,6 +1,6 @@
 use std::thread;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use prism_ir::{AnchorRef, EdgeKind, NodeId};
 use prism_js::{
     ChangeImpactView, DiscoveryBundleView, EditContextView, FocusedBlockView, OwnerCandidateView,
@@ -10,8 +10,8 @@ use prism_js::{
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
 
 use crate::{
-    SessionState, change_impact_view, merge_node_ids, merge_promoted_checks, node_id_view,
-    promoted_summary_texts, promoted_validation_checks, validation_recipe_view,
+    change_impact_view, merge_node_ids, merge_promoted_checks, node_id_view,
+    promoted_summary_texts, promoted_validation_checks, validation_recipe_view, SessionState,
 };
 
 const CANDIDATE_EXCERPT_OPTIONS: SourceExcerptOptions = SourceExcerptOptions {

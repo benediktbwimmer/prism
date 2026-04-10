@@ -14,9 +14,9 @@ use prism_js::{
     McpCallTraceView, QueryDiagnostic, QueryPhaseView, QueryResultSummaryView, QueryTraceView,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
-use crate::log_scope::{LogScope, RepoLogSource, select_log_sources};
+use crate::log_scope::{select_log_sources, LogScope, RepoLogSource};
 use crate::mutation_trace::MutationTraceView;
 use crate::{McpLogArgs, QueryHost};
 

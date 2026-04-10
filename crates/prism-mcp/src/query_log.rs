@@ -1,17 +1,17 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 
 use prism_js::{QueryDiagnostic, QueryLogEntryView, QueryPhaseView, QueryTraceView};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tracing::info;
 
 use crate::diagnostics_state::DiagnosticsState;
 use crate::mcp_call_log::{
-    McpCallLogStore, PersistedMcpCallRecord, new_log_entry, payload_summary, preview_value,
-    query_result_summary, sanitize_query_text, summarize_query, unique_operations, unique_touches,
+    new_log_entry, payload_summary, preview_value, query_result_summary, sanitize_query_text,
+    summarize_query, unique_operations, unique_touches, McpCallLogStore, PersistedMcpCallRecord,
 };
-use crate::{QueryHost, QueryLogArgs, SessionState, current_timestamp};
+use crate::{current_timestamp, QueryHost, QueryLogArgs, SessionState};
 
 const DEFAULT_QUERY_LOG_LIMIT: usize = 20;
 const DEFAULT_SLOW_QUERY_LIMIT: usize = 20;

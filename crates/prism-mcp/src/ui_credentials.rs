@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use prism_core::{CredentialProfile, CredentialsFile, PrismPaths, WorkspaceSession};
 use prism_ir::{CredentialStatus, PrincipalRegistrySnapshot};
 

@@ -10,7 +10,7 @@ use prism_core::{
 use prism_ir::{EventExecutionId, EventTriggerKind, NodeRef, Timestamp};
 use serde_json::Value;
 
-use crate::workspace_event_engine::{WorkspaceEventEngine, service_event_execution_owner};
+use crate::workspace_event_engine::{service_event_execution_owner, WorkspaceEventEngine};
 
 const DEFAULT_CLAIM_TTL_SECONDS: u64 = 5 * 60;
 

@@ -8,14 +8,13 @@ use prism_js::{
     AgentOpenResultView, AgentWorksetResultView, QueryPhaseView,
 };
 use rmcp::{
-    ErrorData as McpError, RoleServer, ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
     service::RequestContext,
-    tool, tool_router,
+    tool, tool_router, ErrorData as McpError, RoleServer, ServerHandler,
 };
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -2714,11 +2713,9 @@ impl ServerHandler for PrismMcpServer {
     ) -> Result<ListResourcesResult, McpError> {
         let started_at = current_timestamp();
         let started = Instant::now();
-        let mut resources = vec![
-            instructions_resource_link()
-                .with_title("PRISM Instruction Sets")
-                .no_annotation(),
-        ];
+        let mut resources = vec![instructions_resource_link()
+            .with_title("PRISM Instruction Sets")
+            .no_annotation()];
         resources.extend(
             instruction_set_resource_links(self.host.features.runtime_mode())
                 .into_iter()

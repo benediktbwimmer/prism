@@ -7,20 +7,20 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use rmcp::{
-    ErrorData as McpError, ServerHandler, ServiceExt,
     model::*,
     service::{Peer, RequestContext, RoleClient, RoleServer, RunningService, ServiceError},
-    transport::{StreamableHttpClientTransport, stdio},
+    transport::{stdio, StreamableHttpClientTransport},
+    ErrorData as McpError, ServerHandler, ServiceExt,
 };
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::task::{self, JoinHandle};
 use tracing::{info, warn};
 
-use crate::bridge_auth::{BRIDGE_ADOPT_TOOL_NAME, BRIDGE_AUTH_URI, BridgeAuthContext};
+use crate::bridge_auth::{BridgeAuthContext, BRIDGE_ADOPT_TOOL_NAME, BRIDGE_AUTH_URI};
 use crate::daemon_mode::BridgeUpstreamSource;
 use crate::*;
 
@@ -1091,14 +1091,14 @@ impl ServerHandler for ProxyMcpServer {
         self.startup.capture_peer(&context.peer);
         let base_uri = split_resource_uri(request.uri.as_str()).0.to_string();
         if request.uri == STARTUP_URI {
-            return Ok(ReadResourceResult::new(vec![
-                self.startup.startup_resource_contents(),
-            ]));
+            return Ok(ReadResourceResult::new(vec![self
+                .startup
+                .startup_resource_contents()]));
         }
         if request.uri == BRIDGE_AUTH_URI {
-            return Ok(ReadResourceResult::new(vec![
-                self.bridge_auth.bridge_auth_resource_contents(),
-            ]));
+            return Ok(ReadResourceResult::new(vec![self
+                .bridge_auth
+                .bridge_auth_resource_contents()]));
         }
         let result = self
             .call_upstream(request, "resources/read", |peer, request| async move {

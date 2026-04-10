@@ -3,11 +3,11 @@ use rmcp::transport::{IntoTransport, Transport};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::sync::{Arc, OnceLock, mpsc};
+use std::sync::{mpsc, Arc, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::query_replay_cases::{ReplayExpectation, ReplayHostProfile, replay_cases};
+use super::query_replay_cases::{replay_cases, ReplayExpectation, ReplayHostProfile};
 use super::*;
 use crate::git_execution::{user_dirty_paths, worktree_dirty_paths};
 use crate::server_surface::{MutationOutcomeMeta, MutationRefreshPolicy};
@@ -19,11 +19,12 @@ use prism_coordination::{
     GitExecutionStartMode, PlanCreateInput, TaskCreateInput,
 };
 use prism_core::{
+    default_workspace_session_options, default_workspace_shared_runtime, hydrate_workspace_session,
+    hydrate_workspace_session_with_options, index_workspace_session,
+    index_workspace_session_with_curator, index_workspace_session_with_options,
     BootstrapOwnerInput, CoordinationAuthorityMutationError, PrismPaths, SharedRuntimeBackend,
     ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
-    WorkspaceSessionOptions, default_workspace_session_options, default_workspace_shared_runtime,
-    hydrate_workspace_session, hydrate_workspace_session_with_options, index_workspace_session,
-    index_workspace_session_with_curator, index_workspace_session_with_options,
+    WorkspaceSessionOptions,
 };
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CandidateEdge, CandidateMemory,
@@ -49,8 +50,8 @@ use prism_query::{
 use prism_store::{
     CoordinationCheckpointStore, CoordinationStartupCheckpoint, Graph, SqliteStore, Store,
 };
-use serde_json::Value;
 use serde_json::json;
+use serde_json::Value;
 use std::collections::HashMap;
 use tracing::Level;
 
@@ -1087,11 +1088,9 @@ fn git_execution_policy_task_create_rejects_direct_in_progress_creation() {
             },
         )
         .unwrap_err();
-    assert!(
-        error
-            .to_string()
-            .contains("cannot be created directly in `inprogress`")
-    );
+    assert!(error
+        .to_string()
+        .contains("cannot be created directly in `inprogress`"));
 }
 
 #[test]
@@ -1120,20 +1119,16 @@ fn git_execution_preflight_ignores_tracked_prism_managed_paths() {
     assert!(preflight.report.worktree_dirty);
     assert_eq!(preflight.current_branch, branch);
     assert_eq!(preflight.report.failure, None);
-    assert!(
-        preflight
-            .report
-            .dirty_paths
-            .iter()
-            .any(|path| path == ".prism/plans/active/managed.jsonl")
-    );
-    assert!(
-        preflight
-            .report
-            .protected_dirty_paths
-            .iter()
-            .any(|path| path == ".prism/plans/active/managed.jsonl")
-    );
+    assert!(preflight
+        .report
+        .dirty_paths
+        .iter()
+        .any(|path| path == ".prism/plans/active/managed.jsonl"));
+    assert!(preflight
+        .report
+        .protected_dirty_paths
+        .iter()
+        .any(|path| path == ".prism/plans/active/managed.jsonl"));
 }
 
 #[test]
@@ -1164,14 +1159,12 @@ fn git_execution_preflight_respects_max_commits_behind_target() {
     assert_eq!(preflight.report.behind_target_commits, 1);
     assert_eq!(preflight.report.max_commits_behind_target, 0);
     assert_eq!(preflight.report.fetch_age_seconds, Some(0));
-    assert!(
-        preflight
-            .report
-            .failure
-            .as_deref()
-            .unwrap_or_default()
-            .contains("exceeds the configured limit of 0")
-    );
+    assert!(preflight
+        .report
+        .failure
+        .as_deref()
+        .unwrap_or_default()
+        .contains("exceeds the configured limit of 0"));
 }
 
 #[test]
@@ -1260,11 +1253,9 @@ fn git_execution_policy_completion_require_rejects_dirty_user_changes() {
             },
         )
         .unwrap_err();
-    assert!(
-        error
-            .to_string()
-            .contains("completion mode `require` needs user changes committed before completion")
-    );
+    assert!(error
+        .to_string()
+        .contains("completion mode `require` needs user changes committed before completion"));
 
     let task = host
         .current_prism()
@@ -1443,13 +1434,12 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
                     .and_then(|publish| publish.code_commit.as_deref())
             })
     );
-    assert!(
-        task.git_execution
-            .last_publish
-            .as_ref()
-            .map(|publish| publish.staged_paths.is_empty())
-            .unwrap_or(false)
-    );
+    assert!(task
+        .git_execution
+        .last_publish
+        .as_ref()
+        .map(|publish| publish.staged_paths.is_empty())
+        .unwrap_or(false));
     if let Some(workspace) = host.workspace_session() {
         workspace.flush_materializations().unwrap();
     }
@@ -1584,22 +1574,15 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
     assert!(
         operations.contains(&"mutation.gitExecution.recordPublishIntentStep.commitPersistBatch")
     );
-    assert!(
-        operations
-            .contains(&"mutation.gitExecution.recordPublishIntentStep.authority.applyTransaction")
-    );
-    assert!(
-        operations
-            .contains(&"mutation.gitExecution.recordPublishIntentStep.scheduleMaterialization")
-    );
+    assert!(operations
+        .contains(&"mutation.gitExecution.recordPublishIntentStep.authority.applyTransaction"));
+    assert!(operations
+        .contains(&"mutation.gitExecution.recordPublishIntentStep.scheduleMaterialization"));
     assert!(operations.contains(&"mutation.gitExecution.pushBranch"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeState"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeStateStep"));
-    assert!(
-        operations.contains(
-            &"mutation.gitExecution.recordAuthoritativeStateStep.scheduleMaterialization"
-        )
-    );
+    assert!(operations
+        .contains(&"mutation.gitExecution.recordAuthoritativeStateStep.scheduleMaterialization"));
     assert!(operations.contains(&"mutation.gitExecution.flushMaterializations"));
     assert!(operations.contains(&"mutation.gitExecution.syncSessionAfter"));
     assert!(operations.contains(&"mutation.gitExecution.persistSessionSeed"));
@@ -2288,13 +2271,12 @@ fn git_execution_policy_completion_require_push_failure_keeps_task_in_progress()
         task.git_execution.pending_task_status,
         Some(prism_ir::CoordinationTaskStatus::Completed)
     );
-    assert!(
-        task.git_execution
-            .last_publish
-            .as_ref()
-            .and_then(|publish| publish.failure.as_ref())
-            .is_some()
-    );
+    assert!(task
+        .git_execution
+        .last_publish
+        .as_ref()
+        .and_then(|publish| publish.failure.as_ref())
+        .is_some());
     let dirty_paths = worktree_dirty_paths(&root).unwrap();
     assert_eq!(user_dirty_paths(&dirty_paths), Vec::<String>::new());
 }
@@ -2688,12 +2670,10 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
         rejected.state["rejection"]["reasonCode"],
         Value::String("domain_validation_failed".to_string())
     );
-    assert!(
-        rejected
-            .violations
-            .iter()
-            .any(|violation| violation.code == "review_required")
-    );
+    assert!(rejected
+        .violations
+        .iter()
+        .any(|violation| violation.code == "review_required"));
     let cache = PrismPaths::for_workspace_root(&root)
         .unwrap()
         .worktree_cache_db_path()
@@ -2895,11 +2875,9 @@ fn plan_create_surfaces_transaction_metadata_in_state() {
             .unwrap_or_default()
             >= 1
     );
-    assert!(
-        created.state["commit"]["lastEventId"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty())
-    );
+    assert!(created.state["commit"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
     assert_eq!(
         created.state["authorityVersion"]["eventCount"]
             .as_u64()
@@ -2981,11 +2959,9 @@ fn workflow_update_surfaces_transaction_metadata_in_state() {
                 .as_u64()
                 .unwrap_or_default()
     );
-    assert!(
-        updated.state["authorityVersion"]["lastEventId"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty())
-    );
+    assert!(updated.state["authorityVersion"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
 }
 
 #[test]
@@ -3055,11 +3031,9 @@ fn handoff_surfaces_transaction_metadata_in_state() {
                 .as_u64()
                 .unwrap_or_default()
     );
-    assert!(
-        handoff.state["authorityVersion"]["lastEventId"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty())
-    );
+    assert!(handoff.state["authorityVersion"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
 }
 
 #[test]
@@ -3108,11 +3082,9 @@ fn task_create_surfaces_transaction_metadata_in_state() {
             .unwrap_or_default()
             >= 1
     );
-    assert!(
-        created.state["commit"]["lastEventId"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty())
-    );
+    assert!(created.state["commit"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
     assert!(
         created.state["authorityVersion"]["eventCount"]
             .as_u64()
@@ -3164,11 +3136,9 @@ fn plan_bootstrap_surfaces_transaction_metadata_in_state() {
             .unwrap_or_default()
             >= 1
     );
-    assert!(
-        bootstrapped.state["commit"]["lastEventId"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty())
-    );
+    assert!(bootstrapped.state["commit"]["lastEventId"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
     assert!(
         bootstrapped.state["authorityVersion"]["eventCount"]
             .as_u64()
@@ -3257,13 +3227,11 @@ fn mcp_exposes_policy_violations_through_prism_query() {
         )
         .unwrap();
     assert_eq!(violations.as_array().unwrap().len(), 1);
-    assert!(
-        violations[0]["violations"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|violation| violation["code"] == "review_required")
-    );
+    assert!(violations[0]["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|violation| violation["code"] == "review_required"));
 }
 
 #[test]
@@ -3433,12 +3401,10 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
     })
     .unwrap();
     assert!(rejected_plan.rejected);
-    assert!(
-        rejected_plan
-            .violations
-            .iter()
-            .any(|violation| violation.code == "incomplete_plan_tasks")
-    );
+    assert!(rejected_plan
+        .violations
+        .iter()
+        .any(|violation| violation.code == "incomplete_plan_tasks"));
 
     retry_on_transient_sqlite_lock(|| {
         host.store_coordination(
@@ -3494,12 +3460,10 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
     })
     .unwrap();
     assert!(rejected_claim.rejected);
-    assert!(
-        rejected_claim
-            .violations
-            .iter()
-            .any(|violation| violation.code == "plan_closed")
-    );
+    assert!(rejected_claim
+        .violations
+        .iter()
+        .any(|violation| violation.code == "plan_closed"));
 }
 
 #[test]
@@ -3722,22 +3686,18 @@ fn mcp_plan_bootstrap_rejects_unknown_client_ids_without_partial_state() {
         result.state["rejection"]["reasonCode"],
         "unknown_task_client_id"
     );
-    assert!(
-        result.state["rejection"]["message"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("n9")
-    );
+    assert!(result.state["rejection"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("n9"));
 
     let after = host.current_prism().legacy_coordination_snapshot();
     assert_eq!(after.plans.len(), before.plans.len());
     assert_eq!(after.tasks.len(), before.tasks.len());
-    assert!(
-        after
-            .plans
-            .iter()
-            .all(|plan| plan.title != "Broken bootstrap graph")
-    );
+    assert!(after
+        .plans
+        .iter()
+        .all(|plan| plan.title != "Broken bootstrap graph"));
 }
 
 #[test]
@@ -3836,12 +3796,10 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
     })
     .unwrap();
     assert!(rejected_claim.rejected);
-    assert!(
-        rejected_claim
-            .violations
-            .iter()
-            .any(|violation| violation.code == "plan_closed")
-    );
+    assert!(rejected_claim
+        .violations
+        .iter()
+        .any(|violation| violation.code == "plan_closed"));
 }
 
 #[test]
@@ -5084,24 +5042,20 @@ fn contract_views_surface_file_anchor_paths_for_round_trip_safety() {
             .and_then(|health| Some(&health.status)),
         Some(&prism_js::ContractHealthStatusView::Degraded)
     );
-    assert!(
-        stored
-            .packet
-            .health
-            .as_ref()
-            .and_then(|health| health.next_action.as_deref())
-            .is_some_and(|value| value.contains("evidenceRefs"))
-    );
-    assert!(
-        stored
-            .packet
-            .health
-            .as_ref()
-            .and_then(|health| health.next_action.as_deref())
-            .is_some_and(|value| value.contains(
-                "consumers_can_reason_about_the_anchored_file_directly_from_the_contract_payload"
-            ))
-    );
+    assert!(stored
+        .packet
+        .health
+        .as_ref()
+        .and_then(|health| health.next_action.as_deref())
+        .is_some_and(|value| value.contains("evidenceRefs")));
+    assert!(stored
+        .packet
+        .health
+        .as_ref()
+        .and_then(|health| health.next_action.as_deref())
+        .is_some_and(|value| value.contains(
+            "consumers_can_reason_about_the_anchored_file_directly_from_the_contract_payload"
+        )));
 
     let result = host
         .execute(
@@ -5181,7 +5135,7 @@ pub fn inspect_runtime() {}
                 migrating: None,
             }),
             evidence: Some(vec![
-                "Promoted from repeated runtime inspection work.".to_string(),
+                "Promoted from repeated runtime inspection work.".to_string()
             ]),
             status: Some(ContractStatusInput::Active),
             scope: Some(ConceptScopeInput::Session),
@@ -5224,13 +5178,11 @@ return {
         envelope.result["read"]["contracts"][0]["handle"],
         Value::String("contract://runtime_status_surface".to_string())
     );
-    assert!(
-        envelope.result["read"]["suggestedQueries"]
-            .as_array()
-            .is_some_and(|items| items
-                .iter()
-                .any(|query| query["label"] == Value::String("Contracts".to_string())))
-    );
+    assert!(envelope.result["read"]["suggestedQueries"]
+        .as_array()
+        .is_some_and(|items| items
+            .iter()
+            .any(|query| query["label"] == Value::String("Contracts".to_string()))));
 }
 
 #[test]
@@ -5305,7 +5257,7 @@ pub fn inspect_runtime() {}
                 ]),
             }),
             evidence: Some(vec![
-                "Promoted from repeated runtime inspection work.".to_string(),
+                "Promoted from repeated runtime inspection work.".to_string()
             ]),
             status: Some(ContractStatusInput::Active),
             scope: Some(ConceptScopeInput::Session),
@@ -5334,44 +5286,34 @@ return {
         envelope.result["impact"]["contracts"][0]["handle"],
         Value::String("contract://runtime_status_surface".to_string())
     );
-    assert!(
-        envelope.result["impact"]["downstream"]
-            .as_array()
-            .is_some_and(|items| items
-                .iter()
-                .any(|item| item["label"] == Value::String("demo::inspect_runtime".to_string())))
-    );
-    assert!(
-        envelope.result["impact"]["recommendedChecks"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|item| item["label"]
-                == Value::String("cargo test -p prism-mcp runtime_status".to_string())))
-    );
+    assert!(envelope.result["impact"]["downstream"]
+        .as_array()
+        .is_some_and(|items| items
+            .iter()
+            .any(|item| item["label"] == Value::String("demo::inspect_runtime".to_string()))));
+    assert!(envelope.result["impact"]["recommendedChecks"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["label"]
+            == Value::String("cargo test -p prism-mcp runtime_status".to_string()))));
 
     assert_eq!(
         envelope.result["afterEdit"]["contracts"][0]["handle"],
         Value::String("contract://runtime_status_surface".to_string())
     );
-    assert!(
-        envelope.result["afterEdit"]["nextReads"]
-            .as_array()
-            .is_some_and(|items| items
-                .iter()
-                .any(|item| item["label"] == Value::String("demo::inspect_runtime".to_string())))
-    );
-    assert!(
-        envelope.result["afterEdit"]["tests"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|item| item["label"]
-                == Value::String("cargo test -p prism-mcp runtime_status".to_string())))
-    );
-    assert!(
-        envelope.result["afterEdit"]["notes"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|note| note
-                .as_str()
-                .is_some_and(|value| value.contains("contract://runtime_status_surface"))))
-    );
+    assert!(envelope.result["afterEdit"]["nextReads"]
+        .as_array()
+        .is_some_and(|items| items
+            .iter()
+            .any(|item| item["label"] == Value::String("demo::inspect_runtime".to_string()))));
+    assert!(envelope.result["afterEdit"]["tests"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["label"]
+            == Value::String("cargo test -p prism-mcp runtime_status".to_string()))));
+    assert!(envelope.result["afterEdit"]["notes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|note| note
+            .as_str()
+            .is_some_and(|value| value.contains("contract://runtime_status_surface")))));
 }
 
 #[test]
@@ -5444,7 +5386,7 @@ pub fn inspect_runtime() {}
                 ]),
             }),
             evidence: Some(vec![
-                "Promoted from repeated runtime inspection work.".to_string(),
+                "Promoted from repeated runtime inspection work.".to_string()
             ]),
             status: Some(ContractStatusInput::Active),
             scope: Some(ConceptScopeInput::Session),
@@ -5543,7 +5485,7 @@ pub fn runtime_status_contract_test() {}
             stability: Some(ContractStabilityInput::Internal),
             compatibility: None,
             evidence: Some(vec![
-                "Promoted from repeated runtime inspection work.".to_string(),
+                "Promoted from repeated runtime inspection work.".to_string()
             ]),
             status: Some(ContractStatusInput::Active),
             scope: Some(ConceptScopeInput::Session),
@@ -5565,28 +5507,22 @@ return sym ? prism.validationPlan({ target: sym }) : null;
         )
         .expect("validationPlan should succeed");
 
-    assert!(
-        envelope.result["fast"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|item| {
-                item["label"]
-                    == Value::String("cargo test -p prism-mcp runtime_status_contract".to_string())
-            }))
-    );
-    assert!(
-        envelope.result["relatedTargets"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|item| {
-                item["path"] == Value::String("demo::inspect_runtime".to_string())
-            }))
-    );
-    assert!(
-        envelope.result["notes"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|note| note
-                .as_str()
-                .is_some_and(|text| text.contains("Contracts contributed"))))
-    );
+    assert!(envelope.result["fast"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| {
+            item["label"]
+                == Value::String("cargo test -p prism-mcp runtime_status_contract".to_string())
+        })));
+    assert!(envelope.result["relatedTargets"]
+        .as_array()
+        .is_some_and(|items| items
+            .iter()
+            .any(|item| { item["path"] == Value::String("demo::inspect_runtime".to_string()) })));
+    assert!(envelope.result["notes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|note| note
+            .as_str()
+            .is_some_and(|text| text.contains("Contracts contributed")))));
 }
 
 #[test]
@@ -5653,7 +5589,7 @@ pub fn runtime_status_contract_test() {}
             stability: Some(ContractStabilityInput::Internal),
             compatibility: None,
             evidence: Some(vec![
-                "Promoted from repeated runtime inspection work.".to_string(),
+                "Promoted from repeated runtime inspection work.".to_string()
             ]),
             status: Some(ContractStatusInput::Active),
             scope: Some(ConceptScopeInput::Session),
@@ -5935,13 +5871,11 @@ return {{
         )
         .expect("baseline query should succeed");
 
-    assert!(
-        !before.result["recipe"]["checks"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|value| value == "test:alpha_regression")
-    );
+    assert!(!before.result["recipe"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|value| value == "test:alpha_regression"));
     assert_eq!(
         before.result["taskRisk"]["promotedSummaries"]
             .as_array()
@@ -5998,20 +5932,16 @@ return {{
         )
         .expect("post-promotion query should succeed");
 
-    assert!(
-        after.result["recipe"]["checks"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|value| value == "test:alpha_regression")
-    );
-    assert!(
-        after.result["taskRecipe"]["checks"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|value| value == "test:alpha_regression")
-    );
+    assert!(after.result["recipe"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|value| value == "test:alpha_regression"));
+    assert!(after.result["taskRecipe"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|value| value == "test:alpha_regression"));
     assert_eq!(
         after.result["taskRisk"]["promotedSummaries"][0],
         "alpha is a risky coordination hotspot"
@@ -6150,15 +6080,13 @@ pub fn alpha_consumer_two() {}
                 compatible: None,
                 additive: Some(vec!["Adding optional parameters is additive.".to_string()]),
                 risky: Some(vec![
-                    "Changing the return payload shape is risky.".to_string(),
+                    "Changing the return payload shape is risky.".to_string()
                 ]),
-                breaking: Some(vec![
-                    "Removing alpha is breaking for consumers.".to_string(),
-                ]),
+                breaking: Some(vec!["Removing alpha is breaking for consumers.".to_string()]),
                 migrating: None,
             }),
             evidence: Some(vec![
-                "Captured during contract-aware risk review.".to_string(),
+                "Captured during contract-aware risk review.".to_string()
             ]),
             status: Some(ContractStatusInput::Active),
             scope: Some(ConceptScopeInput::Session),
@@ -6192,27 +6120,21 @@ return {{
         envelope.result["artifactRisk"]["contracts"][0]["handle"],
         Value::String("contract://alpha_surface".to_string())
     );
-    assert!(
-        envelope.result["taskRisk"]["contractReviewNotes"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|note| note
-                .as_str()
-                .is_some_and(|text| text.contains("review compatibility guidance"))))
-    );
-    assert!(
-        envelope.result["taskRisk"]["contractReviewNotes"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|note| note
-                .as_str()
-                .is_some_and(|text| text.contains("2 recorded consumers"))))
-    );
-    assert!(
-        envelope.result["artifactRisk"]["contractReviewNotes"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|note| note
-                .as_str()
-                .is_some_and(|text| text.contains("health is stale"))))
-    );
+    assert!(envelope.result["taskRisk"]["contractReviewNotes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|note| note
+            .as_str()
+            .is_some_and(|text| text.contains("review compatibility guidance")))));
+    assert!(envelope.result["taskRisk"]["contractReviewNotes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|note| note
+            .as_str()
+            .is_some_and(|text| text.contains("2 recorded consumers")))));
+    assert!(envelope.result["artifactRisk"]["contractReviewNotes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|note| note
+            .as_str()
+            .is_some_and(|text| text.contains("health is stale")))));
 }
 
 #[test]
@@ -6339,11 +6261,9 @@ return {
     let code_tool = &result.result["codeSummary"];
     assert_eq!(code_tool["toolName"], "prism_code");
     assert_eq!(code_tool["actionCount"], 0);
-    assert!(
-        code_tool["exampleCode"]
-            .as_str()
-            .is_some_and(|value| value.contains("prism.from(\"runtime-demo\")"))
-    );
+    assert!(code_tool["exampleCode"]
+        .as_str()
+        .is_some_and(|value| value.contains("prism.from(\"runtime-demo\")")));
 
     let validation = &result.result["validation"];
     assert_eq!(validation["toolName"], "prism_code");
@@ -6408,21 +6328,15 @@ fn compact_locate_schema_surfaces_filters_and_preview_knobs() {
         .as_object()
         .expect("locate schema should expose object properties");
 
-    assert!(
-        properties["path"]["description"]
-            .as_str()
-            .is_some_and(|value| value.contains("file path fragment"))
-    );
-    assert!(
-        properties["glob"]["description"]
-            .as_str()
-            .is_some_and(|value| value.contains("glob"))
-    );
-    assert!(
-        properties["includeTopPreview"]["description"]
-            .as_str()
-            .is_some_and(|value| value.contains("top-ranked candidate"))
-    );
+    assert!(properties["path"]["description"]
+        .as_str()
+        .is_some_and(|value| value.contains("file path fragment")));
+    assert!(properties["glob"]["description"]
+        .as_str()
+        .is_some_and(|value| value.contains("glob")));
+    assert!(properties["includeTopPreview"]["description"]
+        .as_str()
+        .is_some_and(|value| value.contains("top-ranked candidate")));
 }
 
 #[test]
@@ -6432,21 +6346,15 @@ fn compact_gather_schema_surfaces_exact_text_knobs() {
         .as_object()
         .expect("gather schema should expose object properties");
 
-    assert!(
-        properties["query"]["description"]
-            .as_str()
-            .is_some_and(|value| value.contains("Exact text"))
-    );
-    assert!(
-        properties["path"]["description"]
-            .as_str()
-            .is_some_and(|value| value.contains("file path fragment"))
-    );
-    assert!(
-        properties["glob"]["description"]
-            .as_str()
-            .is_some_and(|value| value.contains("glob"))
-    );
+    assert!(properties["query"]["description"]
+        .as_str()
+        .is_some_and(|value| value.contains("Exact text")));
+    assert!(properties["path"]["description"]
+        .as_str()
+        .is_some_and(|value| value.contains("file path fragment")));
+    assert!(properties["glob"]["description"]
+        .as_str()
+        .is_some_and(|value| value.contains("glob")));
 }
 
 #[test]
@@ -6558,12 +6466,10 @@ This section explains the event journal flow.
         .expect("explain locate should succeed");
     assert_eq!(explain.status, prism_js::AgentLocateStatus::Ok);
     assert_eq!(explain.candidates[0].kind, NodeKind::MarkdownHeading);
-    assert!(
-        explain.candidates[0]
-            .file_path
-            .as_deref()
-            .is_some_and(|path| path.ends_with("docs/SPEC.md"))
-    );
+    assert!(explain.candidates[0]
+        .file_path
+        .as_deref()
+        .is_some_and(|path| path.ends_with("docs/SPEC.md")));
 }
 
 #[test]
@@ -6728,12 +6634,10 @@ pub fn alpha_handler() {}
         .expect("locate should succeed");
 
     assert_eq!(locate.candidates[0].path, "demo::task_alpha_handler");
-    assert!(
-        locate
-            .selection_reason
-            .as_deref()
-            .is_some_and(|reason| reason.contains("requested task scope"))
-    );
+    assert!(locate
+        .selection_reason
+        .as_deref()
+        .is_some_and(|reason| reason.contains("requested task scope")));
     assert!(locate.candidates[0].why_not_top.is_none());
     assert_eq!(
         locate.candidates[0].confidence_label,
@@ -6779,18 +6683,14 @@ export function App() {
         )
         .expect("locate should succeed");
 
-    assert!(
-        locate
-            .candidates
-            .first()
-            .is_some_and(|candidate| candidate.path.contains("www/dashboard/src/App.tsx"))
-    );
-    assert!(
-        locate
-            .candidates
-            .first()
-            .is_some_and(|candidate| candidate.why_short.contains("Exact text hit"))
-    );
+    assert!(locate
+        .candidates
+        .first()
+        .is_some_and(|candidate| candidate.path.contains("www/dashboard/src/App.tsx")));
+    assert!(locate
+        .candidates
+        .first()
+        .is_some_and(|candidate| candidate.why_short.contains("Exact text hit")));
 }
 
 #[test]
@@ -7180,12 +7080,10 @@ pub fn locate_query_tokens() {}
         locate.candidates[0].path,
         "demo::compact_tools::locate_intent_profile"
     );
-    assert!(
-        locate
-            .selection_reason
-            .as_deref()
-            .is_some_and(|reason| reason.contains("Exact identifier `locate_intent_profile`"))
-    );
+    assert!(locate
+        .selection_reason
+        .as_deref()
+        .is_some_and(|reason| reason.contains("Exact identifier `locate_intent_profile`")));
     assert!(locate.selection_reason.as_deref().is_some_and(|reason| {
         reason.contains("significant query terms") && reason.contains("Matched")
     }));
@@ -7247,12 +7145,10 @@ pub fn render_operation_detail() {
         locate.candidates[0].path,
         "demo::app_shell::route_page_shell"
     );
-    assert!(
-        locate.candidates[0]
-            .why_short
-            .to_ascii_lowercase()
-            .contains("ownership-style query")
-    );
+    assert!(locate.candidates[0]
+        .why_short
+        .to_ascii_lowercase()
+        .contains("ownership-style query"));
 }
 
 #[test]
@@ -7412,12 +7308,10 @@ def helper():
     assert_eq!(locate.status, prism_js::AgentLocateStatus::Ok);
     assert_eq!(locate.candidates[0].kind, NodeKind::Document);
     assert!(locate.candidates[0].path.contains("benchmark_codex.py:"));
-    assert!(
-        locate.candidates[0]
-            .file_path
-            .as_deref()
-            .is_some_and(|path| path.ends_with("benchmark_codex.py"))
-    );
+    assert!(locate.candidates[0]
+        .file_path
+        .as_deref()
+        .is_some_and(|path| path.ends_with("benchmark_codex.py")));
     let preview = locate
         .top_preview
         .expect("text-fragment locate should include a preview");
@@ -7560,11 +7454,9 @@ The event journal snapshot should persist journal entries.
     assert!(!related.is_empty());
     assert!(related.len() <= 2);
     assert!(related.iter().all(|target| target.file_path.is_none()));
-    assert!(
-        related
-            .iter()
-            .any(|target| target.kind == NodeKind::Function)
-    );
+    assert!(related
+        .iter()
+        .any(|target| target.kind == NodeKind::Function));
 }
 
 #[test]
@@ -7689,12 +7581,10 @@ fn compact_open_deepens_shallow_semantic_files_on_first_touch() {
         .graph()
         .file_record(&target_path)
         .expect("lib file should remain indexed");
-    assert!(
-        deepened_record
-            .unresolved_calls
-            .iter()
-            .any(|call| call.caller.path == "demo::alpha" && call.name == "beta")
-    );
+    assert!(deepened_record
+        .unresolved_calls
+        .iter()
+        .any(|call| call.caller.path == "demo::alpha" && call.name == "beta"));
 }
 
 #[test]
@@ -8027,11 +7917,9 @@ fn compact_open_rejects_unsupported_exact_path_modes() {
         )
         .expect_err("path edit open should require a line");
 
-    assert!(
-        edit_error
-            .to_string()
-            .contains("path-based prism_open edit mode requires `line`")
-    );
+    assert!(edit_error
+        .to_string()
+        .contains("path-based prism_open edit mode requires `line`"));
 }
 
 #[test]
@@ -8055,11 +7943,9 @@ fn compact_open_rejects_prism_resource_uris_as_exact_paths() {
         )
         .expect_err("resource URIs should not be treated as workspace file paths");
 
-    assert!(
-        error
-            .to_string()
-            .contains("PRISM resource URI, not a workspace file path")
-    );
+    assert!(error
+        .to_string()
+        .contains("PRISM resource URI, not a workspace file path"));
     assert!(error.to_string().contains("MCP resource surface"));
 }
 
@@ -8115,12 +8001,10 @@ def helper():
 
     assert!(!workset.supporting_reads.is_empty());
     assert!(workset.why.contains("Exact text hit"));
-    assert!(
-        workset
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("reopen it in edit mode"))
-    );
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("reopen it in edit mode")));
     assert!(workset.suggested_actions.iter().any(|action| {
         action.tool == "prism_open" && action.handle.is_some() && action.open_mode.is_some()
     }));
@@ -8188,32 +8072,23 @@ fn edit_target_smoke_test() {
         .expect("workset should succeed");
 
     assert!(!workset.supporting_reads.is_empty());
-    assert!(
-        workset
-            .supporting_reads
-            .iter()
-            .any(|target| target.path == "demo::parse_input"
-                || target.path == "demo::persist_result")
-    );
-    assert!(
-        workset.supporting_reads[0]
-            .why_short
-            .contains("Direct callee from this symbol.")
-    );
-    assert!(
-        workset
-            .likely_tests
-            .iter()
-            .all(|target| target.path != "demo::parse_input")
-    );
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|target| target.path == "demo::parse_input" || target.path == "demo::persist_result"));
+    assert!(workset.supporting_reads[0]
+        .why_short
+        .contains("Direct callee from this symbol."));
+    assert!(workset
+        .likely_tests
+        .iter()
+        .all(|target| target.path != "demo::parse_input"));
     assert!(workset.why.contains("Start with `"));
     assert!(workset.why.contains("Likely test: `"));
-    assert!(
-        workset
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("first supporting read"))
-    );
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("first supporting read")));
     assert!(workset.suggested_actions.iter().any(|action| {
         action.tool == "prism_open"
             && action.handle.as_deref() == Some(workset.primary.handle.as_str())
@@ -8224,12 +8099,10 @@ fn edit_target_smoke_test() {
             && action.handle.as_deref() == Some(workset.supporting_reads[0].handle.as_str())
             && action.open_mode == Some(prism_js::AgentOpenMode::Focus)
     }));
-    assert!(
-        workset
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("likely test"))
-    );
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("likely test")));
 }
 
 #[test]
@@ -8306,20 +8179,16 @@ pub fn validation_recipe_test() {}
     assert_eq!(concept.packet.handle, "concept://custom_validation");
     assert!(!concept.packet.core_members.is_empty());
     assert!(concept.packet.binding_metadata.is_some());
-    assert!(
-        concept
-            .packet
-            .resolution
-            .as_ref()
-            .is_some_and(|resolution| !resolution.reasons.is_empty())
-    );
-    assert!(
-        concept
-            .decode
-            .as_ref()
-            .and_then(|decode| decode.validation_recipe.as_ref())
-            .is_some()
-    );
+    assert!(concept
+        .packet
+        .resolution
+        .as_ref()
+        .is_some_and(|resolution| !resolution.reasons.is_empty()));
+    assert!(concept
+        .decode
+        .as_ref()
+        .and_then(|decode| decode.validation_recipe.as_ref())
+        .is_some());
 }
 
 #[test]
@@ -8670,11 +8539,9 @@ fn manual_pr_requires_approved_review_artifact_before_recording_target_landing()
             },
         )
         .expect_err("trusted landing evidence should verify the target ref");
-    assert!(
-        error
-            .to_string()
-            .contains("does not contain verified integration evidence")
-    );
+    assert!(error
+        .to_string()
+        .contains("does not contain verified integration evidence"));
 
     host.store_coordination(
         session_state.as_ref(),
@@ -9375,13 +9242,11 @@ pub fn task_risk() {}
     );
     assert!(concept.packet.truncation.is_some());
     assert!(concept.packet.relations[0].evidence.is_empty());
-    assert!(
-        concept
-            .packet
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("trimmed for context"))
-    );
+    assert!(concept
+        .packet
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("trimmed for context")));
     assert!(concept.decode.as_ref().is_some_and(|decode| {
         decode.concept.relations[0].evidence.is_empty()
             && decode.concept.verbosity_applied == prism_js::ConceptPacketVerbosityView::Summary
@@ -9648,12 +9513,10 @@ pub fn healthcheck_status() {}
         .expect("concept tool should succeed");
 
     assert!(!concept.alternates.is_empty());
-    assert!(
-        concept
-            .alternates
-            .iter()
-            .any(|alternate| alternate.handle == "concept://validation_health_checks")
-    );
+    assert!(concept
+        .alternates
+        .iter()
+        .any(|alternate| alternate.handle == "concept://validation_health_checks"));
 }
 
 #[test]
@@ -9747,16 +9610,14 @@ pub fn validation_recipe_test() {}
             .path,
         "demo::runtime_status"
     );
-    assert!(
-        open.next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("prism_workset"))
-    );
-    assert!(
-        open.suggested_actions
-            .iter()
-            .any(|action| action.tool == "prism_expand")
-    );
+    assert!(open
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_workset")));
+    assert!(open
+        .suggested_actions
+        .iter()
+        .any(|action| action.tool == "prism_expand"));
 
     let workset = host
         .compact_workset(
@@ -9773,12 +9634,10 @@ pub fn validation_recipe_test() {}
         workset.primary.handle_category,
         prism_js::AgentHandleCategoryView::Symbol
     );
-    assert!(
-        workset
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("prism_concept"))
-    );
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_concept")));
 
     let validation = host
         .compact_expand(
@@ -9796,17 +9655,13 @@ pub fn validation_recipe_test() {}
     );
     assert_eq!(validation.kind, prism_js::AgentExpandKind::Validation);
     assert!(validation.result["likelyTests"].is_array());
-    assert!(
-        validation.result["why"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
-    assert!(
-        validation
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("prism_workset"))
-    );
+    assert!(validation.result["why"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(validation
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_workset")));
 
     let health = host
         .compact_expand(
@@ -9825,17 +9680,13 @@ pub fn validation_recipe_test() {}
     assert_eq!(health.kind, prism_js::AgentExpandKind::Health);
     assert_eq!(health.result["status"], "drifted");
     assert!(health.result["repairTaskPayload"].is_object());
-    assert!(
-        health.result["signals"]["staleValidationLinks"]
-            .as_bool()
-            .unwrap()
-    );
-    assert!(
-        health
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("timeline"))
-    );
+    assert!(health.result["signals"]["staleValidationLinks"]
+        .as_bool()
+        .unwrap());
+    assert!(health
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("timeline")));
 
     host.store_outcome(
         session.as_ref(),
@@ -9977,21 +9828,15 @@ return {
         )
         .expect("concept query should succeed");
 
-    assert!(
-        envelope.result["inspectFirst"]
-            .as_str()
-            .is_some_and(is_docs_like_semantic_path)
-    );
-    assert!(
-        envelope.result["supportingRead"]
-            .as_str()
-            .is_some_and(|value| value.starts_with("demo::compact_tools"))
-    );
-    assert!(
-        envelope.result["likelyTest"]
-            .as_str()
-            .is_some_and(|value| value.contains("compact"))
-    );
+    assert!(envelope.result["inspectFirst"]
+        .as_str()
+        .is_some_and(is_docs_like_semantic_path));
+    assert!(envelope.result["supportingRead"]
+        .as_str()
+        .is_some_and(|value| value.starts_with("demo::compact_tools")));
+    assert!(envelope.result["likelyTest"]
+        .as_str()
+        .is_some_and(|value| value.contains("compact")));
     assert!(envelope.result["nextAction"].as_str().is_some_and(|value| {
         value.contains("doc or spec section") && value.contains("supporting owner")
     }));
@@ -10048,20 +9893,16 @@ fn compact_concept_followthrough_falls_back_when_live_members_are_empty() {
             },
         )
         .expect("compact concept should succeed");
-    assert!(
-        concept
-            .packet
-            .next_action
-            .as_deref()
-            .is_some_and(|value| value.contains("follow-through"))
-    );
-    assert!(
-        concept
-            .packet
-            .suggested_actions
-            .iter()
-            .any(|action| action.tool == "prism_open")
-    );
+    assert!(concept
+        .packet
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("follow-through")));
+    assert!(concept
+        .packet
+        .suggested_actions
+        .iter()
+        .any(|action| action.tool == "prism_open"));
 
     let open = host
         .compact_open(
@@ -10077,17 +9918,15 @@ fn compact_concept_followthrough_falls_back_when_live_members_are_empty() {
             },
         )
         .expect("compact open should fall back to follow-through targets");
-    assert!(
-        open.promoted_handle
-            .as_ref()
-            .is_some_and(|handle| is_docs_like_semantic_path(&handle.path))
-    );
-    assert!(
-        open.related_handles
-            .as_ref()
-            .and_then(|handles| handles.first())
-            .is_some_and(|handle| handle.path.starts_with("demo::compact_tools"))
-    );
+    assert!(open
+        .promoted_handle
+        .as_ref()
+        .is_some_and(|handle| is_docs_like_semantic_path(&handle.path)));
+    assert!(open
+        .related_handles
+        .as_ref()
+        .and_then(|handles| handles.first())
+        .is_some_and(|handle| handle.path.starts_with("demo::compact_tools")));
     assert!(
         open.next_action.as_deref().is_some_and(
             |value| value.contains("doc or spec section") && value.contains("code owner")
@@ -10105,12 +9944,10 @@ fn compact_concept_followthrough_falls_back_when_live_members_are_empty() {
         )
         .expect("compact workset should fall back to follow-through targets");
     assert!(is_docs_like_semantic_path(&workset.primary.path));
-    assert!(
-        workset
-            .supporting_reads
-            .iter()
-            .any(|candidate| candidate.path.starts_with("demo::compact_tools"))
-    );
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|candidate| candidate.path.starts_with("demo::compact_tools")));
     assert!(
         workset.next_action.as_deref().is_some_and(
             |value| value.contains("doc or spec section") && value.contains("code owner")
@@ -10271,11 +10108,10 @@ This section mentions the open and workset follow-through path in prose, but it 
             && (handle.path.starts_with("demo::open_flow")
                 || handle.path.starts_with("demo::workset_flow"))
     }));
-    assert!(
-        open.next_action
-            .as_deref()
-            .is_some_and(|value| { !value.contains("doc or spec section") })
-    );
+    assert!(open
+        .next_action
+        .as_deref()
+        .is_some_and(|value| { !value.contains("doc or spec section") }));
 
     let workset = host
         .compact_workset(
@@ -10296,12 +10132,10 @@ This section mentions the open and workset follow-through path in prose, but it 
         candidate.path.starts_with("demo::open_flow")
             || candidate.path.starts_with("demo::workset_flow")
     }));
-    assert!(
-        workset
-            .supporting_reads
-            .iter()
-            .all(|candidate| !is_docs_like_semantic_path(&candidate.path))
-    );
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .all(|candidate| !is_docs_like_semantic_path(&candidate.path)));
 }
 
 fn is_docs_like_semantic_path(value: &str) -> bool {
@@ -10392,11 +10226,9 @@ return {
         envelope.result["concept"]["curationHints"]["likelyTest"]["path"],
         Value::String("demo::runtime_status".to_string())
     );
-    assert!(
-        envelope.result["concept"]["curationHints"]["nextAction"]
-            .as_str()
-            .is_some_and(|value| value.contains("runtime_status"))
-    );
+    assert!(envelope.result["concept"]["curationHints"]["nextAction"]
+        .as_str()
+        .is_some_and(|value| value.contains("runtime_status")));
     assert!(envelope.result["concept"]["resolution"].is_object());
     assert!(envelope.result["concept"]["bindingMetadata"].is_object());
     assert!(envelope.result["byHandle"]["bindingMetadata"].is_object());
@@ -10655,11 +10487,9 @@ pub fn runtime_status() {}
         )
         .expect_err("weak repo concept should be rejected");
 
-    assert!(
-        error
-            .to_string()
-            .contains("concept coreMembers must contain at least 2")
-    );
+    assert!(error
+        .to_string()
+        .contains("concept coreMembers must contain at least 2"));
 }
 
 #[test]
@@ -10907,33 +10737,27 @@ def helper():
 
     assert_eq!(gather.matches.len(), 3);
     assert!(!gather.truncated);
-    assert!(
-        gather
-            .matches
-            .iter()
-            .all(|matched| matched.text.contains("prism_compact_tool_calls"))
-    );
+    assert!(gather
+        .matches
+        .iter()
+        .all(|matched| matched.text.contains("prism_compact_tool_calls")));
     assert!(gather.matches.iter().all(|matched| {
         matched
             .next_action
             .as_deref()
             .is_some_and(|next| next.contains("prism_gather"))
     }));
-    assert!(
-        gather
-            .matches
-            .iter()
-            .all(|matched| matched.promoted_handle.is_none())
-    );
-    assert!(
-        gather
-            .matches
-            .iter()
-            .all(|matched| matched.suggested_actions.iter().any(|action| {
-                action.tool == "prism_workset"
-                    && action.handle.as_deref() == Some(matched.handle.as_str())
-            }))
-    );
+    assert!(gather
+        .matches
+        .iter()
+        .all(|matched| matched.promoted_handle.is_none()));
+    assert!(gather
+        .matches
+        .iter()
+        .all(|matched| matched.suggested_actions.iter().any(|action| {
+            action.tool == "prism_workset"
+                && action.handle.as_deref() == Some(matched.handle.as_str())
+        })));
 }
 
 #[test]
@@ -11046,47 +10870,37 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
             },
         )
         .expect("gather should succeed");
-    assert!(
-        gather.matches[0]
-            .related_handles
-            .as_ref()
-            .is_some_and(|targets| !targets.is_empty())
-    );
-    assert!(
-        gather.matches[0]
-            .related_handles
-            .as_ref()
-            .is_some_and(|targets| targets.iter().all(|target| {
-                target.kind == NodeKind::TomlKey
-                    && !target.path.contains("member_a")
-                    && !target.path.contains("member_b")
-                    && !target.path.contains("crates/")
-                    && target
-                        .file_path
-                        .as_deref()
-                        .is_none_or(|path| path.ends_with("Cargo.toml"))
-            }))
-    );
-    assert!(
-        gather.matches[0]
-            .related_handles
-            .as_ref()
-            .is_some_and(|targets| targets
-                .iter()
-                .any(|target| target.path.contains("::workspace")))
-    );
-    assert!(
-        gather.matches[0]
-            .next_action
-            .as_deref()
-            .is_some_and(|next| next.contains("strongest semantic related handle"))
-    );
-    assert!(
-        gather.matches[0]
-            .next_action
-            .as_deref()
-            .is_some_and(|next| next.contains("prism_open on it"))
-    );
+    assert!(gather.matches[0]
+        .related_handles
+        .as_ref()
+        .is_some_and(|targets| !targets.is_empty()));
+    assert!(gather.matches[0]
+        .related_handles
+        .as_ref()
+        .is_some_and(|targets| targets.iter().all(|target| {
+            target.kind == NodeKind::TomlKey
+                && !target.path.contains("member_a")
+                && !target.path.contains("member_b")
+                && !target.path.contains("crates/")
+                && target
+                    .file_path
+                    .as_deref()
+                    .is_none_or(|path| path.ends_with("Cargo.toml"))
+        })));
+    assert!(gather.matches[0]
+        .related_handles
+        .as_ref()
+        .is_some_and(|targets| targets
+            .iter()
+            .any(|target| target.path.contains("::workspace"))));
+    assert!(gather.matches[0]
+        .next_action
+        .as_deref()
+        .is_some_and(|next| next.contains("strongest semantic related handle")));
+    assert!(gather.matches[0]
+        .next_action
+        .as_deref()
+        .is_some_and(|next| next.contains("prism_open on it")));
     let promoted_handle = gather.matches[0]
         .promoted_handle
         .as_ref()
@@ -11115,18 +10929,14 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
         )
         .expect("workset should succeed");
     assert!(!workset.supporting_reads.is_empty());
-    assert!(
-        workset
-            .supporting_reads
-            .iter()
-            .any(|target| target.kind == NodeKind::TomlKey)
-    );
-    assert!(
-        workset
-            .supporting_reads
-            .iter()
-            .any(|target| target.path.contains("::workspace"))
-    );
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|target| target.kind == NodeKind::TomlKey));
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|target| target.path.contains("::workspace")));
     assert!(workset.supporting_reads.iter().all(|target| {
         !target.path.contains("member_a")
             && !target.path.contains("member_b")
@@ -11155,16 +10965,12 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
             },
         )
         .expect("neighbors should succeed");
-    assert!(
-        neighbors.result["neighbors"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|item| item["kind"] == "TomlKey"))
-    );
-    assert!(
-        neighbors.result["neighbors"]
-            .as_array()
-            .is_some_and(|items| items.iter().all(|item| item["filePath"] == "Cargo.toml"))
-    );
+    assert!(neighbors.result["neighbors"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["kind"] == "TomlKey")));
+    assert!(neighbors.result["neighbors"]
+        .as_array()
+        .is_some_and(|items| items.iter().all(|item| item["filePath"] == "Cargo.toml")));
     assert!(neighbors.top_preview.is_some());
     let first_neighbor_handle = neighbors.result["neighbors"]
         .as_array()
@@ -11192,11 +10998,9 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
             },
         )
         .expect("validation should succeed");
-    assert!(
-        validation.result["checks"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(validation.result["checks"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
     let first_next_read = validation.result["nextReads"]
         .as_array()
         .and_then(|items| items.first())
@@ -11334,18 +11138,14 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
                 .as_deref()
                 .is_none_or(|path| path.ends_with("Cargo.toml"))
     }));
-    assert!(
-        workset
-            .supporting_reads
-            .iter()
-            .any(|target| target.path.contains("::workspace"))
-    );
-    assert!(
-        workset
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("prism_open") && text.contains("validation"))
-    );
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|target| target.path.contains("::workspace")));
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_open") && text.contains("validation")));
 
     let open = host
         .compact_open(
@@ -11361,32 +11161,29 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
             },
         )
         .expect("open should succeed");
-    assert!(
-        open.related_handles
-            .as_ref()
-            .is_some_and(|targets| !targets.is_empty())
-    );
-    assert!(
-        open.related_handles
-            .as_ref()
-            .is_some_and(|targets| targets.iter().all(|target| {
-                target.kind == NodeKind::TomlKey
-                    && !target.path.contains("tests::")
-                    && target
-                        .file_path
-                        .as_deref()
-                        .is_none_or(|path| path.ends_with("Cargo.toml"))
-            }))
-    );
+    assert!(open
+        .related_handles
+        .as_ref()
+        .is_some_and(|targets| !targets.is_empty()));
+    assert!(open
+        .related_handles
+        .as_ref()
+        .is_some_and(|targets| targets.iter().all(|target| {
+            target.kind == NodeKind::TomlKey
+                && !target.path.contains("tests::")
+                && target
+                    .file_path
+                    .as_deref()
+                    .is_none_or(|path| path.ends_with("Cargo.toml"))
+        })));
     assert!(open.text.contains("[workspace]"));
     assert!(open.text.contains("[workspace.dependencies]"));
     assert!(open.text.contains("anyhow = \"1.0\""));
     assert!(open.text.contains("serde = \"1.0\""));
-    assert!(
-        open.next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("validation") && text.contains("neighbors"))
-    );
+    assert!(open
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("validation") && text.contains("neighbors")));
     assert!(open.promoted_handle.is_none());
     assert!(open.suggested_actions.iter().any(|action| {
         action.tool == "prism_open" && action.open_mode == Some(prism_js::AgentOpenMode::Focus)
@@ -11407,19 +11204,17 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
             },
         )
         .expect("neighbors should succeed");
-    assert!(
-        neighbors.result["neighbors"]
-            .as_array()
-            .is_some_and(|items| items.iter().all(|item| {
-                item["kind"] == "TomlKey"
-                    && item["path"]
-                        .as_str()
-                        .is_some_and(|path| !path.contains("tests::"))
-                    && item["filePath"]
-                        .as_str()
-                        .is_some_and(|path| path.ends_with("Cargo.toml"))
-            }))
-    );
+    assert!(neighbors.result["neighbors"]
+        .as_array()
+        .is_some_and(|items| items.iter().all(|item| {
+            item["kind"] == "TomlKey"
+                && item["path"]
+                    .as_str()
+                    .is_some_and(|path| !path.contains("tests::"))
+                && item["filePath"]
+                    .as_str()
+                    .is_some_and(|path| path.ends_with("Cargo.toml"))
+        })));
     let preview = neighbors
         .top_preview
         .expect("structured config neighbors should include a top preview");
@@ -11433,12 +11228,10 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
     );
     assert!(preview.text.contains("[workspace]"));
     assert!(preview.text.contains("[workspace.dependencies]"));
-    assert!(
-        neighbors
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("prism_open") && text.contains("validation"))
-    );
+    assert!(neighbors
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_open") && text.contains("validation")));
     assert!(neighbors.suggested_actions.iter().any(|action| {
         action.tool == "prism_open" && action.open_mode == Some(prism_js::AgentOpenMode::Focus)
     }));
@@ -11458,40 +11251,30 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
             },
         )
         .expect("validation should succeed");
-    assert!(
-        validation.result["nextReads"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
-    assert!(
-        validation.result["likelyTests"]
-            .as_array()
-            .is_some_and(|items| items.is_empty())
-    );
-    assert!(
-        validation.result["checks"]
-            .as_array()
-            .is_some_and(|items| items.len() >= 2)
-    );
-    assert!(
-        validation.result["nextReads"]
-            .as_array()
-            .is_some_and(|items| items.iter().all(|item| {
-                item["kind"] == "TomlKey"
-                    && item["path"]
-                        .as_str()
-                        .is_some_and(|path| !path.contains("tests::"))
-                    && item["filePath"]
-                        .as_str()
-                        .is_some_and(|path| path.ends_with("Cargo.toml"))
-            }))
-    );
-    assert!(
-        validation
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("prism_open") && text.contains("neighbors"))
-    );
+    assert!(validation.result["nextReads"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(validation.result["likelyTests"]
+        .as_array()
+        .is_some_and(|items| items.is_empty()));
+    assert!(validation.result["checks"]
+        .as_array()
+        .is_some_and(|items| items.len() >= 2));
+    assert!(validation.result["nextReads"]
+        .as_array()
+        .is_some_and(|items| items.iter().all(|item| {
+            item["kind"] == "TomlKey"
+                && item["path"]
+                    .as_str()
+                    .is_some_and(|path| !path.contains("tests::"))
+                && item["filePath"]
+                    .as_str()
+                    .is_some_and(|path| path.ends_with("Cargo.toml"))
+        })));
+    assert!(validation
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_open") && text.contains("neighbors")));
     assert!(validation.suggested_actions.iter().any(|action| {
         action.tool == "prism_open" && action.open_mode == Some(prism_js::AgentOpenMode::Focus)
     }));
@@ -11550,7 +11333,7 @@ pub fn memory_system_test() {}
                 kind: "function".to_string(),
             }]),
             evidence: Some(vec![
-                "Promoted from repeated memory-system dogfooding.".to_string(),
+                "Promoted from repeated memory-system dogfooding.".to_string()
             ]),
             risk_hint: None,
             decode_lenses: None,
@@ -11575,12 +11358,10 @@ pub fn memory_system_test() {}
         .expect("workset should succeed");
 
     assert_eq!(workset.primary.path, "demo::session_memory");
-    assert!(
-        workset
-            .supporting_reads
-            .iter()
-            .any(|target| target.path == "demo::outcome_memory")
-    );
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|target| target.path == "demo::outcome_memory"));
     assert_eq!(
         workset.freshness,
         if workset.remapped {
@@ -11589,11 +11370,9 @@ pub fn memory_system_test() {}
             prism_js::AgentResultFreshnessView::Current
         }
     );
-    assert!(
-        workset
-            .why
-            .contains("Session memory recall and outcome history")
-    );
+    assert!(workset
+        .why
+        .contains("Session memory recall and outcome history"));
 }
 
 #[test]
@@ -11844,13 +11623,11 @@ fn compact_tool_query_trace_records_refresh_and_handler_phases() {
             "expected compact refresh reload-work metrics to include `{key}`"
         );
     }
-    assert!(
-        trace
-            .phases
-            .iter()
-            .find(|phase| phase.operation == "compact.handler")
-            .is_some_and(|phase| phase.success)
-    );
+    assert!(trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "compact.handler")
+        .is_some_and(|phase| phase.success));
 }
 
 #[test]
@@ -11962,11 +11739,9 @@ fn compact_expand_lineage_returns_compact_recent_history() {
         .expect("recentHistory should be an array");
     assert_eq!(recent_history.len(), 3);
     assert!(expand.result["truncated"].as_bool().unwrap_or(false));
-    assert!(
-        expand.result["nextAction"]
-            .as_str()
-            .is_some_and(|text| text.contains("prism_query"))
-    );
+    assert!(expand.result["nextAction"]
+        .as_str()
+        .is_some_and(|text| text.contains("prism_query")));
     assert!(recent_history.iter().all(|event| {
         event.get("before").is_none()
             && event.get("after").is_none()
@@ -12077,11 +11852,9 @@ fn compact_expand_diff_returns_compact_recent_patch_summaries() {
         .expect("recentDiffs should be an array");
     assert_eq!(recent_diffs.len(), 3);
     assert!(expand.result["truncated"].as_bool().unwrap_or(false));
-    assert!(
-        expand.result["nextAction"]
-            .as_str()
-            .is_some_and(|text| text.contains("prism_query"))
-    );
+    assert!(expand.result["nextAction"]
+        .as_str()
+        .is_some_and(|text| text.contains("prism_query")));
     assert!(recent_diffs.iter().all(|diff| {
         diff["symbolPath"] == "demo::alpha"
             && diff["summary"]
@@ -12268,16 +12041,12 @@ fn compact_expand_perception_lenses_surface_impact_timeline_and_memory() {
         )
         .expect("impact expand should succeed");
     assert_eq!(impact.kind, prism_js::AgentExpandKind::Impact);
-    assert!(
-        impact.result["likelyTouch"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|item| item["path"] == "demo::beta"))
-    );
-    assert!(
-        impact.result["recentFailures"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(impact.result["likelyTouch"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["path"] == "demo::beta")));
+    assert!(impact.result["recentFailures"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
     assert!(impact.result["riskHint"].as_str().is_some());
 
     let timeline = host
@@ -12291,16 +12060,12 @@ fn compact_expand_perception_lenses_surface_impact_timeline_and_memory() {
         )
         .expect("timeline expand should succeed");
     assert_eq!(timeline.kind, prism_js::AgentExpandKind::Timeline);
-    assert!(
-        timeline.result["recentEvents"]
-            .as_array()
-            .is_some_and(|items| items.len() >= 2)
-    );
-    assert!(
-        timeline.result["recentPatches"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(timeline.result["recentEvents"]
+        .as_array()
+        .is_some_and(|items| items.len() >= 2));
+    assert!(timeline.result["recentPatches"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
     assert_eq!(
         timeline.result["lastFailure"]["summary"],
         "alpha regression"
@@ -12321,12 +12086,10 @@ fn compact_expand_perception_lenses_surface_impact_timeline_and_memory() {
         )
         .expect("memory expand should succeed");
     assert_eq!(memory_expand.kind, prism_js::AgentExpandKind::Memory);
-    assert!(
-        memory_expand.result["memories"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|item| item["summary"]
-                == "alpha edits usually require checking beta and alpha_test together"))
-    );
+    assert!(memory_expand.result["memories"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["summary"]
+            == "alpha edits usually require checking beta and alpha_test together")));
 }
 
 #[test]
@@ -12506,24 +12269,18 @@ fn compact_task_brief_summarizes_coordination_outcomes_and_next_reads() {
     assert_eq!(brief.title, "Edit alpha");
     assert!(!brief.blockers.is_empty());
     assert_eq!(brief.claim_holders.len(), 1);
-    assert!(
-        brief
-            .recent_outcomes
-            .iter()
-            .any(|event| event.summary == "validated alpha")
-    );
-    assert!(
-        brief
-            .next_reads
-            .iter()
-            .any(|target| target.path == "demo::beta")
-    );
-    assert!(
-        brief
-            .next_reads
-            .iter()
-            .any(|target| target.path == "demo::gamma")
-    );
+    assert!(brief
+        .recent_outcomes
+        .iter()
+        .any(|event| event.summary == "validated alpha"));
+    assert!(brief
+        .next_reads
+        .iter()
+        .any(|target| target.path == "demo::beta"));
+    assert!(brief
+        .next_reads
+        .iter()
+        .any(|target| target.path == "demo::gamma"));
     assert_eq!(brief.next_reads[0].path, "demo::gamma");
     assert!(brief.next_action.as_deref().is_some_and(|value| {
         value.contains("current task blockers") && value.contains("prism.blockers(taskId)")
@@ -12657,24 +12414,18 @@ fn compact_task_brief_completed_task_avoids_unrelated_follow_up_guidance() {
         .expect("task brief should succeed");
 
     assert_eq!(brief.status, prism_ir::CoordinationTaskStatus::Completed);
-    assert!(
-        brief
-            .next_reads
-            .iter()
-            .any(|target| target.path == "demo::beta")
-    );
-    assert!(
-        !brief
-            .next_reads
-            .iter()
-            .any(|target| target.path == "demo::gamma")
-    );
-    assert!(
-        brief
-            .next_action
-            .as_deref()
-            .is_some_and(|value| value.contains("Task is completed"))
-    );
+    assert!(brief
+        .next_reads
+        .iter()
+        .any(|target| target.path == "demo::beta"));
+    assert!(!brief
+        .next_reads
+        .iter()
+        .any(|target| target.path == "demo::gamma"));
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("Task is completed")));
     assert!(brief.suggested_actions.is_empty());
 }
 
@@ -12806,18 +12557,14 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
         )
         .expect("task brief should succeed");
 
-    assert!(
-        brief
-            .blockers
-            .iter()
-            .any(|blocker| blocker.kind == prism_coordination::BlockerKind::StaleRevision)
-    );
-    assert!(
-        brief
-            .next_action
-            .as_deref()
-            .is_some_and(|value| value.contains("Refresh this task"))
-    );
+    assert!(brief
+        .blockers
+        .iter()
+        .any(|blocker| blocker.kind == prism_coordination::BlockerKind::StaleRevision));
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("Refresh this task")));
 }
 
 #[test]
@@ -12921,30 +12668,22 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
         )
         .expect("task brief should succeed");
 
-    assert!(
-        brief
-            .next_action
-            .as_deref()
-            .is_some_and(|value| value.contains("heartbeat_lease"))
-    );
-    assert!(
-        brief
-            .next_action
-            .as_deref()
-            .is_some_and(|value| value.contains(task_id.0.as_str()))
-    );
-    assert!(
-        brief
-            .next_action
-            .as_deref()
-            .is_some_and(|value| value.contains("off by default"))
-    );
-    assert!(
-        brief
-            .next_action
-            .as_deref()
-            .is_some_and(|value| value.contains("non-authoritative"))
-    );
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("heartbeat_lease")));
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains(task_id.0.as_str())));
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("off by default")));
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("non-authoritative")));
     assert_eq!(brief.lease_state.as_deref(), Some("active"));
     let lease_holder = brief
         .lease_holder
@@ -13055,12 +12794,10 @@ fn compact_task_brief_suppresses_heartbeat_instruction_when_local_assistance_is_
         )
         .expect("task brief should succeed");
 
-    assert!(
-        !brief
-            .next_action
-            .as_deref()
-            .is_some_and(|value| value.contains("heartbeat_lease"))
-    );
+    assert!(!brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("heartbeat_lease")));
     assert_eq!(brief.lease_state.as_deref(), Some("active"));
 }
 
@@ -13259,12 +12996,10 @@ fn compact_task_brief_accepts_coordination_task_current_task_ids() {
     assert_eq!(brief.task_id, task_id);
     assert_eq!(brief.title, "Validate migration milestone");
     assert_eq!(brief.status, prism_ir::CoordinationTaskStatus::Ready);
-    assert!(
-        brief
-            .recent_outcomes
-            .iter()
-            .any(|event| event.summary == "Started milestone validation")
-    );
+    assert!(brief
+        .recent_outcomes
+        .iter()
+        .any(|event| event.summary == "Started milestone validation"));
     assert!(brief.next_action.is_some());
 }
 
@@ -13384,12 +13119,10 @@ fn compact_workset_for_spec_targets_surfaces_drift_reads_and_gap_summary() {
             || target.path.contains("reanchor_persisted_memory_snapshot")
     }));
     assert!(workset.why.contains("Gap summary:") || workset.why.contains("gap summary"));
-    assert!(
-        workset
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("prism_open") && text.contains("drift"))
-    );
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_open") && text.contains("drift")));
 }
 
 #[test]
@@ -13427,13 +13160,11 @@ fn compact_workset_for_spec_targets_prefers_owner_paths_over_text_adjacent_helpe
         .expect("workset should succeed");
 
     assert!(!workset.supporting_reads.is_empty());
-    assert!(
-        workset
-            .supporting_reads
-            .iter()
-            .any(|target| target.path.contains("validation_feedback_view")
-                || target.path.contains("store_validation_feedback"))
-    );
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|target| target.path.contains("validation_feedback_view")
+            || target.path.contains("store_validation_feedback")));
     assert!(workset.supporting_reads.iter().all(|target| {
         !target
             .path
@@ -13450,22 +13181,18 @@ fn compact_workset_for_spec_targets_prefers_owner_paths_over_text_adjacent_helpe
             },
         )
         .expect("drift should succeed");
-    assert!(
-        drift.result["nextReads"]
-            .as_array()
-            .is_some_and(|items| items.iter().all(|item| {
-                !item["path"]
-                    .as_str()
-                    .unwrap_or_default()
-                    .contains("strip_internal_developer_api_reference")
-            }))
-    );
-    assert!(
-        drift
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("prism_open") && text.contains("prism_workset"))
-    );
+    assert!(drift.result["nextReads"]
+        .as_array()
+        .is_some_and(|items| items.iter().all(|item| {
+            !item["path"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("strip_internal_developer_api_reference")
+        })));
+    assert!(drift
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_open") && text.contains("prism_workset")));
 }
 
 #[test]
@@ -13502,12 +13229,10 @@ fn compact_workset_for_product_surface_spec_headings_lifts_body_identifiers() {
         )
         .expect("workset should succeed");
     assert!(!workset.supporting_reads.is_empty());
-    assert!(
-        workset
-            .supporting_reads
-            .iter()
-            .all(|target| !target.path.contains("tests::"))
-    );
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .all(|target| !target.path.contains("tests::")));
 
     let drift = host
         .compact_expand(
@@ -13519,17 +13244,15 @@ fn compact_workset_for_product_surface_spec_headings_lifts_body_identifiers() {
             },
         )
         .expect("drift should succeed");
-    assert!(
-        drift.result["nextReads"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|item| {
-                let path = item["path"].as_str().unwrap_or_default();
-                path.contains("prism_locate")
-                    || path.contains("prism_open")
-                    || path.contains("prism_workset")
-                    || path.contains("prism_expand")
-            }))
-    );
+    assert!(drift.result["nextReads"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| {
+            let path = item["path"].as_str().unwrap_or_default();
+            path.contains("prism_locate")
+                || path.contains("prism_open")
+                || path.contains("prism_workset")
+                || path.contains("prism_expand")
+        })));
 }
 
 #[test]
@@ -13564,18 +13287,14 @@ fn compact_spec_followups_surface_governing_sections_before_owner_hops() {
             },
         )
         .expect("workset should succeed");
-    assert!(
-        workset
-            .supporting_reads
-            .first()
-            .is_some_and(|target| target.path.contains("docs/GOVERNANCE.md:3"))
-    );
-    assert!(
-        workset
-            .next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("governing section or adjacent spec"))
-    );
+    assert!(workset
+        .supporting_reads
+        .first()
+        .is_some_and(|target| target.path.contains("docs/GOVERNANCE.md:3")));
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("governing section or adjacent spec")));
 
     let open = host
         .compact_open(
@@ -13591,17 +13310,15 @@ fn compact_spec_followups_surface_governing_sections_before_owner_hops() {
             },
         )
         .expect("open should succeed");
-    assert!(
-        open.related_handles
-            .as_ref()
-            .and_then(|targets| targets.first())
-            .is_some_and(|target| target.path.contains("docs/GOVERNANCE.md:3"))
-    );
-    assert!(
-        open.next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("governing section or adjacent spec"))
-    );
+    assert!(open
+        .related_handles
+        .as_ref()
+        .and_then(|targets| targets.first())
+        .is_some_and(|target| target.path.contains("docs/GOVERNANCE.md:3")));
+    assert!(open
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("governing section or adjacent spec")));
 }
 
 #[test]
@@ -13671,26 +13388,18 @@ return spec ? {{
         );
         assert!(result.result["cluster"]["spec"].is_object());
         assert!(result.result["drift"]["cluster"].is_object());
-        assert!(
-            result.result["drift"]["expectations"]
-                .as_array()
-                .is_some_and(|items| !items.is_empty())
-        );
-        assert!(
-            result.result["drift"]["observations"]
-                .as_array()
-                .is_some_and(|items| !items.is_empty())
-        );
-        assert!(
-            result.result["drift"]["nextReads"]
-                .as_array()
-                .is_some_and(|items| !items.is_empty())
-        );
-        assert!(
-            result.result["cluster"]["tests"]
-                .as_array()
-                .is_some_and(|items| !items.is_empty())
-        );
+        assert!(result.result["drift"]["expectations"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
+        assert!(result.result["drift"]["observations"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
+        assert!(result.result["drift"]["nextReads"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
+        assert!(result.result["cluster"]["tests"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
 
         let surfaced = [
             &result.result["cluster"]["implementations"],
@@ -13754,22 +13463,20 @@ fn compact_open_for_product_surface_spec_headings_prefers_doc_followthrough_befo
         )
         .expect("open should succeed");
 
-    assert!(
-        open.related_handles
-            .as_ref()
-            .and_then(|targets| targets.first())
-            .is_some_and(|target| target.path.contains("docs/GOVERNANCE.md:3"))
-    );
+    assert!(open
+        .related_handles
+        .as_ref()
+        .and_then(|targets| targets.first())
+        .is_some_and(|target| target.path.contains("docs/GOVERNANCE.md:3")));
     assert!(open.related_handles.as_ref().is_some_and(|targets| {
         targets
             .iter()
             .all(|target| !target.path.contains("tests::"))
     }));
-    assert!(
-        open.next_action
-            .as_deref()
-            .is_some_and(|text| text.contains("prism_workset") && text.contains("drift"))
-    );
+    assert!(open
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_workset") && text.contains("drift")));
 }
 
 #[tokio::test]
@@ -13813,11 +13520,9 @@ pub fn main() {
         .unwrap();
     let locate = first_tool_content_json(client.receive().await.unwrap());
     assert_eq!(locate["status"], "ok");
-    assert!(
-        locate["selectionReason"]
-            .as_str()
-            .is_some_and(|reason| reason.contains("Top candidate won because"))
-    );
+    assert!(locate["selectionReason"]
+        .as_str()
+        .is_some_and(|reason| reason.contains("Top candidate won because")));
 
     client
         .send(call_tool_request(
@@ -13835,17 +13540,13 @@ pub fn main() {
         .unwrap();
     let open = first_tool_content_json(client.receive().await.unwrap());
     assert_eq!(open["handle"], locate["candidates"][0]["handle"]);
-    assert!(
-        open["text"]
-            .as_str()
-            .expect("open text should be a string")
-            .contains("fn main")
-    );
-    assert!(
-        open["suggestedActions"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(open["text"]
+        .as_str()
+        .expect("open text should be a string")
+        .contains("fn main"));
+    assert!(open["suggestedActions"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
 
     client
         .send(call_tool_request(
@@ -13865,22 +13566,16 @@ pub fn main() {
         workset["primary"]["handle"],
         locate["candidates"][0]["handle"]
     );
-    assert!(
-        workset["why"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty())
-    );
+    assert!(workset["why"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
     assert_eq!(workset["truncated"], false);
-    assert!(
-        workset["nextAction"]
-            .as_str()
-            .is_some_and(|value| value.contains("prism_open"))
-    );
-    assert!(
-        workset["suggestedActions"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(workset["nextAction"]
+        .as_str()
+        .is_some_and(|value| value.contains("prism_open")));
+    assert!(workset["suggestedActions"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
 
     client
         .send(call_tool_request(
@@ -13902,11 +13597,9 @@ pub fn main() {
         expand["result"]["whyShort"],
         locate["candidates"][0]["whyShort"]
     );
-    assert!(
-        expand["suggestedActions"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(expand["suggestedActions"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
 
     client
         .send(call_tool_request(
@@ -13927,16 +13620,12 @@ pub fn main() {
     assert_eq!(gather["truncated"], false);
     assert_eq!(gather["matches"].as_array().map(Vec::len), Some(1));
     assert_eq!(gather["matches"][0]["filePath"], "src/lib.rs");
-    assert!(
-        gather["matches"][0]["text"]
-            .as_str()
-            .is_some_and(|value| value.contains("println!(\"hello\")"))
-    );
-    assert!(
-        gather["matches"][0]["suggestedActions"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(gather["matches"][0]["text"]
+        .as_str()
+        .is_some_and(|value| value.contains("println!(\"hello\")")));
+    assert!(gather["matches"][0]["suggestedActions"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
 
     running.cancel().await.unwrap();
 }
@@ -14023,11 +13712,9 @@ async fn mcp_server_executes_prism_task_brief_round_trip() {
         .unwrap();
     let brief = first_tool_content_json(client.receive().await.unwrap());
     assert_eq!(brief["title"], "Inspect main");
-    assert!(
-        brief["recentOutcomes"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|item| item["summary"] == "validated main"))
-    );
+    assert!(brief["recentOutcomes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["summary"] == "validated main")));
     assert!(brief["nextAction"].as_str().is_some_and(|value| {
         value.contains("recent outcomes")
             && value.contains("validations")
@@ -14114,21 +13801,15 @@ async fn mcp_server_keeps_compact_handles_stable_across_parallel_follow_up_calls
     let third = first_tool_content_json(client.receive().await.unwrap());
     let payloads = [first, second, third];
 
-    assert!(
-        payloads
-            .iter()
-            .any(|payload| payload["handle"] == locate["candidates"][0]["handle"])
-    );
-    assert!(
-        payloads
-            .iter()
-            .any(|payload| payload["primary"]["handle"] == locate["candidates"][0]["handle"])
-    );
-    assert!(
-        payloads
-            .iter()
-            .any(|payload| payload["kind"] == "drift" && payload["result"]["nextReads"].is_array())
-    );
+    assert!(payloads
+        .iter()
+        .any(|payload| payload["handle"] == locate["candidates"][0]["handle"]));
+    assert!(payloads
+        .iter()
+        .any(|payload| payload["primary"]["handle"] == locate["candidates"][0]["handle"]));
+    assert!(payloads
+        .iter()
+        .any(|payload| payload["kind"] == "drift" && payload["result"]["nextReads"].is_array()));
 
     running.cancel().await.unwrap();
 }
@@ -14166,11 +13847,9 @@ async fn mcp_server_maps_prism_query_user_errors_to_invalid_params_like_compact_
         feature_disabled["error"]["data"]["code"],
         "query_feature_disabled"
     );
-    assert!(
-        feature_disabled["error"]["message"]
-            .as_str()
-            .is_some_and(|value| value.contains("internal developer queries are disabled"))
-    );
+    assert!(feature_disabled["error"]["message"]
+        .as_str()
+        .is_some_and(|value| value.contains("internal developer queries are disabled")));
 
     client
         .send(call_tool_request(
@@ -14191,11 +13870,9 @@ async fn mcp_server_maps_prism_query_user_errors_to_invalid_params_like_compact_
         invalid_query_args["error"]["data"]["code"],
         "query_invalid_argument"
     );
-    assert!(
-        invalid_query_args["error"]["message"]
-            .as_str()
-            .is_some_and(|value| value.contains("unsupported search pathMode `sideways`"))
-    );
+    assert!(invalid_query_args["error"]["message"]
+        .as_str()
+        .is_some_and(|value| value.contains("unsupported search pathMode `sideways`")));
 
     client
         .send(call_tool_request(
@@ -14270,16 +13947,12 @@ async fn mcp_server_allows_path_based_prism_open_edit_mode_when_line_is_provided
     assert_eq!(payload["filePath"], "src/lib.rs");
     assert_eq!(payload["startLine"], 2);
     assert_eq!(payload["endLine"], 7);
-    assert!(
-        payload["text"]
-            .as_str()
-            .is_some_and(|text| text.contains("pub fn beta() {"))
-    );
-    assert!(
-        payload["text"]
-            .as_str()
-            .is_some_and(|text| text.contains("println!(\"{tripled}\");"))
-    );
+    assert!(payload["text"]
+        .as_str()
+        .is_some_and(|text| text.contains("pub fn beta() {")));
+    assert!(payload["text"]
+        .as_str()
+        .is_some_and(|text| text.contains("println!(\"{tripled}\");")));
 
     running.cancel().await.unwrap();
 }
@@ -14396,13 +14069,11 @@ return {
     assert_eq!(search["summary"]["kind"], "search");
     assert_eq!(search["summary"]["resultCount"], 2);
     assert_eq!(search["summary"]["ambiguous"], true);
-    assert!(
-        search["diagnosticCodes"]
-            .as_array()
-            .expect("bundle diagnostics")
-            .iter()
-            .any(|diagnostic| diagnostic == "ambiguous_search")
-    );
+    assert!(search["diagnosticCodes"]
+        .as_array()
+        .expect("bundle diagnostics")
+        .iter()
+        .any(|diagnostic| diagnostic == "ambiguous_search"));
 
     let target = &result.result["target"];
     assert_eq!(target["targetPath"], search["topResultPath"]);
@@ -15231,13 +14902,11 @@ return {
         .expect("bundle-local diagnostics query should succeed");
 
     let broad = &result.result["broad"];
-    assert!(
-        broad["diagnosticCodes"]
-            .as_array()
-            .expect("broad diagnostics")
-            .iter()
-            .any(|diagnostic| diagnostic == "ambiguous_search")
-    );
+    assert!(broad["diagnosticCodes"]
+        .as_array()
+        .expect("broad diagnostics")
+        .iter()
+        .any(|diagnostic| diagnostic == "ambiguous_search"));
     assert_eq!(broad["summary"]["ambiguous"], true);
 
     let exact = &result.result["exact"];
@@ -15523,24 +15192,19 @@ return prism.full(stale);
         Err(error) => panic!("reloaded full query should succeed: {error:#}"),
     };
 
-    assert!(
-        lineage
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code == "target_remapped_via_lineage")
-    );
-    assert!(
-        slice.result["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("pub fn alpha_v2()")
-    );
-    assert!(
-        full.result
-            .as_str()
-            .unwrap_or_default()
-            .contains("pub fn alpha_v2()")
-    );
+    assert!(lineage
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "target_remapped_via_lineage"));
+    assert!(slice.result["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("pub fn alpha_v2()"));
+    assert!(full
+        .result
+        .as_str()
+        .unwrap_or_default()
+        .contains("pub fn alpha_v2()"));
     assert_eq!(lineage.result["current"]["id"]["path"], "demo::alpha_v2");
 }
 
@@ -15609,22 +15273,18 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
     assert!(operations.contains(&"mutation.persistObservedChangeCheckpoints"));
     assert!(operations.contains(&"mutation.operation"));
     assert!(operations.contains(&"mutation.encodeResult"));
-    assert!(
-        trace
-            .phases
-            .iter()
-            .find(|phase| phase.operation == "mutation.refreshWorkspace")
-            .and_then(|phase| phase.args_summary.as_ref())
-            .is_some_and(|args| args["refreshPath"] != Value::String("skipped".to_string()))
-    );
-    assert!(
-        trace
-            .phases
-            .iter()
-            .find(|phase| phase.operation == "mutation.persistObservedChangeCheckpoints")
-            .and_then(|phase| phase.args_summary.as_ref())
-            .is_some_and(|args| args["checkpointCount"].is_u64())
-    );
+    assert!(trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "mutation.refreshWorkspace")
+        .and_then(|phase| phase.args_summary.as_ref())
+        .is_some_and(|args| args["refreshPath"] != Value::String("skipped".to_string())));
+    assert!(trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "mutation.persistObservedChangeCheckpoints")
+        .and_then(|phase| phase.args_summary.as_ref())
+        .is_some_and(|args| args["checkpointCount"].is_u64()));
 }
 
 #[test]
@@ -16490,16 +16150,12 @@ return prism.seach("alpha");
         .expect_err("query should fail");
     let error = error.downcast::<crate::QueryExecutionError>().unwrap();
     assert_eq!(error.data()["code"], "query_typecheck_failed");
-    assert!(
-        error.data()["nextAction"]
-            .as_str()
-            .is_some_and(|value| value.contains("prism.search"))
-    );
-    assert!(
-        error.data()["nextAction"]
-            .as_str()
-            .is_some_and(|value| value.contains("prism://api-reference"))
-    );
+    assert!(error.data()["nextAction"]
+        .as_str()
+        .is_some_and(|value| value.contains("prism.search")));
+    assert!(error.data()["nextAction"]
+        .as_str()
+        .is_some_and(|value| value.contains("prism://api-reference")));
 }
 
 #[test]
@@ -16633,12 +16289,10 @@ const sym = prism.symbol("alpha");
         .expect("query should succeed");
 
     assert_eq!(result.result, Value::Null);
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code == "query_return_missing")
-    );
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "query_return_missing"));
 }
 
 #[test]
@@ -16689,12 +16343,10 @@ fn prism_query_supports_implicit_expression_object_results() {
     assert_eq!(result.result["top"], "demo::alpha");
     assert_eq!(result.result["exact"], "demo::alpha");
     assert_eq!(result.result["count"], 1);
-    assert!(
-        !result
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code == "query_return_missing")
-    );
+    assert!(!result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "query_return_missing"));
 }
 
 #[test]
@@ -17436,12 +17088,10 @@ return {
         .expect("change-view query should succeed");
 
     let changed_file = &result.result["files"][0];
-    assert!(
-        changed_file["path"]
-            .as_str()
-            .unwrap_or_default()
-            .ends_with("src/lib.rs")
-    );
+    assert!(changed_file["path"]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with("src/lib.rs"));
     assert_eq!(changed_file["changedSymbolCount"], 2);
     assert_eq!(changed_file["removedCount"], 1);
     assert_eq!(changed_file["updatedCount"], 1);
@@ -17484,24 +17134,20 @@ return {
     assert_eq!(patch["changedSymbolCount"], 2);
     assert_eq!(patch["changedSymbolsTruncated"], false);
     assert_eq!(patch["changedSymbols"].as_array().unwrap().len(), 2);
-    assert!(
-        patch["files"][0]
-            .as_str()
-            .unwrap_or_default()
-            .ends_with("src/lib.rs")
-    );
+    assert!(patch["files"][0]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with("src/lib.rs"));
 
     let diff = result.result["diff"].as_array().expect("target diff");
     assert_eq!(diff.len(), 1);
     assert_eq!(diff[0]["eventId"], "outcome:change-view");
     assert_eq!(diff[0]["symbol"]["name"], "alpha");
     assert_eq!(diff[0]["symbol"]["location"]["startLine"], 1);
-    assert!(
-        diff[0]["symbol"]["excerpt"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("alpha")
-    );
+    assert!(diff[0]["symbol"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("alpha"));
     assert!(diff[0]["symbol"]["lineageId"].as_str().is_some());
 
     let lineage_diff = result.result["lineageDiff"]
@@ -17704,11 +17350,9 @@ return {
     let workspace_contains = result.result["workspaceContains"]
         .as_array()
         .expect("workspace contains");
-    assert!(
-        workspace_contains
-            .iter()
-            .any(|value| value["name"] == "members")
-    );
+    assert!(workspace_contains
+        .iter()
+        .any(|value| value["name"] == "members"));
 }
 
 #[test]
@@ -17768,23 +17412,19 @@ return {
         .expect("top-level results");
     assert_eq!(top_level.len(), 1);
     assert_eq!(top_level[0]["name"], "workspace");
-    assert!(
-        top_level[0]["id"]["path"]
-            .as_str()
-            .unwrap_or_default()
-            .ends_with("::workspace")
-    );
+    assert!(top_level[0]["id"]["path"]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with("::workspace"));
     assert_eq!(top_level[0]["filePath"], "Cargo.toml");
 
     let nested = result.result["nested"].as_array().expect("nested results");
     assert_eq!(nested.len(), 1);
     assert_eq!(nested[0]["name"], "workspace");
-    assert!(
-        nested[0]["id"]["path"]
-            .as_str()
-            .unwrap_or_default()
-            .ends_with("::package::version::workspace")
-    );
+    assert!(nested[0]["id"]["path"]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with("::package::version::workspace"));
 }
 
 #[test]
@@ -17882,21 +17522,17 @@ return {
         result.result["drift"]["trustSignals"]["confidenceLabel"].as_str(),
         Some("medium" | "high")
     ));
-    assert!(
-        result.result["drift"]["trustSignals"]["evidenceSources"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|value| value == "inferred"))
-    );
-    assert!(
-        result.result["drift"]["expectations"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|value| value
-                .as_str()
-                .unwrap_or_default()
-                .contains("prior outcomes"))
-    );
+    assert!(result.result["drift"]["trustSignals"]["evidenceSources"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|value| value == "inferred")));
+    assert!(result.result["drift"]["expectations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|value| value
+            .as_str()
+            .unwrap_or_default()
+            .contains("prior outcomes")));
 
     let spec_id = host
         .current_prism()
@@ -17920,13 +17556,11 @@ return {
     assert!(!symbol_resource.read_context.suggested_reads.is_empty());
     assert!(!symbol_resource.edit_context.suggested_queries.is_empty());
     assert!(!symbol_resource.discovery.suggested_reads.is_empty());
-    assert!(
-        !symbol_resource
-            .discovery
-            .validation_context
-            .suggested_queries
-            .is_empty()
-    );
+    assert!(!symbol_resource
+        .discovery
+        .validation_context
+        .suggested_queries
+        .is_empty());
     assert!(
         symbol_resource
             .discovery
@@ -17935,17 +17569,15 @@ return {
             .len()
             >= 3
     );
-    assert!(
-        symbol_resource
-            .discovery
-            .trust_signals
-            .evidence_sources
-            .iter()
-            .any(|source| matches!(
-                source,
-                prism_js::EvidenceSourceKind::DirectGraph | prism_js::EvidenceSourceKind::Inferred
-            ))
-    );
+    assert!(symbol_resource
+        .discovery
+        .trust_signals
+        .evidence_sources
+        .iter()
+        .any(|source| matches!(
+            source,
+            prism_js::EvidenceSourceKind::DirectGraph | prism_js::EvidenceSourceKind::Inferred
+        )));
     assert!(!symbol_resource.discovery.where_used_behavioral.is_empty());
     assert!(!symbol_resource.discovery.why.is_empty());
     for expected in [
@@ -17956,12 +17588,10 @@ return {
         "Validation Recipe",
         "Edit Context",
     ] {
-        assert!(
-            symbol_resource
-                .suggested_queries
-                .iter()
-                .any(|query| query.label == expected)
-        );
+        assert!(symbol_resource
+            .suggested_queries
+            .iter()
+            .any(|query| query.label == expected));
     }
     assert_eq!(
         symbol_resource.related_resources[0].uri,
@@ -18067,12 +17697,10 @@ fn search_resource_payload_surfaces_suggested_reads() {
     assert!(payload.workspace_revision.graph_version > 0);
     assert!(!payload.suggested_reads.is_empty());
     assert!(payload.discovery.is_some());
-    assert!(
-        payload
-            .discovery
-            .as_ref()
-            .is_some_and(|bundle| !bundle.suggested_reads.is_empty())
-    );
+    assert!(payload
+        .discovery
+        .as_ref()
+        .is_some_and(|bundle| !bundle.suggested_reads.is_empty()));
     assert!(payload.discovery.as_ref().is_some_and(|bundle| {
         bundle
             .trust_signals
@@ -18087,12 +17715,10 @@ fn search_resource_payload_surfaces_suggested_reads() {
             .iter()
             .any(|query| query.label == "Validation Context")
     }));
-    assert!(
-        payload
-            .discovery
-            .as_ref()
-            .is_some_and(|bundle| !bundle.why.is_empty())
-    );
+    assert!(payload
+        .discovery
+        .as_ref()
+        .is_some_and(|bundle| !bundle.why.is_empty()));
     assert!(payload.discovery.as_ref().is_some_and(|bundle| {
         bundle
             .recent_change_context
@@ -18114,16 +17740,12 @@ fn search_resource_payload_surfaces_suggested_reads() {
     assert_eq!(payload.suggested_queries[0].label, "Direct Search");
     assert_eq!(payload.suggested_queries[1].label, "Behavioral Search");
     assert_eq!(payload.suggested_queries[2].label, "Read Context");
-    assert!(
-        payload.related_resources[0]
-            .uri
-            .starts_with("prism://search/memory%20recall")
-    );
-    assert!(
-        payload.related_resources[1]
-            .uri
-            .starts_with("prism://symbol/")
-    );
+    assert!(payload.related_resources[0]
+        .uri
+        .starts_with("prism://search/memory%20recall"));
+    assert!(payload.related_resources[1]
+        .uri
+        .starts_with("prism://symbol/"));
 }
 
 #[test]
@@ -18281,43 +17903,33 @@ return spec
         "Integration Points"
     );
     assert!(result.result["read"]["directLinkBlocks"].is_array());
-    assert!(
-        result.result["read"]["suggestedReads"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(result.result["read"]["suggestedReads"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
     assert!(result.result["read"]["testBlocks"].is_array());
-    assert!(
-        result.result["edit"]["writePaths"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(result.result["edit"]["writePaths"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
     assert_eq!(
         result.result["edit"]["targetBlock"]["symbol"]["name"],
         "Integration Points"
     );
     assert!(result.result["edit"]["writePathBlocks"].is_array());
-    assert!(
-        result.result["edit"]["checklist"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(result.result["edit"]["checklist"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
     assert!(result.result["validation"]["tests"].is_array());
     assert_eq!(
         result.result["validation"]["targetBlock"]["symbol"]["name"],
         "Integration Points"
     );
     assert!(result.result["validation"]["testBlocks"].is_array());
-    assert!(
-        result.result["validation"]["recentFailures"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
-    assert!(
-        result.result["recentChange"]["recentEvents"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(result.result["validation"]["recentFailures"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(result.result["recentChange"]["recentEvents"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
     assert!(result.result["recentChange"]["suggestedQueries"].is_array());
 }
 
@@ -18391,16 +18003,12 @@ return spec
         )
         .expect("query should succeed");
 
-    assert!(
-        result.result["nextReads"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
-    assert!(
-        result.result["whereUsed"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(result.result["nextReads"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(result.result["whereUsed"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
 }
 
 #[test]
@@ -18487,12 +18095,10 @@ return sym?.callGraph(9);
         )
         .expect("call graph should succeed");
     assert_eq!(depth.result["maxDepthReached"], 1);
-    assert!(
-        depth
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code == "depth_limited")
-    );
+    assert!(depth
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "depth_limited"));
 
     let capped_host = QueryHost::new_with_limits(
         Prism::new(Graph::new()),
@@ -18512,12 +18118,10 @@ return "abcdefghijklmnopqrstuvwxyz0123456789";
         )
         .expect("query should succeed");
     assert_eq!(capped.result, Value::Null);
-    assert!(
-        capped
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code == "result_truncated")
-    );
+    assert!(capped
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "result_truncated"));
 }
 
 #[test]
@@ -18584,13 +18188,11 @@ fn unknown_host_operations_return_actionable_diagnostics() {
     assert!(error.to_string().contains("unsupported host operation"));
     assert_eq!(execution.diagnostics().len(), 1);
     assert_eq!(execution.diagnostics()[0].code, "unknown_method");
-    assert!(
-        execution.diagnostics()[0]
-            .data
-            .as_ref()
-            .and_then(|data| data["nextAction"].as_str())
-            .is_some_and(|value| value.contains("prism://capabilities"))
-    );
+    assert!(execution.diagnostics()[0]
+        .data
+        .as_ref()
+        .and_then(|data| data["nextAction"].as_str())
+        .is_some_and(|value| value.contains("prism://capabilities")));
 }
 
 #[test]
@@ -19028,14 +18630,12 @@ return sym ? sym.relations().callees.map((node) => node.id.path) : [];
         )
         .expect("query should succeed");
 
-    assert!(
-        result
-            .result
-            .as_array()
-            .unwrap_or(&Vec::new())
-            .iter()
-            .any(|value| value == "demo::beta")
-    );
+    assert!(result
+        .result
+        .as_array()
+        .unwrap_or(&Vec::new())
+        .iter()
+        .any(|value| value == "demo::beta"));
 }
 
 #[test]
@@ -19350,11 +18950,9 @@ fn repo_memory_store_rejects_duplicate_active_publication_without_supersedes() {
         )
         .expect_err("duplicate active repo memory should be rejected");
 
-    assert!(
-        error
-            .to_string()
-            .contains("duplicates active published memory")
-    );
+    assert!(error
+        .to_string()
+        .contains("duplicates active published memory"));
     assert!(error.to_string().contains(&first.memory_id));
     assert!(error.to_string().contains("supersedes"));
 }
@@ -19410,18 +19008,14 @@ fn repo_memory_supersede_reloads_live_snapshot() {
         )
         .expect("replacement repo memory should persist");
 
-    assert!(
-        session
-            .notes
-            .entry(&MemoryId(original.memory_id.clone()))
-            .is_none()
-    );
-    assert!(
-        session
-            .notes
-            .entry(&MemoryId(replacement.memory_id.clone()))
-            .is_some()
-    );
+    assert!(session
+        .notes
+        .entry(&MemoryId(original.memory_id.clone()))
+        .is_none());
+    assert!(session
+        .notes
+        .entry(&MemoryId(replacement.memory_id.clone()))
+        .is_some());
 
     let original_payload = host
         .memory_resource_value(session.as_ref(), &MemoryId(original.memory_id.clone()))
@@ -19471,12 +19065,10 @@ fn repo_memory_retire_removes_live_entry_and_keeps_history_resource() {
     )
     .expect("repo memory retire should succeed");
 
-    assert!(
-        session
-            .notes
-            .entry(&MemoryId(stored.memory_id.clone()))
-            .is_none()
-    );
+    assert!(session
+        .notes
+        .entry(&MemoryId(stored.memory_id.clone()))
+        .is_none());
 
     let queried = host
         .execute(
@@ -19568,12 +19160,10 @@ fn memory_resource_related_resources_include_file_anchor_links() {
         )
         .expect("memory resource should load");
     let expected_uri = file_resource_uri("src/lib.rs");
-    assert!(
-        payload
-            .related_resources
-            .iter()
-            .any(|resource| resource.uri == expected_uri)
-    );
+    assert!(payload
+        .related_resources
+        .iter()
+        .any(|resource| resource.uri == expected_uri));
 }
 
 #[test]
@@ -20505,13 +20095,11 @@ return {
         .expect("query should succeed after background refresh");
 
     assert_eq!(result.result["path"], "demo::gamma");
-    assert!(
-        result.result["callers"]
-            .as_array()
-            .unwrap_or(&Vec::new())
-            .iter()
-            .any(|value| value == "demo::gamma")
-    );
+    assert!(result.result["callers"]
+        .as_array()
+        .unwrap_or(&Vec::new())
+        .iter()
+        .any(|value| value == "demo::gamma"));
 
     let patch_events = host
         .current_prism()
@@ -21146,12 +20734,10 @@ fn runtime_status_omits_git_coordination_authority_diagnostics_on_sqlite_default
             .assisted_lease_renewal
             .requires_authenticated_mutation
     );
-    assert!(
-        status
-            .assisted_lease_renewal
-            .bounded_by
-            .contains(&"plan_assisted_mode".to_string())
-    );
+    assert!(status
+        .assisted_lease_renewal
+        .bounded_by
+        .contains(&"plan_assisted_mode".to_string()));
 }
 
 #[test]
@@ -21316,11 +20902,9 @@ fn workspace_binding_seeds_cached_runtime_status_on_startup() {
         );
         thread::sleep(Duration::from_millis(10));
     };
-    assert!(
-        cached
-            .root
-            .ends_with(root.file_name().unwrap().to_string_lossy().as_ref())
-    );
+    assert!(cached
+        .root
+        .ends_with(root.file_name().unwrap().to_string_lossy().as_ref()));
     assert!(cached.freshness.generation_id.is_some());
 }
 
@@ -21365,18 +20949,14 @@ fn runtime_status_surfaces_published_generation_and_domain_freshness() {
     let initial_delta = initial
         .committed_delta_sequence
         .expect("committed delta sequence should exist");
-    assert!(
-        initial
-            .domains
-            .iter()
-            .any(|domain| { domain.domain == "file_facts" && domain.freshness == "current" })
-    );
-    assert!(
-        initial
-            .domains
-            .iter()
-            .any(|domain| domain.domain == "coordination")
-    );
+    assert!(initial
+        .domains
+        .iter()
+        .any(|domain| { domain.domain == "file_facts" && domain.freshness == "current" }));
+    assert!(initial
+        .domains
+        .iter()
+        .any(|domain| domain.domain == "coordination"));
     assert!(initial.queue_depth <= initial.queued_by_class.iter().map(|item| item.depth).sum());
 
     fs::write(
@@ -21410,12 +20990,10 @@ fn runtime_status_surfaces_published_generation_and_domain_freshness() {
                 .map(|item| item.depth)
                 .sum()
     );
-    assert!(
-        refreshed
-            .domains
-            .iter()
-            .any(|domain| { domain.domain == "cross_file_edges" && domain.freshness == "current" })
-    );
+    assert!(refreshed
+        .domains
+        .iter()
+        .any(|domain| { domain.domain == "cross_file_edges" && domain.freshness == "current" }));
     assert!(refreshed.domains.iter().any(|domain| {
         domain.domain == "checkpoint" && matches!(domain.freshness.as_str(), "pending" | "current")
     }));
@@ -21897,14 +21475,12 @@ return sym ? sym.relations().callees.map((node) => node.id.path) : [];
         )
         .expect("query should succeed after inference reload");
 
-    assert!(
-        result
-            .result
-            .as_array()
-            .unwrap_or(&Vec::new())
-            .iter()
-            .any(|value| value == "demo::alpha")
-    );
+    assert!(result
+        .result
+        .as_array()
+        .unwrap_or(&Vec::new())
+        .iter()
+        .any(|value| value == "demo::alpha"));
     assert_eq!(workspace.applied_fs_revision(), initial_applied_fs_revision);
     assert_eq!(
         workspace.observed_fs_revision(),
@@ -21920,30 +21496,24 @@ fn convenience_symbol_query_returns_diagnostics() {
         .symbol_query(test_session(&host), "missing")
         .expect("symbol query should succeed");
     assert!(envelope.result.is_object() || envelope.result.is_null());
-    assert!(
-        envelope
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code == "anchor_unresolved")
-    );
-    assert!(
-        envelope
-            .diagnostics
-            .iter()
-            .find(|diagnostic| diagnostic.code == "anchor_unresolved")
-            .and_then(|diagnostic| diagnostic.data.as_ref())
-            .and_then(|data| data["suggestedQueries"].as_array())
-            .is_some_and(|queries| !queries.is_empty())
-    );
-    assert!(
-        envelope
-            .diagnostics
-            .iter()
-            .find(|diagnostic| diagnostic.code == "anchor_unresolved")
-            .and_then(|diagnostic| diagnostic.data.as_ref())
-            .and_then(|data| data["nextAction"].as_str())
-            .is_some_and(|value| value.contains("prism.search"))
-    );
+    assert!(envelope
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "anchor_unresolved"));
+    assert!(envelope
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "anchor_unresolved")
+        .and_then(|diagnostic| diagnostic.data.as_ref())
+        .and_then(|data| data["suggestedQueries"].as_array())
+        .is_some_and(|queries| !queries.is_empty()));
+    assert!(envelope
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "anchor_unresolved")
+        .and_then(|diagnostic| diagnostic.data.as_ref())
+        .and_then(|data| data["nextAction"].as_str())
+        .is_some_and(|value| value.contains("prism.search")));
 }
 
 #[test]
@@ -22012,25 +21582,19 @@ mod tests {
         ambiguity["returned"]["id"]["path"].as_str(),
         envelope.result["id"]["path"].as_str()
     );
-    assert!(
-        envelope.result["id"]["path"]
-            .as_str()
-            .is_some_and(|path| !path.contains("::tests::"))
-    );
-    assert!(
-        ambiguity["candidates"][0]["suggestedQueries"]
-            .as_array()
-            .is_some_and(|queries| !queries.is_empty())
-    );
-    assert!(
-        ambiguity["suggestedQueries"]
-            .as_array()
-            .is_some_and(|queries| queries.iter().any(|query| {
-                query["label"]
-                    .as_str()
-                    .is_some_and(|label| label == "Focused Block")
-            }))
-    );
+    assert!(envelope.result["id"]["path"]
+        .as_str()
+        .is_some_and(|path| !path.contains("::tests::")));
+    assert!(ambiguity["candidates"][0]["suggestedQueries"]
+        .as_array()
+        .is_some_and(|queries| !queries.is_empty()));
+    assert!(ambiguity["suggestedQueries"]
+        .as_array()
+        .is_some_and(|queries| queries.iter().any(|query| {
+            query["label"]
+                .as_str()
+                .is_some_and(|label| label == "Focused Block")
+        })));
 }
 
 #[test]
@@ -22604,17 +22168,15 @@ fn explicit_search_modes_can_prefer_behavioral_owners_without_behavioral_strateg
         )
         .expect("search query should succeed");
 
-    assert!(
-        envelope
-            .result
-            .as_array()
-            .is_some_and(|results| results.iter().take(3).any(|symbol| {
-                symbol["ownerHint"]["kind"].as_str() == Some("read")
-                    && symbol["id"]["path"]
-                        .as_str()
-                        .is_some_and(|path| path.contains("memory_recall"))
-            }))
-    );
+    assert!(envelope
+        .result
+        .as_array()
+        .is_some_and(|results| results.iter().take(3).any(|symbol| {
+            symbol["ownerHint"]["kind"].as_str() == Some("read")
+                && symbol["id"]["path"]
+                    .as_str()
+                    .is_some_and(|path| path.contains("memory_recall"))
+        })));
 }
 
 #[test]
@@ -22963,16 +22525,12 @@ pub fn session_payload_example() -> &'static str {
         .as_array()
         .expect("ambiguity candidates should be an array");
     assert_eq!(candidates[0]["bucket"], "implementation");
-    assert!(
-        candidates
-            .iter()
-            .any(|candidate| candidate["bucket"] == "surface")
-    );
-    assert!(
-        candidates
-            .iter()
-            .any(|candidate| candidate["bucket"] != "implementation")
-    );
+    assert!(candidates
+        .iter()
+        .any(|candidate| candidate["bucket"] == "surface"));
+    assert!(candidates
+        .iter()
+        .any(|candidate| candidate["bucket"] != "implementation"));
 }
 
 #[test]
@@ -23351,23 +22909,20 @@ fn expire_claims_locked() {}
         )
         .expect("search query should succeed");
 
-    assert!(
-        envelope
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code == "weak_search_match")
-    );
+    assert!(envelope
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "weak_search_match"));
     let weak = envelope
         .diagnostics
         .iter()
         .find(|diagnostic| diagnostic.code == "weak_search_match")
         .expect("weak_search_match diagnostic should be present");
-    assert!(
-        weak.data
-            .as_ref()
-            .and_then(|data| data["reason"].as_str())
-            .is_some_and(|reason| !reason.trim().is_empty())
-    );
+    assert!(weak
+        .data
+        .as_ref()
+        .and_then(|data| data["reason"].as_str())
+        .is_some_and(|reason| !reason.trim().is_empty()));
 }
 
 #[test]
@@ -23502,12 +23057,10 @@ pub mod beta;
             .first()
             .map(|symbol| symbol.id.path.as_str())
     );
-    assert!(
-        payload
-            .suggested_queries
-            .iter()
-            .any(|query| query.label == "Focused Block")
-    );
+    assert!(payload
+        .suggested_queries
+        .iter()
+        .any(|query| query.label == "Focused Block"));
 }
 
 #[test]
@@ -23574,18 +23127,14 @@ fn plans_resource_payload_surfaces_filters_and_root_nodes() {
             .and_then(|activity| activity.created_at),
         payload.plans[0].created_at
     );
-    assert!(
-        payload
-            .related_resources
-            .iter()
-            .any(|link| link.uri == "prism://plans?contains=persistence")
-    );
-    assert!(
-        payload
-            .related_resources
-            .iter()
-            .any(|link| link.uri == plan_resource_uri(&plan_id))
-    );
+    assert!(payload
+        .related_resources
+        .iter()
+        .any(|link| link.uri == "prism://plans?contains=persistence"));
+    assert!(payload
+        .related_resources
+        .iter()
+        .any(|link| link.uri == plan_resource_uri(&plan_id)));
     assert_eq!(payload.plans[0].git_execution_policy.start_mode, "require");
     assert_eq!(
         payload.plans[0].git_execution_policy.completion_mode,
@@ -23632,12 +23181,10 @@ fn plans_resource_contains_filter_matches_singular_and_plural_terms() {
 
     assert_eq!(payload.contains.as_deref(), Some("bottlenecks"));
     assert_eq!(payload.plans.len(), 1);
-    assert!(
-        payload.plans[0]
-            .title
-            .to_ascii_lowercase()
-            .contains("bottleneck")
-    );
+    assert!(payload.plans[0]
+        .title
+        .to_ascii_lowercase()
+        .contains("bottleneck"));
 }
 
 #[test]
@@ -23694,12 +23241,10 @@ fn plans_resource_defaults_to_last_updated_first() {
     assert_eq!(payload.sort, "last_updated_desc");
     assert_eq!(payload.plans.len(), 2);
     assert!(payload.plans[0].last_updated_at >= payload.plans[1].last_updated_at);
-    assert!(
-        payload
-            .plans
-            .iter()
-            .any(|plan| plan.plan_id == older.state["id"].as_str().unwrap())
-    );
+    assert!(payload
+        .plans
+        .iter()
+        .any(|plan| plan.plan_id == older.state["id"].as_str().unwrap()));
     assert!(payload.plans.iter().any(|plan| plan.plan_id == newer_id));
 }
 
@@ -23783,18 +23328,14 @@ fn plans_resource_supports_created_and_status_count_sorting() {
         .expect("created_at sort should succeed");
     assert_eq!(created_payload.sort, "created_at_asc");
     assert!(created_payload.plans[0].created_at <= created_payload.plans[1].created_at);
-    assert!(
-        created_payload
-            .plans
-            .iter()
-            .any(|plan| plan.plan_id == older.state["id"].as_str().unwrap())
-    );
-    assert!(
-        created_payload
-            .plans
-            .iter()
-            .any(|plan| plan.plan_id == newer.state["id"].as_str().unwrap())
-    );
+    assert!(created_payload
+        .plans
+        .iter()
+        .any(|plan| plan.plan_id == older.state["id"].as_str().unwrap()));
+    assert!(created_payload
+        .plans
+        .iter()
+        .any(|plan| plan.plan_id == newer.state["id"].as_str().unwrap()));
 
     let completed_payload = host
         .plans_resource_value(
@@ -23808,12 +23349,10 @@ fn plans_resource_supports_created_and_status_count_sorting() {
         newer.state["id"].as_str().unwrap()
     );
     assert_eq!(completed_payload.plans[0].node_status_counts.completed, 2);
-    assert!(
-        completed_payload
-            .related_resources
-            .iter()
-            .any(|link| link.uri == "prism://plans?sort=completed_desc")
-    );
+    assert!(completed_payload
+        .related_resources
+        .iter()
+        .any(|link| link.uri == "prism://plans?sort=completed_desc"));
 }
 
 #[test]
@@ -23878,18 +23417,14 @@ fn plan_resource_payload_surfaces_detail_summary_and_navigation_links() {
             .map(|summary| summary.actionable_nodes),
         Some(1)
     );
-    assert!(
-        payload
-            .related_resources
-            .iter()
-            .any(|link| link.uri == plans_resource_uri())
-    );
-    assert!(
-        payload
-            .related_resources
-            .iter()
-            .any(|link| link.uri == payload.uri)
-    );
+    assert!(payload
+        .related_resources
+        .iter()
+        .any(|link| link.uri == plans_resource_uri()));
+    assert!(payload
+        .related_resources
+        .iter()
+        .any(|link| link.uri == payload.uri));
 }
 
 #[test]
@@ -24290,37 +23825,29 @@ return prism.taskJournal("task:journal", { eventLimit: 10, memoryLimit: 5 });
 
     assert_eq!(result.result["taskId"], "task:journal");
     assert_eq!(result.result["disposition"], "open");
-    assert!(
-        result.result["diagnostics"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|diagnostic| diagnostic["code"] == "missing_validation")
-    );
-    assert!(
-        result.result["diagnostics"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|diagnostic| diagnostic["code"] == "missing_close_summary")
-    );
-    assert!(
-        result.result["diagnostics"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|diagnostic| diagnostic["data"]["nextAction"].as_str().is_some())
-    );
+    assert!(result.result["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|diagnostic| diagnostic["code"] == "missing_validation"));
+    assert!(result.result["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|diagnostic| diagnostic["code"] == "missing_close_summary"));
+    assert!(result.result["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|diagnostic| diagnostic["data"]["nextAction"].as_str().is_some()));
     assert_eq!(
         result.result["relatedMemory"][0]["entry"]["content"],
         "main changes should always get a regression check"
     );
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code == "missing_validation")
-    );
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "missing_validation"));
     assert!(result.diagnostics.iter().all(|diagnostic| {
         diagnostic
             .data
@@ -24756,21 +24283,17 @@ return sym?.callGraph(50);
         )
         .expect("call graph query should succeed");
 
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code == "depth_limited")
-    );
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .find(|diagnostic| diagnostic.code == "depth_limited")
-            .and_then(|diagnostic| diagnostic.data.as_ref())
-            .and_then(|data| data["nextAction"].as_str())
-            .is_some_and(|value| value.contains("prism.callGraph"))
-    );
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "depth_limited"));
+    assert!(result
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "depth_limited")
+        .and_then(|diagnostic| diagnostic.data.as_ref())
+        .and_then(|data| data["nextAction"].as_str())
+        .is_some_and(|value| value.contains("prism.callGraph")));
 }
 
 #[test]
@@ -24815,13 +24338,11 @@ fn abandon_task_suppresses_unresolved_failure_diagnostic() {
 
     assert_eq!(result.task_id, task.0);
     assert_eq!(result.journal.disposition, "abandoned");
-    assert!(
-        result
-            .journal
-            .diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.code != "unresolved_failure")
-    );
+    assert!(result
+        .journal
+        .diagnostics
+        .iter()
+        .all(|diagnostic| diagnostic.code != "unresolved_failure"));
     assert_eq!(
         result.journal.summary.final_summary.as_deref(),
         Some("Stopped after upstream dependency failure")
@@ -24858,13 +24379,11 @@ fn explicit_start_task_sets_session_default_and_logs_plan() {
             QueryLanguage::Ts,
         )
         .expect("task journal query should succeed");
-    assert!(
-        journal.result["diagnostics"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|diagnostic| diagnostic["code"] != "missing_plan")
-    );
+    assert!(journal.result["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|diagnostic| diagnostic["code"] != "missing_plan"));
 }
 
 #[test]
@@ -25101,11 +24620,9 @@ fn session_resource_surfaces_stale_current_task_context() {
         .expect("current task should be present");
 
     assert_eq!(current_task.context_status, "stale");
-    assert!(
-        current_task
-            .context_summary
-            .contains("stale coordination revision")
-    );
+    assert!(current_task
+        .context_summary
+        .contains("stale coordination revision"));
     assert!(current_task.next_action.contains("Refresh this task"));
     let repair = current_task
         .repair_action
@@ -25360,11 +24877,9 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
         .expect("current task should be present");
 
     assert_eq!(current_task.context_status, "heartbeat_due");
-    assert!(
-        current_task
-            .context_summary
-            .contains("lease is nearing staleness")
-    );
+    assert!(current_task
+        .context_summary
+        .contains("lease is nearing staleness"));
     assert!(current_task.next_action.contains("heartbeat_lease"));
     assert!(current_task.next_action.contains(task_id.0.as_str()));
     assert!(current_task.next_action.contains("off by default"));
@@ -25480,26 +24995,18 @@ fn session_resource_surfaces_publish_failed_repair_action() {
         .expect("current task should be present");
 
     assert_eq!(current_task.context_status, "publish_failed");
-    assert!(
-        current_task
-            .context_summary
-            .contains("coordination authority publication is incomplete")
-    );
-    assert!(
-        current_task
-            .context_summary
-            .contains("shared coordination ref push failed")
-    );
-    assert!(
-        current_task
-            .next_action
-            .contains("Retry authoritative completion publication")
-    );
-    assert!(
-        current_task
-            .next_action
-            .contains("coordination authority records the completed state")
-    );
+    assert!(current_task
+        .context_summary
+        .contains("coordination authority publication is incomplete"));
+    assert!(current_task
+        .context_summary
+        .contains("shared coordination ref push failed"));
+    assert!(current_task
+        .next_action
+        .contains("Retry authoritative completion publication"));
+    assert!(current_task
+        .next_action
+        .contains("coordination authority records the completed state"));
     let repair = current_task
         .repair_action
         .expect("publish failed task should surface a repair action");
@@ -25597,13 +25104,11 @@ fn coordination_task_journal_falls_back_to_task_title_without_outcomes() {
 
     assert_eq!(journal.result["taskId"], task_id);
     assert_eq!(journal.result["description"], "Validate persistence task");
-    assert!(
-        journal.result["diagnostics"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|diagnostic| diagnostic["code"] != "missing_plan")
-    );
+    assert!(journal.result["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|diagnostic| diagnostic["code"] != "missing_plan"));
 }
 
 #[test]
@@ -25629,13 +25134,11 @@ return prism.taskJournal("task:empty", { eventLimit: 10, memoryLimit: 5 });
 
     assert_eq!(journal.result["taskId"], "task:empty");
     assert_eq!(journal.result["disposition"], "active");
-    assert!(
-        journal.result["diagnostics"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|diagnostic| diagnostic["code"] != "missing_plan")
-    );
+    assert!(journal.result["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|diagnostic| diagnostic["code"] != "missing_plan"));
 }
 
 #[test]
@@ -25760,20 +25263,16 @@ fn cloned_servers_isolate_session_state_but_share_persisted_state() {
             },
         )
         .unwrap();
-    assert!(
-        client_a
-            .session
-            .inferred_edges
-            .record(&prism_agent::EdgeId(session_edge.edge_id.clone()))
-            .is_some()
-    );
-    assert!(
-        client_b
-            .session
-            .inferred_edges
-            .record(&prism_agent::EdgeId(session_edge.edge_id.clone()))
-            .is_none()
-    );
+    assert!(client_a
+        .session
+        .inferred_edges
+        .record(&prism_agent::EdgeId(session_edge.edge_id.clone()))
+        .is_some());
+    assert!(client_b
+        .session
+        .inferred_edges
+        .record(&prism_agent::EdgeId(session_edge.edge_id.clone()))
+        .is_none());
 
     let persisted_edge = client_a
         .host
@@ -25798,13 +25297,11 @@ fn cloned_servers_isolate_session_state_but_share_persisted_state() {
             },
         )
         .unwrap();
-    assert!(
-        client_b
-            .session
-            .inferred_edges
-            .record(&prism_agent::EdgeId(persisted_edge.edge_id.clone()))
-            .is_some()
-    );
+    assert!(client_b
+        .session
+        .inferred_edges
+        .record(&prism_agent::EdgeId(persisted_edge.edge_id.clone()))
+        .is_some());
 
     client_a
         .host
@@ -25830,16 +25327,12 @@ fn cloned_servers_isolate_session_state_but_share_persisted_state() {
         task_id: None,
         min_duration_ms: None,
     });
-    assert!(
-        query_log
-            .iter()
-            .any(|entry| entry.session_id == client_a.session.session_id().0)
-    );
-    assert!(
-        query_log
-            .iter()
-            .any(|entry| entry.session_id == client_b.session.session_id().0)
-    );
+    assert!(query_log
+        .iter()
+        .any(|entry| entry.session_id == client_a.session.session_id().0));
+    assert!(query_log
+        .iter()
+        .any(|entry| entry.session_id == client_b.session.session_id().0));
 }
 
 #[test]
@@ -25946,11 +25439,9 @@ fn coordination_only_anchor_conversion_rejects_workspace_escape_paths() {
     )
     .expect_err("coordination-only anchor conversion should reject workspace escapes");
 
-    assert!(
-        error
-            .to_string()
-            .contains("rejects file anchor paths that escape the workspace root")
-    );
+    assert!(error
+        .to_string()
+        .contains("rejects file anchor paths that escape the workspace root"));
 }
 
 #[test]

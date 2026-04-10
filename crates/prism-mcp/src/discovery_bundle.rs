@@ -9,12 +9,11 @@ use serde::de::DeserializeOwned;
 use serde_json::json;
 
 use crate::{
-    QueryRun, SemanticContextCache, SessionState, cached_blast_radius, cached_co_change_neighbors,
-    cached_lineage, cached_owner_views, cached_recent_failures, cached_relations,
-    cached_target_symbol, cached_validation_recipe, edit_context_view_cached, entrypoints_for,
-    next_reads, prefetch_semantic_context_cache, read_context_view_cached,
-    recent_change_context_view_cached, symbol_suggested_queries, validation_context_view_cached,
-    where_used,
+    cached_blast_radius, cached_co_change_neighbors, cached_lineage, cached_owner_views,
+    cached_recent_failures, cached_relations, cached_target_symbol, cached_validation_recipe,
+    edit_context_view_cached, entrypoints_for, next_reads, prefetch_semantic_context_cache,
+    read_context_view_cached, recent_change_context_view_cached, symbol_suggested_queries,
+    validation_context_view_cached, where_used, QueryRun, SemanticContextCache, SessionState,
 };
 
 pub(crate) fn discovery_bundle_view(

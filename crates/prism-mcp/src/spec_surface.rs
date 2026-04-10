@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use prism_coordination::{CoordinationSpecRef, CoordinationTaskSpecRef};
 use prism_core::{SpecQueryEngine, SpecQueryLookup, WorkspaceSpecSurface};
 use prism_ir::{CoordinationTaskId, PlanId, TaskId};

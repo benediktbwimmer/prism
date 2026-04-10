@@ -7,10 +7,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result};
 use prism_core::{PrismPaths, WorkspaceSession};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::WorkspaceRefreshMetrics;
-use crate::{PrismMcpCli, PrismMcpFeatures, PrismMcpMode, current_timestamp};
+use crate::{current_timestamp, PrismMcpCli, PrismMcpFeatures, PrismMcpMode};
 
 const MAX_RUNTIME_EVENTS: usize = 200;
 static RUNTIME_STATE_TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -506,9 +506,9 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        RuntimeProcessRecord, RuntimeState, default_runtime_state_path, process_is_live,
-        read_runtime_state, record_bridge_connection_failure, record_daemon_ready,
-        record_process_exit, record_process_start, runtime_state_temp_path,
+        default_runtime_state_path, process_is_live, read_runtime_state,
+        record_bridge_connection_failure, record_daemon_ready, record_process_exit,
+        record_process_start, runtime_state_temp_path, RuntimeProcessRecord, RuntimeState,
     };
     use crate::tests_support::ensure_process_test_prism_home;
     use crate::{PrismMcpCli, PrismMcpMode};
@@ -656,22 +656,18 @@ mod tests {
         record_process_start(&cli, &root).unwrap();
 
         let state = read_runtime_state(&root).unwrap().unwrap();
-        assert!(
-            state
-                .processes
-                .iter()
-                .all(|process| process.pid != stale_pid)
-        );
+        assert!(state
+            .processes
+            .iter()
+            .all(|process| process.pid != stale_pid));
         assert!(state.events.iter().any(|event| {
             event.message == "prism-mcp observed dead runtime process"
                 && event.fields["process"]["pid"] == stale_pid
         }));
-        assert!(
-            state
-                .processes
-                .iter()
-                .any(|process| process.pid == std::process::id() && process.kind == "daemon")
-        );
+        assert!(state
+            .processes
+            .iter()
+            .any(|process| process.pid == std::process::id() && process.kind == "daemon"));
         fs::remove_dir_all(root).ok();
     }
 
@@ -710,12 +706,10 @@ mod tests {
         record_process_exit(&cli, &root, None).unwrap();
 
         let state = read_runtime_state(&root).unwrap().unwrap();
-        assert!(
-            !state
-                .processes
-                .iter()
-                .any(|process| process.pid == std::process::id() && process.kind == "bridge")
-        );
+        assert!(!state
+            .processes
+            .iter()
+            .any(|process| process.pid == std::process::id() && process.kind == "bridge"));
         assert!(state.events.iter().any(|event| {
             event.message == "prism-mcp exited cleanly" && event.fields["pid"] == std::process::id()
         }));

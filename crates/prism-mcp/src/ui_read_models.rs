@@ -1,10 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use prism_coordination::{
-    CanonicalTaskRecord, CoordinationSnapshotV2, WorkClaim, ready_task_count_for_active_plans,
+    ready_task_count_for_active_plans, CanonicalTaskRecord, CoordinationSnapshotV2, WorkClaim,
 };
-use prism_ir::{ClaimStatus, CoordinationEventKind, CoordinationTaskId, sortable_token_timestamp};
+use prism_ir::{sortable_token_timestamp, ClaimStatus, CoordinationEventKind, CoordinationTaskId};
 use prism_ir::{
     DerivedPlanStatus, EffectiveTaskStatus, NodeRefKind, PlanId, PlanScope, PlanStatus, TaskId,
 };
@@ -25,12 +25,12 @@ use crate::ui_types::{
     PrismUiTaskDetailView, PrismUiTaskEditableMetadataView,
 };
 use crate::views::{
-    ConceptVerbosity, artifact_view, blocker_view, concept_packet_view, coordination_plan_v2_view,
+    artifact_view, blocker_view, concept_packet_view, coordination_plan_v2_view,
     coordination_task_v2_view, git_execution_policy_view, node_ref_view, plan_activity_view,
     plan_list_entry_view, plan_node_status_counts_view, plan_scheduling_view, plan_summary_view,
-    policy_violation_record_view,
+    policy_violation_record_view, ConceptVerbosity,
 };
-use crate::{QueryHost, SessionState, claim_view, current_timestamp};
+use crate::{claim_view, current_timestamp, QueryHost, SessionState};
 use crate::{host_resources::session_task_view, runtime_views::runtime_status};
 
 const OVERVIEW_PLAN_LIMIT: usize = 3;
@@ -2300,7 +2300,7 @@ fn graph_plan_touchpoints(
 
 #[cfg(test)]
 mod tests {
-    use super::{PlansResourceSort, UiPlanSort, sort_plan_entries, sort_plan_entries_for_resource};
+    use super::{sort_plan_entries, sort_plan_entries_for_resource, PlansResourceSort, UiPlanSort};
     use prism_ir::{PlanKind, PlanScope, PlanStatus};
     use prism_js::{
         GitExecutionPolicyView, PlanListEntryView, PlanNodeStatusCountsView, PlanSchedulingView,

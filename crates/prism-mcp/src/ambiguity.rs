@@ -4,7 +4,7 @@ use prism_js::{QueryDiagnostic, SuggestedQueryView, SymbolView};
 use prism_query::Prism;
 use rmcp::schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::{dedupe_suggested_queries, read_context_queries, search_queries};
 
@@ -452,9 +452,17 @@ fn rank_candidate(
             }
             NodeKind::Module => {
                 let penalty = if broad_identifier_query && intent.prefer_behavioral_owners {
-                    if exact_name_match { 72 } else { 24 }
+                    if exact_name_match {
+                        72
+                    } else {
+                        24
+                    }
                 } else if exact_name_match {
-                    if broad_identifier_query { 32 } else { 12 }
+                    if broad_identifier_query {
+                        32
+                    } else {
+                        12
+                    }
                 } else {
                     10
                 };

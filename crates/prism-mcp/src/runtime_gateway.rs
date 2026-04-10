@@ -1,23 +1,24 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use axum::{Json, http::StatusCode};
+use axum::{http::StatusCode, Json};
 use prism_coordination::{RuntimeDescriptor, RuntimeDescriptorCapability};
 use prism_core::{
-    CoordinationAuthorityStoreProvider, CoordinationReadConsistency, RuntimeDescriptorQuery,
-    WorkspaceSession, configured_coordination_authority_store_provider,
+    configured_coordination_authority_store_provider,
     coordination_authority_diagnostics_with_provider, runtime_query_endpoint,
+    CoordinationAuthorityStoreProvider, CoordinationReadConsistency, RuntimeDescriptorQuery,
+    WorkspaceSession,
 };
 use prism_ir::{CredentialCapability, CredentialId};
 
-use crate::QueryLanguage;
 use crate::peer_runtime_router::{
-    RemotePrismQueryResult, execute_remote_prism_query_with_provider,
+    execute_remote_prism_query_with_provider, RemotePrismQueryResult,
 };
 use crate::remote_runtime_query_error;
 use crate::trust_surface::{
     peer_runtime_auth_failed_response, peer_runtime_capability_denied_response,
 };
+use crate::QueryLanguage;
 
 pub(crate) const MAX_PEER_QUERY_CODE_CHARS: usize = 24_000;
 const STALE_RUNTIME_DESCRIPTOR_AFTER_SECS: u64 = 15 * 60;
@@ -243,12 +244,12 @@ fn current_timestamp_secs() -> u64 {
 mod tests {
     use prism_coordination::{RuntimeDescriptor, RuntimeDiscoveryMode};
     use prism_core::{
-        CoordinationTransactionBase, RuntimeDescriptorPublishRequest,
-        configured_coordination_authority_store_provider,
+        configured_coordination_authority_store_provider, CoordinationTransactionBase,
+        RuntimeDescriptorPublishRequest,
     };
 
-    use crate::QueryExecutionError;
     use crate::tests_support::temp_workspace;
+    use crate::QueryExecutionError;
 
     use super::resolve_remote_runtime_target_for_root;
 
@@ -307,10 +308,8 @@ mod tests {
         let runtime = error.downcast::<QueryExecutionError>().unwrap();
 
         assert_eq!(runtime.code(), Some("remote_runtime_authority_unavailable"));
-        assert!(
-            runtime
-                .to_string()
-                .contains("coordination authority has no published runtime descriptors")
-        );
+        assert!(runtime
+            .to_string()
+            .contains("coordination authority has no published runtime descriptors"));
     }
 }

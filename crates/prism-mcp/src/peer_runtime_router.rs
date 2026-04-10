@@ -9,8 +9,8 @@ use axum::routing::post;
 use axum::{Json, Router};
 use prism_coordination::RuntimeDescriptor;
 use prism_core::{
-    CoordinationAuthorityStoreProvider, CredentialsFile, PEER_RUNTIME_QUERY_PATH, PrismPaths,
-    local_runtime_id,
+    local_runtime_id, CoordinationAuthorityStoreProvider, CredentialsFile, PrismPaths,
+    PEER_RUNTIME_QUERY_PATH,
 };
 use prism_js::QueryDiagnostic;
 use prism_js::QueryEnvelope;
@@ -342,12 +342,12 @@ mod tests {
     use std::process::Command;
     use std::sync::Arc;
 
-    use axum::body::{Body, to_bytes};
+    use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
     use prism_core::{
-        BootstrapOwnerInput, CredentialProfile, CredentialsFile, MintPrincipalRequest, PrismPaths,
-        WorkspaceSessionOptions, default_workspace_shared_runtime,
-        hydrate_workspace_session_with_options, local_runtime_id, publish_local_runtime_descriptor,
+        default_workspace_shared_runtime, hydrate_workspace_session_with_options, local_runtime_id,
+        publish_local_runtime_descriptor, BootstrapOwnerInput, CredentialProfile, CredentialsFile,
+        MintPrincipalRequest, PrismPaths, WorkspaceSessionOptions,
     };
     use prism_ir::{CredentialCapability, PrincipalKind};
     use serde_json::Value;
@@ -360,7 +360,7 @@ mod tests {
     use crate::tests_support::{credentials_test_lock, temp_workspace};
     use crate::{PrismMcpFeatures, QueryHost, QueryLanguage};
 
-    use super::{PeerRuntimeAppState, PeerRuntimeQueryRequest, execute_remote_prism_query, routes};
+    use super::{execute_remote_prism_query, routes, PeerRuntimeAppState, PeerRuntimeQueryRequest};
 
     fn init_git_workspace(branch: &str) -> PathBuf {
         let root = temp_workspace();
@@ -603,16 +603,14 @@ mod tests {
         let payload: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(payload["runtimeId"], Value::from(local_runtime_id(&root)));
         assert_eq!(payload["result"]["result"]["ok"], Value::Bool(true));
-        assert!(
-            payload["result"]["diagnostics"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|diagnostic| {
-                    diagnostic["code"] == Value::from("peer_enriched")
-                        && diagnostic["data"]["authorityClass"] == Value::from("peer_enriched")
-                })
-        );
+        assert!(payload["result"]["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|diagnostic| {
+                diagnostic["code"] == Value::from("peer_enriched")
+                    && diagnostic["data"]["authorityClass"] == Value::from("peer_enriched")
+            }));
     }
 
     #[tokio::test]
@@ -685,20 +683,16 @@ mod tests {
         .unwrap();
         assert_eq!(result.response.runtime_id, runtime_id);
         assert_eq!(result.response.result.result["peer"], Value::Bool(true));
-        assert!(
-            result
-                .response
-                .result
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.code == "peer_enriched")
-        );
-        assert!(
-            result
-                .runtime_descriptor
-                .capabilities
-                .contains(&prism_coordination::RuntimeDescriptorCapability::BoundedPeerReads)
-        );
+        assert!(result
+            .response
+            .result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "peer_enriched"));
+        assert!(result
+            .runtime_descriptor
+            .capabilities
+            .contains(&prism_coordination::RuntimeDescriptorCapability::BoundedPeerReads));
 
         let _ = shutdown.send(());
     }
@@ -865,12 +859,10 @@ return {{ root: status.root, text: slice.text }};
             .to_string();
         assert_eq!(envelope.result["root"], Value::from(expected_root));
         assert_eq!(envelope.result["text"], Value::from("peer-runtime-notes"));
-        assert!(
-            envelope
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.code == "peer_enriched")
-        );
+        assert!(envelope
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "peer_enriched"));
 
         let _ = shutdown.send(());
     }

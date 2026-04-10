@@ -199,12 +199,10 @@ fn assert_serialization_error(message: &str) {
 
 fn assert_output_cap_result(envelope: &QueryEnvelope) {
     assert_eq!(envelope.result, Value::Null);
-    assert!(
-        envelope
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code == "result_truncated")
-    );
+    assert!(envelope
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "result_truncated"));
 }
 
 fn assert_runtime_namespace_alias(envelope: &QueryEnvelope) {

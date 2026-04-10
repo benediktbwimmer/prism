@@ -73,12 +73,10 @@ return {
     assert_eq!(result.result["graphNodes"][0], "demo::alpha");
     assert_eq!(result.result["graphNodes"][1], "demo::beta");
     assert_eq!(result.result["graphDepth"], 1);
-    assert!(
-        result.result["lineageId"]
-            .as_str()
-            .unwrap_or_default()
-            .starts_with("lineage:")
-    );
+    assert!(result.result["lineageId"]
+        .as_str()
+        .unwrap_or_default()
+        .starts_with("lineage:"));
     assert_eq!(result.result["lineageStatus"], "active");
     assert_eq!(result.result["currentPath"], "demo::alpha");
 }
@@ -159,12 +157,10 @@ return {
         .expect("query should succeed");
 
     assert_eq!(result.result["status"], "active");
-    assert!(
-        result.result["summary"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("Latest event: Renamed from demo::old_name to demo::new_name.")
-    );
+    assert!(result.result["summary"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("Latest event: Renamed from demo::old_name to demo::new_name."));
     assert_eq!(
         result.result["uncertainty"].as_array().map(Vec::len),
         Some(0)
@@ -223,12 +219,10 @@ return {
         result.result["sourceExcerpt"]["text"],
         result.result["excerpt"]["text"]
     );
-    assert!(
-        result.result["excerpt"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("pub fn alpha()")
-    );
+    assert!(result.result["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("pub fn alpha()"));
     assert_eq!(result.result["tunedExcerpt"]["truncated"], true);
 }
 
@@ -283,48 +277,36 @@ return {
 
     assert_eq!(result.result["json"]["location"]["startLine"], 3);
     assert_eq!(result.result["json"]["location"]["endLine"], 3);
-    assert!(
-        result.result["json"]["excerpt"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("\"port\": 8080")
-    );
-    assert!(
-        !result.result["json"]["excerpt"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("\"other\": 1")
-    );
+    assert!(result.result["json"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("\"port\": 8080"));
+    assert!(!result.result["json"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("\"other\": 1"));
 
     assert_eq!(result.result["yaml"]["location"]["startLine"], 2);
     assert_eq!(result.result["yaml"]["location"]["endLine"], 2);
-    assert!(
-        result.result["yaml"]["excerpt"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("port: 8080")
-    );
-    assert!(
-        !result.result["yaml"]["excerpt"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("other: 1")
-    );
+    assert!(result.result["yaml"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("port: 8080"));
+    assert!(!result.result["yaml"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("other: 1"));
 
     assert_eq!(result.result["toml"]["location"]["startLine"], 2);
     assert_eq!(result.result["toml"]["location"]["endLine"], 2);
-    assert!(
-        result.result["toml"]["excerpt"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("members = [\"crates/alpha\"]")
-    );
-    assert!(
-        !result.result["toml"]["excerpt"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("serde = \"1.0\"")
-    );
+    assert!(result.result["toml"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("members = [\"crates/alpha\"]"));
+    assert!(!result.result["toml"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("serde = \"1.0\""));
 }
 
 #[test]
@@ -376,12 +358,10 @@ return {
                 .expect("start line should be numeric")
             + 1
     );
-    assert!(
-        result.result["editSlice"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("pub fn memory_recall()")
-    );
+    assert!(result.result["editSlice"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("pub fn memory_recall()"));
     assert_eq!(result.result["editSlice"]["truncated"], true);
 }
 
@@ -418,12 +398,10 @@ return {
         result.result["functionBlock"]["slice"]["focus"]["startLine"],
         1
     );
-    assert!(
-        result.result["functionBlock"]["slice"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("pub fn memory_recall()")
-    );
+    assert!(result.result["functionBlock"]["slice"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("pub fn memory_recall()"));
 
     let spec_block = &result.result["specBlock"];
     assert_eq!(spec_block["symbol"]["kind"], "MarkdownHeading");
@@ -435,12 +413,10 @@ return {
     assert!(spec_text.contains("## Integration Points"));
 
     for key in ["readQueries", "editQueries", "validationQueries"] {
-        assert!(
-            result.result[key]
-                .as_array()
-                .expect("query labels should be an array")
-                .iter()
-                .any(|label| label == "Focused Block")
-        );
+        assert!(result.result[key]
+            .as_array()
+            .expect("query labels should be an array")
+            .iter()
+            .any(|label| label == "Focused Block"));
     }
 }

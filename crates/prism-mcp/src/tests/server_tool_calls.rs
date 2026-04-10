@@ -1,5 +1,5 @@
 use rmcp::transport::{IntoTransport, Transport};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::*;
 use crate::tests_support::{
@@ -11,9 +11,9 @@ use crate::tests_support::{
 };
 use prism_coordination::TaskCreateInput;
 use prism_core::{
-    BootstrapOwnerInput, MintPrincipalRequest, PrismRuntimeMode, WorkspaceSessionOptions,
     default_workspace_shared_runtime, index_workspace_session,
-    index_workspace_session_with_options,
+    index_workspace_session_with_options, BootstrapOwnerInput, MintPrincipalRequest,
+    PrismRuntimeMode, WorkspaceSessionOptions,
 };
 use prism_ir::{
     CoordinationTaskId, CoordinationTaskStatus, CredentialCapability, CredentialId, EventActor,
@@ -384,12 +384,10 @@ async fn mcp_server_surfaces_structured_prism_code_parse_errors_through_read_sur
     assert_eq!(response["error"]["data"]["code"], "query_parse_failed");
     assert_eq!(response["error"]["data"]["line"], 1);
     assert_eq!(response["error"]["data"]["column"], 16);
-    assert!(
-        response["error"]["data"]["nextAction"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("single expression such as `({ ... })`")
-    );
+    assert!(response["error"]["data"]["nextAction"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("single expression such as `({ ... })`"));
 
     running.cancel().await.unwrap();
 }
@@ -467,12 +465,10 @@ async fn mcp_server_surfaces_structured_prism_code_error_categories() {
     assert_eq!(response["error"]["data"]["code"], "query_parse_failed");
     assert_eq!(response["error"]["data"]["line"], 1);
     assert_eq!(response["error"]["data"]["column"], 16);
-    assert!(
-        response["error"]["data"]["nextAction"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("single expression such as `({ ... })`")
-    );
+    assert!(response["error"]["data"]["nextAction"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("single expression such as `({ ... })`"));
 
     running.cancel().await.unwrap();
 }
@@ -516,12 +512,10 @@ return {
         .unwrap();
 
     let response = first_tool_content_json(client.receive().await.unwrap());
-    assert!(
-        response["result"]["workId"]
-            .as_str()
-            .expect("workId should be a string")
-            .starts_with("work:")
-    );
+    assert!(response["result"]["workId"]
+        .as_str()
+        .expect("workId should be a string")
+        .starts_with("work:"));
 
     running.cancel().await.unwrap();
 }
@@ -914,8 +908,8 @@ return {{ plan, followup }};
 }
 
 #[tokio::test]
-async fn mcp_server_updates_and_completes_existing_tasks_via_native_prism_code_coordination_builders()
- {
+async fn mcp_server_updates_and_completes_existing_tasks_via_native_prism_code_coordination_builders(
+) {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);
     let server = PrismMcpServer::with_session(session);
@@ -1132,8 +1126,8 @@ return task.handoff({{
 }
 
 #[tokio::test]
-async fn mcp_server_updates_and_archives_existing_plans_via_native_prism_code_coordination_builders()
- {
+async fn mcp_server_updates_and_archives_existing_plans_via_native_prism_code_coordination_builders(
+) {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);
     let server = PrismMcpServer::with_session(session);
@@ -1800,11 +1794,9 @@ return {{
     assert_eq!(envelope["result"]["ready"][0]["id"], task_id);
     assert_eq!(envelope["result"]["claims"].as_array().unwrap().len(), 0);
     assert_eq!(envelope["result"]["artifacts"].as_array().unwrap().len(), 1);
-    assert!(
-        envelope["result"]["taskBlastRadius"]["lineages"]
-            .as_array()
-            .is_some()
-    );
+    assert!(envelope["result"]["taskBlastRadius"]["lineages"]
+        .as_array()
+        .is_some());
     assert_eq!(
         envelope["result"]["taskValidationRecipe"]["taskId"],
         task_id
@@ -2702,13 +2694,11 @@ async fn mcp_server_supports_mcp_only_self_described_workflows() {
         client.receive().await.unwrap(),
     )))
     .unwrap();
-    assert!(
-        tools["value"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|tool| tool["name"] == "prism_mutate")
-    );
+    assert!(tools["value"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|tool| tool["name"] == "prism_mutate"));
 
     for (id, uri) in [
         (
@@ -3269,11 +3259,9 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
         response["error"]["data"]["attemptedPrincipal"]["principalId"],
         Value::String(second_worker.principal.principal_id.0.to_string())
     );
-    assert!(
-        response["error"]["data"]["currentOwner"]["sessionId"]
-            .as_str()
-            .is_some_and(|value| value.starts_with("session:"))
-    );
+    assert!(response["error"]["data"]["currentOwner"]["sessionId"]
+        .as_str()
+        .is_some_and(|value| value.starts_with("session:")));
 
     running.cancel().await.unwrap();
 }
@@ -3757,11 +3745,9 @@ async fn mcp_server_accepts_relative_file_anchor_paths_in_coordination_only_mode
 
     assert_eq!(bootstrap["action"], "coordination");
     assert!(bootstrap["result"]["state"]["id"].as_str().is_some());
-    assert!(
-        bootstrap["result"]["state"]["taskIdsByClientId"]["t0"]
-            .as_str()
-            .is_some()
-    );
+    assert!(bootstrap["result"]["state"]["taskIdsByClientId"]["t0"]
+        .as_str()
+        .is_some());
 
     running.cancel().await.unwrap();
 }

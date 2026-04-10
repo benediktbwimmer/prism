@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use crate::query_surface::{PrismApiMethodSpec, PrismCompilerEffectKind, prism_api_method_specs};
+use crate::query_surface::{prism_api_method_specs, PrismApiMethodSpec, PrismCompilerEffectKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PrismCompilerMethodSpec {

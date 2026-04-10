@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use prism_core::AdmissionBusyError;
 use prism_ir::NodeId;
-use rmcp::{ErrorData as McpError, model::*};
+use rmcp::{model::*, ErrorData as McpError};
 use serde_json::json;
 
 use crate::QueryExecutionError;

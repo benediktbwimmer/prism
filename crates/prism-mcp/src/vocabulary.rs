@@ -414,7 +414,8 @@ const VOCABULARY_CATEGORIES: &[VocabularyCategorySpec] = &[
     VocabularyCategorySpec {
         key: "coordinationMutationKind",
         title: "Coordination Mutation Kinds",
-        description: "Coordination mutation kinds accepted by the native PRISM coordination surface.",
+        description:
+            "Coordination mutation kinds accepted by the native PRISM coordination surface.",
         values: COORDINATION_MUTATION_KINDS,
     },
     VocabularyCategorySpec {

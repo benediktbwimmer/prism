@@ -5,23 +5,23 @@ use prism_js::{
     ToolSchemaView,
 };
 use rmcp::schemars::JsonSchema;
-use serde_json::{Map, Value, json};
+use serde_json::{json, Map, Value};
 
 use crate::{
-    PrismCodeArgs, PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs,
-    PrismMcpFeatures, PrismOpenArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView,
-    TOOL_SCHEMAS_URI, capabilities_resource_view_link, dedupe_resource_link_views,
-    json_resource_contents_with_meta, resource_meta, schema_resource_contents, schema_resource_uri,
-    schema_resource_value, schema_resource_view_link, session_resource_view_link,
-    tool_action_example, tool_action_example_resource_uri, tool_action_examples,
-    tool_action_recipe_resource_uri, tool_action_schema_resource_uri,
-    tool_action_schema_resource_view_link, tool_action_shape_resource_uri,
-    tool_example_resource_uri, tool_input_example, tool_input_examples, tool_schema_resource_uri,
-    tool_schema_resource_view_link, tool_schemas_resource_view_link, tool_shape_resource_uri,
-    tool_variant_example_resource_uri, tool_variant_recipe_resource_uri,
-    tool_variant_schema_resource_uri, tool_variant_shape_resource_uri, vocab_resource_view_link,
+    capabilities_resource_view_link, dedupe_resource_link_views, json_resource_contents_with_meta,
+    resource_meta, schema_resource_contents, schema_resource_uri, schema_resource_value,
+    schema_resource_view_link, session_resource_view_link, tool_action_example,
+    tool_action_example_resource_uri, tool_action_examples, tool_action_recipe_resource_uri,
+    tool_action_schema_resource_uri, tool_action_schema_resource_view_link,
+    tool_action_shape_resource_uri, tool_example_resource_uri, tool_input_example,
+    tool_input_examples, tool_schema_resource_uri, tool_schema_resource_view_link,
+    tool_schemas_resource_view_link, tool_shape_resource_uri, tool_variant_example_resource_uri,
+    tool_variant_recipe_resource_uri, tool_variant_schema_resource_uri,
+    tool_variant_shape_resource_uri, vocab_resource_view_link, PrismCodeArgs, PrismConceptArgs,
+    PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMcpFeatures, PrismOpenArgs,
+    PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView, TOOL_SCHEMAS_URI,
 };
-use rmcp::{ErrorData as McpError, model::ResourceContents};
+use rmcp::{model::ResourceContents, ErrorData as McpError};
 
 const MAX_SCHEMA_SUMMARY_DEPTH: usize = 3;
 

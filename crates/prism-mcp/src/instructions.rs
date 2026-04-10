@@ -2,9 +2,9 @@ use prism_core::PrismRuntimeMode;
 use rmcp::model::RawResource;
 
 use crate::{
-    CAPABILITIES_URI, INSTRUCTIONS_URI, PLANS_URI, PROTECTED_STATE_URI, PrismMcpFeatures,
-    ResourceLinkView, SESSION_URI, TOOL_SCHEMAS_URI, VOCAB_URI, resource_link_view,
-    resource_schemas::ResourceCapabilityView,
+    resource_link_view, resource_schemas::ResourceCapabilityView, PrismMcpFeatures,
+    ResourceLinkView, CAPABILITIES_URI, INSTRUCTIONS_URI, PLANS_URI, PROTECTED_STATE_URI,
+    SESSION_URI, TOOL_SCHEMAS_URI, VOCAB_URI,
 };
 
 const INDEX_PLACEHOLDER: &str = "{{INSTRUCTION_SET_INDEX}}";

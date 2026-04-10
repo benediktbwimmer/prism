@@ -2,14 +2,14 @@ use std::fs;
 use std::time::Duration;
 
 use rmcp::{
-    ServiceExt,
     model::{CallToolRequestParams, ReadResourceRequestParams},
     transport::{IntoTransport, Transport},
+    ServiceExt,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::*;
-use crate::runtime_state::{RuntimeProcessRecord, RuntimeState, default_runtime_state_path};
+use crate::runtime_state::{default_runtime_state_path, RuntimeProcessRecord, RuntimeState};
 use crate::tests_support::{
     call_tool_request, demo_node, first_tool_content_json, initialize_client,
     initialized_notification, list_tools_request, read_resource_request,
@@ -18,7 +18,7 @@ use crate::tests_support::{
     workspace_session_with_owner_credential,
 };
 use crate::{PrismMcpCli, PrismMcpMode};
-use prism_core::{PrismPaths, SharedRuntimeBackend, index_workspace_session};
+use prism_core::{index_workspace_session, PrismPaths, SharedRuntimeBackend};
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
 use prism_store::Graph;
 
@@ -46,21 +46,17 @@ async fn stdio_proxy_forwards_to_streamable_http_upstream() {
         .list_all_resources()
         .await
         .expect("proxy should forward resources/list");
-    assert!(
-        resources
-            .iter()
-            .any(|resource| resource.uri == API_REFERENCE_URI)
-    );
+    assert!(resources
+        .iter()
+        .any(|resource| resource.uri == API_REFERENCE_URI));
 
     let templates = client
         .list_all_resource_templates()
         .await
         .expect("proxy should forward resource template listing");
-    assert!(
-        templates
-            .iter()
-            .any(|template| template.uri_template == ENTRYPOINTS_RESOURCE_TEMPLATE_URI)
-    );
+    assert!(templates
+        .iter()
+        .any(|template| template.uri_template == ENTRYPOINTS_RESOURCE_TEMPLATE_URI));
 
     let tools = client
         .list_all_tools()
@@ -143,11 +139,9 @@ async fn stdio_proxy_stays_alive_while_idle_until_client_disconnects() {
         .list_all_resources()
         .await
         .expect("proxy should still be alive after an idle period");
-    assert!(
-        resources
-            .iter()
-            .any(|resource| resource.uri == API_REFERENCE_URI)
-    );
+    assert!(resources
+        .iter()
+        .any(|resource| resource.uri == API_REFERENCE_URI));
 
     client.cancel().await.unwrap();
 
@@ -1036,11 +1030,9 @@ fn simple_mode_disables_coordination_host_paths() {
             },
         )
         .unwrap_err();
-    assert!(
-        error
-            .to_string()
-            .contains("coordination workflow mutations are disabled")
-    );
+    assert!(error
+        .to_string()
+        .contains("coordination workflow mutations are disabled"));
 
     let execution = QueryExecution::new(
         host.clone(),
@@ -1056,11 +1048,9 @@ fn simple_mode_disables_coordination_host_paths() {
     let error = execution
         .dispatch("plan", r#"{ "planId": "plan:1" }"#)
         .unwrap_err();
-    assert!(
-        error
-            .to_string()
-            .contains("coordination workflow queries are disabled")
-    );
+    assert!(error
+        .to_string()
+        .contains("coordination workflow queries are disabled"));
 }
 
 #[test]
@@ -1152,20 +1142,16 @@ async fn mcp_server_simple_mode_keeps_minimal_surface_and_reports_features() {
             .expect("capabilities resource should be text"),
     )
     .unwrap();
-    assert!(
-        capabilities_payload["queryMethods"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|method| method["name"] == "plan" && method["enabled"] == false)
-    );
-    assert!(
-        capabilities_payload["queryMethods"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|method| method["name"] == "claims" && method["enabled"] == false)
-    );
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "plan" && method["enabled"] == false));
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "claims" && method["enabled"] == false));
 
     client
         .send(call_tool_request(

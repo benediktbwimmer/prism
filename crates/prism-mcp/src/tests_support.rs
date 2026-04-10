@@ -12,18 +12,18 @@ use axum::Router;
 use rmcp::{
     model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
     transport::{
-        StreamableHttpServerConfig, StreamableHttpService, Transport,
-        streamable_http_server::session::local::LocalSessionManager,
+        streamable_http_server::session::local::LocalSessionManager, StreamableHttpServerConfig,
+        StreamableHttpService, Transport,
     },
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::*;
 use prism_core::{
-    BootstrapOwnerInput, PrismPaths, WorkspaceSessionOptions, WorktreeMode,
-    WorktreeRegistrationRecord, default_workspace_session_options,
-    default_workspace_shared_runtime, hydrate_workspace_session_with_options,
-    index_workspace_session, index_workspace_session_with_options,
+    default_workspace_session_options, default_workspace_shared_runtime,
+    hydrate_workspace_session_with_options, index_workspace_session,
+    index_workspace_session_with_options, BootstrapOwnerInput, PrismPaths, WorkspaceSessionOptions,
+    WorktreeMode, WorktreeRegistrationRecord,
 };
 use prism_ir::new_sortable_token;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};

@@ -3,7 +3,7 @@ use std::path::Path;
 use std::process::Command;
 use std::time::UNIX_EPOCH;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use prism_coordination::{GitExecutionPolicy, GitPreflightReport, GitPublishReport};
 
 #[derive(Debug, Clone)]

@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 
-use anyhow::{Result, anyhow};
-use serde_json::{Map, Value, json};
+use anyhow::{anyhow, Result};
+use serde_json::{json, Map, Value};
 
 use super::analysis::AnalyzedPrismProgram;
 use super::program_ir::{PrismProgramEffectId, PrismProgramRegionId, PrismProgramSourceSpan};

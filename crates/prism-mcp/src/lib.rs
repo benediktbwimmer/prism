@@ -1,35 +1,35 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
 use prism_coordination::{
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshotV2,
 };
 use prism_core::{
+    configured_coordination_authority_store_provider, default_workspace_shared_runtime,
+    hydrate_workspace_session_with_options, resolve_coordination_authority_store_provider,
     ActiveWorkContextBinding, CoordinationAuthorityBackendConfig,
     CoordinationAuthorityStoreProvider, PrismPaths, PrismRuntimeMode, SharedRuntimeBackend,
-    WorkspaceSession, WorkspaceSessionOptions, configured_coordination_authority_store_provider,
-    default_workspace_shared_runtime, hydrate_workspace_session_with_options,
-    resolve_coordination_authority_store_provider,
+    WorkspaceSession, WorkspaceSessionOptions,
 };
 use prism_ir::{EventId, TaskId};
-use prism_js::{API_REFERENCE_URI, CuratorJobView, api_reference_markdown};
+use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
 use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, SessionMemory};
 use prism_query::{Prism, QueryLimits};
 use rmcp::{
-    ServiceExt,
     handler::server::router::tool::ToolRouter,
     service::{RoleServer, RunningService, ServerInitializeError},
-    transport::{IntoTransport, stdio},
+    transport::{stdio, IntoTransport},
+    ServiceExt,
 };
 use std::env;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 #[cfg(test)]
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
-use tracing::{Level, debug, info};
+use tracing::{debug, info, Level};
 
 mod ambiguity;
 mod bridge_auth;
@@ -159,7 +159,7 @@ use query_log::*;
 use query_runtime::*;
 use query_types::*;
 use read_broker::{
-    CurrentCoordinationSurface, WorkspaceReadBroker, current_coordination_surface_for_workspace,
+    current_coordination_surface_for_workspace, CurrentCoordinationSurface, WorkspaceReadBroker,
 };
 use request_envelope::*;
 use resource_schemas::*;

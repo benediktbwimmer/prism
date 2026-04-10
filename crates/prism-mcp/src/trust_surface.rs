@@ -1,12 +1,12 @@
 use std::path::Path;
 
-use axum::{Json, http::StatusCode};
+use axum::{http::StatusCode, Json};
 use prism_core::{
-    AuthenticatedPrincipal, CoordinationAuthorityMutationError,
-    CoordinationAuthorityMutationStatus, CoordinationAuthorityStoreProvider,
-    CoordinationReadConsistency, ProtectedStateStreamReport, SharedCoordinationRefDiagnostics,
-    WorktreeMode, WorktreeMutatorSlotError, WorktreeRegistrationRecord,
-    configured_coordination_authority_store_provider,
+    configured_coordination_authority_store_provider, AuthenticatedPrincipal,
+    CoordinationAuthorityMutationError, CoordinationAuthorityMutationStatus,
+    CoordinationAuthorityStoreProvider, CoordinationReadConsistency, ProtectedStateStreamReport,
+    SharedCoordinationRefDiagnostics, WorktreeMode, WorktreeMutatorSlotError,
+    WorktreeRegistrationRecord,
 };
 use prism_ir::EventId;
 use prism_js::{
@@ -19,7 +19,7 @@ use prism_query::{
 };
 use rmcp::model::ErrorData as McpError;
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::{
     CoordinationMutationResult, MutationViolationView, PrismMutationBridgeExecutionArgs,
@@ -671,11 +671,9 @@ mod tests {
         let error = mutation_auth_missing_error();
         let data = error.data.expect("payload");
         assert_eq!(data["code"], "mutation_auth_missing");
-        assert!(
-            data["nextAction"]
-                .as_str()
-                .is_some_and(|value| !value.is_empty())
-        );
+        assert!(data["nextAction"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty()));
     }
 
     #[test]

@@ -3,13 +3,13 @@ use prism_js::{
     ToolValidationIssueView,
 };
 use rmcp::schemars::{JsonSchema, Schema, SchemaGenerator};
-use serde::{Deserialize, Deserializer, Serialize, de};
+use serde::{de, Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
 
 use crate::{
-    ContractPacketView, PrismMcpFeatures, SessionView, tool_schema_resource_uri, tool_schema_view,
-    tool_schema_view_with_features, vocabulary_error,
+    tool_schema_resource_uri, tool_schema_view, tool_schema_view_with_features, vocabulary_error,
+    ContractPacketView, PrismMcpFeatures, SessionView,
 };
 
 fn ensure_root_object_input_schema(schema: &mut Schema) {
@@ -3246,7 +3246,7 @@ pub(crate) struct PrismCuratorPromoteMemoryArgs {
 
 #[cfg(test)]
 mod tests {
-    use super::{WorkflowUpdatePayload, validate_tool_input_value};
+    use super::{validate_tool_input_value, WorkflowUpdatePayload};
 
     #[test]
     fn workflow_update_payload_deserializes_completion_context() {

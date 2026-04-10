@@ -1,5 +1,5 @@
 use prism_core::WorkspaceSession;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 pub(crate) const SLOW_CALL_SNAPSHOT_THRESHOLD_MS: u64 = 1_000;
 

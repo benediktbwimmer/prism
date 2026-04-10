@@ -8,20 +8,20 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use anyhow::{Context as AnyhowContext, Result, anyhow};
+use anyhow::{anyhow, Context as AnyhowContext, Result};
 use deno_ast::{
-    EmitOptions, MediaType, ModuleSpecifier, ParseParams, TranspileModuleOptions, TranspileOptions,
-    parse_program,
+    parse_program, EmitOptions, MediaType, ModuleSpecifier, ParseParams, TranspileModuleOptions,
+    TranspileOptions,
 };
 use prism_js::runtime_prelude;
 use rquickjs::{
-    CatchResultExt, CaughtError, Context, Runtime, prelude::Func, promise::MaybePromise,
+    prelude::Func, promise::MaybePromise, CatchResultExt, CaughtError, Context, Runtime,
 };
 use serde_json::json;
 use tracing::error;
 
-use crate::QueryExecution;
 use crate::logging::format_error_chain;
+use crate::QueryExecution;
 
 #[cfg(not(test))]
 const QUERY_WORKER_ENV: &str = "PRISM_MCP_QUERY_WORKERS";

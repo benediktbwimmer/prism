@@ -4,7 +4,7 @@ use super::text_fragments::{
     text_candidate_from_match,
 };
 use super::*;
-use crate::{TaskMatch, build_task_scope, candidate_task_match};
+use crate::{build_task_scope, candidate_task_match, TaskMatch};
 
 impl QueryHost {
     pub(crate) fn compact_locate(
@@ -1245,12 +1245,10 @@ mod tests {
         annotate_close_alternative_explanations(&mut ranked);
 
         assert!(ranked[0].why_not_top.is_none());
-        assert!(
-            ranked[1]
-                .why_not_top
-                .as_deref()
-                .is_some_and(|reason| reason.contains("requested task scope"))
-        );
+        assert!(ranked[1]
+            .why_not_top
+            .as_deref()
+            .is_some_and(|reason| reason.contains("requested task scope")));
     }
 }
 

@@ -1,6 +1,6 @@
 use prism_curator::{CandidateMemory, CuratorProposal};
 use prism_ir::TaskId;
-use serde_json::{Map, Value, json};
+use serde_json::{json, Map, Value};
 
 fn ensure_object(value: Value) -> Map<String, Value> {
     match value {

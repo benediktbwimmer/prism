@@ -4,4 +4,4 @@ mod html;
 mod mermaid;
 mod routes;
 
-pub(crate) use routes::{PrismConsoleState, routes};
+pub(crate) use routes::{routes, PrismConsoleState};

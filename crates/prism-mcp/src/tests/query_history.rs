@@ -7,11 +7,11 @@ use crate::tests_support::{
     host_with_session_internal, host_with_shared_session_and_features, shared_workspace_session,
     temp_workspace, test_session, write_long_excerpt_workspace,
 };
-use prism_core::{PrismPaths, index_workspace_session};
+use prism_core::{index_workspace_session, PrismPaths};
 use prism_js::{
     McpCallLogEntryView, McpCallPayloadSummaryView, QueryDiagnostic, RuntimeLogEventView,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 fn sibling_worktree_dir(root: &Path, worktree_id: &str, canonical_root: &str) -> PathBuf {
     let prism_paths = PrismPaths::for_workspace_root(root).unwrap();
@@ -200,12 +200,10 @@ return {
     assert_eq!(literal[0]["path"], "src/recall.rs");
     assert_eq!(literal[0]["location"]["startLine"], 8);
     assert_eq!(literal[0]["excerpt"]["startLine"], 8);
-    assert!(
-        literal[0]["excerpt"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("let eta = \"read context\";")
-    );
+    assert!(literal[0]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("let eta = \"read context\";"));
 
     let regex = result.result["regex"].as_array().expect("regex results");
     assert_eq!(regex.len(), 2);
@@ -226,12 +224,10 @@ return {
     assert_eq!(globbed.len(), 1);
     assert_eq!(globbed[0]["path"], "docs/SPEC.md");
     assert_eq!(globbed[0]["location"]["startLine"], 3);
-    assert!(
-        globbed[0]["excerpt"]["text"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("## Integration Points")
-    );
+    assert!(globbed[0]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("## Integration Points"));
 }
 
 #[test]
@@ -292,17 +288,13 @@ return {
     assert_eq!(recent.len(), 2);
     assert_eq!(recent[0]["kind"], "typescript");
     assert_eq!(recent[0]["success"], true);
-    assert!(
-        recent[0]["sessionId"]
-            .as_str()
-            .unwrap_or_default()
-            .starts_with("session:")
-    );
-    assert!(
-        recent[0]["operations"]
-            .as_array()
-            .is_some_and(|ops| ops.iter().any(|value| value == "fileAround"))
-    );
+    assert!(recent[0]["sessionId"]
+        .as_str()
+        .unwrap_or_default()
+        .starts_with("session:"));
+    assert!(recent[0]["operations"]
+        .as_array()
+        .is_some_and(|ops| ops.iter().any(|value| value == "fileAround")));
     let touched = recent[0]["touched"].as_array().expect("touched values");
     assert!(touched.iter().any(|value| value == "src/recall.rs"));
     assert!(
@@ -320,11 +312,9 @@ return {
     );
 
     assert_eq!(result.result["trace"]["entry"]["id"], recent[0]["id"]);
-    assert!(
-        result.result["trace"]["entry"]["operations"]
-            .as_array()
-            .is_some_and(|ops| ops.iter().any(|value| value == "fileAround"))
-    );
+    assert!(result.result["trace"]["entry"]["operations"]
+        .as_array()
+        .is_some_and(|ops| ops.iter().any(|value| value == "fileAround")));
     let phases = result.result["trace"]["phases"]
         .as_array()
         .expect("trace phases");
@@ -339,12 +329,10 @@ return {
     assert!(operations.contains(&"mcp.executeHandler"));
     assert!(operations.contains(&"mcp.encodeResponse"));
     assert!(operations.contains(&"fileAround"));
-    assert!(
-        phases
-            .iter()
-            .find(|phase| phase["operation"] == "fileAround")
-            .is_some_and(|phase| phase["success"] == true)
-    );
+    assert!(phases
+        .iter()
+        .find(|phase| phase["operation"] == "fileAround")
+        .is_some_and(|phase| phase["success"] == true));
 }
 
 #[test]
@@ -523,11 +511,9 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
         )
         .expect("impact should succeed when enabled");
     assert_eq!(impact.result["subject"]["kind"], "pathSet");
-    assert!(
-        impact.result["recommendedChecks"]
-            .as_array()
-            .is_some_and(|checks| !checks.is_empty())
-    );
+    assert!(impact.result["recommendedChecks"]
+        .as_array()
+        .is_some_and(|checks| !checks.is_empty()));
     let after_edit_disabled = impact_only
         .execute(
             test_session(&impact_only),
@@ -551,11 +537,9 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
         )
         .expect("afterEdit should succeed when enabled");
     assert_eq!(after_edit.result["subject"]["kind"], "pathSet");
-    assert!(
-        after_edit.result["tests"]
-            .as_array()
-            .is_some_and(|checks| !checks.is_empty())
-    );
+    assert!(after_edit.result["tests"]
+        .as_array()
+        .is_some_and(|checks| !checks.is_empty()));
     let impact_disabled = after_edit_only
         .execute(
             test_session(&after_edit_only),
@@ -579,11 +563,9 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
         )
         .expect("commandMemory should succeed when enabled");
     assert_eq!(command_memory.result["subject"]["kind"], "repo");
-    assert!(
-        command_memory.result["commands"]
-            .as_array()
-            .is_some_and(|commands| !commands.is_empty())
-    );
+    assert!(command_memory.result["commands"]
+        .as_array()
+        .is_some_and(|commands| !commands.is_empty()));
     let playbook_disabled = command_only
         .execute(
             test_session(&command_only),
@@ -628,11 +610,9 @@ fn prism_repo_playbook_and_validation_plan_views_return_provenance_and_log_by_na
         playbook.result["workflow"]["provenance"][0]["path"],
         "AGENTS.md"
     );
-    assert!(
-        playbook.result["gotchas"]
-            .as_array()
-            .is_some_and(|gotchas| !gotchas.is_empty())
-    );
+    assert!(playbook.result["gotchas"]
+        .as_array()
+        .is_some_and(|gotchas| !gotchas.is_empty()));
 
     let validation = host
         .execute(
@@ -642,21 +622,15 @@ fn prism_repo_playbook_and_validation_plan_views_return_provenance_and_log_by_na
         )
         .expect("validationPlan should succeed");
     assert_eq!(validation.result["subject"]["kind"], "pathSet");
-    assert!(
-        validation.result["fast"]
-            .as_array()
-            .is_some_and(|fast| !fast.is_empty())
-    );
-    assert!(
-        validation.result["fast"][0]["why"]
-            .as_str()
-            .is_some_and(|why| !why.is_empty())
-    );
-    assert!(
-        validation.result["fast"][0]["provenance"]
-            .as_array()
-            .is_some_and(|provenance| !provenance.is_empty())
-    );
+    assert!(validation.result["fast"]
+        .as_array()
+        .is_some_and(|fast| !fast.is_empty()));
+    assert!(validation.result["fast"][0]["why"]
+        .as_str()
+        .is_some_and(|why| !why.is_empty()));
+    assert!(validation.result["fast"][0]["provenance"]
+        .as_array()
+        .is_some_and(|provenance| !provenance.is_empty()));
 
     let result = host
         .execute(
@@ -714,21 +688,15 @@ fn prism_impact_and_after_edit_views_return_explainable_results_and_log_by_name(
         )
         .expect("impact should succeed");
     assert_eq!(impact.result["subject"]["kind"], "pathSet");
-    assert!(
-        impact.result["downstream"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
-    assert!(
-        impact.result["recommendedChecks"][0]["why"]
-            .as_str()
-            .is_some_and(|why| !why.is_empty())
-    );
-    assert!(
-        impact.result["recommendedChecks"][0]["provenance"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(impact.result["downstream"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(impact.result["recommendedChecks"][0]["why"]
+        .as_str()
+        .is_some_and(|why| !why.is_empty()));
+    assert!(impact.result["recommendedChecks"][0]["provenance"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
 
     let after_edit = host
         .execute(
@@ -738,31 +706,21 @@ fn prism_impact_and_after_edit_views_return_explainable_results_and_log_by_name(
         )
         .expect("afterEdit should succeed");
     assert_eq!(after_edit.result["subject"]["kind"], "pathSet");
-    assert!(
-        after_edit.result["nextReads"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
-    assert!(
-        after_edit.result["tests"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
-    assert!(
-        after_edit.result["docs"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
-    assert!(
-        after_edit.result["nextReads"][0]["why"]
-            .as_str()
-            .is_some_and(|why| !why.is_empty())
-    );
-    assert!(
-        after_edit.result["nextReads"][0]["provenance"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(after_edit.result["nextReads"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(after_edit.result["tests"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(after_edit.result["docs"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(after_edit.result["nextReads"][0]["why"]
+        .as_str()
+        .is_some_and(|why| !why.is_empty()));
+    assert!(after_edit.result["nextReads"][0]["provenance"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
 
     let result = host
         .execute(
@@ -949,26 +907,18 @@ return {{
 
     assert_eq!(result.result["subject"]["kind"], "task");
     assert_eq!(result.result["subject"]["taskId"], task_id);
-    assert!(
-        result.result["successful"]["confidence"]
-            .as_f64()
-            .is_some_and(|confidence| confidence > 0.6)
-    );
-    assert!(
-        result.result["successful"]["provenance"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
-    assert!(
-        result.result["failing"]["caveats"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
-    assert!(
-        result.result["playbook"]["provenance"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty())
-    );
+    assert!(result.result["successful"]["confidence"]
+        .as_f64()
+        .is_some_and(|confidence| confidence > 0.6));
+    assert!(result.result["successful"]["provenance"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(result.result["failing"]["caveats"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(result.result["playbook"]["provenance"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
     let stats_result = host
         .execute(
             test_session(&host),
@@ -1060,12 +1010,10 @@ return {
     assert_eq!(first["callType"], "tool");
     assert_eq!(first["name"], "prism_query");
     assert_eq!(first["success"], true);
-    assert!(
-        first["serverInstanceId"]
-            .as_str()
-            .unwrap_or_default()
-            .starts_with("mcp-instance:")
-    );
+    assert!(first["serverInstanceId"]
+        .as_str()
+        .unwrap_or_default()
+        .starts_with("mcp-instance:"));
     assert!(first["processId"].as_u64().unwrap_or_default() > 0);
     assert_eq!(first["traceAvailable"], true);
     assert!(
@@ -1092,18 +1040,14 @@ return {
     );
 
     let trace = &result.result["trace"];
-    assert!(
-        recent
-            .iter()
-            .any(|entry| entry["id"] == trace["entry"]["id"])
-    );
+    assert!(recent
+        .iter()
+        .any(|entry| entry["id"] == trace["entry"]["id"]));
     assert_eq!(trace["metadata"]["tool"], "prism_query");
-    assert!(
-        trace["metadata"]["queryText"]
-            .as_str()
-            .unwrap_or_default()
-            .contains(&filter_token)
-    );
+    assert!(trace["metadata"]["queryText"]
+        .as_str()
+        .unwrap_or_default()
+        .contains(&filter_token));
     assert_ne!(trace["requestPreview"], Value::Null);
     assert!(
         trace["requestPreview"].is_string() || trace["requestPreview"].is_object(),
@@ -1115,27 +1059,19 @@ return {
             .any(|phase| phase["operation"] == "fileAround")
     }));
 
-    assert!(
-        result.result["stats"]["totalCalls"]
-            .as_u64()
-            .is_some_and(|count| count >= 2)
-    );
-    assert!(
-        result.result["stats"]["successCount"]
-            .as_u64()
-            .is_some_and(|count| count >= 2)
-    );
+    assert!(result.result["stats"]["totalCalls"]
+        .as_u64()
+        .is_some_and(|count| count >= 2));
+    assert!(result.result["stats"]["successCount"]
+        .as_u64()
+        .is_some_and(|count| count >= 2));
     assert_eq!(result.result["stats"]["errorCount"], 0);
-    assert!(
-        result.result["stats"]["byName"]
-            .as_array()
-            .is_some_and(|buckets| buckets.iter().any(|bucket| bucket["key"] == "prism_query"))
-    );
-    assert!(
-        result.result["stats"]["byViewName"]
-            .as_array()
-            .is_some_and(|buckets| buckets.is_empty())
-    );
+    assert!(result.result["stats"]["byName"]
+        .as_array()
+        .is_some_and(|buckets| buckets.iter().any(|bucket| bucket["key"] == "prism_query")));
+    assert!(result.result["stats"]["byViewName"]
+        .as_array()
+        .is_some_and(|buckets| buckets.is_empty()));
 
     let status = host
         .execute(
@@ -1145,12 +1081,10 @@ return {
         )
         .expect("runtime status query should succeed")
         .result;
-    assert!(
-        status["mcpCallLogPath"]
-            .as_str()
-            .unwrap_or_default()
-            .ends_with("mcp/logs/prism-mcp-call-log.jsonl")
-    );
+    assert!(status["mcpCallLogPath"]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with("mcp/logs/prism-mcp-call-log.jsonl"));
     assert!(status["mcpCallLogBytes"].as_u64().unwrap_or_default() > 0);
 }
 
@@ -1221,12 +1155,10 @@ return {
     assert_eq!(sibling[0]["worktreeId"], "worktree:sibling");
     assert_eq!(sibling[0]["serverInstanceId"], "mcp-instance:sibling");
     assert_eq!(sibling[0]["processId"], 4242);
-    assert!(
-        sibling[0]["logPath"]
-            .as_str()
-            .unwrap_or_default()
-            .ends_with("mcp/logs/prism-mcp-call-log.jsonl")
-    );
+    assert!(sibling[0]["logPath"]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with("mcp/logs/prism-mcp-call-log.jsonl"));
     assert_eq!(
         result.result["instance"]
             .as_array()

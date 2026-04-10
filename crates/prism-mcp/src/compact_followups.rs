@@ -344,10 +344,8 @@ mod tests {
         );
         assert!(terms.iter().any(|term| term == "prism_locate"));
         assert!(terms.iter().any(|term| term == "prism_open"));
-        assert!(
-            terms
-                .iter()
-                .any(|term| term == "prism_mcp::server_surface::PrismMcpServer.")
-        );
+        assert!(terms
+            .iter()
+            .any(|term| term == "prism_mcp::server_surface::PrismMcpServer."));
     }
 }
