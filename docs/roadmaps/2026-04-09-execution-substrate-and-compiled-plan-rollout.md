@@ -17,7 +17,8 @@ PRISM now has several tightly related but still distinct bodies of work:
 - narrow the SQL authority query/provider seams so hot callers stop opening coarse stores or reading full current state
 - replace generic authority read stores with sharp read-model ports and a final SQL command seam
 - hard-cut to `prism_code` and one unified JS/TS SDK
-- land the minimum viable PRISM code compiler or lowering runtime
+- land the public `prism_code` transport cutover
+- land the first real native `prism_code` builder/compiler slice
 - establish PRISM Execution IR as the compiled executable target for authored code
 - implement one shared execution substrate
 - move warm-state validation onto that substrate
@@ -43,6 +44,7 @@ The ordering principle is:
 - replace coarse provider opens with explicit responsibility-scoped openings before the execution substrate builds on the authority layer
 - replace generic projection reads with caller-shaped read-model ports before the execution substrate or Postgres build on the wrong query seam
 - hard-cut to `prism_code` and land the minimum compiler before more runtime or authoring work lands on `prism_query` and `prism_mutate`
+- do not treat a `prism.mutate(...)` bridge as the finished native `prism_code` authoring model
 - keep the service as a broker or consumer of compiled results rather than letting it drift into a generic code-execution host
 - then stabilize graph dataflow and richer reusable plan semantics
 - later extend the already-landed compiler to richer repo-authored plan composition
@@ -53,6 +55,7 @@ This roadmap depends on:
 - [../contracts/coordination-artifact-review-model.md](../contracts/coordination-artifact-review-model.md)
 - [../designs/2026-04-10-prism-code-and-unified-js-sdk.md](../designs/2026-04-10-prism-code-and-unified-js-sdk.md)
 - [../specs/2026-04-10-prism-code-hard-cutover-phase-7.md](../specs/2026-04-10-prism-code-hard-cutover-phase-7.md)
+- [../specs/2026-04-10-native-prism-code-builder-and-compiler-phase-7b.md](../specs/2026-04-10-native-prism-code-builder-and-compiler-phase-7b.md)
 - [../designs/2026-04-09-shared-execution-substrate.md](../designs/2026-04-09-shared-execution-substrate.md)
 - [../specs/2026-04-10-shared-execution-substrate-core-phase-8.md](../specs/2026-04-10-shared-execution-substrate-core-phase-8.md)
 - [../specs/2026-04-10-warm-state-validation-on-shared-substrate-phase-9.md](../specs/2026-04-10-warm-state-validation-on-shared-substrate-phase-9.md)
@@ -73,6 +76,7 @@ Current phase checklist:
 - [x] Phase 5: narrow the SQL authority query/provider seams
 - [x] Phase 6: replace generic authority reads with sharp SQL read-model and command ports
 - [x] Phase 7: hard-cut to `prism_code` and the unified JS/TS SDK
+- [ ] Phase 7b: implement the native `prism_code` builder/compiler cutover
 - [x] Phase 8: implement the shared execution substrate core
 - [ ] Phase 9: move warm-state validation onto the shared execution substrate
 - [ ] Phase 10: add `Action` as a first-class graph leaf on the shared execution substrate
@@ -83,7 +87,7 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 9: move warm-state validation onto the shared execution substrate
+- Phase 7b: implement the native `prism_code` builder/compiler cutover
 
 Current implementation note (2026-04-10):
 
@@ -93,9 +97,11 @@ Current implementation note (2026-04-10):
 - Phase 4 is landed by replacing the misleading hot `read_plan_state` authority read with a direct current-state read, splitting the SQL authority seam into smaller traits, removing derived-state persistence policy from the public append contract, and replacing `prism_store` persist-result leakage with backend-neutral commit receipts
 - Phase 5 is landed by removing the public hot-path full-current-state read, switching the provider to explicit responsibility-scoped openings, and moving hot query callers onto narrower projection/runtime/diagnostics surfaces
 - Phase 6 is landed by replacing the generic projection seam with exact authority-stamp and coordination-surface read ports, moving hot callers off canonical-snapshot reads, and keeping broad snapshot/current-state assembly on explicit secondary seams
-- Phase 7 is landed: `prism_code` is now the canonical public programmable surface, public MCP/self-description/schema surfaces no longer advertise `prism_query` or `prism_mutate`, and the minimum lowering path now runs through `prism_code`
+- Phase 7 is landed only as the public-surface cutover: `prism_code` is now the canonical public programmable surface, public MCP/self-description/schema surfaces no longer advertise `prism_query` or `prism_mutate`, and the transport cutover is complete
+- Phase 7b is now the blocking compiler/builder gap: authenticated writes still route through a transitional `prism.mutate(...)` bridge rather than the finished native handle-oriented authoring surface
 - Phase 8 is landed with the authority-backed shared execution substrate adapter in `prism-core`, shared execution family, runner, target, and result vocabulary, and migration of the workspace event engine onto substrate-native execution records
-- the next blocking work is Phase 9: move warm-state validation onto the now-landed shared execution substrate
+- the next blocking work is Phase 7b: replace the public `prism.mutate(...)` bridge with the first real native `prism_code` builder/compiler slice
+- the already-landed Phase 8 substrate work remains valid, but later execution-substrate phases should now build on the native builder/compiler seam rather than the transitional bridge
 - the implementation target for Phase 9 is now frozen in `docs/specs/2026-04-10-warm-state-validation-on-shared-substrate-phase-9.md`, including the required storage generalization away from event-only durable execution assumptions
 
 ## 3. Ordering thesis
@@ -118,13 +124,14 @@ The right order is:
 4. finalize that SQL-only contract so the hot reads, writes, and receipts are genuinely SQL-native
 5. narrow the remaining query/provider seams so hot callers use explicit responsibility-scoped openings and narrower reads
 6. replace generic authority read stores with final caller-shaped SQL read-model ports and a sharp command seam
-7. hard-cut to `prism_code` and land the minimum viable compiler or lowering runtime
-8. build the shared execution substrate next
-9. prove that substrate with warm-state validation
-10. widen it to `Action`
-11. add graph-wide dataflow and bindings once the node set is real
-12. add reusable repo-authored PRISM code modules, libraries, and plan instantiation against that settled graph model
-13. then extend the same compiler to richer plan composition and compiled-plan authoring
+7. hard-cut to `prism_code` at the public surface
+8. land the first real native `prism_code` builder/compiler slice
+9. build the shared execution substrate next
+10. prove that substrate with warm-state validation
+11. widen it to `Action`
+12. add graph-wide dataflow and bindings once the node set is real
+13. add reusable repo-authored PRISM code modules, libraries, and plan instantiation against that settled graph model
+14. then extend the same compiler to richer plan composition and compiled-plan authoring
 
 Event-trigger work is intentionally out of the critical path for this roadmap.
 
@@ -146,7 +153,8 @@ These phase transitions are blocking and should not be inverted:
 - Phase 4 before Phase 5
 - Phase 5 before Phase 6
 - Phase 6 before Phase 7
-- Phase 7 before Phase 8
+- Phase 7 before Phase 7b
+- Phase 7b before Phase 8
 - Phase 8 before Phases 9 and 10
 - Phases 9 and 10 before Phase 11
 - Phase 11 before Phase 12
@@ -196,10 +204,14 @@ The following work can proceed in parallel without violating the architecture:
   - `prism_code` transport and tool contract
   - unified JS/TS SDK surface
   - auth and write-gating model for `prism_code`
-  - minimum compiler or lowering runtime
-  - elimination of public client ids in favor of source-level bindings and handles
   - migration of current query and mutation surfaces onto `prism_code`
   can proceed in parallel if they converge on one canonical programmable surface
+- During Phase 7b:
+  - staged write context for one `prism_code` invocation
+  - native builder handles for plans, tasks, and dependency wiring
+  - automatic dry-run or commit at end-of-invocation
+  - removal of the public `prism.mutate(...)` requirement for normal coordination authoring
+  can proceed in parallel if they converge on one native source-level builder/compiler core
 - During Phase 8:
   - execution-record storage
   - runner contract definition
@@ -230,7 +242,7 @@ The following work can proceed in parallel without violating the architecture:
 The following should remain out of scope until this roadmap reaches the appropriate phase:
 
 - event-trigger execution rollout beyond whatever substrate hooks are already needed
-- richer plan-authoring semantics before the `prism_code` cutover and minimum compiler land
+- richer plan-authoring semantics before the `prism_code` cutover and native builder/compiler slice land
 - fast runtime-executed machine-only subgraph execution as a required v1 path
 
 ## 5. Phases
@@ -421,21 +433,50 @@ This phase should settle:
 
 - `prism_code` as the canonical programmable surface
 - one-call, one-transaction semantics in v1
-- the minimum viable JS/TS compiler or lowering runtime
+- the public read and transport cutover
 - the shared SDK family for reads and writes
 - the hard retirement of `prism_query` and `prism_mutate` as target architecture
 
 Exit criteria:
 
 - all new programmable reads and writes target `prism_code`
-- the minimum compiler exists and can express current read and write behavior
-- later phases can extend that compiler rather than introduce one for the first time
+- later phases no longer need to choose between `prism_query` and `prism_mutate`
 
 Current progress:
 
 - Slice 1 is landed: `prism_code` is the canonical read transport across MCP docs, schemas, resources, and API reference.
-- Slice 2 is landed in minimum form: authenticated `prism_code` now supports `prism.mutate(...)` plus `dryRun` lowering through the shared JS/TS surface.
-- Slice 3 is in progress: the public MCP transport is now `prism_code`-only, but the remaining MCP schema/resource/test surface still needs to finish migrating off `prism_query` / `prism_mutate` before Phase 7 can close.
+- Slice 2 is landed in minimum form: authenticated `prism_code` now supports the first write-capable transport bridge plus `dryRun`.
+- Slice 3 is landed: the public MCP transport is now `prism_code`-only, and the public schema/resource/test surface is no longer teaching `prism_query` or `prism_mutate` as target architecture.
+
+Status note (2026-04-10):
+
+- complete as a public-surface cutover
+- not sufficient to claim the native builder/compiler experience is complete
+
+### Phase 7b: Native `prism_code` builder/compiler cutover
+
+Implement the native authoring slice described in:
+
+- [../designs/2026-04-10-prism-code-and-unified-js-sdk.md](../designs/2026-04-10-prism-code-and-unified-js-sdk.md)
+- [../specs/2026-04-10-native-prism-code-builder-and-compiler-phase-7b.md](../specs/2026-04-10-native-prism-code-builder-and-compiler-phase-7b.md)
+
+This phase should settle:
+
+- staged native write context per `prism_code` invocation
+- source-level builders and handles for current coordination authoring
+- one-call commit or dry-run semantics without a public `prism.mutate(...)` dependency
+- the first real builder/compiler core that later phases extend
+
+Exit criteria:
+
+- plan and task authoring can happen natively through `prism_code`
+- dependency wiring uses object handles rather than public mutation payload stitching
+- later phases can extend the same native builder/compiler core rather than continue through the
+  transitional bridge
+
+Current progress:
+
+- not started at the beginning of this correction pass
 
 ### Phase 8: Implement the shared execution substrate core
 

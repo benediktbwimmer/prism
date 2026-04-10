@@ -53,7 +53,8 @@ surface split and the migration will get larger.
 
 The better move is:
 
-- introduce the minimum viable compiler or lowering runtime now
+- introduce the public `prism_code` cutover now
+- introduce the first real native builder/compiler slice immediately after that cutover
 - cut the surface to `prism_code` now
 - let later phases extend that same compiler
 
@@ -91,6 +92,20 @@ That boundary does not mean every invocation returns the same kind of outcome.
 - transactional authoritative mutation returning commit metadata and effects
 - compilation returning reusable plan artifacts in PRISM Execution IR
 - compilation plus instantiation returning both artifact metadata and authoritative mutation effects
+
+The current public cutover should not be confused with the finished authoring model.
+
+Transport completeness means:
+
+- callers enter through `prism_code`
+- auth and transaction boundaries live there
+- docs and schemas teach that surface first
+
+Authoring completeness additionally requires:
+
+- native builder objects and handles
+- staged lowering from source-level authoring into native transactions or PRISM Execution IR
+- no public dependence on `prism.mutate(...)`
 
 ### 3.3 PRISM Execution IR remains the persisted and executed truth
 
@@ -202,6 +217,10 @@ Write-capable `prism_code`:
 - stages native mutation intents during execution
 - validates and lowers them into the canonical mutation protocol
 - commits once at the end of the call
+
+The current transitional bridge may reuse older mutation machinery internally, but that is not the
+finished public model. The intended end state is native builder APIs that stage source-level
+operations directly.
 
 ### 5.3 Public bindings, not public client ids
 

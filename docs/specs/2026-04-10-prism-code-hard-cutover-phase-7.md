@@ -1,8 +1,8 @@
 # `prism_code` Hard Cutover Phase 7
 
-Status: completed  
+Status: partially implemented  
 Audience: prism-mcp, prism-js, prism-core, CLI, and runtime maintainers  
-Scope: introduce `prism_code` as the canonical programmable surface, land the first production transport slice, and drive the removal of `prism_query` / `prism_mutate` as the long-term public model
+Scope: introduce `prism_code` as the canonical programmable surface, land the production transport cutover, and drive the removal of `prism_query` / `prism_mutate` as the long-term public model
 
 ---
 
@@ -22,7 +22,13 @@ The target architecture is already defined by:
 - `docs/adrs/2026-04-10-prism-code-canonical-surface.md`
 - `docs/designs/2026-04-10-prism-code-and-unified-js-sdk.md`
 
-This spec is the implementation target for making that architecture real in the product surface.
+This spec is the implementation target for making the product surface real in MCP, CLI, docs, and
+the JS/TS entrypoint.
+
+It does not by itself close the native builder or compiler authoring gap. That remaining work is
+tracked separately in:
+
+- `docs/specs/2026-04-10-native-prism-code-builder-and-compiler-phase-7b.md`
 
 ---
 
@@ -31,8 +37,8 @@ This spec is the implementation target for making that architecture real in the 
 Phase 7 is complete only when all of the following are true:
 
 - `prism_code` is the canonical programmable MCP tool and JS/TS surface
-- the minimum compiler or lowering runtime exists and supports the current read and write behavior
-- authored code compiles or lowers into PRISM Execution IR or authoritative mutation effects
+- the public transport and docs are coherently `prism_code`-first
+- the minimum read-side compiler or lowering runtime exists and supports the current read behavior
 - the public programming model uses source-level bindings and handles, not surfaced client ids
 - docs, instructions, schema resources, examples, and API reference all teach `prism_code`
 - `prism_query` and `prism_mutate` are no longer the target public architecture
@@ -49,7 +55,7 @@ Phase 7 should land in bounded slices, not one risky cutover.
 Current progress:
 
 - Slice 1 is landed: `prism_code` is the canonical programmable read transport and the public docs/resources teach it first.
-- Slice 2 is landed in its minimum form: authenticated `prism_code` now supports `prism.mutate(...)` plus `dryRun` lowering through the canonical JS/TS surface.
+- Slice 2 is only partially landed: authenticated `prism_code` currently exposes write access through a transitional `prism.mutate(...)` bridge plus `dryRun`.
 - Slice 3 is landed: the public MCP transport, schema catalog, capabilities surface, self-description examples, and bootstrap proxy cache now present a coherently `prism_code`-first product surface while keeping residual legacy lowering machinery internal-only.
 
 ### Slice 1: Canonical read-side `prism_code` transport
@@ -66,7 +72,7 @@ Success condition:
 - callers can use `prism_code` as the canonical programmable read surface immediately
 - the public docs stop teaching `prism_query` as the primary programmable entrypoint
 
-### Slice 2: Write-capable lowering through `prism_code`
+### Slice 2: Transitional write-capable lowering through `prism_code`
 
 Deliver:
 
@@ -78,7 +84,9 @@ Deliver:
 
 Success condition:
 
-- the canonical programmable write path runs through `prism_code`, not `prism_mutate`
+- the canonical programmable write transport runs through `prism_code`, not `prism_mutate`
+- any remaining bridge through `prism.mutate(...)` is explicitly documented as transitional rather
+  than treated as the finished authoring model
 
 ### Slice 3: Retire split public transport assumptions
 
@@ -106,6 +114,10 @@ The implementation must preserve these architectural constraints:
 - PRISM Execution IR remains the persisted and executed truth
 - ambient nondeterminism remains disallowed; controlled inputs must be explicit and provenance-bearing
 
+This spec deliberately does not bless `prism.mutate(...)` as the finished write model. If callers
+still need to think in mutation payloads rather than native handles and builder objects, that
+remaining work belongs to Phase 7b.
+
 ---
 
 ## 5. Validation
@@ -129,6 +141,9 @@ Phase 7 should be judged by whether later roadmap phases can build directly on:
 
 - one canonical programmable surface
 - one JS/TS SDK
-- one compiler or lowering runtime
+- one public transport surface
 
 If later work still has to choose between `prism_query` and `prism_mutate`, Phase 7 is not done.
+
+If later work still has to author native coordination changes by calling `prism.mutate(...)`,
+Phase 7b is not done.
