@@ -1,8 +1,8 @@
-# Repo-Authored PRISM Code Compiled To Native IR
+# Repo-Authored PRISM Code Compiled To PRISM Execution IR
 
 Status: proposed design  
 Audience: coordination, service, runtime, query, MCP, CLI, UI, and extension maintainers  
-Scope: authoring PRISM code in JS or TS, compiling it into PRISM-native IR or transaction ops, and preserving a thin service with DB-backed authority
+Scope: authoring PRISM code in JS or TS, compiling it into PRISM Execution IR or transaction ops, and preserving a thin service with DB-backed authority
 
 ---
 
@@ -11,7 +11,7 @@ Scope: authoring PRISM code in JS or TS, compiling it into PRISM-native IR or tr
 PRISM should move toward:
 
 - authoring PRISM code in JS or TS
-- compiling that authoring form into explicit PRISM-native IR or explicit native transaction ops
+- compiling that authoring form into explicit PRISM Execution IR or explicit native transaction ops
 - persisting, querying, rendering, and executing native results rather than executing authored code directly in the service
 
 The core rule is:
@@ -25,7 +25,7 @@ This gives PRISM:
 - explicit inspectable graph structure
 - deterministic execution semantics
 - strong provenance over compiled artifacts
-- compiled IR as the reviewable and operational truth
+- PRISM Execution IR as the reviewable and operational truth
 - lightweight service behavior
 - no arbitrary plan-authoring code running in the service hot path
 
@@ -41,7 +41,7 @@ PRISM already wants all of the following:
 - strong provenance and auditability
 - a thin service that does not become a user-code interpreter
 
-Compiled plan IR is a strong answer because it resolves the tension between:
+Compiled PRISM Execution IR is a strong answer because it resolves the tension between:
 
 - expressive authoring
 - explicit runtime inspectability
@@ -50,9 +50,9 @@ without forcing PRISM to execute arbitrary user plan-authoring code in the servi
 
 ## 3. Core stance
 
-### 3.1 Native IR remains runtime truth, not live guest code
+### 3.1 PRISM Execution IR remains runtime truth, not live guest code
 
-PRISM plans should remain explicit persisted IR artifacts.
+PRISM plans should remain explicit persisted PRISM Execution IR artifacts.
 
 They should not become opaque runtime code objects.
 
@@ -99,7 +99,7 @@ It should:
 
 - parse or evaluate the authoring form
 - validate it
-- compile it into explicit PRISM-native IR
+- compile it into explicit PRISM Execution IR
 - emit source provenance
 - emit compiler version and artifact hash
 
@@ -122,7 +122,7 @@ The long-term target should therefore be:
 
 - JS or TS plan-definition code as the authored source
 - Rust-hosted evaluation of that source against a plan-authoring SDK
-- Rust capture and lowering into explicit PRISM-native IR
+- Rust capture and lowering into explicit PRISM Execution IR
 
 This preserves the ergonomic “just write control flow” authoring model while keeping the compiled
 target explicit and service-safe.
@@ -130,7 +130,7 @@ target explicit and service-safe.
 The point is to keep the authoring surface highly expressive:
 
 - arbitrary control flow is the compact way to describe the DAG that should exist
-- the compiler then turns that authored control flow into explicit PRISM-native IR
+- the compiler then turns that authored control flow into explicit PRISM Execution IR
 
 ### 4.3 Compiler hosting model
 
@@ -210,7 +210,7 @@ The resulting SDK family should therefore be understood as:
 - runtime-execution layers for Actions, validation runners, and event hooks that mostly just import
   those same capabilities directly
 
-### 4.5 Executable PRISM IR
+### 4.5 Executable PRISM Execution IR
 
 This is what the service and the query layers actually care about.
 
@@ -225,7 +225,7 @@ It should contain explicit PRISM-native structure such as:
 - execution metadata
 - provenance to the workflow source and compiled artifact
 
-The compiled IR is the default operational surface that PRISM should persist, review, render,
+PRISM Execution IR is the default operational surface that PRISM should persist, review, render,
 query, and execute.
 
 ## 5. Definition, compiled artifact, and instance

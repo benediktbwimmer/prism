@@ -24,7 +24,7 @@ PRISM should hard-cut to one canonical programmable surface:
 The key architectural split is:
 
 - authored code is JS/TS
-- persisted and executed runtime truth remains native PRISM IR and native authority state
+- persisted and executed runtime truth remains PRISM Execution IR and native authority state
 
 This means:
 
@@ -70,7 +70,7 @@ as the canonical public programming surface.
 
 The old split should not survive as a long-term compatibility layer.
 
-### 3.2 One invocation is one transaction in v1
+### 3.2 One invocation is one bounded execution in v1
 
 The v1 rule should be hard and simple:
 
@@ -83,11 +83,20 @@ That means:
 - if execution throws or lowering fails, nothing commits
 - nested or long-lived transactions are out of scope in v1
 
-### 3.3 Native IR remains the persisted and executed truth
+That boundary does not mean every invocation returns the same kind of outcome.
+
+`prism_code` should support distinct result classes:
+
+- read-only execution returning values only
+- transactional authoritative mutation returning commit metadata and effects
+- compilation returning reusable plan artifacts in PRISM Execution IR
+- compilation plus instantiation returning both artifact metadata and authoritative mutation effects
+
+### 3.3 PRISM Execution IR remains the persisted and executed truth
 
 PRISM should not keep hand-authored native plan IR as a user-facing source format.
 
-But PRISM absolutely should keep native IR as:
+But PRISM absolutely should keep PRISM Execution IR as:
 
 - the persisted plan or graph truth
 - the inspected and rendered plan truth
@@ -95,7 +104,7 @@ But PRISM absolutely should keep native IR as:
 - the provenance-bearing artifact form
 
 The authored code defines the DAG by compilation.
-The DAG remains explicit native IR after compilation.
+The DAG remains explicit PRISM Execution IR after compilation.
 
 ### 3.4 One compiler pipeline, multiple source origins
 
@@ -142,6 +151,12 @@ It should be:
 - versioned by git
 - composable
 - importable within the controlled PRISM code environment
+
+That source may be written by:
+
+- humans
+- agents
+- generators
 
 It is not itself the authoritative runtime state.
 
@@ -214,7 +229,7 @@ This applies both to:
 But the important boundary remains:
 
 - control flow defines the DAG at authoring time
-- the compiled or lowered result is explicit native IR or explicit transaction ops
+- the compiled or lowered result is explicit PRISM Execution IR or explicit transaction ops
 
 PRISM should not persist live guest code as the plan truth.
 
@@ -303,7 +318,7 @@ code model:
 
 - pure read plans or returned values
 - native mutation transactions
-- native reusable plan artifacts
+- reusable plan artifacts in PRISM Execution IR
 - native Action or validation definitions later
 
 This is why PRISM should think of the compiler as a general PRISM code compiler, not only as a
@@ -336,7 +351,10 @@ That means:
 
 - the compiler core lives inside the PRISM runtime stack
 - CLI can front that compiler
-- service may request or host controlled evaluations where appropriate
+- service may broker or route controlled evaluations where appropriate
+- normal authored-code evaluation and compilation should happen in runtimes or other trusted
+  compile contexts
+- the service must not silently expand into a general hosted code-execution surface
 - repo-authored code and inline `prism_code` share the same core
 
 Later reusable-plan compilation is therefore an extension of the same compiler, not a second

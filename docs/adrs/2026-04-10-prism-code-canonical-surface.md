@@ -27,8 +27,8 @@ The split has several problems:
 
 At the same time, PRISM still requires:
 
-- native IR and native coordination objects as the persisted and executed truth
-- deterministic lowering from authored code into explicit native IR or transaction ops
+- PRISM Execution IR and native coordination objects as the persisted and executed truth
+- deterministic lowering from authored code into explicit PRISM Execution IR or transaction ops
 - controlled dynamic inputs with provenance
 - a thin service that does not treat arbitrary guest code as long-lived runtime truth
 
@@ -45,11 +45,18 @@ The accepted model is:
 - read-only `prism_code` execution may run without mutation authorization
 - write-capable `prism_code` execution requires authenticated context
 - `dryRun` is supported as an explicit non-commit execution mode
-- native PRISM IR remains the persisted and executed truth
+- PRISM Execution IR remains the persisted and executed truth
 - repo-authored code and inline `prism_code` use the same SDK family and the same compiler or
   lowering pipeline
 - there are no compatibility shims in the target architecture; `prism_query` and `prism_mutate`
   are retired rather than preserved as long-term parallel surfaces
+
+`prism_code` may therefore end in different result classes:
+
+- read-only execution returning values only
+- transactional authoritative mutation returning commit metadata and effects
+- compilation returning a reusable artifact in PRISM Execution IR
+- compilation plus instantiation returning both artifact metadata and authoritative mutation effects
 
 ## Repo-authored source model
 
@@ -65,7 +72,15 @@ Repo-authored PRISM code lives under:
     libraries/
 ```
 
-This directory contains authored source, not runtime authority.
+This directory contains repo-authored source, not runtime authority.
+
+That source may be written by:
+
+- humans
+- agents
+- generators
+
+but it should still be treated as reviewable, versioned repository content.
 
 Native compiled artifacts and authoritative live state remain separate from repo-authored source:
 
@@ -109,6 +124,8 @@ Costs:
 - instruction docs, specs, contracts, and roadmap phases must be updated together
 - the runtime must own a stronger JS or TS evaluation and lowering environment earlier than
   previously planned
+- the service boundary must stay disciplined so brokering evaluation does not turn into the service
+  becoming a general hosted code-execution surface
 
 ## Superseded assumptions
 
@@ -123,3 +140,6 @@ The updated direction is:
 - compiler and SDK foundation now
 - later phases extend that same compiler and SDK rather than introducing compilation for the first
   time
+- the service may broker or route controlled evaluation, but normal authored-code compilation and
+  evaluation should live in runtimes or other trusted compile contexts rather than the service hot
+  path

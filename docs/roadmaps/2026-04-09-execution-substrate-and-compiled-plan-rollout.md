@@ -18,6 +18,7 @@ PRISM now has several tightly related but still distinct bodies of work:
 - replace generic authority read stores with sharp read-model ports and a final SQL command seam
 - hard-cut to `prism_code` and one unified JS/TS SDK
 - land the minimum viable PRISM code compiler or lowering runtime
+- establish PRISM Execution IR as the compiled executable target for authored code
 - implement one shared execution substrate
 - move warm-state validation onto that substrate
 - add `Action` as a first-class machine-work leaf
@@ -42,6 +43,7 @@ The ordering principle is:
 - replace coarse provider opens with explicit responsibility-scoped openings before the execution substrate builds on the authority layer
 - replace generic projection reads with caller-shaped read-model ports before the execution substrate or Postgres build on the wrong query seam
 - hard-cut to `prism_code` and land the minimum compiler before more runtime or authoring work lands on `prism_query` and `prism_mutate`
+- keep the service as a broker or consumer of compiled results rather than letting it drift into a generic code-execution host
 - then stabilize graph dataflow and richer reusable plan semantics
 - later extend the already-landed compiler to richer repo-authored plan composition
 
