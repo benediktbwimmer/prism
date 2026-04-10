@@ -13,120 +13,6 @@ pub(crate) struct VocabularyCategorySpec {
     pub(crate) values: &'static [VocabularyValueSpec],
 }
 
-const PRISM_MUTATE_ACTIONS: &[VocabularyValueSpec] = &[
-    VocabularyValueSpec {
-        value: "declare_work",
-        aliases: &[],
-        description: "Declare durable current work context for subsequent mutations.",
-    },
-    VocabularyValueSpec {
-        value: "checkpoint",
-        aliases: &[],
-        description: "Publish a standalone observed-change checkpoint for the current work.",
-    },
-    VocabularyValueSpec {
-        value: "outcome",
-        aliases: &[],
-        description: "Record a durable outcome event.",
-    },
-    VocabularyValueSpec {
-        value: "memory",
-        aliases: &[],
-        description: "Store anchored memory.",
-    },
-    VocabularyValueSpec {
-        value: "concept",
-        aliases: &[],
-        description: "Promote, update, or retire a concept packet.",
-    },
-    VocabularyValueSpec {
-        value: "contract",
-        aliases: &[],
-        description: "Promote, update, retire, or maintain a contract packet.",
-    },
-    VocabularyValueSpec {
-        value: "concept_relation",
-        aliases: &[],
-        description: "Upsert or retire a concept relation.",
-    },
-    VocabularyValueSpec {
-        value: "validation_feedback",
-        aliases: &[],
-        description: "Record PRISM dogfooding validation feedback.",
-    },
-    VocabularyValueSpec {
-        value: "session_repair",
-        aliases: &[],
-        description: "Apply a narrow safe repair to the current MCP session context.",
-    },
-    VocabularyValueSpec {
-        value: "infer_edge",
-        aliases: &[],
-        description: "Record an inferred edge.",
-    },
-    VocabularyValueSpec {
-        value: "heartbeat_lease",
-        aliases: &[],
-        description:
-            "Refresh one active task or claim lease without changing authored workflow state.",
-    },
-    VocabularyValueSpec {
-        value: "coordination",
-        aliases: &[],
-        description: "Mutate coordination plans, tasks, dependencies, and handoffs.",
-    },
-    VocabularyValueSpec {
-        value: "claim",
-        aliases: &[],
-        description: "Acquire, renew, or release a claim.",
-    },
-    VocabularyValueSpec {
-        value: "artifact",
-        aliases: &[],
-        description: "Propose, supersede, or review an artifact.",
-    },
-    VocabularyValueSpec {
-        value: "test_ran",
-        aliases: &[],
-        description: "Record a test run outcome.",
-    },
-    VocabularyValueSpec {
-        value: "failure_observed",
-        aliases: &[],
-        description: "Record a failure observation.",
-    },
-    VocabularyValueSpec {
-        value: "fix_validated",
-        aliases: &[],
-        description: "Record that a fix was validated.",
-    },
-    VocabularyValueSpec {
-        value: "curator_apply_proposal",
-        aliases: &[],
-        description: "Apply a curator proposal.",
-    },
-    VocabularyValueSpec {
-        value: "curator_promote_edge",
-        aliases: &[],
-        description: "Promote an inferred edge from a curator proposal.",
-    },
-    VocabularyValueSpec {
-        value: "curator_promote_concept",
-        aliases: &[],
-        description: "Promote a concept from a curator proposal.",
-    },
-    VocabularyValueSpec {
-        value: "curator_promote_memory",
-        aliases: &[],
-        description: "Promote memory from a curator proposal.",
-    },
-    VocabularyValueSpec {
-        value: "curator_reject_proposal",
-        aliases: &[],
-        description: "Reject a curator proposal.",
-    },
-];
-
 const COORDINATION_MUTATION_KINDS: &[VocabularyValueSpec] = &[
     VocabularyValueSpec {
         value: "plan_create",
@@ -526,27 +412,21 @@ const PRISM_CONCEPT_LENSES: &[VocabularyValueSpec] = &[
 
 const VOCABULARY_CATEGORIES: &[VocabularyCategorySpec] = &[
     VocabularyCategorySpec {
-        key: "prismMutateAction",
-        title: "PRISM Mutate Actions",
-        description: "Top-level action values accepted by prism_mutate.",
-        values: PRISM_MUTATE_ACTIONS,
-    },
-    VocabularyCategorySpec {
         key: "coordinationMutationKind",
         title: "Coordination Mutation Kinds",
-        description: "Nested kind values accepted by prism_mutate action coordination.",
+        description: "Coordination mutation kinds accepted by the native PRISM coordination surface.",
         values: COORDINATION_MUTATION_KINDS,
     },
     VocabularyCategorySpec {
         key: "claimAction",
         title: "Claim Actions",
-        description: "Nested action values accepted by prism_mutate action claim.",
+        description: "Claim actions accepted by the native PRISM claim surface.",
         values: CLAIM_ACTIONS,
     },
     VocabularyCategorySpec {
         key: "artifactAction",
         title: "Artifact Actions",
-        description: "Nested action values accepted by prism_mutate action artifact.",
+        description: "Artifact actions accepted by the native PRISM artifact surface.",
         values: ARTIFACT_ACTIONS,
     },
     VocabularyCategorySpec {

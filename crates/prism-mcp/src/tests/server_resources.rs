@@ -700,32 +700,11 @@ async fn coordination_only_server_strips_cognition_tools_and_resources() {
         .iter()
         .filter_map(|entry| entry["key"].as_str())
         .collect::<std::collections::BTreeSet<_>>();
-    assert!(vocab_keys.contains("prismMutateAction"));
     assert!(vocab_keys.contains("coordinationMutationKind"));
     assert!(vocab_keys.contains("planStatus"));
     assert!(vocab_keys.contains("claimAction"));
     assert!(vocab_keys.contains("artifactAction"));
     assert!(!vocab_keys.contains("prismLocateTaskIntent"));
-    let mutate_actions = vocab_payload["vocabularies"]
-        .as_array()
-        .expect("vocabularies should be an array")
-        .iter()
-        .find(|entry| entry["key"] == "prismMutateAction")
-        .and_then(|entry| entry["values"].as_array())
-        .expect("prismMutateAction values should exist")
-        .iter()
-        .filter_map(|value| value["value"].as_str())
-        .collect::<std::collections::BTreeSet<_>>();
-    assert_eq!(
-        mutate_actions,
-        std::collections::BTreeSet::from([
-            "artifact",
-            "claim",
-            "coordination",
-            "declare_work",
-            "heartbeat_lease",
-        ])
-    );
 
     client
         .send(read_resource_request(16, TOOL_SCHEMAS_URI))

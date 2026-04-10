@@ -6220,30 +6220,24 @@ fn prism_tool_queries_surface_schema_actions_and_examples() {
         .execute(test_session(&host),
             r#"
 const tools = prism.tools();
-const mutate = prism.tool("prism_mutate");
-const validationFeedback = mutate?.actions.find((action) => action.action === "validation_feedback");
-const coordination = mutate?.actions.find((action) => action.action === "coordination");
-const validation = prism.validateToolInput("prism_mutate", {
-  action: "coordination",
+const codeTool = prism.tool("prism_code");
+const validation = prism.validateToolInput("prism_code", {
+  code: "return prism.runtime.status();",
   credential: {
     credentialId: "credential:test",
     principalToken: "prism_ptok_test",
   },
-  kind: "task_create",
-  payload: { title: "Missing plan id" },
 });
 const missing = prism.tool("bogus_tool");
 return {
   toolNames: tools.map((tool) => tool.toolName),
-  mutateSummary: mutate ? {
-    toolName: mutate.toolName,
-    actionCount: mutate.actions.length,
-    exampleAction: mutate.exampleInput?.action,
-    examplePrismSaid: mutate.exampleInput?.input?.prismSaid,
+  codeSummary: codeTool ? {
+    toolName: codeTool.toolName,
+    actionCount: codeTool.actions.length,
+    exampleCode: codeTool.exampleInput?.code,
   } : null,
-  validationFeedback,
-  coordination,
   validation,
+  legacyMutate: prism.tool("prism_mutate"),
   missing,
 };
 "#,
@@ -6252,143 +6246,28 @@ return {
         .expect("tool schema query should succeed");
 
     let tool_names = result.result["toolNames"].as_array().expect("tool catalog");
-    assert_eq!(tool_names.len(), 9);
+    assert_eq!(tool_names.len(), 8);
     assert!(tool_names.iter().any(|tool| tool == "prism_locate"));
     assert!(tool_names.iter().any(|tool| tool == "prism_task_brief"));
     assert!(tool_names.iter().any(|tool| tool == "prism_concept"));
-    assert!(tool_names.iter().any(|tool| tool == "prism_mutate"));
+    assert!(tool_names.iter().any(|tool| tool == "prism_code"));
+    assert!(!tool_names.iter().any(|tool| tool == "prism_mutate"));
     assert!(!tool_names.iter().any(|tool| tool == "prism_session"));
 
-    let mutate = &result.result["mutateSummary"];
-    assert_eq!(mutate["toolName"], "prism_mutate");
-    assert_eq!(mutate["actionCount"], 22);
-    assert_eq!(mutate["exampleAction"], "validation_feedback");
-    assert_eq!(
-        mutate["examplePrismSaid"],
-        "Search result ordering was helpful."
-    );
-
-    let validation_feedback = &result.result["validationFeedback"];
-    assert_eq!(validation_feedback["action"], "validation_feedback");
-    assert_eq!(
-        validation_feedback["requiredFields"]
-            .as_array()
-            .expect("required fields")
-            .iter()
-            .filter_map(|value| value.as_str())
-            .collect::<Vec<_>>(),
-        vec![
-            "context",
-            "prismSaid",
-            "actuallyTrue",
-            "category",
-            "verdict"
-        ]
-    );
-    let verdict_field = validation_feedback["fields"]
-        .as_array()
-        .expect("field summaries")
-        .iter()
-        .find(|field| field["name"] == "verdict")
-        .expect("verdict field");
-    assert_eq!(
-        verdict_field["enumValues"]
-            .as_array()
-            .expect("verdict enum values")
-            .iter()
-            .filter_map(|value| value.as_str())
-            .collect::<Vec<_>>(),
-        vec!["wrong", "stale", "noisy", "helpful", "mixed"]
-    );
-    let anchors_field = validation_feedback["fields"]
-        .as_array()
-        .expect("field summaries")
-        .iter()
-        .find(|field| field["name"] == "anchors")
-        .expect("anchors field");
-    let nested_anchor_fields = anchors_field["nestedFields"]
-        .as_array()
-        .expect("nested anchor field summaries")
-        .iter()
-        .filter_map(|field| field["name"].as_str())
-        .collect::<Vec<_>>();
-    assert!(nested_anchor_fields.contains(&"type"));
-    assert!(
-        nested_anchor_fields.contains(&"crateName") || nested_anchor_fields.contains(&"crate_name")
-    );
-    assert!(nested_anchor_fields.contains(&"path"));
-    assert!(nested_anchor_fields.contains(&"kind"));
-    assert!(
-        nested_anchor_fields.contains(&"lineageId") || nested_anchor_fields.contains(&"lineage_id")
-    );
-    assert!(anchors_field["schema"]
-        .to_string()
-        .contains("\"properties\""));
-
-    assert_eq!(
-        validation_feedback["schemaUri"],
-        "prism://schema/tool/prism_mutate/action/validation_feedback"
-    );
-
-    let coordination = &result.result["coordination"];
-    assert_eq!(
-        coordination["schemaUri"],
-        "prism://schema/tool/prism_mutate/action/coordination"
-    );
-    assert_eq!(coordination["payloadDiscriminator"], "kind");
-    let payload_variants = coordination["payloadVariants"]
-        .as_array()
-        .expect("payload variants");
-    assert_eq!(payload_variants.len(), 11);
-    let task_create_variant = payload_variants
-        .iter()
-        .find(|variant| variant["tag"] == "task_create")
-        .expect("task_create variant should exist");
-    assert_eq!(
-        task_create_variant["requiredFields"]
-            .as_array()
-            .expect("required fields")
-            .iter()
-            .filter_map(|value| value.as_str())
-            .collect::<Vec<_>>(),
-        vec!["planId", "title"]
-    );
-    assert_eq!(
-        task_create_variant["exampleInput"]["planId"],
-        "plan:demo-main"
-    );
+    let code_tool = &result.result["codeSummary"];
+    assert_eq!(code_tool["toolName"], "prism_code");
+    assert_eq!(code_tool["actionCount"], 0);
+    assert!(code_tool["exampleCode"]
+        .as_str()
+        .is_some_and(|value| value.contains("prism.from(\"runtime-demo\")")));
 
     let validation = &result.result["validation"];
-    assert_eq!(validation["toolName"], "prism_mutate");
-    assert_eq!(validation["valid"], false);
-    assert_eq!(validation["action"], "coordination");
-    assert_eq!(
-        validation["actionSchemaUri"],
-        "prism://schema/tool/prism_mutate/action/coordination"
-    );
-    assert_eq!(
-        validation["normalizedInput"],
-        json!({
-            "action": "coordination",
-            "credential": {
-                "credentialId": "credential:test",
-                "principalToken": "prism_ptok_test"
-            },
-            "input": {
-                "kind": "task_create",
-                "payload": {
-                    "title": "Missing plan id"
-                }
-            }
-        })
-    );
-    assert!(validation["summary"]
-        .as_str()
-        .is_some_and(|summary| summary.contains("planId")));
-    assert!(validation["issues"][0]["path"]
-        .as_str()
-        .is_some_and(|path| path.ends_with("planId")));
+    assert_eq!(validation["toolName"], "prism_code");
+    assert_eq!(validation["valid"], true);
+    assert_eq!(validation["normalizedInput"]["code"], "return prism.runtime.status();");
+    assert_eq!(validation["normalizedInput"]["credential"]["credentialId"], "credential:test");
 
+    assert!(result.result["legacyMutate"].is_null());
     assert!(result.result["missing"].is_null());
 }
 
@@ -6469,293 +6348,17 @@ fn compact_gather_schema_surfaces_exact_text_knobs() {
 }
 
 #[test]
-fn prism_mutate_schema_surfaces_concept_action() {
-    let schema = crate::tool_schema_view("prism_mutate").expect("mutate schema should exist");
-    let concept = schema
-        .actions
-        .iter()
-        .find(|action| action.action == "concept")
-        .expect("concept action should exist");
+fn prism_code_schema_surfaces_runtime_fields() {
+    let schema = crate::tool_schema_view("prism_code").expect("prism_code schema should exist");
+    let properties = schema.input_schema["properties"]
+        .as_object()
+        .expect("prism_code schema should expose object properties");
 
-    assert!(concept.required_fields.contains(&"operation".to_string()));
-    assert!(concept
-        .fields
-        .iter()
-        .any(|field| field.name == "canonicalName"));
-    assert!(concept
-        .fields
-        .iter()
-        .any(|field| field.name == "coreMembers"));
-}
-
-#[test]
-fn prism_mutate_schema_surfaces_contract_action() {
-    let schema = crate::tool_schema_view("prism_mutate").expect("mutate schema should exist");
-    let contract = schema
-        .actions
-        .iter()
-        .find(|action| action.action == "contract")
-        .expect("contract action should exist");
-
-    assert!(contract.required_fields.contains(&"operation".to_string()));
-    assert!(contract.fields.iter().any(|field| field.name == "name"));
-    assert!(contract.fields.iter().any(|field| field.name == "subject"));
-    assert!(contract
-        .fields
-        .iter()
-        .any(|field| field.name == "guarantees"));
-}
-
-#[test]
-fn prism_mutate_schema_surfaces_action_specific_examples() {
-    let schema = crate::tool_schema_view("prism_mutate").expect("mutate schema should exist");
-    let missing_examples = schema
-        .actions
-        .iter()
-        .filter(|action| action.example_input.is_none())
-        .map(|action| action.action.as_str())
-        .collect::<Vec<_>>();
-    assert!(
-        missing_examples.is_empty(),
-        "missing examples for actions: {missing_examples:?}"
-    );
-
-    let validation_feedback = schema
-        .actions
-        .iter()
-        .find(|action| action.action == "validation_feedback")
-        .expect("validation feedback action should exist");
-    let memory = schema
-        .actions
-        .iter()
-        .find(|action| action.action == "memory")
-        .expect("memory action should exist");
-    let concept = schema
-        .actions
-        .iter()
-        .find(|action| action.action == "concept")
-        .expect("concept action should exist");
-    let coordination = schema
-        .actions
-        .iter()
-        .find(|action| action.action == "coordination")
-        .expect("coordination action should exist");
-
-    assert_eq!(
-        validation_feedback
-            .example_input
-            .as_ref()
-            .and_then(|value| value.get("action"))
-            .and_then(Value::as_str),
-        Some("validation_feedback")
-    );
-    assert_eq!(
-        memory
-            .example_input
-            .as_ref()
-            .and_then(|value| value.get("action"))
-            .and_then(Value::as_str),
-        Some("memory")
-    );
-    assert_eq!(
-        concept
-            .example_input
-            .as_ref()
-            .and_then(|value| value.get("action"))
-            .and_then(Value::as_str),
-        Some("concept")
-    );
-    assert!(
-        coordination.example_inputs.len() >= 3,
-        "coordination should expose multiple action-specific examples"
-    );
-    assert!(coordination
-        .example_inputs
-        .iter()
-        .any(|value| value["input"]["kind"] == "plan_create"));
-    assert!(coordination
-        .example_inputs
-        .iter()
-        .any(|value| value["input"]["kind"] == "plan_archive"));
-    assert!(coordination
-        .example_inputs
-        .iter()
-        .any(|value| value["input"]["kind"] == "task_create"));
-
-    let mutate_schema =
-        crate::tool_input_schema_value("prism_mutate").expect("mutate schema value should exist");
-    let mutate_examples = mutate_schema["examples"]
-        .as_array()
-        .expect("mutate examples should be an array")
-        .iter()
-        .filter_map(|value| value.get("action").and_then(Value::as_str))
-        .collect::<Vec<_>>();
-    for action in [
-        "validation_feedback",
-        "outcome",
-        "memory",
-        "concept",
-        "contract",
-        "concept_relation",
-        "infer_edge",
-        "heartbeat_lease",
-        "coordination",
-        "claim",
-        "artifact",
-        "test_ran",
-        "failure_observed",
-        "fix_validated",
-        "curator_apply_proposal",
-        "curator_promote_edge",
-        "curator_promote_concept",
-        "curator_promote_memory",
-        "curator_reject_proposal",
-    ] {
-        assert!(
-            mutate_examples.contains(&action),
-            "missing mutate example for action `{action}`"
-        );
-    }
-}
-
-#[test]
-fn coordination_schema_surfaces_closed_status_and_kind_enums() {
-    let schema = crate::tool_schema_view("prism_mutate").expect("mutate schema should exist");
-    let coordination = schema
-        .actions
-        .iter()
-        .find(|action| action.action == "coordination")
-        .expect("coordination action should exist");
-    let payload_variants = coordination.input_schema["properties"]["payload"]["oneOf"]
-        .as_array()
-        .expect("coordination payload should be a tagged union");
-    let task_create = payload_variants
-        .iter()
-        .find(|variant| variant["title"] == "kind=task_create")
-        .expect("task_create payload should exist");
-    let plan_archive = payload_variants
-        .iter()
-        .find(|variant| variant["title"] == "kind=plan_archive")
-        .expect("plan_archive payload should exist");
-    let task_create_schema = task_create.to_string();
-    assert!(task_create_schema.contains("\"status\""));
-    assert!(task_create_schema.contains("\"ready\""));
-    assert!(task_create_schema.contains("\"in_progress\""));
-
-    let plan_archive_schema = plan_archive.to_string();
-    assert!(plan_archive_schema.contains("\"planId\""));
-    assert!(!plan_archive_schema.contains("\"status\""));
-}
-
-#[test]
-fn prism_mutate_schema_expands_payload_shapes_for_structured_actions() {
-    let schema = crate::tool_schema_view("prism_mutate").expect("mutate schema should exist");
-
-    let payload_fields = ["memory", "coordination", "claim", "artifact"]
-        .into_iter()
-        .map(|action| {
-            let payload = schema
-                .actions
-                .iter()
-                .find(|candidate| candidate.action == action)
-                .and_then(|candidate| {
-                    candidate
-                        .fields
-                        .iter()
-                        .find(|field| field.name == "payload")
-                })
-                .expect("payload field should exist");
-            (action, payload)
-        })
-        .collect::<Vec<_>>();
-
-    for (action, payload) in &payload_fields {
-        assert_ne!(
-            payload.schema,
-            Value::Bool(true),
-            "{action} payload stayed opaque"
-        );
-        assert!(
-            payload.schema.to_string().contains("\"properties\"")
-                || payload.schema.to_string().contains("\"oneOf\""),
-            "{action} payload schema should expose structure"
-        );
-    }
-
-    let memory_payload = payload_fields
-        .iter()
-        .find(|(action, _)| *action == "memory")
-        .expect("memory payload should exist")
-        .1;
-    let memory_nested = memory_payload
-        .nested_fields
-        .iter()
-        .map(|field| field.name.as_str())
-        .collect::<Vec<_>>();
-    assert!(memory_nested.contains(&"anchors"));
-    assert!(memory_nested.contains(&"kind"));
-    assert!(memory_nested.contains(&"content"));
-
-    let coordination_payload = payload_fields
-        .iter()
-        .find(|(action, _)| *action == "coordination")
-        .expect("coordination payload should exist")
-        .1;
-    assert_eq!(
-        coordination_payload.schema["oneOf"]
-            .as_array()
-            .map(|variants| variants.len()),
-        Some(11)
-    );
-    let coordination_nested = coordination_payload
-        .nested_fields
-        .iter()
-        .map(|field| field.name.as_str())
-        .collect::<Vec<_>>();
-    assert!(coordination_nested.contains(&"id"));
-    assert!(coordination_nested.contains(&"planId"));
-    assert!(coordination_nested.contains(&"taskId"));
-    assert!(coordination_nested.contains(&"title"));
-
-    let claim_payload = payload_fields
-        .iter()
-        .find(|(action, _)| *action == "claim")
-        .expect("claim payload should exist")
-        .1;
-    assert_eq!(
-        claim_payload.schema["oneOf"]
-            .as_array()
-            .map(|variants| variants.len()),
-        Some(3)
-    );
-    let claim_nested = claim_payload
-        .nested_fields
-        .iter()
-        .map(|field| field.name.as_str())
-        .collect::<Vec<_>>();
-    assert!(claim_nested.contains(&"anchors"));
-    assert!(claim_nested.contains(&"capability"));
-    assert!(claim_nested.contains(&"claimId"));
-
-    let artifact_payload = payload_fields
-        .iter()
-        .find(|(action, _)| *action == "artifact")
-        .expect("artifact payload should exist")
-        .1;
-    assert_eq!(
-        artifact_payload.schema["oneOf"]
-            .as_array()
-            .map(|variants| variants.len()),
-        Some(3)
-    );
-    let artifact_nested = artifact_payload
-        .nested_fields
-        .iter()
-        .map(|field| field.name.as_str())
-        .collect::<Vec<_>>();
-    assert!(artifact_nested.contains(&"taskId"));
-    assert!(artifact_nested.contains(&"artifactId"));
-    assert!(artifact_nested.contains(&"verdict"));
+    assert!(properties.contains_key("code"));
+    assert!(properties.contains_key("credential"));
+    assert!(properties.contains_key("bridgeExecution"));
+    assert!(properties.contains_key("dryRun"));
+    assert!(schema.actions.is_empty());
 }
 
 #[test]
@@ -6792,33 +6395,6 @@ fn coordination_status_errors_are_self_repairing() {
     assert!(error.contains("Allowed values"));
     assert!(error.contains(r#"{"status":"ready"}"#));
     assert!(error.contains("prism://vocab"));
-}
-
-#[test]
-fn prism_query_reports_complete_mutate_examples_and_payload_shapes() {
-    let host = host_with_node(demo_node());
-    let result = host
-        .execute(
-            test_session(&host),
-            r#"
-const mutate = prism.tool("prism_mutate");
-return {
-  missingExamples: mutate?.actions.filter((action) => !action.exampleInput).map((action) => action.action) ?? [],
-  opaquePayloadActions: mutate?.actions
-    .filter((action) =>
-      action.fields.some(
-        (field) => field.name === "payload" && JSON.stringify(field.schema) === "true"
-      )
-    )
-    .map((action) => action.action) ?? [],
-};
-"#,
-            QueryLanguage::Ts,
-        )
-        .expect("tool schema query should succeed");
-
-    assert_eq!(result.result["missingExamples"], json!([]));
-    assert_eq!(result.result["opaquePayloadActions"], json!([]));
 }
 
 #[test]

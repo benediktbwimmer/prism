@@ -17,14 +17,9 @@ use crate::{
     tool_input_examples, tool_schema_resource_uri, tool_schema_resource_view_link,
     tool_schemas_resource_view_link, tool_shape_resource_uri, tool_variant_example_resource_uri,
     tool_variant_recipe_resource_uri, tool_variant_schema_resource_uri,
-    tool_variant_shape_resource_uri, vocab_resource_view_link, ArtifactProposePayload,
-    ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload, ClaimReleasePayload,
-    ClaimRenewPayload, CoordinationTransactionPayload, HandoffAcceptPayload, HandoffPayload,
-    MemoryRetirePayload, MemoryStorePayload, PlanArchivePayload, PlanBootstrapPayload,
-    PlanCreatePayload, PlanUpdatePayload, PrismCodeArgs, PrismConceptArgs, PrismExpandArgs,
-    PrismGatherArgs, PrismLocateArgs, PrismMcpFeatures, PrismMutationArgs, PrismOpenArgs,
-    PrismQueryArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView, TaskCreatePayload,
-    TaskReclaimPayload, TaskResumePayload, WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
+    tool_variant_shape_resource_uri, vocab_resource_view_link, PrismCodeArgs, PrismConceptArgs,
+    PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMcpFeatures, PrismOpenArgs,
+    PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -125,24 +120,6 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
             example_input: tool_input_example("prism_code").expect("tool example"),
             example_uri: Some(tool_example_resource_uri("prism_code")),
             shape_uri: Some(tool_shape_resource_uri("prism_code")),
-        },
-        ToolSchemaCatalogEntry {
-            tool_name: "prism_query".to_string(),
-            schema_uri: tool_schema_resource_uri("prism_query"),
-            description: "Input schema for the legacy programmable read-only TypeScript surface."
-                .to_string(),
-            example_input: tool_input_example("prism_query").expect("tool example"),
-            example_uri: Some(tool_example_resource_uri("prism_query")),
-            shape_uri: Some(tool_shape_resource_uri("prism_query")),
-        },
-        ToolSchemaCatalogEntry {
-            tool_name: "prism_mutate".to_string(),
-            schema_uri: tool_schema_resource_uri("prism_mutate"),
-            description:
-                "Input schema for the internal tagged mutation-lowering transport.".to_string(),
-            example_input: tool_input_example("prism_mutate").expect("tool example"),
-            example_uri: Some(tool_example_resource_uri("prism_mutate")),
-            shape_uri: Some(tool_shape_resource_uri("prism_mutate")),
         },
             ]
         })
@@ -258,14 +235,7 @@ pub(crate) fn tool_schema_view_with_features(
     features: &PrismMcpFeatures,
 ) -> Option<ToolSchemaView> {
     let mut schema = tool_schema_view(tool_name)?;
-    if tool_name == "prism_mutate" {
-        schema.input_schema = tool_input_schema_value_with_features(tool_name, features)?;
-        schema.actions = schema
-            .actions
-            .into_iter()
-            .filter(|action| features.prism_mutate_action_enabled(&action.action))
-            .collect();
-    }
+    schema.input_schema = tool_input_schema_value_with_features(tool_name, features)?;
     schema.example_inputs =
         filter_tool_examples_for_features(tool_name, schema.example_inputs, features);
     schema.example_input = schema
@@ -513,16 +483,6 @@ pub(crate) fn tool_schema_resource_contents(
             "prism_code",
             "JSON Schema for the `prism_code` tool input payload.",
         ),
-        "prism_query" => tool_input_schema_contents::<PrismQueryArgs>(
-            uri,
-            "prism_query",
-            "JSON Schema for the `prism_query` tool input payload.",
-        ),
-        "prism_mutate" => tool_input_schema_contents::<PrismMutationArgs>(
-            uri,
-            "prism_mutate",
-            "JSON Schema for the `prism_mutate` tool input payload.",
-        ),
         _ => Err(McpError::resource_not_found(
             "resource_not_found",
             Some(serde_json::json!({ "uri": uri })),
@@ -583,14 +543,6 @@ pub(crate) fn tool_input_schema_value(tool_name: &str) -> Option<Value> {
             "prism_code",
             "JSON Schema for the `prism_code` tool input payload.",
         )),
-        "prism_query" => Some(tool_input_schema_value_for::<PrismQueryArgs>(
-            "prism_query",
-            "JSON Schema for the `prism_query` tool input payload.",
-        )),
-        "prism_mutate" => Some(tool_input_schema_value_for::<PrismMutationArgs>(
-            "prism_mutate",
-            "JSON Schema for the `prism_mutate` tool input payload.",
-        )),
         _ => None,
     }
 }
@@ -617,29 +569,10 @@ pub(crate) fn tool_transport_input_schema_value_with_features(
 }
 
 fn filter_tool_schema_for_features(
-    tool_name: &str,
-    mut schema: Value,
-    features: &PrismMcpFeatures,
+    _tool_name: &str,
+    schema: Value,
+    _features: &PrismMcpFeatures,
 ) -> Value {
-    if tool_name != "prism_mutate" {
-        return schema;
-    }
-
-    if let Some(variants) = schema.get_mut("oneOf").and_then(Value::as_array_mut) {
-        variants.retain(|variant| {
-            variant
-                .get("properties")
-                .and_then(Value::as_object)
-                .and_then(|properties| properties.get("action"))
-                .and_then(Value::as_object)
-                .and_then(|action| action.get("const"))
-                .and_then(Value::as_str)
-                .is_some_and(|action| features.prism_mutate_action_visible(action))
-        });
-    }
-    if let Some(examples) = schema.get_mut("examples").and_then(Value::as_array_mut) {
-        examples.retain(|example| tool_example_matches_features(tool_name, example, features));
-    }
     schema
 }
 
@@ -655,17 +588,11 @@ fn filter_tool_examples_for_features(
 }
 
 fn tool_example_matches_features(
-    tool_name: &str,
-    example: &Value,
-    features: &PrismMcpFeatures,
+    _tool_name: &str,
+    _example: &Value,
+    _features: &PrismMcpFeatures,
 ) -> bool {
-    if tool_name != "prism_mutate" {
-        return true;
-    }
-    example
-        .get("action")
-        .and_then(Value::as_str)
-        .is_some_and(|action| features.prism_mutate_action_visible(action))
+    true
 }
 
 fn bind_transport_root_schema(tool_name: &str, schema: Value) -> Value {
@@ -699,21 +626,13 @@ fn bind_transport_root_schema(tool_name: &str, schema: Value) -> Value {
     output.insert("type".to_string(), Value::String("object".to_string()));
     output.insert(
         "required".to_string(),
-        Value::Array(if tool_name == "prism_mutate" {
-            vec![
-                Value::String("action".to_string()),
-                Value::String("input".to_string()),
-                Value::String("credential".to_string()),
-            ]
-        } else {
-            vec![
-                Value::String("action".to_string()),
-                Value::String("input".to_string()),
-            ]
-        }),
+        Value::Array(vec![
+            Value::String("action".to_string()),
+            Value::String("input".to_string()),
+        ]),
     );
     output.insert("additionalProperties".to_string(), Value::Bool(false));
-    let mut properties = Map::from_iter([
+    let properties = Map::from_iter([
         (
             "action".to_string(),
             json!({
@@ -734,25 +653,6 @@ fn bind_transport_root_schema(tool_name: &str, schema: Value) -> Value {
             }),
         ),
     ]);
-    if tool_name == "prism_mutate" {
-        properties.insert(
-            "credential".to_string(),
-            json!({
-                "type": "object",
-                "description": "Acting principal credential for this mutation envelope. Pass it once at the outer prism_mutate envelope, not inside nested payloads.",
-                "required": ["credentialId", "principalToken"],
-                "properties": {
-                    "credentialId": {
-                        "type": "string",
-                    },
-                    "principalToken": {
-                        "type": "string",
-                    }
-                },
-                "additionalProperties": false
-            }),
-        );
-    }
     output.insert("properties".to_string(), Value::Object(properties));
     output.insert("x-prismTaggedUnion".to_string(), Value::Bool(true));
 
@@ -893,153 +793,13 @@ fn enrich_action_input_schema(
 }
 
 fn action_payload_discriminator(tool_name: &str, action: &str) -> Option<&'static str> {
-    match (tool_name, action) {
-        ("prism_mutate", "memory") => Some("action"),
-        ("prism_mutate", "coordination") => Some("kind"),
-        ("prism_mutate", "claim") => Some("action"),
-        ("prism_mutate", "artifact") => Some("action"),
-        _ => None,
-    }
+    let _ = (tool_name, action);
+    None
 }
 
 fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
-    match (tool_name, action) {
-        ("prism_mutate", "memory") => Some(tagged_union_payload_schema(
-            "Payload for `prism_mutate` action `memory`. Match this shape to `input.action`.",
-            "action",
-            vec![
-                (
-                    "store",
-                    described_schema::<MemoryStorePayload>(
-                        "Payload when `input.action` is `store`.",
-                    ),
-                ),
-                (
-                    "retire",
-                    described_schema::<MemoryRetirePayload>(
-                        "Payload when `input.action` is `retire`.",
-                    ),
-                ),
-            ],
-        )),
-        ("prism_mutate", "coordination") => Some(tagged_union_payload_schema(
-            "Payload for `prism_mutate` action `coordination`. Match this shape to `input.kind`.",
-            "kind",
-            vec![
-                (
-                    "coordination_transaction",
-                    described_schema::<CoordinationTransactionPayload>(
-                        "Payload when `input.kind` is `coordination_transaction`.",
-                    ),
-                ),
-                (
-                    "plan_bootstrap",
-                    described_schema::<PlanBootstrapPayload>(
-                        "Payload when `input.kind` is `plan_bootstrap`.",
-                    ),
-                ),
-                (
-                    "plan_create",
-                    described_schema::<PlanCreatePayload>(
-                        "Payload when `input.kind` is `plan_create`.",
-                    ),
-                ),
-                (
-                    "plan_update",
-                    described_schema::<PlanUpdatePayload>(
-                        "Payload when `input.kind` is `plan_update`.",
-                    ),
-                ),
-                (
-                    "plan_archive",
-                    described_schema::<PlanArchivePayload>(
-                        "Payload when `input.kind` is `plan_archive`.",
-                    ),
-                ),
-                (
-                    "task_create",
-                    described_schema::<TaskCreatePayload>(
-                        "Payload when `input.kind` is `task_create`.",
-                    ),
-                ),
-                (
-                    "update",
-                    described_schema::<WorkflowUpdatePayload>(
-                        "Payload when `input.kind` is `update`.",
-                    ),
-                ),
-                (
-                    "handoff",
-                    described_schema::<HandoffPayload>("Payload when `input.kind` is `handoff`."),
-                ),
-                (
-                    "resume",
-                    described_schema::<TaskResumePayload>("Payload when `input.kind` is `resume`."),
-                ),
-                (
-                    "reclaim",
-                    described_schema::<TaskReclaimPayload>(
-                        "Payload when `input.kind` is `reclaim`.",
-                    ),
-                ),
-                (
-                    "handoff_accept",
-                    described_schema::<HandoffAcceptPayload>(
-                        "Payload when `input.kind` is `handoff_accept`.",
-                    ),
-                ),
-            ],
-        )),
-        ("prism_mutate", "claim") => Some(tagged_union_payload_schema(
-            "Payload for `prism_mutate` action `claim`. Match this shape to `input.action`.",
-            "action",
-            vec![
-                (
-                    "acquire",
-                    described_schema::<ClaimAcquirePayload>(
-                        "Payload when `input.action` is `acquire`.",
-                    ),
-                ),
-                (
-                    "renew",
-                    described_schema::<ClaimRenewPayload>(
-                        "Payload when `input.action` is `renew`.",
-                    ),
-                ),
-                (
-                    "release",
-                    described_schema::<ClaimReleasePayload>(
-                        "Payload when `input.action` is `release`.",
-                    ),
-                ),
-            ],
-        )),
-        ("prism_mutate", "artifact") => Some(tagged_union_payload_schema(
-            "Payload for `prism_mutate` action `artifact`. Match this shape to `input.action`.",
-            "action",
-            vec![
-                (
-                    "propose",
-                    described_schema::<ArtifactProposePayload>(
-                        "Payload when `input.action` is `propose`.",
-                    ),
-                ),
-                (
-                    "supersede",
-                    described_schema::<ArtifactSupersedePayload>(
-                        "Payload when `input.action` is `supersede`.",
-                    ),
-                ),
-                (
-                    "review",
-                    described_schema::<ArtifactReviewPayload>(
-                        "Payload when `input.action` is `review`.",
-                    ),
-                ),
-            ],
-        )),
-        _ => None,
-    }
+    let _ = (tool_name, action);
+    None
 }
 
 fn payload_variant_views(
