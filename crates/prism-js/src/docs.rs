@@ -2653,7 +2653,7 @@ likely validations, and 1 to 2 `nextReads`.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()`, flat proposal inspection through `prism.curator.proposals()`, and job detail through `prism.curator.job()`.
 - Available now: a canonical capabilities resource at `prism://capabilities` plus tool input schema resources through `prism://tool-schemas` and `prism://schema/tool/{toolName}` for direct MCP introspection.
 - Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, claim simulation, and workflow helpers for inbox/task/claim preview.
-- Available now: a first native coordination authoring slice through `prism.coordination.createPlan(...)`, `prism.coordination.openPlan(...)`, `prism.coordination.openTask(...)`, `plan.addTask(...)`, `task.dependsOn(...)`, `task.update(...)`, and `task.complete(...)`, committed automatically at the end of one `prism_code` invocation.
+- Available now: a first native coordination authoring slice through `prism.coordination.createPlan(...)`, `prism.coordination.openPlan(...)`, `prism.coordination.openTask(...)`, `plan.update(...)`, `plan.archive()`, `plan.addTask(...)`, `task.dependsOn(...)`, `task.update(...)`, and `task.complete(...)`, committed automatically at the end of one `prism_code` invocation.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
 
 ## Native coordination builders
@@ -2663,6 +2663,8 @@ The current native builder slice is intentionally narrow:
 - `prism.coordination.createPlan(...)`
 - `prism.coordination.openPlan(planId)`
 - `prism.coordination.openTask(taskId)`
+- `plan.update(...)`
+- `plan.archive()`
 - `plan.addTask(...)`
 - `task.dependsOn(...)`
 - `task.update(...)`
@@ -2692,6 +2694,10 @@ return { plan, baseline, compare };
 
 ```ts
 const plan = await prism.coordination.openPlan("plan:123");
+await plan.update({
+  title: "Investigate the latest regression",
+  goal: "Verify the latest regression and archive the stale plan",
+});
 const investigate = await plan.addTask({ title: "Investigate the latest regression" });
 return investigate;
 ```

@@ -89,6 +89,8 @@ Status note (2026-04-10):
 
 - landed: `prism.coordination.createPlan(...)`
 - landed: `prism.coordination.openPlan(...)`
+- landed: `plan.update(...)`
+- landed: `plan.archive()`
 - landed: `plan.addTask(...)`
 - landed: `task.dependsOn(...)`
 

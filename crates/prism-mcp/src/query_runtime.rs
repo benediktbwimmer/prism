@@ -142,6 +142,19 @@ struct NativeOpenTaskArgs {
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct NativePlanUpdateArgs {
+    plan: Value,
+    input: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativePlanArchiveArgs {
+    plan: Value,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct NativePlanAddTaskArgs {
     plan_handle_id: String,
     input: Value,
@@ -1750,6 +1763,14 @@ impl QueryExecution {
                     let args: NativeOpenTaskArgs = serde_json::from_value(args)?;
                     Ok(self.execute_native_open_task(args.task_id)?)
                 }
+                "__coordinationPlanUpdate" => {
+                    let args: NativePlanUpdateArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_plan_update(args.plan, args.input)?)
+                }
+                "__coordinationPlanArchive" => {
+                    let args: NativePlanArchiveArgs = serde_json::from_value(args)?;
+                    Ok(self.execute_native_plan_archive(args.plan)?)
+                }
                 "__coordinationPlanAddTask" => {
                     let args: NativePlanAddTaskArgs = serde_json::from_value(args)?;
                     Ok(self.execute_native_plan_add_task(args.plan_handle_id, args.input)?)
@@ -2146,6 +2167,24 @@ return prism.file(__prismFileAroundArgs.path).around({
             ));
         };
         code_mutation.open_task(task_id)
+    }
+
+    fn execute_native_plan_update(&self, plan: Value, input: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.plan_update(plan, input)
+    }
+
+    fn execute_native_plan_archive(&self, plan: Value) -> Result<Value> {
+        let Some(code_mutation) = self.code_mutation.as_ref() else {
+            return Err(anyhow!(
+                "native coordination builders require an authenticated prism_code invocation"
+            ));
+        };
+        code_mutation.plan_archive(plan)
     }
 
     fn execute_native_plan_add_task(&self, plan_handle_id: String, input: Value) -> Result<Value> {

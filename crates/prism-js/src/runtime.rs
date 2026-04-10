@@ -1026,6 +1026,27 @@ function __prismCoordinationPlanHandle(raw) {
   }
   return {
     ...raw,
+    update(input = {}) {
+      const normalized = __prismValidateRecordShape(
+        "plan.update",
+        input,
+        "input",
+        ["title", "goal", "status"]
+      );
+      return __prismCoordinationPlanHandle(
+        __prismHost("__coordinationPlanUpdate", {
+          plan: raw,
+          input: normalized,
+        })
+      );
+    },
+    archive() {
+      return __prismCoordinationPlanHandle(
+        __prismHost("__coordinationPlanArchive", {
+          plan: raw,
+        })
+      );
+    },
     addTask(input = {}) {
       const normalized = __prismValidateRecordShape(
         "plan.addTask",

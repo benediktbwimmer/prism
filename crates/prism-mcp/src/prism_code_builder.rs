@@ -152,6 +152,48 @@ impl PrismCodeExecutionContext {
         Ok(plan_handle(&handle_id))
     }
 
+    pub(crate) fn plan_update(&self, plan: Value, input: Value) -> Result<Value> {
+        let mut state = self.state.lock().expect("code mutation lock poisoned");
+        let staged = state.staged_coordination_mut()?;
+        let handle_id = plan_handle_id_from_value(&plan, "plan.update")?
+            .ok_or_else(|| anyhow!("`plan.update` requires a plan handle"))?;
+        let plan = staged.plan_ref_value(&handle_id)?;
+        let input = expect_object(input, "plan.update")?;
+        let title = optional_string(&input, "title");
+        let goal = optional_string(&input, "goal");
+        let status = optional_string(&input, "status");
+        if title.is_none() && goal.is_none() && status.is_none() {
+            return Err(anyhow!(
+                "`plan.update` requires at least one of `title`, `goal`, or `status`"
+            ));
+        }
+        staged.mutations.push(json!({
+            "action": "plan_update",
+            "input": {
+                "plan": plan,
+                "title": title,
+                "goal": goal,
+                "status": status,
+            }
+        }));
+        Ok(plan_handle(&handle_id))
+    }
+
+    pub(crate) fn plan_archive(&self, plan: Value) -> Result<Value> {
+        let mut state = self.state.lock().expect("code mutation lock poisoned");
+        let staged = state.staged_coordination_mut()?;
+        let handle_id = plan_handle_id_from_value(&plan, "plan.archive")?
+            .ok_or_else(|| anyhow!("`plan.archive` requires a plan handle"))?;
+        let plan = staged.plan_ref_value(&handle_id)?;
+        staged.mutations.push(json!({
+            "action": "plan_archive",
+            "input": {
+                "plan": plan,
+            }
+        }));
+        Ok(plan_handle(&handle_id))
+    }
+
     pub(crate) fn open_task(&self, task_id: String) -> Result<Value> {
         let mut state = self.state.lock().expect("code mutation lock poisoned");
         let staged = state.staged_coordination_mut()?;
@@ -521,6 +563,22 @@ fn optional_string(object: &Map<String, Value>, key: &str) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
+}
+
+fn plan_handle_id_from_value(value: &Value, method: &str) -> Result<Option<String>> {
+    let Some(object) = value.as_object() else {
+        return Ok(None);
+    };
+    let Some(handle_kind) = object.get(HANDLE_KIND_KEY).and_then(Value::as_str) else {
+        return Ok(None);
+    };
+    if handle_kind != PLAN_HANDLE_KIND {
+        return Err(anyhow!("`{method}` expects a plan handle"));
+    }
+    Ok(object
+        .get(HANDLE_ID_KEY)
+        .and_then(Value::as_str)
+        .map(str::to_string))
 }
 
 fn optional_string_patch(

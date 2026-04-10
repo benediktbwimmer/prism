@@ -479,6 +479,7 @@ Current progress:
 - landed: native staged coordination transaction context inside `prism_code`
 - landed: native plan creation, plan reopen, task creation, and dependency wiring through builder
   handles
+- landed: first native plan lifecycle methods through plan update and plan archive
 - landed: first native lifecycle methods through task reopen, task update, and task completion
 - remaining: extend the same builder/compiler core until normal coordination authoring no longer
   needs the legacy `prism.mutate(...)` escape hatch
