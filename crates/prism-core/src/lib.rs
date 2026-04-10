@@ -14,6 +14,7 @@ mod coordination_snapshot_sanitization;
 mod coordination_startup_checkpoint;
 mod curator;
 mod curator_support;
+mod execution_substrate;
 mod history_backend;
 mod indexer;
 mod indexer_support;
@@ -133,6 +134,16 @@ pub use coordination_mutation_error::{
 };
 pub use coordination_reads::{
     CoordinationReadConsistency, CoordinationReadFreshness, CoordinationReadResult,
+};
+pub use execution_substrate::{
+    open_shared_execution_substrate_store, AuthorityBackedSharedExecutionSubstrateStore,
+    SharedExecutionCapabilityClassRef, SharedExecutionFamily, SharedExecutionOwnerExpectation,
+    SharedExecutionRecord, SharedExecutionRecordQuery, SharedExecutionRecordWriteResult,
+    SharedExecutionResultEnvelope, SharedExecutionRunnerCategory, SharedExecutionRunnerRef,
+    SharedExecutionSourceRef, SharedExecutionStatus, SharedExecutionSubstrateStore,
+    SharedExecutionTargetRef, SharedExecutionTransitionKind,
+    SharedExecutionTransitionPreconditions, SharedExecutionTransitionRequest,
+    SharedExecutionTransitionResult,
 };
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;

@@ -54,6 +54,7 @@ This roadmap depends on:
 - [../designs/2026-04-10-prism-code-and-unified-js-sdk.md](../designs/2026-04-10-prism-code-and-unified-js-sdk.md)
 - [../specs/2026-04-10-prism-code-hard-cutover-phase-7.md](../specs/2026-04-10-prism-code-hard-cutover-phase-7.md)
 - [../designs/2026-04-09-shared-execution-substrate.md](../designs/2026-04-09-shared-execution-substrate.md)
+- [../specs/2026-04-10-shared-execution-substrate-core-phase-8.md](../specs/2026-04-10-shared-execution-substrate-core-phase-8.md)
 - [../designs/2026-04-09-actions-and-machine-work.md](../designs/2026-04-09-actions-and-machine-work.md)
 - [../designs/2026-04-09-warm-state-validation-feedback.md](../designs/2026-04-09-warm-state-validation-feedback.md)
 - [../designs/2026-04-09-graph-dataflow-and-parameterization.md](../designs/2026-04-09-graph-dataflow-and-parameterization.md)
@@ -71,7 +72,7 @@ Current phase checklist:
 - [x] Phase 5: narrow the SQL authority query/provider seams
 - [x] Phase 6: replace generic authority reads with sharp SQL read-model and command ports
 - [x] Phase 7: hard-cut to `prism_code` and the unified JS/TS SDK
-- [ ] Phase 8: implement the shared execution substrate core
+- [x] Phase 8: implement the shared execution substrate core
 - [ ] Phase 9: move warm-state validation onto the shared execution substrate
 - [ ] Phase 10: add `Action` as a first-class graph leaf on the shared execution substrate
 - [ ] Phase 11: implement graph-wide typed inputs, outputs, and bindings
@@ -81,7 +82,7 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 8: implement the shared execution substrate core
+- Phase 9: move warm-state validation onto the shared execution substrate
 
 Current implementation note (2026-04-10):
 
@@ -92,7 +93,8 @@ Current implementation note (2026-04-10):
 - Phase 5 is landed by removing the public hot-path full-current-state read, switching the provider to explicit responsibility-scoped openings, and moving hot query callers onto narrower projection/runtime/diagnostics surfaces
 - Phase 6 is landed by replacing the generic projection seam with exact authority-stamp and coordination-surface read ports, moving hot callers off canonical-snapshot reads, and keeping broad snapshot/current-state assembly on explicit secondary seams
 - Phase 7 is landed: `prism_code` is now the canonical public programmable surface, public MCP/self-description/schema surfaces no longer advertise `prism_query` or `prism_mutate`, and the minimum lowering path now runs through `prism_code`
-- the next blocking work is Phase 8: implement the shared execution substrate core on top of the now-settled `prism_code` interaction model
+- Phase 8 is landed with the authority-backed shared execution substrate adapter in `prism-core`, shared execution family, runner, target, and result vocabulary, and migration of the workspace event engine onto substrate-native execution records
+- the next blocking work is Phase 9: move warm-state validation onto the now-landed shared execution substrate
 
 ## 3. Ordering thesis
 
