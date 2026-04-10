@@ -70,7 +70,7 @@ Current phase checklist:
 - [x] Phase 4: finalize the SQL authority contract for Postgres
 - [x] Phase 5: narrow the SQL authority query/provider seams
 - [x] Phase 6: replace generic authority reads with sharp SQL read-model and command ports
-- [ ] Phase 7: hard-cut to `prism_code` and the unified JS/TS SDK
+- [x] Phase 7: hard-cut to `prism_code` and the unified JS/TS SDK
 - [ ] Phase 8: implement the shared execution substrate core
 - [ ] Phase 9: move warm-state validation onto the shared execution substrate
 - [ ] Phase 10: add `Action` as a first-class graph leaf on the shared execution substrate
@@ -81,7 +81,7 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 7: hard-cut to `prism_code` and the unified JS/TS SDK
+- Phase 8: implement the shared execution substrate core
 
 Current implementation note (2026-04-10):
 
@@ -91,8 +91,8 @@ Current implementation note (2026-04-10):
 - Phase 4 is landed by replacing the misleading hot `read_plan_state` authority read with a direct current-state read, splitting the SQL authority seam into smaller traits, removing derived-state persistence policy from the public append contract, and replacing `prism_store` persist-result leakage with backend-neutral commit receipts
 - Phase 5 is landed by removing the public hot-path full-current-state read, switching the provider to explicit responsibility-scoped openings, and moving hot query callers onto narrower projection/runtime/diagnostics surfaces
 - Phase 6 is landed by replacing the generic projection seam with exact authority-stamp and coordination-surface read ports, moving hot callers off canonical-snapshot reads, and keeping broad snapshot/current-state assembly on explicit secondary seams
-- Phase 7 spec is now captured in `docs/specs/2026-04-10-prism-code-hard-cutover-phase-7.md`
-- the next blocking work is Phase 7: hard-cut to `prism_code`, land the minimum viable JS/TS compiler or lowering runtime, and remove `prism_query` / `prism_mutate` as target architecture before later phases build on them
+- Phase 7 is landed: `prism_code` is now the canonical public programmable surface, public MCP/self-description/schema surfaces no longer advertise `prism_query` or `prism_mutate`, and the minimum lowering path now runs through `prism_code`
+- the next blocking work is Phase 8: implement the shared execution substrate core on top of the now-settled `prism_code` interaction model
 
 ## 3. Ordering thesis
 

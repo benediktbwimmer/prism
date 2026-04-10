@@ -1,6 +1,6 @@
 # `prism_code` Hard Cutover Phase 7
 
-Status: in progress  
+Status: completed  
 Audience: prism-mcp, prism-js, prism-core, CLI, and runtime maintainers  
 Scope: introduce `prism_code` as the canonical programmable surface, land the first production transport slice, and drive the removal of `prism_query` / `prism_mutate` as the long-term public model
 
@@ -50,7 +50,7 @@ Current progress:
 
 - Slice 1 is landed: `prism_code` is the canonical programmable read transport and the public docs/resources teach it first.
 - Slice 2 is landed in its minimum form: authenticated `prism_code` now supports `prism.mutate(...)` plus `dryRun` lowering through the canonical JS/TS surface.
-- Slice 3 is in progress: the public MCP transport no longer exposes `prism_query` or `prism_mutate`, and public error/docs guidance now speaks `prism_code`; remaining work is migrating the broader MCP resource/test surface off the legacy tool names.
+- Slice 3 is landed: the public MCP transport, schema catalog, capabilities surface, self-description examples, and bootstrap proxy cache now present a coherently `prism_code`-first product surface while keeping residual legacy lowering machinery internal-only.
 
 ### Slice 1: Canonical read-side `prism_code` transport
 

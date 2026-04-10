@@ -1308,9 +1308,6 @@ mod tests {
         );
         let mut tool_names = cache.keys().cloned().collect::<Vec<_>>();
         tool_names.sort();
-        assert_eq!(
-            tool_names,
-            vec!["prism_mutate", "prism_query", "prism_task_brief"]
-        );
+        assert_eq!(tool_names, vec!["prism_code", "prism_task_brief"]);
     }
 }

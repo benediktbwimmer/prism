@@ -217,8 +217,10 @@ const MEMORY_RESOURCE_TEMPLATE_URI: &str = "prism://memory/{memoryId}";
 const EDGE_RESOURCE_TEMPLATE_URI: &str = "prism://edge/{edgeId}";
 const SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/{resourceKind}";
 const TOOL_SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/tool/{toolName}";
+#[cfg(test)]
 const TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI: &str =
     "prism://schema/tool/{toolName}/action/{action}";
+#[cfg(test)]
 const TOOL_VARIANT_SCHEMA_RESOURCE_TEMPLATE_URI: &str =
     "prism://schema/tool/{toolName}/action/{action}/variant/{tag}";
 const TOOL_EXAMPLE_RESOURCE_TEMPLATE_URI: &str = "prism://example/tool/{toolName}";
