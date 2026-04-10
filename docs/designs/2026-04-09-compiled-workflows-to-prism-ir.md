@@ -210,6 +210,19 @@ The resulting SDK family should therefore be understood as:
 - runtime-execution layers for Actions, validation runners, and event hooks that mostly just import
   those same capabilities directly
 
+The public authoring model should use ordinary code bindings rather than mutation-payload client
+ids.
+
+That means:
+
+- authored code refers to plans, tasks, actions, reviews, and intermediate values through local
+  variables and lexical bindings
+- the compiler may introduce temporary internal identifiers while lowering the authored program into
+  PRISM Execution IR or transaction ops
+- those internal identifiers must not leak into the user-facing programming model
+- source-mapped validation and runtime errors should point back to authored bindings and control
+  flow rather than internal lowering ids
+
 ### 4.5 Executable PRISM Execution IR
 
 This is what the service and the query layers actually care about.

@@ -58,6 +58,17 @@ The accepted model is:
 - compilation returning a reusable artifact in PRISM Execution IR
 - compilation plus instantiation returning both artifact metadata and authoritative mutation effects
 
+The public authored surface should also stop exposing client ids as a primary programming
+mechanism.
+
+Instead:
+
+- authored `prism_code` should use ordinary JS or TS lexical bindings, variables, and object
+  handles
+- any temporary client-id-like identifiers needed for graph assembly may exist only inside the
+  compiler or lowering machinery
+- validation and error reporting should talk in source-level terms, not leaked lowering ids
+
 ## Repo-authored source model
 
 Repo-authored PRISM code lives under:

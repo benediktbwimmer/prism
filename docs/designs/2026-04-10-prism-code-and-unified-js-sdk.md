@@ -203,7 +203,40 @@ Write-capable `prism_code`:
 - validates and lowers them into the canonical mutation protocol
 - commits once at the end of the call
 
-### 5.3 `dryRun`
+### 5.3 Public bindings, not public client ids
+
+`prism_code` should eliminate client ids from the public programming model.
+
+The authored source should work through:
+
+- ordinary local variables
+- lexical bindings
+- returned object handles
+- normal JS or TS control flow
+
+not through user-authored temporary ids that exist only to stitch together one large mutation
+payload.
+
+If the compiler or lowering runtime needs temporary identities while assembling a graph or
+transaction, those identities should remain internal implementation details.
+
+This is a core part of why `prism_code` is better than `prism_mutate`:
+
+- the user or agent reads state
+- binds intermediate results to local variables
+- expresses the intended change in one coherent program
+- lets lowering assign any internal ephemeral identities behind the scenes
+
+Validation and error reporting should therefore prefer source-level language such as:
+
+- unknown spec or plan reference
+- output used before declaration
+- invalid dependency cycle
+- unavailable runner or Action kind
+
+rather than leaking client-id-oriented error surfaces.
+
+### 5.4 `dryRun`
 
 `dryRun` should be supported for write-capable `prism_code`.
 
@@ -323,6 +356,10 @@ code model:
 
 This is why PRISM should think of the compiler as a general PRISM code compiler, not only as a
 “plan compiler.”
+
+That same compiler is also responsible for preserving the source-level binding model. Public code
+should bind values and objects naturally, while any client-id-like graph assembly remains an
+internal lowering concern only.
 
 ## 10. Auth model
 

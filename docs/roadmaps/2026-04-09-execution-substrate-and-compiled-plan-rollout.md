@@ -191,6 +191,7 @@ The following work can proceed in parallel without violating the architecture:
   - unified JS/TS SDK surface
   - auth and write-gating model for `prism_code`
   - minimum compiler or lowering runtime
+  - elimination of public client ids in favor of source-level bindings and handles
   - migration of current query and mutation surfaces onto `prism_code`
   can proceed in parallel if they converge on one canonical programmable surface
 - During Phase 8:
