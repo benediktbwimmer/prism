@@ -122,9 +122,7 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 2 review gate: Program IR and semantic analysis now appear faithful to the compiler
-  architecture design after the reopened fidelity pass, but Phase 2 must be reviewed together with
-  the user before it can be claimed complete or Phase 3 may resume
+- Phase 3: structured transactional lowering for current write semantics remains in progress
 
 Current phase note:
 
@@ -204,9 +202,7 @@ Current phase note:
   - `cargo test -p prism-mcp mcp_server_executes_mixed_prism_code_writes_in_one_invocation -- --nocapture`
 - Phase 2 now appears faithful to the compiler design, but it remains at the explicit review gate
   until the user confirms that assessment.
-- Phase 3 is not yet complete because the current write runtime still lowers through explicit
-  host-operation-oriented methods and op enums rather than the design's promised structured
-  compiler lowering semantics.
+- Phase 3 is active again after the Phase 2 fidelity pass.
 - Phase 3 replaces the old `prism_code_builder` runtime path with a compiler-owned
   write-runtime and lowering layer under
   `crates/prism-mcp/src/prism_code_compiler/write_runtime.rs`.
@@ -214,7 +210,16 @@ Current phase note:
   operations in one lowering plan, flushes coordination batches through compiler-owned lowering,
   and resolves handles from the lowered results instead of accumulating eager mutation payloads in
   the old staged builder.
+- The current write runtime now preserves region lineage and effect order in a dedicated
+  `StructuredTransactionPlan`, and same-invocation coordination and mixed direct-write flows are
+  again validated on the live MCP path.
 - `dryRun` now exercises that same lowering path and skips only the final write execution step.
+- Coordination rejections from the transactional write path are now surfaced as `prism_code`
+  invocation errors instead of silently leaving provisional handle previews unresolved.
+- Phase 3 is still not complete against the compiler design because the structured transaction
+  metadata produced by the compiler is not yet accepted by the durable coordination transaction
+  contract, so the runtime currently preserves that structure internally but cannot persist it
+  through the authority transaction boundary.
 - Targeted MCP regressions now cover dry-run, the existing native coordination builder flow,
   mixed coordination/direct writes in one invocation, and claim/review follow-up flows on the new
   lowering path.

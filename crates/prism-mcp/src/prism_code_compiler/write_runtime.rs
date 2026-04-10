@@ -5,7 +5,8 @@ use anyhow::{anyhow, Result};
 use serde_json::{json, Map, Value};
 
 use super::analysis::AnalyzedPrismProgram;
-use super::program_ir::{PrismProgramEffectId, PrismProgramRegionId, PrismProgramSourceSpan};
+use super::program_ir::{PrismProgramEffectKind, PrismProgramRegionId};
+use super::transaction_plan::{StructuredTransactionEffectMetadata, StructuredTransactionPlan};
 
 pub(crate) type DirectWriteExecutor =
     Arc<dyn Fn(PrismCodeDirectWrite) -> Result<Value> + Send + Sync>;
@@ -63,27 +64,15 @@ const CLAIM_HANDLE_KIND: &str = "claim";
 const ARTIFACT_HANDLE_KIND: &str = "artifact";
 const WORK_HANDLE_KIND: &str = "work";
 
-#[derive(Debug, Clone)]
-struct StructuredWriteMetadata {
-    method_path: String,
-    effect_id: Option<PrismProgramEffectId>,
-    region_lineage: Vec<PrismProgramRegionId>,
-    span: Option<PrismProgramSourceSpan>,
-}
+type StructuredWriteMetadata = StructuredTransactionEffectMetadata;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 enum StructuredWriteOperationKind {
     Coordination(CoordinationWriteOp),
     Direct(StructuredDirectWriteOp),
 }
 
-#[derive(Debug, Clone)]
-struct StructuredWriteOperation {
-    metadata: StructuredWriteMetadata,
-    kind: StructuredWriteOperationKind,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 enum CoordinationWriteOp {
     CreatePlan {
         client_plan_id: String,
@@ -138,7 +127,7 @@ enum CoordinationWriteOp {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 enum StructuredDirectWriteOp {
     DeclareWork {
         handle_id: String,
@@ -187,6 +176,12 @@ enum StructuredDirectWriteOp {
     },
 }
 
+#[derive(Debug, Clone)]
+struct PendingCoordinationEffect {
+    metadata: StructuredWriteMetadata,
+    operation: CoordinationWriteOp,
+}
+
 enum PlanHandleState {
     Created {
         client_plan_id: String,
@@ -215,7 +210,6 @@ struct DeferredHandleState {
     current: Value,
 }
 
-#[derive(Default)]
 struct PrismCodeWriteState {
     next_plan_handle: usize,
     next_task_handle: usize,
@@ -224,7 +218,7 @@ struct PrismCodeWriteState {
     next_work_handle: usize,
     next_client_plan: usize,
     next_client_task: usize,
-    operations: Vec<StructuredWriteOperation>,
+    transaction_plan: StructuredTransactionPlan<StructuredWriteOperationKind>,
     plan_handles: BTreeMap<String, PlanHandleState>,
     task_handles: BTreeMap<String, TaskHandleState>,
     claim_handles: BTreeMap<String, DeferredHandleState>,
@@ -263,13 +257,14 @@ impl PrismCodeWriteRuntimeFactory {
     }
 
     pub(crate) fn instantiate(&self, analyzed: AnalyzedPrismProgram) -> PrismCodeWriteRuntime {
+        let state = PrismCodeWriteState::new(&analyzed);
         PrismCodeWriteRuntime {
             direct_write_executor: Arc::clone(&self.direct_write_executor),
             coordination_executor: Arc::clone(&self.coordination_executor),
             dry_run: self.dry_run,
             analyzed: Arc::new(analyzed),
             effect_cursors: Arc::new(Mutex::new(HashMap::new())),
-            state: Arc::new(Mutex::new(PrismCodeWriteState::default())),
+            state: Arc::new(Mutex::new(state)),
         }
     }
 }
@@ -293,13 +288,14 @@ impl PrismCodeWriteRuntime {
                 current: preview.clone(),
             },
         );
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("prism.work.declare"),
-            kind: StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::DeclareWork {
+        self.record_write_effect(
+            &mut state,
+            "prism.work.declare",
+            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::DeclareWork {
                 handle_id: handle_id.clone(),
                 input,
             }),
-        });
+        )?;
         Ok(generic_handle_with_preview(
             &handle_id,
             WORK_HANDLE_KIND,
@@ -328,14 +324,15 @@ impl PrismCodeWriteRuntime {
                 current: preview.clone(),
             },
         );
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("prism.claim.acquire"),
-            kind: StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ClaimAcquire {
+        self.record_write_effect(
+            &mut state,
+            "prism.claim.acquire",
+            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ClaimAcquire {
                 handle_id: handle_id.clone(),
                 input: Value::Object(input),
                 task_handle_id,
             }),
-        });
+        )?;
         Ok(generic_handle_with_preview(
             &handle_id,
             CLAIM_HANDLE_KIND,
@@ -347,13 +344,14 @@ impl PrismCodeWriteRuntime {
         let input = expect_object(input, "prism.claim.renew")?;
         let claim_handle_id = self.ensure_claim_handle_from_value(claim, "prism.claim.renew")?;
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("prism.claim.renew"),
-            kind: StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ClaimRenew {
+        self.record_write_effect(
+            &mut state,
+            "prism.claim.renew",
+            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ClaimRenew {
                 claim_handle_id: claim_handle_id.clone(),
                 ttl_seconds: input.get("ttlSeconds").and_then(Value::as_u64),
             }),
-        });
+        )?;
         let preview = state
             .claim_handles
             .get(&claim_handle_id)
@@ -369,12 +367,13 @@ impl PrismCodeWriteRuntime {
     pub(crate) fn claim_release(&self, claim: Value) -> Result<Value> {
         let claim_handle_id = self.ensure_claim_handle_from_value(claim, "prism.claim.release")?;
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("prism.claim.release"),
-            kind: StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ClaimRelease {
+        self.record_write_effect(
+            &mut state,
+            "prism.claim.release",
+            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ClaimRelease {
                 claim_handle_id: claim_handle_id.clone(),
             }),
-        });
+        )?;
         let preview = state
             .claim_handles
             .get(&claim_handle_id)
@@ -409,14 +408,15 @@ impl PrismCodeWriteRuntime {
                 current: preview.clone(),
             },
         );
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("prism.artifact.propose"),
-            kind: StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ArtifactPropose {
+        self.record_write_effect(
+            &mut state,
+            "prism.artifact.propose",
+            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ArtifactPropose {
                 handle_id: handle_id.clone(),
                 input: Value::Object(input),
                 task_handle_id,
             }),
-        });
+        )?;
         Ok(generic_handle_with_preview(
             &handle_id,
             ARTIFACT_HANDLE_KIND,
@@ -428,14 +428,13 @@ impl PrismCodeWriteRuntime {
         let artifact_handle_id =
             self.ensure_artifact_handle_from_value(artifact, "prism.artifact.supersede")?;
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("prism.artifact.supersede"),
-            kind: StructuredWriteOperationKind::Direct(
-                StructuredDirectWriteOp::ArtifactSupersede {
-                    artifact_handle_id: artifact_handle_id.clone(),
-                },
-            ),
-        });
+        self.record_write_effect(
+            &mut state,
+            "prism.artifact.supersede",
+            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ArtifactSupersede {
+                artifact_handle_id: artifact_handle_id.clone(),
+            }),
+        )?;
         let preview = state
             .artifact_handles
             .get(&artifact_handle_id)
@@ -453,13 +452,14 @@ impl PrismCodeWriteRuntime {
         let artifact_handle_id =
             self.ensure_artifact_handle_from_value(artifact, "prism.artifact.review")?;
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("prism.artifact.review"),
-            kind: StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ArtifactReview {
+        self.record_write_effect(
+            &mut state,
+            "prism.artifact.review",
+            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::ArtifactReview {
                 artifact_handle_id: artifact_handle_id.clone(),
                 input,
             }),
-        });
+        )?;
         let preview = state
             .artifact_handles
             .get(&artifact_handle_id)
@@ -479,14 +479,15 @@ impl PrismCodeWriteRuntime {
         let to_agent =
             optional_string(&input, "toAgent").or_else(|| optional_string(&input, "to_agent"));
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("task.handoff"),
-            kind: StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::TaskHandoff {
+        self.record_write_effect(
+            &mut state,
+            "task.handoff",
+            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::TaskHandoff {
                 task_handle_id: task_handle_id.clone(),
                 summary,
                 to_agent,
             }),
-        });
+        )?;
         Ok(task_handle_with_preview(
             &task_handle_id,
             state.task_preview(&task_handle_id)?,
@@ -499,15 +500,14 @@ impl PrismCodeWriteRuntime {
             self.ensure_task_handle_from_value(task, "task.acceptHandoff", true)?;
         let agent = optional_string(&input, "agent");
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("task.acceptHandoff"),
-            kind: StructuredWriteOperationKind::Direct(
-                StructuredDirectWriteOp::TaskAcceptHandoff {
-                    task_handle_id: task_handle_id.clone(),
-                    agent,
-                },
-            ),
-        });
+        self.record_write_effect(
+            &mut state,
+            "task.acceptHandoff",
+            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::TaskAcceptHandoff {
+                task_handle_id: task_handle_id.clone(),
+                agent,
+            }),
+        )?;
         Ok(task_handle_with_preview(
             &task_handle_id,
             state.task_preview(&task_handle_id)?,
@@ -519,13 +519,14 @@ impl PrismCodeWriteRuntime {
         let task_handle_id = self.ensure_task_handle_from_value(task, "task.resume", true)?;
         let agent = optional_string(&input, "agent");
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("task.resume"),
-            kind: StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::TaskResume {
+        self.record_write_effect(
+            &mut state,
+            "task.resume",
+            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::TaskResume {
                 task_handle_id: task_handle_id.clone(),
                 agent,
             }),
-        });
+        )?;
         Ok(task_handle_with_preview(
             &task_handle_id,
             state.task_preview(&task_handle_id)?,
@@ -537,13 +538,14 @@ impl PrismCodeWriteRuntime {
         let task_handle_id = self.ensure_task_handle_from_value(task, "task.reclaim", true)?;
         let agent = optional_string(&input, "agent");
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("task.reclaim"),
-            kind: StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::TaskReclaim {
+        self.record_write_effect(
+            &mut state,
+            "task.reclaim",
+            StructuredWriteOperationKind::Direct(StructuredDirectWriteOp::TaskReclaim {
                 task_handle_id: task_handle_id.clone(),
                 agent,
             }),
-        });
+        )?;
         Ok(task_handle_with_preview(
             &task_handle_id,
             state.task_preview(&task_handle_id)?,
@@ -577,9 +579,10 @@ impl PrismCodeWriteRuntime {
                 current: preview.clone(),
             },
         );
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("prism.coordination.createPlan"),
-            kind: StructuredWriteOperationKind::Coordination(CoordinationWriteOp::CreatePlan {
+        self.record_write_effect(
+            &mut state,
+            "prism.coordination.createPlan",
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::CreatePlan {
                 client_plan_id,
                 title,
                 goal,
@@ -587,7 +590,7 @@ impl PrismCodeWriteRuntime {
                 policy,
                 scheduling,
             }),
-        });
+        )?;
         Ok(plan_handle_with_preview(&handle_id, &preview))
     }
 
@@ -630,9 +633,10 @@ impl PrismCodeWriteRuntime {
             ));
         }
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("plan.update"),
-            kind: StructuredWriteOperationKind::Coordination(CoordinationWriteOp::PlanUpdate {
+        self.record_write_effect(
+            &mut state,
+            "plan.update",
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::PlanUpdate {
                 plan_handle_id: handle_id.clone(),
                 title: title.clone(),
                 goal: goal.clone(),
@@ -640,7 +644,7 @@ impl PrismCodeWriteRuntime {
                 policy: policy.clone(),
                 scheduling: scheduling.clone(),
             }),
-        });
+        )?;
         let preview = state.plan_preview_mut(&handle_id)?;
         set_optional_string_field(preview, "title", title);
         set_optional_string_field(preview, "goal", goal);
@@ -657,12 +661,13 @@ impl PrismCodeWriteRuntime {
         let handle_id = plan_handle_id_from_value(&plan, "plan.archive")?
             .ok_or_else(|| anyhow!("`plan.archive` requires a plan handle"))?;
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("plan.archive"),
-            kind: StructuredWriteOperationKind::Coordination(CoordinationWriteOp::PlanArchive {
+        self.record_write_effect(
+            &mut state,
+            "plan.archive",
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::PlanArchive {
                 plan_handle_id: handle_id.clone(),
             }),
-        });
+        )?;
         let preview = state.plan_preview_mut(&handle_id)?;
         preview.insert("status".to_string(), Value::String("archived".to_string()));
         Ok(plan_handle_with_preview(
@@ -714,9 +719,10 @@ impl PrismCodeWriteRuntime {
                 current: preview.clone(),
             },
         );
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("plan.addTask"),
-            kind: StructuredWriteOperationKind::Coordination(CoordinationWriteOp::CreateTask {
+        self.record_write_effect(
+            &mut state,
+            "plan.addTask",
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::CreateTask {
                 plan_handle_id,
                 client_task_id,
                 title,
@@ -728,23 +734,32 @@ impl PrismCodeWriteRuntime {
                 artifact_requirements: input.get("artifactRequirements").cloned(),
                 review_requirements: input.get("reviewRequirements").cloned(),
             }),
-        });
+        )?;
         Ok(task_handle_with_preview(&handle_id, &preview))
     }
 
     pub(crate) fn task_update(&self, task: Value, input: Value) -> Result<Value> {
-        let input = expect_object(input, "task.update")?;
-        let handle_id = self.ensure_task_handle_from_value(task, "task.update", true)?;
+        self.task_update_with_method_path(task, input, "task.update")
+    }
+
+    fn task_update_with_method_path(
+        &self,
+        task: Value,
+        input: Value,
+        method_path: &str,
+    ) -> Result<Value> {
+        let input = expect_object(input, method_path)?;
+        let handle_id = self.ensure_task_handle_from_value(task, method_path, true)?;
         let status = optional_string(&input, "status");
         let title = optional_string(&input, "title");
-        let summary = optional_string_patch(&input, "summary", "task.update")?;
-        let assignee = optional_string_patch(&input, "assignee", "task.update")?;
-        let priority = optional_u8_patch(&input, "priority", "task.update")?;
+        let summary = optional_string_patch(&input, "summary", method_path)?;
+        let assignee = optional_string_patch(&input, "assignee", method_path)?;
+        let priority = optional_u8_patch(&input, "priority", method_path)?;
         let depends_on = input
             .get("dependsOn")
             .or_else(|| input.get("depends_on"))
             .cloned()
-            .map(|value| self.task_handle_list_from_value(&value, "task.update"))
+            .map(|value| self.task_handle_list_from_value(&value, method_path))
             .transpose()?;
         let has_object_field = |key: &str| input.contains_key(key);
         if status.is_none()
@@ -765,9 +780,10 @@ impl PrismCodeWriteRuntime {
             ));
         }
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("task.update"),
-            kind: StructuredWriteOperationKind::Coordination(CoordinationWriteOp::TaskUpdate {
+        self.record_write_effect(
+            &mut state,
+            method_path,
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::TaskUpdate {
                 task_handle_id: handle_id.clone(),
                 status: status.clone(),
                 title: title.clone(),
@@ -782,7 +798,7 @@ impl PrismCodeWriteRuntime {
                 artifact_requirements: input.get("artifactRequirements").cloned(),
                 review_requirements: input.get("reviewRequirements").cloned(),
             }),
-        });
+        )?;
         let preview = state.task_preview_mut(&handle_id)?;
         set_optional_string_field(preview, "status", status);
         set_optional_string_field(preview, "title", title);
@@ -805,40 +821,41 @@ impl PrismCodeWriteRuntime {
         let depends_on_handle_id =
             self.ensure_task_handle_from_value(depends_on, "task.dependsOn", true)?;
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        state.operations.push(StructuredWriteOperation {
-            metadata: self.metadata_for_method_path("task.dependsOn"),
-            kind: StructuredWriteOperationKind::Coordination(CoordinationWriteOp::TaskDependsOn {
+        self.record_write_effect(
+            &mut state,
+            "task.dependsOn",
+            StructuredWriteOperationKind::Coordination(CoordinationWriteOp::TaskDependsOn {
                 task_handle_id,
                 depends_on_handle_id,
                 kind: kind.unwrap_or_else(|| "depends_on".to_string()),
             }),
-        });
+        )?;
         Ok(Value::Null)
     }
 
     pub(crate) fn task_complete(&self, task: Value, input: Value) -> Result<Value> {
         let mut update = expect_object(input, "task.complete")?;
         update.insert("status".to_string(), Value::String("completed".to_string()));
-        self.task_update(task, Value::Object(update))
+        self.task_update_with_method_path(task, Value::Object(update), "task.complete")
     }
 
     pub(crate) fn finalize_result(&self, result: Value) -> Result<Value> {
         let mut state = self.state.lock().expect("code mutation lock poisoned");
-        if state.operations.is_empty() {
+        if state.transaction_plan.is_empty() {
             return Ok(result);
         }
-        let operations = std::mem::take(&mut state.operations);
-        let mut pending_coordination = Vec::new();
-        for operation in operations {
-            let StructuredWriteOperation { metadata, kind } = operation;
-            let _source_shape = (
-                metadata.method_path,
-                metadata.effect_id,
-                metadata.region_lineage,
-                metadata.span,
-            );
-            match kind {
-                StructuredWriteOperationKind::Coordination(op) => pending_coordination.push(op),
+        let transaction_plan = state.take_transaction_plan(&self.analyzed);
+        let mut pending_coordination: Vec<PendingCoordinationEffect> = Vec::new();
+        for effect_id in transaction_plan.ordered_effect_ids() {
+            let effect = transaction_plan.effects[effect_id].clone();
+            let metadata = effect.metadata;
+            match effect.payload {
+                StructuredWriteOperationKind::Coordination(operation) => {
+                    pending_coordination.push(PendingCoordinationEffect {
+                        metadata,
+                        operation,
+                    });
+                }
                 StructuredWriteOperationKind::Direct(op) => {
                     if !pending_coordination.is_empty() {
                         self.flush_coordination_batch(&mut state, &pending_coordination)?;
@@ -857,19 +874,23 @@ impl PrismCodeWriteRuntime {
     fn flush_coordination_batch(
         &self,
         state: &mut PrismCodeWriteState,
-        batch: &[CoordinationWriteOp],
+        batch: &[PendingCoordinationEffect],
     ) -> Result<()> {
         if batch.is_empty() {
             return Ok(());
         }
         let mutations = batch
             .iter()
-            .map(|operation| lower_coordination_op(state, operation))
+            .map(|effect| lower_coordination_op(state, &effect.operation))
             .collect::<Result<Vec<_>>>()?;
         if self.dry_run {
             return Ok(());
         }
-        let commit = (self.coordination_executor)(json!({ "mutations": mutations }))?;
+        let _intent_metadata = coordination_intent_metadata(&self.analyzed, batch);
+        let commit = (self.coordination_executor)(json!({
+            "mutations": mutations,
+        }))?;
+        reject_coordination_commit_if_needed(&commit)?;
         apply_coordination_commit(state, &commit);
         Ok(())
     }
@@ -1105,40 +1126,108 @@ impl PrismCodeWriteRuntime {
             .collect()
     }
 
-    fn metadata_for_method_path(&self, method_path: &str) -> StructuredWriteMetadata {
+    fn record_write_effect(
+        &self,
+        state: &mut PrismCodeWriteState,
+        method_path: &str,
+        payload: StructuredWriteOperationKind,
+    ) -> Result<()> {
+        let metadata = self.metadata_for_write_method_path(method_path)?;
+        state.transaction_plan.record_effect(
+            &self.analyzed.ir,
+            StructuredTransactionEffectMetadata {
+                method_path: metadata.method_path,
+                effect_id: metadata.effect_id,
+                region_id: metadata.region_id,
+                region_lineage: metadata.region_lineage,
+                span: metadata.span,
+            },
+            payload,
+        )?;
+        Ok(())
+    }
+
+    #[cfg(test)]
+    fn debug_transaction_plan(&self) -> StructuredTransactionPlan<StructuredWriteOperationKind> {
+        self.state
+            .lock()
+            .expect("code mutation lock poisoned")
+            .transaction_plan
+            .clone()
+    }
+
+    fn metadata_for_write_method_path(&self, method_path: &str) -> Result<StructuredWriteMetadata> {
         let mut cursors = self
             .effect_cursors
             .lock()
             .expect("effect cursor lock poisoned");
         let index = cursors.entry(method_path.to_string()).or_insert(0);
-        let effect = self
+        let matching_effects = self
             .analyzed
             .ir
             .effects
             .iter()
-            .filter(|effect| effect.method_path.as_deref() == Some(method_path))
-            .nth(*index);
-        if effect.is_some() {
+            .filter(|effect| {
+                effect.method_path.as_deref() == Some(method_path)
+                    && effect.kind == PrismProgramEffectKind::AuthoritativeWrite
+            })
+            .collect::<Vec<_>>();
+        let effect = matching_effects
+            .get(*index)
+            .copied()
+            .or_else(|| {
+                matching_effects.last().copied().filter(|effect| {
+                    matching_effects.len() == 1
+                        || region_supports_repeated_effect_execution(&self.analyzed, effect.region_id)
+                })
+            })
+            .ok_or_else(|| {
+                anyhow!(
+                    "compiler write lowering could not resolve authoritative effect metadata for `{method_path}`"
+                )
+            })?;
+        if *index < matching_effects.len() {
             *index += 1;
         }
-        let (effect_id, span, region_lineage) = match effect {
-            Some(effect) => (
-                Some(effect.id),
-                Some(effect.span.clone()),
-                region_lineage(&self.analyzed, effect.region_id),
-            ),
-            None => (None, None, Vec::new()),
-        };
-        StructuredWriteMetadata {
+        Ok(StructuredWriteMetadata {
             method_path: method_path.to_string(),
-            effect_id,
-            region_lineage,
-            span,
-        }
+            effect_id: Some(effect.id),
+            region_id: effect.region_id,
+            region_lineage: region_lineage(&self.analyzed, effect.region_id),
+            span: Some(effect.span.clone()),
+        })
     }
 }
 
 impl PrismCodeWriteState {
+    fn new(analyzed: &AnalyzedPrismProgram) -> Self {
+        Self {
+            next_plan_handle: 0,
+            next_task_handle: 0,
+            next_claim_handle: 0,
+            next_artifact_handle: 0,
+            next_work_handle: 0,
+            next_client_plan: 0,
+            next_client_task: 0,
+            transaction_plan: StructuredTransactionPlan::new(&analyzed.ir),
+            plan_handles: BTreeMap::new(),
+            task_handles: BTreeMap::new(),
+            claim_handles: BTreeMap::new(),
+            artifact_handles: BTreeMap::new(),
+            work_handles: BTreeMap::new(),
+        }
+    }
+
+    fn take_transaction_plan(
+        &mut self,
+        analyzed: &AnalyzedPrismProgram,
+    ) -> StructuredTransactionPlan<StructuredWriteOperationKind> {
+        std::mem::replace(
+            &mut self.transaction_plan,
+            StructuredTransactionPlan::new(&analyzed.ir),
+        )
+    }
+
     fn plan_preview_mut(&mut self, handle_id: &str) -> Result<&mut Map<String, Value>> {
         match self.plan_handles.get_mut(handle_id) {
             Some(
@@ -1200,6 +1289,65 @@ fn region_lineage(
     }
     lineage.reverse();
     lineage
+}
+
+fn region_supports_repeated_effect_execution(
+    analyzed: &AnalyzedPrismProgram,
+    mut region_id: PrismProgramRegionId,
+) -> bool {
+    loop {
+        match analyzed.ir.regions[region_id].control {
+            super::program_ir::PrismProgramRegionControl::Loop { .. }
+            | super::program_ir::PrismProgramRegionControl::Parallel { .. }
+            | super::program_ir::PrismProgramRegionControl::Reduction { .. }
+            | super::program_ir::PrismProgramRegionControl::Competition { .. }
+            | super::program_ir::PrismProgramRegionControl::CallbackBoundary { .. } => {
+                return true;
+            }
+            _ => {}
+        }
+        let Some(parent) = analyzed.ir.regions[region_id].parent else {
+            return false;
+        };
+        region_id = parent;
+    }
+}
+
+fn coordination_intent_metadata(
+    analyzed: &AnalyzedPrismProgram,
+    batch: &[PendingCoordinationEffect],
+) -> Value {
+    let mut regions = Vec::new();
+    let mut seen_regions = std::collections::BTreeSet::new();
+    for effect in batch {
+        for region_id in &effect.metadata.region_lineage {
+            if seen_regions.insert(*region_id) {
+                let region = &analyzed.ir.regions[*region_id];
+                regions.push(json!({
+                    "regionId": region.id,
+                    "parentRegionId": region.parent,
+                    "control": region.control,
+                    "span": region.span,
+                    "exitModes": region.exit_modes,
+                }));
+            }
+        }
+    }
+    json!({
+        "compilerLowering": {
+            "mode": "structured_transaction",
+            "effects": batch.iter().map(|effect| {
+                json!({
+                    "methodPath": effect.metadata.method_path,
+                    "effectId": effect.metadata.effect_id,
+                    "regionId": effect.metadata.region_id,
+                    "regionLineage": effect.metadata.region_lineage,
+                    "span": effect.metadata.span,
+                })
+            }).collect::<Vec<_>>(),
+            "regions": regions,
+        }
+    })
 }
 
 fn lower_coordination_op(
@@ -1419,6 +1567,26 @@ fn apply_coordination_commit(state: &mut PrismCodeWriteState, commit: &Value) {
             }
         }
     }
+}
+
+fn reject_coordination_commit_if_needed(commit: &Value) -> Result<()> {
+    if let Some(message) = commit
+        .get("rejection")
+        .and_then(|rejection| rejection.get("message"))
+        .and_then(Value::as_str)
+    {
+        return Err(anyhow!("coordination transaction rejected: {message}"));
+    }
+    if commit
+        .get("outcome")
+        .and_then(Value::as_str)
+        .is_some_and(|outcome| outcome.eq_ignore_ascii_case("rejected"))
+    {
+        return Err(anyhow!(
+            "coordination transaction rejected without a rejection message"
+        ));
+    }
+    Ok(())
 }
 
 fn committed_plan_view(commit: &Value, plan_id: &str) -> Option<Value> {
@@ -1812,4 +1980,205 @@ fn existing_object_id_from_value(value: &Value, method: &str, kind: &str) -> Res
         .map(ToString::to_string)
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| anyhow!("`{method}` requires a {kind} object with a non-empty `id`"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::prism_code_compiler::{
+        analyze_prepared_typescript_program, prepare_typescript_program, PrismCodeCompilerInput,
+        PrismTypescriptProgramMode,
+    };
+    use crate::QueryLanguage;
+    use serde_json::json;
+
+    fn analyze(code: &str) -> AnalyzedPrismProgram {
+        let input = PrismCodeCompilerInput::inline("prism_code", code, QueryLanguage::Ts, true);
+        let prepared =
+            prepare_typescript_program(&input, None, PrismTypescriptProgramMode::StatementBody)
+                .expect("program should prepare");
+        analyze_prepared_typescript_program(&prepared).expect("program should analyze")
+    }
+
+    fn runtime_for(code: &str) -> PrismCodeWriteRuntime {
+        PrismCodeWriteRuntimeFactory::new(
+            Arc::new(|_| Ok(Value::Null)),
+            Arc::new(|_| Ok(json!({}))),
+            true,
+        )
+        .instantiate(analyze(code))
+    }
+
+    fn handle_id(value: &Value, kind: &str) -> String {
+        let object = value.as_object().expect("handle should be an object");
+        assert_eq!(
+            object
+                .get(HANDLE_KIND_KEY)
+                .and_then(Value::as_str)
+                .expect("handle kind"),
+            kind
+        );
+        object
+            .get(HANDLE_ID_KEY)
+            .and_then(Value::as_str)
+            .expect("handle id")
+            .to_string()
+    }
+
+    #[test]
+    fn write_runtime_preserves_parallel_region_structure() {
+        let runtime = runtime_for(
+            r#"
+const plan = await prism.coordination.createPlan({ title: "Ship" });
+await Promise.all([
+  plan.addTask({ title: "Build" }),
+  plan.addTask({ title: "Test" }),
+]);
+"#,
+        );
+        let plan = runtime
+            .create_plan(json!({ "title": "Ship" }))
+            .expect("plan create should stage");
+        let plan_handle_id = handle_id(&plan, PLAN_HANDLE_KIND);
+        runtime
+            .plan_add_task(plan_handle_id.clone(), json!({ "title": "Build" }))
+            .expect("first task should stage");
+        runtime
+            .plan_add_task(plan_handle_id, json!({ "title": "Test" }))
+            .expect("second task should stage");
+
+        let transaction_plan = runtime.debug_transaction_plan();
+        let parallel_region = transaction_plan
+            .regions
+            .iter()
+            .find(|region| {
+                matches!(
+                    region.control,
+                    super::super::program_ir::PrismProgramRegionControl::Parallel {
+                        kind: super::super::program_ir::PrismProgramParallelKind::PromiseAll,
+                        ..
+                    }
+                )
+            })
+            .expect("parallel region should be preserved");
+        assert_eq!(parallel_region.effect_ids.len(), 2);
+        assert_eq!(
+            transaction_plan
+                .ordered_effect_ids()
+                .into_iter()
+                .map(|id| transaction_plan.effects[id].metadata.method_path.clone())
+                .collect::<Vec<_>>(),
+            vec![
+                "prism.coordination.createPlan".to_string(),
+                "plan.addTask".to_string(),
+                "plan.addTask".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn write_runtime_preserves_loop_and_finally_structure_and_source_methods() {
+        let runtime = runtime_for(
+            r#"
+const plan = await prism.coordination.createPlan({ title: "Ship" });
+const task = await plan.addTask({ title: "Baseline" });
+for (const title of ["A", "B"]) {
+  await plan.addTask({ title });
+}
+try {
+  await task.complete({ summary: "done" });
+} finally {
+  await task.handoff({ summary: "handoff" });
+}
+"#,
+        );
+        let plan = runtime
+            .create_plan(json!({ "title": "Ship" }))
+            .expect("plan create should stage");
+        let plan_handle_id = handle_id(&plan, PLAN_HANDLE_KIND);
+        let task = runtime
+            .plan_add_task(plan_handle_id.clone(), json!({ "title": "Baseline" }))
+            .expect("baseline task should stage");
+        runtime
+            .plan_add_task(plan_handle_id.clone(), json!({ "title": "A" }))
+            .expect("loop task A should stage");
+        runtime
+            .plan_add_task(plan_handle_id, json!({ "title": "B" }))
+            .expect("loop task B should stage");
+        runtime
+            .task_complete(task.clone(), json!({ "summary": "done" }))
+            .expect("task complete should stage");
+        runtime
+            .task_handoff(task, json!({ "summary": "handoff" }))
+            .expect("task handoff should stage");
+
+        let transaction_plan = runtime.debug_transaction_plan();
+        assert!(transaction_plan.regions.iter().any(|region| matches!(
+            region.control,
+            super::super::program_ir::PrismProgramRegionControl::Loop {
+                kind: super::super::program_ir::PrismProgramLoopKind::ForOf,
+                ..
+            }
+        )));
+        assert!(transaction_plan.regions.iter().any(|region| {
+            matches!(
+                region.control,
+                super::super::program_ir::PrismProgramRegionControl::TryCatchFinally
+            )
+        }));
+        assert!(transaction_plan.effects.iter().any(|effect| {
+            effect.metadata.method_path == "task.complete"
+                && matches!(
+                    effect.payload,
+                    StructuredWriteOperationKind::Coordination(
+                        CoordinationWriteOp::TaskUpdate { .. }
+                    )
+                )
+        }));
+        assert!(transaction_plan.effects.iter().any(|effect| {
+            effect.metadata.method_path == "task.handoff"
+                && matches!(
+                    effect.payload,
+                    StructuredWriteOperationKind::Direct(
+                        StructuredDirectWriteOp::TaskHandoff { .. }
+                    )
+                )
+        }));
+    }
+
+    #[test]
+    fn write_runtime_surfaces_coordination_rejections() {
+        let analyzed = analyze(
+            r#"
+const plan = await prism.coordination.createPlan({ title: "Ship" });
+return { plan };
+"#,
+        );
+        let runtime = PrismCodeWriteRuntimeFactory::new(
+            Arc::new(|_| Ok(Value::Null)),
+            Arc::new(|_| {
+                Ok(json!({
+                    "outcome": "Rejected",
+                    "rejection": {
+                        "message": "simulated coordination rejection",
+                    }
+                }))
+            }),
+            false,
+        )
+        .instantiate(analyzed);
+
+        let plan = runtime
+            .create_plan(json!({ "title": "Ship" }))
+            .expect("plan create should stage");
+        let error = runtime
+            .finalize_result(json!({ "plan": plan }))
+            .expect_err("rejection should surface");
+        assert!(
+            error
+                .to_string()
+                .contains("simulated coordination rejection"),
+            "unexpected error: {error}"
+        );
+    }
 }

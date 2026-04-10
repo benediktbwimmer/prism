@@ -2550,6 +2550,7 @@ fn infer_handle_kind(
 
 fn call_path_from_expr(analyzer: &ProgramAnalyzer<'_>, expr: &Expr) -> Option<String> {
     match expr {
+        Expr::Await(await_expr) => call_path_from_expr(analyzer, &await_expr.arg),
         Expr::Call(call) => call_path_from_callee(analyzer, &call.callee),
         Expr::Member(member) => member_expr_path(analyzer, member),
         Expr::Ident(ident) => ident_path(analyzer, ident),
@@ -4422,6 +4423,22 @@ with (obj) {
         assert!(import_error.contains(
             "runtime modules for filesystem, network, process, or ambient randomness access are not allowed"
         ));
+    }
+
+    #[test]
+    fn analysis_infers_handle_paths_through_awaited_sdk_results() {
+        let analyzed = analyze(
+            r#"
+const plan = await prism.coordination.createPlan({ title: "Ship" });
+const baseline = await plan.addTask({ title: "Baseline" });
+const compare = await plan.addTask({ title: "Compare" });
+await compare.dependsOn(baseline);
+"#,
+        );
+        assert!(analyzed.ir.effects.iter().any(|effect| {
+            effect.method_path.as_deref() == Some("task.dependsOn")
+                && effect.kind == PrismProgramEffectKind::AuthoritativeWrite
+        }));
     }
 
     #[test]

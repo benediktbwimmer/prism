@@ -3,6 +3,7 @@ mod entry;
 mod input;
 mod program_ir;
 mod source;
+mod transaction_plan;
 mod typescript;
 mod write_runtime;
 
