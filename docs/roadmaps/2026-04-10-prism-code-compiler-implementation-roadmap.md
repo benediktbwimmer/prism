@@ -122,8 +122,8 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 1 review gate: unified SDK registry and compiler substrate are ready for explicit review
-  before any Phase 2 work resumes
+- Phase 2 review gate: richer PRISM Program IR and semantic analysis are ready for explicit review
+  before any Phase 3 rework resumes
 
 Current phase note:
 
@@ -152,19 +152,23 @@ Current phase note:
 - The final Phase 1 slice moves TypeScript program preparation, typechecking, and transpilation
   under the compiler module boundary so runtime entry points no longer hand-wire those frontend
   steps directly.
-- Phase 2 is not yet complete because the current `PRISM Program IR` and semantic analysis are
-  still a partial scaffold relative to the design's required semantic richness and effect model.
-- Phase 2 adds a concrete `PRISM Program IR` implementation under
-  `crates/prism-mcp/src/prism_code_compiler/program_ir.rs`, with explicit region, binding,
-  capture, and effect-site structures that preserve source spans and binding provenance.
-- Phase 2 also adds compiler-owned semantic analysis under
-  `crates/prism-mcp/src/prism_code_compiler/analysis.rs`, classifying hosted inputs,
-  coordination reads, authoritative writes, reusable artifact emission, and external execution
-  intent across functions, callbacks, branches, loops, short-circuiting, exception regions,
-  competition semantics, and reduction semantics.
-- The live `prism_code` runtime path now runs semantic analysis before transpilation and records a
-  dedicated `typescript.*.semanticAnalysis` phase, so Program IR generation is exercised on the
-  real runtime path rather than only through unit tests.
+- Phase 2 is now back at the explicit review gate.
+- `PRISM Program IR` in `crates/prism-mcp/src/prism_code_compiler/program_ir.rs` now carries
+  explicit control-region metadata for sequence, parallel, branch, loop, short-circuit,
+  try/catch/finally, function boundary, callback boundary, reduction, and competition forms.
+- The semantic model now preserves region inputs, outputs, guard spans, exit modes, binding
+  captures, flow operations, and source binding provenance instead of only coarse region/effect
+  tags.
+- Phase 2 analysis in `crates/prism-mcp/src/prism_code_compiler/analysis.rs` now classifies the
+  full effect taxonomy required by the design: pure compute, hosted deterministic input,
+  coordination read, authoritative write, reusable artifact emission, and external execution
+  intent.
+- The analyzer now distinguishes plain arrow/function boundaries from callback boundaries,
+  propagates child-region semantics into governing control regions, and exercises those semantics
+  through dedicated compiler tests.
+- The live `prism_code` runtime path still runs semantic analysis before transpilation and records
+  a dedicated `typescript.*.semanticAnalysis` phase, so the richer Program IR is exercised on the
+  real runtime path rather than only through isolated unit tests.
 - Phase 3 is not yet complete because the current write runtime still lowers through explicit
   host-operation-oriented methods and op enums rather than the design's promised structured
   compiler lowering semantics.
