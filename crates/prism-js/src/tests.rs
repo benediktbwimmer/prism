@@ -327,16 +327,22 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("runtimeStatus()"));
     assert!(prelude.contains("runtimeLogs(options = {})"));
     assert!(prelude.contains("runtimeTimeline(options = {})"));
-    assert!(prelude.contains("__prismOptionKeys.workDeclare"));
-    assert!(prelude.contains("__prismOptionKeys.claimAcquire"));
-    assert!(prelude.contains("__prismOptionKeys.claimRenew"));
-    assert!(prelude.contains("__prismOptionKeys.artifactPropose"));
-    assert!(prelude.contains("__prismOptionKeys.artifactReview"));
-    assert!(prelude.contains("__prismOptionKeys.coordinationCreatePlan"));
-    assert!(prelude.contains("__prismOptionKeys.planAddTask"));
-    assert!(prelude.contains("__prismOptionKeys.planUpdate"));
-    assert!(prelude.contains("__prismOptionKeys.taskUpdate"));
-    assert!(prelude.contains("__prismOptionKeys.taskComplete"));
+    assert!(prelude.contains("const __prismCompilerMethodRegistry ="));
+    assert!(prelude.contains("const __prismCompilerHandleMethods ="));
+    assert!(prelude.contains("const __prismCompilerRootFamilies ="));
+    assert!(prelude.contains("function __prismCompilerInvoke(methodPath, receiver, args = [])"));
+    assert!(prelude.contains("function __prismWrapCompilerHandle(raw, handleKind)"));
+    assert!(prelude.contains("return __prismCompilerInvoke(\"prism.work.declare\", null, args);"));
+    assert!(prelude.contains("return __prismCompilerInvoke(\"prism.claim.acquire\", null, args);"));
+    assert!(
+        prelude.contains("return __prismCompilerInvoke(\"prism.artifact.propose\", null, args);")
+    );
+    assert!(
+        prelude.contains(
+            "return __prismCompilerInvoke(\"prism.coordination.createPlan\", null, args);"
+        )
+    );
+    assert!(prelude.contains("__prismOptionKeys[spec.recordBundle]"));
     assert!(prelude.contains("runtime: Object.freeze({"));
     assert!(prelude.contains("connection: Object.freeze({"));
     assert!(prelude.contains("memoryRecall(options = {})"));

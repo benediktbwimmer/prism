@@ -1,14 +1,19 @@
 use std::sync::OnceLock;
 
-use crate::surface_registry::runtime_option_keys_js_object;
+use crate::surface_registry::{compiler_runtime_js_prelude, runtime_option_keys_js_object};
 
 pub fn runtime_prelude() -> &'static str {
     static PRELUDE: OnceLock<String> = OnceLock::new();
     PRELUDE.get_or_init(|| {
-        RUNTIME_PRELUDE_TEMPLATE.replace(
-            "__PRISM_OPTION_KEYS_OBJECT__",
-            runtime_option_keys_js_object(),
-        )
+        RUNTIME_PRELUDE_TEMPLATE
+            .replace(
+                "__PRISM_OPTION_KEYS_OBJECT__",
+                runtime_option_keys_js_object(),
+            )
+            .replace(
+                "__PRISM_COMPILER_RUNTIME_PRELUDE__",
+                compiler_runtime_js_prelude(),
+            )
     })
 }
 
@@ -1030,182 +1035,7 @@ function __prismTaskRef(value, methodPath, label) {
   return __prismRecordId(value, methodPath, label);
 }
 
-function __prismClaimHandle(raw) {
-  if (raw == null || typeof raw !== "object") {
-    return raw;
-  }
-  return {
-    ...raw,
-    renew(input = {}) {
-      return prism.claim.renew(raw, input);
-    },
-    release() {
-      return prism.claim.release(raw);
-    },
-  };
-}
-
-function __prismArtifactHandle(raw) {
-  if (raw == null || typeof raw !== "object") {
-    return raw;
-  }
-  return {
-    ...raw,
-    supersede() {
-      return prism.artifact.supersede(raw);
-    },
-    review(input = {}) {
-      return prism.artifact.review(raw, input);
-    },
-  };
-}
-
-function __prismCoordinationTaskHandle(raw) {
-  if (raw == null || typeof raw !== "object") {
-    return raw;
-  }
-  return {
-    ...raw,
-    update(input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "task.update",
-        input,
-        "input",
-        __prismOptionKeys.taskUpdate
-      );
-      return __prismCoordinationTaskHandle(
-        __prismHost("__coordinationTaskUpdate", {
-          task: raw,
-          input: normalized,
-        })
-      );
-    },
-    complete(input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "task.complete",
-        input,
-        "input",
-        __prismOptionKeys.taskComplete
-      );
-      return __prismCoordinationTaskHandle(
-        __prismHost("__coordinationTaskComplete", {
-          task: raw,
-          input: normalized,
-        })
-      );
-    },
-    handoff(input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "task.handoff",
-        input,
-        "input",
-        __prismOptionKeys.taskHandoff
-      );
-      return __prismCoordinationTaskHandle(
-        __prismHost("__coordinationTaskHandoff", {
-          task: raw,
-          input: normalized,
-        })
-      );
-    },
-    acceptHandoff(input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "task.acceptHandoff",
-        input,
-        "input",
-        __prismOptionKeys.taskAcceptHandoff
-      );
-      return __prismCoordinationTaskHandle(
-        __prismHost("__coordinationTaskAcceptHandoff", {
-          task: raw,
-          input: normalized,
-        })
-      );
-    },
-    resume(input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "task.resume",
-        input,
-        "input",
-        __prismOptionKeys.taskResume
-      );
-      return __prismCoordinationTaskHandle(
-        __prismHost("__coordinationTaskResume", {
-          task: raw,
-          input: normalized,
-        })
-      );
-    },
-    reclaim(input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "task.reclaim",
-        input,
-        "input",
-        __prismOptionKeys.taskReclaim
-      );
-      return __prismCoordinationTaskHandle(
-        __prismHost("__coordinationTaskReclaim", {
-          task: raw,
-          input: normalized,
-        })
-      );
-    },
-    dependsOn(dependsOn, options = {}) {
-      return __prismHost("__coordinationTaskDependsOn", {
-        task: raw,
-        dependsOn,
-        kind: options?.kind,
-      });
-    },
-  };
-}
-
-function __prismCoordinationPlanHandle(raw) {
-  if (raw == null || typeof raw !== "object") {
-    return raw;
-  }
-  return {
-    ...raw,
-    update(input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "plan.update",
-        input,
-        "input",
-        __prismOptionKeys.planUpdate
-      );
-      return __prismCoordinationPlanHandle(
-        __prismHost("__coordinationPlanUpdate", {
-          plan: raw,
-          input: normalized,
-        })
-      );
-    },
-    archive() {
-      return __prismCoordinationPlanHandle(
-        __prismHost("__coordinationPlanArchive", {
-          plan: raw,
-        })
-      );
-    },
-    addTask(input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "plan.addTask",
-        input,
-        "input",
-        __prismOptionKeys.planAddTask
-      );
-      return __prismCoordinationTaskHandle(
-        __prismHost("__coordinationPlanAddTask", {
-          planHandleId: __prismCoordinationHandleId(raw, "plan.addTask", "plan"),
-          input: normalized,
-        })
-      );
-    },
-    task(input = {}) {
-      return this.addTask(input);
-    },
-  };
-}
+__PRISM_COMPILER_RUNTIME_PRELUDE__
 
 const __prismBase = Object.freeze({
   from(runtimeId) {
@@ -1362,176 +1192,7 @@ const __prismBase = Object.freeze({
   validateToolInput(name, input) {
     return __prismHost("validateToolInput", { name, input });
   },
-  work: Object.freeze({
-    declare(input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "prism.work.declare",
-        input,
-        "input",
-        __prismOptionKeys.workDeclare
-      );
-      __prismRequiredStringField("prism.work.declare", normalized, "title");
-      return __prismHost("__declareWork", { input: normalized });
-    },
-  }),
-  claim: Object.freeze({
-    acquire(input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "prism.claim.acquire",
-        input,
-        "input",
-        __prismOptionKeys.claimAcquire
-      );
-      const coordinationTaskId =
-        normalized?.coordinationTaskId ?? normalized?.coordination_task_id;
-      return __prismClaimHandle(
-        __prismHost("__claimAcquire", {
-          input: {
-            anchors: normalized?.anchors,
-            capability: normalized?.capability,
-            mode: normalized?.mode,
-            ttlSeconds: normalized?.ttlSeconds ?? normalized?.ttl_seconds,
-            agent: normalized?.agent,
-            coordinationTaskId:
-              coordinationTaskId == null
-                ? undefined
-                : __prismTaskRef(
-                    coordinationTaskId,
-                    "prism.claim.acquire",
-                    "`coordinationTaskId`"
-                  ),
-          },
-        })
-      );
-    },
-    renew(claim, input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "prism.claim.renew",
-        input,
-        "input",
-        __prismOptionKeys.claimRenew
-      );
-      return __prismClaimHandle(
-        __prismHost("__claimRenew", {
-          claim,
-          input: {
-            ttlSeconds: normalized?.ttlSeconds ?? normalized?.ttl_seconds,
-          },
-        })
-      );
-    },
-    release(claim) {
-      return __prismClaimHandle(
-        __prismHost("__claimRelease", {
-          claim,
-        })
-      );
-    },
-  }),
-  artifact: Object.freeze({
-    propose(input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "prism.artifact.propose",
-        input,
-        "input",
-        __prismOptionKeys.artifactPropose
-      );
-      const taskId = normalized?.taskId ?? normalized?.task_id;
-      return __prismArtifactHandle(
-        __prismHost("__artifactPropose", {
-          input: {
-            taskId: __prismTaskRef(taskId, "prism.artifact.propose", "`taskId`"),
-            artifactRequirementId:
-              normalized?.artifactRequirementId ?? normalized?.artifact_requirement_id,
-            anchors: normalized?.anchors,
-            diffRef: normalized?.diffRef ?? normalized?.diff_ref,
-            evidence: normalized?.evidence,
-            requiredValidations:
-              normalized?.requiredValidations ?? normalized?.required_validations,
-            validatedChecks:
-              normalized?.validatedChecks ?? normalized?.validated_checks,
-            riskScore: normalized?.riskScore ?? normalized?.risk_score,
-          },
-        })
-      );
-    },
-    supersede(artifact) {
-      return __prismArtifactHandle(
-        __prismHost("__artifactSupersede", {
-          artifact,
-        })
-      );
-    },
-    review(artifact, input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "prism.artifact.review",
-        input,
-        "input",
-        __prismOptionKeys.artifactReview
-      );
-      return __prismArtifactHandle(
-        __prismHost("__artifactReview", {
-          artifact,
-          input: {
-            reviewRequirementId:
-              normalized?.reviewRequirementId ?? normalized?.review_requirement_id,
-            verdict: normalized?.verdict,
-            summary: normalized?.summary,
-            requiredValidations:
-              normalized?.requiredValidations ?? normalized?.required_validations,
-            validatedChecks:
-              normalized?.validatedChecks ?? normalized?.validated_checks,
-            riskScore: normalized?.riskScore ?? normalized?.risk_score,
-          },
-        })
-      );
-    },
-  }),
-  coordination: Object.freeze({
-    createPlan(input = {}) {
-      const normalized = __prismValidateRecordShape(
-        "prism.coordination.createPlan",
-        input,
-        "input",
-        __prismOptionKeys.coordinationCreatePlan
-      );
-      return __prismCoordinationPlanHandle(
-        __prismHost("__coordinationCreatePlan", { input: normalized })
-      );
-    },
-    openPlan(planId) {
-      if (typeof planId !== "string" || planId.trim() === "") {
-        __prismThrowQueryUserError(
-          "prism_code coordination plan id invalid",
-          "prism.coordination.openPlan(planId) requires a non-empty plan id string.",
-          {
-            code: "coordination_plan_id_required",
-            category: "coordination_builder",
-            method: "prism.coordination.openPlan",
-          }
-        );
-      }
-      return __prismCoordinationPlanHandle(
-        __prismHost("__coordinationOpenPlan", { planId: planId.trim() })
-      );
-    },
-    openTask(taskId) {
-      if (typeof taskId !== "string" || taskId.trim() === "") {
-        __prismThrowQueryUserError(
-          "prism_code coordination task id invalid",
-          "prism.coordination.openTask(taskId) requires a non-empty task id string.",
-          {
-            code: "coordination_task_id_required",
-            category: "coordination_builder",
-            method: "prism.coordination.openTask",
-          }
-        );
-      }
-      return __prismCoordinationTaskHandle(
-        __prismHost("__coordinationOpenTask", { taskId: taskId.trim() })
-      );
-    },
-  }),
+  ...__prismCompilerRootFamilies,
   entrypoints() {
     return __prismEnrichSymbols(__prismHost("entrypoints", {}));
   },
@@ -1600,7 +1261,7 @@ const __prismBase = Object.freeze({
   },
   claims(target) {
     return __prismHost("claims", { anchors: __prismNormalizeAnchors(target) }).map(
-      __prismClaimHandle
+      (raw) => __prismWrapCompilerHandle(raw, "claim")
     );
   },
   conflicts(target) {
@@ -1617,11 +1278,13 @@ const __prismBase = Object.freeze({
   },
   pendingReviews(planId) {
     return __prismHost("pendingReviews", planId == null ? {} : { planId }).map(
-      __prismArtifactHandle
+      (raw) => __prismWrapCompilerHandle(raw, "artifact")
     );
   },
   artifacts(taskId) {
-    return __prismHost("artifacts", { taskId }).map(__prismArtifactHandle);
+    return __prismHost("artifacts", { taskId }).map(
+      (raw) => __prismWrapCompilerHandle(raw, "artifact")
+    );
   },
   policyViolations(input = {}) {
     input = __prismValidateRecordShape(

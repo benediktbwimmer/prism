@@ -122,7 +122,8 @@ Current phase checklist:
 
 Current active phase:
 
-- Reopened Phase 1-3 fidelity review and rework against the compiler architecture design
+- Phase 1 fidelity review gate: review registry-driven compiler runtime ownership before Phase 2
+  rework
 
 Current phase note:
 
@@ -134,6 +135,10 @@ Current phase note:
   surface registry actually own the runtime prelude and SDK surface end to end.
 - The existing Phase 1 substrate still leaves too much of the live runtime surface hand-authored
   outside the compiler-owned registry.
+- The current Phase 1 rework moves the compiler-owned `work`, `claim`, `artifact`, `coordination`,
+  `plan`, and `task` runtime surface into registry-driven runtime generation inside
+  `prism-js`, replacing the previously hand-authored compiler-specific runtime methods and handle
+  methods.
 - The first Phase 1 slice establishes a compiler-owned
   `prism-js` surface registry and uses that registry to drive the runtime prelude and
   typechecked method surface for current compiler-owned SDK entry points.
