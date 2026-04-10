@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use deno_ast::swc::ast::{
     ArrayLit, ArrowExpr, AssignPatProp, BinaryOp, BlockStmtOrExpr, CallExpr, Callee, CatchClause,
     ClassMethod, ClassProp, Constructor, Decl, DoWhileStmt, Expr, ExprOrSpread, FnDecl, FnExpr,
@@ -10,17 +10,17 @@ use deno_ast::swc::ast::{
 };
 use deno_ast::swc::common::{BytePos, Span};
 use deno_ast::{
-    parse_program, MediaType, ModuleSpecifier, ParseParams, ParsedSource, ProgramRef, SourcePos,
+    MediaType, ModuleSpecifier, ParseParams, ParsedSource, ProgramRef, SourcePos, parse_program,
 };
-use prism_js::{prism_compiler_method_spec, PrismCompilerEffectKind};
+use prism_js::{PrismCompilerEffectKind, prism_compiler_method_spec};
 
 use super::{
+    PreparedTypescriptProgram,
     program_ir::{
         PrismProgramBindingId, PrismProgramBindingKind, PrismProgramEffectKind,
         PrismProgramHandleKind, PrismProgramIr, PrismProgramRegionId, PrismProgramRegionKind,
         PrismProgramSourceSpan,
     },
-    PreparedTypescriptProgram,
 };
 
 #[derive(Debug, Clone)]
@@ -966,10 +966,10 @@ pub(crate) fn analyze_prepared_typescript_program(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prism_code_compiler::{
-        prepare_typescript_program, PrismCodeCompilerInput, PrismTypescriptProgramMode,
-    };
     use crate::QueryLanguage;
+    use crate::prism_code_compiler::{
+        PrismCodeCompilerInput, PrismTypescriptProgramMode, prepare_typescript_program,
+    };
 
     fn analyze(code: &str) -> AnalyzedPrismProgram {
         let input = PrismCodeCompilerInput::inline("prism_code", code, QueryLanguage::Ts, true);
@@ -998,26 +998,34 @@ if (flag) {
             .expect("plan binding should exist");
         assert_eq!(plan_binding.handle_kind, Some(PrismProgramHandleKind::Plan));
         assert_eq!(plan_binding.span.start_line, 2);
-        assert!(analyzed
-            .ir
-            .bindings
-            .iter()
-            .any(|binding| binding.name == "task"));
-        assert!(analyzed
-            .ir
-            .effects
-            .iter()
-            .any(|effect| effect.kind == PrismProgramEffectKind::AuthoritativeWrite));
-        assert!(analyzed
-            .ir
-            .regions
-            .iter()
-            .any(|region| region.kind == PrismProgramRegionKind::Branch));
-        assert!(analyzed
-            .ir
-            .effects
-            .iter()
-            .any(|effect| effect.method_path.as_deref() == Some("plan.addTask")));
+        assert!(
+            analyzed
+                .ir
+                .bindings
+                .iter()
+                .any(|binding| binding.name == "task")
+        );
+        assert!(
+            analyzed
+                .ir
+                .effects
+                .iter()
+                .any(|effect| effect.kind == PrismProgramEffectKind::AuthoritativeWrite)
+        );
+        assert!(
+            analyzed
+                .ir
+                .regions
+                .iter()
+                .any(|region| region.kind == PrismProgramRegionKind::Branch)
+        );
+        assert!(
+            analyzed
+                .ir
+                .effects
+                .iter()
+                .any(|effect| effect.method_path.as_deref() == Some("plan.addTask"))
+        );
     }
 
     #[test]
@@ -1031,31 +1039,41 @@ async function build(items) {
 }
 "#,
         );
-        assert!(analyzed
-            .ir
-            .regions
-            .iter()
-            .any(|region| region.kind == PrismProgramRegionKind::FunctionBoundary));
-        assert!(analyzed
-            .ir
-            .regions
-            .iter()
-            .any(|region| region.kind == PrismProgramRegionKind::Parallel));
-        assert!(analyzed
-            .ir
-            .regions
-            .iter()
-            .any(|region| region.kind == PrismProgramRegionKind::Reduction));
-        assert!(analyzed
-            .ir
-            .captures
-            .iter()
-            .any(|capture| capture.binding_name == "plan"));
-        assert!(analyzed
-            .ir
-            .captures
-            .iter()
-            .all(|capture| capture.span.start_line > 0));
+        assert!(
+            analyzed
+                .ir
+                .regions
+                .iter()
+                .any(|region| region.kind == PrismProgramRegionKind::FunctionBoundary)
+        );
+        assert!(
+            analyzed
+                .ir
+                .regions
+                .iter()
+                .any(|region| region.kind == PrismProgramRegionKind::Parallel)
+        );
+        assert!(
+            analyzed
+                .ir
+                .regions
+                .iter()
+                .any(|region| region.kind == PrismProgramRegionKind::Reduction)
+        );
+        assert!(
+            analyzed
+                .ir
+                .captures
+                .iter()
+                .any(|capture| capture.binding_name == "plan")
+        );
+        assert!(
+            analyzed
+                .ir
+                .captures
+                .iter()
+                .all(|capture| capture.span.start_line > 0)
+        );
     }
 
     #[test]
@@ -1073,35 +1091,47 @@ for (const taskId of taskIds) {
 }
 "#,
         );
-        assert!(analyzed
-            .ir
-            .regions
-            .iter()
-            .any(|region| region.kind == PrismProgramRegionKind::Loop));
-        assert!(analyzed
-            .ir
-            .regions
-            .iter()
-            .any(|region| region.kind == PrismProgramRegionKind::TryCatchFinally));
-        assert!(analyzed
-            .ir
-            .regions
-            .iter()
-            .any(|region| region.kind == PrismProgramRegionKind::ShortCircuit));
-        assert!(analyzed
-            .ir
-            .effects
-            .iter()
-            .any(|effect| { effect.kind == PrismProgramEffectKind::HostedDeterministicInput }));
-        assert!(analyzed
-            .ir
-            .effects
-            .iter()
-            .any(|effect| effect.kind == PrismProgramEffectKind::CoordinationRead));
-        assert!(analyzed
-            .ir
-            .bindings
-            .iter()
-            .any(|binding| binding.kind == PrismProgramBindingKind::CatchParameter));
+        assert!(
+            analyzed
+                .ir
+                .regions
+                .iter()
+                .any(|region| region.kind == PrismProgramRegionKind::Loop)
+        );
+        assert!(
+            analyzed
+                .ir
+                .regions
+                .iter()
+                .any(|region| region.kind == PrismProgramRegionKind::TryCatchFinally)
+        );
+        assert!(
+            analyzed
+                .ir
+                .regions
+                .iter()
+                .any(|region| region.kind == PrismProgramRegionKind::ShortCircuit)
+        );
+        assert!(
+            analyzed
+                .ir
+                .effects
+                .iter()
+                .any(|effect| { effect.kind == PrismProgramEffectKind::HostedDeterministicInput })
+        );
+        assert!(
+            analyzed
+                .ir
+                .effects
+                .iter()
+                .any(|effect| effect.kind == PrismProgramEffectKind::CoordinationRead)
+        );
+        assert!(
+            analyzed
+                .ir
+                .bindings
+                .iter()
+                .any(|binding| binding.kind == PrismProgramBindingKind::CatchParameter)
+        );
     }
 }

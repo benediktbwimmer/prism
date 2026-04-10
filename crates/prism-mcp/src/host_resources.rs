@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use prism_agent::EdgeId;
 use prism_coordination::CanonicalTaskRecord;
 use prism_core::diagnose_protected_state;
@@ -13,16 +13,24 @@ use crate::query_types::{parse_plan_scope, parse_plan_status};
 use crate::trust_surface::protected_state_stream_view;
 use crate::ui_read_models::PlansResourceSort;
 use crate::{
-    anchor_resource_view_links, capabilities_resource_uri, capabilities_resource_value,
-    capabilities_resource_view_link, co_change_view, compact_discovery_bundle_candidate_excerpts,
-    compact_owner_candidate_excerpts, contract_packet_view,
-    contracts_resource_view_link_with_options, dedupe_resource_link_views, discovery_bundle_view,
-    edge_resource_uri, edge_resource_view_link, event_resource_view_link, file_resource_view_link,
-    inferred_edge_record_view, instructions_resource_view_link, lineage_event_view,
-    lineage_resource_view_link, lineage_status, memory_entry_view, memory_event_view,
-    memory_resource_uri, memory_resource_view_link, owner_views_for_query, paginate_items,
-    parse_resource_page, parse_resource_query_param, plan_resource_uri, plan_resource_view_link,
-    plans_resource_view_link, plans_resource_view_link_with_options,
+    CapabilitiesResourcePayload, ContractsResourcePayload, CoordinationFeaturesView,
+    DEFAULT_RESOURCE_PAGE_LIMIT, ENTRYPOINTS_URI, EdgeResourcePayload, EntrypointsResourcePayload,
+    EventResourcePayload, FeatureFlagsView, FileResourcePayload, InferredEdgeRecordView,
+    LineageResourcePayload, MemoryResourcePayload, PlanResourcePayload, PlansResourcePayload,
+    ProtectedStateResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload,
+    RuntimeCapabilitiesView, SearchArgs, SearchResourcePayload, SessionLimitsView,
+    SessionRepairActionView, SessionResourcePayload, SessionState, SessionTaskView, SessionView,
+    SessionWorkView, SymbolResourcePayload, TaskHeartbeatAdvice, TaskResourcePayload,
+    VocabularyResourcePayload, anchor_resource_view_links, capabilities_resource_uri,
+    capabilities_resource_value, capabilities_resource_view_link, co_change_view,
+    compact_discovery_bundle_candidate_excerpts, compact_owner_candidate_excerpts,
+    contract_packet_view, contracts_resource_view_link_with_options, dedupe_resource_link_views,
+    discovery_bundle_view, edge_resource_uri, edge_resource_view_link, event_resource_view_link,
+    file_resource_view_link, inferred_edge_record_view, instructions_resource_view_link,
+    lineage_event_view, lineage_resource_view_link, lineage_status, memory_entry_view,
+    memory_event_view, memory_resource_uri, memory_resource_view_link, owner_views_for_query,
+    paginate_items, parse_resource_page, parse_resource_query_param, plan_resource_uri,
+    plan_resource_view_link, plans_resource_view_link, plans_resource_view_link_with_options,
     protected_state_resource_view_link, resource_link_view, resource_schema_catalog_entries,
     schema_resource_uri, schema_resource_view_link, schemas_resource_uri,
     schemas_resource_view_link, search_ambiguity_from_diagnostics,
@@ -31,15 +39,7 @@ use crate::{
     symbol_view, symbol_views_for_ids, task_heartbeat_advice, task_heartbeat_next_action,
     task_resource_view_link, task_resource_view_links_from_events, tool_schemas_resource_value,
     tool_schemas_resource_view_link, vocab_resource_value, vocab_resource_view_link,
-    workspace_revision_view, CapabilitiesResourcePayload, ContractsResourcePayload,
-    CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
-    EventResourcePayload, FeatureFlagsView, FileResourcePayload, InferredEdgeRecordView,
-    LineageResourcePayload, MemoryResourcePayload, PlanResourcePayload, PlansResourcePayload,
-    ProtectedStateResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload,
-    RuntimeCapabilitiesView, SearchArgs, SearchResourcePayload, SessionLimitsView,
-    SessionRepairActionView, SessionResourcePayload, SessionState, SessionTaskView, SessionView,
-    SessionWorkView, SymbolResourcePayload, TaskHeartbeatAdvice, TaskResourcePayload,
-    VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, ENTRYPOINTS_URI,
+    workspace_revision_view,
 };
 
 impl QueryHost {

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use prism_coordination::{CanonicalTaskRecord, LeaseState, TaskBlocker, TaskGitExecution};
 use prism_ir::{
     AnchorRef, CoordinationTaskId, EdgeKind, GitExecutionStatus, GitIntegrationStatus, NodeId,
@@ -19,8 +19,8 @@ use serde_json::json;
 use super::suggested_actions::{dedupe_suggested_actions, suggested_open_action};
 use super::*;
 use crate::{
-    symbol_view_without_excerpt, task_heartbeat_advice, task_heartbeat_next_action,
-    PrismTaskBriefArgs, TaskHeartbeatAdvice,
+    PrismTaskBriefArgs, TaskHeartbeatAdvice, symbol_view_without_excerpt, task_heartbeat_advice,
+    task_heartbeat_next_action,
 };
 
 impl QueryHost {

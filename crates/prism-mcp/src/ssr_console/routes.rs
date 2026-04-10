@@ -1,16 +1,16 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
+use axum::Router;
 use axum::body::Body;
 use axum::extract::{Form, Path, Query, State};
 use axum::http::{
-    header::{CONTENT_DISPOSITION, CONTENT_TYPE},
     HeaderMap, HeaderValue, Response, StatusCode,
+    header::{CONTENT_DISPOSITION, CONTENT_TYPE},
 };
 use axum::response::{Html, IntoResponse};
 use axum::routing::{get, post};
-use axum::Router;
 use prism_core::render_repo_published_plan_markdown;
 use prism_ir::{DerivedPlanStatus, PlanId, PlanStatus};
 use serde::Deserialize;
@@ -18,7 +18,7 @@ use serde_json::json;
 
 use super::assets::{console_css, console_js};
 use super::concepts::{
-    build_concept_slice, concept_handle_to_slug, concept_slug_to_handle, ConceptDirection,
+    ConceptDirection, build_concept_slice, concept_handle_to_slug, concept_slug_to_handle,
 };
 use super::html::{
     duration_label, escape_html, json_script_escape, markdown_to_html, page_shell, percent,
@@ -26,7 +26,7 @@ use super::html::{
 };
 use super::mermaid::concept_graph_mermaid;
 use crate::ui_assets::prism_ui_favicon_asset;
-use crate::ui_mutations::{map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest};
+use crate::ui_mutations::{PrismUiMutateRequest, map_ui_mutation_error, resolve_ui_mutation_args};
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_router::PrismUiState;
 use crate::ui_types::{PrismPlanDetailView, PrismPlansView, PrismUiFleetView};
@@ -1198,7 +1198,7 @@ fn internal_error(error: anyhow::Error) -> (StatusCode, String) {
 fn ui_error_to_status_message(
     error: (StatusCode, axum::Json<serde_json::Value>),
 ) -> (StatusCode, String) {
-    (error.0, error.1 .0.to_string())
+    (error.0, error.1.0.to_string())
 }
 
 fn rejected_mutation_message(result: &crate::PrismMutationResult) -> Option<String> {
@@ -1235,7 +1235,7 @@ async fn prism_ui_favicon(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::body::{to_bytes, Body};
+    use axum::body::{Body, to_bytes};
     use axum::http::{Request, StatusCode};
     use serde_json::json;
     use tower::util::ServiceExt;
@@ -1349,13 +1349,15 @@ mod tests {
             response.headers().get(CONTENT_TYPE).unwrap(),
             "text/markdown; charset=utf-8"
         );
-        assert!(response
-            .headers()
-            .get(CONTENT_DISPOSITION)
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .contains(".md"));
+        assert!(
+            response
+                .headers()
+                .get(CONTENT_DISPOSITION)
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .contains(".md")
+        );
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let text = std::str::from_utf8(&body).unwrap();
         assert!(text.contains("# Console markdown export"));

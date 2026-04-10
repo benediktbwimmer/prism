@@ -1,13 +1,13 @@
 use std::collections::{HashSet, VecDeque};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use prism_ir::{EdgeKind, NodeId};
 use prism_js::{OwnerCandidateView, SymbolView};
 use prism_query::Prism;
 
 use crate::{
-    merge_node_ids, owner_symbol_views_for_target, owner_views_for_target, symbol_views_for_ids,
-    SessionState,
+    SessionState, merge_node_ids, owner_symbol_views_for_target, owner_views_for_target,
+    symbol_views_for_ids,
 };
 
 pub(crate) fn next_reads(

@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use prism_agent::{InferenceStore, InferredEdgeRecord, InferredEdgeScope};
 use prism_ir::{
-    new_prefixed_id, new_slugged_id, new_sortable_token, AgentId, EventId, NodeId, NodeKind,
-    SessionId, TaskId, WorkContextKind,
+    AgentId, EventId, NodeId, NodeKind, SessionId, TaskId, WorkContextKind, new_prefixed_id,
+    new_slugged_id, new_sortable_token,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryModule, RecallQuery, ScoredMemory,

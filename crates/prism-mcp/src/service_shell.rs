@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use prism_agent::InferenceStore;
 use prism_core::{
-    publish_local_runtime_descriptor_with_provider, CoordinationAuthorityStoreProvider,
-    WorkspaceSession,
+    CoordinationAuthorityStoreProvider, WorkspaceSession,
+    publish_local_runtime_descriptor_with_provider,
 };
 use prism_memory::SessionMemory;
 use tracing::debug;
@@ -14,7 +14,7 @@ use crate::host_mutations::WorkspaceMutationBroker;
 use crate::mcp_call_log::McpCallLogStore;
 use crate::read_broker::WorkspaceReadBroker;
 use crate::runtime_gateway::WorkspaceRuntimeGateway;
-use crate::session_seed::{load_session_seed, PersistedSessionSeed};
+use crate::session_seed::{PersistedSessionSeed, load_session_seed};
 use crate::workspace_event_engine::WorkspaceEventEngine;
 use crate::workspace_host::{WorkspaceRuntimeBinding, WorkspaceRuntimeHost};
 use crate::workspace_runtime::WorkspaceAuthoritySyncOwner;

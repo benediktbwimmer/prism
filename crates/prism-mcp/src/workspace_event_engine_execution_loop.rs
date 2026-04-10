@@ -5,7 +5,7 @@ use prism_core::{
 };
 use prism_ir::{EventExecutionId, Timestamp};
 
-use crate::workspace_event_engine::{service_event_execution_owner, WorkspaceEventEngine};
+use crate::workspace_event_engine::{WorkspaceEventEngine, service_event_execution_owner};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EventTriggerExecutionPassRequest {

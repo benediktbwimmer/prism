@@ -13,10 +13,10 @@ use prism_query::Prism;
 use serde_json::json;
 
 use crate::{
+    CONTEXT_BLOCK_LIMIT, GroupedOwnerCandidateViews, INSIGHT_LIMIT, SessionState,
     blast_radius_view, co_change_view, context_target_block, contract_packet_view,
     focused_blocks_for_symbol_views, grouped_owner_views_for_target, lineage_view,
     promoted_summary_texts, relations_view, scored_memory_view, symbol_for, symbol_view,
-    GroupedOwnerCandidateViews, SessionState, CONTEXT_BLOCK_LIMIT, INSIGHT_LIMIT,
 };
 
 const MEMORY_CONTEXT_LIMIT: usize = 5;

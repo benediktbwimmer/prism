@@ -1,7 +1,7 @@
 use prism_ir::NodeId;
 use prism_js::SuggestedQueryView;
 
-use crate::{edit_context_queries, read_context_queries, search_queries, SearchAmbiguityView};
+use crate::{SearchAmbiguityView, edit_context_queries, read_context_queries, search_queries};
 
 pub(crate) fn symbol_suggested_queries(target: &NodeId) -> Vec<SuggestedQueryView> {
     let mut suggestions = read_context_queries(target);

@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use axum::body::Body;
 use axum::extract::{Path, Query, State};
-use axum::http::{header::CONTENT_TYPE, Response, StatusCode};
+use axum::http::{Response, StatusCode, header::CONTENT_TYPE};
 use axum::response::Html;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -13,7 +13,7 @@ use serde_json::Value;
 use crate::ui_assets::{
     prism_ui_asset, prism_ui_favicon_asset, prism_ui_index_html, prism_ui_unbuilt_html,
 };
-use crate::ui_mutations::{map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest};
+use crate::ui_mutations::{PrismUiMutateRequest, map_ui_mutation_error, resolve_ui_mutation_args};
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_types::{
     PrismGraphView, PrismOverviewView, PrismPlanDetailView, PrismPlansView, PrismUiFleetView,
@@ -219,10 +219,10 @@ fn prism_ui_asset_response(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::body::{to_bytes, Body};
+    use axum::body::{Body, to_bytes};
     use axum::http::{Request, StatusCode};
-    use serde_json::json;
     use serde_json::Value;
+    use serde_json::json;
     use tower::util::ServiceExt;
 
     use crate::tests_support::{
@@ -230,7 +230,7 @@ mod tests {
         workspace_session_with_owner_credential,
     };
     use crate::{CoordinationMutationKindInput, PrismCoordinationArgs};
-    use prism_core::{index_workspace_session, CredentialProfile, CredentialsFile, PrismPaths};
+    use prism_core::{CredentialProfile, CredentialsFile, PrismPaths, index_workspace_session};
 
     fn ui_state_from_root(root: &std::path::Path) -> PrismUiState {
         let server = Arc::new(PrismMcpServer::with_session(
@@ -386,9 +386,11 @@ mod tests {
             value["session"]["bridgeIdentity"]["principalId"],
             Value::from(credential.principal_id)
         );
-        assert!(value["session"]["bridgeIdentity"]["credentialId"]
-            .as_str()
-            .is_some_and(|id| id.starts_with("credential:")));
+        assert!(
+            value["session"]["bridgeIdentity"]["credentialId"]
+                .as_str()
+                .is_some_and(|id| id.starts_with("credential:"))
+        );
     }
 
     #[tokio::test]
@@ -465,9 +467,11 @@ mod tests {
         assert_eq!(task_value["task"]["id"], Value::from(task_id.clone()));
         assert_eq!(task_value["editable"]["title"], Value::from("Primary task"));
         assert!(task_value["claimHistory"].is_array());
-        assert!(task_value["blockers"]
-            .as_array()
-            .is_some_and(|items| !items.is_empty()));
+        assert!(
+            task_value["blockers"]
+                .as_array()
+                .is_some_and(|items| !items.is_empty())
+        );
         assert!(task_value["artifacts"].is_array());
         assert!(task_value["recentCommits"].is_array());
 
@@ -620,9 +624,11 @@ mod tests {
             .unwrap();
         let detail_value: Value = serde_json::from_slice(&detail_body).unwrap();
         assert_eq!(detail_value["plan"]["planId"], Value::from(alpha_plan_id));
-        assert!(detail_value["childTasks"]
-            .as_array()
-            .is_some_and(|tasks| !tasks.is_empty()));
+        assert!(
+            detail_value["childTasks"]
+                .as_array()
+                .is_some_and(|tasks| !tasks.is_empty())
+        );
         assert!(detail_value["children"].as_array().is_some());
     }
 

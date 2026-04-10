@@ -12,18 +12,18 @@ use axum::Router;
 use rmcp::{
     model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
     transport::{
-        streamable_http_server::session::local::LocalSessionManager, StreamableHttpServerConfig,
-        StreamableHttpService, Transport,
+        StreamableHttpServerConfig, StreamableHttpService, Transport,
+        streamable_http_server::session::local::LocalSessionManager,
     },
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::*;
 use prism_core::{
-    default_workspace_session_options, default_workspace_shared_runtime,
-    hydrate_workspace_session_with_options, index_workspace_session,
-    index_workspace_session_with_options, BootstrapOwnerInput, PrismPaths, WorkspaceSessionOptions,
-    WorktreeMode, WorktreeRegistrationRecord,
+    BootstrapOwnerInput, PrismPaths, WorkspaceSessionOptions, WorktreeMode,
+    WorktreeRegistrationRecord, default_workspace_session_options,
+    default_workspace_shared_runtime, hydrate_workspace_session_with_options,
+    index_workspace_session, index_workspace_session_with_options,
 };
 use prism_ir::new_sortable_token;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
@@ -263,10 +263,7 @@ pub(crate) fn prism_code_write_arguments(
     credential: &MutationCredentialFixture,
 ) -> serde_json::Map<String, Value> {
     serde_json::Map::from_iter([
-        (
-            String::from("code"),
-            json!(code.into()),
-        ),
+        (String::from("code"), json!(code.into())),
         (
             String::from("credential"),
             mutation_credential_json(credential),

@@ -3,12 +3,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use prism_core::{PrismPaths, WorktreeMode};
+use rmcp::ErrorData as McpError;
 use rmcp::model::{
     Annotated, CallToolResult, RawResource, Resource, ResourceContents, Tool, ToolAnnotations,
 };
-use rmcp::ErrorData as McpError;
 use serde::Deserialize;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::BridgeIdentityView;
 

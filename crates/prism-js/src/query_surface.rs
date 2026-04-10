@@ -309,124 +309,918 @@ const WHERE_USED_KEYS: &[&str] = &["mode", "limit"];
 
 pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
     static SPECS: &[PrismApiMethodSpec] = &[
-        method!("prism.from", "from(runtimeId: string): PrismApi;", PrismSurfaceTypeRef::Unknown),
-        method!("prism.symbol", "symbol(query: string): SymbolView | null;", PrismSurfaceTypeRef::NullableNamed("SymbolView")),
-        method!("prism.symbolBundle", "symbolBundle(query: string, options?: SymbolBundleOptions): SymbolBundleView;", PrismSurfaceTypeRef::Named("SymbolBundleView")),
-        method!("prism.symbols", "symbols(query: string): SymbolView[];", PrismSurfaceTypeRef::ArrayOfNamed("SymbolView")),
-        method!("prism.search", "search(query: string, options?: SearchOptions): SymbolView[];", PrismSurfaceTypeRef::ArrayOfNamed("SymbolView"), PrismRecordArgBundle { bundle_name: "search", arg_name: "options", arg_index: 1, allowed_keys: SEARCH_KEYS }),
-        method!("prism.concepts", "concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];", PrismSurfaceTypeRef::ArrayOfNamed("ConceptPacketView"), PrismRecordArgBundle { bundle_name: "concept", arg_name: "options", arg_index: 1, allowed_keys: CONCEPT_KEYS }),
-        method!("prism.concept", "concept(query: string, options?: ConceptQueryOptions): ConceptPacketView | null;", PrismSurfaceTypeRef::NullableNamed("ConceptPacketView"), PrismRecordArgBundle { bundle_name: "concept", arg_name: "options", arg_index: 1, allowed_keys: CONCEPT_KEYS }),
-        method!("prism.conceptByHandle", "conceptByHandle(handle: string, options?: { verbosity?: \"summary\" | \"standard\" | \"full\"; includeBindingMetadata?: boolean }): ConceptPacketView | null;", PrismSurfaceTypeRef::NullableNamed("ConceptPacketView"), PrismRecordArgBundle { bundle_name: "concept", arg_name: "options", arg_index: 1, allowed_keys: CONCEPT_KEYS }),
-        method!("prism.contract", "contract(query: string): ContractPacketView | null;", PrismSurfaceTypeRef::NullableNamed("ContractPacketView")),
-        method!("prism.contracts", "contracts(options?: ContractListOptions): ContractPacketView[];", PrismSurfaceTypeRef::ArrayOfNamed("ContractPacketView"), PrismRecordArgBundle { bundle_name: "contracts", arg_name: "options", arg_index: 0, allowed_keys: CONTRACTS_KEYS }),
-        method!("prism.contractsFor", "contractsFor(target: QueryTarget): ContractPacketView[];", PrismSurfaceTypeRef::ArrayOfNamed("ContractPacketView")),
-        method!("prism.specs", "specs(): SpecListEntryView[];", PrismSurfaceTypeRef::ArrayOfNamed("SpecListEntryView")),
-        method!("prism.spec", "spec(specId: string): SpecDocumentView | null;", PrismSurfaceTypeRef::NullableNamed("SpecDocumentView")),
-        method!("prism.specSyncBrief", "specSyncBrief(specId: string): SpecSyncBriefView | null;", PrismSurfaceTypeRef::NullableNamed("SpecSyncBriefView")),
-        method!("prism.specCoverage", "specCoverage(specId: string): SpecCoverageRecordView[];", PrismSurfaceTypeRef::ArrayOfNamed("SpecCoverageRecordView")),
-        method!("prism.specSyncProvenance", "specSyncProvenance(specId: string): SpecSyncProvenanceRecordView[];", PrismSurfaceTypeRef::ArrayOfNamed("SpecSyncProvenanceRecordView")),
-        method!("prism.conceptRelations", "conceptRelations(handle: string): ConceptRelationView[];", PrismSurfaceTypeRef::ArrayOfNamed("ConceptRelationView")),
-        method!("prism.decodeConcept", "decodeConcept(input: { handle?: string; query?: string; lens?: \"open\" | \"workset\" | \"validation\" | \"timeline\" | \"memory\"; verbosity?: \"summary\" | \"standard\" | \"full\"; includeBindingMetadata?: boolean }): ConceptDecodeView | null;", PrismSurfaceTypeRef::NullableNamed("ConceptDecodeView"), PrismRecordArgBundle { bundle_name: "decodeConcept", arg_name: "input", arg_index: 0, allowed_keys: DECODE_CONCEPT_KEYS }),
-        method!("prism.searchText", "searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];", PrismSurfaceTypeRef::ArrayOfNamed("TextSearchMatchView"), PrismRecordArgBundle { bundle_name: "searchText", arg_name: "options", arg_index: 1, allowed_keys: SEARCH_TEXT_KEYS }),
-        method!("prism.textSearchBundle", "textSearchBundle(query: string, options?: TextSearchBundleOptions): TextSearchBundleView;", PrismSurfaceTypeRef::Named("TextSearchBundleView"), PrismRecordArgBundle { bundle_name: "textSearchBundle", arg_name: "options", arg_index: 1, allowed_keys: TEXT_SEARCH_BUNDLE_KEYS }),
-        method!("prism.tools", "tools(): ToolCatalogEntryView[];", PrismSurfaceTypeRef::ArrayOfNamed("ToolCatalogEntryView")),
-        method!("prism.tool", "tool(name: string): ToolSchemaView | null;", PrismSurfaceTypeRef::NullableNamed("ToolSchemaView")),
-        method!("prism.validateToolInput", "validateToolInput(name: string, input: unknown): ToolInputValidationView;", PrismSurfaceTypeRef::Named("ToolInputValidationView")),
-        method!("prism.entrypoints", "entrypoints(): SymbolView[];", PrismSurfaceTypeRef::ArrayOfNamed("SymbolView")),
-        method!("prism.file", "file(path: string): FileView;", PrismSurfaceTypeRef::Unknown),
-        helper!("prism.file(path).read", PrismSurfaceTypeRef::NullableNamed("SourceExcerptView"), PrismRecordArgBundle { bundle_name: "fileRead", arg_name: "options", arg_index: 0, allowed_keys: FILE_READ_KEYS }),
-        helper!("prism.file(path).around", PrismSurfaceTypeRef::NullableNamed("SourceSliceView"), PrismRecordArgBundle { bundle_name: "fileAround", arg_name: "options", arg_index: 0, allowed_keys: FILE_AROUND_KEYS }),
-        method!("prism.plans", "plans(options?: PlanListOptions): PlanListEntryView[];", PrismSurfaceTypeRef::ArrayOfNamed("PlanListEntryView"), PrismRecordArgBundle { bundle_name: "plans", arg_name: "options", arg_index: 0, allowed_keys: PLANS_KEYS }),
-        method!("prism.plan", "plan(planId: string): CoordinationPlanV2View | null;", PrismSurfaceTypeRef::NullableNamed("CoordinationPlanV2View")),
-        method!("prism.planSummary", "planSummary(planId: string): PlanSummaryView | null;", PrismSurfaceTypeRef::NullableNamed("PlanSummaryView")),
-        method!("prism.children", "children(planId: string): PlanChildrenV2View | null;", PrismSurfaceTypeRef::NullableNamed("PlanChildrenV2View")),
-        method!("prism.dependencies", "dependencies(nodeRef: NodeRefView): NodeRefView[];", PrismSurfaceTypeRef::ArrayOfNamed("NodeRefView"), PrismRecordArgBundle { bundle_name: "nodeRef", arg_name: "nodeRef", arg_index: 0, allowed_keys: NODE_REF_KEYS }),
-        method!("prism.dependents", "dependents(nodeRef: NodeRefView): NodeRefView[];", PrismSurfaceTypeRef::ArrayOfNamed("NodeRefView"), PrismRecordArgBundle { bundle_name: "nodeRef", arg_name: "nodeRef", arg_index: 0, allowed_keys: NODE_REF_KEYS }),
-        method!("prism.portfolio", "portfolio(): CoordinationPlanV2View[];", PrismSurfaceTypeRef::ArrayOfNamed("CoordinationPlanV2View")),
-        method!("prism.task", "task(taskId: string): CoordinationTaskV2View | null;", PrismSurfaceTypeRef::NullableNamed("CoordinationTaskV2View")),
-        method!("prism.graphActionableTasks", "graphActionableTasks(): CoordinationTaskV2View[];", PrismSurfaceTypeRef::ArrayOfNamed("CoordinationTaskV2View")),
-        method!("prism.actionableTasks", "actionableTasks(principal?: string): CoordinationTaskV2View[];", PrismSurfaceTypeRef::ArrayOfNamed("CoordinationTaskV2View")),
-        method!("prism.readyTasks", "readyTasks(planId: string): CoordinationTaskV2View[];", PrismSurfaceTypeRef::ArrayOfNamed("CoordinationTaskV2View")),
-        method!("prism.claims", "claims(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ClaimView[];", PrismSurfaceTypeRef::ArrayOfNamed("ClaimView")),
-        method!("prism.conflicts", "conflicts(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ConflictView[];", PrismSurfaceTypeRef::ArrayOfNamed("ConflictView")),
-        method!("prism.blockers", "blockers(taskId: string): BlockerView[];", PrismSurfaceTypeRef::ArrayOfNamed("BlockerView")),
-        method!("prism.taskEvidenceStatus", "taskEvidenceStatus(taskId: string): TaskEvidenceStatusView | null;", PrismSurfaceTypeRef::NullableNamed("TaskEvidenceStatusView")),
-        method!("prism.taskReviewStatus", "taskReviewStatus(taskId: string): TaskReviewStatusView | null;", PrismSurfaceTypeRef::NullableNamed("TaskReviewStatusView")),
-        method!("prism.pendingReviews", "pendingReviews(planId?: string): ArtifactView[];", PrismSurfaceTypeRef::ArrayOfNamed("ArtifactView")),
-        method!("prism.artifacts", "artifacts(taskId: string): ArtifactView[];", PrismSurfaceTypeRef::ArrayOfNamed("ArtifactView")),
-        method!("prism.policyViolations", "policyViolations(input?: { planId?: string; taskId?: string; limit?: number }): PolicyViolationRecordView[];", PrismSurfaceTypeRef::ArrayOfNamed("PolicyViolationRecordView"), PrismRecordArgBundle { bundle_name: "policyViolations", arg_name: "input", arg_index: 0, allowed_keys: POLICY_VIOLATIONS_KEYS }),
-        method!("prism.taskBlastRadius", "taskBlastRadius(taskId: string): ChangeImpactView | null;", PrismSurfaceTypeRef::NullableNamed("ChangeImpactView")),
-        method!("prism.taskValidationRecipe", "taskValidationRecipe(taskId: string): TaskValidationRecipeView | null;", PrismSurfaceTypeRef::NullableNamed("TaskValidationRecipeView")),
-        method!("prism.taskRisk", "taskRisk(taskId: string): TaskRiskView | null;", PrismSurfaceTypeRef::NullableNamed("TaskRiskView")),
-        method!("prism.repoPlaybook", "repoPlaybook(): RepoPlaybookView;", PrismSurfaceTypeRef::Named("RepoPlaybookView")),
-        method!("prism.validationPlan", "validationPlan(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ValidationPlanView;", PrismSurfaceTypeRef::Named("ValidationPlanView"), PrismRecordArgBundle { bundle_name: "validationPlan", arg_name: "input", arg_index: 0, allowed_keys: VALIDATION_PLAN_KEYS }),
-        method!("prism.impact", "impact(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ImpactView;", PrismSurfaceTypeRef::Named("ImpactView"), PrismRecordArgBundle { bundle_name: "impact", arg_name: "input", arg_index: 0, allowed_keys: IMPACT_KEYS }),
-        method!("prism.afterEdit", "afterEdit(input?: { taskId?: string; target?: QueryTarget; paths?: string[] }): AfterEditView;", PrismSurfaceTypeRef::Named("AfterEditView"), PrismRecordArgBundle { bundle_name: "afterEdit", arg_name: "input", arg_index: 0, allowed_keys: IMPACT_KEYS }),
-        method!("prism.commandMemory", "commandMemory(input?: { taskId?: string }): CommandMemoryView;", PrismSurfaceTypeRef::Named("CommandMemoryView"), PrismRecordArgBundle { bundle_name: "commandMemory", arg_name: "input", arg_index: 0, allowed_keys: COMMAND_MEMORY_KEYS }),
-        method!("prism.artifactRisk", "artifactRisk(artifactId: string): ArtifactRiskView | null;", PrismSurfaceTypeRef::NullableNamed("ArtifactRiskView")),
-        method!("prism.taskIntent", "taskIntent(taskId: string): TaskIntentView | null;", PrismSurfaceTypeRef::NullableNamed("TaskIntentView")),
-        method!("prism.coordinationInbox", "coordinationInbox(planId: string): CoordinationInboxView;", PrismSurfaceTypeRef::Named("CoordinationInboxView")),
-        method!("prism.taskContext", "taskContext(taskId: string): TaskContextView;", PrismSurfaceTypeRef::Named("TaskContextView")),
-        method!("prism.claimPreview", "claimPreview(input: {\n    anchors: Array<SymbolView | NodeId | AnchorRef>;\n    capability: string;\n    mode?: string;\n    taskId?: string;\n  }): ClaimPreviewView;", PrismSurfaceTypeRef::Named("ClaimPreviewView"), PrismRecordArgBundle { bundle_name: "claimPreview", arg_name: "input", arg_index: 0, allowed_keys: CLAIM_PREVIEW_KEYS }),
-        method!("prism.simulateClaim", "simulateClaim(input: {\n    anchors: Array<SymbolView | NodeId | AnchorRef>;\n    capability: string;\n    mode?: string;\n    taskId?: string;\n  }): ConflictView[];", PrismSurfaceTypeRef::ArrayOfNamed("ConflictView"), PrismRecordArgBundle { bundle_name: "claimPreview", arg_name: "input", arg_index: 0, allowed_keys: CLAIM_PREVIEW_KEYS }),
-        method!("prism.full", "full(target: QueryTarget): string | null;", PrismSurfaceTypeRef::NullablePrimitive("string")),
-        method!("prism.excerpt", "excerpt(target: QueryTarget, options?: SourceExcerptOptions): SourceExcerptView | null;", PrismSurfaceTypeRef::NullableNamed("SourceExcerptView"), PrismRecordArgBundle { bundle_name: "excerpt", arg_name: "options", arg_index: 1, allowed_keys: EXCERPT_KEYS }),
-        method!("prism.editSlice", "editSlice(target: QueryTarget, options?: EditSliceOptions): SourceSliceView | null;", PrismSurfaceTypeRef::NullableNamed("SourceSliceView"), PrismRecordArgBundle { bundle_name: "editSlice", arg_name: "options", arg_index: 1, allowed_keys: EDIT_SLICE_KEYS }),
-        method!("prism.focusedBlock", "focusedBlock(target: QueryTarget, options?: EditSliceOptions): FocusedBlockView | null;", PrismSurfaceTypeRef::NullableNamed("FocusedBlockView"), PrismRecordArgBundle { bundle_name: "editSlice", arg_name: "options", arg_index: 1, allowed_keys: EDIT_SLICE_KEYS }),
-        method!("prism.lineage", "lineage(target: QueryTarget): LineageView | null;", PrismSurfaceTypeRef::NullableNamed("LineageView")),
-        method!("prism.coChangeNeighbors", "coChangeNeighbors(target: QueryTarget): CoChangeView[];", PrismSurfaceTypeRef::ArrayOfNamed("CoChangeView")),
-        method!("prism.relatedFailures", "relatedFailures(target: QueryTarget): OutcomeEvent[];", PrismSurfaceTypeRef::Unknown),
-        method!("prism.blastRadius", "blastRadius(target: QueryTarget): ChangeImpactView | null;", PrismSurfaceTypeRef::NullableNamed("ChangeImpactView")),
-        method!("prism.validationRecipe", "validationRecipe(target: QueryTarget): ValidationRecipeView | null;", PrismSurfaceTypeRef::NullableNamed("ValidationRecipeView")),
-        method!("prism.readContext", "readContext(target: QueryTarget): ReadContextView | null;", PrismSurfaceTypeRef::NullableNamed("ReadContextView")),
-        method!("prism.editContext", "editContext(target: QueryTarget): EditContextView | null;", PrismSurfaceTypeRef::NullableNamed("EditContextView")),
-        method!("prism.validationContext", "validationContext(target: QueryTarget): ValidationContextView | null;", PrismSurfaceTypeRef::NullableNamed("ValidationContextView")),
-        method!("prism.recentChangeContext", "recentChangeContext(target: QueryTarget): RecentChangeContextView | null;", PrismSurfaceTypeRef::NullableNamed("RecentChangeContextView")),
-        method!("prism.discovery", "discovery(target: QueryTarget): DiscoveryBundleView | null;", PrismSurfaceTypeRef::NullableNamed("DiscoveryBundleView")),
-        method!("prism.searchBundle", "searchBundle(query: string, options?: SearchBundleOptions): SearchBundleView;", PrismSurfaceTypeRef::Named("SearchBundleView"), PrismRecordArgBundle { bundle_name: "searchBundle", arg_name: "options", arg_index: 1, allowed_keys: SEARCH_BUNDLE_KEYS }),
-        method!("prism.targetBundle", "targetBundle(target: QueryTarget | SearchBundleView | DiscoveryBundleView, options?: TargetBundleOptions): TargetBundleView | null;", PrismSurfaceTypeRef::Unknown, PrismRecordArgBundle { bundle_name: "targetBundle", arg_name: "options", arg_index: 1, allowed_keys: TARGET_BUNDLE_KEYS }),
-        method!("prism.nextReads", "nextReads(target: QueryTarget, options?: NextReadsOptions): OwnerCandidateView[];", PrismSurfaceTypeRef::ArrayOfNamed("OwnerCandidateView"), PrismRecordArgBundle { bundle_name: "nextReads", arg_name: "options", arg_index: 1, allowed_keys: NEXT_READS_KEYS }),
-        method!("prism.whereUsed", "whereUsed(target: QueryTarget, options?: WhereUsedOptions): SymbolView[];", PrismSurfaceTypeRef::ArrayOfNamed("SymbolView"), PrismRecordArgBundle { bundle_name: "whereUsed", arg_name: "options", arg_index: 1, allowed_keys: WHERE_USED_KEYS }),
-        method!("prism.entrypointsFor", "entrypointsFor(target: QueryTarget, options?: NextReadsOptions): SymbolView[];", PrismSurfaceTypeRef::ArrayOfNamed("SymbolView"), PrismRecordArgBundle { bundle_name: "nextReads", arg_name: "options", arg_index: 1, allowed_keys: NEXT_READS_KEYS }),
-        method!("prism.specFor", "specFor(target: QueryTarget): SymbolView[];", PrismSurfaceTypeRef::ArrayOfNamed("SymbolView")),
-        method!("prism.implementationFor", "implementationFor(target: QueryTarget, options?: ImplementationOptions): SymbolView[];", PrismSurfaceTypeRef::ArrayOfNamed("SymbolView"), PrismRecordArgBundle { bundle_name: "implementationFor", arg_name: "options", arg_index: 1, allowed_keys: IMPLEMENTATION_FOR_KEYS }),
-        method!("prism.owners", "owners(target: QueryTarget, options?: OwnerLookupOptions): OwnerCandidateView[];", PrismSurfaceTypeRef::ArrayOfNamed("OwnerCandidateView"), PrismRecordArgBundle { bundle_name: "owners", arg_name: "options", arg_index: 1, allowed_keys: OWNERS_KEYS }),
-        method!("prism.driftCandidates", "driftCandidates(limit?: number): DriftCandidateView[];", PrismSurfaceTypeRef::ArrayOfNamed("DriftCandidateView")),
-        method!("prism.specCluster", "specCluster(target: QueryTarget): SpecImplementationClusterView | null;", PrismSurfaceTypeRef::NullableNamed("SpecImplementationClusterView")),
-        method!("prism.explainDrift", "explainDrift(target: QueryTarget): SpecDriftExplanationView | null;", PrismSurfaceTypeRef::NullableNamed("SpecDriftExplanationView")),
-        method!("prism.resumeTask", "resumeTask(taskId: string): TaskReplay;", PrismSurfaceTypeRef::Named("TaskReplay")),
-        method!("prism.taskJournal", "taskJournal(taskId: string, options?: TaskJournalOptions): TaskJournalView;", PrismSurfaceTypeRef::Named("TaskJournalView"), PrismRecordArgBundle { bundle_name: "taskJournal", arg_name: "options", arg_index: 1, allowed_keys: TASK_JOURNAL_KEYS }),
-        method!("prism.changedFiles", "changedFiles(options?: ChangedFilesOptions): ChangedFileView[];", PrismSurfaceTypeRef::ArrayOfNamed("ChangedFileView"), PrismRecordArgBundle { bundle_name: "changedFiles", arg_name: "options", arg_index: 0, allowed_keys: CHANGED_FILES_KEYS }),
-        method!("prism.changedSymbols", "changedSymbols(path: string, options?: ChangedFilesOptions): ChangedSymbolView[];", PrismSurfaceTypeRef::ArrayOfNamed("ChangedSymbolView"), PrismRecordArgBundle { bundle_name: "changedSymbols", arg_name: "options", arg_index: 1, allowed_keys: CHANGED_SYMBOLS_KEYS }),
-        method!("prism.recentPatches", "recentPatches(options?: RecentPatchesOptions): PatchEventView[];", PrismSurfaceTypeRef::ArrayOfNamed("PatchEventView"), PrismRecordArgBundle { bundle_name: "recentPatches", arg_name: "options", arg_index: 0, allowed_keys: RECENT_PATCHES_KEYS }),
-        method!("prism.diffFor", "diffFor(target: QueryTarget, options?: DiffForOptions): DiffHunkView[];", PrismSurfaceTypeRef::ArrayOfNamed("DiffHunkView"), PrismRecordArgBundle { bundle_name: "diffFor", arg_name: "options", arg_index: 1, allowed_keys: DIFF_FOR_KEYS }),
-        method!("prism.taskChanges", "taskChanges(taskId: string, options?: ChangedFilesOptions): PatchEventView[];", PrismSurfaceTypeRef::ArrayOfNamed("PatchEventView"), PrismRecordArgBundle { bundle_name: "taskChanges", arg_name: "options", arg_index: 1, allowed_keys: TASK_CHANGES_KEYS }),
-        method!("prism.connectionInfo", "connectionInfo(): ConnectionInfoView;", PrismSurfaceTypeRef::Named("ConnectionInfoView")),
-        method!("prism.runtimeStatus", "runtimeStatus(): RuntimeStatusView;", PrismSurfaceTypeRef::Named("RuntimeStatusView")),
-        method!("prism.runtimeLogs", "runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];", PrismSurfaceTypeRef::ArrayOfNamed("RuntimeLogEventView"), PrismRecordArgBundle { bundle_name: "runtimeLogs", arg_name: "options", arg_index: 0, allowed_keys: RUNTIME_LOGS_KEYS }),
-        method!("prism.runtimeTimeline", "runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];", PrismSurfaceTypeRef::ArrayOfNamed("RuntimeLogEventView"), PrismRecordArgBundle { bundle_name: "runtimeTimeline", arg_name: "options", arg_index: 0, allowed_keys: RUNTIME_TIMELINE_KEYS }),
-        method!("prism.validationFeedback", "validationFeedback(options?: ValidationFeedbackOptions): ValidationFeedbackView[];", PrismSurfaceTypeRef::ArrayOfNamed("ValidationFeedbackView"), PrismRecordArgBundle { bundle_name: "validationFeedback", arg_name: "options", arg_index: 0, allowed_keys: VALIDATION_FEEDBACK_KEYS }),
-        method!("prism.memoryRecall", "memoryRecall(options?: MemoryRecallOptions): ScoredMemoryView[];", PrismSurfaceTypeRef::ArrayOfNamed("ScoredMemoryView"), PrismRecordArgBundle { bundle_name: "memoryRecall", arg_name: "options", arg_index: 0, allowed_keys: MEMORY_RECALL_KEYS }),
-        method!("prism.memoryOutcomes", "memoryOutcomes(options?: MemoryOutcomeOptions): OutcomeEvent[];", PrismSurfaceTypeRef::Unknown, PrismRecordArgBundle { bundle_name: "memoryOutcomes", arg_name: "options", arg_index: 0, allowed_keys: MEMORY_OUTCOMES_KEYS }),
-        method!("prism.memoryEvents", "memoryEvents(options?: MemoryEventOptions): MemoryEventView[];", PrismSurfaceTypeRef::ArrayOfNamed("MemoryEventView"), PrismRecordArgBundle { bundle_name: "memoryEvents", arg_name: "options", arg_index: 0, allowed_keys: MEMORY_EVENTS_KEYS }),
-        method!("prism.mcpLog", "mcpLog(options?: McpLogOptions): McpCallLogEntryView[];", PrismSurfaceTypeRef::ArrayOfNamed("McpCallLogEntryView"), PrismRecordArgBundle { bundle_name: "mcpLog", arg_name: "options", arg_index: 0, allowed_keys: MCP_LOG_KEYS }),
-        method!("prism.slowMcpCalls", "slowMcpCalls(options?: McpLogOptions): McpCallLogEntryView[];", PrismSurfaceTypeRef::ArrayOfNamed("McpCallLogEntryView"), PrismRecordArgBundle { bundle_name: "mcpLog", arg_name: "options", arg_index: 0, allowed_keys: MCP_LOG_KEYS }),
-        method!("prism.mcpTrace", "mcpTrace(id: string): McpCallTraceView | null;", PrismSurfaceTypeRef::NullableNamed("McpCallTraceView")),
-        method!("prism.mcpStats", "mcpStats(options?: McpLogOptions): McpCallStatsView;", PrismSurfaceTypeRef::Named("McpCallStatsView"), PrismRecordArgBundle { bundle_name: "mcpLog", arg_name: "options", arg_index: 0, allowed_keys: MCP_LOG_KEYS }),
-        method!("prism.queryLog", "queryLog(options?: QueryLogOptions): QueryLogEntryView[];", PrismSurfaceTypeRef::ArrayOfNamed("QueryLogEntryView"), PrismRecordArgBundle { bundle_name: "queryLog", arg_name: "options", arg_index: 0, allowed_keys: QUERY_LOG_KEYS }),
-        method!("prism.slowQueries", "slowQueries(options?: QueryLogOptions): QueryLogEntryView[];", PrismSurfaceTypeRef::ArrayOfNamed("QueryLogEntryView"), PrismRecordArgBundle { bundle_name: "queryLog", arg_name: "options", arg_index: 0, allowed_keys: QUERY_LOG_KEYS }),
-        method!("prism.queryTrace", "queryTrace(id: string): QueryTraceView | null;", PrismSurfaceTypeRef::NullableNamed("QueryTraceView")),
-        method!("prism.diagnostics", "diagnostics(): QueryDiagnostic[];", PrismSurfaceTypeRef::ArrayOfNamed("QueryDiagnostic")),
-        method!("prism.connection.info", "info(): ConnectionInfoView;", PrismSurfaceTypeRef::Named("ConnectionInfoView")),
-        method!("prism.runtime.status", "status(): RuntimeStatusView;", PrismSurfaceTypeRef::Named("RuntimeStatusView")),
-        method!("prism.runtime.logs", "logs(options?: RuntimeLogOptions): RuntimeLogEventView[];", PrismSurfaceTypeRef::ArrayOfNamed("RuntimeLogEventView"), PrismRecordArgBundle { bundle_name: "runtimeLogs", arg_name: "options", arg_index: 0, allowed_keys: RUNTIME_LOGS_KEYS }),
-        method!("prism.runtime.timeline", "timeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];", PrismSurfaceTypeRef::ArrayOfNamed("RuntimeLogEventView"), PrismRecordArgBundle { bundle_name: "runtimeTimeline", arg_name: "options", arg_index: 0, allowed_keys: RUNTIME_TIMELINE_KEYS }),
-        method!("prism.memory.recall", "recall(options?: MemoryRecallOptions): ScoredMemoryView[];", PrismSurfaceTypeRef::ArrayOfNamed("ScoredMemoryView"), PrismRecordArgBundle { bundle_name: "memoryRecall", arg_name: "options", arg_index: 0, allowed_keys: MEMORY_RECALL_KEYS }),
-        method!("prism.memory.outcomes", "outcomes(options?: MemoryOutcomeOptions): OutcomeEvent[];", PrismSurfaceTypeRef::Unknown, PrismRecordArgBundle { bundle_name: "memoryOutcomes", arg_name: "options", arg_index: 0, allowed_keys: MEMORY_OUTCOMES_KEYS }),
-        method!("prism.memory.events", "events(options?: MemoryEventOptions): MemoryEventView[];", PrismSurfaceTypeRef::ArrayOfNamed("MemoryEventView"), PrismRecordArgBundle { bundle_name: "memoryEvents", arg_name: "options", arg_index: 0, allowed_keys: MEMORY_EVENTS_KEYS }),
-        method!("prism.curator.jobs", "jobs(options?: CuratorJobQueryOptions): CuratorJobView[];", PrismSurfaceTypeRef::ArrayOfNamed("CuratorJobView"), PrismRecordArgBundle { bundle_name: "curatorJob", arg_name: "options", arg_index: 0, allowed_keys: CURATOR_JOB_KEYS }),
-        method!("prism.curator.proposals", "proposals(options?: CuratorProposalQueryOptions): CuratorProposalRecordView[];", PrismSurfaceTypeRef::ArrayOfNamed("CuratorProposalRecordView"), PrismRecordArgBundle { bundle_name: "curatorProposals", arg_name: "options", arg_index: 0, allowed_keys: CURATOR_PROPOSALS_KEYS }),
-        method!("prism.curator.job", "job(id: string): CuratorJobView | null;", PrismSurfaceTypeRef::NullableNamed("CuratorJobView")),
+        method!(
+            "prism.from",
+            "from(runtimeId: string): PrismApi;",
+            PrismSurfaceTypeRef::Unknown
+        ),
+        method!(
+            "prism.symbol",
+            "symbol(query: string): SymbolView | null;",
+            PrismSurfaceTypeRef::NullableNamed("SymbolView")
+        ),
+        method!(
+            "prism.symbolBundle",
+            "symbolBundle(query: string, options?: SymbolBundleOptions): SymbolBundleView;",
+            PrismSurfaceTypeRef::Named("SymbolBundleView")
+        ),
+        method!(
+            "prism.symbols",
+            "symbols(query: string): SymbolView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("SymbolView")
+        ),
+        method!(
+            "prism.search",
+            "search(query: string, options?: SearchOptions): SymbolView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("SymbolView"),
+            PrismRecordArgBundle {
+                bundle_name: "search",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: SEARCH_KEYS
+            }
+        ),
+        method!(
+            "prism.concepts",
+            "concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ConceptPacketView"),
+            PrismRecordArgBundle {
+                bundle_name: "concept",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: CONCEPT_KEYS
+            }
+        ),
+        method!(
+            "prism.concept",
+            "concept(query: string, options?: ConceptQueryOptions): ConceptPacketView | null;",
+            PrismSurfaceTypeRef::NullableNamed("ConceptPacketView"),
+            PrismRecordArgBundle {
+                bundle_name: "concept",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: CONCEPT_KEYS
+            }
+        ),
+        method!(
+            "prism.conceptByHandle",
+            "conceptByHandle(handle: string, options?: { verbosity?: \"summary\" | \"standard\" | \"full\"; includeBindingMetadata?: boolean }): ConceptPacketView | null;",
+            PrismSurfaceTypeRef::NullableNamed("ConceptPacketView"),
+            PrismRecordArgBundle {
+                bundle_name: "concept",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: CONCEPT_KEYS
+            }
+        ),
+        method!(
+            "prism.contract",
+            "contract(query: string): ContractPacketView | null;",
+            PrismSurfaceTypeRef::NullableNamed("ContractPacketView")
+        ),
+        method!(
+            "prism.contracts",
+            "contracts(options?: ContractListOptions): ContractPacketView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ContractPacketView"),
+            PrismRecordArgBundle {
+                bundle_name: "contracts",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: CONTRACTS_KEYS
+            }
+        ),
+        method!(
+            "prism.contractsFor",
+            "contractsFor(target: QueryTarget): ContractPacketView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ContractPacketView")
+        ),
+        method!(
+            "prism.specs",
+            "specs(): SpecListEntryView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("SpecListEntryView")
+        ),
+        method!(
+            "prism.spec",
+            "spec(specId: string): SpecDocumentView | null;",
+            PrismSurfaceTypeRef::NullableNamed("SpecDocumentView")
+        ),
+        method!(
+            "prism.specSyncBrief",
+            "specSyncBrief(specId: string): SpecSyncBriefView | null;",
+            PrismSurfaceTypeRef::NullableNamed("SpecSyncBriefView")
+        ),
+        method!(
+            "prism.specCoverage",
+            "specCoverage(specId: string): SpecCoverageRecordView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("SpecCoverageRecordView")
+        ),
+        method!(
+            "prism.specSyncProvenance",
+            "specSyncProvenance(specId: string): SpecSyncProvenanceRecordView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("SpecSyncProvenanceRecordView")
+        ),
+        method!(
+            "prism.conceptRelations",
+            "conceptRelations(handle: string): ConceptRelationView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ConceptRelationView")
+        ),
+        method!(
+            "prism.decodeConcept",
+            "decodeConcept(input: { handle?: string; query?: string; lens?: \"open\" | \"workset\" | \"validation\" | \"timeline\" | \"memory\"; verbosity?: \"summary\" | \"standard\" | \"full\"; includeBindingMetadata?: boolean }): ConceptDecodeView | null;",
+            PrismSurfaceTypeRef::NullableNamed("ConceptDecodeView"),
+            PrismRecordArgBundle {
+                bundle_name: "decodeConcept",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: DECODE_CONCEPT_KEYS
+            }
+        ),
+        method!(
+            "prism.searchText",
+            "searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("TextSearchMatchView"),
+            PrismRecordArgBundle {
+                bundle_name: "searchText",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: SEARCH_TEXT_KEYS
+            }
+        ),
+        method!(
+            "prism.textSearchBundle",
+            "textSearchBundle(query: string, options?: TextSearchBundleOptions): TextSearchBundleView;",
+            PrismSurfaceTypeRef::Named("TextSearchBundleView"),
+            PrismRecordArgBundle {
+                bundle_name: "textSearchBundle",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: TEXT_SEARCH_BUNDLE_KEYS
+            }
+        ),
+        method!(
+            "prism.tools",
+            "tools(): ToolCatalogEntryView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ToolCatalogEntryView")
+        ),
+        method!(
+            "prism.tool",
+            "tool(name: string): ToolSchemaView | null;",
+            PrismSurfaceTypeRef::NullableNamed("ToolSchemaView")
+        ),
+        method!(
+            "prism.validateToolInput",
+            "validateToolInput(name: string, input: unknown): ToolInputValidationView;",
+            PrismSurfaceTypeRef::Named("ToolInputValidationView")
+        ),
+        method!(
+            "prism.entrypoints",
+            "entrypoints(): SymbolView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("SymbolView")
+        ),
+        method!(
+            "prism.file",
+            "file(path: string): FileView;",
+            PrismSurfaceTypeRef::Unknown
+        ),
+        helper!(
+            "prism.file(path).read",
+            PrismSurfaceTypeRef::NullableNamed("SourceExcerptView"),
+            PrismRecordArgBundle {
+                bundle_name: "fileRead",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: FILE_READ_KEYS
+            }
+        ),
+        helper!(
+            "prism.file(path).around",
+            PrismSurfaceTypeRef::NullableNamed("SourceSliceView"),
+            PrismRecordArgBundle {
+                bundle_name: "fileAround",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: FILE_AROUND_KEYS
+            }
+        ),
+        method!(
+            "prism.plans",
+            "plans(options?: PlanListOptions): PlanListEntryView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("PlanListEntryView"),
+            PrismRecordArgBundle {
+                bundle_name: "plans",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: PLANS_KEYS
+            }
+        ),
+        method!(
+            "prism.plan",
+            "plan(planId: string): CoordinationPlanV2View | null;",
+            PrismSurfaceTypeRef::NullableNamed("CoordinationPlanV2View")
+        ),
+        method!(
+            "prism.planSummary",
+            "planSummary(planId: string): PlanSummaryView | null;",
+            PrismSurfaceTypeRef::NullableNamed("PlanSummaryView")
+        ),
+        method!(
+            "prism.children",
+            "children(planId: string): PlanChildrenV2View | null;",
+            PrismSurfaceTypeRef::NullableNamed("PlanChildrenV2View")
+        ),
+        method!(
+            "prism.dependencies",
+            "dependencies(nodeRef: NodeRefView): NodeRefView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("NodeRefView"),
+            PrismRecordArgBundle {
+                bundle_name: "nodeRef",
+                arg_name: "nodeRef",
+                arg_index: 0,
+                allowed_keys: NODE_REF_KEYS
+            }
+        ),
+        method!(
+            "prism.dependents",
+            "dependents(nodeRef: NodeRefView): NodeRefView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("NodeRefView"),
+            PrismRecordArgBundle {
+                bundle_name: "nodeRef",
+                arg_name: "nodeRef",
+                arg_index: 0,
+                allowed_keys: NODE_REF_KEYS
+            }
+        ),
+        method!(
+            "prism.portfolio",
+            "portfolio(): CoordinationPlanV2View[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("CoordinationPlanV2View")
+        ),
+        method!(
+            "prism.task",
+            "task(taskId: string): CoordinationTaskV2View | null;",
+            PrismSurfaceTypeRef::NullableNamed("CoordinationTaskV2View")
+        ),
+        method!(
+            "prism.graphActionableTasks",
+            "graphActionableTasks(): CoordinationTaskV2View[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("CoordinationTaskV2View")
+        ),
+        method!(
+            "prism.actionableTasks",
+            "actionableTasks(principal?: string): CoordinationTaskV2View[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("CoordinationTaskV2View")
+        ),
+        method!(
+            "prism.readyTasks",
+            "readyTasks(planId: string): CoordinationTaskV2View[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("CoordinationTaskV2View")
+        ),
+        method!(
+            "prism.claims",
+            "claims(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ClaimView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ClaimView")
+        ),
+        method!(
+            "prism.conflicts",
+            "conflicts(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ConflictView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ConflictView")
+        ),
+        method!(
+            "prism.blockers",
+            "blockers(taskId: string): BlockerView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("BlockerView")
+        ),
+        method!(
+            "prism.taskEvidenceStatus",
+            "taskEvidenceStatus(taskId: string): TaskEvidenceStatusView | null;",
+            PrismSurfaceTypeRef::NullableNamed("TaskEvidenceStatusView")
+        ),
+        method!(
+            "prism.taskReviewStatus",
+            "taskReviewStatus(taskId: string): TaskReviewStatusView | null;",
+            PrismSurfaceTypeRef::NullableNamed("TaskReviewStatusView")
+        ),
+        method!(
+            "prism.pendingReviews",
+            "pendingReviews(planId?: string): ArtifactView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ArtifactView")
+        ),
+        method!(
+            "prism.artifacts",
+            "artifacts(taskId: string): ArtifactView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ArtifactView")
+        ),
+        method!(
+            "prism.policyViolations",
+            "policyViolations(input?: { planId?: string; taskId?: string; limit?: number }): PolicyViolationRecordView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("PolicyViolationRecordView"),
+            PrismRecordArgBundle {
+                bundle_name: "policyViolations",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: POLICY_VIOLATIONS_KEYS
+            }
+        ),
+        method!(
+            "prism.taskBlastRadius",
+            "taskBlastRadius(taskId: string): ChangeImpactView | null;",
+            PrismSurfaceTypeRef::NullableNamed("ChangeImpactView")
+        ),
+        method!(
+            "prism.taskValidationRecipe",
+            "taskValidationRecipe(taskId: string): TaskValidationRecipeView | null;",
+            PrismSurfaceTypeRef::NullableNamed("TaskValidationRecipeView")
+        ),
+        method!(
+            "prism.taskRisk",
+            "taskRisk(taskId: string): TaskRiskView | null;",
+            PrismSurfaceTypeRef::NullableNamed("TaskRiskView")
+        ),
+        method!(
+            "prism.repoPlaybook",
+            "repoPlaybook(): RepoPlaybookView;",
+            PrismSurfaceTypeRef::Named("RepoPlaybookView")
+        ),
+        method!(
+            "prism.validationPlan",
+            "validationPlan(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ValidationPlanView;",
+            PrismSurfaceTypeRef::Named("ValidationPlanView"),
+            PrismRecordArgBundle {
+                bundle_name: "validationPlan",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: VALIDATION_PLAN_KEYS
+            }
+        ),
+        method!(
+            "prism.impact",
+            "impact(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ImpactView;",
+            PrismSurfaceTypeRef::Named("ImpactView"),
+            PrismRecordArgBundle {
+                bundle_name: "impact",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: IMPACT_KEYS
+            }
+        ),
+        method!(
+            "prism.afterEdit",
+            "afterEdit(input?: { taskId?: string; target?: QueryTarget; paths?: string[] }): AfterEditView;",
+            PrismSurfaceTypeRef::Named("AfterEditView"),
+            PrismRecordArgBundle {
+                bundle_name: "afterEdit",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: IMPACT_KEYS
+            }
+        ),
+        method!(
+            "prism.commandMemory",
+            "commandMemory(input?: { taskId?: string }): CommandMemoryView;",
+            PrismSurfaceTypeRef::Named("CommandMemoryView"),
+            PrismRecordArgBundle {
+                bundle_name: "commandMemory",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: COMMAND_MEMORY_KEYS
+            }
+        ),
+        method!(
+            "prism.artifactRisk",
+            "artifactRisk(artifactId: string): ArtifactRiskView | null;",
+            PrismSurfaceTypeRef::NullableNamed("ArtifactRiskView")
+        ),
+        method!(
+            "prism.taskIntent",
+            "taskIntent(taskId: string): TaskIntentView | null;",
+            PrismSurfaceTypeRef::NullableNamed("TaskIntentView")
+        ),
+        method!(
+            "prism.coordinationInbox",
+            "coordinationInbox(planId: string): CoordinationInboxView;",
+            PrismSurfaceTypeRef::Named("CoordinationInboxView")
+        ),
+        method!(
+            "prism.taskContext",
+            "taskContext(taskId: string): TaskContextView;",
+            PrismSurfaceTypeRef::Named("TaskContextView")
+        ),
+        method!(
+            "prism.claimPreview",
+            "claimPreview(input: {\n    anchors: Array<SymbolView | NodeId | AnchorRef>;\n    capability: string;\n    mode?: string;\n    taskId?: string;\n  }): ClaimPreviewView;",
+            PrismSurfaceTypeRef::Named("ClaimPreviewView"),
+            PrismRecordArgBundle {
+                bundle_name: "claimPreview",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: CLAIM_PREVIEW_KEYS
+            }
+        ),
+        method!(
+            "prism.simulateClaim",
+            "simulateClaim(input: {\n    anchors: Array<SymbolView | NodeId | AnchorRef>;\n    capability: string;\n    mode?: string;\n    taskId?: string;\n  }): ConflictView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ConflictView"),
+            PrismRecordArgBundle {
+                bundle_name: "claimPreview",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: CLAIM_PREVIEW_KEYS
+            }
+        ),
+        method!(
+            "prism.full",
+            "full(target: QueryTarget): string | null;",
+            PrismSurfaceTypeRef::NullablePrimitive("string")
+        ),
+        method!(
+            "prism.excerpt",
+            "excerpt(target: QueryTarget, options?: SourceExcerptOptions): SourceExcerptView | null;",
+            PrismSurfaceTypeRef::NullableNamed("SourceExcerptView"),
+            PrismRecordArgBundle {
+                bundle_name: "excerpt",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: EXCERPT_KEYS
+            }
+        ),
+        method!(
+            "prism.editSlice",
+            "editSlice(target: QueryTarget, options?: EditSliceOptions): SourceSliceView | null;",
+            PrismSurfaceTypeRef::NullableNamed("SourceSliceView"),
+            PrismRecordArgBundle {
+                bundle_name: "editSlice",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: EDIT_SLICE_KEYS
+            }
+        ),
+        method!(
+            "prism.focusedBlock",
+            "focusedBlock(target: QueryTarget, options?: EditSliceOptions): FocusedBlockView | null;",
+            PrismSurfaceTypeRef::NullableNamed("FocusedBlockView"),
+            PrismRecordArgBundle {
+                bundle_name: "editSlice",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: EDIT_SLICE_KEYS
+            }
+        ),
+        method!(
+            "prism.lineage",
+            "lineage(target: QueryTarget): LineageView | null;",
+            PrismSurfaceTypeRef::NullableNamed("LineageView")
+        ),
+        method!(
+            "prism.coChangeNeighbors",
+            "coChangeNeighbors(target: QueryTarget): CoChangeView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("CoChangeView")
+        ),
+        method!(
+            "prism.relatedFailures",
+            "relatedFailures(target: QueryTarget): OutcomeEvent[];",
+            PrismSurfaceTypeRef::Unknown
+        ),
+        method!(
+            "prism.blastRadius",
+            "blastRadius(target: QueryTarget): ChangeImpactView | null;",
+            PrismSurfaceTypeRef::NullableNamed("ChangeImpactView")
+        ),
+        method!(
+            "prism.validationRecipe",
+            "validationRecipe(target: QueryTarget): ValidationRecipeView | null;",
+            PrismSurfaceTypeRef::NullableNamed("ValidationRecipeView")
+        ),
+        method!(
+            "prism.readContext",
+            "readContext(target: QueryTarget): ReadContextView | null;",
+            PrismSurfaceTypeRef::NullableNamed("ReadContextView")
+        ),
+        method!(
+            "prism.editContext",
+            "editContext(target: QueryTarget): EditContextView | null;",
+            PrismSurfaceTypeRef::NullableNamed("EditContextView")
+        ),
+        method!(
+            "prism.validationContext",
+            "validationContext(target: QueryTarget): ValidationContextView | null;",
+            PrismSurfaceTypeRef::NullableNamed("ValidationContextView")
+        ),
+        method!(
+            "prism.recentChangeContext",
+            "recentChangeContext(target: QueryTarget): RecentChangeContextView | null;",
+            PrismSurfaceTypeRef::NullableNamed("RecentChangeContextView")
+        ),
+        method!(
+            "prism.discovery",
+            "discovery(target: QueryTarget): DiscoveryBundleView | null;",
+            PrismSurfaceTypeRef::NullableNamed("DiscoveryBundleView")
+        ),
+        method!(
+            "prism.searchBundle",
+            "searchBundle(query: string, options?: SearchBundleOptions): SearchBundleView;",
+            PrismSurfaceTypeRef::Named("SearchBundleView"),
+            PrismRecordArgBundle {
+                bundle_name: "searchBundle",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: SEARCH_BUNDLE_KEYS
+            }
+        ),
+        method!(
+            "prism.targetBundle",
+            "targetBundle(target: QueryTarget | SearchBundleView | DiscoveryBundleView, options?: TargetBundleOptions): TargetBundleView | null;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "targetBundle",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: TARGET_BUNDLE_KEYS
+            }
+        ),
+        method!(
+            "prism.nextReads",
+            "nextReads(target: QueryTarget, options?: NextReadsOptions): OwnerCandidateView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("OwnerCandidateView"),
+            PrismRecordArgBundle {
+                bundle_name: "nextReads",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: NEXT_READS_KEYS
+            }
+        ),
+        method!(
+            "prism.whereUsed",
+            "whereUsed(target: QueryTarget, options?: WhereUsedOptions): SymbolView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("SymbolView"),
+            PrismRecordArgBundle {
+                bundle_name: "whereUsed",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: WHERE_USED_KEYS
+            }
+        ),
+        method!(
+            "prism.entrypointsFor",
+            "entrypointsFor(target: QueryTarget, options?: NextReadsOptions): SymbolView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("SymbolView"),
+            PrismRecordArgBundle {
+                bundle_name: "nextReads",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: NEXT_READS_KEYS
+            }
+        ),
+        method!(
+            "prism.specFor",
+            "specFor(target: QueryTarget): SymbolView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("SymbolView")
+        ),
+        method!(
+            "prism.implementationFor",
+            "implementationFor(target: QueryTarget, options?: ImplementationOptions): SymbolView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("SymbolView"),
+            PrismRecordArgBundle {
+                bundle_name: "implementationFor",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: IMPLEMENTATION_FOR_KEYS
+            }
+        ),
+        method!(
+            "prism.owners",
+            "owners(target: QueryTarget, options?: OwnerLookupOptions): OwnerCandidateView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("OwnerCandidateView"),
+            PrismRecordArgBundle {
+                bundle_name: "owners",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: OWNERS_KEYS
+            }
+        ),
+        method!(
+            "prism.driftCandidates",
+            "driftCandidates(limit?: number): DriftCandidateView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("DriftCandidateView")
+        ),
+        method!(
+            "prism.specCluster",
+            "specCluster(target: QueryTarget): SpecImplementationClusterView | null;",
+            PrismSurfaceTypeRef::NullableNamed("SpecImplementationClusterView")
+        ),
+        method!(
+            "prism.explainDrift",
+            "explainDrift(target: QueryTarget): SpecDriftExplanationView | null;",
+            PrismSurfaceTypeRef::NullableNamed("SpecDriftExplanationView")
+        ),
+        method!(
+            "prism.resumeTask",
+            "resumeTask(taskId: string): TaskReplay;",
+            PrismSurfaceTypeRef::Named("TaskReplay")
+        ),
+        method!(
+            "prism.taskJournal",
+            "taskJournal(taskId: string, options?: TaskJournalOptions): TaskJournalView;",
+            PrismSurfaceTypeRef::Named("TaskJournalView"),
+            PrismRecordArgBundle {
+                bundle_name: "taskJournal",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: TASK_JOURNAL_KEYS
+            }
+        ),
+        method!(
+            "prism.changedFiles",
+            "changedFiles(options?: ChangedFilesOptions): ChangedFileView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ChangedFileView"),
+            PrismRecordArgBundle {
+                bundle_name: "changedFiles",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: CHANGED_FILES_KEYS
+            }
+        ),
+        method!(
+            "prism.changedSymbols",
+            "changedSymbols(path: string, options?: ChangedFilesOptions): ChangedSymbolView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ChangedSymbolView"),
+            PrismRecordArgBundle {
+                bundle_name: "changedSymbols",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: CHANGED_SYMBOLS_KEYS
+            }
+        ),
+        method!(
+            "prism.recentPatches",
+            "recentPatches(options?: RecentPatchesOptions): PatchEventView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("PatchEventView"),
+            PrismRecordArgBundle {
+                bundle_name: "recentPatches",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: RECENT_PATCHES_KEYS
+            }
+        ),
+        method!(
+            "prism.diffFor",
+            "diffFor(target: QueryTarget, options?: DiffForOptions): DiffHunkView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("DiffHunkView"),
+            PrismRecordArgBundle {
+                bundle_name: "diffFor",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: DIFF_FOR_KEYS
+            }
+        ),
+        method!(
+            "prism.taskChanges",
+            "taskChanges(taskId: string, options?: ChangedFilesOptions): PatchEventView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("PatchEventView"),
+            PrismRecordArgBundle {
+                bundle_name: "taskChanges",
+                arg_name: "options",
+                arg_index: 1,
+                allowed_keys: TASK_CHANGES_KEYS
+            }
+        ),
+        method!(
+            "prism.connectionInfo",
+            "connectionInfo(): ConnectionInfoView;",
+            PrismSurfaceTypeRef::Named("ConnectionInfoView")
+        ),
+        method!(
+            "prism.runtimeStatus",
+            "runtimeStatus(): RuntimeStatusView;",
+            PrismSurfaceTypeRef::Named("RuntimeStatusView")
+        ),
+        method!(
+            "prism.runtimeLogs",
+            "runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("RuntimeLogEventView"),
+            PrismRecordArgBundle {
+                bundle_name: "runtimeLogs",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: RUNTIME_LOGS_KEYS
+            }
+        ),
+        method!(
+            "prism.runtimeTimeline",
+            "runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("RuntimeLogEventView"),
+            PrismRecordArgBundle {
+                bundle_name: "runtimeTimeline",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: RUNTIME_TIMELINE_KEYS
+            }
+        ),
+        method!(
+            "prism.validationFeedback",
+            "validationFeedback(options?: ValidationFeedbackOptions): ValidationFeedbackView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ValidationFeedbackView"),
+            PrismRecordArgBundle {
+                bundle_name: "validationFeedback",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: VALIDATION_FEEDBACK_KEYS
+            }
+        ),
+        method!(
+            "prism.memoryRecall",
+            "memoryRecall(options?: MemoryRecallOptions): ScoredMemoryView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ScoredMemoryView"),
+            PrismRecordArgBundle {
+                bundle_name: "memoryRecall",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: MEMORY_RECALL_KEYS
+            }
+        ),
+        method!(
+            "prism.memoryOutcomes",
+            "memoryOutcomes(options?: MemoryOutcomeOptions): OutcomeEvent[];",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "memoryOutcomes",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: MEMORY_OUTCOMES_KEYS
+            }
+        ),
+        method!(
+            "prism.memoryEvents",
+            "memoryEvents(options?: MemoryEventOptions): MemoryEventView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("MemoryEventView"),
+            PrismRecordArgBundle {
+                bundle_name: "memoryEvents",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: MEMORY_EVENTS_KEYS
+            }
+        ),
+        method!(
+            "prism.mcpLog",
+            "mcpLog(options?: McpLogOptions): McpCallLogEntryView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("McpCallLogEntryView"),
+            PrismRecordArgBundle {
+                bundle_name: "mcpLog",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: MCP_LOG_KEYS
+            }
+        ),
+        method!(
+            "prism.slowMcpCalls",
+            "slowMcpCalls(options?: McpLogOptions): McpCallLogEntryView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("McpCallLogEntryView"),
+            PrismRecordArgBundle {
+                bundle_name: "mcpLog",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: MCP_LOG_KEYS
+            }
+        ),
+        method!(
+            "prism.mcpTrace",
+            "mcpTrace(id: string): McpCallTraceView | null;",
+            PrismSurfaceTypeRef::NullableNamed("McpCallTraceView")
+        ),
+        method!(
+            "prism.mcpStats",
+            "mcpStats(options?: McpLogOptions): McpCallStatsView;",
+            PrismSurfaceTypeRef::Named("McpCallStatsView"),
+            PrismRecordArgBundle {
+                bundle_name: "mcpLog",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: MCP_LOG_KEYS
+            }
+        ),
+        method!(
+            "prism.queryLog",
+            "queryLog(options?: QueryLogOptions): QueryLogEntryView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("QueryLogEntryView"),
+            PrismRecordArgBundle {
+                bundle_name: "queryLog",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: QUERY_LOG_KEYS
+            }
+        ),
+        method!(
+            "prism.slowQueries",
+            "slowQueries(options?: QueryLogOptions): QueryLogEntryView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("QueryLogEntryView"),
+            PrismRecordArgBundle {
+                bundle_name: "queryLog",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: QUERY_LOG_KEYS
+            }
+        ),
+        method!(
+            "prism.queryTrace",
+            "queryTrace(id: string): QueryTraceView | null;",
+            PrismSurfaceTypeRef::NullableNamed("QueryTraceView")
+        ),
+        method!(
+            "prism.diagnostics",
+            "diagnostics(): QueryDiagnostic[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("QueryDiagnostic")
+        ),
+        method!(
+            "prism.connection.info",
+            "info(): ConnectionInfoView;",
+            PrismSurfaceTypeRef::Named("ConnectionInfoView")
+        ),
+        method!(
+            "prism.runtime.status",
+            "status(): RuntimeStatusView;",
+            PrismSurfaceTypeRef::Named("RuntimeStatusView")
+        ),
+        method!(
+            "prism.runtime.logs",
+            "logs(options?: RuntimeLogOptions): RuntimeLogEventView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("RuntimeLogEventView"),
+            PrismRecordArgBundle {
+                bundle_name: "runtimeLogs",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: RUNTIME_LOGS_KEYS
+            }
+        ),
+        method!(
+            "prism.runtime.timeline",
+            "timeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("RuntimeLogEventView"),
+            PrismRecordArgBundle {
+                bundle_name: "runtimeTimeline",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: RUNTIME_TIMELINE_KEYS
+            }
+        ),
+        method!(
+            "prism.memory.recall",
+            "recall(options?: MemoryRecallOptions): ScoredMemoryView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("ScoredMemoryView"),
+            PrismRecordArgBundle {
+                bundle_name: "memoryRecall",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: MEMORY_RECALL_KEYS
+            }
+        ),
+        method!(
+            "prism.memory.outcomes",
+            "outcomes(options?: MemoryOutcomeOptions): OutcomeEvent[];",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "memoryOutcomes",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: MEMORY_OUTCOMES_KEYS
+            }
+        ),
+        method!(
+            "prism.memory.events",
+            "events(options?: MemoryEventOptions): MemoryEventView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("MemoryEventView"),
+            PrismRecordArgBundle {
+                bundle_name: "memoryEvents",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: MEMORY_EVENTS_KEYS
+            }
+        ),
+        method!(
+            "prism.curator.jobs",
+            "jobs(options?: CuratorJobQueryOptions): CuratorJobView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("CuratorJobView"),
+            PrismRecordArgBundle {
+                bundle_name: "curatorJob",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: CURATOR_JOB_KEYS
+            }
+        ),
+        method!(
+            "prism.curator.proposals",
+            "proposals(options?: CuratorProposalQueryOptions): CuratorProposalRecordView[];",
+            PrismSurfaceTypeRef::ArrayOfNamed("CuratorProposalRecordView"),
+            PrismRecordArgBundle {
+                bundle_name: "curatorProposals",
+                arg_name: "options",
+                arg_index: 0,
+                allowed_keys: CURATOR_PROPOSALS_KEYS
+            }
+        ),
+        method!(
+            "prism.curator.job",
+            "job(id: string): CuratorJobView | null;",
+            PrismSurfaceTypeRef::NullableNamed("CuratorJobView")
+        ),
     ];
     SPECS
 }
@@ -438,7 +1232,11 @@ pub fn prism_api_paths() -> &'static [&'static str] {
             prism_api_method_specs()
                 .iter()
                 .map(|spec| spec.path)
-                .chain(prism_compiler_method_specs().iter().map(|spec| spec.api.path))
+                .chain(
+                    prism_compiler_method_specs()
+                        .iter()
+                        .map(|spec| spec.api.path),
+                )
                 .collect()
         })
         .as_slice()
@@ -460,7 +1258,12 @@ pub fn prism_method_spec(path: &str) -> Option<&'static PrismApiMethodSpec> {
     prism_api_method_specs()
         .iter()
         .find(|spec| spec.path == path)
-        .or_else(|| prism_compiler_method_specs().iter().map(|spec| &spec.api).find(|spec| spec.path == path))
+        .or_else(|| {
+            prism_compiler_method_specs()
+                .iter()
+                .map(|spec| &spec.api)
+                .find(|spec| spec.path == path)
+        })
 }
 
 pub fn prism_api_declaration_block() -> &'static str {

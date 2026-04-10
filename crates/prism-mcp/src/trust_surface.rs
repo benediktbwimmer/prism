@@ -1,12 +1,12 @@
 use std::path::Path;
 
-use axum::{http::StatusCode, Json};
+use axum::{Json, http::StatusCode};
 use prism_core::{
-    configured_coordination_authority_store_provider, AuthenticatedPrincipal,
-    CoordinationAuthorityMutationError, CoordinationAuthorityMutationStatus,
-    CoordinationAuthorityStoreProvider, CoordinationReadConsistency, ProtectedStateStreamReport,
-    SharedCoordinationRefDiagnostics, WorktreeMode, WorktreeMutatorSlotError,
-    WorktreeRegistrationRecord,
+    AuthenticatedPrincipal, CoordinationAuthorityMutationError,
+    CoordinationAuthorityMutationStatus, CoordinationAuthorityStoreProvider,
+    CoordinationReadConsistency, ProtectedStateStreamReport, SharedCoordinationRefDiagnostics,
+    WorktreeMode, WorktreeMutatorSlotError, WorktreeRegistrationRecord,
+    configured_coordination_authority_store_provider,
 };
 use prism_ir::EventId;
 use prism_js::{
@@ -19,7 +19,7 @@ use prism_query::{
 };
 use rmcp::model::ErrorData as McpError;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::{
     CoordinationMutationResult, MutationViolationView, PrismMutationBridgeExecutionArgs,
@@ -585,12 +585,13 @@ mod tests {
 
     #[test]
     fn authority_indeterminate_maps_to_indeterminate_protocol_state() {
-        let state =
-            coordination_authority_protocol_state(&CoordinationAuthorityMutationError::indeterminate(
+        let state = coordination_authority_protocol_state(
+            &CoordinationAuthorityMutationError::indeterminate(
                 "shared_ref_transport_uncertain",
                 "shared coordination ref publish may have succeeded but the outcome could not be verified",
                 None,
-            ));
+            ),
+        );
 
         assert_eq!(state.outcome, "Indeterminate");
         assert!(state.rejection.is_none());
@@ -670,9 +671,11 @@ mod tests {
         let error = mutation_auth_missing_error();
         let data = error.data.expect("payload");
         assert_eq!(data["code"], "mutation_auth_missing");
-        assert!(data["nextAction"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty()));
+        assert!(
+            data["nextAction"]
+                .as_str()
+                .is_some_and(|value| !value.is_empty())
+        );
     }
 
     #[test]

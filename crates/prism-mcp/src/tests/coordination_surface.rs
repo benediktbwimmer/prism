@@ -1,5 +1,5 @@
 use rmcp::transport::{IntoTransport, Transport};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::*;
 use crate::tests_support::{
@@ -60,10 +60,7 @@ return { plan };
         .await
         .unwrap();
     let plan = first_tool_content_json(client.receive().await.unwrap());
-    let plan_id = plan["result"]["plan"]["id"]
-        .as_str()
-        .unwrap()
-        .to_string();
+    let plan_id = plan["result"]["plan"]["id"].as_str().unwrap().to_string();
 
     client
         .send(call_tool_request(
@@ -91,10 +88,7 @@ return {{ task }};
         .await
         .unwrap();
     let task = first_tool_content_json(client.receive().await.unwrap());
-    let task_id = task["result"]["task"]["id"]
-        .as_str()
-        .unwrap()
-        .to_string();
+    let task_id = task["result"]["task"]["id"].as_str().unwrap().to_string();
 
     client
         .send(call_tool_request(
@@ -116,9 +110,7 @@ return {{ artifact }};
         .await
         .unwrap();
     let artifact = first_tool_content_json(client.receive().await.unwrap());
-    assert!(artifact["result"]["artifact"]["id"]
-        .as_str()
-        .is_some());
+    assert!(artifact["result"]["artifact"]["id"].as_str().is_some());
 
     client
         .send(call_tool_request(
@@ -235,9 +227,11 @@ fn coordination_resume_mutation_dispatches_through_authenticated_host() {
             Some(&authenticated),
         )
         .unwrap_err();
-    assert!(error
-        .to_string()
-        .contains("does not have a stale or expired lease to resume"));
+    assert!(
+        error
+            .to_string()
+            .contains("does not have a stale or expired lease to resume")
+    );
 }
 
 #[test]
@@ -379,12 +373,16 @@ return {{
         1
     );
     assert_eq!(result.result["context"]["task"]["id"], task_id);
-    assert!(result.result["context"]["dependencies"]
-        .as_array()
-        .is_some_and(|dependencies| dependencies.is_empty()));
-    assert!(result.result["context"]["dependents"]
-        .as_array()
-        .is_some_and(|dependents| dependents.is_empty()));
+    assert!(
+        result.result["context"]["dependencies"]
+            .as_array()
+            .is_some_and(|dependencies| dependencies.is_empty())
+    );
+    assert!(
+        result.result["context"]["dependents"]
+            .as_array()
+            .is_some_and(|dependents| dependents.is_empty())
+    );
     assert_eq!(
         result.result["context"]["claims"].as_array().unwrap().len(),
         1
@@ -394,11 +392,13 @@ return {{
         Value::String("ReviewRequired".to_string())
     );
     assert_eq!(result.result["preview"]["blocked"], Value::Bool(true));
-    assert!(result.result["preview"]["warnings"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|conflict| conflict["severity"] == Value::String("Block".to_string())));
+    assert!(
+        result.result["preview"]["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|conflict| conflict["severity"] == Value::String("Block".to_string()))
+    );
 }
 
 #[test]
@@ -516,10 +516,12 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     })
     .unwrap();
     assert!(blocked_neighbor_claim.claim_id.is_none());
-    assert!(blocked_neighbor_claim
-        .conflicts
-        .iter()
-        .any(|conflict| conflict["severity"] == Value::String("Block".to_string())));
+    assert!(
+        blocked_neighbor_claim
+            .conflicts
+            .iter()
+            .any(|conflict| conflict["severity"] == Value::String("Block".to_string()))
+    );
     assert!(blocked_neighbor_claim.conflicts.iter().any(|conflict| {
         conflict["overlapKinds"]
             .as_array()
@@ -581,10 +583,12 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     })
     .unwrap();
     assert!(blocked_update.rejected);
-    assert!(blocked_update
-        .violations
-        .iter()
-        .any(|violation| violation.code == "handoff_pending"));
+    assert!(
+        blocked_update
+            .violations
+            .iter()
+            .any(|violation| violation.code == "handoff_pending")
+    );
     if let Some(workspace) = host_b.workspace_session() {
         host_b.sync_workspace_revision(workspace).unwrap();
     }
@@ -619,10 +623,12 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     })
     .unwrap();
     assert!(missing_agent.rejected);
-    assert!(missing_agent
-        .violations
-        .iter()
-        .any(|violation| violation.code == "agent_identity_required"));
+    assert!(
+        missing_agent
+            .violations
+            .iter()
+            .any(|violation| violation.code == "agent_identity_required")
+    );
     if let Some(workspace) = host_b.workspace_session() {
         host_b.sync_workspace_revision(workspace).unwrap();
     }

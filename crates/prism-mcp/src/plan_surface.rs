@@ -4,9 +4,9 @@ use prism_js::{CoordinationPlanV2View, PlanListEntryView, PlanSummaryView};
 
 use crate::spec_surface::linked_plan_view;
 use crate::ui_read_models::{
-    filtered_plan_entries_from_snapshot, plan_entries_from_snapshot, PlansResourceSort,
+    PlansResourceSort, filtered_plan_entries_from_snapshot, plan_entries_from_snapshot,
 };
-use crate::{plan_summary_view, QueryHost};
+use crate::{QueryHost, plan_summary_view};
 
 pub(crate) fn all_plan_entries(host: &QueryHost) -> Result<Vec<PlanListEntryView>> {
     let snapshot = host.current_coordination_snapshot_v2()?;

@@ -8,7 +8,7 @@ use prism_js::{
     SourceLocationView,
 };
 use prism_memory::{OutcomeEvent, OutcomeKind, OutcomeRecallQuery};
-use prism_query::{source_excerpt_for_span, source_location_for_span, Prism, SourceExcerptOptions};
+use prism_query::{Prism, SourceExcerptOptions, source_excerpt_for_span, source_location_for_span};
 use serde::Deserialize;
 
 use crate::node_id_view;

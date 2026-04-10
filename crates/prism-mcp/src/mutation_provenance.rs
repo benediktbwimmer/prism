@@ -351,7 +351,7 @@ fn stamp_work_context(
 
 #[cfg(test)]
 mod tests {
-    use super::{concept_scope_origin, MutationProvenance};
+    use super::{MutationProvenance, concept_scope_origin};
     use prism_ir::TaskId;
     use prism_query::{ConceptProvenance, ConceptScope};
 

@@ -1,12 +1,12 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::path::Path;
 
 use prism_coordination::{
+    CanonicalTaskRecord, GitExecutionCompletionMode, GitExecutionStartMode, GitPreflightReport,
+    GitPublishReport, HandoffAcceptInput, HandoffInput, LeaseHolder, LeaseState, PolicyViolation,
+    TaskCompletionContext, TaskGitExecution, TaskReclaimInput, TaskResumeInput, TaskUpdateInput,
     canonical_authoritative_task_holder, canonical_current_task_holder, canonical_task_lease_state,
-    same_holder, CanonicalTaskRecord, GitExecutionCompletionMode, GitExecutionStartMode,
-    GitPreflightReport, GitPublishReport, HandoffAcceptInput, HandoffInput, LeaseHolder,
-    LeaseState, PolicyViolation, TaskCompletionContext, TaskGitExecution, TaskReclaimInput,
-    TaskResumeInput, TaskUpdateInput,
+    same_holder,
 };
 use prism_core::{
     AdmissionBusyError, AuthenticatedPrincipal, CoordinationAuthorityMutationError,
@@ -18,9 +18,9 @@ use prism_curator::{
     CuratorProposalDisposition,
 };
 use prism_ir::{
-    new_prefixed_id, AgentId, AnchorRef, ArtifactId, ArtifactStatus, ClaimId, CoordinationTaskId,
-    Edge, EdgeOrigin, EventId, EventMeta, ObservedChangeCheckpoint,
-    ObservedChangeCheckpointTrigger, PlanId, TaskId, WorkContextKind,
+    AgentId, AnchorRef, ArtifactId, ArtifactStatus, ClaimId, CoordinationTaskId, Edge, EdgeOrigin,
+    EventId, EventMeta, ObservedChangeCheckpoint, ObservedChangeCheckpointTrigger, PlanId, TaskId,
+    WorkContextKind, new_prefixed_id,
 };
 use prism_js::{CuratorProposalRecordView, TaskJournalView};
 use prism_memory::{
@@ -28,19 +28,19 @@ use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult,
 };
 use prism_query::{
-    canonical_concept_handle, canonical_contract_handle, ConceptEvent, ConceptEventAction,
-    ConceptEventPatch, ConceptPacket, ConceptProvenance, ConceptPublication,
-    ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction,
-    ConceptRelationKind, ConceptScope, ContractCompatibility, ContractEvent, ContractEventAction,
-    ContractEventPatch, ContractGuarantee, ContractGuaranteeStrength, ContractKind, ContractPacket,
-    ContractStability, ContractStatus, ContractTarget, ContractValidation,
-    CoordinationDependencyKind, CoordinationPlanV2, CoordinationTaskV2,
-    CoordinationTransactionError, CoordinationTransactionGitExecutionPolicyPatch,
-    CoordinationTransactionInput, CoordinationTransactionMutation, CoordinationTransactionPlanRef,
+    ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket, ConceptProvenance,
+    ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent,
+    ConceptRelationEventAction, ConceptRelationKind, ConceptScope, ContractCompatibility,
+    ContractEvent, ContractEventAction, ContractEventPatch, ContractGuarantee,
+    ContractGuaranteeStrength, ContractKind, ContractPacket, ContractStability, ContractStatus,
+    ContractTarget, ContractValidation, CoordinationDependencyKind, CoordinationPlanV2,
+    CoordinationTaskV2, CoordinationTransactionError,
+    CoordinationTransactionGitExecutionPolicyPatch, CoordinationTransactionInput,
+    CoordinationTransactionMutation, CoordinationTransactionPlanRef,
     CoordinationTransactionPlanSchedulingPatch, CoordinationTransactionPolicyPatch,
-    CoordinationTransactionTaskRef, Prism,
+    CoordinationTransactionTaskRef, Prism, canonical_concept_handle, canonical_contract_handle,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::git_execution::{
     commit_paths, direct_integrate_published_branch, head_commit, prism_managed_paths,
@@ -57,18 +57,7 @@ use crate::trust_surface::{
     coordination_query_protocol_result as build_coordination_query_protocol_result,
 };
 use crate::{
-    artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
-    contract_packet_view, convert_acceptance, convert_anchors, convert_capability,
-    convert_claim_mode, convert_completion_context, convert_coordination_task_status,
-    convert_inferred_scope, convert_memory_kind, convert_memory_scope, convert_memory_source,
-    convert_node_id, convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
-    convert_plan_binding, convert_plan_scheduling, convert_plan_status, convert_policy,
-    convert_review_verdict, convert_validation_refs, coordination_plan_v2_view,
-    coordination_task_v2_view, curator_disposition_label, curator_job_status_label,
-    curator_memory_metadata, curator_proposal, curator_proposal_state, curator_trigger_label,
-    current_timestamp, ensure_repo_publication_metadata, manual_memory_metadata, parse_edge_kind,
-    retire_repo_publication_metadata, task_journal_memory_metadata, ArtifactActionInput,
-    ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
+    ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
     ArtifactSupersedePayload, CheckpointMutationResult, ClaimAcquirePayload, ClaimActionInput,
     ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput,
     ConceptMutationResult, ConceptRelationKindInput, ConceptRelationMutationOperationInput,
@@ -80,7 +69,8 @@ use crate::{
     CoordinationPlanRefPayload, CoordinationTaskRefPayload, CoordinationTransactionMutationPayload,
     CoordinationTransactionPayload, CoordinationTransactionTaskUpdatePayload, CuratorJobView,
     CuratorProposalCreatedResources, CuratorProposalDecision, CuratorProposalDecisionResult,
-    EdgeMutationResult, EventMutationResult, HandoffAcceptPayload, HeartbeatLeaseMutationResult,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, EdgeMutationResult,
+    EventMutationResult, HandoffAcceptPayload, HeartbeatLeaseMutationResult,
     MemoryMutationActionInput, MemoryMutationResult, MemoryRetirePayload, MemoryStorePayload,
     MutationViolationView, NodeIdInput, PlanArchivePayload, PlanBootstrapPayload,
     PlanUpdatePayload, PrismArtifactArgs, PrismCheckpointArgs, PrismClaimArgs,
@@ -94,8 +84,18 @@ use crate::{
     SparsePatchInput, TaskCompletionContextPayload, TaskCreatePayload, TaskReclaimPayload,
     TaskResumePayload, ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
     ValidationFeedbackVerdictInput, WorkDeclarationKindInput, WorkDeclarationResult,
-    WorkflowStatusInput, WorkflowUpdatePayload, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    WorkflowStatusInput, WorkflowUpdatePayload, artifact_view, claim_view, concept_packet_view,
+    concept_relation_view, conflict_view, contract_packet_view, convert_acceptance,
+    convert_anchors, convert_capability, convert_claim_mode, convert_completion_context,
+    convert_coordination_task_status, convert_inferred_scope, convert_memory_kind,
+    convert_memory_scope, convert_memory_source, convert_node_id, convert_outcome_evidence,
+    convert_outcome_kind, convert_outcome_result, convert_plan_binding, convert_plan_scheduling,
+    convert_plan_status, convert_policy, convert_review_verdict, convert_validation_refs,
+    coordination_plan_v2_view, coordination_task_v2_view, curator_disposition_label,
+    curator_job_status_label, curator_memory_metadata, curator_proposal, curator_proposal_state,
+    curator_trigger_label, current_timestamp, ensure_repo_publication_metadata,
+    manual_memory_metadata, parse_edge_kind, retire_repo_publication_metadata,
+    task_journal_memory_metadata,
 };
 use crate::{MutationProvenance, MutationProvenanceMode};
 
@@ -1061,9 +1061,9 @@ fn coordination_task_ref(
     payload: &CoordinationTaskRefPayload,
 ) -> Result<CoordinationTransactionTaskRef> {
     match (&payload.task_id, &payload.client_task_id) {
-        (Some(task_id), None) => Ok(CoordinationTransactionTaskRef::Id(
-            CoordinationTaskId::new(task_id.clone()),
-        )),
+        (Some(task_id), None) => Ok(CoordinationTransactionTaskRef::Id(CoordinationTaskId::new(
+            task_id.clone(),
+        ))),
         (None, Some(client_task_id)) => Ok(CoordinationTransactionTaskRef::ClientId(
             client_task_id.clone(),
         )),

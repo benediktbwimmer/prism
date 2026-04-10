@@ -1,9 +1,9 @@
 use crate::{
-    capabilities_resource_view_link, dedupe_resource_link_views, resource_link_view,
-    schema_resource_uri, schema_resource_view_link, session_resource_view_link,
+    PrismMcpFeatures, VOCAB_URI, VocabularyCategoryView, VocabularyResourcePayload,
+    VocabularyValueView, capabilities_resource_view_link, dedupe_resource_link_views,
+    resource_link_view, schema_resource_uri, schema_resource_view_link, session_resource_view_link,
     tool_schemas_resource_view_link, vocab_resource_uri, vocab_resource_view_link,
-    vocabulary_categories, PrismMcpFeatures, VocabularyCategoryView, VocabularyResourcePayload,
-    VocabularyValueView, VOCAB_URI,
+    vocabulary_categories,
 };
 
 fn vocabulary_category_view(

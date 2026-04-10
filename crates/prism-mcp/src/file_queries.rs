@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use prism_js::{SourceExcerptView, SourceLocationView, SourceSliceView};
 use prism_query::{source_excerpt_for_line_range, source_slice_around_line};
 

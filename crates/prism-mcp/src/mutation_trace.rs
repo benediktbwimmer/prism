@@ -4,13 +4,13 @@ use std::time::{Duration, Instant};
 
 use prism_js::QueryPhaseView;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::mcp_call_log::{
-    duration_to_ms, new_log_entry, payload_summary, preview_value, summarize_value,
-    touches_for_value, unique_operations, unique_touches, McpCallLogStore, PersistedMcpCallRecord,
+    McpCallLogStore, PersistedMcpCallRecord, duration_to_ms, new_log_entry, payload_summary,
+    preview_value, summarize_value, touches_for_value, unique_operations, unique_touches,
 };
-use crate::{current_timestamp, QueryHost, SessionState};
+use crate::{QueryHost, SessionState, current_timestamp};
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]

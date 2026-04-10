@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use prism_agent::InferredEdgeScope;
 use prism_coordination::{
     AcceptanceCriterion, CoordinationPolicy, GitExecutionCompletionMode, GitExecutionStartMode,
@@ -20,12 +20,12 @@ use std::path::{Path, PathBuf};
 use crate::log_scope::LogScope;
 use crate::tool_args::ValidationRefPayload;
 use crate::{
-    vocabulary_error, AcceptanceCriterionPayload, AnchorRefInput, CapabilityInput, ClaimModeInput,
+    AcceptanceCriterionPayload, AnchorRefInput, CapabilityInput, ClaimModeInput,
     CoordinationPolicyPayload, CoordinationTaskStatusInput, GitExecutionCompletionModeInput,
     GitExecutionStartModeInput, GitIntegrationModeInput, InferredEdgeScopeInput,
     LeaseRenewalModeInput, MemoryKindInput, MemorySourceInput, NodeIdInput, OutcomeEvidenceInput,
     OutcomeKindInput, OutcomeResultInput, PlanBindingPayload, PlanSchedulingPayload,
-    PlanStatusInput, ReviewVerdictInput, TaskCompletionContextPayload,
+    PlanStatusInput, ReviewVerdictInput, TaskCompletionContextPayload, vocabulary_error,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -504,9 +504,11 @@ mod tests {
     #[test]
     fn parse_event_actor_rejects_incomplete_principal_scoped_id() {
         let error = parse_event_actor("principal:missing-id").unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("principal actor must include authority and id"));
+        assert!(
+            error
+                .to_string()
+                .contains("principal actor must include authority and id")
+        );
     }
 
     #[test]

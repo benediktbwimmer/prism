@@ -1,14 +1,14 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use globset::{GlobBuilder, GlobMatcher};
 use ignore::WalkBuilder;
 use prism_js::{SourceExcerptView, SourceLocationView, TextSearchMatchView};
 use prism_query::{source_excerpt_for_span, source_location_for_span};
 use regex::{Regex, RegexBuilder};
 
-use crate::{QueryHost, SearchTextArgs, DEFAULT_SEARCH_LIMIT};
+use crate::{DEFAULT_SEARCH_LIMIT, QueryHost, SearchTextArgs};
 
 const DEFAULT_TEXT_SEARCH_CONTEXT_LINES: usize = 1;
 const DEFAULT_TEXT_SEARCH_MAX_CHARS: usize = 240;

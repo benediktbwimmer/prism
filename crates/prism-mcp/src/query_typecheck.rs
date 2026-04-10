@@ -7,11 +7,11 @@ use deno_ast::swc::ast::{
 };
 use deno_ast::swc::common::Spanned;
 use deno_ast::swc::ecma_visit::{Visit, VisitWith};
-use deno_ast::{parse_program, MediaType, ModuleSpecifier, ParseParams, ParsedSource, SourcePos};
+use deno_ast::{MediaType, ModuleSpecifier, ParseParams, ParsedSource, SourcePos, parse_program};
 use prism_js::{
-    prism_method_spec, prism_object_property_type, prism_surface_type_for_method, PrismSurfaceType,
+    PrismSurfaceType, prism_method_spec, prism_object_property_type, prism_surface_type_for_method,
 };
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::{
     closest_prism_api_path, query_views::known_query_view_names, static_typecheck_error,

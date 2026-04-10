@@ -25,6 +25,7 @@ use serde::Serialize;
 use tracing::{debug, error};
 
 use crate::{
+    WorkspaceRefreshMetrics, WorkspaceRefreshReport,
     diagnostics_state::DiagnosticsState,
     log_refresh_workspace,
     mcp_call_log::McpCallLogStore,
@@ -33,7 +34,6 @@ use crate::{
         SharedWorkspaceReadSync, SharedWorkspaceReadSyncDecision, SharedWorkspaceRuntimeRevisions,
         WorkspaceRuntimeBinding,
     },
-    WorkspaceRefreshMetrics, WorkspaceRefreshReport,
 };
 
 const BACKGROUND_REFRESH_INTERVAL: Duration = Duration::from_millis(250);
@@ -402,142 +402,144 @@ impl WorkspaceRuntime {
         let (background_senders, background_workers) =
             spawn_background_runtime_lanes(config.clone(), wake_tx.clone());
         let loop_background_senders = background_senders.clone();
-        let handle = thread::spawn(move || loop {
-            if stop_rx.try_recv().is_ok() {
-                break;
-            }
-            let timed_out = match wake_rx.recv_timeout(BACKGROUND_REFRESH_INTERVAL) {
-                Ok(()) => false,
-                Err(RecvTimeoutError::Timeout) => true,
-                Err(RecvTimeoutError::Disconnected) => break,
-            };
-            if stop_rx.try_recv().is_ok() {
-                break;
-            }
-            let command = {
-                let mut engine = config
-                    .runtime_engine
-                    .lock()
-                    .expect("workspace runtime engine lock poisoned");
-                if let Some(command) = engine.start_next_command() {
-                    Some(command)
-                } else if timed_out
-                    && engine.begin_ad_hoc_command(WorkspaceRuntimeCommand::new(
-                        WorkspaceRuntimeCommandKind::MaterializeCheckpoint,
-                        WorkspaceRuntimeQueueClass::CheckpointMaterialization,
-                        WorkspaceRuntimeCoalescingKey::WorktreeContext,
-                    ))
-                {
-                    Some(WorkspaceRuntimeCommand::new(
-                        WorkspaceRuntimeCommandKind::MaterializeCheckpoint,
-                        WorkspaceRuntimeQueueClass::CheckpointMaterialization,
-                        WorkspaceRuntimeCoalescingKey::WorktreeContext,
-                    ))
-                } else {
-                    None
+        let handle = thread::spawn(move || {
+            loop {
+                if stop_rx.try_recv().is_ok() {
+                    break;
                 }
-            };
-            let Some(command) = command else {
-                continue;
-            };
-            if let Some(lane) = background_lane_for_command(&command) {
-                let sender = loop_background_senders
-                    .get(&lane)
-                    .expect("background runtime lane should exist");
-                match sender.try_send(command.clone()) {
-                    Ok(()) => {
-                        config
-                            .runtime_engine
-                            .lock()
-                            .expect("workspace runtime engine lock poisoned")
-                            .finish_active_command();
-                        continue;
+                let timed_out = match wake_rx.recv_timeout(BACKGROUND_REFRESH_INTERVAL) {
+                    Ok(()) => false,
+                    Err(RecvTimeoutError::Timeout) => true,
+                    Err(RecvTimeoutError::Disconnected) => break,
+                };
+                if stop_rx.try_recv().is_ok() {
+                    break;
+                }
+                let command = {
+                    let mut engine = config
+                        .runtime_engine
+                        .lock()
+                        .expect("workspace runtime engine lock poisoned");
+                    if let Some(command) = engine.start_next_command() {
+                        Some(command)
+                    } else if timed_out
+                        && engine.begin_ad_hoc_command(WorkspaceRuntimeCommand::new(
+                            WorkspaceRuntimeCommandKind::MaterializeCheckpoint,
+                            WorkspaceRuntimeQueueClass::CheckpointMaterialization,
+                            WorkspaceRuntimeCoalescingKey::WorktreeContext,
+                        ))
+                    {
+                        Some(WorkspaceRuntimeCommand::new(
+                            WorkspaceRuntimeCommandKind::MaterializeCheckpoint,
+                            WorkspaceRuntimeQueueClass::CheckpointMaterialization,
+                            WorkspaceRuntimeCoalescingKey::WorktreeContext,
+                        ))
+                    } else {
+                        None
                     }
-                    Err(TrySendError::Full(_)) => {
+                };
+                let Some(command) = command else {
+                    continue;
+                };
+                if let Some(lane) = background_lane_for_command(&command) {
+                    let sender = loop_background_senders
+                        .get(&lane)
+                        .expect("background runtime lane should exist");
+                    match sender.try_send(command.clone()) {
+                        Ok(()) => {
+                            config
+                                .runtime_engine
+                                .lock()
+                                .expect("workspace runtime engine lock poisoned")
+                                .finish_active_command();
+                            continue;
+                        }
+                        Err(TrySendError::Full(_)) => {
+                            config
+                                .runtime_engine
+                                .lock()
+                                .expect("workspace runtime engine lock poisoned")
+                                .retry_active_command();
+                            thread::sleep(BACKGROUND_LANE_RETRY_INTERVAL);
+                            continue;
+                        }
+                        Err(TrySendError::Disconnected(_)) => {
+                            error!(
+                                root = %config.workspace.root().display(),
+                                lane = ?lane,
+                                "background runtime lane disconnected"
+                            );
+                        }
+                    }
+                }
+                if command_is_stale_against_generation(
+                    &command,
+                    &config
+                        .runtime_engine
+                        .lock()
+                        .expect("workspace runtime engine lock poisoned")
+                        .published_generation_snapshot(),
+                ) {
+                    config
+                        .runtime_engine
+                        .lock()
+                        .expect("workspace runtime engine lock poisoned")
+                        .finish_active_command();
+                    continue;
+                }
+                let sync_result = run_workspace_runtime_command(&config, &command);
+                if let Err(error) = sync_result {
+                    if is_transient_sqlite_lock(&error) {
                         config
                             .runtime_engine
                             .lock()
                             .expect("workspace runtime engine lock poisoned")
                             .retry_active_command();
-                        thread::sleep(BACKGROUND_LANE_RETRY_INTERVAL);
+                        config
+                            .workspace
+                            .record_runtime_refresh_observation_with_work(
+                                "deferred",
+                                0,
+                                WorkspaceRefreshWork::default(),
+                            );
+                        debug!(
+                            root = %config.workspace.root().display(),
+                            error = %error,
+                            "prism-mcp background workspace refresh deferred by sqlite lock contention"
+                        );
                         continue;
                     }
-                    Err(TrySendError::Disconnected(_)) => {
-                        error!(
-                            root = %config.workspace.root().display(),
-                            lane = ?lane,
-                            "background runtime lane disconnected"
-                        );
-                    }
+                    config
+                        .runtime_engine
+                        .lock()
+                        .expect("workspace runtime engine lock poisoned")
+                        .finish_active_command();
+                    error!(
+                        root = %config.workspace.root().display(),
+                        error = %error,
+                        error_chain = %crate::logging::format_error_chain(&error),
+                        "prism-mcp background workspace refresh failed"
+                    );
+                    continue;
                 }
-            }
-            if command_is_stale_against_generation(
-                &command,
-                &config
-                    .runtime_engine
-                    .lock()
-                    .expect("workspace runtime engine lock poisoned")
-                    .published_generation_snapshot(),
-            ) {
-                config
-                    .runtime_engine
-                    .lock()
-                    .expect("workspace runtime engine lock poisoned")
-                    .finish_active_command();
-                continue;
-            }
-            let sync_result = run_workspace_runtime_command(&config, &command);
-            if let Err(error) = sync_result {
-                if is_transient_sqlite_lock(&error) {
+                let outcome = sync_result.expect("success handled above");
+                if outcome.report.deferred {
                     config
                         .runtime_engine
                         .lock()
                         .expect("workspace runtime engine lock poisoned")
                         .retry_active_command();
-                    config
-                        .workspace
-                        .record_runtime_refresh_observation_with_work(
-                            "deferred",
-                            0,
-                            WorkspaceRefreshWork::default(),
-                        );
-                    debug!(
-                        root = %config.workspace.root().display(),
-                        error = %error,
-                        "prism-mcp background workspace refresh deferred by sqlite lock contention"
-                    );
                     continue;
+                }
+                if outcome.published_generation {
+                    maybe_refresh_cached_runtime_status_for_config(&config);
                 }
                 config
                     .runtime_engine
                     .lock()
                     .expect("workspace runtime engine lock poisoned")
-                    .finish_active_command();
-                error!(
-                    root = %config.workspace.root().display(),
-                    error = %error,
-                    error_chain = %crate::logging::format_error_chain(&error),
-                    "prism-mcp background workspace refresh failed"
-                );
-                continue;
+                    .complete_active_command(outcome.follow_up_commands);
             }
-            let outcome = sync_result.expect("success handled above");
-            if outcome.report.deferred {
-                config
-                    .runtime_engine
-                    .lock()
-                    .expect("workspace runtime engine lock poisoned")
-                    .retry_active_command();
-                continue;
-            }
-            if outcome.published_generation {
-                maybe_refresh_cached_runtime_status_for_config(&config);
-            }
-            config
-                .runtime_engine
-                .lock()
-                .expect("workspace runtime engine lock poisoned")
-                .complete_active_command(outcome.follow_up_commands);
         });
         Self {
             engine,
@@ -667,85 +669,87 @@ fn spawn_background_runtime_lanes(
         let (stop_tx, stop_rx) = mpsc::channel::<()>();
         let lane_config = config.clone();
         let lane_wake = wake.clone();
-        let handle = thread::spawn(move || loop {
-            if stop_rx.try_recv().is_ok() {
-                break;
-            }
-            let command = match rx.recv_timeout(BACKGROUND_REFRESH_INTERVAL) {
-                Ok(command) => command,
-                Err(RecvTimeoutError::Timeout) => continue,
-                Err(RecvTimeoutError::Disconnected) => break,
-            };
-            if stop_rx.try_recv().is_ok() {
-                break;
-            }
-            if command_is_stale_against_generation(
-                &command,
-                &lane_config
-                    .runtime_engine
-                    .lock()
-                    .expect("workspace runtime engine lock poisoned")
-                    .published_generation_snapshot(),
-            ) {
-                continue;
-            }
-            let result = run_workspace_runtime_command(&lane_config, &command);
-            match result {
-                Ok(outcome) => {
-                    if outcome.report.deferred {
-                        let _ = lane_config
-                            .runtime_engine
-                            .lock()
-                            .expect("workspace runtime engine lock poisoned")
-                            .enqueue_command(command.clone());
-                    } else {
-                        if outcome.published_generation {
-                            maybe_refresh_cached_runtime_status_for_config(&lane_config);
-                        }
-                        let mut engine = lane_config
-                            .runtime_engine
-                            .lock()
-                            .expect("workspace runtime engine lock poisoned");
-                        for follow_up in outcome.follow_up_commands {
-                            let _ = engine.enqueue_command(follow_up);
+        let handle = thread::spawn(move || {
+            loop {
+                if stop_rx.try_recv().is_ok() {
+                    break;
+                }
+                let command = match rx.recv_timeout(BACKGROUND_REFRESH_INTERVAL) {
+                    Ok(command) => command,
+                    Err(RecvTimeoutError::Timeout) => continue,
+                    Err(RecvTimeoutError::Disconnected) => break,
+                };
+                if stop_rx.try_recv().is_ok() {
+                    break;
+                }
+                if command_is_stale_against_generation(
+                    &command,
+                    &lane_config
+                        .runtime_engine
+                        .lock()
+                        .expect("workspace runtime engine lock poisoned")
+                        .published_generation_snapshot(),
+                ) {
+                    continue;
+                }
+                let result = run_workspace_runtime_command(&lane_config, &command);
+                match result {
+                    Ok(outcome) => {
+                        if outcome.report.deferred {
+                            let _ = lane_config
+                                .runtime_engine
+                                .lock()
+                                .expect("workspace runtime engine lock poisoned")
+                                .enqueue_command(command.clone());
+                        } else {
+                            if outcome.published_generation {
+                                maybe_refresh_cached_runtime_status_for_config(&lane_config);
+                            }
+                            let mut engine = lane_config
+                                .runtime_engine
+                                .lock()
+                                .expect("workspace runtime engine lock poisoned");
+                            for follow_up in outcome.follow_up_commands {
+                                let _ = engine.enqueue_command(follow_up);
+                            }
                         }
                     }
-                }
-                Err(error) => {
-                    if is_transient_sqlite_lock(&error) {
-                        let _ = lane_config
-                            .runtime_engine
-                            .lock()
-                            .expect("workspace runtime engine lock poisoned")
-                            .enqueue_command(command.clone());
-                        lane_config
-                            .workspace
-                            .record_runtime_refresh_observation_with_work(
-                                "deferred",
-                                0,
-                                WorkspaceRefreshWork::default(),
+                    Err(error) => {
+                        if is_transient_sqlite_lock(&error) {
+                            let _ = lane_config
+                                .runtime_engine
+                                .lock()
+                                .expect("workspace runtime engine lock poisoned")
+                                .enqueue_command(command.clone());
+                            lane_config
+                                .workspace
+                                .record_runtime_refresh_observation_with_work(
+                                    "deferred",
+                                    0,
+                                    WorkspaceRefreshWork::default(),
+                                );
+                            debug!(
+                                root = %lane_config.workspace.root().display(),
+                                lane = ?lane,
+                                error = %error,
+                                "prism-mcp background runtime lane deferred by sqlite lock contention"
                             );
-                        debug!(
-                            root = %lane_config.workspace.root().display(),
-                            lane = ?lane,
-                            error = %error,
-                            "prism-mcp background runtime lane deferred by sqlite lock contention"
-                        );
-                    } else {
-                        error!(
-                            root = %lane_config.workspace.root().display(),
-                            lane = ?lane,
-                            error = %error,
-                            error_chain = %crate::logging::format_error_chain(&error),
-                            "prism-mcp background runtime lane failed"
-                        );
+                        } else {
+                            error!(
+                                root = %lane_config.workspace.root().display(),
+                                lane = ?lane,
+                                error = %error,
+                                error_chain = %crate::logging::format_error_chain(&error),
+                                "prism-mcp background runtime lane failed"
+                            );
+                        }
                     }
                 }
-            }
-            match lane_wake.try_send(()) {
-                Ok(()) | Err(TrySendError::Full(())) => {}
-                Err(TrySendError::Disconnected(())) => {
-                    debug!("workspace runtime wake channel disconnected");
+                match lane_wake.try_send(()) {
+                    Ok(()) | Err(TrySendError::Full(())) => {}
+                    Err(TrySendError::Disconnected(())) => {
+                        debug!("workspace runtime wake channel disconnected");
+                    }
                 }
             }
         });

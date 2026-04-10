@@ -1,10 +1,10 @@
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 
-use super::input::PrismCodeEntryPoint;
 use super::PrismCodeCompilerInput;
+use super::input::PrismCodeEntryPoint;
 
 const PRISM_CODE_ROOT: &str = ".prism/code";
 const PRISM_VIRTUAL_INLINE_SPECIFIER: &str = "file:///prism/inline/prism_code.ts";

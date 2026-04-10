@@ -7,17 +7,17 @@ use std::time::Instant;
 use axum::{extract::Request, middleware::Next, response::Response};
 use prism_js::QueryPhaseView;
 use rmcp::{
+    ErrorData as McpError,
     model::{ClientRequest, RequestId, ServerInfo},
     service::{NotificationContext, RequestContext, RoleServer, Service, ServiceRole},
-    ErrorData as McpError,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::mcp_call_log::{
-    duration_to_ms, new_log_entry, payload_summary, preview_value, summarize_value,
-    touches_for_value, unique_operations, unique_touches, PersistedMcpCallRecord,
+    PersistedMcpCallRecord, duration_to_ms, new_log_entry, payload_summary, preview_value,
+    summarize_value, touches_for_value, unique_operations, unique_touches,
 };
-use crate::{current_timestamp, PrismMcpServer};
+use crate::{PrismMcpServer, current_timestamp};
 
 tokio::task_local! {
     static CURRENT_MCP_REQUEST: RequestEnvelope;

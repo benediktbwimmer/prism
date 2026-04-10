@@ -6,22 +6,22 @@ use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use anyhow::{anyhow, Context, Result};
-use axum::{middleware, routing::get, Router};
+use anyhow::{Context, Result, anyhow};
+use axum::{Router, middleware, routing::get};
 use prism_core::PrismPaths;
 use rmcp::transport::{
-    streamable_http_server::session::local::LocalSessionManager, StreamableHttpServerConfig,
-    StreamableHttpService,
+    StreamableHttpServerConfig, StreamableHttpService,
+    streamable_http_server::session::local::LocalSessionManager,
 };
 use tokio::net::TcpListener;
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
-use crate::peer_runtime_router::{routes as peer_runtime_routes, PeerRuntimeAppState};
+use crate::peer_runtime_router::{PeerRuntimeAppState, routes as peer_runtime_routes};
 use crate::proxy_server::ProxyMcpServer;
 use crate::runtime_state;
-use crate::ssr_console::{routes as prism_console_routes, PrismConsoleState};
-use crate::ui_router::{routes as prism_ui_routes, PrismUiState};
+use crate::ssr_console::{PrismConsoleState, routes as prism_console_routes};
+use crate::ui_router::{PrismUiState, routes as prism_ui_routes};
 use crate::{PrismMcpCli, PrismMcpServer};
 
 const DEFAULT_DAEMON_START_TIMEOUT_MS: u64 = 60_000;
@@ -557,8 +557,8 @@ impl Drop for HttpUriFileGuard {
 #[cfg(test)]
 mod tests {
     use super::{
-        auto_bind_host, bind_listener, detached_daemon_launcher_script,
-        stable_http_bind_candidates, HttpUriFileGuard, PREFERRED_STABLE_HTTP_BIND_POLL,
+        HttpUriFileGuard, PREFERRED_STABLE_HTTP_BIND_POLL, auto_bind_host, bind_listener,
+        detached_daemon_launcher_script, stable_http_bind_candidates,
     };
     use crate::{PrismMcpCli, PrismMcpMode};
     use prism_core::PrismPaths;

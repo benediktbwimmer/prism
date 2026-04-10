@@ -1,7 +1,7 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::{
-    capabilities_resource_uri, capabilities_section_resource_uri,
+    API_REFERENCE_URI, capabilities_resource_uri, capabilities_section_resource_uri,
     contracts_resource_uri_with_options, edge_resource_uri, event_resource_uri,
     file_resource_uri_with_options, instruction_set_resource_uri, instructions_resource_uri,
     memory_resource_uri, plan_resource_uri, plans_resource_uri, protected_state_resource_uri,
@@ -9,7 +9,7 @@ use crate::{
     resource_shape_resource_uri, schema_resource_uri, self_description_audit_resource_uri,
     session_resource_uri, symbol_resource_uri_from_node_id, task_resource_uri,
     tool_example_resource_uri, tool_schema_resource_uri, tool_shape_resource_uri,
-    vocab_entry_resource_uri, vocab_resource_uri, API_REFERENCE_URI,
+    vocab_entry_resource_uri, vocab_resource_uri,
 };
 use prism_ir::{EdgeKind, NodeId};
 

@@ -2,7 +2,7 @@ use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
 use std::thread;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use prism_ir::{Node, NodeId, NodeKind};
 use prism_js::{
     ConfidenceLabel, EvidenceSourceKind, OwnerCandidateView, OwnerHintView,

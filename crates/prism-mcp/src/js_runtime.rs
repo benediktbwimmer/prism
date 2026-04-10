@@ -8,20 +8,20 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use anyhow::{anyhow, Context as AnyhowContext, Result};
+use anyhow::{Context as AnyhowContext, Result, anyhow};
 use deno_ast::{
-    parse_program, EmitOptions, MediaType, ModuleSpecifier, ParseParams, TranspileModuleOptions,
-    TranspileOptions,
+    EmitOptions, MediaType, ModuleSpecifier, ParseParams, TranspileModuleOptions, TranspileOptions,
+    parse_program,
 };
 use prism_js::runtime_prelude;
 use rquickjs::{
-    prelude::Func, promise::MaybePromise, CatchResultExt, CaughtError, Context, Runtime,
+    CatchResultExt, CaughtError, Context, Runtime, prelude::Func, promise::MaybePromise,
 };
 use serde_json::json;
 use tracing::error;
 
-use crate::logging::format_error_chain;
 use crate::QueryExecution;
+use crate::logging::format_error_chain;
 
 #[cfg(not(test))]
 const QUERY_WORKER_ENV: &str = "PRISM_MCP_QUERY_WORKERS";
@@ -227,10 +227,7 @@ pub(crate) fn transpile_typescript(source: &str) -> Result<String> {
     transpile_typescript_with_specifier(source, "file:///prism/query.ts")
 }
 
-pub(crate) fn transpile_typescript_with_specifier(
-    source: &str,
-    specifier: &str,
-) -> Result<String> {
+pub(crate) fn transpile_typescript_with_specifier(source: &str, specifier: &str) -> Result<String> {
     let specifier = ModuleSpecifier::parse(specifier)?;
     let parsed = parse_program(ParseParams {
         specifier,

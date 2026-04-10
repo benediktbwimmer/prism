@@ -473,9 +473,5 @@ impl QueryViewFeatureFlag {
 }
 
 fn enabled_label(enabled: bool) -> &'static str {
-    if enabled {
-        "enabled"
-    } else {
-        "disabled"
-    }
+    if enabled { "enabled" } else { "disabled" }
 }

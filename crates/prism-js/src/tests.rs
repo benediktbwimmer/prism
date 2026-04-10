@@ -26,8 +26,11 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("coChangeNeighbors"));
     assert!(docs.contains("validationRecipe"));
     assert!(docs.contains("readContext"));
-    assert!(docs
-        .contains("symbolBundle(query: string, options?: SymbolBundleOptions): SymbolBundleView;"));
+    assert!(
+        docs.contains(
+            "symbolBundle(query: string, options?: SymbolBundleOptions): SymbolBundleView;"
+        )
+    );
     assert!(docs.contains("editContext"));
     assert!(docs.contains("type QueryTarget = SymbolView | NodeId | { lineageId: string };"));
     assert!(docs.contains("full(target: QueryTarget): string | null;"));
@@ -45,8 +48,11 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains(
         "concept(query: string, options?: ConceptQueryOptions): ConceptPacketView | null;"
     ));
-    assert!(docs
-        .contains("concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];"));
+    assert!(
+        docs.contains(
+            "concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];"
+        )
+    );
     assert!(docs.contains(
         "conceptByHandle(handle: string, options?: { verbosity?: \"summary\" | \"standard\" | \"full\"; includeBindingMetadata?: boolean }): ConceptPacketView | null;"
     ));
@@ -81,8 +87,11 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("repair data such as `didYouMean`"));
     assert!(docs.contains("bindingMetadata?: {"));
     assert!(docs.contains("discovery(target: QueryTarget): DiscoveryBundleView | null;"));
-    assert!(docs
-        .contains("searchBundle(query: string, options?: SearchBundleOptions): SearchBundleView;"));
+    assert!(
+        docs.contains(
+            "searchBundle(query: string, options?: SearchBundleOptions): SearchBundleView;"
+        )
+    );
     assert!(docs.contains(
         "targetBundle(target: QueryTarget | SearchBundleView | DiscoveryBundleView, options?: TargetBundleOptions): TargetBundleView | null;"
     ));
@@ -113,8 +122,11 @@ fn api_reference_mentions_primary_tool() {
     assert!(
         docs.contains("diffFor(target: QueryTarget, options?: DiffForOptions): DiffHunkView[];")
     );
-    assert!(docs
-        .contains("taskChanges(taskId: string, options?: ChangedFilesOptions): PatchEventView[];"));
+    assert!(
+        docs.contains(
+            "taskChanges(taskId: string, options?: ChangedFilesOptions): PatchEventView[];"
+        )
+    );
     assert!(docs.contains("connectionInfo(): ConnectionInfoView;"));
     assert!(docs.contains("runtimeStatus(): RuntimeStatusView;"));
     assert!(docs.contains("runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];"));
@@ -224,8 +236,11 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism://tool-schemas"));
     assert!(docs.contains("prism://schema/tool/{toolName}"));
     assert!(docs.contains("prism://capabilities"));
-    assert!(docs
-        .contains("Inspect the canonical programmable tool contract without leaving `prism_code`"));
+    assert!(
+        docs.contains(
+            "Inspect the canonical programmable tool contract without leaving `prism_code`"
+        )
+    );
     assert!(docs.contains(
         "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}"
     ));
@@ -283,7 +298,9 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("pathMode: options?.pathMode ?? options?.path_mode"));
     assert!(prelude.contains("module: options?.module"));
     assert!(prelude.contains("taskId: options?.taskId ?? options?.task_id"));
-    assert!(prelude.contains("structuredPath: options?.structuredPath ?? options?.structured_path"));
+    assert!(
+        prelude.contains("structuredPath: options?.structuredPath ?? options?.structured_path")
+    );
     assert!(prelude.contains("topLevelOnly: options?.topLevelOnly ?? options?.top_level_only"));
     assert!(prelude.contains("preferCallableCode:"));
     assert!(prelude.contains("options?.preferCallableCode ?? options?.prefer_callable_code"));

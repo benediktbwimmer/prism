@@ -2,12 +2,13 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use prism_coordination::{
-    coordination_queue_read_model_from_snapshot_v2, coordination_read_model_from_snapshot_v2,
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshotV2,
+    coordination_queue_read_model_from_snapshot_v2, coordination_read_model_from_snapshot_v2,
 };
 use prism_core::{
+    CoordinationReadConsistency, WorkspaceSession,
     configured_coordination_authority_store_provider,
-    coordination_materialization_enabled_by_default, CoordinationReadConsistency, WorkspaceSession,
+    coordination_materialization_enabled_by_default,
 };
 use prism_query::Prism;
 

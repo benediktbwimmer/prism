@@ -5,16 +5,16 @@ use std::process::Command;
 use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use prism_coordination::CoordinationSnapshotV2;
 use prism_core::runtime_engine::{
     RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspacePublishedGeneration,
     WorkspaceRuntimeQueueSnapshot,
 };
 use prism_core::{
+    CoordinationAuthorityBackendDetails, PrismPaths, WorkspaceSession,
     assisted_lease_renewal_diagnostics, coordination_authority_diagnostics,
-    coordination_materialization_enabled_for_root, CoordinationAuthorityBackendDetails, PrismPaths,
-    WorkspaceSession,
+    coordination_materialization_enabled_for_root,
 };
 use prism_js::{
     ConnectionInfoView, ProjectionAuthorityPlaneView, ProjectionClassView,
@@ -35,12 +35,12 @@ use serde_json::{Map, Value};
 
 use crate::daemon_log;
 use crate::diagnostics_state::RuntimeStatusRevisionKey;
-use crate::log_scope::{select_log_sources, LogScope, RepoLogSource};
+use crate::log_scope::{LogScope, RepoLogSource, select_log_sources};
 use crate::mcp_call_log::McpCallLogStore;
 use crate::read_broker::current_coordination_surface_for_workspace;
 use crate::runtime_freshness_surface::runtime_freshness_status_label;
 use crate::runtime_state::{
-    process_is_live, read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord, RuntimeState,
+    RuntimeEventRecord, RuntimeProcessRecord, RuntimeState, process_is_live, read_runtime_state,
 };
 use crate::serving_projection_models::runtime_projection_scopes;
 use crate::workspace_diagnostics::WorkspaceDiagnosticsConfig;

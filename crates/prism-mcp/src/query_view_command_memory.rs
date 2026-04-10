@@ -11,7 +11,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::query_view_playbook::collect_repo_playbook;
-use crate::{invalid_query_argument_error, node_id_view, QueryExecution};
+use crate::{QueryExecution, invalid_query_argument_error, node_id_view};
 
 const COMMAND_LIMIT: usize = 8;
 const OBSERVED_LIMIT: usize = 64;

@@ -1,7 +1,7 @@
 use prism_ir::{CoordinationTaskId, TaskId};
 use prism_query::{ConceptResolution, Prism};
 
-use crate::{session_state::SessionTaskState, SessionState};
+use crate::{SessionState, session_state::SessionTaskState};
 
 const MIN_RESOLUTION_LIMIT: usize = 5;
 

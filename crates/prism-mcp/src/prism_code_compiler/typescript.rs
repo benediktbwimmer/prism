@@ -3,7 +3,7 @@ use anyhow::Result;
 use super::{PreparedTypescriptProgram, PrismTypescriptProgramMode};
 use crate::js_runtime;
 use crate::query_errors::parse_typescript_error;
-use crate::query_typecheck::{typecheck_query_with_specifier, StaticCheckMode};
+use crate::query_typecheck::{StaticCheckMode, typecheck_query_with_specifier};
 
 fn static_check_mode(mode: PrismTypescriptProgramMode) -> StaticCheckMode {
     match mode {
@@ -42,8 +42,8 @@ pub(crate) fn transpile_prepared_typescript_program(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prism_code_compiler::{prepare_typescript_program, PrismCodeCompilerInput};
     use crate::QueryLanguage;
+    use crate::prism_code_compiler::{PrismCodeCompilerInput, prepare_typescript_program};
 
     #[test]
     fn typecheck_and_transpile_prepared_program() {

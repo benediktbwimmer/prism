@@ -4,16 +4,12 @@ use std::{
 };
 
 use rmcp::{
-    model::{RawResource, ResourceContents},
     ErrorData as McpError,
+    model::{RawResource, ResourceContents},
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::{
-    capabilities_resource_uri, json_resource_contents_with_meta, resource_link_view, resource_meta,
-    schema_resource_uri, schema_resource_value, session_resource_view_link, split_resource_uri,
-    tool_action_schema_value, tool_action_schema_view, tool_schema_resource_uri, tool_schema_view,
-    tool_schemas_resource_view_link, tool_variant_schema_value, vocab_resource_uri,
     CapabilitiesResourcePayload, CapabilitiesSectionResourcePayload, ContractsResourcePayload,
     EdgeResourcePayload, EntrypointsResourcePayload, EventResourcePayload, FileResourcePayload,
     LineageResourcePayload, MemoryResourcePayload, PlanResourcePayload, PlansResourcePayload,
@@ -22,6 +18,10 @@ use crate::{
     SelfDescriptionAuditPayload, SessionResourcePayload, ShapeFieldView, SymbolResourcePayload,
     TaskResourcePayload, ToolActionShapeView, ToolExampleResourcePayload, ToolShapeResourcePayload,
     ToolVariantShapeView, VocabularyEntryResourcePayload, VocabularyResourcePayload,
+    capabilities_resource_uri, json_resource_contents_with_meta, resource_link_view, resource_meta,
+    schema_resource_uri, schema_resource_value, session_resource_view_link, split_resource_uri,
+    tool_action_schema_value, tool_action_schema_view, tool_schema_resource_uri, tool_schema_view,
+    tool_schemas_resource_view_link, tool_variant_schema_value, vocab_resource_uri,
 };
 
 pub(crate) const SELF_DESCRIPTION_BUDGET_BYTES: usize = 12 * 1024;

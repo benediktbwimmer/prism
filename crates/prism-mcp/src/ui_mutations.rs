@@ -1,11 +1,11 @@
 use std::path::Path;
 
-use axum::http::StatusCode;
 use axum::Json;
+use axum::http::StatusCode;
 use prism_core::PrismPaths;
 use rmcp::ErrorData as McpError;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::ui_credentials::{load_ui_credentials, resolve_ui_credential_profile};
 use crate::{PrismMutationArgs, PrismMutationCredentialArgs};

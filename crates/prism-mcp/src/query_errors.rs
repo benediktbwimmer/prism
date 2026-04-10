@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use regex::Regex;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::sync::OnceLock;
@@ -830,10 +830,10 @@ pub(crate) fn missing_return_hint(code: &str, result: &Value) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_transpile_error, combined_parse_typescript_error, is_query_parse_error,
-        missing_return_hint, runtime_or_serialization_error, IMPLICIT_EXPRESSION_MODE,
-        QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER, STATEMENT_BODY_MODE,
-        USER_SNIPPET_LOCATION_MARKER,
+        IMPLICIT_EXPRESSION_MODE, QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER,
+        STATEMENT_BODY_MODE, USER_SNIPPET_LOCATION_MARKER, build_transpile_error,
+        combined_parse_typescript_error, is_query_parse_error, missing_return_hint,
+        runtime_or_serialization_error,
     };
     use anyhow::anyhow;
     use serde_json::Value;
@@ -864,9 +864,11 @@ mod tests {
         );
         let runtime = runtime.downcast::<super::QueryExecutionError>().unwrap();
         assert_eq!(runtime.data()["code"], "query_runtime_failed");
-        assert!(runtime
-            .to_string()
-            .contains("user snippet line 2, column 17"));
+        assert!(
+            runtime
+                .to_string()
+                .contains("user snippet line 2, column 17")
+        );
         assert!(runtime.to_string().contains("statement-body query"));
 
         let serialization = runtime_or_serialization_error(
