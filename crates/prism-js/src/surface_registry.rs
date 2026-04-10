@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
-use crate::compiler_surface::prism_compiler_method_specs;
 use crate::query_surface::prism_api_method_specs;
 
 fn js_string(value: &str) -> String {
@@ -16,11 +15,6 @@ pub fn runtime_option_keys_js_object() -> &'static str {
         for bundle in prism_api_method_specs()
             .iter()
             .filter_map(|spec| spec.record_arg)
-            .chain(
-                prism_compiler_method_specs()
-                    .iter()
-                    .filter_map(|spec| spec.api.record_arg),
-            )
         {
             if !seen.insert(bundle.bundle_name) {
                 continue;
@@ -76,9 +70,12 @@ fn compiler_method_name(path: &str) -> &str {
 
 fn compiler_root_method_entries_js() -> String {
     let mut families: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-    for spec in prism_compiler_method_specs() {
-        if let Some(family) = compiler_root_family(spec.api.path) {
-            families.entry(family).or_default().push(spec.api.path);
+    for spec in prism_api_method_specs()
+        .iter()
+        .filter(|spec| spec.compiler.is_some())
+    {
+        if let Some(family) = compiler_root_family(spec.path) {
+            families.entry(family).or_default().push(spec.path);
         }
     }
     let mut family_entries = Vec::new();
@@ -137,35 +134,33 @@ fn compiler_handle_method_sets_js() -> String {
 }
 
 fn compiler_method_registry_js() -> String {
-    let entries = prism_compiler_method_specs()
+    let entries = prism_api_method_specs()
         .iter()
-        .map(|spec| {
+        .filter_map(|spec| spec.compiler.map(|compiler| (*spec, compiler)))
+        .map(|(spec, compiler)| {
             let record_bundle = spec
-                .api
                 .record_arg
                 .map(|bundle| js_string(bundle.bundle_name))
                 .unwrap_or_else(|| "null".to_string());
             let arg_name = spec
-                .api
                 .record_arg
                 .map(|bundle| js_string(bundle.arg_name))
                 .unwrap_or_else(|| "null".to_string());
             let arg_index = spec
-                .api
                 .record_arg
                 .map(|bundle| bundle.arg_index.to_string())
                 .unwrap_or_else(|| "null".to_string());
-            let host_operation = spec
+            let host_operation = compiler
                 .host_operation
                 .map(js_string)
                 .unwrap_or_else(|| "null".to_string());
-            let wrapper = compiler_return_wrapper(spec.api.path)
+            let wrapper = compiler_return_wrapper(spec.path)
                 .map(js_string)
                 .unwrap_or_else(|| "null".to_string());
             format!(
                 "  {}: Object.freeze({{ methodName: {}, hostOperation: {}, recordBundle: {}, argName: {}, argIndex: {}, wrapper: {} }})",
-                js_string(spec.api.path),
-                js_string(compiler_method_name(spec.api.path)),
+                js_string(spec.path),
+                js_string(compiler_method_name(spec.path)),
                 host_operation,
                 record_bundle,
                 arg_name,

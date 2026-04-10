@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
-use crate::compiler_surface::prism_compiler_method_specs;
 use prism_memory::TaskReplay;
 use schemars::schema_for;
 use serde_json::{Map, Value};
@@ -30,6 +29,19 @@ pub struct PrismApiMethodSpec {
     pub declaration: Option<&'static str>,
     pub return_type: PrismSurfaceTypeRef,
     pub record_arg: Option<PrismRecordArgBundle>,
+    pub compiler: Option<PrismCompilerMethodMeta>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PrismCompilerEffectKind {
+    CoordinationRead,
+    CoordinationWrite,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PrismCompilerMethodMeta {
+    pub effect: PrismCompilerEffectKind,
+    pub host_operation: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,6 +60,7 @@ macro_rules! method {
             declaration: Some($decl),
             return_type: $return,
             record_arg: None,
+            compiler: None,
         }
     };
     ($path:literal, $decl:literal, $return:expr, $record:expr) => {
@@ -56,6 +69,7 @@ macro_rules! method {
             declaration: Some($decl),
             return_type: $return,
             record_arg: Some($record),
+            compiler: None,
         }
     };
 }
@@ -67,6 +81,7 @@ macro_rules! helper {
             declaration: None,
             return_type: $return,
             record_arg: None,
+            compiler: None,
         }
     };
     ($path:literal, $return:expr, $record:expr) => {
@@ -75,6 +90,34 @@ macro_rules! helper {
             declaration: None,
             return_type: $return,
             record_arg: Some($record),
+            compiler: None,
+        }
+    };
+}
+
+macro_rules! compiler_method {
+    ($path:literal, $decl:literal, $return:expr, $effect:expr, $host:expr) => {
+        PrismApiMethodSpec {
+            path: $path,
+            declaration: Some($decl),
+            return_type: $return,
+            record_arg: None,
+            compiler: Some(PrismCompilerMethodMeta {
+                effect: $effect,
+                host_operation: $host,
+            }),
+        }
+    };
+    ($path:literal, $decl:literal, $return:expr, $record:expr, $effect:expr, $host:expr) => {
+        PrismApiMethodSpec {
+            path: $path,
+            declaration: Some($decl),
+            return_type: $return,
+            record_arg: Some($record),
+            compiler: Some(PrismCompilerMethodMeta {
+                effect: $effect,
+                host_operation: $host,
+            }),
         }
     };
 }
@@ -306,6 +349,87 @@ const VALIDATION_FEEDBACK_KEYS: &[&str] = &[
 ];
 const VALIDATION_PLAN_KEYS: &[&str] = &["taskId", "task_id", "target", "paths"];
 const WHERE_USED_KEYS: &[&str] = &["mode", "limit"];
+const WORK_DECLARE_KEYS: &[&str] = &[
+    "title",
+    "kind",
+    "summary",
+    "parentWorkId",
+    "parent_work_id",
+    "coordinationTaskId",
+    "coordination_task_id",
+    "planId",
+    "plan_id",
+];
+const CLAIM_ACQUIRE_KEYS: &[&str] = &[
+    "anchors",
+    "capability",
+    "mode",
+    "ttlSeconds",
+    "ttl_seconds",
+    "agent",
+    "coordinationTaskId",
+    "coordination_task_id",
+];
+const CLAIM_RENEW_KEYS: &[&str] = &["ttlSeconds", "ttl_seconds"];
+const ARTIFACT_PROPOSE_KEYS: &[&str] = &[
+    "taskId",
+    "task_id",
+    "artifactRequirementId",
+    "artifact_requirement_id",
+    "anchors",
+    "diffRef",
+    "diff_ref",
+    "evidence",
+    "requiredValidations",
+    "required_validations",
+    "validatedChecks",
+    "validated_checks",
+    "riskScore",
+    "risk_score",
+];
+const ARTIFACT_REVIEW_KEYS: &[&str] = &[
+    "reviewRequirementId",
+    "review_requirement_id",
+    "verdict",
+    "summary",
+    "requiredValidations",
+    "required_validations",
+    "validatedChecks",
+    "validated_checks",
+    "riskScore",
+    "risk_score",
+];
+const COORDINATION_CREATE_PLAN_KEYS: &[&str] = &["title", "goal", "status", "policy", "scheduling"];
+const PLAN_UPDATE_KEYS: &[&str] = &["title", "goal", "status", "policy", "scheduling"];
+const PLAN_ADD_TASK_KEYS: &[&str] = &[
+    "title",
+    "status",
+    "dependsOn",
+    "depends_on",
+    "assignee",
+    "anchors",
+    "acceptance",
+    "artifactRequirements",
+    "reviewRequirements",
+];
+const TASK_UPDATE_KEYS: &[&str] = &[
+    "title",
+    "status",
+    "summary",
+    "assignee",
+    "priority",
+    "dependsOn",
+    "depends_on",
+    "anchors",
+    "acceptance",
+    "validationRefs",
+    "tags",
+    "artifactRequirements",
+    "reviewRequirements",
+];
+const TASK_COMPLETE_KEYS: &[&str] = &["title", "summary"];
+const TASK_HANDOFF_KEYS: &[&str] = &["summary", "toAgent", "to_agent"];
+const TASK_AGENT_KEYS: &[&str] = &["agent"];
 
 pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
     static SPECS: &[PrismApiMethodSpec] = &[
@@ -1221,6 +1345,230 @@ pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
             "job(id: string): CuratorJobView | null;",
             PrismSurfaceTypeRef::NullableNamed("CuratorJobView")
         ),
+        compiler_method!(
+            "prism.work.declare",
+            "declare(input: { title: string; kind?: string; summary?: string; parentWorkId?: string; coordinationTaskId?: string; planId?: string }): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "workDeclare",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: WORK_DECLARE_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__declareWork")
+        ),
+        compiler_method!(
+            "prism.claim.acquire",
+            "acquire(input: { anchors: AnchorRef[]; capability: string; mode?: string; ttlSeconds?: number; agent?: string; coordinationTaskId?: string }): ClaimView;",
+            PrismSurfaceTypeRef::Named("ClaimView"),
+            PrismRecordArgBundle {
+                bundle_name: "claimAcquire",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: CLAIM_ACQUIRE_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__claimAcquire")
+        ),
+        compiler_method!(
+            "prism.claim.renew",
+            "renew(claim: ClaimView | string, input?: { ttlSeconds?: number }): ClaimView;",
+            PrismSurfaceTypeRef::Named("ClaimView"),
+            PrismRecordArgBundle {
+                bundle_name: "claimRenew",
+                arg_name: "input",
+                arg_index: 1,
+                allowed_keys: CLAIM_RENEW_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__claimRenew")
+        ),
+        compiler_method!(
+            "prism.claim.release",
+            "release(claim: ClaimView | string): ClaimView;",
+            PrismSurfaceTypeRef::Named("ClaimView"),
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__claimRelease")
+        ),
+        compiler_method!(
+            "prism.artifact.propose",
+            "propose(input: { taskId: string; artifactRequirementId?: string; anchors?: AnchorRef[]; diffRef?: string; evidence?: string[]; requiredValidations?: string[]; validatedChecks?: string[]; riskScore?: number }): ArtifactView;",
+            PrismSurfaceTypeRef::Named("ArtifactView"),
+            PrismRecordArgBundle {
+                bundle_name: "artifactPropose",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: ARTIFACT_PROPOSE_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__artifactPropose")
+        ),
+        compiler_method!(
+            "prism.artifact.supersede",
+            "supersede(artifact: ArtifactView | string): ArtifactView;",
+            PrismSurfaceTypeRef::Named("ArtifactView"),
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__artifactSupersede")
+        ),
+        compiler_method!(
+            "prism.artifact.review",
+            "review(artifact: ArtifactView | string, input: { reviewRequirementId?: string; verdict: string; summary: string; requiredValidations?: string[]; validatedChecks?: string[]; riskScore?: number }): ArtifactView;",
+            PrismSurfaceTypeRef::Named("ArtifactView"),
+            PrismRecordArgBundle {
+                bundle_name: "artifactReview",
+                arg_name: "input",
+                arg_index: 1,
+                allowed_keys: ARTIFACT_REVIEW_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__artifactReview")
+        ),
+        compiler_method!(
+            "prism.coordination.createPlan",
+            "createPlan(input: { title: string; goal?: string; status?: \"draft\" | \"active\" | \"blocked\" | \"completed\" | \"abandoned\" | \"archived\" }): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "coordinationCreatePlan",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: COORDINATION_CREATE_PLAN_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__coordinationCreatePlan")
+        ),
+        compiler_method!(
+            "prism.coordination.openPlan",
+            "openPlan(planId: string): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismCompilerEffectKind::CoordinationRead,
+            Some("__coordinationOpenPlan")
+        ),
+        compiler_method!(
+            "prism.coordination.openTask",
+            "openTask(taskId: string): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismCompilerEffectKind::CoordinationRead,
+            Some("__coordinationOpenTask")
+        ),
+        compiler_method!(
+            "plan.update",
+            "update(input?: { title?: string; goal?: string; status?: string; policy?: unknown; scheduling?: unknown }): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "planUpdate",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: PLAN_UPDATE_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__coordinationPlanUpdate")
+        ),
+        compiler_method!(
+            "plan.archive",
+            "archive(): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__coordinationPlanArchive")
+        ),
+        compiler_method!(
+            "plan.addTask",
+            "addTask(input: { title: string; status?: string; dependsOn?: unknown[]; assignee?: unknown; anchors?: unknown; acceptance?: unknown; artifactRequirements?: unknown; reviewRequirements?: unknown }): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "planAddTask",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: PLAN_ADD_TASK_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__coordinationPlanAddTask")
+        ),
+        compiler_method!(
+            "task.update",
+            "update(input?: { title?: string; status?: string; summary?: unknown; assignee?: unknown; priority?: unknown; dependsOn?: unknown[]; anchors?: unknown; acceptance?: unknown; validationRefs?: unknown; tags?: unknown; artifactRequirements?: unknown; reviewRequirements?: unknown }): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "taskUpdate",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: TASK_UPDATE_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__coordinationTaskUpdate")
+        ),
+        compiler_method!(
+            "task.complete",
+            "complete(input?: { title?: string; summary?: string }): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "taskComplete",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: TASK_COMPLETE_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__coordinationTaskComplete")
+        ),
+        compiler_method!(
+            "task.handoff",
+            "handoff(input?: { summary?: string; toAgent?: string }): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "taskHandoff",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: TASK_HANDOFF_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__coordinationTaskHandoff")
+        ),
+        compiler_method!(
+            "task.acceptHandoff",
+            "acceptHandoff(input?: { agent?: string }): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "taskAcceptHandoff",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: TASK_AGENT_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__coordinationTaskAcceptHandoff")
+        ),
+        compiler_method!(
+            "task.resume",
+            "resume(input?: { agent?: string }): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "taskResume",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: TASK_AGENT_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__coordinationTaskResume")
+        ),
+        compiler_method!(
+            "task.reclaim",
+            "reclaim(input?: { agent?: string }): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismRecordArgBundle {
+                bundle_name: "taskReclaim",
+                arg_name: "input",
+                arg_index: 0,
+                allowed_keys: TASK_AGENT_KEYS
+            },
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__coordinationTaskReclaim")
+        ),
+        compiler_method!(
+            "task.dependsOn",
+            "dependsOn(dependsOn: unknown, options?: { kind?: string }): unknown;",
+            PrismSurfaceTypeRef::Unknown,
+            PrismCompilerEffectKind::CoordinationWrite,
+            Some("__coordinationTaskDependsOn")
+        ),
     ];
     SPECS
 }
@@ -1232,11 +1580,6 @@ pub fn prism_api_paths() -> &'static [&'static str] {
             prism_api_method_specs()
                 .iter()
                 .map(|spec| spec.path)
-                .chain(
-                    prism_compiler_method_specs()
-                        .iter()
-                        .map(|spec| spec.api.path),
-                )
                 .collect()
         })
         .as_slice()
@@ -1246,11 +1589,6 @@ pub fn prism_record_arg_bundle(bundle_name: &str) -> Option<PrismRecordArgBundle
     prism_api_method_specs()
         .iter()
         .filter_map(|spec| spec.record_arg)
-        .chain(
-            prism_compiler_method_specs()
-                .iter()
-                .filter_map(|spec| spec.api.record_arg),
-        )
         .find(|bundle| bundle.bundle_name == bundle_name)
 }
 
@@ -1258,12 +1596,6 @@ pub fn prism_method_spec(path: &str) -> Option<&'static PrismApiMethodSpec> {
     prism_api_method_specs()
         .iter()
         .find(|spec| spec.path == path)
-        .or_else(|| {
-            prism_compiler_method_specs()
-                .iter()
-                .map(|spec| &spec.api)
-                .find(|spec| spec.path == path)
-        })
 }
 
 pub fn prism_api_declaration_block() -> &'static str {
@@ -1274,7 +1606,6 @@ pub fn prism_api_declaration_block() -> &'static str {
             let mut namespaced: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
             for spec in prism_api_method_specs()
                 .iter()
-                .chain(prism_compiler_method_specs().iter().map(|spec| &spec.api))
                 .filter(|spec| spec.declaration.is_some())
             {
                 let declaration = spec.declaration.unwrap();

@@ -122,8 +122,8 @@ Current phase checklist:
 
 Current active phase:
 
-- Phase 1 fidelity review gate: review registry-driven compiler runtime ownership before Phase 2
-  rework
+- Phase 1 review gate: unified SDK registry and compiler substrate are ready for explicit review
+  before any Phase 2 work resumes
 
 Current phase note:
 
@@ -131,14 +131,17 @@ Current phase note:
 - Phases 1-3 are reopened.
 - The current implementation contains useful compiler substrate work, but it was claimed complete
   too early relative to the compiler architecture design.
-- Phase 1 is not yet complete because the current implementation does not yet make one compiler
-  surface registry actually own the runtime prelude and SDK surface end to end.
-- The existing Phase 1 substrate still leaves too much of the live runtime surface hand-authored
-  outside the compiler-owned registry.
-- The current Phase 1 rework moves the compiler-owned `work`, `claim`, `artifact`, `coordination`,
-  `plan`, and `task` runtime surface into registry-driven runtime generation inside
-  `prism-js`, replacing the previously hand-authored compiler-specific runtime methods and handle
-  methods.
+- Phase 1 is now back at the explicit review gate.
+- The canonical `prism-js` surface registry now owns both the read/query and compiler/write SDK
+  contract rather than splitting those definitions across separate `query_surface` and
+  `compiler_surface` inventories.
+- The Phase 1 fidelity rework moved the compiler-owned `work`, `claim`, `artifact`,
+  `coordination`, `plan`, and `task` runtime surface into registry-driven runtime generation
+  inside `prism-js`, replacing the previously hand-authored compiler-specific runtime methods and
+  handle methods.
+- The latest Phase 1 slice folds compiler metadata directly into the canonical API registry so
+  runtime option-key generation, API declarations, compiler method lookup, and compiler runtime
+  registry generation all derive from the same method inventory.
 - The first Phase 1 slice establishes a compiler-owned
   `prism-js` surface registry and uses that registry to drive the runtime prelude and
   typechecked method surface for current compiler-owned SDK entry points.

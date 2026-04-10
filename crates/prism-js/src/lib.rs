@@ -10,9 +10,10 @@ mod tests;
 
 pub use crate::api_types::*;
 pub use crate::compiler_surface::{
-    PrismCompilerEffectKind, PrismCompilerMethodSpec, prism_compiler_method_spec,
+    PrismCompilerMethodSpec, prism_compiler_method_spec,
     prism_compiler_method_spec_by_host_operation, prism_compiler_method_specs,
 };
 pub use crate::docs::{API_REFERENCE_URI, api_reference_markdown};
+pub use crate::query_surface::PrismCompilerEffectKind;
 pub use crate::query_surface::*;
 pub use crate::runtime::runtime_prelude;
